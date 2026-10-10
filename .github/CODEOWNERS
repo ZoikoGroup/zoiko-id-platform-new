@@ -1,0 +1,33 @@
+# Every path has an accountable owner (Build Guideline §5). Replace team handles when teams exist.
+# Trust-kernel paths require Security review in addition to the owning team.
+
+/docs/specs/                                 @zoiko/architecture
+/docs/adr/                                   @zoiko/architecture
+/contracts/                                  @zoiko/architecture @zoiko/api
+
+# Backend
+/backend/services/identity-runtime/          @zoiko/identity @zoiko/security
+/backend/services/authorization-runtime/     @zoiko/authorization @zoiko/security
+/backend/services/authority-runtime/         @zoiko/authority @zoiko/security
+/backend/services/trust-services/            @zoiko/trust
+/backend/services/security-evidence/         @zoiko/security @zoiko/evidence
+/backend/services/enterprise-integration/    @zoiko/integration
+/backend/services/platform-control/          @zoiko/platform
+/backend/services/global-locator/            @zoiko/platform @zoiko/sre
+/backend/libs/zid-db/                        @zoiko/platform @zoiko/security
+/backend/libs/zid-crypto/                    @zoiko/security
+/backend/libs/                               @zoiko/platform
+/backend/policies/                           @zoiko/authorization @zoiko/security
+/backend/database/                           @zoiko/data @zoiko/security
+/backend/workers/                            @zoiko/platform
+
+# Frontend
+/frontend/                                   @zoiko/frontend
+/frontend/apps/operator-console/             @zoiko/sre @zoiko/security
+/frontend/packages/auth-bff/                 @zoiko/frontend @zoiko/security
+
+# Shared
+/sdks/                                       @zoiko/api
+/deploy/                                     @zoiko/sre @zoiko/security
+/tests/                                      @zoiko/qa
+/.github/                                    @zoiko/sre @zoiko/security

@@ -1,0 +1,300 @@
+# Table ownership registry: exactly one owning module per table.
+# Source of truth for: migration ownership CI check, per-table DB role grants, RLS coverage check.
+# 'proposed' = table not named in ZID-DATA-001 v1.0; raise a Data Model change request before first migration.
+
+tables:
+  platform.tenant:
+    unit: platform-control
+    module: tenant
+    tenant_scoped: true
+    source: "ZID-DATA-001 §2.1"
+  platform.cell:
+    unit: platform-control
+    module: tenant
+    tenant_scoped: false
+    source: "ZID-DATA-001 §2.2"
+  platform.tenant_shard:
+    unit: platform-control
+    module: tenant
+    tenant_scoped: true
+    source: "ZID-DATA-001 §2.2"
+  platform.entitlement:
+    unit: platform-control
+    module: tenant
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1"
+  platform.configuration_snapshot:
+    unit: platform-control
+    module: configuration
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1 (configuration)"
+  authz.policy_definition:
+    unit: platform-control
+    module: policy_authoring
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.3"
+  authz.policy_release:
+    unit: platform-control
+    module: policy_authoring
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.3"
+  platform.jit_grant:
+    unit: platform-control
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (ADR-0028)"
+  platform.lockbox_request:
+    unit: platform-control
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (ADR-0028)"
+  metering.usage_event:
+    unit: platform-control
+    module: metering
+    tenant_scoped: true
+    source: "ZID-DATA-001 §11.1"
+  metering.correction:
+    unit: platform-control
+    module: metering
+    tenant_scoped: true
+    source: "ZID-DATA-001 §11.1"
+  platform.notification_request:
+    unit: platform-control
+    module: notification
+    tenant_scoped: true
+    source: "proposed (SVC NOTIF)"
+  core.principal:
+    unit: identity-runtime
+    module: principal
+    tenant_scoped: true
+    source: "ZID-DATA-001 §3.1"
+  core.principal_identifier:
+    unit: identity-runtime
+    module: principal
+    tenant_scoped: true
+    source: "ZID-DATA-001 §3.2"
+  core.device:
+    unit: identity-runtime
+    module: principal
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1 (device)"
+  authn.authenticator:
+    unit: identity-runtime
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-DATA-001 §5.1"
+  authn.external_identity_link:
+    unit: identity-runtime
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-DATA-001 §5.2"
+  authn.session:
+    unit: identity-runtime
+    module: session
+    tenant_scoped: true
+    source: "ZID-DATA-001 §5.3"
+  authn.oauth_client:
+    unit: identity-runtime
+    module: session
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1 (OAuth client metadata)"
+  authn.refresh_token_family:
+    unit: identity-runtime
+    module: session
+    tenant_scoped: true
+    source: "proposed (AUTH spec refresh families)"
+  authz.policy_decision:
+    unit: authorization-runtime
+    module: decision
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.4"
+  org.relationship_edge:
+    unit: authorization-runtime
+    module: relationship
+    tenant_scoped: true
+    source: "ZID-DATA-001 §4.2"
+  authz.relation_publication:
+    unit: authorization-runtime
+    module: relationship
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1 (relation publication)"
+  authz.authority_grant:
+    unit: authority-runtime
+    module: authority
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.1"
+  authz.resource_scope:
+    unit: authority-runtime
+    module: authority
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.2"
+  authz.data_scope:
+    unit: authority-runtime
+    module: authority
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.2"
+  agent.mandate:
+    unit: authority-runtime
+    module: mandate
+    tenant_scoped: true
+    source: "ZID-DATA-001 §8.2"
+  agent.mandate_balance:
+    unit: authority-runtime
+    module: mandate
+    tenant_scoped: true
+    source: "ZID-DATA-001 §8.3"
+  agent.mandate_reservation:
+    unit: authority-runtime
+    module: mandate
+    tenant_scoped: true
+    source: "ZID-DATA-001 §8.3"
+  agent.writer_fence:
+    unit: authority-runtime
+    module: mandate
+    tenant_scoped: true
+    source: "proposed (ADR-0020)"
+  agent.agent_profile:
+    unit: authority-runtime
+    module: machine
+    tenant_scoped: true
+    source: "ZID-DATA-001 §8.1"
+  agent.workload_binding:
+    unit: authority-runtime
+    module: machine
+    tenant_scoped: true
+    source: "proposed (MACHINE spec §16)"
+  org.organization:
+    unit: trust-services
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DATA-001 §4.1"
+  org.org_unit:
+    unit: trust-services
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DATA-001 §1.1 (org_unit)"
+  org.authority_root_assertion:
+    unit: trust-services
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DATA-001 §4.3"
+  verify.verification_assertion:
+    unit: trust-services
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DATA-001 §6.1"
+  verify.assurance_profile:
+    unit: trust-services
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DATA-001 §6.2"
+  cred.credential_record:
+    unit: trust-services
+    module: credential
+    tenant_scoped: true
+    source: "ZID-DATA-001 §6.3"
+  cred.presentation_record:
+    unit: trust-services
+    module: credential
+    tenant_scoped: true
+    source: "ZID-DATA-001 §6.3"
+  signals.security_signal:
+    unit: security-evidence
+    module: signals
+    tenant_scoped: true
+    source: "ZID-DATA-001 §10.1"
+  signals.security_state:
+    unit: security-evidence
+    module: signals
+    tenant_scoped: true
+    source: "ZID-DATA-001 §10.1"
+  evidence.decision_receipt:
+    unit: security-evidence
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-DATA-001 §9.2"
+  evidence.subject_handle_map:
+    unit: security-evidence
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-DATA-001 §9.3"
+  evidence.evidence_object:
+    unit: security-evidence
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-DATA-001 §9.3"
+  evidence.ledger_entry:
+    unit: security-evidence
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §10"
+  evidence.checkpoint:
+    unit: security-evidence
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §10"
+  privacy.consent_receipt:
+    unit: security-evidence
+    module: privacy
+    tenant_scoped: true
+    source: "ZID-DATA-001 §9.1"
+  privacy.purpose:
+    unit: security-evidence
+    module: privacy
+    tenant_scoped: true
+    source: "ZID-DATA-001 §7.2"
+  privacy.processing_role_assignment:
+    unit: security-evidence
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §1.1 (ADR-0007)"
+  authn.federation_connection:
+    unit: enterprise-integration
+    module: federation
+    tenant_scoped: true
+    source: "proposed (SVC FED ownership)"
+  platform.provisioning_source:
+    unit: enterprise-integration
+    module: provisioning
+    tenant_scoped: true
+    source: "proposed (OVERLAY §10)"
+  platform.integration_application:
+    unit: enterprise-integration
+    module: integration
+    tenant_scoped: true
+    source: "proposed (SVC INT)"
+  platform.mapping_release:
+    unit: enterprise-integration
+    module: integration
+    tenant_scoped: true
+    source: "proposed (OVERLAY §3)"
+  platform.onboarding_plan:
+    unit: enterprise-integration
+    module: onboarding
+    tenant_scoped: true
+    source: "proposed (OVERLAY §3)"
+  events.webhook_endpoint:
+    unit: enterprise-integration
+    module: webhook
+    tenant_scoped: true
+    source: "ZID-DATA-001 §23 (webhook checkpoints)"
+  events.webhook_delivery:
+    unit: enterprise-integration
+    module: webhook
+    tenant_scoped: true
+    source: "ZID-DATA-001 §23 (webhook checkpoints)"
+  events.outbox_event:
+    unit: outbox-relay
+    module: outbox
+    tenant_scoped: true
+    source: "ZID-DATA-001 §10.2"
+  events.inbox_message:
+    unit: outbox-relay
+    module: outbox
+    tenant_scoped: true
+    source: "ZID-DATA-001 §10.2"
+  global_directory.tenant_directory_record:
+    unit: global-locator
+    module: locator
+    tenant_scoped: false
+    source: "TENANCY-001 §2"

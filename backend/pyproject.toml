@@ -1,0 +1,31 @@
+[project]
+name = "zoiko-id"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+# uv workspace: every Python service, worker and shared library is a member.
+[tool.uv.workspace]
+members = [
+  "services/*",
+  "workers/*",
+  "libs/*",
+]
+
+[tool.uv.sources]
+zid-context = { workspace = true }
+zid-db = { workspace = true }
+zid-outbox = { workspace = true }
+zid-idempotency = { workspace = true }
+zid-errors = { workspace = true }
+zid-authz-client = { workspace = true }
+zid-evidence = { workspace = true }
+zid-crypto = { workspace = true }
+zid-telemetry = { workspace = true }
+zid-testing = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.mypy]
+strict = true

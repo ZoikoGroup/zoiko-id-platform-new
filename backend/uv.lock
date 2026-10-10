@@ -1,0 +1,345 @@
+version = 1
+revision = 5
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "authority-runtime",
+    "authorization-runtime",
+    "enterprise-integration",
+    "global-locator",
+    "identity-runtime",
+    "outbox-relay",
+    "platform-control",
+    "security-evidence",
+    "trust-services",
+    "zid-authz-client",
+    "zid-context",
+    "zid-crypto",
+    "zid-db",
+    "zid-errors",
+    "zid-evidence",
+    "zid-idempotency",
+    "zid-outbox",
+    "zid-telemetry",
+    "zid-testing",
+    "zoiko-id",
+]
+
+[[package]]
+name = "authority-runtime"
+version = "0.0.0"
+source = { editable = "services/authority-runtime" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "authorization-runtime"
+version = "0.0.0"
+source = { editable = "services/authorization-runtime" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "enterprise-integration"
+version = "0.0.0"
+source = { editable = "services/enterprise-integration" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "global-locator"
+version = "0.0.0"
+source = { editable = "services/global-locator" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "identity-runtime"
+version = "0.0.0"
+source = { editable = "services/identity-runtime" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "outbox-relay"
+version = "0.0.0"
+source = { editable = "workers/outbox-relay" }
+dependencies = [
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "platform-control"
+version = "0.0.0"
+source = { editable = "services/platform-control" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "security-evidence"
+version = "0.0.0"
+source = { editable = "services/security-evidence" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "trust-services"
+version = "0.0.0"
+source = { editable = "services/trust-services" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
+]
+
+[[package]]
+name = "zid-authz-client"
+version = "0.0.0"
+source = { editable = "libs/zid-authz-client" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-context"
+version = "0.0.0"
+source = { editable = "libs/zid-context" }
+
+[[package]]
+name = "zid-crypto"
+version = "0.0.0"
+source = { editable = "libs/zid-crypto" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-db"
+version = "0.0.0"
+source = { editable = "libs/zid-db" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-errors"
+version = "0.0.0"
+source = { editable = "libs/zid-errors" }
+
+[[package]]
+name = "zid-evidence"
+version = "0.0.0"
+source = { editable = "libs/zid-evidence" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-idempotency"
+version = "0.0.0"
+source = { editable = "libs/zid-idempotency" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-outbox"
+version = "0.0.0"
+source = { editable = "libs/zid-outbox" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-telemetry"
+version = "0.0.0"
+source = { editable = "libs/zid-telemetry" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zid-testing"
+version = "0.0.0"
+source = { editable = "libs/zid-testing" }
+dependencies = [
+    { name = "zid-context" },
+    { name = "zid-errors" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+]
+
+[[package]]
+name = "zoiko-id"
+version = "0.0.0"
+source = { virtual = "." }
