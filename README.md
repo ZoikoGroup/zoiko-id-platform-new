@@ -40,6 +40,44 @@ docker build --target test backend       # run the backend test suite
 
 Interactive API docs: http://localhost:8000/docs (cell) and http://localhost:8100/docs (global). Endpoints: `/`, `/health/live`, `/health/ready`.
 
+## Run manually (without Docker, Windows PowerShell)
+
+Requires Python (any version, only to install uv) and PostgreSQL 17+ on `localhost:5432`. Don't run the Docker stack at the same time; it uses the same port.
+
+```powershell
+# 1. One-time: install uv
+python -m pip install --user uv
+
+# 2. One-time: database role, databases and schemas (asks for your postgres password)
+$psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
+& $psql -h localhost -U postgres -c "CREATE ROLE zid LOGIN PASSWORD 'zid_local_only';"
+& $psql -h localhost -U postgres -c "CREATE DATABASE zid_cell OWNER zid;"
+& $psql -h localhost -U postgres -c "CREATE DATABASE zid_global OWNER zid;"
+& $psql -h localhost -U zid -d zid_cell   -f backend\database\schemas\001_cell_schemas.sql
+& $psql -h localhost -U zid -d zid_global -f backend\database\schemas\001_global_schemas.sql
+
+# 3. Every new terminal: point uv at a venv OUTSIDE Downloads
+#    (Windows Application Control on some machines blocks python.exe under Downloads)
+cd C:\Users\HP\Downloads\zoiko_ids\backend
+$env:UV_PROJECT_ENVIRONMENT = "$env:LOCALAPPDATA\zoiko-id\venv"
+python -m uv sync --all-packages          # install exactly what uv.lock says
+
+# 4a. Terminal 1 — cell role (27 modules) on http://localhost:8000
+$env:ZID_ROLE = "cell"; $env:ZID_CELL_ID = "local-1"
+$env:ZID_DATABASE_URL = "postgresql+asyncpg://zid:zid_local_only@localhost:5432/zid_cell"
+python -m uv run uvicorn zid_platform.entrypoints.api:app --port 8000 --reload
+
+# 4b. Terminal 2 — global role (locator + discovery) on http://localhost:8100
+$env:ZID_ROLE = "global"; $env:ZID_CELL_ID = "global"
+$env:ZID_DATABASE_URL = "postgresql+asyncpg://zid:zid_local_only@localhost:5432/zid_global"
+python -m uv run uvicorn zid_platform.entrypoints.api:app --port 8100 --reload
+
+# Tests
+python -m uv run pytest -q libs app
+```
+
+Check: http://localhost:8000/health/ready should return `"status": "ready"`. Stop a server with `Ctrl+C`.
+
 ## Stack
 
 Python 3.13+ / FastAPI · Next.js + TypeScript · PostgreSQL (Aurora) · SpiceDB · Cedar · Kafka (MSK) · Valkey · Temporal · SPIFFE/SPIRE · KMS/CloudHSM · EKS · OpenTofu · Argo CD · OpenTelemetry
