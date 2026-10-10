@@ -62,21 +62,20 @@ cd C:\Users\HP\Downloads\zoiko_ids\backend
 $env:UV_PROJECT_ENVIRONMENT = "$env:LOCALAPPDATA\zoiko-id\venv"
 python -m uv sync --all-packages          # install exactly what uv.lock says
 
-# 4a. Terminal 1 — cell role (27 modules) on http://localhost:8000
-$env:ZID_ROLE = "cell"; $env:ZID_CELL_ID = "local-1"
-$env:ZID_DATABASE_URL = "postgresql+asyncpg://zid:zid_local_only@localhost:5432/zid_cell"
-python -m uv run uvicorn zid_platform.entrypoints.api:app --port 8000 --reload
-
-# 4b. Terminal 2 — global role (locator + discovery) on http://localhost:8100
-$env:ZID_ROLE = "global"; $env:ZID_CELL_ID = "global"
-$env:ZID_DATABASE_URL = "postgresql+asyncpg://zid:zid_local_only@localhost:5432/zid_global"
-python -m uv run uvicorn zid_platform.entrypoints.api:app --port 8100 --reload
+# 4. Start the backend — ONE terminal, both roles (Ctrl+C stops both)
+#    cell   (27 modules)            -> http://localhost:8000
+#    global (locator + discovery)   -> http://localhost:8100
+python -m uv run python ..	ools\scriptsun_local.py
+#    only the cell role (enough for most work):
+python -m uv run python ..	ools\scriptsun_local.py --only cell
 
 # Tests
 python -m uv run pytest -q libs app
 ```
 
-Check: http://localhost:8000/health/ready should return `"status": "ready"`. Stop a server with `Ctrl+C`.
+Check: http://localhost:8000/health/ready should return `"status": "ready"`.
+
+The two roles stay **separate processes** (the global plane holds no personal data and uses its own database, ZID-TENANCY-001 §2); the launcher just runs both from one terminal, labels their output `[cell]` / `[global]`, and auto-reloads on code changes. Database URLs can be overridden with `ZID_CELL_DATABASE_URL` / `ZID_GLOBAL_DATABASE_URL`.
 
 ## Stack
 
