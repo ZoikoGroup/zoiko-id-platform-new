@@ -23,7 +23,8 @@ The specs allow this **only as a modular monolith**. ZID-SVC-001 §4 says *"What
 | Setting | Values | Purpose |
 |---|---|---|
 | `ZID_ROLE` | `cell` (27 modules) or `global` (`locator`, `discovery`) | The global plane must hold no personal data and use its own database (ZID-TENANCY-001 §2), so it runs the same image with only its two modules loaded |
-| Process | API (default), `consumer`, `worker`, `outbox_relay` | `python -m zid_platform.entrypoints.<name>`; background work runs as separate processes of the same image |
+| Process | API, `consumer`, `worker`, `outbox_relay` | `python -m zid_platform.entrypoints.<name>`; background work runs as separate processes of the same image |
+| Container default | `supervisor` with `ZID_ROLES=cell,global` | One container runs each listed role as **its own process on its own port** (cell :8000, global :8100), with per-role databases (`ZID_CELL_DATABASE_URL`, `ZID_GLOBAL_DATABASE_URL`). It exits if any role dies, so the runtime restarts the container. Production cells set `ZID_ROLES=cell`. |
 
 The cell role is deployed **once per regional cell** (`uk-1`, `eu-1`). Cells, residency and failover (ADR-0011) are unchanged; the monolith is the unit deployed into each cell.
 

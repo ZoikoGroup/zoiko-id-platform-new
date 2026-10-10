@@ -30,10 +30,10 @@ docs/        specs, architecture, ADRs, traceability, threat model, runbooks
 Requires Docker Desktop (no local Python needed).
 
 ```bash
-docker compose up --build -d             # Postgres + the backend (one image, two roles)
+docker compose up --build -d             # Postgres + ONE backend container (cell :8000 + global :8100)
 curl http://localhost:8000/health/ready  # cell role: all 27 modules, DB + owned schemas checked
 curl http://localhost:8100/health/ready  # global role: locator + discovery, global database
-docker compose logs -f zid-cell          # structured JSON logs
+docker compose logs -f backend           # structured JSON logs from both roles
 docker compose down                      # stop (add -v to wipe the local database)
 docker build --target test backend       # run the backend test suite
 ```
@@ -65,9 +65,11 @@ python -m uv sync --all-packages          # install exactly what uv.lock says
 # 4. Start the backend — ONE terminal, both roles (Ctrl+C stops both)
 #    cell   (27 modules)            -> http://localhost:8000
 #    global (locator + discovery)   -> http://localhost:8100
-python -m uv run python ..	ools\scriptsun_local.py
+python -m uv run python ..	ools\scripts
+un_local.py
 #    only the cell role (enough for most work):
-python -m uv run python ..	ools\scriptsun_local.py --only cell
+python -m uv run python ..	ools\scripts
+un_local.py --only cell
 
 # Tests
 python -m uv run pytest -q libs app

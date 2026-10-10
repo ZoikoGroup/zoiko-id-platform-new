@@ -1,24 +1,15 @@
 # Zoiko iD — local development stack (LOCAL environment only; synthetic data only).
-#   docker compose up --build -d      then open http://localhost:8000/docs
-# One backend image (modular monolith, ADR-0031) running in two roles:
-#   zid-cell   — all 27 cell modules         -> http://localhost:8000
-#   zid-global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
+#   docker compose up --build -d      then open http://localhost:8000/docs and http://localhost:8100/docs
+# One backend container from the single image (modular monolith, ADR-0031) running both roles,
+# each as its own process on its own port:
+#   cell   — all 27 cell modules         -> http://localhost:8000
+#   global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
 # DB password: set ZID_DB_PASSWORD in a .env file next to this file (compose reads it automatically).
 # The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
 # Production gets short-lived credentials from the secrets broker instead (ADR-0026).
 # Postgres is published on 127.0.0.1 only, never on a public interface.
 
 name: zoiko-id
-
-x-platform: &platform
-  build:
-    context: ./backend
-    target: runtime
-  image: zid/platform:local
-  restart: unless-stopped
-  depends_on:
-    postgres:
-      condition: service_healthy
 
 services:
   postgres:
@@ -39,23 +30,24 @@ services:
       timeout: 3s
       retries: 20
 
-  zid-cell:
-    <<: *platform
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: zid/platform:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      ZID_ROLE: cell
+      ZID_ROLES: cell,global
       ZID_ENVIRONMENT: local
       ZID_CELL_ID: local-1
-      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
-    ports: ["8000:8000"]
-
-  zid-global:
-    <<: *platform
-    environment:
-      ZID_ROLE: global
-      ZID_ENVIRONMENT: local
-      ZID_CELL_ID: global
-      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
-    ports: ["8100:8000"]
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
+    ports:
+      - "8000:8000"   # cell role
+      - "8100:8100"   # global role
 
 volumes:
   pgdata:

@@ -85,7 +85,8 @@ backend/app/
 │   ├── roles.py                 cell | global → modules + schemas; plane grouping
 │   ├── settings.py              typed settings (ZID_*), no secret defaults
 │   ├── entrypoints/
-│   │   ├── api.py               FastAPI (uvicorn) process — default CMD
+│   │   ├── supervisor.py        container default CMD: runs ZID_ROLES (cell :8000, global :8100) as separate processes
+│   │   ├── api.py               FastAPI (uvicorn) app for one role
 │   │   ├── consumer.py          Kafka consumers (inbox-deduplicated), e.g. relationship → SpiceDB projector
 │   │   ├── worker.py            Temporal workers, e.g. onboarding sagas, evidence checkpointer
 │   │   └── outbox_relay.py      outbox → Kafka relay (Event Platform)
