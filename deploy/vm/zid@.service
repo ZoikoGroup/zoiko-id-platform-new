@@ -1,0 +1,22 @@
+# Zoiko iD backend role as a systemd service (dev/demo VM only — not the production topology).
+# One template, two instances:  zid@cell  and  zid@global   (same code, separate processes, ADR-0031)
+# Installed by deploy/vm/README.md, which replaces __USER__ and __HOME__.
+[Unit]
+Description=Zoiko iD backend (%i role)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__HOME__/zoiko_ids/backend
+# Secrets (ZID_DB_PASSWORD) come from the root .env; role settings from deploy/vm/roles/<role>.env
+EnvironmentFile=__HOME__/zoiko_ids/.env
+EnvironmentFile=__HOME__/zoiko_ids/deploy/vm/roles/%i.env
+ExecStart=/bin/sh -c 'ZID_DATABASE_URL="postgresql+asyncpg://zid:$ZID_DB_PASSWORD@127.0.0.1:5432/$ZID_DB_NAME" exec .venv/bin/python -m uvicorn zid_platform.entrypoints.api:app --host 0.0.0.0 --port "$ZID_PORT" --no-access-log'
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

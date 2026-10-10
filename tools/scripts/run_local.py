@@ -9,8 +9,8 @@ Usage (from backend/, with UV_PROJECT_ENVIRONMENT set as in the README):
     python -m uv run python ../tools/scripts/run_local.py --only cell
     python -m uv run python ../tools/scripts/run_local.py --no-reload
 
-Database URLs default to the local-only placeholders from the README and can be overridden with
-ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL.
+Database: start it with `docker compose up -d postgres`. URLs are built from ZID_DB_PASSWORD and
+ZID_DB_HOST_PORT (same as docker-compose.yml) or overridden with ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL.
 """
 
 from __future__ import annotations
@@ -22,7 +22,11 @@ import sys
 import threading
 import time
 
-LOCAL_DB = "postgresql+asyncpg://zid:zid_local_only@localhost:5432/{db}"  # local-only placeholder
+# Same settings as docker-compose.yml, so the backend finds the Docker Postgres:
+#   ZID_DB_PASSWORD  (fallback zid_local_only — laptop only)   ZID_DB_HOST_PORT (default 5432)
+_PW = os.environ.get("ZID_DB_PASSWORD", "zid_local_only")
+_PORT = os.environ.get("ZID_DB_HOST_PORT", "5432")
+LOCAL_DB = f"postgresql+asyncpg://zid:{_PW}@localhost:{_PORT}/{{db}}"
 ROLES = {
     "cell": {"port": 8000, "cell_id": "local-1",
              "db": os.environ.get("ZID_CELL_DATABASE_URL", LOCAL_DB.format(db="zid_cell"))},

@@ -3,8 +3,10 @@
 # One backend image (modular monolith, ADR-0031) running in two roles:
 #   zid-cell   — all 27 cell modules         -> http://localhost:8000
 #   zid-global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
-# Credentials below are local-only placeholders; real environments get short-lived
-# credentials from the secrets broker (ADR-0026). Never reuse them anywhere else.
+# DB password: set ZID_DB_PASSWORD in a .env file next to this file (compose reads it automatically).
+# The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
+# Production gets short-lived credentials from the secrets broker instead (ADR-0026).
+# Postgres is published on 127.0.0.1 only, never on a public interface.
 
 name: zoiko-id
 
@@ -23,14 +25,14 @@ services:
     image: postgres:17.6-bookworm
     environment:
       POSTGRES_USER: zid
-      POSTGRES_PASSWORD: zid_local_only
+      POSTGRES_PASSWORD: ${ZID_DB_PASSWORD:-zid_local_only}
       POSTGRES_DB: zid_cell
     volumes:
       - ./backend/database/schemas/001_cell_schemas.sql:/docker-entrypoint-initdb.d/10_cell_schemas.sql:ro
       - ./local/postgres/20_global_database.sh:/docker-entrypoint-initdb.d/20_global_database.sh:ro
       - ./backend/database/schemas:/zid/schemas:ro
       - pgdata:/var/lib/postgresql/data
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:${ZID_DB_HOST_PORT:-5432}:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U zid -d zid_global"]
       interval: 5s
@@ -43,7 +45,7 @@ services:
       ZID_ROLE: cell
       ZID_ENVIRONMENT: local
       ZID_CELL_ID: local-1
-      ZID_DATABASE_URL: postgresql+asyncpg://zid:zid_local_only@postgres:5432/zid_cell
+      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
     ports: ["8000:8000"]
 
   zid-global:
@@ -52,7 +54,7 @@ services:
       ZID_ROLE: global
       ZID_ENVIRONMENT: local
       ZID_CELL_ID: global
-      ZID_DATABASE_URL: postgresql+asyncpg://zid:zid_local_only@postgres:5432/zid_global
+      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
     ports: ["8100:8000"]
 
 volumes:
