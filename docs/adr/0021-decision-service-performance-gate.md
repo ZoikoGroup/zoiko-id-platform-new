@@ -12,7 +12,7 @@ NFR targets: authorization p95 under 40 ms (R0/R1) and under 60 ms (R2/R3), 5k d
 - Build the real decision path in Python during W0 (FastAPI → SIG + SpiceDB + AUTHY + cedarpy + PG decision record).
 - Load-test it with k6 at **10k decisions/s per cell for a 1-hour soak**.
 - **Pass:** p95 targets met, p99 within the agreed bound, error rate under 0.01%, and cost per million decisions within the agreed envelope.
-- **If it fails:** tune Python (workers, pools, batching), then profile and fix the hot spot. Only if both fail, **rewrite the `authorization-runtime` decision path in Go** behind the unchanged AuthZEN and internal contracts.
+- **If it fails:** tune Python (workers, pools, batching), then profile and fix the hot spot. Only if both fail, **extract the `decision` module from the monolith into its own service and rewrite that path in Go (the one sanctioned extraction under ADR-0031)** behind the unchanged AuthZEN and internal contracts.
 - Contracts for this service are frozen in OpenAPI before W1, so a rewrite is invisible to callers.
 
 ## Consequences

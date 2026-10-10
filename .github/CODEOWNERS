@@ -5,21 +5,39 @@
 /docs/adr/                                   @zoiko/architecture
 /contracts/                                  @zoiko/architecture @zoiko/api
 
-# Backend
-/backend/services/identity-runtime/          @zoiko/identity @zoiko/security
-/backend/services/authorization-runtime/     @zoiko/authorization @zoiko/security
-/backend/services/authority-runtime/         @zoiko/authority @zoiko/security
-/backend/services/trust-services/            @zoiko/trust
-/backend/services/security-evidence/         @zoiko/security @zoiko/evidence
-/backend/services/enterprise-integration/    @zoiko/integration
-/backend/services/platform-control/          @zoiko/platform
-/backend/services/global-locator/            @zoiko/platform @zoiko/sre
-/backend/libs/zid-db/                        @zoiko/platform @zoiko/security
-/backend/libs/zid-crypto/                    @zoiko/security
-/backend/libs/                               @zoiko/platform
-/backend/policies/                           @zoiko/authorization @zoiko/security
-/backend/database/                           @zoiko/data @zoiko/security
-/backend/workers/                            @zoiko/platform
+# Backend (modular monolith, ADR-0031).
+# GitHub uses the LAST matching rule: generic paths first, specific owners after.
+/backend/libs/                                           @zoiko/platform
+/backend/app/src/zid_platform/modules/                   @zoiko/platform
+/backend/app/src/zid_platform/modules/principal/         @zoiko/identity @zoiko/security
+/backend/app/src/zid_platform/modules/authentication/    @zoiko/identity @zoiko/security
+/backend/app/src/zid_platform/modules/session/           @zoiko/identity @zoiko/security
+/backend/app/src/zid_platform/modules/decision/          @zoiko/authorization @zoiko/security
+/backend/app/src/zid_platform/modules/policy_runtime/    @zoiko/authorization @zoiko/security
+/backend/app/src/zid_platform/modules/relationship/      @zoiko/authorization @zoiko/security
+/backend/app/src/zid_platform/modules/authority/         @zoiko/authority @zoiko/security
+/backend/app/src/zid_platform/modules/mandate/           @zoiko/authority @zoiko/security
+/backend/app/src/zid_platform/modules/machine/           @zoiko/authority @zoiko/security
+/backend/app/src/zid_platform/modules/organization/      @zoiko/trust
+/backend/app/src/zid_platform/modules/verification/      @zoiko/trust
+/backend/app/src/zid_platform/modules/credential/        @zoiko/trust
+/backend/app/src/zid_platform/modules/signals/           @zoiko/security
+/backend/app/src/zid_platform/modules/evidence/          @zoiko/evidence @zoiko/security
+/backend/app/src/zid_platform/modules/privacy/           @zoiko/privacy @zoiko/security
+/backend/app/src/zid_platform/modules/federation/        @zoiko/integration
+/backend/app/src/zid_platform/modules/provisioning/      @zoiko/integration
+/backend/app/src/zid_platform/modules/integration/       @zoiko/integration
+/backend/app/src/zid_platform/modules/onboarding/        @zoiko/integration
+/backend/app/src/zid_platform/modules/webhook/           @zoiko/integration
+/backend/app/src/zid_platform/modules/operator_access/   @zoiko/sre @zoiko/security
+/backend/app/src/zid_platform/roles.py                   @zoiko/architecture
+/backend/app/tests/unit/test_architecture.py             @zoiko/architecture
+/backend/app/migrations/                                 @zoiko/data
+/backend/libs/zid-db/                                    @zoiko/platform @zoiko/security
+/backend/libs/zid-crypto/                                @zoiko/security
+/backend/policies/                                       @zoiko/authorization @zoiko/security
+/backend/database/                                       @zoiko/data @zoiko/security
+/backend/Dockerfile                                      @zoiko/sre @zoiko/security
 
 # Frontend
 /frontend/                                   @zoiko/frontend

@@ -3,11 +3,10 @@ name = "zoiko-id"
 version = "0.0.0"
 requires-python = ">=3.13"
 
-# uv workspace: every Python service, worker and shared library is a member.
+# uv workspace: the platform app (modular monolith) and the shared zid-* libraries.
 [tool.uv.workspace]
 members = [
-  "services/*",
-  "workers/*",
+  "app",
   "libs/*",
 ]
 

@@ -4,15 +4,6 @@ requires-python = ">=3.13"
 
 [manifest]
 members = [
-    "authority-runtime",
-    "authorization-runtime",
-    "enterprise-integration",
-    "global-locator",
-    "identity-runtime",
-    "outbox-relay",
-    "platform-control",
-    "security-evidence",
-    "trust-services",
     "zid-app",
     "zid-authz-client",
     "zid-context",
@@ -25,6 +16,7 @@ members = [
     "zid-telemetry",
     "zid-testing",
     "zoiko-id",
+    "zoiko-id-platform",
 ]
 
 [[package]]
@@ -112,56 +104,6 @@ wheels = [
 ]
 
 [[package]]
-name = "authority-runtime"
-version = "0.0.0"
-source = { editable = "services/authority-runtime" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
-name = "authorization-runtime"
-version = "0.0.0"
-source = { editable = "services/authorization-runtime" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
 name = "click"
 version = "8.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -180,31 +122,6 @@ wheels = [
 ]
 
 [[package]]
-name = "enterprise-integration"
-version = "0.0.0"
-source = { editable = "services/enterprise-integration" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
 name = "fastapi"
 version = "0.143.0"
 source = { registry = "https://pypi.org/simple" }
@@ -219,31 +136,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0b/d7/6a8753ab6c1d432dc53703c3e1b92974a94531b7d047c32bbaae461ea844/fastapi-0.143.0.tar.gz", hash = "sha256:1acffe48206a80917cf7dac21992b5c44b25384e8902bf745c1fd9dabcf6c51f", size = 468391, upload-time = "2026-10-08T12:29:46.54Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/f4/27e386913417ad32aae42bba48b0c0cce40e9ff2fba1a871ca2702c37324/fastapi-0.143.0-py3-none-any.whl", hash = "sha256:3e9395fd35276425b61b516a31fdd7c77fe2af83e41b4da22e30696fb1304c5d", size = 144665, upload-time = "2026-10-08T12:29:44.853Z" },
-]
-
-[[package]]
-name = "global-locator"
-version = "0.0.0"
-source = { editable = "services/global-locator" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
 ]
 
 [[package]]
@@ -424,31 +316,6 @@ wheels = [
 ]
 
 [[package]]
-name = "identity-runtime"
-version = "0.0.0"
-source = { editable = "services/identity-runtime" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
 name = "idna"
 version = "3.20"
 source = { registry = "https://pypi.org/simple" }
@@ -479,52 +346,12 @@ wheels = [
 ]
 
 [[package]]
-name = "outbox-relay"
-version = "0.0.0"
-source = { editable = "workers/outbox-relay" }
-dependencies = [
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz", hash = "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79", size = 313412, upload-time = "2026-08-04T18:15:28.737Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c", size = 129956, upload-time = "2026-08-04T18:15:27.159Z" },
-]
-
-[[package]]
-name = "platform-control"
-version = "0.0.0"
-source = { editable = "services/platform-control" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
 ]
 
 [[package]]
@@ -723,31 +550,6 @@ wheels = [
 ]
 
 [[package]]
-name = "security-evidence"
-version = "0.0.0"
-source = { editable = "services/security-evidence" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
-]
-
-[[package]]
 name = "sqlalchemy"
 version = "2.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -824,31 +626,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7b/2b/3850dc6bf7ef71b088962eba31dafc6cffd2f96e577ebb0bb316df96da3e/starlette-1.7.0.tar.gz", hash = "sha256:c79f74ea63cff761804fbbfb182f1e0b440c2d07b164d24700c5a1bab5d6ff5d", size = 2736246, upload-time = "2026-09-23T07:30:26.35Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/d6/1ec1b290f9e0fb067899b61e1d37a30c923068bad260b216dbe37a7d2967/starlette-1.7.0-py3-none-any.whl", hash = "sha256:67f8e99895493dd2911a03f11314af6ceebeae4e704bb9f43dfc6a9db151c93e", size = 78980, upload-time = "2026-09-23T07:30:24.567Z" },
-]
-
-[[package]]
-name = "trust-services"
-version = "0.0.0"
-source = { editable = "services/trust-services" }
-dependencies = [
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "zid-app" },
-    { name = "zid-context" },
-    { name = "zid-db" },
-    { name = "zid-errors" },
-    { name = "zid-outbox" },
-    { name = "zid-telemetry" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "zid-app", editable = "libs/zid-app" },
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-db", editable = "libs/zid-db" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-    { name = "zid-outbox", editable = "libs/zid-outbox" },
-    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
 ]
 
 [[package]]
@@ -1270,4 +1047,29 @@ dev = [
 dev = [
     { name = "httpx2", specifier = ">=2.13.1" },
     { name = "pytest", specifier = ">=8.3" },
+]
+
+[[package]]
+name = "zoiko-id-platform"
+version = "0.1.0"
+source = { editable = "app" }
+dependencies = [
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "zid-app" },
+    { name = "zid-context" },
+    { name = "zid-db" },
+    { name = "zid-errors" },
+    { name = "zid-outbox" },
+    { name = "zid-telemetry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "zid-app", editable = "libs/zid-app" },
+    { name = "zid-context", editable = "libs/zid-context" },
+    { name = "zid-db", editable = "libs/zid-db" },
+    { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-outbox", editable = "libs/zid-outbox" },
+    { name = "zid-telemetry", editable = "libs/zid-telemetry" },
 ]

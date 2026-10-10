@@ -37,7 +37,7 @@ checkpoint:            checkpoint_id, partition_id, first_sequence, last_sequenc
 - **Checkpoint cadence:** risk- and volume-based. E3 checkpoints are more frequent than archival E1.
 - **Checkpoint retention:** at least as long as the longest-retained evidence that relies on them.
 - **Proofs:** inclusion proofs always; consistency proofs (a later checkpoint extends the earlier history) where implemented.
-- **Runtime:** the `evidence-checkpointer` runs as `security-evidence`'s `worker` entrypoint.
+- **Runtime:** the `evidence-checkpointer` runs in the platform image's `worker` process (`python -m zid_platform.entrypoints.worker`, ADR-0031).
 
 ### 3. Anchoring target (resolves Q5)
 - **No public blockchain.**

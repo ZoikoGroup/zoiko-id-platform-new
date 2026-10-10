@@ -65,5 +65,5 @@ processing_role_assignment
 A counsel-approved role map and a dated market/certification plan exist before regulated production.
 
 ## Consequences
-- `security-evidence/privacy` owns the role map and jurisdiction pack registry.
+- `privacy` owns the role map and jurisdiction pack registry.
 - The packs themselves are Legal's deliverable, and are open question Q7 in the architecture doc.

@@ -6,7 +6,7 @@
 
 interfaces:
   - interface_id: IF-001
-    service_id: identity-runtime/authentication
+    service_id: authentication
     route: "POST /internal/authn/assertions:verify"
     type: DECISION
     purpose: "Verify current authentication assertion/context"
@@ -22,7 +22,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-002
-    service_id: identity-runtime/session
+    service_id: session
     route: "POST /internal/tokens:exchange"
     type: COMMAND
     purpose: "Issue downstream audience-bound token"
@@ -38,7 +38,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-003
-    service_id: authorization-runtime/relationship
+    service_id: relationship
     route: "POST /internal/relationships:check"
     type: QUERY
     purpose: "Relation membership/revision query"
@@ -54,7 +54,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-004
-    service_id: platform-control/policy_authoring
+    service_id: policy_authoring
     route: "GET /internal/policy-releases/{id}/bundle"
     type: QUERY
     purpose: "Fetch immutable compiled policy bundle"
@@ -70,7 +70,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-005
-    service_id: authorization-runtime/decision
+    service_id: decision
     route: "POST /internal/authorization:evaluate"
     type: DECISION
     purpose: "Primary PDP evaluation"
@@ -86,7 +86,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-006
-    service_id: trust-services/organization
+    service_id: organization
     route: "POST /internal/authority-roots:resolve"
     type: DECISION
     purpose: "Resolve sufficient organizational root"
@@ -102,7 +102,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-007
-    service_id: authority-runtime/authority
+    service_id: authority
     route: "POST /internal/authority:resolve"
     type: DECISION
     purpose: "Resolve complete authority chain"
@@ -118,7 +118,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-008
-    service_id: authority-runtime/mandate
+    service_id: mandate
     route: "POST /internal/mandates/{id}:reserve"
     type: COMMAND
     purpose: "Reserve consumable capacity"
@@ -134,7 +134,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-009
-    service_id: authority-runtime/mandate
+    service_id: mandate
     route: "POST /internal/mandates/{id}/reservations/{rid}:commit"
     type: COMMAND
     purpose: "Commit protected effect"
@@ -150,7 +150,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-010
-    service_id: authority-runtime/machine
+    service_id: machine
     route: "POST /internal/workloads:resolve"
     type: QUERY
     purpose: "Map workload identity to machine principal"
@@ -166,7 +166,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-011
-    service_id: trust-services/verification
+    service_id: verification
     route: "POST /internal/verifications:rely"
     type: DECISION
     purpose: "Evaluate verification assertion reliance"
@@ -182,7 +182,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-012
-    service_id: trust-services/credential
+    service_id: credential
     route: "POST /internal/presentations:verify"
     type: DECISION
     purpose: "Verify credential presentation/status"
@@ -198,7 +198,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-013
-    service_id: security-evidence/signals
+    service_id: signals
     route: "GET /internal/security-state/{type}/{id}"
     type: QUERY
     purpose: "Current state/revisions"
@@ -214,7 +214,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-014
-    service_id: security-evidence/evidence
+    service_id: evidence
     route: "POST /internal/evidence/envelopes"
     type: COMMAND
     purpose: "Submit typed evidence envelope"
@@ -230,7 +230,7 @@ interfaces:
     dependencies: TBD_BY_OWNER
     deprecation: none
   - interface_id: IF-015
-    service_id: enterprise-integration/integration
+    service_id: integration
     route: "GET /internal/integrations/{id}/release"
     type: QUERY
     purpose: "Read immutable integration mapping release"
@@ -248,7 +248,7 @@ interfaces:
 
 external_interfaces:
   - interface_id: IF-EXT-001
-    service_id: authorization-runtime/decision
+    service_id: decision
     route: "AuthZEN Authorization API 1.0 evaluation endpoint (authz.id.zoiko.com)"
     type: DECISION
     consistency: STRONG

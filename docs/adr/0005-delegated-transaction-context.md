@@ -65,4 +65,4 @@ The TCE is an internal, versioned context object passed between trusted Zoiko en
 - Agent confused-deputy tests (W4) pass: an agent can't use a TCE for a different action, resource, purpose or mandate.
 
 ## Consequences
-`zid-context` carries the TCE reference. `identity-runtime`'s SES module owns the token exchange. The `authorization-runtime` validates the TCE against current revisions for R2/R3.
+`zid-context` carries the TCE reference. The `session` module (SES) owns the token exchange. The `decision` module validates the TCE against current revisions for R2/R3.

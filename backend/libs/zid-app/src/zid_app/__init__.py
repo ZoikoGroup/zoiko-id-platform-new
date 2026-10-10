@@ -1,4 +1,4 @@
-"""FastAPI service shell shared by every Zoiko iD deployable unit.
+"""FastAPI service shell shared by every Zoiko iD role and process (ADR-0031).
 
 Provides: typed settings, request-context middleware, canonical error envelopes,
 structured request logging, and health endpoints (`/health/live`, `/health/ready`, `/`).

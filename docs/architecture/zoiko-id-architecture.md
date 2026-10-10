@@ -188,28 +188,23 @@ Under pressure the cluster sheds non-critical work first (bulkhead rule, Service
 
 ---
 
-## 6. Logical services and deployable units
+## 6. Logical services in a modular monolith (ADR-0031)
 
-The specs define **27 logical services**. Stage A ships them as **7 deployable FastAPI units** plus workers, keeping module, schema and credential boundaries intact so any module can be extracted later (Service spec §4: "no microservice dogma").
+The specs define **27 logical services**. Stage A ships them as **one modular monolith**: one package (`zoiko-id-platform`), one image, one release. Each logical service is a **module** with its own `ports.py` interface, its own tables and its own migration stream, so any module can be extracted later (Service spec §4: *"no microservice dogma… an early modular deployment is acceptable"*).
 
-| Deployable unit | Logical modules | Postgres schemas | Plane | Notes |
-|---|---|---|---|---|
-| **identity-runtime** | PRN, AUTHN, SES | `core`, `authn` | Runtime | OIDC/OAuth issuer, passkeys, sessions, token exchange |
-| **authorization-runtime** | AUTHZ, POL (runtime), REL (query adapter) | `authz` | Runtime | AuthZEN PDP. Stateless except the decision log. Performance-gated (ADR-0021). |
-| **authority-runtime** | AUTHY, MAND, MACH | `authz` (grants), `agent` | Runtime | Grants, mandate ledger (single writer), agents/workloads |
-| **trust-services** | ROOT, VER, CRED | `org`, `verify`, `cred` | Trust | Provider adapters isolated; CRED may split to Kotlin (ADR-0012) |
-| **security-evidence** | SIG, EVID, PRIV | `signals`, `evidence`, `privacy` | Security / Evidence | SIG on the priority lane; EVID never blocks SIG |
-| **enterprise-integration** | FED, SCIM, INT, ONB, WHK | `authn` (fed links), `platform` (integrations) | Integration | Isolated from runtime failure paths |
-| **platform-control** | TEN, CFG, POL (authoring), OPS, METER, NOTIF, SEARCH | `platform`, `metering` | Control / Support | Never on the R2/R3 path |
+| Plane | Modules (logical services) | Tables live in schemas | Notes |
+|---|---|---|---|
+| **Runtime** | principal (PRN), authentication (AUTHN), session (SES), decision (AUTHZ), policy_runtime (POL runtime), relationship (REL), authority (AUTHY), mandate (MAND), machine (MACH) | `core`, `authn`, `authz`, `org`, `agent` | Latency-critical. The decision path is performance-gated (ADR-0021). |
+| **Trust** | organization (ROOT), verification (VER), credential (CRED) | `org`, `verify`, `cred` | Provider adapters isolated; CRED may move to Kotlin (ADR-0012) |
+| **Security / Evidence** | signals (SIG), evidence (EVID), privacy (PRIV) | `signals`, `evidence`, `privacy` | SIG on the priority lane; EVID never blocks SIG |
+| **Integration** | federation (FED), provisioning (SCIM), integration (INT), onboarding (ONB), webhook (WHK) | `authn`, `platform`, `events` | Kept off runtime failure paths |
+| **Control / Support** | tenant (TEN), configuration (CFG), policy_authoring (POL), operator_access (OPS), metering (METER), notification (NOTIF), search (SEARCH) | `platform`, `authz`, `metering` | Never on the R2/R3 path |
+| **Global** | locator, discovery | `global_directory` (separate database) | Served only by the `global` role |
 
-**Process types per unit.** Each unit ships one image with three entrypoints, and background work lives with the domain that owns it:
-- `api`: the FastAPI process.
-- `consumer`: Kafka consumers. Example: `rel-projector` (Postgres relationships → SpiceDB) is `authorization-runtime`'s consumer.
-- `worker`: Temporal workers. Examples: onboarding sagas in `enterprise-integration`, the Merkle `evidence-checkpointer` in `security-evidence`, data-subject requests and erasure in `security-evidence`.
-
-**Other deployables:**
-- `outbox-relay`, the only domain-neutral worker (one per database cluster).
-- `global-locator`, the global-plane unit (Tenant Locator and discovery).
+**Run modes of the single image:**
+- **Role** (`ZID_ROLE`): `cell` loads the 27 cell modules and is deployed once per regional cell. `global` loads only `locator` and `discovery`, on the global-plane database with no personal data.
+- **Process:** the API is the default. `consumer` (Kafka consumers, for example the relationship projector into SpiceDB), `worker` (Temporal workflows, for example onboarding sagas and the evidence checkpointer) and `outbox_relay` run as separate processes of the same image.
+- **Hot-path protection:** separate connection pools and worker limits per plane inside the process. When load requires it, runtime and admin routes go to separate replica pools of the same image (ADR-0031 §4).
 
 **Third-party engines run as services:** SpiceDB, Temporal, SPIRE, Envoy Gateway, OpenBao.
 
@@ -237,20 +232,22 @@ flowchart LR
 
 - AUTHY never calls MAND. AUTHZ never calls SEARCH, METER, NOTIF or ONB.
 - EVID receives evidence from every domain but is not read on the ordinary decision path.
-- CI enforces these rules: `import-linter` checks module imports inside a unit, and the interface registry checks calls across units (§7.3).
+- CI enforces these rules: architecture tests (`backend/app/tests/unit/test_architecture.py`) reject any cross-module import that bypasses `ports.py`, and the interface registry records declared dependencies.
 
 ---
 
-## 7. Inside a FastAPI unit
+## 7. Inside the monolith
 
 ### 7.1 Module layout (hexagonal)
 
-Every logical module inside a unit has the same four layers:
+Every module has the same four layers:
 
 ```
-backend/services/authority-runtime/
-  src/zid_authority_runtime/
-    main.py                  # FastAPI app factory: composes modules, middleware, lifespans
+backend/app/
+  src/zid_platform/
+    main.py                  # FastAPI app factory: composes the role's modules, middleware, lifespans
+    roles.py                 # cell | global role -> modules + schemas; plane grouping
+    entrypoints/             # api · consumer · worker · outbox_relay (same image, separate processes)
     modules/
       mandate/
         api/                 # FastAPI routers, request/response Pydantic models (public + internal)
@@ -258,13 +255,13 @@ backend/services/authority-runtime/
         domain/              # pure Python: aggregates, state machines, invariants, reason codes
         infrastructure/      # SQLAlchemy repositories, outbox writer, clients to other modules
         ports.py             # Protocol interfaces this module exposes to other modules
-      authority/ ...
-      machine/ ...
+      authority/ ... (29 modules in total)
+  migrations/<module>/       # one Alembic stream per owning module
   tests/ (unit · property · component · contract)
 ```
 
 - **`domain/` has no I/O imports.** No FastAPI, SQLAlchemy or httpx. Authority algebra and mandate invariants live here, so Hypothesis property tests run fast and deterministically.
-- **Modules talk only through `ports.py`.** Each module exposes a `Protocol`. Inside a unit the implementation is an in-process adapter. If a module is extracted later, the same Protocol is backed by an HTTP client, and callers don't change.
+- **Modules talk only through `ports.py`.** Each module exposes a `Protocol`. Inside the monolith the implementation is an in-process adapter. If a module is extracted later, the same Protocol is backed by an HTTP client, and callers don't change.
 - **No shared ORM entities.** Each module has its own SQLAlchemy models bound to its own schema.
 
 ### 7.2 Request lifecycle
@@ -415,7 +412,7 @@ The onboarding states are DRAFT → ORGANIZATION_VERIFYING → CONFIGURING → I
 ### 9.2 Policy (ADR-0014)
 
 - Policies are written in **Cedar**, with a schema per tenant built from the action and resource catalog.
-- The policy service (authoring, in platform-control) validates releases (schema typing, Cedar static analysis, property tests, conflict checks), freezes them, and publishes **immutable compiled bundles** identified by `policy_release_id`.
+- The policy service (the `policy_authoring` module) validates releases (schema typing, Cedar static analysis, property tests, conflict checks), freezes them, and publishes **immutable compiled bundles** identified by `policy_release_id`.
 - Decision instances load bundles from POL and cache them by ID. Since bundles are immutable, the cache is always safe.
 - Lifecycle: DRAFT → VALIDATING → REVIEW → SCHEDULED → ACTIVE → RETIRED / REVOKED. Shadow evaluation and simulation run on the same engine.
 - **Authority algebra is enforced in code before Cedar evaluation.** AUTHY returns only complete, attenuated chains. Cedar never composes partial grants (no privilege stitching).
@@ -684,7 +681,7 @@ Python carries the whole platform. The decision service is the single performanc
 - Error rate <0.01%
 - Cost per million decisions within the agreed envelope
 
-**If it fails:** tune Python, then profile and fix the hot spot. Only after both, rewrite the `authorization-runtime` decision path in Go behind the same AuthZEN and internal contracts. Nothing else changes.
+**If it fails:** tune Python, then profile and fix the hot spot. Only after both, extract the `decision` module from the monolith and rewrite that path in Go behind the same AuthZEN and internal contracts (ADR-0021, ADR-0031). Nothing else changes.
 
 ---
 
@@ -693,8 +690,8 @@ Python carries the whole platform. The decision service is the single performanc
 The full layout and its rules are in **[repository-structure.md](repository-structure.md)** (ZID-REPO-001). Key points:
 
 - **`backend/`** (uv workspace):
-  - `services/`: 8 deployable FastAPI units (the 7 cell units plus `global-locator`). Each module that owns tables has its own `migrations/<module>/` stream, because each service owns its migration lifecycle; table ownership is registered in `backend/database/table-ownership.yaml`. Each unit has `api`, `consumer` and `worker` entrypoints, so projectors and Temporal workflows live with their owning domain.
-  - `workers/`: only platform-generic workers (`outbox-relay`).
+  - `app/`: the modular monolith (`zoiko-id-platform`, ADR-0031): 29 modules in `src/zid_platform/modules/`, `roles.py` (cell/global), entrypoints (api, consumer, worker, outbox_relay), and one Alembic stream per owning module in `migrations/<module>/`. Table ownership is registered in `backend/database/table-ownership.yaml`.
+  - `Dockerfile`: the single backend image (test and runtime targets).
   - `libs/`: platform mechanics only; no domain entities or ORM models.
   - `database/`: cluster bootstrap only (roles, extensions, RLS helpers). No tables.
   - `policies/`: Cedar schema and platform-floor policies.

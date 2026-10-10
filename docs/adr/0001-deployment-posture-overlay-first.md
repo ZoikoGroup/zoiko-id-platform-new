@@ -57,7 +57,7 @@ Using a third-party IdP account and an agent identity, demonstrate an end-to-end
 
 ## Consequences
 - W1 (Overlay Trust Core) is the first customer-facing wave; native identity (W5) comes later.
-- `enterprise-integration` (FED, SCIM, INT, ONB) is on the first-customer critical path.
+- The integration plane modules (`federation`, `provisioning`, `integration`, `onboarding`) are on the first-customer critical path.
 - The same domain APIs serve all four modes. Sovereign mode is a deployment profile, not a code fork.
 
 ## Alternatives rejected

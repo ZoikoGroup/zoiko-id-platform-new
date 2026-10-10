@@ -52,5 +52,5 @@ After eligible crypto-erasure:
 - Restore tests prove erased subjects stay erased once restored from backup (Readiness plan: erasure and crypto-shredding verification, including backups).
 
 ## Consequences
-- `security-evidence` owns the identity resolver and the subject-evidence vault. `zid-crypto` manages the per-subject keys.
+- The `evidence` module owns the identity resolver and the subject-evidence vault. `zid-crypto` manages the per-subject keys.
 - Analytics never mines the evidence ledger by default.

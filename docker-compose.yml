@@ -1,23 +1,22 @@
 # Zoiko iD — local development stack (LOCAL environment only; synthetic data only).
-#   docker compose up --build -d      then open http://localhost:8001/docs
+#   docker compose up --build -d      then open http://localhost:8000/docs
+# One backend image (modular monolith, ADR-0031) running in two roles:
+#   zid-cell   — all 27 cell modules         -> http://localhost:8000
+#   zid-global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
 # Credentials below are local-only placeholders; real environments get short-lived
 # credentials from the secrets broker (ADR-0026). Never reuse them anywhere else.
 
 name: zoiko-id
 
-x-unit: &unit
+x-platform: &platform
   build:
     context: ./backend
     target: runtime
+  image: zid/platform:local
   restart: unless-stopped
   depends_on:
     postgres:
       condition: service_healthy
-  environment: &unit-env
-    ZID_ENVIRONMENT: local
-    ZID_CELL_ID: local-1
-    ZID_LOG_LEVEL: INFO
-    ZID_DATABASE_URL: postgresql+asyncpg://zid:zid_local_only@postgres:5432/zid_cell
 
 services:
   postgres:
@@ -38,42 +37,23 @@ services:
       timeout: 3s
       retries: 20
 
-  identity-runtime:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: identity-runtime, PACKAGE: zid_identity_runtime } }
-    ports: ["8001:8000"]
-  authorization-runtime:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: authorization-runtime, PACKAGE: zid_authorization_runtime } }
-    ports: ["8002:8000"]
-  authority-runtime:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: authority-runtime, PACKAGE: zid_authority_runtime } }
-    ports: ["8003:8000"]
-  trust-services:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: trust-services, PACKAGE: zid_trust_services } }
-    ports: ["8004:8000"]
-  security-evidence:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: security-evidence, PACKAGE: zid_security_evidence } }
-    ports: ["8005:8000"]
-  enterprise-integration:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: enterprise-integration, PACKAGE: zid_enterprise_integration } }
-    ports: ["8006:8000"]
-  platform-control:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: platform-control, PACKAGE: zid_platform_control } }
-    ports: ["8007:8000"]
-  global-locator:
-    <<: *unit
-    build: { context: ./backend, target: runtime, args: { UNIT: global-locator, PACKAGE: zid_global_locator } }
+  zid-cell:
+    <<: *platform
     environment:
-      <<: *unit-env
+      ZID_ROLE: cell
+      ZID_ENVIRONMENT: local
+      ZID_CELL_ID: local-1
+      ZID_DATABASE_URL: postgresql+asyncpg://zid:zid_local_only@postgres:5432/zid_cell
+    ports: ["8000:8000"]
+
+  zid-global:
+    <<: *platform
+    environment:
+      ZID_ROLE: global
+      ZID_ENVIRONMENT: local
       ZID_CELL_ID: global
       ZID_DATABASE_URL: postgresql+asyncpg://zid:zid_local_only@postgres:5432/zid_global
-    ports: ["8008:8000"]
+    ports: ["8100:8000"]
 
 volumes:
   pgdata:

@@ -11,28 +11,28 @@ evidence_floor_by_risk: {R0: E0, R1: E1, R2: E2, R3: E3}
 actions:
   # ---- R3 Critical: "IdP/MFA change, bulk export, authority delegation, credential signing,
   #      high-value financial/admin agent action" (ARCH §11.1, REQ §4) ----
-  tenant.identity_provider.change:  {min_risk_class: R3, min_evidence_class: E3, category: "IdP change", name_source: proposed, owner: enterprise-integration/federation}
-  tenant.mfa_policy.change:         {min_risk_class: R3, min_evidence_class: E3, category: "MFA change", name_source: proposed, owner: identity-runtime/authentication}
-  data.bulk_export:                 {min_risk_class: R3, min_evidence_class: E3, category: "bulk export", name_source: proposed, owner: security-evidence/privacy}
-  evidence.export:                  {min_risk_class: R3, min_evidence_class: E3, category: "bulk export (evidence)", name_source: spec, owner: security-evidence/evidence}
-  authority.grant:                  {min_risk_class: R3, min_evidence_class: E3, category: "authority delegation", name_source: spec, owner: authority-runtime/authority}
-  authority.grant.delegate:         {min_risk_class: R3, min_evidence_class: E3, category: "authority delegation", name_source: proposed, owner: authority-runtime/authority}
-  credential.issue:                 {min_risk_class: R3, min_evidence_class: E3, category: "credential signing", name_source: proposed, owner: trust-services/credential}
+  tenant.identity_provider.change:  {min_risk_class: R3, min_evidence_class: E3, category: "IdP change", name_source: proposed, owner: federation}
+  tenant.mfa_policy.change:         {min_risk_class: R3, min_evidence_class: E3, category: "MFA change", name_source: proposed, owner: authentication}
+  data.bulk_export:                 {min_risk_class: R3, min_evidence_class: E3, category: "bulk export", name_source: proposed, owner: privacy}
+  evidence.export:                  {min_risk_class: R3, min_evidence_class: E3, category: "bulk export (evidence)", name_source: spec, owner: evidence}
+  authority.grant:                  {min_risk_class: R3, min_evidence_class: E3, category: "authority delegation", name_source: spec, owner: authority}
+  authority.grant.delegate:         {min_risk_class: R3, min_evidence_class: E3, category: "authority delegation", name_source: proposed, owner: authority}
+  credential.issue:                 {min_risk_class: R3, min_evidence_class: E3, category: "credential signing", name_source: proposed, owner: credential}
   payment.release:                  {min_risk_class: R3, min_evidence_class: E3, category: "high-value financial action", name_source: spec, owner: customer-application (PEP)}
   purchase.create:                  {min_risk_class: R3, min_evidence_class: E3, category: "high-value agent action (TCE example)", name_source: spec, owner: customer-application (PEP)}
-  operator.jit.elevate:             {min_risk_class: R3, min_evidence_class: E3, category: "high-value admin action", name_source: proposed, owner: platform-control/operator_access}
-  tenant.owner.change:              {min_risk_class: R3, min_evidence_class: E3, category: "protected administrative action (OVERLAY §4)", name_source: proposed, owner: platform-control/tenant}
+  operator.jit.elevate:             {min_risk_class: R3, min_evidence_class: E3, category: "high-value admin action", name_source: proposed, owner: operator_access}
+  tenant.owner.change:              {min_risk_class: R3, min_evidence_class: E3, category: "protected administrative action (OVERLAY §4)", name_source: proposed, owner: tenant}
   # ---- R2 High: "sensitive data, external write, privileged workflow, reusable verification" ----
   invoice.approve:                  {min_risk_class: R2, min_evidence_class: E2, category: "privileged workflow (ARCH §10.3 example)", name_source: spec, owner: customer-application (PEP), note: "tenants handling high-value invoices should raise to R3"}
   data.sensitive.read:              {min_risk_class: R2, min_evidence_class: E2, category: "sensitive data", name_source: proposed, owner: customer-application (PEP)}
   external.write:                   {min_risk_class: R2, min_evidence_class: E2, category: "external write", name_source: proposed, owner: customer-application (PEP)}
-  verification.rely:                {min_risk_class: R2, min_evidence_class: E2, category: "reusable verification", name_source: proposed, owner: trust-services/verification}
-  tool.execute:                     {min_risk_class: R2, min_evidence_class: E2, category: "agent tool call (raise per tool policy)", name_source: spec, owner: authority-runtime/machine}
+  verification.rely:                {min_risk_class: R2, min_evidence_class: E2, category: "reusable verification", name_source: proposed, owner: verification}
+  tool.execute:                     {min_risk_class: R2, min_evidence_class: E2, category: "agent tool call (raise per tool policy)", name_source: spec, owner: machine}
   # ---- R1 Standard: "normal workforce access, ordinary business writes" ----
   application.access:               {min_risk_class: R1, min_evidence_class: E1, category: "normal workforce access", name_source: proposed, owner: customer-application (PEP)}
   resource.write:                   {min_risk_class: R1, min_evidence_class: E1, category: "ordinary business write", name_source: proposed, owner: customer-application (PEP)}
-  identity.read:                    {min_risk_class: R1, min_evidence_class: E1, category: "identity lookup", name_source: spec, owner: identity-runtime/principal}
-  organization.read:                {min_risk_class: R1, min_evidence_class: E1, category: "organization lookup", name_source: spec, owner: trust-services/organization}
+  identity.read:                    {min_risk_class: R1, min_evidence_class: E1, category: "identity lookup", name_source: spec, owner: principal}
+  organization.read:                {min_risk_class: R1, min_evidence_class: E1, category: "organization lookup", name_source: spec, owner: organization}
   # ---- R0 Low: "public/low-sensitivity reads, non-privileged preferences" ----
-  preferences.update:               {min_risk_class: R0, min_evidence_class: E0, category: "non-privileged preference", name_source: proposed, owner: identity-runtime/principal}
-  public_metadata.read:             {min_risk_class: R0, min_evidence_class: E0, category: "public read", name_source: proposed, owner: platform-control/configuration}
+  preferences.update:               {min_risk_class: R0, min_evidence_class: E0, category: "non-privileged preference", name_source: proposed, owner: principal}
+  public_metadata.read:             {min_risk_class: R0, min_evidence_class: E0, category: "public read", name_source: proposed, owner: configuration}

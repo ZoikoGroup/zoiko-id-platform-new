@@ -31,35 +31,32 @@ zoiko_ids/
 
 ---
 
-## 2. `backend/`
+## 2. `backend/`: modular monolith (ADR-0031)
 
 ```
 backend/
-├── pyproject.toml   uv workspace root (members: services/*, workers/*, libs/*); uv.lock pins every dependency
-├── Dockerfile       one multi-stage Dockerfile for all units (build-arg UNIT/PACKAGE; targets: test, runtime)
-├── services/        8 deployable FastAPI units
-├── workers/         outbox-relay (the only domain-neutral worker)
-├── libs/            zid-* platform libraries
+├── pyproject.toml   uv workspace root (members: app, libs/*); uv.lock pins every dependency
+├── Dockerfile       the single backend image (targets: test, runtime)
+├── app/             zoiko-id-platform: the modular monolith (all 29 modules)
+├── libs/            zid-* platform libraries (mechanics only, bundled into the same image)
 ├── database/        schema bootstrap, table-ownership registry, roles, extensions, RLS helpers — no tables
 ├── config/          versioned platform configuration: jurisdiction packs, crypto profiles, residency profiles, cells
 └── policies/        Cedar schema, platform-floor policies, policy tests
 ```
 
-### 2.1 `backend/services/`: deployable units
+### 2.1 Modules and planes
 
-There are 8 units: the 7 cell units from architecture §6 plus `global-locator`, the only global-plane service.
+One package, one image. Modules are grouped into planes (`app/src/zid_platform/roles.py`). The `cell` role serves every plane except Global; the `global` role serves only Global.
 
-| Unit | Modules (logical services) | Tables live in schemas |
+| Plane | Modules (logical services) | Tables live in schemas |
 |---|---|---|
-| `identity-runtime` | principal (PRN), authentication (AUTHN), session (SES) | `core`, `authn` |
-| `authorization-runtime` | decision (AUTHZ), policy_runtime (POL runtime), relationship (REL) | `authz`, `org` |
-| `authority-runtime` | authority (AUTHY), mandate (MAND), machine (MACH) | `authz`, `agent` |
-| `trust-services` | organization (ROOT), verification (VER), credential (CRED) | `org`, `verify`, `cred` |
-| `security-evidence` | signals (SIG), evidence (EVID), privacy (PRIV) | `signals`, `evidence`, `privacy` |
-| `enterprise-integration` | federation (FED), provisioning (SCIM), integration (INT), onboarding (ONB), webhook (WHK) | `authn`, `platform`, `events` |
-| `platform-control` | tenant (TEN), configuration (CFG), policy_authoring (POL), operator_access (OPS), metering (METER), notification (NOTIF), search (SEARCH) | `platform`, `authz`, `metering` |
-| `global-locator` | locator, discovery | `global_directory` (separate global database; no personal data) |
-| `workers/outbox-relay` | outbox (Event Platform) | `events` (outbox, inbox) |
+| Runtime | principal (PRN), authentication (AUTHN), session (SES), decision (AUTHZ), policy_runtime (POL runtime), relationship (REL), authority (AUTHY), mandate (MAND), machine (MACH) | `core`, `authn`, `authz`, `org`, `agent` |
+| Trust | organization (ROOT), verification (VER), credential (CRED) | `org`, `verify`, `cred` |
+| Security / Evidence | signals (SIG), evidence (EVID), privacy (PRIV) | `signals`, `evidence`, `privacy` |
+| Integration | federation (FED), provisioning (SCIM), integration (INT), onboarding (ONB), webhook (WHK) | `authn`, `platform`, `events` |
+| Control / Support | tenant (TEN), configuration (CFG), policy_authoring (POL), operator_access (OPS), metering (METER), notification (NOTIF), search (SEARCH) | `platform`, `authz`, `metering` |
+| Global | locator, discovery | `global_directory` (separate global database; no personal data) |
+| Event Platform | outbox stream (`entrypoints/outbox_relay.py`) | `events` (outbox, inbox) |
 
 ### 2.1.1 Ownership is per table, not per schema
 The specs disagree on granularity:
@@ -69,29 +66,30 @@ The specs disagree on granularity:
 We keep the Data Model's schema **names** as namespaces, and assign ownership **per table**:
 
 - **[`backend/database/table-ownership.yaml`](../../backend/database/table-ownership.yaml)** is the single source of truth: 59 tables, exactly one owning module each.
-- Each module that owns tables has **its own Alembic stream**, in `migrations/<module>/`, with its own version table in the `zid_migrations` schema. There are 27 streams.
+- Each module that owns tables has **its own Alembic stream**, in `migrations/<module>/`, with its own version table in the `zid_migrations` schema. There are 27 streams, all in `backend/app/migrations/`.
 - CI rejects a migration that creates or alters a table its module doesn't own. Per-service DB roles get **table-level** grants generated from the registry.
 - Schemas themselves are created once, by `backend/database/schemas/` (no module owns a whole shared schema).
 - Tables marked `proposed` in the registry aren't named in Data Model v1.0. Each needs a Data Model change request before its first migration (see the [spec register](../specs/README.md)).
 
-### 2.2 Inside one unit
+### 2.2 Inside the monolith
 
 ```
-backend/services/authority-runtime/
-├── pyproject.toml               uv member; depends on zid-* libs only
-├── README.md                    modules + owned tables (generated from table-ownership.yaml)
-├── migrations/                  ONE Alembic stream per owning module
-│   ├── authority/               authz.authority_grant, authz.resource_scope, authz.data_scope
+backend/app/
+├── pyproject.toml               zoiko-id-platform; depends on zid-* libs + uvicorn
+├── migrations/                  ONE Alembic stream per owning module (27 streams)
 │   ├── mandate/                 agent.mandate, agent.mandate_balance, agent.mandate_reservation, agent.writer_fence
-│   └── machine/                 agent.agent_profile, agent.workload_binding
-├── src/zid_authority_runtime/
-│   ├── main.py                  app factory: composes modules, middleware, lifespans
-│   ├── settings.py              typed settings, no secret defaults
+│   ├── authority/               authz.authority_grant, authz.resource_scope, authz.data_scope
+│   └── …
+├── src/zid_platform/
+│   ├── main.py                  app factory: composes the role's modules, middleware, lifespans
+│   ├── roles.py                 cell | global → modules + schemas; plane grouping
+│   ├── settings.py              typed settings (ZID_*), no secret defaults
 │   ├── entrypoints/
-│   │   ├── api.py               FastAPI (uvicorn) process
-│   │   ├── consumer.py          Kafka consumers owned by this unit (inbox-deduplicated)
-│   │   └── worker.py            Temporal workers for workflows owned by this unit
-│   └── modules/
+│   │   ├── api.py               FastAPI (uvicorn) process — default CMD
+│   │   ├── consumer.py          Kafka consumers (inbox-deduplicated), e.g. relationship → SpiceDB projector
+│   │   ├── worker.py            Temporal workers, e.g. onboarding sagas, evidence checkpointer
+│   │   └── outbox_relay.py      outbox → Kafka relay (Event Platform)
+│   └── modules/                 29 modules
 │       └── mandate/
 │           ├── ports.py         public Protocol: the ONLY thing other modules may import
 │           ├── api/             routers + Pydantic request/response models
@@ -99,13 +97,13 @@ backend/services/authority-runtime/
 │           ├── domain/          pure Python: aggregates, invariants, state machines, reason codes
 │           └── infrastructure/  SQLAlchemy models/repos, clients, adapters
 └── tests/
-    ├── unit/                    domain logic, no I/O
+    ├── unit/                    domain logic + architecture guards (test_architecture.py)
     ├── property/                Hypothesis (authority algebra, ledger invariants)
     ├── component/               real Postgres/Kafka via testcontainers
     └── contract/                OpenAPI/AsyncAPI producer-consumer checks
 ```
 
-**Layer dependency rule** (enforced by import-linter in CI):
+**Layer dependency rule:**
 
 ```
 api ──► application ──► domain ◄── infrastructure
@@ -113,10 +111,10 @@ api ──► application ──► domain ◄── infrastructure
 ```
 
 - `domain/` imports nothing from FastAPI, SQLAlchemy, httpx, Kafka or any other module.
-- A module may import another module's `ports.py` only. It never imports that module's `domain/`, `infrastructure/` or ORM models.
-- One image per unit, with the process type chosen by entrypoint. Projectors and workflows live with their **owner**: `rel-projector` is `authorization-runtime`'s `consumer.py`, the evidence checkpointer is `security-evidence`'s `worker.py`, and onboarding sagas are `enterprise-integration`'s `worker.py`.
+- A module may import another module's `ports.py` only, never its `domain/`, `application/`, `infrastructure/` or ORM models. **`tests/unit/test_architecture.py` fails the build on any violation**, which is what keeps this a *modular* monolith.
+- One image; the process type is chosen by entrypoint, and the module set by `ZID_ROLE`.
 
-**Extracting a module later:** move `modules/<name>/` and its `migrations/<name>/` into a new `backend/services/<name>/` unit. Replace the in-process `ports.py` adapter with an HTTP client generated from `contracts/openapi/internal/`. Callers don't change.
+**Extracting a module later:** move `modules/<name>/` and `migrations/<name>/` into a new service, and swap its `ports.py` adapter for an HTTP client generated from `contracts/openapi/internal/`. Callers don't change. The only pre-approved extraction is `decision` (ADR-0021).
 
 ### 2.3 `backend/libs/`: shared platform libraries
 
@@ -151,7 +149,7 @@ api ──► application ──► domain ◄── infrastructure
   - `cells/` (cell catalog and recovery pairs; ADR-0011)
 
   This is **not** tenant data. Releases are immutable.
-- `policies/`: `cedar/schema/` (base entity and action types; tenant schemas are generated from it), `cedar/platform-floor/` (non-overridable fail-closed and deny rules) and `tests/` (golden allow/deny cases run against every policy release). Tenant-authored policies are **data**, stored and released by `platform-control/policy_authoring`, not files in this repo.
+- `policies/`: `cedar/schema/` (base entity and action types; tenant schemas are generated from it), `cedar/platform-floor/` (non-overridable fail-closed and deny rules) and `tests/` (golden allow/deny cases run against every policy release). Tenant-authored policies are **data**, stored and released by the `policy_authoring` module, not files in this repo.
 
 ---
 
@@ -164,7 +162,7 @@ frontend/
 │   ├── tenant-console/      console.id.zoiko.com
 │   ├── developer-console/   developers.id.zoiko.com
 │   ├── trust-center/        my.id.zoiko.com
-│   ├── hosted-login/        id.zoiko.com (UI only; OIDC/OAuth/SAML endpoints stay in identity-runtime)
+│   ├── hosted-login/        id.zoiko.com (UI only; OIDC/OAuth/SAML endpoints stay in the backend `session`/`authentication` modules)
 │   └── operator-console/    separate origin, client, identity policy and deploy path
 └── packages/
     ├── ui/                  React Aria + Tailwind design system
@@ -215,7 +213,7 @@ frontend/apps/tenant-console/
 | hosted-login | `(flows)` | login, federate, passkey, step-up, consent, approval, recovery, error |
 | operator-console | `(operator)` | tenant-health, cell-health, incidents, support-cases, migrations, evidence-integrity, jit-access |
 
-`hosted-login` has `api/flow/[...path]` instead of a BFF, because it drives authentication flows in identity-runtime and has no console session yet.
+`hosted-login` has `api/flow/[...path]` instead of a BFF, because it drives authentication flows in the backend and has no console session yet.
 
 ### 3.3 Frontend rules (ADR-0013)
 
@@ -292,8 +290,7 @@ Unit, property, component and contract tests live **inside** each backend servic
 
 | Thing | Convention | Example |
 |---|---|---|
-| Backend unit folder | kebab-case | `authority-runtime` |
-| Python package | `zid_` + snake_case | `zid_authority_runtime` |
+| Backend app package | `zid_platform` (distribution `zoiko-id-platform`) | `zid_platform.modules.mandate` |
 | Backend module | snake_case singular | `mandate`, `policy_runtime` |
 | Library distribution | `zid-` + kebab-case | `zid-outbox` |
 | Frontend app / package | kebab-case | `tenant-console`, `api-client` |
@@ -309,7 +306,7 @@ Unit, property, component and contract tests live **inside** each backend servic
 
 ## 6. CI enforcement (added in W0)
 
-- **import-linter:** backend layer rules and the "ports only" rule between modules.
+- **Architecture tests** (`backend/app/tests/unit/test_architecture.py`): "ports only" rule between modules, plane map, migration and table-owner consistency (ADR-0031).
 - **Table ownership check:** a migration may create or alter only tables its module owns in `backend/database/table-ownership.yaml`; every tenant-scoped table must have an RLS policy.
 - **Interface registry check:** every route, RPC and event has an entry in `contracts/interface-registry/`; declared dependencies must respect the acyclic rules.
 - **Frontend boundary lint:** no database clients, no Kafka, and no authorization logic in `frontend/`. ESLint import rules keep `app/` routes thin.

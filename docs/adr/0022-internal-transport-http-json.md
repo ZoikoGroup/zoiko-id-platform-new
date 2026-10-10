@@ -11,7 +11,7 @@ The Service spec allows HTTP/2+JSON, gRPC/Protobuf, or a controlled mix, but mak
 - Internal calls use **HTTP/JSON with FastAPI and OpenAPI-generated Python clients** (httpx with keep-alive pools, orjson).
 - They run over Istio ambient mTLS with SPIFFE identities.
 - Mandatory headers are carried by `zid-context` (`X-Request-Id`, `traceparent`, `X-Zid-Deadline`, `Idempotency-Key`, `If-Match`, `X-Zid-Schema-Version`). Tenant and caller identity come from the mTLS identity and signed context, never from plain headers.
-- Calls inside a deployable unit are in-process via `ports.py`, which removes most network hops.
+- In the modular monolith (ADR-0031) **all module-to-module calls are in-process via `ports.py`**. HTTP/JSON applies only between the `cell` and `global` roles, to separate processes, and to any module later extracted (for example the decision service under ADR-0021).
 - Revisit gRPC if the W0 benchmark shows serialization or connection overhead on the decision path.
 
 ## Consequences

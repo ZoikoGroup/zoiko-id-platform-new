@@ -14,7 +14,7 @@ Overlay-first trust infrastructure: identity, verification, credentials, organiz
 ## Layout
 
 ```
-backend/     Python / FastAPI: services, workers, libs, database bootstrap, Cedar policies
+backend/     Python / FastAPI modular monolith: app (29 modules), libs, database bootstrap, config, Cedar policies
 frontend/    Next.js: tenant/developer consoles, trust center, hosted login, operator console
 contracts/   OpenAPI, AsyncAPI, error codes, action catalog (shared by backend, frontend, SDKs)
 sdks/        PEP SDKs for customer apps
@@ -30,21 +30,15 @@ docs/        specs, architecture, ADRs, traceability, threat model, runbooks
 Requires Docker Desktop (no local Python needed).
 
 ```bash
-docker compose up --build -d            # Postgres + all 8 backend units
-curl http://localhost:8001/health/ready # readiness: DB reachable + owned schemas present
-docker compose logs -f identity-runtime # structured JSON logs
-docker compose down                     # stop (add -v to wipe the local database)
-docker build --target test backend      # run the backend test suite
+docker compose up --build -d             # Postgres + the backend (one image, two roles)
+curl http://localhost:8000/health/ready  # cell role: all 27 modules, DB + owned schemas checked
+curl http://localhost:8100/health/ready  # global role: locator + discovery, global database
+docker compose logs -f zid-cell          # structured JSON logs
+docker compose down                      # stop (add -v to wipe the local database)
+docker build --target test backend       # run the backend test suite
 ```
 
-| Port | Unit | Port | Unit |
-|---|---|---|---|
-| 8001 | identity-runtime | 8005 | security-evidence |
-| 8002 | authorization-runtime | 8006 | enterprise-integration |
-| 8003 | authority-runtime | 8007 | platform-control |
-| 8004 | trust-services | 8008 | global-locator |
-
-Each unit serves `/` (identity), `/health/live`, `/health/ready` and interactive API docs at `/docs`.
+Interactive API docs: http://localhost:8000/docs (cell) and http://localhost:8100/docs (global). Endpoints: `/`, `/health/live`, `/health/ready`.
 
 ## Stack
 
@@ -52,4 +46,4 @@ Python 3.13+ / FastAPI · Next.js + TypeScript · PostgreSQL (Aurora) · SpiceDB
 
 ## Status
 
-Architecture baseline: **Draft**. Build wave: **W0 (architecture proof)** — service shell running for all 8 units.
+Architecture baseline: **Draft**. Build wave: **W0 (architecture proof)** — modular-monolith service shell running (cell + global roles).

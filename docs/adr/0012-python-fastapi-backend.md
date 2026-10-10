@@ -10,7 +10,7 @@ The specs fix the semantics and data stores but leave the implementation languag
 ## Decision
 - Backend services use **Python 3.13+** with **FastAPI**, **Pydantic v2**, **SQLAlchemy 2 (async) + asyncpg**, **Alembic**, uvicorn + uvloop and orjson.
 - Tooling: uv workspaces, ruff, mypy `--strict`, pytest, Hypothesis and import-linter.
-- Services ship as 7 deployable units of hexagonal modules (architecture §6–7). Module boundaries are enforced by import-linter and `ports.py` Protocols.
+- The backend ships as **one modular-monolith package and image** (`zoiko-id-platform`, ADR-0031) of hexagonal modules (architecture §6–7). Module boundaries are enforced by `ports.py` Protocols and architecture tests in CI.
 - Domain logic (`domain/`) is pure Python with no I/O imports.
 - **The only allowed exception:** the Credential module (CRED) may be built as a separate Kotlin/JVM service if the Python EUDI libraries (mdoc, OID4VP/HAIP) are not mature enough. That would be decided by its own ADR at W3 start.
 

@@ -14,7 +14,7 @@ Insiders, coerced operators and compromised support tooling are named adversarie
 ### 1. Zero standing production privilege
 Operators have no routine access to customer data or unrestricted infrastructure administration. All privilege is **requested for a purpose, approved, time-bounded, scoped, attributable and auto-revoked**.
 
-### 2. OPS service (in `platform-control`)
+### 2. OPS service (`operator_access` module)
 
 | Control | Implementation |
 |---|---|

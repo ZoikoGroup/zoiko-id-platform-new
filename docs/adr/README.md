@@ -40,6 +40,12 @@ Process and numbering: [ADR-0000](0000-record-architecture-decisions.md). Produc
 | [0022](0022-internal-transport-http-json.md) | HTTP/JSON internal transport | — | Proposed |
 | [0023](0023-temporal-workflows.md) | Temporal for long-running workflows | — | Proposed |
 
+## Deployment architecture
+
+| ADR | Title | Implements | Status |
+|---|---|---|---|
+| [0031](0031-modular-monolith.md) | **Modular monolith**: one package and image, `cell`/`global` roles, boundaries enforced by architecture tests | ZID-SVC-001 §4 | Proposed |
+
 ## Platform security, evidence and operations decisions
 The Build Guideline requires an ADR for material decisions on identity, evidence, cryptography and tenancy. These record how the spec rules are implemented.
 
