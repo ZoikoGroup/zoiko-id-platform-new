@@ -44,7 +44,7 @@ class CheckResult:
 
 
 async def check_database(engine: AsyncEngine | None, required_schemas: tuple[str, ...]) -> CheckResult:
-    """Readiness: the database answers and the schemas this unit's tables live in exist."""
+    """Readiness: the database answers and the schemas this role's tables live in exist."""
     if engine is None:
         return CheckResult("database", False, "not configured (ZID_DATABASE_URL unset)")
     try:

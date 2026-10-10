@@ -254,7 +254,7 @@ deploy/
 ├── tofu/
 │   ├── modules/{env-baseline,global-plane,cell,eks,aurora,msk,kms-hsm,observability}/
 │   └── live/{dev,int-qa,sec,perf,preprod,prod,recovery}/   one folder per environment; cells inside
-├── helm/charts/             one chart per backend unit + one per frontend app
+├── helm/charts/             one chart for the backend image (values per role/cell) + one per frontend app
 ├── argocd/cells/            app-of-apps per cell
 └── policies/kyverno/        admission: signed images, provenance, no privileged pods
 ```
