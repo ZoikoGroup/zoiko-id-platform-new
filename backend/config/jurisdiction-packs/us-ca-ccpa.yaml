@@ -1,0 +1,24 @@
+# status: DRAFT — ENGINEERING SKELETON. NOT LEGAL ADVICE. Not deployable until Legal/DPO approve (ADR-0007).
+# approval_ref: null
+# version: 0.1.0
+# Source: ZID-PRIV-001 §0.1, §4, §20-21, §24, §26, §31. Content below is only what the spec states;
+# every field marked COUNSEL is left for counsel to set. Engineers must not fill COUNSEL fields.
+
+pack_id: us-ca-ccpa
+framework: "California CCPA/CPRA + 2026 regulations"
+position: "US state privacy baseline for covered processing"
+model: "Jurisdiction-policy adapter over the canonical ProcessingActivity/RightsRequest/RetentionRule/Consent models (§21)"
+permission_model: US_STATE_PERMISSION     # §4: pack determines rights, not an EU-style basis label
+rights: [know_access, delete, correct, opt_out_sale_share, limit_sensitive_pi, admt_access, admt_opt_out]
+request_verification:
+  delete_correct_know_admt_access: "reasonable request verification"
+  opt_out_limit_admt_opt_out: "must not impose identity verification where the regulations prohibit it"
+preference_signals: [global_privacy_control]   # handled by preference-ingress where processing is covered
+automated_decisions:
+  rule: "2026 CCPA regulations: ADMT access/opt-out/risk-assessment requirements"
+  effective_date_significant_decisions: "2027-01-01"
+  engineering: "Feature flag/rights engine supports access/opt-out/appeal with staged effective dates"
+risk_assessment_and_cybersecurity_audit: "phased timetable per 2026 regulations — dates: COUNSEL"
+data_broker_registration: "Delete Act/DROP only if Zoiko or applicable entity is legally a registered data broker — COUNSEL determines"
+rights_response_deadlines: COUNSEL
+retention_overrides: COUNSEL

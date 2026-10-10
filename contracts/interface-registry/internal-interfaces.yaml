@@ -1,0 +1,256 @@
+# status: DRAFT (doc-derived; not approved)
+# approval_ref: null   # set when the named approver signs off; releases are immutable after that
+# version: 0.1.0
+# owner: Chief Architect + each interface owner. Source: ZID-SVC-001 §22 (fields), §25 (representative registry),
+# §17 (dependency rules), §28 (latency budgets). Fields the spec does not state are TBD_BY_OWNER.
+
+interfaces:
+  - interface_id: IF-001
+    service_id: identity-runtime/authentication
+    route: "POST /internal/authn/assertions:verify"
+    type: DECISION
+    purpose: "Verify current authentication assertion/context"
+    profile: "R2/R3 capable"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-002
+    service_id: identity-runtime/session
+    route: "POST /internal/tokens:exchange"
+    type: COMMAND
+    purpose: "Issue downstream audience-bound token"
+    profile: "RFC 8693 profile"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: required
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-003
+    service_id: authorization-runtime/relationship
+    route: "POST /internal/relationships:check"
+    type: QUERY
+    purpose: "Relation membership/revision query"
+    profile: "Bounded/strong profile"
+    consistency: BOUNDED
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-004
+    service_id: platform-control/policy_authoring
+    route: "GET /internal/policy-releases/{id}/bundle"
+    type: QUERY
+    purpose: "Fetch immutable compiled policy bundle"
+    profile: "Cacheable immutable"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-005
+    service_id: authorization-runtime/decision
+    route: "POST /internal/authorization:evaluate"
+    type: DECISION
+    purpose: "Primary PDP evaluation"
+    profile: "Critical path"
+    consistency: STRONG
+    version: v1
+    slo: "p95 <40ms R0/R1, <60ms R2/R3 (ZID-SVC-001 §28)"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-006
+    service_id: trust-services/organization
+    route: "POST /internal/authority-roots:resolve"
+    type: DECISION
+    purpose: "Resolve sufficient organizational root"
+    profile: "R2/R3 fail closed"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-007
+    service_id: authority-runtime/authority
+    route: "POST /internal/authority:resolve"
+    type: DECISION
+    purpose: "Resolve complete authority chain"
+    profile: "Critical path"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-008
+    service_id: authority-runtime/mandate
+    route: "POST /internal/mandates/{id}:reserve"
+    type: COMMAND
+    purpose: "Reserve consumable capacity"
+    profile: "Home-cell writer"
+    consistency: STRONG
+    version: v1
+    slo: "p95 <=15ms home cell (ZID-SVC-001 §28)"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: required
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-009
+    service_id: authority-runtime/mandate
+    route: "POST /internal/mandates/{id}/reservations/{rid}:commit"
+    type: COMMAND
+    purpose: "Commit protected effect"
+    profile: "Commit recheck"
+    consistency: STRONG
+    version: v1
+    slo: "p95 <=15ms home cell (ZID-SVC-001 §28)"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: required
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-010
+    service_id: authority-runtime/machine
+    route: "POST /internal/workloads:resolve"
+    type: QUERY
+    purpose: "Map workload identity to machine principal"
+    profile: "Critical machine path"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-011
+    service_id: trust-services/verification
+    route: "POST /internal/verifications:rely"
+    type: DECISION
+    purpose: "Evaluate verification assertion reliance"
+    profile: "Assurance/freshness"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-012
+    service_id: trust-services/credential
+    route: "POST /internal/presentations:verify"
+    type: DECISION
+    purpose: "Verify credential presentation/status"
+    profile: "Trust policy"
+    consistency: BOUNDED
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-013
+    service_id: security-evidence/signals
+    route: "GET /internal/security-state/{type}/{id}"
+    type: QUERY
+    purpose: "Current state/revisions"
+    profile: "Priority/critical"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-014
+    service_id: security-evidence/evidence
+    route: "POST /internal/evidence/envelopes"
+    type: COMMAND
+    purpose: "Submit typed evidence envelope"
+    profile: "Durable ingest"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: required
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+  - interface_id: IF-015
+    service_id: enterprise-integration/integration
+    route: "GET /internal/integrations/{id}/release"
+    type: QUERY
+    purpose: "Read immutable integration mapping release"
+    profile: "Cacheable versioned"
+    consistency: STRONG
+    version: v1
+    slo: "TBD_BY_OWNER"
+    data_class: TBD_BY_OWNER
+    tenant_scope: tenant
+    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    idempotency: n/a
+    evidence_class: TBD_BY_OWNER
+    dependencies: TBD_BY_OWNER
+    deprecation: none
+
+external_interfaces:
+  - interface_id: IF-EXT-001
+    service_id: authorization-runtime/decision
+    route: "AuthZEN Authorization API 1.0 evaluation endpoint (authz.id.zoiko.com)"
+    type: DECISION
+    consistency: STRONG
+    slo: "p95 <40ms R0/R1, <60ms R2/R3"
+    contract: "OpenID AuthZEN 1.0; Zoiko extensions namespaced and optional (ZID-API-001 §9)"

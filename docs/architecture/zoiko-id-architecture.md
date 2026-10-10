@@ -725,13 +725,13 @@ The first customer bar (Brief §7) must be demonstrable at the end of W1–W2: o
 
 | # | Question | Owner | Needed by |
 |---|---|---|---|
-| Q1 | UK residency DR: in-region multi-AZ only, or `eu-1` as an approved recovery cell? | Legal + residency owner | Before G4 |
-| Q2 | Which duplicate spec is authoritative: Crypto "Machine Identity" vs "Secrets", Observability "Incident Response" vs "Resilience & DR"? | Architecture Chair | G0 |
+| Q1 | UK residency DR. **Doc default applied** ([cells.yaml](../../backend/config/cells/cells.yaml)): cross-border transfer is DENY by default (TENANCY §0.1), so `uk-1` has no approved recovery cell; recovery is in-region multi-AZ, and the tenant explicitly accepts a different regional-disaster RTO/RPO (ARCH §15.3). **Still open:** Legal may approve `eu-1` per tenant contract. | Legal + residency owner | Before G4 |
+| ~~Q2~~ | ~~Duplicate specs~~ **Resolved by ZID-SEC-001 §33** ([CR-005](../specs/change-requests/CR-005-master-sequence-reconciliation.md)): canonical Doc 18 = ZID-CRYPTO-MI-001 (CRYPTO-001 superseded); Doc 19 = ZID-TENANCY-001 and Doc 23 = ZID-SRE-001, with RESILIENCE-001 and OPS-001 supplementary until reconciled. Architecture Chair records it in the Guideline. | — | Closed |
 | Q3 | Python EUDI libraries (mdoc, OID4VP/HAIP) vs a Kotlin CRED service | Credentials lead | Start of W3 |
-| Q4 | Temporal self-hosted per cell (residency) vs Temporal Cloud (where its regions satisfy the profile) | Platform lead | W1 |
+| ~~Q4~~ | ~~Temporal hosting~~ **Resolved by ZID-TENANCY-001 §6, §20**: workflow state is tenant processing, so it must satisfy the residency coverage matrix and the dependency-sovereignty gate. **Self-hosted per cell** (ADR-0023); a managed service is allowed only for a profile whose gate it passes. | — | Closed |
 | ~~Q5~~ | ~~Evidence checkpoint anchoring target~~ **Resolved by the Evidence spec §10–11; see ADR-0024**: no public blockchain; signed Merkle checkpoints, checkpoint witnesses and optional RFC 3161 TSA | — | Closed |
-| Q6 | First design-partner IdP for the overlay proof (Entra or Okta) | Product | W1 start |
-| Q7 | Counsel-approved jurisdiction packs and legal role map for launch tenants | Legal / DPO | Before G4 |
+| Q6 | First design-partner IdP for the overlay proof. The specs treat Entra, Okta and Ping equally (OVERLAY §8, test OVL: "Entra/Okta/Ping onboarding…"); the Readiness plan requires proof against **at least one**. Product chooses based on the design partner. | Product | W1 start |
+| Q7 | Jurisdiction packs: **engineering drafts written from ZID-PRIV-001** for EU GDPR, UK GDPR/DUAA and California CCPA ([backend/config/jurisdiction-packs/](../../backend/config/jurisdiction-packs/)). Fields marked COUNSEL (deadlines, retention, backup windows, data-broker status) and the role map need Legal/DPO approval. | Legal / DPO | Before G4 |
 
 ---
 

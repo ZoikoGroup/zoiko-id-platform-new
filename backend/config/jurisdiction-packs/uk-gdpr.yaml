@@ -1,0 +1,23 @@
+# status: DRAFT — ENGINEERING SKELETON. NOT LEGAL ADVICE. Not deployable until Legal/DPO approve (ADR-0007).
+# approval_ref: null
+# version: 0.1.0
+# Source: ZID-PRIV-001 §0.1, §4, §20-21, §24, §26, §31. Content below is only what the spec states;
+# every field marked COUNSEL is left for counsel to set. Engineers must not fill COUNSEL fields.
+
+pack_id: uk-gdpr
+framework: "UK GDPR + DPA 2018 + DUAA 2025"
+position: "Current UK privacy baseline; DUAA data-protection provisions fully in force by June 2026"
+lawful_basis_classes:   # ZID-PRIV-001 §4 (common engine; pack selects what applies)
+  [CONSENT, CONTRACT, LEGAL_OBLIGATION, LEGITIMATE_INTERESTS, PUBLIC_TASK, VITAL_INTERESTS, SPECIAL_CATEGORY_CONDITION]
+no_false_consent: true      # do not ask for consent when another mandatory basis applies
+
+automated_decisions:
+  rule: "DUAA 2025: more permissive framework for significant automated decisions while retaining safeguards"
+  engineering: "Record lawful basis/special-category limits plus notice, representation, challenge and human-intervention workflow"
+complaints:
+  rule: "DUAA complaint-process requirements: electronic complaint access, acknowledgement and response handling (§26)"
+rights_response_deadlines: COUNSEL
+international_transfers:
+  supported_mechanisms: [uk_adequacy_regulations, uk_idta, uk_addendum_to_eu_sccs]
+retention_overrides: COUNSEL
+backup_erasure_window: COUNSEL

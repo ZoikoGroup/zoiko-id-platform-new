@@ -1,0 +1,1494 @@
+# Canonical event catalogue. GENERATED from the 'Mandatory ... Events' sections of the canonical specs.
+# CloudEvents type rule: com.zoiko.id.<domain>.<noun>.<past-tense>.v<major> (ZID-EVENTS-001 §3).
+# 'lane' is derived (priority = revocation/compromise/security state; evidence = receipts/checkpoints)
+# and must be confirmed by the owning module when the AsyncAPI channel is written.
+
+events:
+  agent.activated:
+    cloudevents_type: com.zoiko.id.agent.activated.v1
+    meaning: "Agent active."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  agent.blueprint.approved:
+    cloudevents_type: com.zoiko.id.agent.blueprint.approved.v1
+    meaning: "Blueprint release approved."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  agent.blueprint.revoked:
+    cloudevents_type: com.zoiko.id.agent.blueprint.revoked.v1
+    meaning: "Blueprint/artifact quarantined."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  agent.registered:
+    cloudevents_type: com.zoiko.id.agent.registered.v1
+    meaning: "Logical agent created."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  agent.revoked:
+    cloudevents_type: com.zoiko.id.agent.revoked.v1
+    meaning: "Agent revoked."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  agent.suspended:
+    cloudevents_type: com.zoiko.id.agent.suspended.v1
+    meaning: "Agent suspended."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  application.activated:
+    cloudevents_type: com.zoiko.id.application.activated.v1
+    meaning: "Application/PEP registration active."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  approval.decided:
+    cloudevents_type: com.zoiko.id.approval.decided.v1
+    meaning: "Approval/denial recorded."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  approval.invalidated:
+    cloudevents_type: com.zoiko.id.approval.invalidated.v1
+    meaning: "Transaction/context changed."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  approval.requested:
+    cloudevents_type: com.zoiko.id.approval.requested.v1
+    meaning: "Approval created."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  artifact.published:
+    cloudevents_type: com.zoiko.id.artifact.published.v1
+    meaning: "Immutable artifact available."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  artifact.quarantined:
+    cloudevents_type: com.zoiko.id.artifact.quarantined.v1
+    meaning: "Artifact blocked after policy/security finding."
+    source: ZID-DEVSECOPS-001
+    lane: priority
+    source_status: "canonical"
+  artifact.signed:
+    cloudevents_type: com.zoiko.id.artifact.signed.v1
+    meaning: "Signature/attestation created."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  authentication.failed:
+    cloudevents_type: com.zoiko.id.authentication.failed.v1
+    meaning: "Failed attempt; privacy-safe reason"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  authentication.step_up.required:
+    cloudevents_type: com.zoiko.id.authentication.step_up.required.v1
+    meaning: "Policy requires stronger/recent auth"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  authentication.succeeded:
+    cloudevents_type: com.zoiko.id.authentication.succeeded.v1
+    meaning: "Successful authentication context"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  authenticator.registered:
+    cloudevents_type: com.zoiko.id.authenticator.registered.v1
+    meaning: "New authenticator"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  authenticator.revoked:
+    cloudevents_type: com.zoiko.id.authenticator.revoked.v1
+    meaning: "Revocation/loss/replacement"
+    source: ZID-AUTH-001
+    lane: priority
+    source_status: "canonical"
+  authority.chain.invalidated:
+    cloudevents_type: com.zoiko.id.authority.chain.invalidated.v1
+    meaning: "Root/parent change invalidated chain."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  authority.grant.activated:
+    cloudevents_type: com.zoiko.id.authority.grant.activated.v1
+    meaning: "Grant active."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  authority.grant.created:
+    cloudevents_type: com.zoiko.id.authority.grant.created.v1
+    meaning: "Grant drafted/created."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  authority.grant.revoked:
+    cloudevents_type: com.zoiko.id.authority.grant.revoked.v1
+    meaning: "Grant revoked."
+    source: ZID-MANDATE-001
+    lane: priority
+    source_status: "canonical"
+  authority.grant.superseded:
+    cloudevents_type: com.zoiko.id.authority.grant.superseded.v1
+    meaning: "Replaced by new grant."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  authority.grant.suspended:
+    cloudevents_type: com.zoiko.id.authority.grant.suspended.v1
+    meaning: "Grant suspended."
+    source: ZID-MANDATE-001
+    lane: priority
+    source_status: "canonical"
+  authority_root.activated:
+    cloudevents_type: com.zoiko.id.authority_root.activated.v1
+    meaning: "Root active."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  authority_root.conflicted:
+    cloudevents_type: com.zoiko.id.authority_root.conflicted.v1
+    meaning: "Source conflict detected."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  authority_root.created:
+    cloudevents_type: com.zoiko.id.authority_root.created.v1
+    meaning: "Candidate root created."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  authority_root.revoked:
+    cloudevents_type: com.zoiko.id.authority_root.revoked.v1
+    meaning: "Root revoked."
+    source: ZID-ROOT-001
+    lane: priority
+    source_status: "canonical"
+  authority_root.stale:
+    cloudevents_type: com.zoiko.id.authority_root.stale.v1
+    meaning: "Freshness expired."
+    source: ZID-ROOT-001
+    lane: priority
+    source_status: "canonical"
+  authority_root.superseded:
+    cloudevents_type: com.zoiko.id.authority_root.superseded.v1
+    meaning: "New root/version replaced old."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  authority_root.suspended:
+    cloudevents_type: com.zoiko.id.authority_root.suspended.v1
+    meaning: "Root paused."
+    source: ZID-ROOT-001
+    lane: priority
+    source_status: "canonical"
+  backup.completed:
+    cloudevents_type: com.zoiko.id.backup.completed.v1
+    meaning: "Backup completed and cataloged."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  backup.verification.failed:
+    cloudevents_type: com.zoiko.id.backup.verification.failed.v1
+    meaning: "Backup integrity/restore validation failed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  board_resolution.verified:
+    cloudevents_type: com.zoiko.id.board_resolution.verified.v1
+    meaning: "Resolution root verified."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  breakglass.release_used:
+    cloudevents_type: com.zoiko.id.breakglass.release_used.v1
+    meaning: "Emergency deployment path invoked."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  build.completed:
+    cloudevents_type: com.zoiko.id.build.completed.v1
+    meaning: "Trusted build lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  build.started:
+    cloudevents_type: com.zoiko.id.build.started.v1
+    meaning: "Trusted build lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  cell.capability.changed:
+    cloudevents_type: com.zoiko.id.cell.capability.changed.v1
+    meaning: "Cell residency/service capability changed."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  cell.capacity.threshold:
+    cloudevents_type: com.zoiko.id.cell.capacity.threshold.v1
+    meaning: "Placement/capacity threshold crossed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  cell.quarantined:
+    cloudevents_type: com.zoiko.id.cell.quarantined.v1
+    meaning: "Cell or dependency cannot accept placement/new writes."
+    source: ZID-TENANCY-001
+    lane: priority
+    source_status: "canonical"
+  cell.status.changed:
+    cloudevents_type: com.zoiko.id.cell.status.changed.v1
+    meaning: "Cell health/operational state changed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  client.credential.rotated:
+    cloudevents_type: com.zoiko.id.client.credential.rotated.v1
+    meaning: "OAuth/SAML client credential/key change"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  connector.quarantined:
+    cloudevents_type: com.zoiko.id.connector.quarantined.v1
+    meaning: "Integration source quarantined."
+    source: ZID-OVERLAY-001
+    lane: priority
+    source_status: "canonical"
+  credential.configuration.activated:
+    cloudevents_type: com.zoiko.id.credential.configuration.activated.v1
+    meaning: "Credential configuration activated."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  credential.issuance.started:
+    cloudevents_type: com.zoiko.id.credential.issuance.started.v1
+    meaning: "Issuance transaction created."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  credential.issued:
+    cloudevents_type: com.zoiko.id.credential.issued.v1
+    meaning: "Credential issuance completed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  credential.profile.deprecated:
+    cloudevents_type: com.zoiko.id.credential.profile.deprecated.v1
+    meaning: "Protocol/format profile scheduled for retirement."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  credential.revoked:
+    cloudevents_type: com.zoiko.id.credential.revoked.v1
+    meaning: "Issued credential revoked where Zoiko is issuer."
+    source: ZID-VC-001
+    lane: priority
+    source_status: "canonical"
+  credential.status.changed:
+    cloudevents_type: com.zoiko.id.credential.status.changed.v1
+    meaning: "Known credential status changed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  cross_cell_transfer.authorized:
+    cloudevents_type: com.zoiko.id.cross_cell_transfer.authorized.v1
+    meaning: "Controlled transfer authorization created."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  cross_cell_transfer.completed:
+    cloudevents_type: com.zoiko.id.cross_cell_transfer.completed.v1
+    meaning: "Approved transfer completed/evidenced."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  crypto.certificate.issued:
+    cloudevents_type: com.zoiko.id.crypto.certificate.issued.v1
+    meaning: "Certificate issued."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.certificate.revoked:
+    cloudevents_type: com.zoiko.id.crypto.certificate.revoked.v1
+    meaning: "Certificate/CA status revoked."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  crypto.crypto_erasure.completed:
+    cloudevents_type: com.zoiko.id.crypto.crypto_erasure.completed.v1
+    meaning: "Subject/object key destruction completed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.customer_key.changed:
+    cloudevents_type: com.zoiko.id.crypto.customer_key.changed.v1
+    meaning: "CMK/BYOK/HYOK lifecycle change."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.dek.rewrapped:
+    cloudevents_type: com.zoiko.id.crypto.dek.rewrapped.v1
+    meaning: "Wrapped data key moved to new KEK."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.hsm.ceremony.completed:
+    cloudevents_type: com.zoiko.id.crypto.hsm.ceremony.completed.v1
+    meaning: "Protected key ceremony completed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.key.activated:
+    cloudevents_type: com.zoiko.id.crypto.key.activated.v1
+    meaning: "Key became active."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.key.compromised:
+    cloudevents_type: com.zoiko.id.crypto.key.compromised.v1
+    meaning: "Compromise state entered."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  crypto.key.created:
+    cloudevents_type: com.zoiko.id.crypto.key.created.v1
+    meaning: "Logical key created."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.key.destroyed:
+    cloudevents_type: com.zoiko.id.crypto.key.destroyed.v1
+    meaning: "Secret/private material irreversibly destroyed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.key.retired:
+    cloudevents_type: com.zoiko.id.crypto.key.retired.v1
+    meaning: "No new cryptographic creation allowed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.key.revoked:
+    cloudevents_type: com.zoiko.id.crypto.key.revoked.v1
+    meaning: "Key security use revoked."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  crypto.key.rotated:
+    cloudevents_type: com.zoiko.id.crypto.key.rotated.v1
+    meaning: "Successor activated / prior transitioned."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.module.validation_changed:
+    cloudevents_type: com.zoiko.id.crypto.module.validation_changed.v1
+    meaning: "Deployed module/FIPS validation/profile status changed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.policy.activated:
+    cloudevents_type: com.zoiko.id.crypto.policy.activated.v1
+    meaning: "Algorithm/key policy release active."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.policy.emergency_revoked:
+    cloudevents_type: com.zoiko.id.crypto.policy.emergency_revoked.v1
+    meaning: "Crypto profile disabled."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  crypto.pq_fallback.observed:
+    cloudevents_type: com.zoiko.id.crypto.pq_fallback.observed.v1
+    meaning: "Hybrid/PQ-required/preferred path fell back to classical."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.secret.issued:
+    cloudevents_type: com.zoiko.id.crypto.secret.issued.v1
+    meaning: "Dynamic/leased secret issued."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  crypto.secret.revoked:
+    cloudevents_type: com.zoiko.id.crypto.secret.revoked.v1
+    meaning: "Secret invalidated."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  crypto.secret.rotated:
+    cloudevents_type: com.zoiko.id.crypto.secret.rotated.v1
+    meaning: "Secret version changed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  dependency.residency_changed:
+    cloudevents_type: com.zoiko.id.dependency.residency_changed.v1
+    meaning: "Subprocessor/dependency geography/control changed."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  dr.exercise.completed:
+    cloudevents_type: com.zoiko.id.dr.exercise.completed.v1
+    meaning: "DR exercise result recorded."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  environment.quarantined:
+    cloudevents_type: com.zoiko.id.environment.quarantined.v1
+    meaning: "Environment blocked."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  eudi.rp_registration.changed:
+    cloudevents_type: com.zoiko.id.eudi.rp_registration.changed.v1
+    meaning: "RP registration/purpose changed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  event.bridge.lag_high:
+    cloudevents_type: com.zoiko.id.event.bridge.lag_high.v1
+    meaning: "Cross-cell replication lag exceeded."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  event.consumer.quarantined:
+    cloudevents_type: com.zoiko.id.event.consumer.quarantined.v1
+    meaning: "Poison/permanent consumer failure."
+    source: ZID-EVENTS-001
+    lane: priority
+    source_status: "canonical"
+  event.outbox.backlog_high:
+    cloudevents_type: com.zoiko.id.event.outbox.backlog_high.v1
+    meaning: "Producer outbox exceeds threshold."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  event.publish.failed:
+    cloudevents_type: com.zoiko.id.event.publish.failed.v1
+    meaning: "Broker publication repeatedly failed."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  event.schema.rejected:
+    cloudevents_type: com.zoiko.id.event.schema.rejected.v1
+    meaning: "Producer event failed contract."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  evidence.audit.committed:
+    cloudevents_type: com.zoiko.id.evidence.audit.committed.v1
+    meaning: "Protected audit record committed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.case.created:
+    cloudevents_type: com.zoiko.id.evidence.case.created.v1
+    meaning: "Case opened."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.checkpoint.anchored:
+    cloudevents_type: com.zoiko.id.evidence.checkpoint.anchored.v1
+    meaning: "Optional external timestamp/anchor completed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.checkpoint.created:
+    cloudevents_type: com.zoiko.id.evidence.checkpoint.created.v1
+    meaning: "Merkle/checkpoint manifest signed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.custody.changed:
+    cloudevents_type: com.zoiko.id.evidence.custody.changed.v1
+    meaning: "Evidence transferred/accessed/exported."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.deleted:
+    cloudevents_type: com.zoiko.id.evidence.deleted.v1
+    meaning: "Eligible raw evidence deleted."
+    source: ZID-VERIFY-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.export.accessed:
+    cloudevents_type: com.zoiko.id.evidence.export.accessed.v1
+    meaning: "Package accessed/downloaded."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.export.created:
+    cloudevents_type: com.zoiko.id.evidence.export.created.v1
+    meaning: "Signed package created."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.integrity.failed:
+    cloudevents_type: com.zoiko.id.evidence.integrity.failed.v1
+    meaning: "Hash/signature/ledger inconsistency detected."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.key.rotated:
+    cloudevents_type: com.zoiko.id.evidence.key.rotated.v1
+    meaning: "Evidence signing/checkpoint key lifecycle event."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.legal_hold.created:
+    cloudevents_type: com.zoiko.id.evidence.legal_hold.created.v1
+    meaning: "Hold applied."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.legal_hold.released:
+    cloudevents_type: com.zoiko.id.evidence.legal_hold.released.v1
+    meaning: "Hold removed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.legal_hold_applied:
+    cloudevents_type: com.zoiko.id.evidence.legal_hold_applied.v1
+    meaning: "Retention overridden by legal hold."
+    source: ZID-VERIFY-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.object.erased:
+    cloudevents_type: com.zoiko.id.evidence.object.erased.v1
+    meaning: "Eligible object/key deleted."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.object.stored:
+    cloudevents_type: com.zoiko.id.evidence.object.stored.v1
+    meaning: "Supporting artifact stored."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.receipt.committed:
+    cloudevents_type: com.zoiko.id.evidence.receipt.committed.v1
+    meaning: "DecisionReceipt durably committed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.receipt.invalidated:
+    cloudevents_type: com.zoiko.id.evidence.receipt.invalidated.v1
+    meaning: "Historic receipt reliability invalidated by append-only record."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.receipt.replay_completed:
+    cloudevents_type: com.zoiko.id.evidence.receipt.replay_completed.v1
+    meaning: "Replay result produced."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.receipt.verified:
+    cloudevents_type: com.zoiko.id.evidence.receipt.verified.v1
+    meaning: "Receipt integrity verification performed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  evidence.retention.deleted:
+    cloudevents_type: com.zoiko.id.evidence.retention.deleted.v1
+    meaning: "Scheduled deletion executed."
+    source: ZID-EVIDENCE-001
+    lane: evidence
+    source_status: "canonical"
+  external_identity.linked:
+    cloudevents_type: com.zoiko.id.external_identity.linked.v1
+    meaning: "External source identity linked to canonical principal."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  external_identity.unlinked:
+    cloudevents_type: com.zoiko.id.external_identity.unlinked.v1
+    meaning: "Link suspended/revoked."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  federation.anchor.changed:
+    cloudevents_type: com.zoiko.id.federation.anchor.changed.v1
+    meaning: "Trust anchor lifecycle changed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  federation.entity.changed:
+    cloudevents_type: com.zoiko.id.federation.entity.changed.v1
+    meaning: "Entity metadata/trust chain changed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  federation.link.created:
+    cloudevents_type: com.zoiko.id.federation.link.created.v1
+    meaning: "External identity linked"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  federation.link.revoked:
+    cloudevents_type: com.zoiko.id.federation.link.revoked.v1
+    meaning: "Link revoked"
+    source: ZID-AUTH-001
+    lane: priority
+    source_status: "canonical"
+  federation.metadata.changed:
+    cloudevents_type: com.zoiko.id.federation.metadata.changed.v1
+    meaning: "Issuer/key/metadata material change"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  identity_source.created:
+    cloudevents_type: com.zoiko.id.identity_source.created.v1
+    meaning: "OIDC/SAML/native source configured."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  identity_source.trust_changed:
+    cloudevents_type: com.zoiko.id.identity_source.trust_changed.v1
+    meaning: "Metadata/key/source trust changed."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  infrastructure.drift_detected:
+    cloudevents_type: com.zoiko.id.infrastructure.drift_detected.v1
+    meaning: "Desired/actual infrastructure diverged."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  issuer.trust.changed:
+    cloudevents_type: com.zoiko.id.issuer.trust.changed.v1
+    meaning: "Issuer trust decision changed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  machine.attestation.failed:
+    cloudevents_type: com.zoiko.id.machine.attestation.failed.v1
+    meaning: "Required workload attestation failed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  machine.environment.quarantined:
+    cloudevents_type: com.zoiko.id.machine.environment.quarantined.v1
+    meaning: "Runtime environment quarantined."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  machine.security_revision.changed:
+    cloudevents_type: com.zoiko.id.machine.security_revision.changed.v1
+    meaning: "Machine principal/binding security state changed."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  machine.trust_domain.changed:
+    cloudevents_type: com.zoiko.id.machine.trust_domain.changed.v1
+    meaning: "Trust-domain bundle/federation state changed."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  machine.workload.binding_revoked:
+    cloudevents_type: com.zoiko.id.machine.workload.binding_revoked.v1
+    meaning: "Workload-to-principal binding revoked."
+    source: ZID-CRYPTO-MI-001
+    lane: priority
+    source_status: "canonical"
+  machine.workload.credential_issued:
+    cloudevents_type: com.zoiko.id.machine.workload.credential_issued.v1
+    meaning: "Short-lived SVID/certificate/token issued."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  machine.workload.credential_rotated:
+    cloudevents_type: com.zoiko.id.machine.workload.credential_rotated.v1
+    meaning: "Machine credential rotated."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  machine.workload.registered:
+    cloudevents_type: com.zoiko.id.machine.workload.registered.v1
+    meaning: "Workload identity registration/binding created."
+    source: ZID-CRYPTO-MI-001
+    lane: domain
+    source_status: "canonical"
+  mandate.activated:
+    cloudevents_type: com.zoiko.id.mandate.activated.v1
+    meaning: "Mandate active."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.completed:
+    cloudevents_type: com.zoiko.id.mandate.completed.v1
+    meaning: "Task completed."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.created:
+    cloudevents_type: com.zoiko.id.mandate.created.v1
+    meaning: "Mandate created."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.exhausted:
+    cloudevents_type: com.zoiko.id.mandate.exhausted.v1
+    meaning: "Budget exhausted."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.paused:
+    cloudevents_type: com.zoiko.id.mandate.paused.v1
+    meaning: "Mandate paused."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.reconciliation.required:
+    cloudevents_type: com.zoiko.id.mandate.reconciliation.required.v1
+    meaning: "Execution outcome uncertain."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.reservation.committed:
+    cloudevents_type: com.zoiko.id.mandate.reservation.committed.v1
+    meaning: "Capacity consumed."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.reservation.created:
+    cloudevents_type: com.zoiko.id.mandate.reservation.created.v1
+    meaning: "Capacity reserved."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.reservation.expired:
+    cloudevents_type: com.zoiko.id.mandate.reservation.expired.v1
+    meaning: "Lease expired."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.reservation.released:
+    cloudevents_type: com.zoiko.id.mandate.reservation.released.v1
+    meaning: "Capacity returned."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mandate.revoked:
+    cloudevents_type: com.zoiko.id.mandate.revoked.v1
+    meaning: "Mandate revoked."
+    source: ZID-MANDATE-001
+    lane: priority
+    source_status: "canonical"
+  mandate.writer.promoted:
+    cloudevents_type: com.zoiko.id.mandate.writer.promoted.v1
+    meaning: "Home writer epoch changed."
+    source: ZID-MANDATE-001
+    lane: domain
+    source_status: "canonical"
+  mapping_release.activated:
+    cloudevents_type: com.zoiko.id.mapping_release.activated.v1
+    meaning: "Mapping release became active."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  migration.completed:
+    cloudevents_type: com.zoiko.id.migration.completed.v1
+    meaning: "Database/state migration evidence."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  migration.failed:
+    cloudevents_type: com.zoiko.id.migration.failed.v1
+    meaning: "Database/state migration evidence."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  migration.started:
+    cloudevents_type: com.zoiko.id.migration.started.v1
+    meaning: "Database/state migration evidence."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  onboarding.pilot_started:
+    cloudevents_type: com.zoiko.id.onboarding.pilot_started.v1
+    meaning: "Scoped enforcement pilot began."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  onboarding.rollback:
+    cloudevents_type: com.zoiko.id.onboarding.rollback.v1
+    meaning: "Production rollout rolled back."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  onboarding.shadow_started:
+    cloudevents_type: com.zoiko.id.onboarding.shadow_started.v1
+    meaning: "Shadow evaluation began."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  ops.backup.restore_verified:
+    cloudevents_type: com.zoiko.id.ops.backup.restore_verified.v1
+    meaning: "Restore-validation event."
+    source: ZID-SRE-001
+    lane: domain
+    source_status: "canonical"
+  ops.capacity.threshold_crossed:
+    cloudevents_type: com.zoiko.id.ops.capacity.threshold_crossed.v1
+    meaning: "Capacity forecast/action event."
+    source: ZID-SRE-001
+    lane: domain
+    source_status: "canonical"
+  ops.slo.budget_state_changed:
+    cloudevents_type: com.zoiko.id.ops.slo.budget_state_changed.v1
+    meaning: "Error-budget governance event."
+    source: ZID-SRE-001
+    lane: domain
+    source_status: "canonical"
+  organization.control_changed:
+    cloudevents_type: com.zoiko.id.organization.control_changed.v1
+    meaning: "Ownership/PSC/control changed."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.identifier_changed:
+    cloudevents_type: com.zoiko.id.organization.identifier_changed.v1
+    meaning: "LEI/EUID/local identifier linkage changed."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.officer_changed:
+    cloudevents_type: com.zoiko.id.organization.officer_changed.v1
+    meaning: "Official role appointment/cessation detected."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.resolved:
+    cloudevents_type: com.zoiko.id.organization.resolved.v1
+    meaning: "Official organization identity established."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.source_refreshed:
+    cloudevents_type: com.zoiko.id.organization.source_refreshed.v1
+    meaning: "Registry/source data refreshed."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.status_changed:
+    cloudevents_type: com.zoiko.id.organization.status_changed.v1
+    meaning: "Legal/lifecycle status changed."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  organization.successor_changed:
+    cloudevents_type: com.zoiko.id.organization.successor_changed.v1
+    meaning: "Merger/conversion/successor relation changed."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  policy.admission_denied:
+    cloudevents_type: com.zoiko.id.policy.admission_denied.v1
+    meaning: "Runtime/deployment policy rejected artifact."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  power_of_attorney.verified:
+    cloudevents_type: com.zoiko.id.power_of_attorney.verified.v1
+    meaning: "POA root verified."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  presentation.received:
+    cloudevents_type: com.zoiko.id.presentation.received.v1
+    meaning: "Presentation response received."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  presentation.rejected:
+    cloudevents_type: com.zoiko.id.presentation.rejected.v1
+    meaning: "Verification failed/denied."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  presentation.requested:
+    cloudevents_type: com.zoiko.id.presentation.requested.v1
+    meaning: "Verifier transaction created."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  presentation.verified:
+    cloudevents_type: com.zoiko.id.presentation.verified.v1
+    meaning: "Verification completed."
+    source: ZID-VC-001
+    lane: domain
+    source_status: "canonical"
+  principal.security_revision.changed:
+    cloudevents_type: com.zoiko.id.principal.security_revision.changed.v1
+    meaning: "Security state changed"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  privacy.backup_erasure.completed:
+    cloudevents_type: com.zoiko.id.privacy.backup_erasure.completed.v1
+    meaning: "Backup expiry/tombstone target satisfied."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.consent.given:
+    cloudevents_type: com.zoiko.id.privacy.consent.given.v1
+    meaning: "Consent became active."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.consent.withdrawn:
+    cloudevents_type: com.zoiko.id.privacy.consent.withdrawn.v1
+    meaning: "Consent withdrawn."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.data.corrected:
+    cloudevents_type: com.zoiko.id.privacy.data.corrected.v1
+    meaning: "Correction applied/superseded."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.deletion.completed:
+    cloudevents_type: com.zoiko.id.privacy.deletion.completed.v1
+    meaning: "Primary deletion/crypto-shred completed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.deletion.started:
+    cloudevents_type: com.zoiko.id.privacy.deletion.started.v1
+    meaning: "Deletion plan executing."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.legal_hold.applied:
+    cloudevents_type: com.zoiko.id.privacy.legal_hold.applied.v1
+    meaning: "Retention disposal suspended for scoped objects."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.legal_hold.released:
+    cloudevents_type: com.zoiko.id.privacy.legal_hold.released.v1
+    meaning: "Hold released."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.notice.published:
+    cloudevents_type: com.zoiko.id.privacy.notice.published.v1
+    meaning: "New notice version active."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.preference.changed:
+    cloudevents_type: com.zoiko.id.privacy.preference.changed.v1
+    meaning: "Opt-out/limit preference changed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.processing_activity.changed:
+    cloudevents_type: com.zoiko.id.privacy.processing_activity.changed.v1
+    meaning: "Processing inventory/purpose changed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.processor.deletion.confirmed:
+    cloudevents_type: com.zoiko.id.privacy.processor.deletion.confirmed.v1
+    meaning: "Processor deletion acknowledgement received."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.restriction.applied:
+    cloudevents_type: com.zoiko.id.privacy.restriction.applied.v1
+    meaning: "Processing restriction active."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.restriction.lifted:
+    cloudevents_type: com.zoiko.id.privacy.restriction.lifted.v1
+    meaning: "Restriction ended."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.retention.due:
+    cloudevents_type: com.zoiko.id.privacy.retention.due.v1
+    meaning: "Object/policy reached disposal time."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.rights.completed:
+    cloudevents_type: com.zoiko.id.privacy.rights.completed.v1
+    meaning: "Request fulfilled/closed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.rights.requested:
+    cloudevents_type: com.zoiko.id.privacy.rights.requested.v1
+    meaning: "Rights request opened."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.rights.verified:
+    cloudevents_type: com.zoiko.id.privacy.rights.verified.v1
+    meaning: "Requester verification completed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  privacy.transfer_policy.changed:
+    cloudevents_type: com.zoiko.id.privacy.transfer_policy.changed.v1
+    meaning: "Transfer/residency rule changed."
+    source: ZID-PRIV-001
+    lane: domain
+    source_status: "canonical"
+  provenance.generated:
+    cloudevents_type: com.zoiko.id.provenance.generated.v1
+    meaning: "SLSA provenance attached."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  provisioning.connector_changed:
+    cloudevents_type: com.zoiko.id.provisioning.connector_changed.v1
+    meaning: "SCIM/HR lifecycle connector state changed."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  recovery.completed:
+    cloudevents_type: com.zoiko.id.recovery.completed.v1
+    meaning: "Recovery finished"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  recovery.denied:
+    cloudevents_type: com.zoiko.id.recovery.denied.v1
+    meaning: "Recovery rejected"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  recovery.started:
+    cloudevents_type: com.zoiko.id.recovery.started.v1
+    meaning: "Recovery workflow starts"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  refresh_token.reuse_detected:
+    cloudevents_type: com.zoiko.id.refresh_token.reuse_detected.v1
+    meaning: "Probable token theft"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  release.approved:
+    cloudevents_type: com.zoiko.id.release.approved.v1
+    meaning: "Promotion authorization granted."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  release.deployed:
+    cloudevents_type: com.zoiko.id.release.deployed.v1
+    meaning: "Artifact deployed to environment/cell."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  release.rollback_completed:
+    cloudevents_type: com.zoiko.id.release.rollback_completed.v1
+    meaning: "Rollback lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  release.rollback_started:
+    cloudevents_type: com.zoiko.id.release.rollback_started.v1
+    meaning: "Rollback lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  resilience.slo.breached:
+    cloudevents_type: com.zoiko.id.resilience.slo.breached.v1
+    meaning: "RTO/RPO/availability objective missed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  restore.completed:
+    cloudevents_type: com.zoiko.id.restore.completed.v1
+    meaning: "Restore/PITR job passed gate."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  sbom.generated:
+    cloudevents_type: com.zoiko.id.sbom.generated.v1
+    meaning: "BOM attached to artifact."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  security.exception.created:
+    cloudevents_type: com.zoiko.id.security.exception.created.v1
+    meaning: "Time-bounded gate exception lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  security.exception.expired:
+    cloudevents_type: com.zoiko.id.security.exception.expired.v1
+    meaning: "Time-bounded gate exception lifecycle."
+    source: ZID-DEVSECOPS-001
+    lane: domain
+    source_status: "canonical"
+  session.created:
+    cloudevents_type: com.zoiko.id.session.created.v1
+    meaning: "Identity session created"
+    source: ZID-AUTH-001
+    lane: domain
+    source_status: "canonical"
+  session.revoked:
+    cloudevents_type: com.zoiko.id.session.revoked.v1
+    meaning: "Session invalidated"
+    source: ZID-AUTH-001
+    lane: priority
+    source_status: "canonical"
+  signing_matrix.activated:
+    cloudevents_type: com.zoiko.id.signing_matrix.activated.v1
+    meaning: "Matrix version active."
+    source: ZID-ROOT-001
+    lane: domain
+    source_status: "canonical"
+  source_adapter.quarantined:
+    cloudevents_type: com.zoiko.id.source_adapter.quarantined.v1
+    meaning: "Source integration no longer trusted."
+    source: ZID-ROOT-001
+    lane: priority
+    source_status: "canonical"
+  subagent.created:
+    cloudevents_type: com.zoiko.id.subagent.created.v1
+    meaning: "Child agent identity established."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  tenant.activated:
+    cloudevents_type: com.zoiko.id.tenant.activated.v1
+    meaning: "Production tenant state ACTIVE."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.created:
+    cloudevents_type: com.zoiko.id.tenant.created.v1
+    meaning: "DRAFT tenant created."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.deletion.completed:
+    cloudevents_type: com.zoiko.id.tenant.deletion.completed.v1
+    meaning: "Deletion/crypto-erasure completed."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.deletion.started:
+    cloudevents_type: com.zoiko.id.tenant.deletion.started.v1
+    meaning: "Deletion workflow begun."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.domain_verified:
+    cloudevents_type: com.zoiko.id.tenant.domain_verified.v1
+    meaning: "Domain-control proof completed."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.failback.completed:
+    cloudevents_type: com.zoiko.id.tenant.failback.completed.v1
+    meaning: "Normal placement restored."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.failback.started:
+    cloudevents_type: com.zoiko.id.tenant.failback.started.v1
+    meaning: "Return migration started."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.failover.completed:
+    cloudevents_type: com.zoiko.id.tenant.failover.completed.v1
+    meaning: "Recovery cell became authoritative."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.failover.failed:
+    cloudevents_type: com.zoiko.id.tenant.failover.failed.v1
+    meaning: "Promotion aborted/failed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.failover.started:
+    cloudevents_type: com.zoiko.id.tenant.failover.started.v1
+    meaning: "Disaster promotion workflow started."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.migration.completed:
+    cloudevents_type: com.zoiko.id.tenant.migration.completed.v1
+    meaning: "Old copy retired per policy."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.migration.cutover:
+    cloudevents_type: com.zoiko.id.tenant.migration.cutover.v1
+    meaning: "Placement epoch/home cell changed."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.migration.failed:
+    cloudevents_type: com.zoiko.id.tenant.migration.failed.v1
+    meaning: "Migration blocked/rolled back."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.migration.quiesced:
+    cloudevents_type: com.zoiko.id.tenant.migration.quiesced.v1
+    meaning: "Writes drained/blocked."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.migration.started:
+    cloudevents_type: com.zoiko.id.tenant.migration.started.v1
+    meaning: "Migration workflow opened."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.offboarding_started:
+    cloudevents_type: com.zoiko.id.tenant.offboarding_started.v1
+    meaning: "Offboarding workflow began."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.organization_verified:
+    cloudevents_type: com.zoiko.id.tenant.organization_verified.v1
+    meaning: "Organization/root gate satisfied."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.owner_changed:
+    cloudevents_type: com.zoiko.id.tenant.owner_changed.v1
+    meaning: "OWNER role membership changed."
+    source: ZID-OVERLAY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.placement.assigned:
+    cloudevents_type: com.zoiko.id.tenant.placement.assigned.v1
+    meaning: "Home cell/profile/epoch assigned."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.placement.changed:
+    cloudevents_type: com.zoiko.id.tenant.placement.changed.v1
+    meaning: "Tenant home/recovery placement changed."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  tenant.provisioning.started:
+    cloudevents_type: com.zoiko.id.tenant.provisioning.started.v1
+    meaning: "Tenant provisioning begins."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tenant.residency_profile.changed:
+    cloudevents_type: com.zoiko.id.tenant.residency_profile.changed.v1
+    meaning: "Approved residency profile changed."
+    source: ZID-TENANCY-001
+    lane: domain
+    source_status: "canonical"
+  tool.registered:
+    cloudevents_type: com.zoiko.id.tool.registered.v1
+    meaning: "Tool/capability active."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  tool.suspended:
+    cloudevents_type: com.zoiko.id.tool.suspended.v1
+    meaning: "Tool/capability blocked."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  verification.assertion.created:
+    cloudevents_type: com.zoiko.id.verification.assertion.created.v1
+    meaning: "Verified/unverified claim assertion written."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.assertion.expired:
+    cloudevents_type: com.zoiko.id.verification.assertion.expired.v1
+    meaning: "Assertion freshness elapsed."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.assertion.revoked:
+    cloudevents_type: com.zoiko.id.verification.assertion.revoked.v1
+    meaning: "Assertion invalidated."
+    source: ZID-VERIFY-001
+    lane: priority
+    source_status: "canonical"
+  verification.completed:
+    cloudevents_type: com.zoiko.id.verification.completed.v1
+    meaning: "Canonical terminal verification outcome."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.created:
+    cloudevents_type: com.zoiko.id.verification.created.v1
+    meaning: "Verification session created."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.fraud_signal:
+    cloudevents_type: com.zoiko.id.verification.fraud_signal.v1
+    meaning: "Security/fraud condition emitted."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.manual_review_required:
+    cloudevents_type: com.zoiko.id.verification.manual_review_required.v1
+    meaning: "Case routed for human review."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.profile.activated:
+    cloudevents_type: com.zoiko.id.verification.profile.activated.v1
+    meaning: "Profile release became active."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.provider.quarantined:
+    cloudevents_type: com.zoiko.id.verification.provider.quarantined.v1
+    meaning: "Provider/adapter removed from trust."
+    source: ZID-VERIFY-001
+    lane: priority
+    source_status: "canonical"
+  verification.provider_submitted:
+    cloudevents_type: com.zoiko.id.verification.provider_submitted.v1
+    meaning: "Provider transaction created."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.reliance.allowed:
+    cloudevents_type: com.zoiko.id.verification.reliance.allowed.v1
+    meaning: "Prior assertion reused under explicit reliance decision."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.reliance.denied:
+    cloudevents_type: com.zoiko.id.verification.reliance.denied.v1
+    meaning: "Reverification/supplement required."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  verification.started:
+    cloudevents_type: com.zoiko.id.verification.started.v1
+    meaning: "Evidence collection started."
+    source: ZID-VERIFY-001
+    lane: domain
+    source_status: "canonical"
+  webhook.delivery.exhausted:
+    cloudevents_type: com.zoiko.id.webhook.delivery.exhausted.v1
+    meaning: "No more automatic retries."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.delivery.failed:
+    cloudevents_type: com.zoiko.id.webhook.delivery.failed.v1
+    meaning: "Attempt failed."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.delivery.succeeded:
+    cloudevents_type: com.zoiko.id.webhook.delivery.succeeded.v1
+    meaning: "Delivery acknowledged."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.endpoint.disabled:
+    cloudevents_type: com.zoiko.id.webhook.endpoint.disabled.v1
+    meaning: "Endpoint disabled/410/security issue."
+    source: ZID-EVENTS-001
+    lane: priority
+    source_status: "canonical"
+  webhook.endpoint.registered:
+    cloudevents_type: com.zoiko.id.webhook.endpoint.registered.v1
+    meaning: "Endpoint created."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.endpoint.verified:
+    cloudevents_type: com.zoiko.id.webhook.endpoint.verified.v1
+    meaning: "Endpoint activated."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.key.rotated:
+    cloudevents_type: com.zoiko.id.webhook.key.rotated.v1
+    meaning: "Signing key/profile changed."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.security.rejected:
+    cloudevents_type: com.zoiko.id.webhook.security.rejected.v1
+    meaning: "Unsafe URL/TLS/signature/inbound authentication event."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  webhook.subscription.changed:
+    cloudevents_type: com.zoiko.id.webhook.subscription.changed.v1
+    meaning: "Filter/type configuration changed."
+    source: ZID-EVENTS-001
+    lane: domain
+    source_status: "canonical"
+  workload.attestation.failed:
+    cloudevents_type: com.zoiko.id.workload.attestation.failed.v1
+    meaning: "Attestation failed."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  workload.attestation.verified:
+    cloudevents_type: com.zoiko.id.workload.attestation.verified.v1
+    meaning: "Attestation verified."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  workload.binding.created:
+    cloudevents_type: com.zoiko.id.workload.binding.created.v1
+    meaning: "Runtime-to-principal binding established."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  workload.binding.revoked:
+    cloudevents_type: com.zoiko.id.workload.binding.revoked.v1
+    meaning: "Binding revoked."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  workload.credential.issued:
+    cloudevents_type: com.zoiko.id.workload.credential.issued.v1
+    meaning: "Short-lived credential/SVID issued."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  workload.credential.revoked:
+    cloudevents_type: com.zoiko.id.workload.credential.revoked.v1
+    meaning: "Credential revoked."
+    source: ZID-MACHINE-001
+    lane: priority
+    source_status: "canonical"
+  workload.credential.rotated:
+    cloudevents_type: com.zoiko.id.workload.credential.rotated.v1
+    meaning: "Credential rotated."
+    source: ZID-MACHINE-001
+    lane: domain
+    source_status: "canonical"
+  writer.epoch.changed:
+    cloudevents_type: com.zoiko.id.writer.epoch.changed.v1
+    meaning: "Authoritative writer generation advanced."
+    source: ZID-RESILIENCE-001
+    lane: domain
+    source_status: "supplementary, pending reconciliation into Doc 19/23"

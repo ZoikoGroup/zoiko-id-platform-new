@@ -59,9 +59,9 @@ These ADRs are complete as decisions, but they need values that only these owner
 | ADR | Input needed | Owner |
 |---|---|---|
 | ADR-0006 | `backup_erasure_window` and crypto-inaccessibility time per retention class (the specs require them to be declared but give no numbers) | Privacy / DPO |
-| ADR-0007 | Counsel-approved jurisdiction packs and the role map for launch flows | Legal / DPO |
+| ADR-0007 | Approve the engineering drafts in `backend/config/jurisdiction-packs/` (fill COUNSEL fields) and the role map for launch flows | Legal / DPO |
 | ADR-0008 | Board decision on any deferred role (wallet, PID, QTSP) if it's ever pursued | Product / Board |
-| ADR-0011 | UK residency DR choice (architecture Q1) | Legal + residency owner |
+| ADR-0011 | UK residency DR: the doc default (no cross-border recovery; tenant accepts a different RTO/RPO) is applied in `backend/config/cells/cells.yaml`. Legal may approve `eu-1` per tenant contract. | Legal + residency owner |
 
 ## Spec ADR mentions deliberately deferred
 
@@ -76,4 +76,4 @@ These ADRs are complete as decisions, but they need values that only these owner
 | From | Change |
 |---|---|
 | ADR-0003 | Canonical Domain Model §6.3 and Data Model: adopt the four `continuity_mode` values (PERSON_BOUND, ROLE_CONTINUOUS, ORGANIZATION_CONTINUOUS, CONTRACT_BOUND). Mandate spec §6: add a `REVALIDATION_PENDING` grant state. |
-| ADR-0009 | Architecture Chair to confirm whether ZID-CRYPTO-MI-001 supersedes ZID-CRYPTO-001 (open question Q2) |
+| ADR-0009 | Resolved by ZID-SEC-001 §33: ZID-CRYPTO-MI-001 is canonical (CR-005) |

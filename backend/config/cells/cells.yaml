@@ -1,0 +1,53 @@
+# status: DRAFT (doc-derived; not approved)
+# approval_ref: null   # set when the named approver signs off; releases are immutable after that
+# version: 0.1.0
+# owner: SRE / Platform Lead (ADR-0011, ADR-0018). Source: ZID-TENANCY-001 §3, §17; ZID-RESILIENCE-001 §4, §11, §14;
+# ZID-ARCH-002 §15.3 ("sovereign tenants can prohibit cross-jurisdiction failover; DR must use an approved second
+# location or explicitly accept a different RTO/RPO").
+# Cell IDs are stable deployment identities, never inferred from cloud region names.
+
+global_plane:
+  id: global
+  contents: "Tenant locator, discovery, release/config metadata, aggregate health — no personal data"
+  hot_path_dependency: false
+
+cells:
+  uk-1:
+    provider: aws
+    region: eu-west-2            # London
+    jurisdiction: {country: GB, legal_zone: UK}
+    availability_zones: 3
+    supported_profiles: [SRP-0, SRP-1]
+    recovery:
+      approved_recovery_cells: []        # doc default: cross-border transfer is DENY until approved (TENANCY §0.1)
+      in_region_posture: "Multi-AZ quorum + PITR/backups inside eu-west-2"
+      cross_jurisdiction_candidate: eu-1  # allowed ONLY per tenant contract + Legal approval (open question Q1)
+      if_no_cross_region_recovery: "Tenant explicitly accepts a different RTO/RPO for regional disaster (ARCH §15.3)"
+  eu-1:
+    provider: aws
+    region: eu-central-1         # Frankfurt
+    jurisdiction: {country: DE, legal_zone: EU}
+    availability_zones: 3
+    supported_profiles: [SRP-0, SRP-1]
+    recovery:
+      approved_recovery_cells: [eu-1-dr]
+      in_region_posture: "Multi-AZ quorum + PITR/backups inside eu-central-1"
+  eu-1-dr:
+    provider: aws
+    region: eu-west-1            # Ireland — same EU legal zone as eu-1
+    jurisdiction: {country: IE, legal_zone: EU}
+    role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE §14)
+    pre_provisioned_tiers: [T1, T2, T3]
+
+recovery_tiers:   # RESILIENCE §11 (ADR-0011)
+  T0: {subsystem: "Edge/stateless runtime", rto: "60s", rpo: "0"}
+  T1: {subsystem: "Authn/PDP/security-state runtime", rto: "5m", rpo: "5s revision-convergent"}
+  T2: {subsystem: "PostgreSQL C2 tenant state", rto: "5m", rpo: "30s target"}
+  T3: {subsystem: "Mandate C3 writer / critical authority", rto: "5m", rpo: "0 where synchronous approved pair exists; otherwise no automatic unsafe failover"}
+  T4: {subsystem: "Evidence E3 ledger", rto: "15m", rpo: "0 for acknowledged synchronous E3"}
+  T5: {subsystem: "Analytics/search/reporting", rto: "24h", rpo: "24h"}
+
+capacity_admission:   # RESILIENCE §13.1, ADR-0010
+  min_compute_headroom: "30%"
+  survive_one_az_loss: true
+  stop_new_placement_before_saturation: true

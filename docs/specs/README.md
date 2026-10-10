@@ -38,19 +38,16 @@ These documents are the **upstream authority** for Zoiko iD (Build Documentation
 | 24 | ZID-UX-001 | Product Console & Engineering UI/UX Wireframes | v1.0 · 7 Oct 2026 | Draft | `Zoiko_iD_Product_Console_and_Engineering_UI_UX_Wireframes_v1.0.docx` |
 | 25 | ZID-VERIFY-MASTER-001 | Master Verification, Test, Certification & Production Readiness | v1.0 · 7 Oct 2026 | Final Master Plan (for review) | `Zoiko_iD_Master_Verification_Test_Certification_and_Production_Readiness_Plan.docx` |
 
-⚠️ **Duplicate slots (architecture open question Q2):** the Guideline lists one document each for 18 and 23, but two versions exist.
-- **Doc 18:** ZID-CRYPTO-MI-001 (7 Oct) has post-quantum sections identical to ZID-CRYPTO-001 (6 Oct) and adds machine identity. It looks like the superset.
-- **Doc 23:** ZID-OPS-001 and ZID-SRE-001 are both dated 7 Oct.
+**Duplicate slots — resolved by ZID-SEC-001 §33 ([CR-005](change-requests/CR-005-master-sequence-reconciliation.md)):**
 
-The Architecture Chair must mark one of each pair authoritative, or define the split between them.
+| Slot | Canonical | Other document | Status |
+|---|---|---|---|
+| 18 | ZID-CRYPTO-MI-001 (self-describes as "canonical Document 18") | ZID-CRYPTO-001 | Superseded |
+| 19 | ZID-TENANCY-001 | ZID-RESILIENCE-001 (shown as 19a) | Supplementary until reconciled; canonical wins on conflict |
+| 23 | ZID-SRE-001 (hands off to Doc 24) | ZID-OPS-001 | Supplementary until reconciled; canonical wins on conflict |
 
-**19a:** ZID-RESILIENCE-001 isn't in the Guideline's list of 25. It extends Doc 19 and Doc 23 for topology, HA and DR (ADR-0011 cites it).
+The Architecture Chair records this in the Guideline. Generated registries already apply this precedence.
 
-## Open spec change requests (raised by ADRs)
+## Open spec change requests
 
-| Raised by | Target spec | Change |
-|---|---|---|
-| ADR-0003 | ZID-DOM-001 §6.3, ZID-DATA-001 | Adopt the four `continuity_mode` values |
-| ADR-0003 | ZID-MANDATE-001 §6 | Add `REVALIDATION_PENDING` grant state |
-| Table ownership | ZID-DATA-001 | Add the 11 tables marked `proposed` in `backend/database/table-ownership.yaml` |
-| Table ownership | ZID-DATA-001 §1.1 | State that schemas are namespaces and ownership is per table (one owner per table, per ZID-SVC-001 §5–6) |
+See [change-requests/](change-requests/README.md): CR-001 continuity modes, CR-002 `REVALIDATION_PENDING`, CR-003 eleven Data Model tables, CR-004 per-table ownership, CR-005 master-sequence reconciliation.

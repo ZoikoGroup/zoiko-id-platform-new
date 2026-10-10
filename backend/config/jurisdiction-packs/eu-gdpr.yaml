@@ -1,0 +1,24 @@
+# status: DRAFT — ENGINEERING SKELETON. NOT LEGAL ADVICE. Not deployable until Legal/DPO approve (ADR-0007).
+# approval_ref: null
+# version: 0.1.0
+# Source: ZID-PRIV-001 §0.1, §4, §20-21, §24, §26, §31. Content below is only what the spec states;
+# every field marked COUNSEL is left for counsel to set. Engineers must not fill COUNSEL fields.
+
+pack_id: eu-gdpr
+framework: "EU GDPR"
+position: "Binding EU privacy baseline"
+architecture_consequences: [purpose_limitation, minimisation, storage_limitation, lawful_basis, rights, privacy_by_design, dpia, international_transfer_controls]
+lawful_basis_classes:   # ZID-PRIV-001 §4 (common engine; pack selects what applies)
+  [CONSENT, CONTRACT, LEGAL_OBLIGATION, LEGITIMATE_INTERESTS, PUBLIC_TASK, VITAL_INTERESTS, SPECIAL_CATEGORY_CONDITION]
+no_false_consent: true      # do not ask for consent when another mandatory basis applies
+
+automated_decisions:
+  rule: "Solely automated legal/similarly significant decisions restricted subject to Article 22 exceptions/safeguards"
+  engineering: "AutomatedDecisionProfile marks solely_automated + significance_class; human intervention/challenge path where required"
+rights: [access, rectification, erasure, restriction, objection, portability]   # Articles 15-21 (PRIV §38 reference)
+rights_response_deadlines: COUNSEL
+international_transfers:
+  supported_mechanisms: [adequacy, eu_standard_contractual_clauses]
+  note: "Contracts are necessary but do not replace technical residency, access and minimisation enforcement (§24)"
+retention_overrides: COUNSEL          # engineering defaults in ZID-PRIV-001 §31 apply until counsel sets values
+backup_erasure_window: COUNSEL        # ADR-0006
