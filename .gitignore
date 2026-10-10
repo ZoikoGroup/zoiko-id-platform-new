@@ -1,37 +1,76 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-.hypothesis/
-.coverage
-htmlcov/
-dist/
-build/
+# Zoiko iD — repository-wide ignore rules.
+# Language-specific rules live next to the code: backend/.gitignore (Python), frontend/.gitignore (Node/Next.js).
+# Rule: lockfiles (uv.lock, pnpm-lock.yaml, .terraform.lock.hcl) and .python-version are ALWAYS committed.
 
-# Node / Next.js
-node_modules/
-.next/
-.turbo/
-out/
-*.tsbuildinfo
-
-# Infrastructure
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
-
-# Secrets and local overrides — never commit
+# ---------- Secrets & credentials — never commit (ADR-0026) ----------
 .env
 .env.*
 !.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*-sa-key.json
+*service-account*.json
+credentials.json
+/.secrets/
+/secrets/
 
-# OS / editors
+# ---------- Infrastructure (OpenTofu/Terraform, Helm) ----------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+deploy/helm/**/charts/*.tgz
+
+# ---------- Local Docker overrides & deploy archives ----------
+docker-compose.override.yml
+compose.override.yml
+/*.tar.gz
+/*.zip
+
+# ---------- Generated locally (tools/codegen/spec-registries intermediate output) ----------
+/build/
+
+# ---------- Shared language artifacts (also used by tools/ and sdks/) ----------
+__pycache__/
+*.py[cod]
+node_modules/
+
+# ---------- Logs & temp ----------
+# Anchored to the repo root on purpose: a bare `logs/` would also hide code folders
+# such as the Developer Console's (console)/logs/ route.
+*.log
+/logs/
+/tmp/
+/.tmp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# ---------- OS ----------
 .DS_Store
 Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ---------- Editors & local tooling ----------
 .idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.history/
+.claude/settings.local.json
