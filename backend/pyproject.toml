@@ -12,6 +12,7 @@ members = [
 ]
 
 [tool.uv.sources]
+zid-app = { workspace = true }
 zid-context = { workspace = true }
 zid-db = { workspace = true }
 zid-outbox = { workspace = true }
@@ -29,3 +30,9 @@ target-version = "py313"
 
 [tool.mypy]
 strict = true
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=8.3",
+]

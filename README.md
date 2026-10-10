@@ -25,10 +25,31 @@ tools/       code generation and scripts
 docs/        specs, architecture, ADRs, traceability, threat model, runbooks
 ```
 
+## Run locally
+
+Requires Docker Desktop (no local Python needed).
+
+```bash
+docker compose up --build -d            # Postgres + all 8 backend units
+curl http://localhost:8001/health/ready # readiness: DB reachable + owned schemas present
+docker compose logs -f identity-runtime # structured JSON logs
+docker compose down                     # stop (add -v to wipe the local database)
+docker build --target test backend      # run the backend test suite
+```
+
+| Port | Unit | Port | Unit |
+|---|---|---|---|
+| 8001 | identity-runtime | 8005 | security-evidence |
+| 8002 | authorization-runtime | 8006 | enterprise-integration |
+| 8003 | authority-runtime | 8007 | platform-control |
+| 8004 | trust-services | 8008 | global-locator |
+
+Each unit serves `/` (identity), `/health/live`, `/health/ready` and interactive API docs at `/docs`.
+
 ## Stack
 
 Python 3.13+ / FastAPI · Next.js + TypeScript · PostgreSQL (Aurora) · SpiceDB · Cedar · Kafka (MSK) · Valkey · Temporal · SPIFFE/SPIRE · KMS/CloudHSM · EKS · OpenTofu · Argo CD · OpenTelemetry
 
 ## Status
 
-Architecture baseline: **Draft**. Build wave: **W0 (architecture proof)**, not started.
+Architecture baseline: **Draft**. Build wave: **W0 (architecture proof)** — service shell running for all 8 units.

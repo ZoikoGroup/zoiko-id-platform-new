@@ -3,6 +3,8 @@ name = "zid-db"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+  "asyncpg>=0.30",
+  "sqlalchemy[asyncio]>=2.0",
   "zid-context",
   "zid-errors",
 ]

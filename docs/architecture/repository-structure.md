@@ -35,7 +35,8 @@ zoiko_ids/
 
 ```
 backend/
-├── pyproject.toml   uv workspace root (members: services/*, workers/*, libs/*)
+├── pyproject.toml   uv workspace root (members: services/*, workers/*, libs/*); uv.lock pins every dependency
+├── Dockerfile       one multi-stage Dockerfile for all units (build-arg UNIT/PACKAGE; targets: test, runtime)
 ├── services/        8 deployable FastAPI units
 ├── workers/         outbox-relay (the only domain-neutral worker)
 ├── libs/            zid-* platform libraries
@@ -78,7 +79,6 @@ We keep the Data Model's schema **names** as namespaces, and assign ownership **
 ```
 backend/services/authority-runtime/
 ├── pyproject.toml               uv member; depends on zid-* libs only
-├── Dockerfile                   one image, several entrypoints
 ├── README.md                    modules + owned tables (generated from table-ownership.yaml)
 ├── migrations/                  ONE Alembic stream per owning module
 │   ├── authority/               authz.authority_grant, authz.resource_scope, authz.data_scope
@@ -122,6 +122,7 @@ api ──► application ──► domain ◄── infrastructure
 
 | Library | Purpose |
 |---|---|
+| `zid-app` | FastAPI service shell: settings, request-context middleware, canonical error envelopes, request logging, `/health/live`, `/health/ready`, `/` |
 | `zid-context` | RequestContext (tenant, cell, epoch, principal, actor chain, deadline, risk class) |
 | `zid-db` | Session factory with mandatory `SET LOCAL` tenant/principal; RLS guard |
 | `zid-outbox` | Transactional outbox writer + consumer inbox dedup |

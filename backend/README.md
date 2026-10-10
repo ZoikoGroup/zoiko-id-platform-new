@@ -5,9 +5,11 @@ All Zoiko iD server-side code: Python 3.13+ / FastAPI, one uv workspace.
 ```
 backend/
 ├── pyproject.toml   uv workspace root (members: services/*, workers/*, libs/*)
+├── uv.lock          exact versions + hashes for every dependency
+├── Dockerfile       shared multi-stage image (targets: test, runtime)
 ├── services/        8 deployable units (7 cell units + global-locator)
 ├── workers/         outbox-relay (the only domain-neutral worker)
-├── libs/            zid-* platform libraries (mechanics only, no domain models)
+├── libs/            zid-* platform libraries (zid-app = shared FastAPI service shell) (mechanics only, no domain models)
 ├── database/        schema bootstrap, table-ownership.yaml, roles, extensions, RLS helpers (no tables)
 ├── config/          jurisdiction packs, crypto profiles, residency profiles, cell catalog
 └── policies/        Cedar schema, platform-floor policies, policy tests
