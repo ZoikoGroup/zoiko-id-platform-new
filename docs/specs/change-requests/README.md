@@ -9,3 +9,4 @@ Raised by engineering when a decision ([docs/phases/](../../phases/README.md)) o
 | [CR-003](CR-003-data-model-proposed-tables.md) | ZID-DATA-001 | Add 11 tables required by other specs | Table ownership registry | Open |
 | [CR-004](CR-004-per-table-ownership.md) | ZID-DATA-001 §1.1 | Schemas are namespaces; ownership is per table | Repository structure | Open |
 | [CR-005](CR-005-master-sequence-reconciliation.md) | Guideline §2, Docs 18/19/23 | Record the canonical document for each duplicate slot | ZID-SEC-001 §33 | Open |
+| [CR-006](CR-006-mandate-ledger-columns.md) | ZID-DATA-001 §8.2–8.3 | Mandate ledger states and columns required by ZID-MANDATE-001 | DEC-C5 migration | Open |

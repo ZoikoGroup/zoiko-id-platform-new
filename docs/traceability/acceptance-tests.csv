@@ -338,7 +338,7 @@ PRIV-32,ZID-PRIV-001,canonical,Disaster recovery,"After restore, privacy revisio
 AT-01,ZID-REQ-001,canonical,Overlay adoption,External IdP user and agent are authorized by Zoiko without directory migration; deprovision/revoke propagates.,NOT_STARTED,
 AT-02,ZID-REQ-001,canonical,Authority attenuation,Property-based generator proves no child grant widens any parent dimension.,NOT_STARTED,
 AT-03,ZID-REQ-001,canonical,Privilege stitching,Two partial grants cannot combine into an unauthorized R3 action unless explicit composite policy exists.,NOT_STARTED,
-AT-04,ZID-REQ-001,canonical,Mandate concurrency,"10,000 parallel attempts never exceed value/count/data cap; retries remain idempotent.",NOT_STARTED,
+AT-04,ZID-REQ-001,canonical,Mandate concurrency,"10,000 parallel attempts never exceed value/count/data cap; retries remain idempotent.",IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_ten_thousand_parallel_reservations_never_exceed_the_limit
 AT-05,ZID-REQ-001,canonical,Stale relationship projection,Injected lag cannot produce a new R2/R3 allow; authoritative fallback/deny occurs.,NOT_STARTED,
 AT-06,ZID-REQ-001,canonical,Revocation chaos,R0-R3 p99 propagation meets SLO during AZ loss and queue pressure.,NOT_STARTED,
 AT-07,ZID-REQ-001,canonical,Root-authority removal,Officer/root removal invalidates dependent grants and active mandates according to policy/SLO.,NOT_STARTED,
