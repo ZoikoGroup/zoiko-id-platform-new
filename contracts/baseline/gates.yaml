@@ -21,19 +21,20 @@ baseline_decisions:
   ADR-10: DEC-B2
 
 # §22.1 P0: must close before the architecture baseline.
+# requirements = the closure map in ZID-REQ-001 §9 (each ID must exist in docs/traceability/requirements.csv).
 p0:
-  P0-01: {gap: "No incumbent-overlay architecture", phase: A, closed_by: [DEC-A1], acceptance: [AT-01], status: open, evidence: null}
-  P0-02: {gap: "Authority algebra undefined", phase: C, closed_by: [DEC-C1], acceptance: [AT-02, AT-03], status: open, evidence: null}
-  P0-03: {gap: "Mandates not concurrency-safe", phase: C, closed_by: [DEC-C5], acceptance: [AT-04], status: open, evidence: null}
-  P0-04: {gap: "PDP / relation consistency undefined", phase: C, closed_by: [DEC-C1, DEC-C4], acceptance: [AT-05], status: open, evidence: null}
-  P0-05: {gap: "No continuous-revocation contract", phase: B, closed_by: [DEC-B1], acceptance: [AT-06, AT-09], status: open, evidence: null}
-  P0-06: {gap: "Evidence immutability conflicts with erasure", phase: F, closed_by: [DEC-F1, DEC-F2], acceptance: [AT-10], status: open, evidence: null}
-  P0-07: {gap: "No threat/operator trust model", phase: F, closed_by: [DEC-F4, DEC-G4], acceptance: [AT-11, AT-12], status: open, evidence: null}
-  P0-08: {gap: "No regulatory operating model", phase: F, closed_by: [DEC-F3], acceptance: [], status: open, evidence: null}
-  P0-09: {gap: "No validated scale/cost envelope", phase: B, closed_by: [DEC-B2, DEC-B3], acceptance: [AT-16], status: open, evidence: null}
+  P0-01: {gap: "No incumbent-overlay architecture", phase: A, closed_by: [DEC-A1], requirements: [FR-TEN-001, FR-TEN-002, NFR-INT-004], acceptance: [AT-01], status: open, evidence: null}
+  P0-02: {gap: "Authority algebra undefined", phase: C, closed_by: [DEC-C1], requirements: [FR-AUTHZ-001, FR-AUTHZ-002, FR-AUTHZ-003], acceptance: [AT-02, AT-03], status: open, evidence: null}
+  P0-03: {gap: "Mandates not concurrency-safe", phase: C, closed_by: [DEC-C5], requirements: [FR-MND-003, FR-MND-004, FR-MND-005, NFR-CON-004], acceptance: [AT-04], status: open, evidence: null}
+  P0-04: {gap: "PDP / relation consistency undefined", phase: C, closed_by: [DEC-C1, DEC-C4], requirements: [FR-AUTHZ-005, FR-AUTHZ-006, FR-AUTHZ-007, NFR-CON-002, NFR-CON-003], acceptance: [AT-05], status: open, evidence: null}
+  P0-05: {gap: "No continuous-revocation contract", phase: B, closed_by: [DEC-B1], requirements: [FR-SIG-001, FR-SIG-002, FR-SIG-003, FR-SIG-004, FR-SIG-005, FR-SIG-006], acceptance: [AT-06, AT-09], status: open, evidence: null}
+  P0-06: {gap: "Evidence immutability conflicts with erasure", phase: F, closed_by: [DEC-F1, DEC-F2], requirements: [FR-PRV-005, FR-PRV-006, FR-PRV-007, FR-EVD-001, FR-EVD-002, FR-EVD-003, FR-EVD-004], acceptance: [AT-10], status: open, evidence: null}
+  P0-07: {gap: "No threat/operator trust model", phase: F, closed_by: [DEC-F4, DEC-G4], requirements: [NFR-SEC-001, NFR-SEC-002, NFR-SEC-003, NFR-SEC-004, NFR-SEC-005, NFR-SEC-006, NFR-SEC-007, NFR-SEC-008, FR-OPS-001, FR-OPS-002, FR-OPS-003, FR-OPS-004, FR-OPS-005, FR-OPS-006, FR-OPS-007], acceptance: [AT-11, AT-12], status: open, evidence: null}
+  P0-08: {gap: "No regulatory operating model", phase: F, closed_by: [DEC-F3], requirements: [REG-001, REG-002, FR-VER-005], acceptance: [], status: open, evidence: null}
+  P0-09: {gap: "No validated scale/cost envelope", phase: B, closed_by: [DEC-B2, DEC-B3], requirements: [NFR-SCL-001, NFR-SCL-002, NFR-SCL-003, NFR-SCL-004, NFR-SCL-005], acceptance: [AT-16], status: open, evidence: null}
   # No decision was recorded for P0-10: the closure is specified by Document 10 (ZID-ROOT-001),
   # which Phase C implements. A decision is only needed if engineering must choose something it leaves open.
-  P0-10: {gap: "Organizational authority lacks root of trust", phase: C, closed_by: [], closed_by_spec: ZID-ROOT-001, acceptance: [AT-07], status: open, evidence: null}
+  P0-10: {gap: "Organizational authority lacks root of trust", phase: C, closed_by: [], closed_by_spec: ZID-ROOT-001, requirements: [FR-ORG-001, FR-ORG-002, FR-ORG-003, FR-ORG-004, FR-ORG-005, FR-ORG-006, FR-ORG-007, FR-ORG-008], acceptance: [AT-07], status: open, evidence: null}
 
 # §22.2 P1: must close before the first production tenant.
 p1:

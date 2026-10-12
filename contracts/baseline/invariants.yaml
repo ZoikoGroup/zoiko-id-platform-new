@@ -133,3 +133,18 @@ invariants:
     enforcement:
       - {kind: decision, ref: DEC-F2}
       - {kind: acceptance-test, ref: AT-10}
+
+# Explicit non-requirements and prohibited interpretations (ZID-REQ-001 §10). Each is covered by an
+# invariant above, or names the phase that must enforce it. test_requirements_contract.py checks the refs.
+prohibitions:
+  PRO-01: {text: "Email, phone or external IdP subject is never the canonical primary key for a person", covered_by: INV-01}
+  PRO-02: {text: "Authentication or credential possession is never sufficient business authority without policy evaluation", covered_by: INV-02}
+  PRO-03: {text: "No child delegation widens a parent grant; no default union-of-partials", covered_by: INV-03}
+  PRO-04: {text: "No eventually consistent graph or cache is authoritative for mandate balance or R2/R3 revocation state", covered_by: INV-07}
+  PRO-05: {text: "No AI model output grants authority or overrides deterministic deny rules", covered_by: INV-05}
+  PRO-06: {text: "No global super-admin role as an undocumented bypass of tenant, purpose, data or evidence controls", phase: F, decision: DEC-F4}
+  PRO-07: {text: "No long-lived static production API key as the default identity for internal workloads or high-risk machine clients", phase: F, decision: DEC-F7}
+  PRO-08: {text: "No immutable evidence store contains direct PII by default", covered_by: INV-09}
+  PRO-09: {text: "No vendor-specific KYC, wallet or registry payload becomes the canonical domain model", phase: E, decision: DEC-E2}
+  PRO-10: {text: "No unfinished protocol is a permanently stable public contract without an adapter and ARB approval", covered_by: INV-11}
+  PRO-11: {text: "No production-readiness claim relies only on functional QA; the acceptance suite is mandatory", phase: I}

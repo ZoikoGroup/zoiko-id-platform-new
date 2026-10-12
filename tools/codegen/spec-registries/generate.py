@@ -102,9 +102,10 @@ OWNER = {  # requirement prefix -> (owning units/modules, governing decisions in
     "NFR-INT": ("federation, provisioning, integration; sdks/", "DEC-A1, DEC-E1", "tests/conformance"),
     "NFR-MNT": ("all units", "DEC-A2, DEC-D1", "CI"),
     "NFR-UX": ("frontend/", "DEC-H1", "frontend/apps/*/tests"),
+    "REG": ("privacy; Legal; SRE", "DEC-F3", "docs/traceability (evidence dossier)"),
 }
 def owner(rid):
-    pre = "-".join(rid.split("-")[:2])
+    pre = rid.rsplit("-", 1)[0]
     return OWNER.get(pre, ("UNMAPPED", "", ""))
 tdir = REPO / "docs/traceability"
 with open(tdir / "requirements.csv", "w", newline="", encoding="utf-8") as fh:
@@ -126,13 +127,13 @@ with open(tdir / "acceptance-tests.csv", "w", newline="", encoding="utf-8") as f
         seen.add(key)
         w.writerow([t["id"], t["source"], status(t["source"]), t["name"], t["criterion"], "NOT_STARTED", ""])
 
-unmapped = sorted({ "-".join(r["id"].split("-")[:2]) for r in reqs if owner(r["id"])[0] == "UNMAPPED"})
+unmapped = sorted({ r["id"].rsplit("-", 1)[0] for r in reqs if owner(r["id"])[0] == "UNMAPPED"})
 by_pri = defaultdict(int)
 for r in reqs:
     by_pri[r["priority"]] += 1
 by_pre = defaultdict(lambda: defaultdict(int))
 for r in reqs:
-    by_pre["-".join(r["id"].split("-")[:2])][r["priority"]] += 1
+    by_pre[r["id"].rsplit("-", 1)[0]][r["priority"]] += 1
 summary = {
     "requirements": len(reqs), "by_priority": dict(by_pri), "tests": len(seen),
     "error_codes": len(ec), "error_conflicts": ec_conf, "events": len(ev), "event_conflicts": ev_conf,

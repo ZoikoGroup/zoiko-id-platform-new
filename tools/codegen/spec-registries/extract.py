@@ -51,7 +51,7 @@ for f in sorted(TXT.glob("*.txt")):
     # requirements (REQ spec): ID, text, priority, verification
     if did == "ZID-REQ-001":
         for k, l in enumerate(lines[:-3]):
-            if re.fullmatch(r"(?:N?FR)-[A-Z]+-\d{3}", l):
+            if re.fullmatch(r"(?:N?FR-[A-Z]+|REG)-\d{3}", l):
                 reqs.append({"id": l, "text": lines[k + 1], "priority": lines[k + 2],
                              "verification": lines[k + 3]})
     # acceptance tests: PREFIX-NN on its own line, followed by name + criterion

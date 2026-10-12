@@ -10,6 +10,29 @@ Back to the [phase index](README.md).
 |---|---|---|
 | 02 | ZID-REQ-001 | System Requirements & NFR |
 
+## Deliverables and status
+
+| Deliverable | Where | Status |
+|---|---|---|
+| All 191 requirements (FR, NFR and §6 regulatory `REG-*`) with owner, verification, governing decisions and test suites; CSV is well-formed | [requirements.csv](../traceability/requirements.csv), `tools/codegen/spec-registries/` | Done |
+| §9 closure map: every P0 gap lists the requirement IDs that close it | [gates.yaml](../../contracts/baseline/gates.yaml) `requirements:` | Done |
+| §10 prohibitions PRO-01…11, each covered by an invariant or a named phase | [invariants.yaml](../../contracts/baseline/invariants.yaml) `prohibitions:` | Done |
+| §4 risk-class contract (DEC-B1): SLOs, failure posture, evidence floors, weakening exceptions | [risk-classes.yaml](../../contracts/baseline/risk-classes.yaml), `modules/decision/domain/risk.py` | Done |
+| Action catalog checked against the contract (evidence floors, real owners, every R3 example category) | `test_risk_contract.py` | Done |
+| §3.1–3.2 availability targets and p95 latency budgets, bound to the requirement text | [slo.yaml](../../contracts/baseline/slo.yaml) | Done |
+| §5 Stage A/B/C design points, 2× qualification, unit-economics meters (DEC-B2) | [capacity.yaml](../../contracts/baseline/capacity.yaml) | Done |
+| Cell admission: 30% headroom, survive one-AZ loss, stop placing before saturation (DEC-B2 §3) | `modules/tenant/domain/placement.py` | Done |
+| DEC-B3 decision-service performance gate (k6, 10k/s per cell, 1 h soak) | gate defined in `slo.yaml` | **Waiting** for the real decision path (Phases C–D) |
+| DEC-B1/B2/B3 ratified; Stage A and R0–R3 SLO floor signed off (BG-06, BG-08) | this file, [gates.yaml](../../contracts/baseline/gates.yaml) | **Open** (needs the ARB, SRE and Security) |
+
+**Enforced in CI:** `test_risk_contract.py` and `test_requirements_contract.py` fail the build if the code and the published contract disagree, if an SLO or capacity number drifts from the requirement it cites, if a catalogued action sits below its evidence floor, or if a requirement row loses its owner, verification or decision.
+
+### Findings
+- **Regulatory requirements were missing:** the extractor only matched `FR-`/`NFR-` IDs, so REG-001…010 never reached the CSV. Fixed in `extract.py`; 191 requirements now, P0 count 81 → 83.
+- **The CSV was malformed:** owner fields containing commas (`decision, mandate (runtime plane)`) were unquoted, so 10 rows had the wrong column count. Regenerating with the CSV writer fixed it, and a test now guards it.
+- **Weakening exceptions:** the specs say R2/R3 may be weakened by an approved exception but that "R3 fail-closed" can never change. Engineering's reading, written into `risk-classes.yaml` for the ARB to ratify: an exception lowers a class by one level at most and never takes an R3 action below R2.
+- **Saturation threshold:** DEC-B2 requires stopping placement "before saturation" but gives no number. `placement.py` takes it from SRE per cell; SRE must set it from load tests.
+
 ## Decisions
 
 | ID | Decision | Owner | Status |
