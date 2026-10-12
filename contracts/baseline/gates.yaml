@@ -1,0 +1,65 @@
+# Architecture baseline gates (ZID-ARCH-002 §22-§24). Phase A deliverable.
+# owner: Chief Architect; each item names the phase that must close it.
+#
+# status: open | in-progress | closed
+# A closed item MUST carry an evidence link (test report, signed approval, dossier entry).
+# "Narrative assurance" does not close a gate (§23.2): evidence is a link to a retained artifact.
+# backend/app/tests/unit/test_baseline.py checks every reference and every closed item.
+
+# The ten decisions the ARB must ratify (§23.1). Status lives in the phase files; this list only
+# binds spec label -> decision so the BG-01 gate can be checked.
+baseline_decisions:
+  ADR-01: DEC-A1
+  ADR-02: DEC-C1
+  ADR-03: DEC-C2
+  ADR-04: DEC-B1
+  ADR-05: DEC-D3
+  ADR-06: DEC-F1
+  ADR-07: DEC-F3
+  ADR-08: DEC-E2
+  ADR-09: DEC-F6
+  ADR-10: DEC-B2
+
+# §22.1 P0: must close before the architecture baseline.
+p0:
+  P0-01: {gap: "No incumbent-overlay architecture", phase: A, closed_by: [DEC-A1], acceptance: [AT-01], status: open, evidence: null}
+  P0-02: {gap: "Authority algebra undefined", phase: C, closed_by: [DEC-C1], acceptance: [AT-02, AT-03], status: open, evidence: null}
+  P0-03: {gap: "Mandates not concurrency-safe", phase: C, closed_by: [DEC-C5], acceptance: [AT-04], status: open, evidence: null}
+  P0-04: {gap: "PDP / relation consistency undefined", phase: C, closed_by: [DEC-C1, DEC-C4], acceptance: [AT-05], status: open, evidence: null}
+  P0-05: {gap: "No continuous-revocation contract", phase: B, closed_by: [DEC-B1], acceptance: [AT-06, AT-09], status: open, evidence: null}
+  P0-06: {gap: "Evidence immutability conflicts with erasure", phase: F, closed_by: [DEC-F1, DEC-F2], acceptance: [AT-10], status: open, evidence: null}
+  P0-07: {gap: "No threat/operator trust model", phase: F, closed_by: [DEC-F4, DEC-G4], acceptance: [AT-11, AT-12], status: open, evidence: null}
+  P0-08: {gap: "No regulatory operating model", phase: F, closed_by: [DEC-F3], acceptance: [], status: open, evidence: null}
+  P0-09: {gap: "No validated scale/cost envelope", phase: B, closed_by: [DEC-B2, DEC-B3], acceptance: [AT-16], status: open, evidence: null}
+  # No decision was recorded for P0-10: the closure is specified by Document 10 (ZID-ROOT-001),
+  # which Phase C implements. A decision is only needed if engineering must choose something it leaves open.
+  P0-10: {gap: "Organizational authority lacks root of trust", phase: C, closed_by: [], closed_by_spec: ZID-ROOT-001, acceptance: [AT-07], status: open, evidence: null}
+
+# §22.2 P1: must close before the first production tenant.
+p1:
+  P1-01: {gap: "Account recovery", phase: E, closed_by: [DEC-E1], status: open, evidence: null}
+  P1-02: {gap: "Key lifecycle", phase: F, closed_by: [DEC-F5], status: open, evidence: null}
+  P1-03: {gap: "Federation metadata lifecycle", phase: E, closed_by: [DEC-E1], status: open, evidence: null}
+  P1-04: {gap: "Credential status privacy", phase: E, closed_by: [DEC-E2], status: open, evidence: null}
+  P1-05: {gap: "Provider dependency", phase: E, closed_by: [], closed_by_spec: ZID-VERIFY-001, status: open, evidence: null}
+  P1-06: {gap: "Tenant-admin governance", phase: F, closed_by: [DEC-B1, DEC-F4], status: open, evidence: null}
+  P1-07: {gap: "Data retention implementation", phase: F, closed_by: [DEC-F1, DEC-F3], status: open, evidence: null}
+  P1-08: {gap: "Developer conformance", phase: D, closed_by: [DEC-E1], status: open, evidence: null}
+  P1-09: {gap: "Incident/recovery operations", phase: G, closed_by: [DEC-G1, DEC-G5], status: open, evidence: null}
+  P1-10: {gap: "Metering/quotas", phase: G, closed_by: [DEC-B2], status: open, evidence: null}
+  P1-11: {gap: "Migration/exit portability", phase: G, closed_by: [DEC-A1], status: open, evidence: null}
+
+# §23.2: all must be checked before v2.0 becomes the baseline.
+baseline_gates:
+  BG-01: {gate: "All ten baseline decisions ratified with named owner and date", phase: A, status: open, evidence: null}
+  BG-02: {gate: "P0-01 through P0-10 closed with evidence, not narrative assurance", phase: A, status: open, evidence: null}
+  BG-03: {gate: "Threat model and operator trust model approved by Security leadership and Privacy", phase: F, status: open, evidence: null}
+  BG-04: {gate: "Authority algebra property tests passing", phase: C, acceptance: [AT-02, AT-03], status: open, evidence: null}
+  BG-05: {gate: "Mandate Ledger concurrency/idempotency test passing", phase: C, acceptance: [AT-04], status: open, evidence: null}
+  BG-06: {gate: "Decision-path p95/p99 budgets and R0-R3 revocation SLOs signed off by SRE/Security", phase: B, status: open, evidence: null}
+  BG-07: {gate: "Counsel-approved regulatory role map and first-market certification plan approved", phase: F, status: open, evidence: null}
+  BG-08: {gate: "Stage A design point and unit-cost model ratified", phase: B, status: open, evidence: null}
+  BG-09: {gate: "Overlay proof completed against at least one incumbent enterprise IdP and one existing application", phase: G, acceptance: [AT-01], status: open, evidence: null}
+  BG-10: {gate: "Data-erasure and evidence-replay test completed end to end", phase: F, acceptance: [AT-10], status: open, evidence: null}
+  # Continuously enforced by INV-11's architecture test; closes when the first public contract ships clean.
+  BG-11: {gate: "No production build begins on draft-protocol-specific public contracts", phase: A, status: in-progress, evidence: null}

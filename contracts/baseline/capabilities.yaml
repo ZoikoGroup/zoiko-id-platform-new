@@ -1,0 +1,111 @@
+# Core bounded capabilities (ZID-ARCH-002 §5.1, plus Integration Edge from §21.1). Phase A deliverable.
+# owner: Chief Architect.
+#
+# Every module in backend/app/src/zid_platform/modules/ belongs to exactly one capability.
+# must_not_own is enforced against backend/database/table-ownership.yaml where it maps to storage:
+#   forbidden_schemas  no table owned by this capability's modules may live in these schemas
+#   forbidden_tables   no table owned by this capability's modules may be one of these
+# The rest of must_not_own is a review rule until a later phase can test it (noted per capability).
+# backend/app/tests/unit/test_baseline.py enforces this file.
+
+capabilities:
+  identity:
+    name: Identity Service
+    owns: "Principal IDs, identifiers, external subject links, lifecycle"
+    must_not_own: "Authorization policy or raw verification vendor payloads"
+    modules: [principal, machine]
+    forbidden_schemas: [authz, verify]
+
+  organization:
+    name: Organization Service
+    owns: "Entities, units, membership, registry links, authority-root assertions"
+    must_not_own: "Authentication secrets"
+    modules: [organization]
+    forbidden_schemas: [authn]
+
+  authentication:
+    name: Authentication Service
+    owns: "Passkeys, factors, ceremonies, recovery policy (+ sessions and tokens, ZID-SVC-001 SES)"
+    must_not_own: "Business authority"
+    modules: [authentication, session]
+    forbidden_schemas: [authz, agent]
+
+  federation:
+    name: Federation Service
+    owns: "OIDC/SAML/SCIM federation, IdP metadata, trust config"
+    must_not_own: "Tenant business roles"
+    modules: [federation, provisioning]
+    forbidden_schemas: [authz]
+
+  verification:
+    name: Verification Service
+    owns: "Provider-neutral proofing workflow and normalized assertions"
+    must_not_own: "Permanent vendor-specific schema (review rule; provider payloads stay behind adapters)"
+    modules: [verification]
+    forbidden_schemas: []
+
+  credential:
+    name: Credential Service
+    owns: "Issuance/presentation/validation/status adapters"
+    must_not_own: "General-purpose authorization"
+    modules: [credential]
+    forbidden_schemas: [authz]
+
+  authority:
+    name: Authority Service
+    owns: "Authority grants, parent chains, grantor continuity, attenuation"
+    must_not_own: "Consumable balance mutation"
+    modules: [authority]
+    forbidden_tables: [agent.mandate_balance, agent.mandate_reservation]
+
+  mandate-ledger:
+    name: Mandate Ledger
+    owns: "Atomic budgets, reservations, commits, release/exhaustion"
+    must_not_own: "General profile data"
+    modules: [mandate]
+    forbidden_schemas: [core, org]
+
+  authorization:
+    name: Authorization Service
+    owns: "PDP, policy versions, relation revisions, obligations"
+    must_not_own: "PII-rich audit storage"
+    modules: [decision, policy_runtime, policy_authoring, relationship]
+    forbidden_schemas: [evidence, core]
+
+  signal:
+    name: Signal Service
+    owns: "SSF/CAEP/RISC receive/transmit, revocation fanout"
+    must_not_own: "Source-of-truth identity state"
+    modules: [signals]
+    forbidden_schemas: [core, org, authn]
+
+  risk:
+    name: Risk Service
+    owns: "Signals, anomaly state, step-up recommendations"
+    must_not_own: "Final allow authority"
+    # No module of its own yet: risk state is hosted by the signals module (ZID-SVC-001 SIG,
+    # deployable "Signals & Risk" in §21.1). It must never own grants or decisions.
+    modules: []
+    hosted_by: signal
+    forbidden_tables: [authz.authority_grant, authz.policy_decision]
+
+  evidence:
+    name: "Evidence Service (+ privacy: erasure, legal holds; Evidence & Compliance in §21.1)"
+    owns: "Decision receipts, proofs, immutable commitments"
+    must_not_own: "Direct personal identifiers by default (enforced in Phase F, INV-09)"
+    modules: [evidence, privacy]
+    forbidden_schemas: [core, authn]
+
+  tenant-cell:
+    name: "Tenant/Cell Service (+ platform ops, §21.1)"
+    owns: "Tenant config, routing, residency, plan limits, metering, operator access, onboarding"
+    must_not_own: "Cross-cell PII replication (global role is tested in test_architecture.py)"
+    modules: [tenant, configuration, locator, discovery, onboarding, operator_access, metering, notification, search]
+    forbidden_schemas: [core, authz]
+
+  integration-edge:
+    name: "Integration Edge (§21.1)"
+    owns: "API gateway, webhooks, adapters, developer sandbox"
+    must_not_own: "Canonical identity or authority state"
+    modules: [integration, webhook]
+    forbidden_schemas: [core, authz, agent]

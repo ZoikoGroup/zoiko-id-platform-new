@@ -10,6 +10,27 @@ Back to the [phase index](README.md).
 |---|---|---|
 | 01 | ZID-ARCH-002 | Back-End Target Architecture |
 
+## Deliverables and status
+
+| Deliverable | Where | Status |
+|---|---|---|
+| 15 invariants (§4), each with owning phase and enforcement | [contracts/baseline/invariants.yaml](../../contracts/baseline/invariants.yaml) | Done |
+| Capability boundaries (§5.1): owns / must not own, module map | [contracts/baseline/capabilities.yaml](../../contracts/baseline/capabilities.yaml) | Done |
+| P0/P1 register, baseline gates (§22–23), acceptance tests AT-01…16 (§24) | [contracts/baseline/gates.yaml](../../contracts/baseline/gates.yaml), [acceptance-tests.csv](../traceability/acceptance-tests.csv) | Done |
+| CI guards for the registries and for INV-05, INV-11, INV-13 and pure domain layers (DEC-A2) | `backend/app/tests/unit/test_baseline.py` | Done |
+| Modular-monolith boundaries: ports-only imports, one plane per module, table owners | `backend/app/tests/unit/test_architecture.py` | Done (earlier) |
+| DEC-A1 deployment posture: modes A–D, overlay splits O0–O3, onboarding states, shadow before enforcement | `modules/tenant/domain/deployment.py` | Done |
+| DEC-A1 external identity key `issuer + sub`; no email auto-linking for high-assurance accounts | `modules/principal/domain/external_subject.py` | Done |
+| DEC-A1 and DEC-A2 ratified by the ARB with named owners | this file | **Open** (needs the ARB) |
+| P0-01 overlay proof (AT-01) | Phase G | Open: needs federation, authority and decision from Phases C–G |
+
+**Invariant coverage today:** 2 enforced (INV-05, INV-11), 3 partial (INV-01, INV-10, INV-13), 10 planned. Every planned invariant names the phase that must add its guard.
+
+### Findings for later phases
+- **External subject links:** §5.1 gives "external subject links" to the Identity Service, but the Data Model puts `authn.external_identity_link` under `authentication`. The key rules live in `principal` (`ExternalSubjectKey`); the table owner should be settled in Phase D (ZID-DATA-001 vs. ZID-SVC-001).
+- **P0-10 (root of trust)** has no decision of its own; it closes through Document 10 in Phase C.
+- **Risk Service** has no module; it is hosted by `signals` and must never own grants or decisions (enforced in `capabilities.yaml`).
+
 ## Decisions
 
 | ID | Decision | Owner | Status |
