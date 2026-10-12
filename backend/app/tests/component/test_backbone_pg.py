@@ -57,6 +57,16 @@ def test_edge_change_flows_through_kafka_into_the_projection(rt_url: str, owner_
                     relation_revision=0,
                 ),
             )
+        # Other tests share this database: park their unpublished events so this run's topics carry
+        # only this tenant's edge (otherwise the consumer may stop on someone else's event first).
+        async with engine(owner_url) as eng, eng.begin() as c:
+            await c.execute(
+                text(
+                    "UPDATE events.outbox_event SET published_at = now() "
+                    "WHERE published_at IS NULL AND tenant_id <> :t"
+                ),
+                {"t": uuid.UUID(tenant)},
+            )
         published = await outbox_relay.run(
             database_url=owner_url, bootstrap=KAFKA or "", env=env, region=region, max_batches=2
         )

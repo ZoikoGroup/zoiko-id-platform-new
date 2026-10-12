@@ -15,6 +15,7 @@ from conftest import CELL, ctx, engine
 from fastapi.testclient import TestClient
 from zid_context import RequestContext
 from zid_db import tenant_transaction
+from zid_platform.api_auth import Caller, authenticated_caller
 from zid_platform.main import create_app
 from zid_platform.modules.authority.domain.algebra import Authority, ValueLimit, Window, scope
 from zid_platform.modules.authority.domain.grants import (
@@ -24,7 +25,6 @@ from zid_platform.modules.authority.domain.grants import (
     GrantType,
 )
 from zid_platform.modules.authority.ports import issue_grant
-from zid_platform.modules.decision.api.authzen import Caller, authenticated_caller
 from zid_platform.modules.decision.domain.pdp import AuthnFact
 from zid_platform.modules.organization.domain.roots import (
     Assurance,

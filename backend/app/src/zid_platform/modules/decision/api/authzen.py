@@ -14,7 +14,6 @@ with 401 rather than evaluated without a trusted caller.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -25,14 +24,15 @@ import yaml
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncEngine
-from zid_context import RequestContext, uuid7
+from zid_context import uuid7
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
+from zid_platform.api_auth import Caller, authenticated_caller
 from zid_platform.modules.authority.ports import Request as AuthorityRequest
 from zid_platform.modules.authority.ports import ValueLimit
 from zid_platform.modules.decision.application.pdp_service import action_spec, evaluate_request
-from zid_platform.modules.decision.domain.pdp import AuthnFact, DecisionRequest
+from zid_platform.modules.decision.domain.pdp import DecisionRequest
 from zid_platform.modules.decision.domain.risk import RiskClass
 
 router = APIRouter(tags=["authzen"])
@@ -85,25 +85,6 @@ class EvaluationRequest(BaseModel):
     action: Action
     resource: Entity
     context: EvaluationContext = Field(default_factory=EvaluationContext)
-
-
-@dataclass(frozen=True, slots=True)
-class Caller:
-    ctx: RequestContext  # with the server-derived tenant (and the PEP's principal) set by authentication
-    authn: AuthnFact
-    security_state: str = (
-        "UNKNOWN"  # from the signals PIP (Phase E); UNKNOWN fails closed for R2/R3
-    )
-
-
-def authenticated_caller(request: Request) -> Caller:
-    """Phase E authentication sets `request.state.caller`; until then nothing is evaluated (401)."""
-    caller = getattr(request.state, "caller", None)
-    if not isinstance(caller, Caller) or not caller.ctx.tenant_id:
-        raise ZidError(
-            "UNAUTHENTICATED", "A trusted, authenticated caller is required.", http_status=401
-        )
-    return caller
 
 
 def _value(v: Value | None) -> ValueLimit | None:

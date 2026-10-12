@@ -30,20 +30,22 @@ Where a spec or the Guideline asks for an "ADR", the decision is recorded in the
 - **Spec inconsistency:** the decision names the spec section and raises a [change request](../specs/change-requests/README.md).
 - **Changes after acceptance:** add a new decision that supersedes the old one, and mark the old one `Superseded by DEC-…`. Accepted text is not edited in place.
 
-## Owner actions (Phases A–C)
+## Owner actions (Phases A–D)
 
-Everything engineering can build for Phases A–C is in the repository. These items can only be closed by the named owners:
+Everything engineering can build for Phases A–D is in the repository. These items can only be closed by the named owners:
 
 | Owner | Action | Closes |
 |---|---|---|
 | Architecture Review Board | Ratify DEC-A1, A2, B1–B3, C1–C5 with named owners and dates (status → `Accepted`) | BG-01 |
 | Architecture Review Board | Ratify the engineering rules where the specs are silent: weakening exceptions lower one level and never take R3 below R2 (B1); continuity ranking (C2); currency mismatch leaves nothing spendable (C1) | DEC-B1/C1/C2 |
 | SRE + Security | Sign off Stage A and the R0–R3 SLO floor; set each cell's saturation threshold from load tests | BG-06, BG-08 |
-| Spec owners | Accept or amend CR-001, CR-002, CR-006, CR-007 (and CR-003/004/005) | Data Model, Mandate spec alignment |
+| Architecture Review Board | Ratify DEC-D1–D6 | Phase D gate |
+| Spec owners | Accept or amend CR-001, CR-002, CR-006, CR-007, CR-008 (and CR-003/004/005) | Data Model, Mandate, AuthZ/event catalogue alignment |
+| Interface owners | Fill the `TBD_BY_OWNER` SLO and data-class fields in `contracts/interface-registry/internal-interfaces.yaml` | Doc 21 registry |
 | Architecture Chair | Assign Document 09 a phase in the Guideline (engineering placed it in C) | Guideline §3 |
 | Engineering (on first push) | Attach the first CI run's JUnit report as `evidence` in `gates.yaml` / `acceptance-tests.csv` | AT-02/03/04/05/07, P0-02/03/04/10, BG-04/05 |
 
-Still waiting for later phases: P0-01 overlay proof (federation in E, overlay in G) and the DEC-B3 load run (needs the AuthZEN HTTP endpoint from Phase D).
+Still waiting for later phases: P0-01 overlay proof (federation in E, overlay in G) and the DEC-B3 load run (the AuthZEN endpoint exists; it needs Phase E authentication in front of it).
 
 ## Architecture baseline register
 

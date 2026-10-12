@@ -22,8 +22,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         required_schemas=schemas_for(role),
     )
     app = create_service_app(spec, settings)
+    app.state.cell_uuid = settings.cell_uuid
     if role is Role.CELL:
+        from .modules.authority.api.approvals import router as approvals_router
+        from .modules.authority.api.grants import router as grants_router
         from .modules.decision.api.authzen import router as authzen_router
+        from .modules.mandate.api.mandates import router as mandates_router
 
-        app.include_router(authzen_router)
+        for router in (authzen_router, grants_router, mandates_router, approvals_router):
+            app.include_router(router)
     return app

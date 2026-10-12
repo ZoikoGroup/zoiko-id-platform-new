@@ -18,19 +18,28 @@ Back to the [phase index](README.md).
 | Deliverable | Where | Status |
 |---|---|---|
 | Transactional outbox: event written in the same transaction as the state change, immutable, one event per aggregate version, 256 KiB cap (EVENTS §5, §11) | `migrations/outbox/versions/0001_outbox_inbox.py`, `libs/zid-outbox` | Done |
-| Relay: `FOR UPDATE SKIP LOCKED` + lease, priority lane first, retry then quarantine; publisher interface for MSK/Redpanda (EVENTS §5-6, §10) | `zid_outbox.relay_once`, `tests/component/test_events_pg.py` | Done (Kafka/MSK adapter: next slice) |
+| Relay: `FOR UPDATE SKIP LOCKED` + lease, priority lane first, retry then quarantine; publisher interface for MSK/Redpanda (EVENTS §5-6, §10) | `zid_outbox.relay_once`, `tests/component/test_events_pg.py` | Done |
+| Kafka backbone: aiokafka publisher/consumer (read-committed, manual commit after the handler), `outbox_relay` and `consumer` processes; PG → Kafka → inbox → SpiceDB proven end to end, including redelivery (EVENTS §5-8; DEC-D2) | `libs/zid-outbox/.../kafka.py`, `entrypoints/outbox_relay.py`, `entrypoints/consumer.py`, `tests/component/test_backbone_pg.py` | Done |
+| Webhooks: HTTPS-only registration with SSRF/DNS-rebinding checks at registration and every attempt, signed challenge verification, RFC 9421 signatures + RFC 9530 Content-Digest, retry ladder with jitter and Retry-After cap, no redirects, per-endpoint inflight cap, replay (EVENTS §14-20; FR-API-007) | `modules/webhook/`, `tests/unit/test_webhooks.py`, `tests/component/test_webhooks_pg.py` | Done (signing-key rotation via crypto broker: Phase F) |
+| Authority, approval and mandate REST APIs: grants (create with Idempotency-Key, read, chain, `:revoke`), approval requests and decisions (approver and roles resolved server-side), mandate reservations (executor-only, inside terms, writer-fenced), `:commit`/`:release`, balance, `:activate`/`:pause`/`:revoke` (API §10-11; MAND-06/08/16/17/21) | `modules/authority/api/`, `modules/mandate/api/`, `api_auth.py`, `tests/component/test_rest_api_pg.py` | Done (authentication middleware: Phase E) |
+| AsyncAPI 3.0 channel contract generated from the event catalogues and the relay's routing (`zid.<env>.<region>.<domain>.<lane>`), CloudEvents envelope schema, drift-tested | `contracts/asyncapi/channels/zoiko-id.asyncapi.json` | Done |
 | Idempotent consumer inbox: per-consumer dedup, ordered gap detection, poison quarantine (EVENTS §7-8) | `zid_outbox.consume` | Done |
 | Phase C stores emit their events: grants, mandates, mandate ledger, authority roots; types checked against the catalogue | stores + `test_emitted_events_are_declared_in_the_catalogue` | Done (agent/policy events: next slice) |
 | API idempotency: key + canonical request hash, replay, 409 on reuse, concurrent same-key runs once (API §1.1, §4) | `migrations/outbox/versions/0002_idempotency.py`, `libs/zid-idempotency` | Done |
 | AuthZEN 1.0 `POST /access/v1/evaluation`: tenant from the authenticated caller only, decision true only for ALLOW, obligations/revisions in context, unknown action denied (API §9; DEC-C1) | `modules/decision/api/authzen.py`, `tests/component/test_authzen_api_pg.py` | Done (authentication middleware: Phase E) |
-| Published OpenAPI contract for the AuthZEN surface, with a drift test | `contracts/openapi/authzen/evaluation.json`, `zid_platform.contracts_export` | Done |
+| Published OpenAPI contracts (AuthZEN surface; authority/approval/mandate surface), each with a drift test | `contracts/openapi/authzen/evaluation.json`, `contracts/openapi/public/authority-mandate.json`, `zid_platform.contracts_export` | Done |
+| Internal interfaces (Doc 21): registry of service interfaces; under DEC-D6 they are in-process `ports.py` calls, guarded by the import-boundary tests | `contracts/interface-registry/internal-interfaces.yaml` | Done (SLOs/data classes: **owner action**, `TBD_BY_OWNER`) |
 | Data Model alignment: CR-001/002/006/007 to be accepted into ZID-DATA-001 | `docs/specs/change-requests/` | **Owner action** (spec owners) |
-| Remaining: Kafka/MSK publisher + relay/consumer processes, AsyncAPI channel docs, webhook delivery (EVENTS §14-21), grant/mandate/approval REST APIs (API §10-11), internal interface contracts (Doc 21) | — | Next slices |
+| CR-008 (relationship edge event) to be accepted into ZID-AUTHZ-001 / the event catalogue | `docs/specs/change-requests/CR-008-relationship-edge-event.md` | **Owner action** (spec owners) |
+
+**Phase D engineering is complete.** What remains is owner action: ratify DEC-D1…D6, accept CR-001/002/006/007/008, fill the `TBD_BY_OWNER` fields of the interface registry, and attach the first green CI run as evidence. Authentication in front of every API is Phase E (`api_auth.authenticated_caller` is the single seam; until then every protected endpoint answers 401).
 
 **Unblocked:** the DEC-B3 load test (`tests/load/decision-gate`) now has a real endpoint to target once Phase E authentication is in front of it.
 
 ### Findings
 - **Build context:** the backend image is built from `backend/`, so shared `contracts/` (the action catalog) can't be copied in. Compose mounts it read-only and sets `ZID_ACTION_CATALOG`; production should ship it as configuration.
+- **Writer cell:** ledger APIs need `ZID_CELL_UUID`; a cell that does not hold the tenant's writer fence answers `409 WRITER_EPOCH_STALE` (retryable after re-routing) instead of writing.
+- **Shared test database:** the relay publishes every pending outbox row, so the backbone test parks other tenants' rows first; otherwise its consumer can stop on another test's event (seen once in a full run).
 - **Relay role:** outbox tables are tenant-scoped by RLS for writers; the relay must run as a dedicated role with BYPASSRLS (deployment grant), never as an application runtime role.
 
 ## Decisions

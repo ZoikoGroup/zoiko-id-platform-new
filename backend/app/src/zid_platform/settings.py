@@ -8,3 +8,4 @@ from .roles import Role
 class Settings(ServiceSettings):
     service_name: str = "zoiko-id"
     role: Role = Role.CELL
+    cell_uuid: str | None = None  # ZID_CELL_UUID: this cell's id in agent.writer_fence (DEC-C5)
