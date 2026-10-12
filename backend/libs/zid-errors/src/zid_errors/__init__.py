@@ -12,8 +12,16 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 __all__ = [
-    "ZidError", "ErrorDetail", "ErrorBody", "ErrorEnvelope", "SuccessEnvelope", "Meta",
-    "NOT_FOUND", "VALIDATION_FAILED", "INTERNAL_ERROR", "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_UNAVAILABLE",
+    "INTERNAL_ERROR",
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "ErrorBody",
+    "ErrorDetail",
+    "ErrorEnvelope",
+    "Meta",
+    "SuccessEnvelope",
+    "ZidError",
 ]
 
 API_VERSION = "v1"
@@ -38,7 +46,9 @@ class Meta(BaseModel):
     service: str
     region: str
     tenant_id: str | None = None
-    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
 
 
 class SuccessEnvelope(BaseModel):
@@ -59,8 +69,16 @@ class ErrorEnvelope(BaseModel):
 class ZidError(Exception):
     """Raise anywhere in a request; the app's handler renders the canonical error envelope."""
 
-    def __init__(self, code: str, message: str, *, http_status: int, retryable: bool = False,
-                 retry_after_ms: int | None = None, details: list[ErrorDetail] | None = None) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        http_status: int,
+        retryable: bool = False,
+        retry_after_ms: int | None = None,
+        details: list[ErrorDetail] | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -70,9 +88,14 @@ class ZidError(Exception):
         self.details = details or []
 
     def body(self) -> ErrorBody:
-        return ErrorBody(code=self.code, message=self.message, details=self.details,
-                         retryable=self.retryable, retry_after_ms=self.retry_after_ms,
-                         docs_ref=f"errors/{self.code}")
+        return ErrorBody(
+            code=self.code,
+            message=self.message,
+            details=self.details,
+            retryable=self.retryable,
+            retry_after_ms=self.retry_after_ms,
+            docs_ref=f"errors/{self.code}",
+        )
 
 
 # Platform-generic codes used by the service shell. Domain codes come from the registry.

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from zid_context import RequestContext
 from zid_errors import DEPENDENCY_UNAVAILABLE, ZidError
 
-__all__ = ["create_engine", "tenant_transaction", "CheckResult", "check_database"]
+__all__ = ["CheckResult", "check_database", "create_engine", "tenant_transaction"]
 
 
 def create_engine(url: str, *, pool_size: int = 5) -> AsyncEngine:
@@ -24,15 +24,23 @@ def create_engine(url: str, *, pool_size: int = 5) -> AsyncEngine:
 
 
 @asynccontextmanager
-async def tenant_transaction(engine: AsyncEngine, ctx: RequestContext) -> AsyncIterator[AsyncConnection]:
+async def tenant_transaction(
+    engine: AsyncEngine, ctx: RequestContext
+) -> AsyncIterator[AsyncConnection]:
     """Open a transaction scoped to the request's server-derived tenant and principal."""
     if ctx.tenant_id is None:
-        raise ZidError("TENANT_CONTEXT_MISSING", "Protected request has no server-derived tenant context.",
-                       http_status=403)
+        raise ZidError(
+            "TENANT_CONTEXT_MISSING",
+            "Protected request has no server-derived tenant context.",
+            http_status=403,
+        )
     async with engine.begin() as conn:
-        await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": ctx.tenant_id})
-        await conn.execute(text("SELECT set_config('app.principal_id', :p, true)"),
-                           {"p": ctx.principal_id or ""})
+        await conn.execute(
+            text("SELECT set_config('app.tenant_id', :t, true)"), {"t": ctx.tenant_id}
+        )
+        await conn.execute(
+            text("SELECT set_config('app.principal_id', :p, true)"), {"p": ctx.principal_id or ""}
+        )
         yield conn
 
 
@@ -43,14 +51,18 @@ class CheckResult:
     detail: str
 
 
-async def check_database(engine: AsyncEngine | None, required_schemas: tuple[str, ...]) -> CheckResult:
+async def check_database(
+    engine: AsyncEngine | None, required_schemas: tuple[str, ...]
+) -> CheckResult:
     """Readiness: the database answers and the schemas this role's tables live in exist."""
     if engine is None:
         return CheckResult("database", False, "not configured (ZID_DATABASE_URL unset)")
     try:
         async with engine.connect() as conn:
             rows = await conn.execute(
-                text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = ANY(:s)"),
+                text(
+                    "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ANY(:s)"
+                ),
                 {"s": list(required_schemas)},
             )
             present = {r[0] for r in rows}
@@ -59,9 +71,16 @@ async def check_database(engine: AsyncEngine | None, required_schemas: tuple[str
     missing = [s for s in required_schemas if s not in present]
     if missing:
         return CheckResult("database", False, f"missing schemas: {', '.join(missing)}")
-    return CheckResult("database", True, f"connected; schemas present: {', '.join(required_schemas)}")
+    return CheckResult(
+        "database", True, f"connected; schemas present: {', '.join(required_schemas)}"
+    )
 
 
 def unavailable(name: str) -> ZidError:
-    return ZidError(DEPENDENCY_UNAVAILABLE, f"{name} is unavailable.", http_status=503, retryable=True,
-                    retry_after_ms=1000)
+    return ZidError(
+        DEPENDENCY_UNAVAILABLE,
+        f"{name} is unavailable.",
+        http_status=503,
+        retryable=True,
+        retry_after_ms=1000,
+    )

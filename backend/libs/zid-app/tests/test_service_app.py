@@ -17,8 +17,13 @@ def make_client(**overrides: object) -> TestClient:
 
     @app.get("/denied")
     async def denied() -> None:
-        raise ZidError("AUTHORITY_STALE", "Fresh authority state is required for this action.",
-                       http_status=503, retryable=True, retry_after_ms=250)
+        raise ZidError(
+            "AUTHORITY_STALE",
+            "Fresh authority state is required for this action.",
+            http_status=503,
+            retryable=True,
+            retry_after_ms=250,
+        )
 
     return TestClient(app, raise_server_exceptions=False)
 

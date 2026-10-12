@@ -20,18 +20,48 @@ class Role(StrEnum):
 
 
 PLANES: dict[str, tuple[str, ...]] = {
-    "runtime": ("principal", "authentication", "session", "decision", "policy_runtime", "relationship",
-                "authority", "mandate", "machine"),
+    "runtime": (
+        "principal",
+        "authentication",
+        "session",
+        "decision",
+        "policy_runtime",
+        "relationship",
+        "authority",
+        "mandate",
+        "machine",
+    ),
     "trust": ("organization", "verification", "credential"),
     "security-evidence": ("signals", "evidence", "privacy"),
     "integration": ("federation", "provisioning", "integration", "onboarding", "webhook"),
-    "control": ("tenant", "configuration", "policy_authoring", "operator_access", "metering",
-                "notification", "search"),
+    "control": (
+        "tenant",
+        "configuration",
+        "policy_authoring",
+        "operator_access",
+        "metering",
+        "notification",
+        "search",
+    ),
     "global": ("locator", "discovery"),
 }
 
-CELL_SCHEMAS = ("platform", "core", "org", "authn", "verify", "cred", "authz", "agent",
-                "privacy", "evidence", "signals", "events", "metering", "zid_migrations")
+CELL_SCHEMAS = (
+    "platform",
+    "core",
+    "org",
+    "authn",
+    "verify",
+    "cred",
+    "authz",
+    "agent",
+    "privacy",
+    "evidence",
+    "signals",
+    "events",
+    "metering",
+    "zid_migrations",
+)
 GLOBAL_SCHEMAS = ("global_directory", "zid_migrations")
 
 

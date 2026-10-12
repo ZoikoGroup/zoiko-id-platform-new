@@ -12,7 +12,7 @@ import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 
-__all__ = ["RequestContext", "current_context", "set_context", "reset_context", "new_id", "uuid7"]
+__all__ = ["RequestContext", "current_context", "new_id", "reset_context", "set_context", "uuid7"]
 
 
 def uuid7() -> uuid.UUID:

@@ -26,7 +26,9 @@ from zid_platform.roles import Role
 
 DEFAULT_PORTS = {Role.CELL: 8000, Role.GLOBAL: 8100}
 # Per-role settings consumed by the supervisor; never passed through to any role process.
-ROLE_SCOPED = frozenset(f"ZID_{r.value.upper()}_{s}" for r in Role for s in ("DATABASE_URL", "PORT"))
+ROLE_SCOPED = frozenset(
+    f"ZID_{r.value.upper()}_{s}" for r in Role for s in ("DATABASE_URL", "PORT")
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,13 +51,16 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
         key = role.value.upper()
         port = int(environ.get(f"ZID_{key}_PORT", DEFAULT_PORTS[role]))
         env = {k: v for k, v in environ.items() if k not in ROLE_SCOPED}
-        env.update(ZID_ROLE=role.value,
-                   ZID_CELL_ID="global" if role is Role.GLOBAL else environ.get("ZID_CELL_ID", "local-1"))
+        env.update(
+            ZID_ROLE=role.value,
+            ZID_CELL_ID="global" if role is Role.GLOBAL else environ.get("ZID_CELL_ID", "local-1"),
+        )
         db = environ.get(f"ZID_{key}_DATABASE_URL")
         if db:
             env["ZID_DATABASE_URL"] = db
         else:
-            env.pop("ZID_DATABASE_URL", None)  # never let one role inherit the other role's database
+            # never let one role inherit the other role's database
+            env.pop("ZID_DATABASE_URL", None)
         out.append(RoleProcess(role, port, env))
     if len({p.port for p in out}) != len(out):
         raise ValueError("two roles configured on the same port")
@@ -65,8 +70,17 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
 def main() -> int:
     processes = []
     for rp in plan(os.environ):
-        cmd = [sys.executable, "-m", "uvicorn", "zid_platform.entrypoints.api:app",
-               "--host", os.environ.get("ZID_BIND_HOST", "0.0.0.0"), "--port", str(rp.port), "--no-access-log"]
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "zid_platform.entrypoints.api:app",
+            "--host",
+            os.environ.get("ZID_BIND_HOST", "0.0.0.0"),
+            "--port",
+            str(rp.port),
+            "--no-access-log",
+        ]
         processes.append((rp, subprocess.Popen(cmd, env=rp.env)))
         print(f'{{"msg":"role started","role":"{rp.role.value}","port":{rp.port}}}', flush=True)
 
@@ -83,7 +97,10 @@ def main() -> int:
     while not stopping:
         for rp, proc in processes:
             if proc.poll() is not None:
-                print(f'{{"msg":"role exited","role":"{rp.role.value}","code":{proc.returncode}}}', flush=True)
+                print(
+                    f'{{"msg":"role exited","role":"{rp.role.value}","code":{proc.returncode}}}',
+                    flush=True,
+                )
                 exit_code, stopping = proc.returncode or 1, True
                 break
         time.sleep(0.5)

@@ -13,7 +13,8 @@ APP = Path(__file__).resolve().parents[2]
 MODULES_DIR = APP / "src" / "zid_platform" / "modules"
 MIGRATIONS_DIR = APP / "migrations"
 OWNERSHIP = APP.parent / "database" / "table-ownership.yaml"
-PLATFORM_MIGRATION_STREAMS = {"outbox"}  # Event Platform tables (events.outbox_event / inbox_message)
+# Event Platform tables (events.outbox_event / inbox_message)
+PLATFORM_MIGRATION_STREAMS = {"outbox"}
 
 ON_DISK = {p.name for p in MODULES_DIR.iterdir() if p.is_dir() and not p.name.startswith("__")}
 IN_PLANES = [m for mods in PLANES.values() for m in mods]
@@ -36,7 +37,9 @@ def test_every_migration_stream_belongs_to_a_module() -> None:
 
 
 def test_table_owners_are_real_modules() -> None:
-    owners = set(re.findall(r"^\s+module: (\w+)$", OWNERSHIP.read_text(encoding="utf-8"), re.M))
+    owners = set(
+        re.findall(r"^\s+module: (\w+)$", OWNERSHIP.read_text(encoding="utf-8"), re.MULTILINE)
+    )
     assert owners - PLATFORM_MIGRATION_STREAMS <= ON_DISK, owners - ON_DISK
 
 
@@ -45,11 +48,18 @@ def test_modules_only_import_other_modules_through_ports() -> None:
     for py in MODULES_DIR.rglob("*.py"):
         own = py.relative_to(MODULES_DIR).parts[0]
         for node in ast.walk(ast.parse(py.read_text(encoding="utf-8"))):
-            names = [node.module or ""] if isinstance(node, ast.ImportFrom) else (
-                [a.name for a in node.names] if isinstance(node, ast.Import) else [])
+            names = (
+                [node.module or ""]
+                if isinstance(node, ast.ImportFrom)
+                else ([a.name for a in node.names] if isinstance(node, ast.Import) else [])
+            )
             for name in names:
                 parts = name.split(".")
-                if parts[:2] == ["zid_platform", "modules"] and len(parts) > 2 and parts[2] != own:
-                    if parts[3:4] != ["ports"]:
-                        violations.append(f"{py.relative_to(APP)} imports {name}")
-    assert not violations, "cross-module imports must go through ports.py:\n" + "\n".join(violations)
+                other_module = (
+                    parts[:2] == ["zid_platform", "modules"] and len(parts) > 2 and parts[2] != own
+                )
+                if other_module and parts[3:4] != ["ports"]:
+                    violations.append(f"{py.relative_to(APP)} imports {name}")
+    assert not violations, "cross-module imports must go through ports.py:\n" + "\n".join(
+        violations
+    )
