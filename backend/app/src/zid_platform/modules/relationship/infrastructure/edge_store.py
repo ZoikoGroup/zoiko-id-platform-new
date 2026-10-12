@@ -14,6 +14,7 @@ from datetime import datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.relationship.domain.relationship import (
     Relationship,
@@ -78,7 +79,25 @@ async def record_edge(conn: AsyncConnection, draft: Relationship) -> Relationshi
             "rev": rev,
         },
     )
+    await _changed(conn, rel)
     return rel
+
+
+async def _changed(conn: AsyncConnection, rel: Relationship) -> None:
+    await emit(
+        conn,
+        name="relationship.edge.changed",
+        tenant_id=rel.tenant_id,
+        aggregate_type="relation_publication",
+        aggregate_id=rel.tenant_id,
+        aggregate_version=rel.relation_revision,
+        data={
+            "relationship_id": rel.relationship_id,
+            "relation_type": rel.relationship_type.value,
+            "status": rel.status.value,
+            "relation_revision": rel.relation_revision,
+        },
+    )
 
 
 async def load_edge(conn: AsyncConnection, relationship_id: str) -> Relationship:
@@ -132,6 +151,7 @@ async def change_edge(
             "id": uuid.UUID(relationship_id),
         },
     )
+    await _changed(conn, new)
     return new
 
 

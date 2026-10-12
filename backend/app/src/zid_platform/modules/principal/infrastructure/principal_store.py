@@ -14,6 +14,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.principal.domain.principal import (
     DomainError,
@@ -106,6 +107,20 @@ async def set_status(
     )
     if result.rowcount != 1:
         raise DomainError("CONCURRENT_MODIFICATION")
+    if new.security_revision != current.security_revision:
+        await emit(
+            conn,
+            name="principal.security_revision.changed",
+            tenant_id=new.tenant_id or "",
+            aggregate_type="principal",
+            aggregate_id=principal_id,
+            aggregate_version=new.security_revision,
+            data={
+                "principal_id": principal_id,
+                "status": new.status.value,
+                "security_revision": new.security_revision,
+            },
+        )
     return new
 
 

@@ -3,6 +3,7 @@ name = "zid-outbox"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+  "aiokafka>=0.11",
   "sqlalchemy[asyncio]>=2.0",
   "zid-context",
   "zid-errors",

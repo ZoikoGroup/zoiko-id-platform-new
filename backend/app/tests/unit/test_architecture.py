@@ -112,20 +112,19 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
     assert not violations, "\n".join(violations)
 
 
-EVENT_NAME = r"(authority|authority_root|mandate|agent|organization)(\.[a-z_]+)+"
+EVENT_NAME = (
+    r"(authority|authority_root|mandate|agent|organization|relationship|principal)(\.[a-z_]+)+"
+)
+EVENT_FILES = ("event-catalogue.yaml", "proposed-events.yaml")  # generated + proposed (with CRs)
 
 
 def test_emitted_events_are_declared_in_the_catalogue() -> None:
     """ZID-EVENTS-001 §4.1: no undeclared event type reaches the outbox."""
-    catalogue = set(
-        re.findall(
-            r"^  ([a-z0-9_.]+):$",
-            (APP.parents[1] / "contracts/asyncapi/event-catalogue.yaml").read_text(
-                encoding="utf-8"
-            ),
-            re.MULTILINE,
-        )
-    )
+    asyncapi = APP.parents[1] / "contracts/asyncapi"
+    catalogue: set[str] = set()
+    for name in EVENT_FILES:
+        text = (asyncapi / name).read_text(encoding="utf-8")
+        catalogue |= set(re.findall(r"^  ([a-z0-9_.]+):$", text, re.MULTILINE))
     emitted: set[str] = set()
     for py in MODULES_DIR.rglob("*.py"):
         source = py.read_text(encoding="utf-8")
