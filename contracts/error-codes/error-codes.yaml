@@ -1,0 +1,1368 @@
+# Canonical error / reason code registry. GENERATED from canonical specs by tools/codegen (see README).
+# status: GENERATED (doc-derived; not approved)
+# version: 0.1.0
+# Do not edit by hand: change the spec, then regenerate. Stable machine contracts (ZID-API-001 §3.3).
+
+families:  # ZID-API-001 §20
+  AUTHN:
+    use: "Authentication/session/token failures"
+    typical_http: "401"
+  AUTHZ:
+    use: "Authorization/policy denial or unavailable fresh state"
+    typical_http: "403/503"
+  TENANT:
+    use: "Tenant routing/isolation/state"
+    typical_http: "403/409"
+  PRINCIPAL:
+    use: "Principal lifecycle/linking"
+    typical_http: "404/409/422"
+  AUTHORITY:
+    use: "Grant/root/attenuation problems"
+    typical_http: "403/409/422"
+  MANDATE:
+    use: "Mandate state/limit/reservation problems"
+    typical_http: "409/422/403"
+  VERIFICATION:
+    use: "Verification provider/workflow"
+    typical_http: "409/422/503"
+  CREDENTIAL:
+    use: "Credential/presentation/trust"
+    typical_http: "400/403/422"
+  CONSENT:
+    use: "Consent/purpose/rights"
+    typical_http: "403/409/422"
+  EVIDENCE:
+    use: "Receipt/export/access"
+    typical_http: "403/404/409"
+  SIGNAL:
+    use: "SSF/CAEP/RISC ingest/publish"
+    typical_http: "400/401/409"
+  IDEMPOTENCY:
+    use: "Key collision/reuse mismatch"
+    typical_http: "409"
+  CONCURRENCY:
+    use: "If-Match / state race"
+    typical_http: "409/412"
+  DEPENDENCY:
+    use: "Safe dependency outage"
+    typical_http: "503"
+
+codes:
+  ACCOUNT_LINK_REQUIRES_STEP_UP:
+    meaning: "Explicit linking requires stronger current authentication."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  AGENT_NOT_ACTIVE:
+    meaning: "Logical agent cannot authenticate/execute."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  AGENT_SPONSOR_REQUIRED:
+    meaning: "No valid accountable sponsor/owner."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  APPROVAL_REQUIRED:
+    meaning: "Authority/policy otherwise eligible but required human/quorum approval missing."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-MANDATE-001]
+  APPROVAL_STALE:
+    meaning: "Transaction changed or approval expired."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  ARTIFACT_MISMATCH:
+    meaning: "Observed artifact digest does not match approved binding."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  ARTIFACT_UNSIGNED:
+    meaning: "Required artifact signature missing/invalid."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  ASSURANCE_INSUFFICIENT:
+    meaning: "Required assurance not met."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-VC-001]
+  ASSURANCE_NOT_MET:
+    meaning: "Verification completed but target profile not achieved."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  ATTESTATION_FAILED:
+    meaning: "Runtime attestation invalid/stale."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  ATTESTATION_REQUIRED:
+    meaning: "Policy requires stronger runtime attestation."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  AT_RISK:
+    meaning: "Error-budget/capacity/dependency trajectory likely to breach without action."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  AUTHENTICATION_TOO_OLD:
+    meaning: "Fresh step-up required."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  AUTHORITY_MISSING:
+    meaning: "No complete authority path."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  AUTHORITY_REVOKED:
+    meaning: "Root/grant is revoked or dependent chain invalid."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  AUTHORITY_REVOKED_DURING_EXECUTION:
+    meaning: "Commit recheck observed revocation."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  AUTHORITY_SCOPE_EXCEEDED:
+    meaning: "Requested action/resource/purpose exceeds effective grant."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  AUTHORITY_SCOPE_UNPROVEN:
+    meaning: "Role/source does not prove requested signing/action scope."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  AUTHORITY_STALE:
+    meaning: "Required root/relation state too stale."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  BACKUP_REGION_DENIED:
+    meaning: "Recovery/backup target violates profile."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  BACKUP_RESTORE_FAILED:
+    meaning: "Backup/PITR restore did not pass correctness gate."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  BINDING_FAILED:
+    meaning: "Applicant-to-evidence binding insufficient."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  BIOMETRIC_MISMATCH:
+    meaning: "Required biometric comparison below threshold."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  BLUEPRINT_NOT_APPROVED:
+    meaning: "Runtime artifact not tied to approved blueprint."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  BUILDER_NOT_TRUSTED:
+    meaning: "Provenance builder/workflow not approved."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  CAPACITY_FAILOVER_BLOCKED:
+    meaning: "Recovery cell lacks safe one-AZ-loss capacity after promotion."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  CELL_DEGRADED:
+    meaning: "Cell is serving with reduced redundancy/capacity."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  CELL_NOT_AUTHORITATIVE:
+    meaning: "Target cell is not current writer for tenant/object."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CELL_ROUTING_STALE:
+    meaning: "Request uses obsolete placement epoch/cell."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CELL_UNAVAILABLE:
+    meaning: "Target/home cell cannot serve request."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  CHANGE_FROZEN:
+    meaning: "Risk/error-budget/incident rule blocks nonessential production changes."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  CLAIM_MISMATCH:
+    meaning: "Claim conflicts with evidence/source."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  CLAIM_NOT_DISCLOSED:
+    meaning: "Required claim/predicate missing."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CLAIM_SCHEMA_INVALID:
+    meaning: "Claim does not meet credential schema/namespace."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  COMPOSITE_AUTHORITY_INCOMPLETE:
+    meaning: "Required quorum/authority branch missing."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  CONFIGURATION_DRIFT:
+    meaning: "Runtime integration differs from approved configuration release."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  CONNECTOR_QUARANTINED:
+    meaning: "Connector disabled due to trust/security/health incident."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  CONSENT_REQUIRED:
+    meaning: "Required consent/policy condition absent."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  CONTROL_PLANE_UNAVAILABLE:
+    meaning: "Management/control operation unavailable; runtime may remain healthy."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  CREDENTIAL_EXPIRED:
+    meaning: "Credential validity ended."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CREDENTIAL_FORMAT_UNSUPPORTED:
+    meaning: "No approved adapter/configuration for presented format."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CREDENTIAL_PROOF_INVALID:
+    meaning: "Cryptographic proof/signature invalid."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CREDENTIAL_STATUS_REVOKED:
+    meaning: "Credential revoked."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CREDENTIAL_STATUS_SUSPENDED:
+    meaning: "Credential suspended."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CREDENTIAL_STATUS_UNAVAILABLE:
+    meaning: "Required current status cannot be established."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  CRYPTO_ALGORITHM_NOT_ALLOWED:
+    meaning: "Requested algorithm is not allowed for purpose/profile."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_AUTHENTICATION_TAG_INVALID:
+    meaning: "AEAD integrity verification failed."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_CERTIFICATE_INVALID:
+    meaning: "Certificate/trust/path/profile invalid."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_ERASURE_INCOMPLETE:
+    meaning: "All required copies/key references not yet destroyed."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_FIPS_PROFILE_REQUIRED:
+    meaning: "Operation attempted outside required validated profile."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_JWKS_KEY_UNKNOWN:
+    meaning: "Signing key ID unknown after controlled refresh."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_KEY_COMPROMISED:
+    meaning: "Key is marked compromised."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_KEY_CONTEXT_MISMATCH:
+    meaning: "Tenant/object/encryption context does not match."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_KEY_NOT_ACTIVE:
+    meaning: "Key is pending/retired/revoked/destroyed."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_KEY_PURPOSE_MISMATCH:
+    meaning: "Key cannot be used for requested operation."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_LEGAL_HOLD_BLOCK:
+    meaning: "Destruction/erasure blocked by active legal hold."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_MODULE_UNAVAILABLE:
+    meaning: "Required KMS/HSM/module unavailable."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_NONCE_POLICY_VIOLATION:
+    meaning: "Nonce/counter reuse or invalid construction detected."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_PQ_PROFILE_UNAVAILABLE:
+    meaning: "Required hybrid/PQ algorithm not available on path."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_PRIVATE_KEY_EXPORT_FORBIDDEN:
+    meaning: "Private/secret key export blocked by policy."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CRYPTO_ROTATION_DEPENDENCY_BLOCK:
+    meaning: "Cannot retire/destroy key while live dependents remain."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  CUSTOMER_KEY_UNAVAILABLE:
+    meaning: "BYOK/HYOK key unavailable or disabled."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  DATA_CLASS_PLACEMENT_DENIED:
+    meaning: "Requested destination cannot process data class."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  DELEGATION_DEPTH_EXCEEDED:
+    meaning: "No further delegation permitted."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  DEPENDENCY_RESIDENCY_UNKNOWN:
+    meaning: "Required provider geography/control cannot be established."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  DEPLOY_IDENTITY_UNTRUSTED:
+    meaning: "Deployment actor not approved workload identity."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  DIGEST_MISMATCH:
+    meaning: "Promoted/deployed digest differs from release manifest."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  DOMAIN_VERIFICATION_FAILED:
+    meaning: "Enterprise domain-control challenge failed/expired."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  ENVIRONMENT_DELTA_UNAPPROVED:
+    meaning: "Material preprod/prod difference not approved."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  ENVIRONMENT_QUARANTINED:
+    meaning: "Runtime environment is quarantined."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_AGGREGATE_VERSION_CONFLICT:
+    meaning: "Aggregate version invalid/out of sequence."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_CONSUMER_GAP:
+    meaning: "Ordered consumer detected missing aggregate version."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_CONSUMER_POISON:
+    meaning: "Event repeatedly fails deterministic consumer validation."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_PUBLISH_BACKLOG:
+    meaning: "Outbox/broker publication path over protection threshold."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_REPLAY_NOT_AUTHORIZED:
+    meaning: "Caller cannot replay requested event/tenant/range."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_SCHEMA_INVALID:
+    meaning: "Event payload/envelope fails registered schema."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_SIZE_EXCEEDED:
+    meaning: "Payload exceeds platform limit; use claim-check."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_TENANT_MISMATCH:
+    meaning: "Authenticated producer context conflicts with event tenant."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVENT_TYPE_UNREGISTERED:
+    meaning: "Producer attempted unknown/unapproved event type."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_ACCESS_DENIED:
+    meaning: "Caller lacks purpose/scope for evidence."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_CANONICALIZATION_FAILED:
+    meaning: "Payload cannot be canonicalized safely."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_CHECKPOINT_MISSING:
+    meaning: "Required ledger checkpoint/inclusion proof unavailable."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_CLASS_INSUFFICIENT:
+    meaning: "Producer attempted lower evidence class than action requires."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_EXPIRED:
+    meaning: "Evidence not current enough for profile."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  EVIDENCE_EXPORT_REDACTION_REQUIRED:
+    meaning: "Package cannot be released without approved minimization/redaction."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_INTEGRITY_UNVERIFIED:
+    meaning: "Recovered evidence partition has not passed integrity verification."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  EVIDENCE_INVALID:
+    meaning: "Evidence authenticity/integrity failed."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  EVIDENCE_KEY_UNAVAILABLE:
+    meaning: "Required signing/decryption/verification key unavailable."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_LEDGER_CONFLICT:
+    meaning: "Sequence/hash-chain/checkpoint inconsistency detected."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_LEGAL_HOLD:
+    meaning: "Deletion/export restriction affected by legal hold."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_MATERIAL_INPUT_MISSING:
+    meaning: "Required replay field/commitment omitted."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_POLICY_ARTIFACT_MISSING:
+    meaning: "Historic immutable policy/schema artifact unavailable."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_RAW_OBJECT_ERASED:
+    meaning: "Supporting personal evidence lawfully erased."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_REPLAY_MISMATCH:
+    meaning: "Replayed material outcome differs from recorded outcome."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_RETENTION_EXPIRED:
+    meaning: "Artifact legitimately no longer retained."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_SCHEMA_INVALID:
+    meaning: "Receipt/audit payload does not match approved schema."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_SIGNATURE_FAILED:
+    meaning: "Record/package signature creation or verification failed."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_SOURCE_INTEGRITY_FAILED:
+    meaning: "Referenced source artifact digest/signature mismatch."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EVIDENCE_TIME_UNTRUSTED:
+    meaning: "Clock/timestamp integrity outside approved tolerance."
+    source: ZID-EVIDENCE-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  EXCEPTION_EXPIRED:
+    meaning: "Referenced security/release exception no longer valid."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  FAILOVER_IN_PROGRESS:
+    meaning: "Authoritative topology changing under controlled procedure."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  FEDERATION_CHAIN_INVALID:
+    meaning: "OpenID Federation trust chain/policy invalid."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  FRAUD_SUSPECTED:
+    meaning: "Fraud controls require rejection/escalation."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  FUTURE_WALLET_PROFILE_DISABLED:
+    meaning: "Draft/unapproved business-wallet profile cannot be used."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  GLOBAL_DATA_PROHIBITED:
+    meaning: "Attempt to persist disallowed tenant/PII data in global plane."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  GRANTOR_AUTHORITY_MISSING:
+    meaning: "Grantor cannot delegate requested capability."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  GRANT_DELEGATION_NOT_ALLOWED:
+    meaning: "Parent cannot delegate."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  GRANT_DEPTH_EXCEEDED:
+    meaning: "Delegation depth exhausted."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  GRANT_ROOT_STALE:
+    meaning: "Required authority root not fresh enough."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  GRANT_SCOPE_WIDENING:
+    meaning: "Child exceeds parent/effective authority."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  HOLDER_BINDING_INVALID:
+    meaning: "Required holder/device/key binding failed."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  IAC_POLICY_BLOCK:
+    meaning: "Infrastructure plan violates policy."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  IDENTIFIER_CONFLICT:
+    meaning: "LEI/EUID/local registration mappings conflict."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  IDP_METADATA_INVALID:
+    meaning: "OIDC/SAML metadata/discovery cannot be trusted."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  IDP_SUBJECT_COLLISION:
+    meaning: "External identity maps ambiguously to canonical principal."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  IMAGE_REGISTRY_UNTRUSTED:
+    meaning: "Artifact not from approved registry."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  INSUFFICIENT_EVIDENCE:
+    meaning: "Required evidence missing/unsupported."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  ISSUER_METADATA_STALE:
+    meaning: "Required issuer/federation metadata too stale."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  ISSUER_UNTRUSTED:
+    meaning: "Issuer not trusted for requested credential/context."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  JURISDICTION_BLOCKED:
+    meaning: "Jurisdiction policy denies."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  KEY_BOUNDARY_MISMATCH:
+    meaning: "Key/KMS profile incompatible with destination."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  LICENSE_POLICY_BLOCK:
+    meaning: "Dependency license violates policy."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  LIVENESS_FAILED:
+    meaning: "Required liveness/PAD failed."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  MACHINE_ATTESTATION_REQUIRED:
+    meaning: "Required attestation level/profile is missing or stale."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_BINDING_REVOKED:
+    meaning: "Logical-to-runtime identity binding is suspended/revoked."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_CREDENTIAL_REVOKED:
+    meaning: "Presented machine credential revoked."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_ENVIRONMENT_QUARANTINED:
+    meaning: "Runtime environment is quarantined."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_IDENTITY_UNREGISTERED:
+    meaning: "Presented workload identity has no active registered binding."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_SENDER_MISMATCH:
+    meaning: "mTLS/DPoP sender binding does not match credential."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_TOKEN_AUDIENCE_INVALID:
+    meaning: "Machine token audience/resource binding invalid."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MACHINE_TRUST_DOMAIN_UNTRUSTED:
+    meaning: "SPIFFE/cloud trust domain or issuer is not trusted."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+  MAJOR_OUTAGE:
+    meaning: "Critical service/journey broadly unavailable."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  MANDATE_COUNT_LIMIT:
+    meaning: "Count limit exceeded."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_CURRENCY_MISMATCH:
+    meaning: "Currency/budget basis invalid."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_DATA_LIMIT:
+    meaning: "Data limit exceeded."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_EXHAUSTED:
+    meaning: "Consumable limit unavailable."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  MANDATE_MISSING:
+    meaning: "Required mandate absent."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  MANDATE_NOT_ACTIVE:
+    meaning: "Mandate cannot execute in current state."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_REQUIRED:
+    meaning: "Represented material action lacks mandate."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  MANDATE_SCOPE_EXCEEDED:
+    meaning: "Action/resource/purpose/tool outside mandate."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_SOURCE_INVALID:
+    meaning: "Source grant/root no longer valid."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANDATE_STATE_UNCERTAIN:
+    meaning: "Consumable authority state cannot be reconstructed safely."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  MANDATE_TOOL_NOT_ALLOWED:
+    meaning: "Requested tool outside mandate."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  MANDATE_VALUE_LIMIT:
+    meaning: "Value limit exceeded."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  MANUAL_REVIEW_REQUIRED:
+    meaning: "Automated decision intentionally paused."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  MAPPING_CONFLICT:
+    meaning: "Mapping simulation/runtime produced ambiguous/high-risk collision."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  MIGRATION_EPOCH_CONFLICT:
+    meaning: "Writer/cutover epoch conflict."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  MIGRATION_INTEGRITY_FAILED:
+    meaning: "Copy/count/hash/verification gate failed."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  MIGRATION_NOT_COMPATIBLE:
+    meaning: "Database migration cannot safely coexist with current/rollback versions."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  ORGANIZATION_INACTIVE:
+    meaning: "Entity dissolved/terminated or not eligible for requested operation."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ORGANIZATION_NOT_FOUND:
+    meaning: "Authoritative organization record cannot be resolved."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  PARENT_SUBSIDIARY_AUTHORITY_MISSING:
+    meaning: "Group relationship exists but no authority to bind target entity."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  PARTIALLY_VERIFIED:
+    meaning: "Required outcome not met but some claims verified; generally not final success."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  PARTIAL_OUTAGE:
+    meaning: "Material subset of requests/tenants/region failing."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  PEP_CONTEXT_INCOMPLETE:
+    meaning: "Required subject/action/resource/context missing."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  PEP_OBLIGATION_UNSUPPORTED:
+    meaning: "PEP cannot enforce required obligation."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  PILOT_GATE_FAILED:
+    meaning: "Mandatory pilot/production gate failed."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  PLACEMENT_EPOCH_STALE:
+    meaning: "Router/request uses superseded tenant placement."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  POLICY_FORBID:
+    meaning: "Explicit forbid policy matched."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  POLICY_NO_PERMIT:
+    meaning: "No permit policy matched."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  POWER_OF_ATTORNEY_INVALID:
+    meaning: "POA cannot be verified or is out of scope."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  PRESENTATION_AUDIENCE_INVALID:
+    meaning: "Presentation not bound to this verifier/RP."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  PRESENTATION_REPLAY:
+    meaning: "Nonce/transaction/presentation replay detected."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  PROFILE_NOT_AVAILABLE:
+    meaning: "No approved profile for requested jurisdiction/use."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  PROFILE_VERSION_MISMATCH:
+    meaning: "Credential/protocol dependency version incompatible with configured profile."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  PROPAGATION_SLO_BREACH:
+    meaning: "State change not observed by consumer within required SLO."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  PROVENANCE_MISSING:
+    meaning: "Required SLSA provenance absent."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  PROVIDER_RESULT_CONFLICT:
+    meaning: "Provider outcome conflicts with another authoritative fact."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  PROVIDER_UNAVAILABLE:
+    meaning: "Configured provider currently unavailable."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  PURPOSE_NOT_ALLOWED:
+    meaning: "Purpose mismatch."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  RECONCILIATION_REQUIRED:
+    meaning: "Observed state may be incomplete; authoritative refresh required."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  RECOVERY_CELL_NOT_APPROVED:
+    meaning: "Requested failover target violates placement/residency."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  RECOVERY_KEY_UNAVAILABLE:
+    meaning: "Required KMS/HSM/HYOK key unavailable."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  RECOVERY_REPLICA_TOO_STALE:
+    meaning: "Replica lag exceeds allowed RPO/failover profile."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  RECOVERY_VALIDATION:
+    meaning: "Service restored but not yet declared stable."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  REGISTRY_RECORD_STALE:
+    meaning: "Required freshness cannot be established."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  REGISTRY_SOURCE_UNAVAILABLE:
+    meaning: "Required source cannot be reached."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  RELATIONSHIP_MISSING:
+    meaning: "Required relationship fact absent."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  RELIANCE_NOT_ALLOWED:
+    meaning: "Prior verification cannot be reused for this transaction."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  REPLAY_DETECTED:
+    meaning: "Evidence/session/provider artifact reused unlawfully."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  RESERVATION_ALREADY_COMMITTED:
+    meaning: "Terminal committed state."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  RESERVATION_CONFLICT:
+    meaning: "Concurrent/idempotency/precondition conflict."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  RESERVATION_EXPIRED:
+    meaning: "Lease expired."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  RESERVATION_RECONCILIATION_REQUIRED:
+    meaning: "External side-effect outcome unknown."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  RESIDENCY_FAILOVER_BLOCKED:
+    meaning: "No lawful/approved recovery location is available."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"
+  RESIDENCY_PLACEMENT_REQUIRED:
+    meaning: "Tenant/cell residency must be resolved before data import."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  RESIDENCY_POLICY_BLOCK:
+    meaning: "Target environment/location conflicts with placement policy."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  RESIDENCY_PROFILE_UNSUPPORTED:
+    meaning: "Required feature/dependency cannot satisfy profile."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  RESIDENCY_TRANSFER_DENIED:
+    meaning: "Cross-cell/cross-border transfer not permitted."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  RESOLUTION_INVALID:
+    meaning: "Resolution evidence/quorum/verification insufficient."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  REVERIFY_REQUIRED:
+    meaning: "Fresh proofing required."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  ROLE_CEASED:
+    meaning: "Official role ended."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ROLE_NOT_VERIFIED:
+    meaning: "Claimed official role cannot be verified."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ROLLBACK_NOT_VERIFIED:
+    meaning: "High-risk release lacks required rollback proof."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  ROLLBACK_PLAN_UNTESTED:
+    meaning: "Production activation blocked until rollback test passes."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  ROOT_CONFLICTED:
+    meaning: "Conflicting authoritative evidence."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ROOT_EXPIRED:
+    meaning: "Root/instrument expired."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ROOT_REVOKED:
+    meaning: "Root is revoked/invalid."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  ROOT_SOURCE_NOT_COMPETENT:
+    meaning: "Source cannot establish claimed fact."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  RP_PURPOSE_NOT_ALLOWED:
+    meaning: "Requested attribute not permitted for registered purpose."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  RP_REGISTRATION_MISSING:
+    meaning: "EUDI/ecosystem RP registration required but absent."
+    source: ZID-VC-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  SBOM_MISSING:
+    meaning: "Required SBOM unavailable."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  SCIM_SCHEMA_UNSUPPORTED:
+    meaning: "Provisioning payload/schema/path unsupported."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  SCIM_SOURCE_STALE:
+    meaning: "Provisioning/lifecycle state exceeds freshness policy."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  SECRET_ACCESS_DENIED:
+    meaning: "Workload lacks authorization for secret."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  SECRET_LEASE_EXPIRED:
+    meaning: "Dynamic secret/lease expired."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  SECRET_ROTATION_FAILED:
+    meaning: "Secret source/consumer did not complete safe rotation."
+    source: ZID-CRYPTO-MI-001
+    section: "31. Canonical Error Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-CRYPTO-001]
+  SECURITY_CONTAINMENT:
+    meaning: "Security controls intentionally restrict service to prevent larger harm."
+    source: ZID-OPS-001
+    section: "30. Canonical Operational States & Codes"
+    source_status: "supplementary, pending reconciliation into Doc 23"
+  SECURITY_STATE_COMPROMISED:
+    meaning: "Security/risk state denies action."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  SECURITY_STATE_STALE:
+    meaning: "Required current state cannot be established."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+    also_defined_in: [ZID-RESILIENCE-001]
+  SHADOW_EXIT_CRITERIA_FAILED:
+    meaning: "Mismatch/coverage/latency criteria not met."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  SIGNAL_AUDIENCE_INVALID:
+    meaning: "Receiver/audience mismatch."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_CRITICAL_SUBJECT_UNSUPPORTED:
+    meaning: "Critical subject member cannot be processed."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_EVENT_NOT_ALLOWED:
+    meaning: "Event type not configured for stream."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_ISSUER_MISMATCH:
+    meaning: "SET iss does not match stream transmitter."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_OUT_OF_ORDER:
+    meaning: "Valid but older event cannot mutate current state."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_REPLAY:
+    meaning: "Duplicate/replayed event detected."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SCHEMA_INVALID:
+    meaning: "Event-specific payload invalid."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SIGNATURE_INVALID:
+    meaning: "SET/webhook signature invalid."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SOURCE_QUARANTINED:
+    meaning: "Source disabled due to trust/integrity incident."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SOURCE_UNTRUSTED:
+    meaning: "Transmitter/source not trusted for this stream/event."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SUBJECT_INVALID:
+    meaning: "Subject identifier/schema invalid."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNAL_SUBJECT_UNRESOLVED:
+    meaning: "Cannot map subject to permitted canonical object."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SIGNING_MATRIX_STALE:
+    meaning: "Matrix superseded or not current."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  SOURCE_NOT_APPROVED:
+    meaning: "Repository/ref/commit not eligible for production."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  SOURCE_STALE:
+    meaning: "Required source/evidence freshness not met."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  SOURCE_UNAVAILABLE:
+    meaning: "Required authoritative source unavailable."
+    source: ZID-VERIFY-001
+    section: "23. Canonical Verification Outcome & Error Codes"
+    source_status: "canonical"
+  SOVEREIGN_OPERATOR_DENIED:
+    meaning: "Operator/support path violates profile."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  STATE_UNAVAILABLE:
+    meaning: "Required fresh state cannot be established; retry only if marked retryable."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  STEP_UP:
+    meaning: "Current authentication/assurance insufficient; reauthentication may permit retry."
+    source: ZID-AUTHZ-001
+    section: "14. Decision Outcomes & Canonical Reason Codes"
+    source_status: "canonical"
+  STREAM_CONFIGURATION_CHANGED:
+    meaning: "Metadata/key/config changed and requires revalidation."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  STREAM_DISABLED:
+    meaning: "Event stream is not active."
+    source: ZID-SIGNALS-001
+    section: "28. Canonical Error / Processing Codes"
+    source_status: "canonical"
+  SUBAGENT_DEPTH_EXCEEDED:
+    meaning: "No further sub-agent delegation."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  TENANT_CONTEXT_MISMATCH:
+    meaning: "Authenticated subject/request/resource resolve to inconsistent tenants."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  TENANT_CONTEXT_MISSING:
+    meaning: "Protected request has no server-derived tenant context."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  TENANT_CROSS_BOUNDARY_DENIED:
+    meaning: "Operation would cross tenant isolation boundary."
+    source: ZID-TENANCY-001
+    section: "26. Canonical Error Codes"
+    source_status: "canonical"
+  TENANT_ORGANIZATION_UNVERIFIED:
+    meaning: "Tenant cannot advance because organization/root verification is insufficient."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  TENANT_OWNER_UNAUTHORIZED:
+    meaning: "Caller cannot perform protected owner/admin action."
+    source: ZID-OVERLAY-001
+    section: "27. Canonical Error Codes"
+    source_status: "canonical"
+  TOKEN_SENDER_MISMATCH:
+    meaning: "mTLS/DPoP sender binding failed."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  TOOL_NOT_ALLOWED:
+    meaning: "Agent/mandate lacks tool authority."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  TOOL_NOT_REGISTERED:
+    meaning: "Tool has no active capability definition."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  TRUST_DOMAIN_REVOKED:
+    meaning: "Workload trust domain/bundle invalid."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  VLEI_STATUS_INVALID:
+    meaning: "Credential issuer/status/role chain invalid."
+    source: ZID-ROOT-001
+    section: "23. Canonical Error Codes"
+    source_status: "canonical"
+  VULNERABILITY_POLICY_BLOCK:
+    meaning: "Artifact violates release vulnerability policy."
+    source: ZID-DEVSECOPS-001
+    section: "28. Canonical Release / Admission Error Codes"
+    source_status: "canonical"
+  WEBHOOK_DELIVERY_EXHAUSTED:
+    meaning: "Retry window/attempts exhausted."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_ENDPOINT_PAUSED:
+    meaning: "Subscription endpoint inactive."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_EVENT_NOT_ALLOWED:
+    meaning: "Tenant/app not entitled to requested event type."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_FILTER_INVALID:
+    meaning: "Subscription filter unsupported/unsafe."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_REDIRECT_REJECTED:
+    meaning: "Receiver returned redirect; endpoint must be updated/reverified."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_SIGNATURE_PROFILE_UNSUPPORTED:
+    meaning: "Receiver/profile mismatch."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_TLS_INVALID:
+    meaning: "TLS/certificate/hostname validation failed."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_URL_UNSAFE:
+    meaning: "Endpoint violates SSRF/network policy."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WEBHOOK_VERIFICATION_FAILED:
+    meaning: "Endpoint challenge/verification failed."
+    source: ZID-EVENTS-001
+    section: "24. Canonical Error Codes"
+    source_status: "canonical"
+  WORKLOAD_AUDIENCE_INVALID:
+    meaning: "Assertion/token audience invalid."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  WORKLOAD_BINDING_REVOKED:
+    meaning: "Binding is revoked/suspended."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  WORKLOAD_ISSUER_UNTRUSTED:
+    meaning: "SPIFFE/cloud/OIDC issuer not trusted."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  WORKLOAD_NOT_REGISTERED:
+    meaning: "Runtime identity has no active binding."
+    source: ZID-MACHINE-001
+    section: "22. Canonical Error Codes"
+    source_status: "canonical"
+  WRITER_EPOCH_STALE:
+    meaning: "Request reached non-authoritative ledger writer."
+    source: ZID-MANDATE-001
+    section: "22. Canonical Error / Outcome Codes"
+    source_status: "canonical"
+  WRITER_NOT_FENCED:
+    meaning: "Previous authoritative writer cannot be proven fenced."
+    source: ZID-RESILIENCE-001
+    section: "29. Canonical Resilience / Recovery Codes"
+    source_status: "supplementary, pending reconciliation into Doc 19/23"

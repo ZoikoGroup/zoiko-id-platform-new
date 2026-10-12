@@ -1,0 +1,47 @@
+[project]
+name = "zoiko-id"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+# uv workspace: the platform app (modular monolith) and the shared zid-* libraries.
+[tool.uv.workspace]
+members = [
+  "app",
+  "libs/*",
+]
+
+[tool.uv.sources]
+zid-app = { workspace = true }
+zid-context = { workspace = true }
+zid-db = { workspace = true }
+zid-outbox = { workspace = true }
+zid-idempotency = { workspace = true }
+zid-errors = { workspace = true }
+zid-authz-client = { workspace = true }
+zid-evidence = { workspace = true }
+zid-crypto = { workspace = true }
+zid-telemetry = { workspace = true }
+zid-testing = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.mypy]
+strict = true
+
+[dependency-groups]
+dev = [
+    "cryptography>=43",
+    "httpx2>=2.13.1",
+    "hypothesis>=6.100",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pyyaml>=6.0",
+    "ruff>=0.8",
+    "types-pyyaml>=6.0",
+]
+
+[[tool.mypy.overrides]]
+module = ["aiokafka", "aiokafka.*"]  # no type stubs published
+ignore_missing_imports = true

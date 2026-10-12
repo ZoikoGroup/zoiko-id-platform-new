@@ -1,0 +1,38 @@
+# status: DRAFT (doc-derived; not approved)
+# approval_ref: null   # set when the named approver signs off; releases are immutable after that
+# version: 0.1.0
+# owner: Residency / Privacy owner + SRE (DEC-G1). Source: ZID-TENANCY-001 §4-6, §11-12.
+# Profiles are contractual capabilities, not self-service labels; activation needs automated capability
+# checks plus approved legal/compliance mapping. A higher profile inherits all lower-profile controls.
+
+profiles:
+  SRP-0:
+    name: Shared Global
+    promise: "No regulated regional commitment beyond contractual platform baseline"
+    minimum_architecture: "Shared cells; global operational dependencies allowed within policy"
+  SRP-1:
+    name: Regional Resident
+    promise: "Customer data classes DC1-DC3 confined to approved region; minimal global locator allowed"
+    minimum_architecture: "Regional data, logs, backups and keys; remote support controlled"
+  SRP-2:
+    name: Sovereign Controlled
+    promise: "Data + keys + runtime + security telemetry constrained to jurisdiction/approved sovereign boundary"
+    minimum_architecture: "Local/approved operators, KMS/HSM, backups and dependencies; strict transfer gateway"
+  SRP-3:
+    name: Dedicated Sovereign
+    promise: "Dedicated tenant/cell infrastructure with isolated control-plane dependencies as contracted"
+    minimum_architecture: "Dedicated data stores, key hierarchy, observability and hardened operator boundary"
+    note: "Not automatically air-gapped; every internet/federation/support dependency is listed in the tenant contract"
+
+data_classes:          # §5 — stricter rule always wins
+  DC0: {category: "Public / non-sensitive platform data", placement: "May be global"}
+  DC1: {category: "Pseudonymous operational metadata", placement: "Global only if approved/minimized; otherwise regional"}
+  DC2: {category: "Confidential tenant / personal data", placement: "Regional according to tenant profile"}
+  DC3: {category: "Restricted identity / authority / evidence data", placement: "Home cell/jurisdiction only; strongest transfer/access/key controls"}
+  KEY_MATERIAL: {category: "Private keys and secret values", placement: "Tenant key profile boundary (ZID-CRYPTO-MI-001); never treated as ordinary data"}
+
+coverage_matrix_subsystems:   # §6 — every one must satisfy the profile before a residency claim is made
+  [authoritative_db, object_evidence_store, cache, search_index, relationship_projection, message_broker,
+   logs_traces, security_events, backups_snapshots, kms_hsm, support_tooling, subprocessors, analytics]
+
+cross_border_default: DENY     # restricted classes need an approved transfer rule (§0.1)

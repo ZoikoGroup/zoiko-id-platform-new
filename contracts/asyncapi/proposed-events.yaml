@@ -1,0 +1,12 @@
+# Proposed events: needed by engineering but not yet in a canonical spec's event list.
+# status: PROPOSED (each entry names its change request; moves to the generated catalogue once the spec owner accepts)
+# version: 0.1.0
+# Same shape as event-catalogue.yaml. Emitting a type that is in neither file fails CI.
+
+events:
+  relationship.edge.changed:
+    cloudevents_type: com.zoiko.id.relationship.edge.changed.v1
+    meaning: "An authoritative relationship fact was recorded or changed; carries the tenant relation_revision (projector input, DEC-C4)."
+    source: ZID-AUTHZ-001 §7.1 (revision-consistent projection); CR-008
+    lane: domain
+    source_status: "proposed"

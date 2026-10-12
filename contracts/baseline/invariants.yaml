@@ -1,0 +1,162 @@
+# Non-negotiable architecture invariants (ZID-ARCH-002 §4). Phase A deliverable (docs/phases/phase-a-architecture-baseline.md).
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
+# owner: Chief Architect. Changing an invariant needs a recorded decision and ARB re-approval.
+#
+# enforcement kinds:
+#   architecture-test  executable guard that runs in CI today   ref = <test file>::<test function>
+#   acceptance-test    end-to-end proof from docs/traceability/acceptance-tests.csv   ref = AT-xx
+#   decision           the phase decision that implements it   ref = DEC-xx
+# entry status:
+#   enforced           every listed architecture-test exists and the invariant is fully covered by them
+#   partial            some architecture-tests exist; the rest is proved later by the listed acceptance tests
+#   planned            no executable guard yet; the owning phase must add one before its gate
+# backend/app/tests/unit/test_baseline.py keeps this file honest (refs must exist, statuses must match).
+
+invariants:
+  INV-01:
+    statement: "Identity is not an email address. Every actor has an immutable internal principal_id; identifiers are linked, versioned attributes."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_domain_objects.py::test_same_email_in_two_tenants_never_merges"}
+      - {kind: architecture-test, ref: "app/tests/unit/test_deployment_posture.py::test_external_subject_key_is_issuer_plus_subject"}
+      - {kind: architecture-test, ref: "app/tests/unit/test_deployment_posture.py::test_email_match_never_auto_links_high_assurance_accounts"}
+      - {kind: decision, ref: DEC-A1}
+
+  INV-02:
+    statement: "Authentication does not confer business authority. A valid login is only one input to an authorization decision."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_domain_objects.py::test_relationship_is_not_authority"}
+      - {kind: decision, ref: DEC-C1}
+      - {kind: decision, ref: DEC-E1}
+
+  INV-03:
+    statement: "No privilege amplification through delegation. A child grant is always an attenuation of one complete valid parent authority chain."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/property/test_authority_algebra.py::test_child_never_authorizes_what_parent_denies"}
+      - {kind: architecture-test, ref: "app/tests/unit/test_authority_chains.py::test_issuance_gate_rejects_widening"}
+      - {kind: decision, ref: DEC-C1}
+      - {kind: acceptance-test, ref: AT-02}
+
+  INV-04:
+    statement: "No union-of-partials authorization by default. A request must be satisfied by one complete valid chain unless an explicit composite-authority policy says otherwise."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_authority_chains.py::test_no_privilege_stitching"}
+      - {kind: decision, ref: DEC-C1}
+      - {kind: acceptance-test, ref: AT-03}
+
+  INV-05:
+    statement: "AI never supplies authority. Models may classify, explain or recommend; deterministic policy and signed grants decide."
+    phase: A
+    status: enforced
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_baseline.py::test_no_ai_model_sdk_in_authority_modules"}
+
+  INV-06:
+    statement: "R2/R3 actions re-evaluate at commit. Time-of-check cannot silently become time-of-use authority."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_pdp.py::test_allow_carries_revisions_obligations_and_bounded_validity"}
+      - {kind: architecture-test, ref: "app/tests/property/test_mandate_ledger.py::test_revocation_between_reserve_and_commit_blocks_commit"}
+      - {kind: decision, ref: DEC-B1}
+      - {kind: acceptance-test, ref: AT-09}
+
+  INV-07:
+    statement: "PostgreSQL remains the canonical transactional authority. Low-latency relationship stores and graphs are revisioned projections, never independent truth."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_domain_objects.py::test_stale_projection_cannot_serve_r2_r3"}
+      - {kind: decision, ref: DEC-C1}
+      - {kind: decision, ref: DEC-C4}
+      - {kind: acceptance-test, ref: AT-05}
+
+  INV-08:
+    statement: "No standing Zoiko production data privilege. Human operational access is just-in-time, dual-controlled where sensitive and receipted."
+    phase: F
+    status: planned
+    enforcement:
+      - {kind: decision, ref: DEC-F4}
+      - {kind: acceptance-test, ref: AT-11}
+
+  INV-09:
+    statement: "No immutable store contains directly identifying personal data by default. Evidence uses keyed pseudonymous handles and segregated encrypted subject evidence."
+    phase: F
+    status: planned
+    enforcement:
+      - {kind: decision, ref: DEC-F1}
+      - {kind: acceptance-test, ref: AT-10}
+
+  INV-10:
+    statement: "No customer must replace an incumbent IdP to adopt Zoiko authority controls."
+    phase: A
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_deployment_posture.py::test_overlay_mode_never_requires_native_identity"}
+      - {kind: decision, ref: DEC-A1}
+      - {kind: acceptance-test, ref: AT-01}
+
+  INV-11:
+    statement: "No production dependency on an unfinished protocol is exposed as a frozen public API. Drafts are isolated behind adapters."
+    phase: A
+    status: enforced
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_baseline.py::test_public_contracts_expose_no_draft_protocol"}
+      - {kind: decision, ref: DEC-D3}
+
+  INV-12:
+    statement: "All high-risk limits that can be consumed (money, count, data volume, signing quota) are ledgered atomically, never inferred from eventually consistent events."
+    phase: C
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/property/test_mandate_ledger.py::test_ledger_invariant_survives_any_operation_sequence"}
+      - {kind: decision, ref: DEC-C5}
+      - {kind: acceptance-test, ref: AT-04}
+
+  INV-13:
+    statement: "Tenant and cell context are server-derived from authenticated trust context, never trusted from a caller-supplied body field."
+    phase: A
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_baseline.py::test_tenant_is_never_read_from_caller_input"}
+      - {kind: decision, ref: DEC-G3}
+
+  INV-14:
+    statement: "Security state changes propagate by risk-class SLO and are measured end-to-end from authoritative commit to enforcement."
+    phase: B
+    status: planned
+    enforcement:
+      - {kind: decision, ref: DEC-B1}
+      - {kind: acceptance-test, ref: AT-06}
+
+  INV-15:
+    statement: "Every material allow/deny decision is reconstructable by policy version, relation/grant revision, assurance state and evidence references."
+    phase: F
+    status: partial
+    enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_pdp.py::test_decisions_are_deterministic"}
+      - {kind: decision, ref: DEC-F2}
+      - {kind: acceptance-test, ref: AT-10}
+
+# Explicit non-requirements and prohibited interpretations (ZID-REQ-001 §10). Each is covered by an
+# invariant above, or names the phase that must enforce it. test_requirements_contract.py checks the refs.
+prohibitions:
+  PRO-01: {text: "Email, phone or external IdP subject is never the canonical primary key for a person", covered_by: INV-01}
+  PRO-02: {text: "Authentication or credential possession is never sufficient business authority without policy evaluation", covered_by: INV-02}
+  PRO-03: {text: "No child delegation widens a parent grant; no default union-of-partials", covered_by: INV-03}
+  PRO-04: {text: "No eventually consistent graph or cache is authoritative for mandate balance or R2/R3 revocation state", covered_by: INV-07}
+  PRO-05: {text: "No AI model output grants authority or overrides deterministic deny rules", covered_by: INV-05}
+  PRO-06: {text: "No global super-admin role as an undocumented bypass of tenant, purpose, data or evidence controls", phase: F, decision: DEC-F4}
+  PRO-07: {text: "No long-lived static production API key as the default identity for internal workloads or high-risk machine clients", phase: F, decision: DEC-F7}
+  PRO-08: {text: "No immutable evidence store contains direct PII by default", covered_by: INV-09}
+  PRO-09: {text: "No vendor-specific KYC, wallet or registry payload becomes the canonical domain model", phase: E, decision: DEC-E2}
+  PRO-10: {text: "No unfinished protocol is a permanently stable public contract without an adapter and ARB approval", covered_by: INV-11}
+  PRO-11: {text: "No production-readiness claim relies only on functional QA; the acceptance suite is mandatory", phase: I}
