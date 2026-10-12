@@ -21,3 +21,5 @@ The migrations implement the upstream specs (ZID-MANDATE-001, ZID-ROOT-001, ZID-
 | `agent.workload_binding` | proposed in CR-003 | ZID-MACHINE-001 §16 | one live binding per workload identity (partial unique index) |
 | `authz.policy_release` | status DRAFT/TESTING/ACTIVE/RETIRED | ZID-AUTHZ-001 §18 | VALIDATING/REVIEW/SCHEDULED/REVOKED, schema_version, cases, reviewers; one ACTIVE per tenant; published source immutable |
 | `authz.policy_decision` | outcomes without STATE_UNAVAILABLE | ZID-AUTHZ-001 §14, §24 | adds STATE_UNAVAILABLE, evidence_class, authority_chain_commitment, input_commitment; append-only; R2/R3 allows must carry release + revisions |
+| `events.outbox_event`, `events.inbox_message` | named in ownership only | ZID-EVENTS-001 §2, §5, §8 | CloudEvents columns, lane, one event per aggregate version, immutable payload, publication/quarantine bookkeeping; inbox per (consumer, event) with status |
+| `platform.idempotency_record` | not present | ZID-API-001 §1.1, §4 | proposed table: one row per (tenant, client, endpoint, key hash) with request hash and stored response |

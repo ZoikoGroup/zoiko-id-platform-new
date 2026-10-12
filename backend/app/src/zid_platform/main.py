@@ -21,4 +21,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         modules=modules_for(role),
         required_schemas=schemas_for(role),
     )
-    return create_service_app(spec, settings)
+    app = create_service_app(spec, settings)
+    if role is Role.CELL:
+        from .modules.decision.api.authzen import router as authzen_router
+
+        app.include_router(authzen_router)
+    return app

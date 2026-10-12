@@ -45,6 +45,10 @@ services:
       ZID_CELL_ID: local-1
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
       ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
+      # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
+      ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    volumes:
+      - ./contracts:/app/contracts:ro
     ports:
       - "8000:8000"   # cell role
       - "8100:8100"   # global role

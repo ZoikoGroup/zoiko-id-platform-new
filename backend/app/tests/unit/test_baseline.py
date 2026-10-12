@@ -346,3 +346,12 @@ def test_domain_layers_are_pure() -> None:
             if not (top == "__future__" or top in allowed_stdlib or own_domain):
                 violations.append(f"{py.relative_to(APP)} imports {name}")
     assert not violations, "\n".join(violations)
+
+
+def test_published_contracts_match_code() -> None:
+    """The committed AuthZEN OpenAPI contract is exactly what the code serves (regenerate to change it)."""
+    from zid_platform.contracts_export import AUTHZEN_FILE, authzen_contract, render
+
+    assert AUTHZEN_FILE.read_text(encoding="utf-8") == render(authzen_contract()), (
+        "contract drift: run `python -m zid_platform.contracts_export` and review the diff"
+    )

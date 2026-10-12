@@ -309,6 +309,11 @@ tables:
     module: webhook
     tenant_scoped: true
     source: "ZID-DATA-001 §23 (webhook checkpoints)"
+  platform.idempotency_record:
+    role: cell
+    module: outbox
+    tenant_scoped: true
+    source: "proposed (ZID-API-001 §1.1, §4 idempotency; platform mechanics; CR-007)"
   events.outbox_event:
     role: cell
     module: outbox

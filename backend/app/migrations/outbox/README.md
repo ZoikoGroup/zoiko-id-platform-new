@@ -6,3 +6,4 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `events.outbox_event`
 - `events.inbox_message`
+- `platform.idempotency_record`

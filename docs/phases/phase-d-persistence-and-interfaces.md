@@ -13,6 +13,26 @@ Back to the [phase index](README.md).
 | 16 | ZID-EVENTS-001 | Event Architecture, Messaging & Webhooks |
 | 21 | ZID-SVC-001 | Service Decomposition & Internal Interfaces |
 
+## Deliverables and status
+
+| Deliverable | Where | Status |
+|---|---|---|
+| Transactional outbox: event written in the same transaction as the state change, immutable, one event per aggregate version, 256 KiB cap (EVENTS §5, §11) | `migrations/outbox/versions/0001_outbox_inbox.py`, `libs/zid-outbox` | Done |
+| Relay: `FOR UPDATE SKIP LOCKED` + lease, priority lane first, retry then quarantine; publisher interface for MSK/Redpanda (EVENTS §5-6, §10) | `zid_outbox.relay_once`, `tests/component/test_events_pg.py` | Done (Kafka/MSK adapter: next slice) |
+| Idempotent consumer inbox: per-consumer dedup, ordered gap detection, poison quarantine (EVENTS §7-8) | `zid_outbox.consume` | Done |
+| Phase C stores emit their events: grants, mandates, mandate ledger, authority roots; types checked against the catalogue | stores + `test_emitted_events_are_declared_in_the_catalogue` | Done (agent/policy events: next slice) |
+| API idempotency: key + canonical request hash, replay, 409 on reuse, concurrent same-key runs once (API §1.1, §4) | `migrations/outbox/versions/0002_idempotency.py`, `libs/zid-idempotency` | Done |
+| AuthZEN 1.0 `POST /access/v1/evaluation`: tenant from the authenticated caller only, decision true only for ALLOW, obligations/revisions in context, unknown action denied (API §9; DEC-C1) | `modules/decision/api/authzen.py`, `tests/component/test_authzen_api_pg.py` | Done (authentication middleware: Phase E) |
+| Published OpenAPI contract for the AuthZEN surface, with a drift test | `contracts/openapi/authzen/evaluation.json`, `zid_platform.contracts_export` | Done |
+| Data Model alignment: CR-001/002/006/007 to be accepted into ZID-DATA-001 | `docs/specs/change-requests/` | **Owner action** (spec owners) |
+| Remaining: Kafka/MSK publisher + relay/consumer processes, AsyncAPI channel docs, webhook delivery (EVENTS §14-21), grant/mandate/approval REST APIs (API §10-11), internal interface contracts (Doc 21) | — | Next slices |
+
+**Unblocked:** the DEC-B3 load test (`tests/load/decision-gate`) now has a real endpoint to target once Phase E authentication is in front of it.
+
+### Findings
+- **Build context:** the backend image is built from `backend/`, so shared `contracts/` (the action catalog) can't be copied in. Compose mounts it read-only and sets `ZID_ACTION_CATALOG`; production should ship it as configuration.
+- **Relay role:** outbox tables are tenant-scoped by RLS for writers; the relay must run as a dedicated role with BYPASSRLS (deployment grant), never as an application runtime role.
+
 ## Decisions
 
 | ID | Decision | Owner | Status |
