@@ -33,6 +33,7 @@ jobs:
     env:
       # Disposable CI database; the component suite creates and drops its own database inside it.
       ZID_TEST_PG_URL: postgresql+asyncpg://postgres:ci-only@localhost:5432/postgres
+      ZID_TEST_SPICEDB_URL: http://localhost:58443
     defaults:
       run:
         working-directory: backend
@@ -45,6 +46,11 @@ jobs:
         with:
           version: "0.13.0"
           enable-cache: true
+
+      - name: Start SpiceDB (a service container cannot pass the `serve` command)
+        run: >-
+          docker run -d --rm --name spicedb -p 58443:8443 authzed/spicedb:v1.39.1 serve
+          --grpc-preshared-key test-key --http-enabled --datastore-engine memory --telemetry-endpoint=""
 
       - name: Repository structure checks
         working-directory: .
