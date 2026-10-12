@@ -219,17 +219,24 @@ class History[T]:
     def record(
         self, value: T, *, valid_from: datetime, valid_to: datetime | None, recorded_at: datetime
     ) -> History[T]:
-        """Add a fact or a late correction. Overlapping current versions are superseded, never edited away."""
+        """Add a fact or a late correction; nothing is edited or deleted.
+
+        Lookups prefer the most recently recorded version covering the asked-for time, so a
+        correction that covers only part of an older version leaves the rest of it in force.
+        An older version is marked superseded only when the new one covers its whole interval.
+        """
         if self.versions and recorded_at < max(v.recorded_at for v in self.versions):
             raise DomainError("CLOCK_REGRESSION", "system time never goes backwards")
-        out = []
-        for v in self.versions:
-            overlaps = (
-                v.superseded_at is None
-                and (v.valid_to is None or v.valid_to > valid_from)
-                and (valid_to is None or v.valid_from < valid_to)
-            )
-            out.append(replace(v, superseded_at=recorded_at) if overlaps else v)
+
+        def covers(v: Version[T]) -> bool:
+            starts_before = valid_from <= v.valid_from
+            ends_after = valid_to is None or (v.valid_to is not None and v.valid_to <= valid_to)
+            return starts_before and ends_after
+
+        out = [
+            replace(v, superseded_at=recorded_at) if v.superseded_at is None and covers(v) else v
+            for v in self.versions
+        ]
         out.append(Version(value, valid_from, valid_to, recorded_at))
         return History(tuple(out))
 
@@ -239,7 +246,6 @@ class History[T]:
             v
             for v in self.versions
             if v.recorded_at <= known_at
-            and (v.superseded_at is None or v.superseded_at > known_at)
             and v.valid_from <= valid_at
             and (v.valid_to is None or valid_at < v.valid_to)
         ]

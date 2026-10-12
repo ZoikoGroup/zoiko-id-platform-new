@@ -121,6 +121,27 @@ def test_late_correction_does_not_rewrite_what_a_past_decision_saw() -> None:
         h.record("x", valid_from=NOW, valid_to=None, recorded_at=NOW - timedelta(days=1))
 
 
+def test_partial_correction_leaves_the_rest_of_the_old_fact_in_force() -> None:
+    """A correction for days -10..-8 must not erase what was known for other days."""
+    h: History[str] = History().record(
+        "Acme Ltd",
+        valid_from=NOW - timedelta(days=30),
+        valid_to=None,
+        recorded_at=NOW - timedelta(days=30),
+    )
+    h = h.record(
+        "Acme (corrected)",
+        valid_from=NOW - timedelta(days=10),
+        valid_to=NOW - timedelta(days=8),
+        recorded_at=NOW,
+    )
+    assert h.as_of(valid_at=NOW - timedelta(days=9), known_at=NOW) == "Acme (corrected)"
+    assert h.as_of(valid_at=NOW - timedelta(days=5), known_at=NOW) == "Acme Ltd"
+    assert h.versions[0].superseded_at is None  # only partly covered, so not superseded
+    full = h.record("Acme plc", valid_from=NOW - timedelta(days=40), valid_to=None, recorded_at=NOW)
+    assert all(v.superseded_at == NOW for v in full.versions[:-1])
+
+
 # ---------------------------------------------------------------- relationships
 
 EDGE = Relationship(
