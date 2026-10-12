@@ -310,6 +310,7 @@ def test_tenant_is_never_read_from_caller_input() -> None:
     assert not violations, "\n".join(violations)
 
 
+PURE_SUBMODULES = frozenset({"urllib.parse"})
 IO_STDLIB = {
     "os",
     "io",
@@ -336,6 +337,7 @@ IO_STDLIB = {
 
 def test_domain_layers_are_pure() -> None:
     """DEC-A2: domain/ is pure Python; I/O lives in infrastructure/ behind ports."""
+    # Pure parsing submodules of otherwise I/O packages (urllib.request does I/O; urllib.parse does not).
     allowed_stdlib = set(sys.stdlib_module_names) - IO_STDLIB
     violations = []
     for py in MODULES_DIR.glob("*/domain/**/*.py"):
@@ -343,7 +345,12 @@ def test_domain_layers_are_pure() -> None:
         for name in _imports(py):
             top = name.split(".")[0]
             own_domain = name.startswith(f"zid_platform.modules.{own}.domain")
-            if not (top == "__future__" or top in allowed_stdlib or own_domain):
+            if not (
+                top == "__future__"
+                or top in allowed_stdlib
+                or own_domain
+                or name in PURE_SUBMODULES
+            ):
                 violations.append(f"{py.relative_to(APP)} imports {name}")
     assert not violations, "\n".join(violations)
 
