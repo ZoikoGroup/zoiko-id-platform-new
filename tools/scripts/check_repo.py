@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache",
+SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".hypothesis",
         ".ruff_cache", ".next", ".turbo", "build", "dist"}
 LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
 
