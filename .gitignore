@@ -83,3 +83,6 @@ ehthumbs.db
 !.vscode/settings.json
 .history/
 .claude/settings.local.json
+
+# ---------- CI / local test reports ----------
+/reports/
