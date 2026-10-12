@@ -13,6 +13,31 @@ Back to the [phase index](README.md).
 | 08 | ZID-MANDATE-001 | Delegated Authority & Mandate Ledger |
 | 10 | ZID-ROOT-001 | Organizational Authority & Root of Trust |
 
+## Deliverables and status
+
+Built in slices; each slice is pure domain logic first, then persistence.
+
+| Deliverable | Where | Status |
+|---|---|---|
+| Authority algebra: 11 dimensions (actions, resources with `type:*` patterns, purposes, data, jurisdictions, tools, value in fixed decimal + currency, count, bytes, assurance, time); `Effective(child) = Effective(parent) ∩ child` | `modules/authority/domain/algebra.py` | Done |
+| Property tests: intersection never widens, chains only narrow, child never authorizes what the parent denies, containment reflexive/transitive (AT-02, AUTHZ-03, MAND-01) | `tests/property/test_authority_algebra.py` | Done |
+| Grants, roots AR-0…AR-3, chain resolver: cycles, missing parents, cross-tenant hops, stale/revoked/insufficient roots, depth, delegation flags | `modules/authority/domain/grants.py` | Done |
+| One complete chain per request, no privilege stitching (AT-03, AUTHZ-04, MAND-04); issuance gate (MANDATE §2.1, §4) | `grants.py`, `tests/unit/test_authority_chains.py` | Done |
+| Grantor continuity (DEC-C2): modes incl. CONTRACT_BOUND (CR-001), `REVALIDATION_PENDING` (CR-002), officeholder change, personal-authority cascade (AT-07, MAND-02/03) | `grants.py` | Done (domain) |
+| Mandate ledger rules: lifecycle, multi-dimensional budget, reserve/commit/release, idempotency, lease expiry, reconciliation (MAND-08…15, 23, 24) | `modules/mandate/domain/ledger.py`, `tests/property/test_mandate_ledger.py` | Done (domain) |
+| Ledger persistence in PostgreSQL with row lock + writer fencing; **10k-concurrency test** (AT-04, MAND-08/22) | — | **Next slice** |
+| Composite authority (ALL_OF, K_OF_N, ROLE_PAIR) and transaction-bound approvals (AUTHZ-15/16, MAND-16/17) | — | Planned |
+| Sub-agent mandates and parent-budget preservation (MAND-18…20) | — | Planned |
+| Root-of-trust evidence model: provenance, refresh, registry disagreement (Doc 10, FR-ORG-002/003/005/008) | — | Planned |
+| Canonical domain objects and lifecycles (Doc 03) | — | Planned |
+
+**Invariants now guarded by tests:** INV-03 (no amplification), INV-04 (no stitching), INV-12 (consumables ledgered) moved from `planned` to `partial`; end-to-end proof still comes from AT-02/03/04.
+
+### Findings
+- **Continuity across modes:** the specs say a child "cannot adopt broader continuity than its parent", but don't order the modes. Engineering's rule (for the ARB): PERSON_BOUND fits under anything; ORGANIZATION_CONTINUOUS admits anything; ROLE_CONTINUOUS and CONTRACT_BOUND are different bases, so neither becomes the other.
+- **Currency mismatch:** intersecting value limits in different currencies leaves nothing spendable (ISO `XXX`, zero), rather than picking one side's currency.
+- **Root eligibility by risk:** AR-1 roots at most R1, AR-2 at most R2, AR-3 up to R3, AR-0 nothing (AUTHZ §6, DEC-C2 §2).
+
 ## Decisions
 
 | ID | Decision | Owner | Status |

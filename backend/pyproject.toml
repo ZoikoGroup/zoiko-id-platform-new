@@ -33,6 +33,7 @@ strict = true
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
+    "hypothesis>=6.100",
     "mypy>=1.13",
     "pytest>=8.3",
     "pyyaml>=6.0",

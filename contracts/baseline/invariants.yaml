@@ -34,16 +34,19 @@ invariants:
   INV-03:
     statement: "No privilege amplification through delegation. A child grant is always an attenuation of one complete valid parent authority chain."
     phase: C
-    status: planned
+    status: partial
     enforcement:
+      - {kind: architecture-test, ref: "app/tests/property/test_authority_algebra.py::test_child_never_authorizes_what_parent_denies"}
+      - {kind: architecture-test, ref: "app/tests/unit/test_authority_chains.py::test_issuance_gate_rejects_widening"}
       - {kind: decision, ref: DEC-C1}
       - {kind: acceptance-test, ref: AT-02}
 
   INV-04:
     statement: "No union-of-partials authorization by default. A request must be satisfied by one complete valid chain unless an explicit composite-authority policy says otherwise."
     phase: C
-    status: planned
+    status: partial
     enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_authority_chains.py::test_no_privilege_stitching"}
       - {kind: decision, ref: DEC-C1}
       - {kind: acceptance-test, ref: AT-03}
 
@@ -107,8 +110,9 @@ invariants:
   INV-12:
     statement: "All high-risk limits that can be consumed (money, count, data volume, signing quota) are ledgered atomically, never inferred from eventually consistent events."
     phase: C
-    status: planned
+    status: partial
     enforcement:
+      - {kind: architecture-test, ref: "app/tests/property/test_mandate_ledger.py::test_ledger_invariant_survives_any_operation_sequence"}
       - {kind: decision, ref: DEC-C5}
       - {kind: acceptance-test, ref: AT-04}
 
