@@ -36,8 +36,10 @@ RUN groupadd --system --gid 10001 zid && useradd --system --uid 10001 --gid zid 
 COPY --from=builder --chown=zid:zid /app/.venv /app/.venv
 # Per-module Alembic streams (DEC-D1), read-only; run with `python -m zid_platform.migrations upgrade`.
 COPY --chown=zid:zid app/migrations /app/migrations
+# Platform-floor Cedar policies (DEC-C3), evaluated with every tenant release.
+COPY --chown=zid:zid policies /app/policies
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell,global \
-    ZID_MIGRATIONS_DIR=/app/migrations
+    ZID_MIGRATIONS_DIR=/app/migrations ZID_POLICY_DIR=/app/policies
 USER zid
 EXPOSE 8000 8100
 # Healthy only if EVERY configured role answers /health/live on its port.
