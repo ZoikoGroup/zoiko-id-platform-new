@@ -15,7 +15,7 @@ Guards live in the database as well as the domain code: non-negative CHECKs, one
 idempotency key, and FORCE ROW LEVEL SECURITY on every tenant table.
 """
 
-from alembic import op
+from zid_platform.migrations import execute_script as _run
 
 revision = "mandate_0001"
 down_revision = None
@@ -23,13 +23,6 @@ branch_labels = None
 depends_on = None
 
 TENANT_TABLES = ("mandate", "mandate_balance", "mandate_reservation", "writer_fence")
-
-
-def _run(sql: str) -> None:
-    """asyncpg runs one statement per call; the DDL here contains no literal semicolons."""
-    for statement in (s.strip() for s in sql.split(";")):
-        if statement:
-            op.execute(statement)
 
 
 def upgrade() -> None:

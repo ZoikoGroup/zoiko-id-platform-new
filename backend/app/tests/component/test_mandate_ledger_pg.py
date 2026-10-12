@@ -11,22 +11,19 @@ and then works as a *runtime* role without BYPASSRLS, so row-level security is r
 from __future__ import annotations
 
 import asyncio
-import os
 import random
 import uuid
-from collections.abc import AsyncIterator, Iterator
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
+from conftest import CELL as SHARED_CELL
+from conftest import ctx as shared_ctx
+from conftest import engine
 from sqlalchemy import text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_context import RequestContext
 from zid_db import tenant_transaction
-from zid_platform.migrations import upgrade
 from zid_platform.modules.mandate.domain.ledger import (
     Amounts,
     Budget,
@@ -46,92 +43,32 @@ from zid_platform.modules.mandate.infrastructure.ledger_store import (
     sweep_reservation,
 )
 
-ADMIN_URL = os.environ.get("ZID_TEST_PG_URL")
-pytestmark = pytest.mark.skipif(
-    not ADMIN_URL, reason="set ZID_TEST_PG_URL to a disposable PostgreSQL"
-)
-
-SCHEMAS_SQL = Path(__file__).resolve().parents[3] / "database" / "schemas" / "001_cell_schemas.sql"
-CELL = uuid.UUID("00000000-0000-7000-8000-0000000000c1")
+CELL = uuid.UUID(SHARED_CELL)
 OTHER_CELL = uuid.UUID("00000000-0000-7000-8000-0000000000c2")
 TENANT = uuid.UUID("00000000-0000-7000-8000-00000000000a")
 OTHER_TENANT = uuid.UUID("00000000-0000-7000-8000-00000000000b")
 NOW = datetime.now(UTC)
-RT_ROLE, RT_PASSWORD = "zid_mandate_rt", "rt-test-only"
 
 
-@pytest.fixture(scope="module")
-def rt_url() -> Iterator[str]:
-    """Fresh database, schemas, mandate migration, runtime role; dropped afterwards."""
-    assert ADMIN_URL
-    db = f"zid_ledger_{uuid.uuid4().hex[:8]}"
-    admin = make_url(ADMIN_URL)
-    db_url = admin.set(database=db)
+@pytest.fixture(scope="module", autouse=True)
+def writer_fences(owner_url: str) -> None:
+    """This cell holds the writer epoch for both test tenants (owner bypasses RLS to seed it)."""
 
-    async def setup() -> None:
-        eng = create_async_engine(admin, isolation_level="AUTOCOMMIT")
-        async with eng.connect() as c:
-            await c.execute(text(f'CREATE DATABASE "{db}"'))
-            exists = (
-                await c.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": RT_ROLE})
-            ).first()
-            if not exists:
-                await c.execute(
-                    text(f"CREATE ROLE {RT_ROLE} LOGIN PASSWORD '{RT_PASSWORD}' NOBYPASSRLS")
-                )
-        await eng.dispose()
-        eng = create_async_engine(db_url, isolation_level="AUTOCOMMIT")
-        async with eng.connect() as c:
-            lines = SCHEMAS_SQL.read_text(encoding="utf-8").splitlines()
-            sql = " ".join(ln for ln in lines if not ln.startswith("--"))
-            for statement in (s.strip() for s in sql.split(";")):
-                if statement:
-                    await c.exec_driver_sql(statement)
-        await eng.dispose()
-
-    async def grant() -> None:
-        eng = create_async_engine(db_url, isolation_level="AUTOCOMMIT")
-        async with eng.connect() as c:
-            await c.execute(text(f"GRANT USAGE ON SCHEMA agent TO {RT_ROLE}"))
-            await c.execute(
-                text(f"GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA agent TO {RT_ROLE}")
-            )
+    async def seed() -> None:
+        async with engine(owner_url) as eng, eng.begin() as c:
             await c.execute(
                 text(
-                    "INSERT INTO agent.writer_fence (tenant_id, cell_id, epoch) VALUES "
-                    "(:a, :cell, 3), (:b, :cell, 1)"
+                    "INSERT INTO agent.writer_fence (tenant_id, cell_id, epoch) VALUES (:a, :cell, 3), (:b, :cell, 1) "
+                    "ON CONFLICT (tenant_id) DO NOTHING"
                 ),
                 {"a": TENANT, "b": OTHER_TENANT, "cell": CELL},
             )
-        await eng.dispose()
 
-    asyncio.run(setup())
-    upgrade(db_url.render_as_string(hide_password=False), ["mandate"])
-    asyncio.run(grant())
-    yield db_url.set(username=RT_ROLE, password=RT_PASSWORD).render_as_string(hide_password=False)
-
-    async def teardown() -> None:
-        eng = create_async_engine(admin, isolation_level="AUTOCOMMIT")
-        async with eng.connect() as c:
-            await c.execute(text(f'DROP DATABASE "{db}" WITH (FORCE)'))
-        await eng.dispose()
-
-    asyncio.run(teardown())
+    asyncio.run(seed())
 
 
 def ctx(tenant: uuid.UUID = TENANT) -> RequestContext:
-    return RequestContext(
-        "req_t", "cor_t", "test", str(CELL), tenant_id=str(tenant), principal_id=None
-    )
-
-
-@asynccontextmanager
-async def engine(url: str, size: int = 5) -> AsyncIterator[AsyncEngine]:
-    eng = create_async_engine(url, pool_size=size, max_overflow=0, pool_timeout=600)
-    try:
-        yield eng
-    finally:
-        await eng.dispose()
+    return shared_ctx(tenant)
 
 
 async def new_mandate(eng: AsyncEngine, budget: Budget, tenant: uuid.UUID = TENANT) -> uuid.UUID:

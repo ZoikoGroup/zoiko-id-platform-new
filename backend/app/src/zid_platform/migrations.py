@@ -30,6 +30,36 @@ MIGRATIONS_DIR = Path(
 VERSION_SCHEMA = "zid_migrations"
 
 
+def _join(lines: list[str]) -> str:
+    return "\n".join(lines).strip().rstrip(";").strip()
+
+
+def split_sql(sql: str) -> list[str]:
+    """Split a DDL script into single statements (asyncpg runs one per call); `$$` bodies stay whole."""
+    parts: list[str] = []
+    buf: list[str] = []
+    in_body = False
+    for line in sql.splitlines():
+        if line.count("$$") % 2 == 1:
+            in_body = not in_body
+        buf.append(line)
+        if not in_body and line.rstrip().endswith(";"):
+            parts.append(_join(buf))
+            buf = []
+    tail = _join(buf)
+    if tail:
+        parts.append(tail)
+    return [p for p in parts if p]
+
+
+def execute_script(sql: str) -> None:
+    """Run a multi-statement DDL script inside the current Alembic migration."""
+    from alembic import op
+
+    for statement in split_sql(sql):
+        op.execute(statement)
+
+
 def streams_with_revisions() -> list[str]:
     """Streams that have at least one revision, in a stable order."""
     return sorted(

@@ -179,6 +179,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-DATA-001 §4.3"
+  org.source_event:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "proposed (ZID-ROOT-001 §18, ROOT-24 idempotent source events; CR-007)"
   verify.verification_assertion:
     role: cell
     module: verification
