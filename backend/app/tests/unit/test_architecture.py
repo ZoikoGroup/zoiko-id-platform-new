@@ -112,7 +112,7 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
     assert not violations, "\n".join(violations)
 
 
-EVENT_NAME = r"(authority|authority_root|mandate|agent|organization)(.[a-z_]+)+"
+EVENT_NAME = r"(authority|authority_root|mandate|agent|organization)(\.[a-z_]+)+"
 
 
 def test_emitted_events_are_declared_in_the_catalogue() -> None:
