@@ -63,3 +63,50 @@ def test_modules_only_import_other_modules_through_ports() -> None:
     assert not violations, "cross-module imports must go through ports.py:\n" + "\n".join(
         violations
     )
+
+
+def _migration_tables(py: Path) -> set[str]:
+    """schema.table names a migration creates or alters, including `{table}` loops over a tuple."""
+    source = py.read_text(encoding="utf-8")
+    loops: dict[str, tuple[str, ...]] = {}
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Tuple):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    loops[target.id] = tuple(
+                        e.value for e in node.value.elts if isinstance(e, ast.Constant)
+                    )
+    found: set[str] = set()
+    for schema, table in re.findall(
+        r"(?:CREATE|ALTER|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(\w+)\.(\{\w+\}|\w+)",
+        source,
+        re.IGNORECASE,
+    ):
+        if table.startswith("{"):
+            names = next(iter(loops.values()), ()) if len(loops) == 1 else ()
+            assert names, (
+                f"{py.name}: can't resolve {table}; use one tuple constant for table loops"
+            )
+            found |= {f"{schema}.{n}" for n in names}
+        else:
+            found.add(f"{schema}.{table}")
+    return found
+
+
+def test_migrations_only_touch_tables_their_module_owns() -> None:
+    """Each stream may create/alter only the tables table-ownership.yaml gives its module."""
+    owned: dict[str, set[str]] = {}
+    current = None
+    for line in OWNERSHIP.read_text(encoding="utf-8").splitlines():
+        if m := re.match(r"^  (\w+\.\w+):$", line):
+            current = m.group(1)
+        elif (m := re.match(r"^\s+module: (\w+)$", line)) and current:
+            owned.setdefault(m.group(1), set()).add(current)
+    violations = []
+    for py in MIGRATIONS_DIR.glob("*/versions/*.py"):
+        stream = py.parent.parent.name
+        extra = _migration_tables(py) - owned.get(stream, set())
+        violations += [
+            f"{stream}/{py.name} touches {t}, owned by another module" for t in sorted(extra)
+        ]
+    assert not violations, "\n".join(violations)

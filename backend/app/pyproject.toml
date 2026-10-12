@@ -11,6 +11,9 @@ dependencies = [
   "zid-outbox",
   "zid-telemetry",
   "uvicorn[standard]>=0.32",
+  "alembic>=1.14",
+  "sqlalchemy[asyncio]>=2.0",
+  "asyncpg>=0.30",
 ]
 
 [build-system]

@@ -34,7 +34,10 @@ RUN uv run --frozen pytest -q libs app
 FROM ${PYTHON_IMAGE} AS runtime
 RUN groupadd --system --gid 10001 zid && useradd --system --uid 10001 --gid zid --no-create-home zid
 COPY --from=builder --chown=zid:zid /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell,global
+# Per-module Alembic streams (DEC-D1), read-only; run with `python -m zid_platform.migrations upgrade`.
+COPY --chown=zid:zid app/migrations /app/migrations
+ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell,global \
+    ZID_MIGRATIONS_DIR=/app/migrations
 USER zid
 EXPOSE 8000 8100
 # Healthy only if EVERY configured role answers /health/live on its port.
