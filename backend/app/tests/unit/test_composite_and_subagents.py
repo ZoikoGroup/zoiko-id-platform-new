@@ -83,6 +83,14 @@ def test_two_of_n_needs_two_distinct_principals() -> None:
     assert outcome(req, a, decision("prn_b", {"finance_approver"})) is ApprovalState.APPROVED
 
 
+def test_one_person_counts_once_even_through_two_grants() -> None:
+    """Two approvals by one principal via different grants are still one approver."""
+    req = request(CompositeMode.K_OF_N, ("finance_approver",), k=2)
+    a1 = decision("prn_a", {"finance_approver"}, grant="g_1")
+    a2 = decision("prn_a", {"finance_approver"}, grant="g_2", decided_at=NOW + timedelta(minutes=1))
+    assert outcome(req, a1, a2) is ApprovalState.PENDING
+
+
 def test_requester_cannot_approve_their_own_request() -> None:
     req = request(CompositeMode.SINGLE, ("manager",))
     assert outcome(req, decision("prn_requester", {"manager"})) is ApprovalState.PENDING
