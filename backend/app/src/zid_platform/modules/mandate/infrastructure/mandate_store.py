@@ -1,0 +1,183 @@
+"""Mandate lifecycle, terms and sub-mandates in PostgreSQL (ZID-MANDATE-001 §9-10, §17-18; MAND-06/07/18-20).
+
+- Lifecycle changes go through the domain state machine; terminal states are final in the database too.
+- A sub-mandate is created in the same transaction that reserves its allocation on the parent ledger
+  (ALLOCATED_SUB_BUDGET), so children together can never spend more than the parent (MAND-19).
+- `pause_or_revoke_for_grants` is the mandate side of a revocation cascade (MAND-20, AT-07): every
+  live mandate built on an invalidated grant, and every descendant sub-mandate, stops.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Iterable
+from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import Row, text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+from zid_platform.modules.mandate.domain.ledger import (
+    TERMINAL_MANDATE_STATES,
+    Amounts,
+    Budget,
+    LedgerError,
+    MandateStatus,
+    mandate_transition,
+)
+from zid_platform.modules.mandate.domain.subagent import (
+    BudgetMode,
+    CascadeEffect,
+    MandateTerms,
+    cascade,
+    child_budget,
+    validate_sub_mandate,
+)
+from zid_platform.modules.mandate.infrastructure.ledger_store import (
+    MandateRecord,
+    create_mandate,
+    reserve_capacity,
+)
+
+_TERMS = """mandate_id, executor_principal_id, represented_principal_id, purpose_id, allowed_actions, resource_scopes,
+            tools, jurisdictions, valid_from, valid_to, delegation_allowed, max_delegation_depth, status,
+            parent_mandate_id, budget_mode, authority_grant_id, currency, value_limit, count_limit, data_limit_bytes,
+            per_transaction_value_limit"""
+
+
+def _terms(row: Row[Any]) -> MandateTerms:
+    m = row._mapping
+    return MandateTerms(
+        mandate_id=str(m["mandate_id"]),
+        executor_principal_id=str(m["executor_principal_id"]),
+        represented_principal_id=str(m["represented_principal_id"]),
+        purpose_id=str(m["purpose_id"]),
+        actions=frozenset(m["allowed_actions"]),
+        resource_scope=frozenset(m["resource_scopes"]),
+        tools=frozenset(m["tools"]),
+        jurisdictions=frozenset(m["jurisdictions"]),
+        valid_from=m["valid_from"],
+        valid_to=m["valid_to"],
+        delegation_allowed=m["delegation_allowed"],
+        max_delegation_depth=m["max_delegation_depth"],
+        status=MandateStatus(m["status"]),
+        parent_mandate_id=str(m["parent_mandate_id"]) if m["parent_mandate_id"] else None,
+        budget_mode=BudgetMode(m["budget_mode"]) if m["budget_mode"] else None,
+    )
+
+
+async def load_terms(conn: AsyncConnection, mandate_id: str) -> tuple[MandateTerms, Budget, str]:
+    """Terms, budget and source grant id of one mandate."""
+    row = (
+        await conn.execute(
+            text(f"SELECT {_TERMS} FROM agent.mandate WHERE mandate_id = :id"),
+            {"id": uuid.UUID(mandate_id)},
+        )
+    ).first()
+    if row is None:
+        raise LedgerError("MANDATE_NOT_FOUND")
+    m = row._mapping
+    budget = Budget(
+        currency=m["currency"].strip() if m["currency"] else None,
+        value_limit=m["value_limit"],
+        count_limit=m["count_limit"],
+        data_limit_bytes=m["data_limit_bytes"],
+        per_transaction_value_limit=m["per_transaction_value_limit"],
+    )
+    return _terms(row), budget, str(m["authority_grant_id"])
+
+
+async def set_mandate_status(
+    conn: AsyncConnection, mandate_id: str, target: MandateStatus, *, source_valid: bool = True
+) -> MandateStatus:
+    terms, _, _ = await load_terms(conn, mandate_id)
+    mandate_transition(terms.status, target, source_valid=source_valid)
+    result = await conn.execute(
+        text(
+            "UPDATE agent.mandate SET status = CAST(:s AS agent.mandate_status), row_version = row_version + 1 "
+            "WHERE mandate_id = :id AND status = CAST(:old AS agent.mandate_status)"
+        ),
+        {"s": target.value, "old": terms.status.value, "id": uuid.UUID(mandate_id)},
+    )
+    if result.rowcount != 1:
+        raise LedgerError("CONCURRENT_MODIFICATION")
+    return target
+
+
+async def create_sub_mandate(
+    conn: AsyncConnection,
+    *,
+    parent_id: str,
+    child: MandateRecord,
+    child_terms: MandateTerms,
+    allocation: Amounts,
+    cell_id: uuid.UUID,
+    writer_epoch: int,
+    now: datetime,
+) -> MandateTerms:
+    """Attenuate, reserve the allocation on the parent ledger, then insert the child: one transaction."""
+    parent, parent_budget, _ = await load_terms(conn, parent_id)
+    problems = validate_sub_mandate(parent, child_terms)
+    if problems:
+        raise LedgerError(problems[0], ", ".join(problems))
+    reservation_id = None
+    if child_terms.budget_mode is BudgetMode.ALLOCATED_SUB_BUDGET:
+        lease = child_terms.valid_to - now + timedelta(minutes=1)
+        res = await reserve_capacity(
+            conn,
+            tenant_id=child.tenant_id,
+            mandate_id=uuid.UUID(parent_id),
+            idempotency_key=f"allocation:{child.mandate_id}",
+            transaction_context=f"sub-mandate:{child.mandate_id}",
+            amounts=allocation,
+            currency=parent_budget.currency,
+            cell_id=cell_id,
+            writer_epoch=writer_epoch,
+            now=now,
+            lease=lease,
+        )
+        reservation_id = res.reservation_id
+        child = MandateRecord(
+            **{
+                **{f: getattr(child, f) for f in MandateRecord.__dataclass_fields__},
+                "budget": child_budget(allocation, parent_budget),
+            }
+        )
+    await create_mandate(conn, child, terms=child_terms, allocation_reservation_id=reservation_id)
+    return child_terms
+
+
+async def _all_terms(conn: AsyncConnection) -> dict[str, MandateTerms]:
+    rows = (await conn.execute(text(f"SELECT {_TERMS} FROM agent.mandate"))).all()
+    return {str(r.mandate_id): _terms(r) for r in rows}
+
+
+async def pause_or_revoke_for_grants(
+    conn: AsyncConnection, grant_ids: Iterable[str], effect: CascadeEffect
+) -> dict[str, MandateStatus]:
+    """Stop every live mandate built on these grants, and all their sub-mandates (AT-07, MAND-20)."""
+    ids = [uuid.UUID(g) for g in grant_ids]
+    if not ids:
+        return {}
+    rows = (
+        await conn.execute(
+            text("SELECT mandate_id FROM agent.mandate WHERE authority_grant_id = ANY(:g)"),
+            {"g": ids},
+        )
+    ).all()
+    everything = await _all_terms(conn)
+    target = MandateStatus.PAUSED if effect is CascadeEffect.PAUSE else MandateStatus.REVOKED
+    changes: dict[str, MandateStatus] = {}
+    for r in rows:
+        mid = str(r.mandate_id)
+        if everything[mid].status not in TERMINAL_MANDATE_STATES:
+            changes[mid] = target
+        changes |= cascade(mid, effect, everything)
+    for mid, status in changes.items():
+        current = everything[mid].status
+        if current is status or current in TERMINAL_MANDATE_STATES:
+            continue
+        if status is MandateStatus.PAUSED and current is not MandateStatus.ACTIVE:
+            continue  # only ACTIVE mandates pause; PENDING ones simply never activate
+        await set_mandate_status(conn, mid, status)
+    return changes

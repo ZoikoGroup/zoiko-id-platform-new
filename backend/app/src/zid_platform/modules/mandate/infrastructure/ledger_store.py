@@ -43,6 +43,7 @@ from zid_platform.modules.mandate.domain.ledger import (
     release,
     reserve,
 )
+from zid_platform.modules.mandate.domain.subagent import MandateTerms
 
 DEFAULT_LEASE = timedelta(minutes=5)
 
@@ -70,8 +71,17 @@ class MandateRecord:
     created_by_principal_id: uuid.UUID
 
 
-async def create_mandate(conn: AsyncConnection, m: MandateRecord) -> None:
-    """Insert a mandate and its zero balance in one transaction."""
+async def create_mandate(
+    conn: AsyncConnection,
+    m: MandateRecord,
+    *,
+    terms: MandateTerms | None = None,
+    allocation_reservation_id: str | None = None,
+) -> None:
+    """Insert a mandate (with its scope/delegation terms) and its zero balance in one transaction.
+
+    Terms are written by the INSERT itself: the database refuses to change them afterwards.
+    """
     b = m.budget
     await conn.execute(
         text("""
@@ -79,9 +89,12 @@ async def create_mandate(conn: AsyncConnection, m: MandateRecord) -> None:
                 mandate_id, tenant_id, authority_grant_id, represented_principal_id,
                 executor_principal_id, purpose_id, resource_scope_id, allowed_actions,
                 value_limit, per_transaction_value_limit, currency, count_limit, data_limit_bytes,
-                home_cell_id, status, valid_from, valid_to, created_by_principal_id)
+                home_cell_id, status, valid_from, valid_to, created_by_principal_id,
+                resource_scopes, tools, jurisdictions, delegation_allowed, max_delegation_depth,
+                budget_mode, parent_mandate_id, allocation_reservation_id)
             VALUES (:mid, :tid, :gid, :rep, :exe, :pur, :res, :acts, :vl, :ptv, :cur, :cl, :dl,
-                    :cell, CAST(:status AS agent.mandate_status), :vf, :vt, :by)
+                    :cell, CAST(:status AS agent.mandate_status), :vf, :vt, :by,
+                    :rs, :tools, :jur, :da, :depth, :mode, :parent, :alloc)
         """),
         {
             "mid": m.mandate_id,
@@ -102,6 +115,16 @@ async def create_mandate(conn: AsyncConnection, m: MandateRecord) -> None:
             "vf": m.valid_from,
             "vt": m.valid_to,
             "by": m.created_by_principal_id,
+            "rs": sorted(terms.resource_scope) if terms else [],
+            "tools": sorted(terms.tools) if terms else [],
+            "jur": sorted(terms.jurisdictions) if terms else [],
+            "da": terms.delegation_allowed if terms else False,
+            "depth": terms.max_delegation_depth if terms else 0,
+            "mode": terms.budget_mode.value if terms and terms.budget_mode else None,
+            "parent": uuid.UUID(terms.parent_mandate_id)
+            if terms and terms.parent_mandate_id
+            else None,
+            "alloc": uuid.UUID(allocation_reservation_id) if allocation_reservation_id else None,
         },
     )
     await conn.execute(

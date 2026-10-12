@@ -119,6 +119,16 @@ tables:
     module: relationship
     tenant_scoped: true
     source: "ZID-DATA-001 §1.1 (relation publication)"
+  authz.approval_request:
+    role: cell
+    module: authority
+    tenant_scoped: true
+    source: "proposed (ZID-MANDATE-001 §16; CR-007)"
+  authz.approval_decision:
+    role: cell
+    module: authority
+    tenant_scoped: true
+    source: "proposed (ZID-MANDATE-001 §16.1; CR-007)"
   authz.authority_grant:
     role: cell
     module: authority
@@ -154,6 +164,16 @@ tables:
     module: mandate
     tenant_scoped: true
     source: "proposed (DEC-C5)"
+  agent.blueprint_release:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-MACHINE-001 §3; CR-007)"
+  agent.tool_capability:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-MACHINE-001 §15; CR-007)"
   agent.agent_profile:
     role: cell
     module: machine

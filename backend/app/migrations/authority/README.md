@@ -7,3 +7,5 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `authz.authority_grant`
 - `authz.resource_scope`
 - `authz.data_scope`
+- `authz.approval_request`
+- `authz.approval_decision`

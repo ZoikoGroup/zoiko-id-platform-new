@@ -29,8 +29,11 @@ from zid_platform.modules.decision.domain.pdp import (
     decide,
 )
 from zid_platform.modules.decision.domain.risk import EvidenceClass, RiskClass
+from zid_platform.modules.decision.infrastructure.decision_store import record_decision
+from zid_platform.modules.policy_authoring.ports import active_release
 from zid_platform.modules.policy_runtime.ports import PolicyRelease, build_schema, evaluate
 from zid_platform.modules.principal.ports import PrincipalStatus, load_principal
+from zid_platform.modules.relationship.ports import current_revision
 
 
 def action_spec(name: str, catalog: Mapping[str, Mapping[str, Any]]) -> ActionSpec:
@@ -68,8 +71,9 @@ async def evaluate_request(
     security_state: str = "UNKNOWN",
     relation: RelationFact | None = None,
     mandate: MandateFact | None = None,
-    release: PolicyRelease,
+    release: PolicyRelease | None = None,
     catalog: Mapping[str, Mapping[str, Any]],
+    record: bool = True,
 ) -> Decision:
     async def principal_fact() -> PrincipalFact:
         p, _ = await load_principal(conn, executor_id)
@@ -102,8 +106,12 @@ async def evaluate_request(
         authority_fact, AuthorityFact(False, (), "", None, FactState.UNAVAILABLE)
     )
     schema = build_schema(catalog)
+    if release is None:
+        release = await _guard(lambda: active_release(conn, req.tenant_id), None)
 
     def policy(context: Mapping[str, object]) -> PolicyFact:
+        if release is None:
+            return PolicyFact("", False, ("POLICY_NO_ACTIVE_RELEASE",))
         out = evaluate(
             release,
             principal_id=executor_id,
@@ -114,7 +122,14 @@ async def evaluate_request(
         )
         return PolicyFact(release.release_id, out.allowed, out.codes)
 
-    return decide(
+    if (
+        relation is None
+    ):  # no relationship check needed: still bind the decision to the tenant revision
+        relation = await _guard(
+            lambda: _current_relation(conn, req.tenant_id),
+            RelationFact(0, False, FactState.UNAVAILABLE),
+        )
+    decision = decide(
         req,
         principal=principal,
         authn=authn,
@@ -123,6 +138,13 @@ async def evaluate_request(
         mandate=mandate,
         policy=policy,
     )
+    if record:
+        await record_decision(conn, req, executor_id, decision)
+    return decision
+
+
+async def _current_relation(conn: AsyncConnection, tenant_id: str) -> RelationFact:
+    return RelationFact(await current_revision(conn, tenant_id), True)
 
 
 __all__ = ["action_spec", "chain_commitment", "evaluate_request"]

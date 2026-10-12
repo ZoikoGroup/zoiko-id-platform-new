@@ -64,7 +64,7 @@ CATALOG = yaml.safe_load((REPO / "contracts/action-catalog/actions.yaml").read_t
 NOW = datetime.now(UTC)
 YEAR = Window(NOW - timedelta(days=30), NOW + timedelta(days=335))
 RELEASE = PolicyRelease(
-    release_id="rel_ap_1",
+    release_id="00000000-0000-7000-8000-00000000a001",
     tenant_id="t",
     schema_version="1",
     status=ReleaseStatus.ACTIVE,
@@ -165,8 +165,9 @@ def test_decision_path_over_real_authority_and_policy(rt_url: str) -> None:
 
             ok = await decide()
             assert ok.outcome is Outcome.ALLOW, ok.reason_codes
-            assert ok.policy_release_id == "rel_ap_1" and ok.authority_chain_commitment.startswith(
-                "sha256:"
+            assert (
+                ok.policy_release_id == "00000000-0000-7000-8000-00000000a001"
+                and ok.authority_chain_commitment.startswith("sha256:")
             )
 
             over = await decide(value=60_000)  # beyond the grant's value limit
