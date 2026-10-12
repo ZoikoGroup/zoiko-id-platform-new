@@ -31,9 +31,16 @@ Built in slices; each slice is pure domain logic first, then persistence.
 | Root of trust: three-part test, source competence, per-entity roots, STALE/CONFLICTED, lifecycle events, idempotent replay (ROOT-04…24) | `organization/domain/roots.py` | Done (domain); registry/vLEI adapters come with Phase G integrations |
 | Principal, Identifier, Relationship; monotonic revisions; bitemporal history (DM-AT-01/02/03/07/12/13/15) | `principal/domain/principal.py`, `relationship/domain/relationship.py` | Done (domain); authn/verification/credential/consent/evidence objects belong to Phases E–F |
 
-**Still open in Phase C:** persistence for grants, roots, principals and relationships (tables + adapters), the SpiceDB relationship projector and Cedar policy engine (DEC-C3/C4, arriving with the decision path in Phase D), Doc 09 agent identity details (workload attestation, tool IDs; Phase F with DEC-F7), CI running the PostgreSQL suite, and ARB ratification of DEC-C1…C5.
+| Persistence for principals, identifiers, organizations, roots, relationships, grants, scopes: RLS + database guards (monotonic revisions, depth must decrease, immutable grant scope, terminal states) | `migrations/{principal,organization,relationship,authority}/`, module `infrastructure/` stores, `tests/component/test_authority_persistence_pg.py` | Done |
+| Agent, workload and tool identity: activation gate, credential issuance checks, tool registry, child agents, compromise response (Doc 09, MACH-01…21) | `machine/domain/agents.py` | Done (domain); SPIFFE/SVID issuance itself comes with DEC-F7 in Phase F |
+| Cedar policy engine (DEC-C3): releases, platform floor, schema from the action catalog, pre-publication checks, fail-closed evaluation | `policy_runtime/`, `backend/policies/cedar/platform-floor/floor.cedar` | Done |
+| SpiceDB projection (DEC-C4): revision checkpoint, consistency by risk, outage fails closed, rebuild from PostgreSQL (AT-05) | `relationship/infrastructure/spicedb.py`, `tests/component/test_spicedb_projection_pg.py` | Done |
+| Decision algorithm (AUTHZ §12) over resolved facts, and the fact-gathering service through module ports; end-to-end over PostgreSQL + Cedar | `decision/domain/pdp.py`, `decision/application/pdp_service.py`, `tests/component/test_decision_e2e_pg.py` | Done |
+| CI: lint, types, full suite with PostgreSQL and SpiceDB; JUnit report kept as evidence | `.github/workflows/backend.yml` | Done (runs on the first push/PR) |
 
-**Invariants now guarded by tests:** INV-02, 03, 04, 07 and 12 moved from `planned` to `partial`; INV-01 gained a cross-tenant identity test. End-to-end proof still comes from AT-02/03/04/05/07.
+**Owner actions to close Phase C** (engineering can't): ARB ratification of DEC-C1…C5 and of the engineering rules marked "for the ARB" below; spec owners accept CR-001, CR-002, CR-006, CR-007; the first CI run's JUnit report is attached as evidence to AT-02/03/04/05/07, P0-02/03/04/10, BG-04/05.
+
+**Invariants now guarded by tests:** INV-02, 03, 04, 06, 07, 12 and 15 moved from `planned` to `partial`; INV-01 gained a cross-tenant identity test. End-to-end proof still comes from AT-02/03/04/05/07.
 
 ### Findings
 - **Continuity across modes:** the specs say a child "cannot adopt broader continuity than its parent", but don't order the modes. Engineering's rule (for the ARB): PERSON_BOUND fits under anything; ORGANIZATION_CONTINUOUS admits anything; ROLE_CONTINUOUS and CONTRACT_BOUND are different bases, so neither becomes the other.

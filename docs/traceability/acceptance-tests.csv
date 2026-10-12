@@ -336,12 +336,12 @@ PRIV-30,ZID-PRIV-001,canonical,DSAR load,Large rights request cannot bypass rate
 PRIV-31,ZID-PRIV-001,canonical,Retention load,2x expected daily retention/deletion volume completes within batch/SLO targets with no orphan failures.,NOT_STARTED,
 PRIV-32,ZID-PRIV-001,canonical,Disaster recovery,"After restore, privacy revisions, holds, tombstones and suppression preferences reconcile before normal service.",NOT_STARTED,
 AT-01,ZID-REQ-001,canonical,Overlay adoption,External IdP user and agent are authorized by Zoiko without directory migration; deprovision/revoke propagates.,NOT_STARTED,
-AT-02,ZID-REQ-001,canonical,Authority attenuation,Property-based generator proves no child grant widens any parent dimension.,NOT_STARTED,
-AT-03,ZID-REQ-001,canonical,Privilege stitching,Two partial grants cannot combine into an unauthorized R3 action unless explicit composite policy exists.,NOT_STARTED,
+AT-02,ZID-REQ-001,canonical,Authority attenuation,Property-based generator proves no child grant widens any parent dimension.,IN_PROGRESS,backend/app/tests/property/test_authority_algebra.py::test_child_never_authorizes_what_parent_denies
+AT-03,ZID-REQ-001,canonical,Privilege stitching,Two partial grants cannot combine into an unauthorized R3 action unless explicit composite policy exists.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_no_privilege_stitching
 AT-04,ZID-REQ-001,canonical,Mandate concurrency,"10,000 parallel attempts never exceed value/count/data cap; retries remain idempotent.",IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_ten_thousand_parallel_reservations_never_exceed_the_limit
-AT-05,ZID-REQ-001,canonical,Stale relationship projection,Injected lag cannot produce a new R2/R3 allow; authoritative fallback/deny occurs.,NOT_STARTED,
+AT-05,ZID-REQ-001,canonical,Stale relationship projection,Injected lag cannot produce a new R2/R3 allow; authoritative fallback/deny occurs.,IN_PROGRESS,backend/app/tests/component/test_spicedb_projection_pg.py::test_projection_freshness_by_risk_class
 AT-06,ZID-REQ-001,canonical,Revocation chaos,R0-R3 p99 propagation meets SLO during AZ loss and queue pressure.,NOT_STARTED,
-AT-07,ZID-REQ-001,canonical,Root-authority removal,Officer/root removal invalidates dependent grants and active mandates according to policy/SLO.,NOT_STARTED,
+AT-07,ZID-REQ-001,canonical,Root-authority removal,Officer/root removal invalidates dependent grants and active mandates according to policy/SLO.,IN_PROGRESS,backend/app/tests/component/test_authority_persistence_pg.py::test_grant_chain_issuance_resolution_revocation_and_root_events
 AT-08,ZID-REQ-001,canonical,Agent confused deputy,Agent cannot use a mandate for wrong resource/purpose/tool or escalate through sub-agent.,NOT_STARTED,
 AT-09,ZID-REQ-001,canonical,TOCTOU,R3 action revoked after preflight but before commit is denied at commit.,NOT_STARTED,
 AT-10,ZID-REQ-001,canonical,Evidence erasure,Subject is erased; receipt remains tamper-verifiable and structurally replayable but cannot be resolved to erased PII.,NOT_STARTED,

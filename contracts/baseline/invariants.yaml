@@ -62,8 +62,10 @@ invariants:
   INV-06:
     statement: "R2/R3 actions re-evaluate at commit. Time-of-check cannot silently become time-of-use authority."
     phase: C
-    status: planned
+    status: partial
     enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_pdp.py::test_allow_carries_revisions_obligations_and_bounded_validity"}
+      - {kind: architecture-test, ref: "app/tests/property/test_mandate_ledger.py::test_revocation_between_reserve_and_commit_blocks_commit"}
       - {kind: decision, ref: DEC-B1}
       - {kind: acceptance-test, ref: AT-09}
 
@@ -138,8 +140,9 @@ invariants:
   INV-15:
     statement: "Every material allow/deny decision is reconstructable by policy version, relation/grant revision, assurance state and evidence references."
     phase: F
-    status: planned
+    status: partial
     enforcement:
+      - {kind: architecture-test, ref: "app/tests/unit/test_pdp.py::test_decisions_are_deterministic"}
       - {kind: decision, ref: DEC-F2}
       - {kind: acceptance-test, ref: AT-10}
 
