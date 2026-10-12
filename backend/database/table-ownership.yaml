@@ -104,6 +104,16 @@ tables:
     module: session
     tenant_scoped: true
     source: "proposed (AUTH spec refresh families)"
+  authn.refresh_token:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §8 (refresh_token_instance)"
+  authn.dpop_proof_jti:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §7.1 (unique DPoP jti, replay protection)"
   authz.policy_decision:
     role: cell
     module: decision

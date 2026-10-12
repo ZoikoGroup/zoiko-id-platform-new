@@ -7,3 +7,5 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `authn.session`
 - `authn.oauth_client`
 - `authn.refresh_token_family`
+- `authn.refresh_token`
+- `authn.dpop_proof_jti`

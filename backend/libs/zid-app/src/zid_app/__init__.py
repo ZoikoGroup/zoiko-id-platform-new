@@ -152,12 +152,10 @@ def create_service_app(
     # ---------------- error handlers: always the canonical envelope ----------------
     @app.exception_handler(ZidError)
     async def zid_error(_: Request, exc: ZidError) -> JSONResponse:
-        headers = (
-            {"Retry-After": str(max(1, (exc.retry_after_ms or 0) // 1000))}
-            if exc.retryable
-            else None
-        )
-        return _error_response(exc.http_status, exc.body(), headers)
+        headers = dict(exc.headers)
+        if exc.retryable:
+            headers["Retry-After"] = str(max(1, (exc.retry_after_ms or 0) // 1000))
+        return _error_response(exc.http_status, exc.body(), headers or None)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:

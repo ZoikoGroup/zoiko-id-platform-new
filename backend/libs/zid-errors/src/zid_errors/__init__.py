@@ -78,8 +78,10 @@ class ZidError(Exception):
         retryable: bool = False,
         retry_after_ms: int | None = None,
         details: list[ErrorDetail] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
+        self.headers = headers or {}  # e.g. WWW-Authenticate on 401 (RFC 6750 §3, RFC 9449 §7.1)
         self.code = code
         self.message = message
         self.http_status = http_status

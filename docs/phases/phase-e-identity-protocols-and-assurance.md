@@ -13,6 +13,23 @@ Back to the [phase index](README.md).
 | 12 | ZID-VC-001 | Verifiable Credentials, EUDI & Trust Federation |
 | 13 | ZID-SIGNALS-001 | Continuous Evaluation, Revocation & Security Signals |
 
+## Deliverables and status
+
+Built in the order of the Auth spec's build sequence (§27, AUTH-W0…W9), then Verification, Credentials and Signals.
+
+| Deliverable | Where | Status |
+|---|---|---|
+| Key ring and JWS policy: private keys only behind a `Signer` (KMS/HSM in deployed envs, in-memory dev key only in local/test), allowlist ES256/Ed25519 (RFC 9864 fully-specified), explicit `typ`, `kid`-pinned keys, no `jku`/`x5u`, rotation window in the JWKS (AUTH §17; DEC-F5) | `libs/zid-crypto` | Done (KMS signer: Phase F) |
+| Assurance AAL-Z0…Z3: approved per-issuer acr/amr mapping profiles, weak-only methods capped at Z1, Z3 = Z2 + freshness (never mapped), step-up reason codes (AUTH §2, §15) | `modules/authentication/domain/assurance.py` | Done |
+| Identity sessions: absolute and idle expiry, one-way status, security-revision mismatch forces re-auth (both directions), principal must stay active; DB guard keeps identity and assurance fixed (AUTH §5; DATA §5.3) | `modules/session/`, `migrations/session/versions/0001_sessions_tokens.py` | Done |
+| Access tokens (RFC 9068 `at+jwt`): exact issuer/audience, lifetime capped by risk class, forbidden claims (authority, balances), DPoP binding (AUTH §6.3-6.4) | `session/domain/tokens.py`, `session/application/issue.py` | Done |
+| DPoP (RFC 9449): proof signed by its embedded key, thumbprint = `cnf.jkt`, `htm`/`htu`/`ath`/`iat` checks, one-time `jti` stored per tenant, bound tokens never downgraded to bearer, `WWW-Authenticate` challenges (AUTH §7.1) | `session/application/authenticate.py`, `api_auth.authenticated_caller` | Done (server nonces: with the token endpoint) |
+| Every protected API now authenticates real tokens and sessions; tenant and principal come only from them (INV-13) | `api_auth.py`, `tests/component/test_authn_pg.py` | Done |
+| OAuth clients, refresh-token families (hash-only storage) | `authn.oauth_client`, `authn.refresh_token_family`, `authn.refresh_token` | Schema done; token endpoint, PKCE, rotation and reuse detection: AUTH-W2 (next) |
+| Remaining: WebAuthn passkeys (W1), authorization server + refresh rotation + metadata/JWKS endpoints (W2), mTLS/private_key_jwt/PAR/FAPI 2.0 (W3), OIDC federation + account linking (W4), SAML (W5), SCIM (W6), recovery and protected admin (W7), OpenID Federation (W8); Verification, Credentials (OID4VP verifier first, DEC-E2), Signals (security state, CAEP/SSF) | — | Next slices |
+
+**Settings:** `ZID_TOKEN_ISSUER`, `ZID_TOKEN_AUDIENCE`, `ZID_PUBLIC_BASE_URL` (canonical external URL that DPoP `htu` is compared against; required behind a proxy).
+
 ## Decisions
 
 | ID | Decision | Owner | Status |

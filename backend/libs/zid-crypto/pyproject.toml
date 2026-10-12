@@ -3,6 +3,8 @@ name = "zid-crypto"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+  "cryptography>=43",
+  "joserfc>=1.0",
   "zid-context",
   "zid-errors",
 ]

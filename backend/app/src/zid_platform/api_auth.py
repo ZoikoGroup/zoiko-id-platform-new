@@ -1,22 +1,25 @@
 """Shared API plumbing for module routers: the authenticated caller and domain-error mapping.
 
-`authenticated_caller` is the single seam where Phase E authentication plugs in: its middleware sets
-`request.state.caller`. Until then every protected endpoint answers 401 instead of running without a
-trusted, server-derived tenant (INV-13). Domain error codes map to HTTP statuses per ZID-API-001 §3.3.
+`authenticated_caller` is the single authentication seam (ZID-AUTH-001 §6.3, §7.1): it verifies the
+access token (and DPoP proof) and the identity session, and derives tenant and principal from them
+only (INV-13). Without a configured token issuer every protected endpoint answers 401. Domain error
+codes map to HTTP statuses per ZID-API-001 §3.3.
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
-from zid_context import RequestContext
+from zid_context import RequestContext, current_context
 from zid_errors import ZidError
 
 from zid_platform.modules.decision.domain.pdp import AuthnFact
+from zid_platform.modules.session.ports import TokenError, TokenSettings, authenticate
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,13 +32,57 @@ class Caller:
     client_id: str = "unknown-client"  # OAuth client, scopes idempotency keys
 
 
-def authenticated_caller(request: Request) -> Caller:
-    caller = getattr(request.state, "caller", None)
-    if not isinstance(caller, Caller) or not caller.ctx.tenant_id:
+def _challenge(scheme: str, code: str | None) -> dict[str, str]:
+    error = "" if code in (None, "TOKEN_MISSING") else ', error="invalid_token"'
+    if code == "DPOP_NONCE_REQUIRED":
+        error = ', error="use_dpop_nonce"'
+    extra = ', algs="ES256 Ed25519"' if scheme == "DPoP" else ""
+    return {"WWW-Authenticate": f'{scheme} realm="zoiko-id"{error}{extra}'}
+
+
+async def authenticated_caller(request: Request) -> Caller:
+    settings: TokenSettings | None = getattr(request.app.state, "token_settings", None)
+    engine: AsyncEngine | None = getattr(request.app.state, "engine", None)
+    authorization = request.headers.get("authorization")
+    scheme = (
+        "DPoP"
+        if (authorization or "").lower().startswith("dpop ") or request.headers.get("dpop")
+        else "Bearer"
+    )
+    if settings is None or engine is None:
         raise ZidError(
-            "UNAUTHENTICATED", "A trusted, authenticated caller is required.", http_status=401
+            "UNAUTHENTICATED",
+            "A trusted, authenticated caller is required.",
+            http_status=401,
+            headers=_challenge(scheme, None),
         )
-    return caller
+    base = getattr(request.app.state, "public_base_url", None)
+    url = (
+        (base.rstrip("/") + request.url.path) if base else str(request.url)
+    )  # canonical external URL
+    ctx = current_context() or RequestContext("req_unknown", "cor_unknown", "zoiko-id", "unknown")
+    now = datetime.now(UTC)
+    try:
+        auth = await authenticate(
+            engine,
+            settings,
+            authorization=authorization,
+            dpop=request.headers.get("dpop"),
+            method=request.method,
+            url=url,
+            base_ctx=ctx,
+            now=now,
+        )
+    except TokenError as e:
+        code = "UNAUTHENTICATED" if e.code == "TOKEN_MISSING" else e.code
+        raise ZidError(
+            code, "Authentication failed.", http_status=401, headers=_challenge(scheme, e.code)
+        ) from e
+    return Caller(
+        auth.ctx,
+        AuthnFact(int(auth.aal), auth.auth_time or auth.claims.issued_at),
+        client_id=auth.claims.client_id,
+    )
 
 
 _FORBIDDEN = (
