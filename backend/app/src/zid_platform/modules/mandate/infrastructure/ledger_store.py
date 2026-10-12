@@ -26,6 +26,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
+from zid_outbox import emit
 
 from zid_platform.modules.mandate.domain.ledger import (
     Amounts,
@@ -130,6 +131,20 @@ async def create_mandate(
     await conn.execute(
         text("INSERT INTO agent.mandate_balance (mandate_id, tenant_id) VALUES (:mid, :tid)"),
         {"mid": m.mandate_id, "tid": m.tenant_id},
+    )
+    await emit(
+        conn,
+        name="mandate.created",
+        tenant_id=str(m.tenant_id),
+        aggregate_type="mandate",
+        aggregate_id=str(m.mandate_id),
+        aggregate_version=0,
+        data={
+            "mandate_id": str(m.mandate_id),
+            "authority_grant_id": str(m.authority_grant_id),
+            "status": m.status.value,
+            "parent_mandate_id": terms.parent_mandate_id if terms else None,
+        },
     )
 
 
@@ -298,6 +313,7 @@ async def reserve_capacity(
         },
     )
     await _write_balance(conn, mandate_id, locked.balance, new_balance)
+    await _ledger_event(conn, str(tenant_id), str(mandate_id), new_balance.ledger_version, res)
     return res
 
 
@@ -346,14 +362,28 @@ async def _settle(
         {"s": new_res.status.value, "now": now, "eid": execution_id, "r": reservation_id},
     )
     await _write_balance(conn, mid_row.mandate_id, locked.balance, new_balance)
+    await _ledger_event(
+        conn, str(tenant_id), str(mid_row.mandate_id), new_balance.ledger_version, new_res
+    )
     if new_res.status is ReservationStatus.COMMITTED and is_exhausted(locked.budget, new_balance):
-        await conn.execute(
+        exhausted = await conn.execute(
             text(
                 "UPDATE agent.mandate SET status = 'EXHAUSTED', row_version = row_version + 1 "
-                "WHERE mandate_id = :m AND status = 'ACTIVE'"
+                "WHERE mandate_id = :m AND status = 'ACTIVE' RETURNING row_version"
             ),
             {"m": mid_row.mandate_id},
         )
+        row = exhausted.first()
+        if row is not None:
+            await emit(
+                conn,
+                name="mandate.exhausted",
+                tenant_id=str(tenant_id),
+                aggregate_type="mandate",
+                aggregate_id=str(mid_row.mandate_id),
+                aggregate_version=row.row_version,
+                data={"mandate_id": str(mid_row.mandate_id), "status": "EXHAUSTED"},
+            )
     return new_res
 
 
@@ -415,6 +445,37 @@ async def sweep_reservation(
         lambda bal, res: expire_or_reconcile(
             bal, res, now=now, side_effect=side_effect, high_risk=high_risk
         ),
+    )
+
+
+RESERVATION_EVENTS = {
+    ReservationStatus.RESERVED: "mandate.reservation.created",
+    ReservationStatus.COMMITTED: "mandate.reservation.committed",
+    ReservationStatus.RELEASED: "mandate.reservation.released",
+    ReservationStatus.EXPIRED: "mandate.reservation.expired",
+    ReservationStatus.RECONCILIATION_REQUIRED: "mandate.reconciliation.required",
+}
+
+
+async def _ledger_event(
+    conn: AsyncConnection, tenant_id: str, mandate_id: str, version: int, res: Reservation
+) -> None:
+    """Ledger events carry amounts and versions only; ordered per mandate by ledger_version."""
+    await emit(
+        conn,
+        name=RESERVATION_EVENTS[res.status],
+        tenant_id=tenant_id,
+        aggregate_type="mandate_ledger",
+        aggregate_id=mandate_id,
+        aggregate_version=version,
+        data={
+            "mandate_id": mandate_id,
+            "reservation_id": res.reservation_id,
+            "status": res.status.value,
+            "value": str(res.amounts.value),
+            "count": res.amounts.count,
+            "data_bytes": res.amounts.data_bytes,
+        },
     )
 
 

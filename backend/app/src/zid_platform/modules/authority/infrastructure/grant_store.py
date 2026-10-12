@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.authority.domain.algebra import (
     ANY,
@@ -120,6 +121,20 @@ async def insert_grant(conn: AsyncConnection, g: Grant) -> None:
             "rev": g.revision,
         },
     )
+    await emit(
+        conn,
+        name=GRANT_EVENTS[g.status],
+        tenant_id=g.tenant_id,
+        aggregate_type="authority_grant",
+        aggregate_id=g.grant_id,
+        aggregate_version=g.revision,
+        data={
+            "authority_grant_id": g.grant_id,
+            "status": g.status.value,
+            "parent_grant_id": g.parent_grant_id,
+            "authority_root_assertion_id": g.root_id,
+        },
+    )
 
 
 _SELECT = """
@@ -211,4 +226,29 @@ async def set_grant_status(conn: AsyncConnection, grant_id: str, target: GrantSt
     )
     if result.rowcount != 1:
         raise AuthorityError("CONCURRENT_MODIFICATION")
-    return replace(current, status=target)
+    await emit(
+        conn,
+        name=GRANT_EVENTS[target],
+        tenant_id=current.tenant_id,
+        aggregate_type="authority_grant",
+        aggregate_id=grant_id,
+        aggregate_version=current.revision + 1,
+        data={
+            "authority_grant_id": grant_id,
+            "status": target.value,
+            "previous_status": current.status.value,
+        },
+    )
+    return replace(current, status=target, revision=current.revision + 1)
+
+
+GRANT_EVENTS = {
+    GrantStatus.ACTIVE: "authority.grant.activated",
+    GrantStatus.REVOKED: "authority.grant.revoked",
+    GrantStatus.SUSPENDED: "authority.grant.suspended",
+    GrantStatus.SUPERSEDED: "authority.grant.superseded",
+    GrantStatus.REVALIDATION_PENDING: "authority.chain.invalidated",
+    GrantStatus.EXPIRED: "authority.grant.revoked",
+    GrantStatus.PENDING_APPROVAL: "authority.grant.created",
+    GrantStatus.DRAFT: "authority.grant.created",
+}

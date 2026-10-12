@@ -110,3 +110,34 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
             f"{stream}/{py.name} touches {t}, owned by another module" for t in sorted(extra)
         ]
     assert not violations, "\n".join(violations)
+
+
+EVENT_NAME = r"(authority|authority_root|mandate|agent|organization)(.[a-z_]+)+"
+
+
+def test_emitted_events_are_declared_in_the_catalogue() -> None:
+    """ZID-EVENTS-001 §4.1: no undeclared event type reaches the outbox."""
+    catalogue = set(
+        re.findall(
+            r"^  ([a-z0-9_.]+):$",
+            (APP.parents[1] / "contracts/asyncapi/event-catalogue.yaml").read_text(
+                encoding="utf-8"
+            ),
+            re.MULTILINE,
+        )
+    )
+    emitted: set[str] = set()
+    for py in MODULES_DIR.rglob("*.py"):
+        source = py.read_text(encoding="utf-8")
+        if "zid_outbox" not in source:
+            continue
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and re.fullmatch(EVENT_NAME, node.value)
+            ):
+                emitted.add(node.value)
+    # root events are built from the status: every status the lifecycle can emit must be declared
+    emitted |= {f"authority_root.{s}" for s in ("revoked", "suspended", "stale")}
+    assert emitted and not emitted - catalogue, emitted - catalogue

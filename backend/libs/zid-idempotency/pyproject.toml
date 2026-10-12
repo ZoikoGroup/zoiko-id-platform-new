@@ -3,6 +3,7 @@ name = "zid-idempotency"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+  "sqlalchemy[asyncio]>=2.0",
   "zid-context",
   "zid-errors",
 ]

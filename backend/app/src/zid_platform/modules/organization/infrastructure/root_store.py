@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.organization.domain.roots import (
     Assurance,
@@ -169,7 +170,7 @@ async def apply_source_event(
         organization_active=org.can_originate_authority,
     )
     changed = [r for rid, r in out.roots.items() if roots[rid].status is not r.status]
-    await _persist_statuses(conn, changed)
+    await _persist_statuses(conn, tenant_id, changed)
     await conn.execute(
         text(
             "UPDATE org.organization SET can_originate_authority = :c, "
@@ -184,14 +185,29 @@ async def apply_source_event(
     return out
 
 
-async def _persist_statuses(conn: AsyncConnection, roots: Iterable[RootAssertion]) -> None:
+async def _persist_statuses(
+    conn: AsyncConnection, tenant_id: str, roots: Iterable[RootAssertion]
+) -> None:
     for r in roots:
-        await conn.execute(
+        updated = await conn.execute(
             text(
                 "UPDATE org.authority_root_assertion SET status = CAST(:s AS org.root_status), "
-                "row_version = row_version + 1 WHERE root_assertion_id = :id"
+                "row_version = row_version + 1 WHERE root_assertion_id = :id RETURNING row_version"
             ),
             {"s": r.status.value, "id": uuid.UUID(r.root_id)},
+        )
+        await emit(
+            conn,
+            name=f"authority_root.{r.status.value.lower()}",
+            tenant_id=tenant_id,
+            aggregate_type="authority_root",
+            aggregate_id=r.root_id,
+            aggregate_version=updated.scalar_one(),
+            data={
+                "root_assertion_id": r.root_id,
+                "organization_id": r.organization_id,
+                "status": r.status.value,
+            },
         )
 
 

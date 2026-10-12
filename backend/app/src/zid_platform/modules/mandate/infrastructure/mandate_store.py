@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.mandate.domain.ledger import (
     TERMINAL_MANDATE_STATES,
@@ -95,13 +96,39 @@ async def set_mandate_status(
     result = await conn.execute(
         text(
             "UPDATE agent.mandate SET status = CAST(:s AS agent.mandate_status), row_version = row_version + 1 "
-            "WHERE mandate_id = :id AND status = CAST(:old AS agent.mandate_status)"
+            "WHERE mandate_id = :id AND status = CAST(:old AS agent.mandate_status) "
+            "RETURNING tenant_id, row_version"
         ),
         {"s": target.value, "old": terms.status.value, "id": uuid.UUID(mandate_id)},
     )
-    if result.rowcount != 1:
+    row = result.first()
+    if row is None:
         raise LedgerError("CONCURRENT_MODIFICATION")
+    await emit(
+        conn,
+        name=MANDATE_EVENTS[target],
+        tenant_id=str(row.tenant_id),
+        aggregate_type="mandate",
+        aggregate_id=mandate_id,
+        aggregate_version=row.row_version,
+        data={
+            "mandate_id": mandate_id,
+            "status": target.value,
+            "previous_status": terms.status.value,
+        },
+    )
     return target
+
+
+MANDATE_EVENTS = {
+    MandateStatus.ACTIVE: "mandate.activated",
+    MandateStatus.PAUSED: "mandate.paused",
+    MandateStatus.REVOKED: "mandate.revoked",
+    MandateStatus.EXHAUSTED: "mandate.exhausted",
+    MandateStatus.COMPLETED: "mandate.completed",
+    MandateStatus.EXPIRED: "mandate.revoked",
+    MandateStatus.PENDING_APPROVAL: "mandate.created",
+}
 
 
 async def create_sub_mandate(

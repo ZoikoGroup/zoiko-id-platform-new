@@ -1481,12 +1481,14 @@ name = "zid-idempotency"
 version = "0.0.0"
 source = { editable = "libs/zid-idempotency" }
 dependencies = [
+    { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "zid-context" },
     { name = "zid-errors" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "zid-context", editable = "libs/zid-context" },
     { name = "zid-errors", editable = "libs/zid-errors" },
 ]
@@ -1496,12 +1498,14 @@ name = "zid-outbox"
 version = "0.0.0"
 source = { editable = "libs/zid-outbox" }
 dependencies = [
+    { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "zid-context" },
     { name = "zid-errors" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "zid-context", editable = "libs/zid-context" },
     { name = "zid-errors", editable = "libs/zid-errors" },
 ]
