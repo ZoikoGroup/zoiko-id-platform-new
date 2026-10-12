@@ -1,7 +1,7 @@
 """Run the Zoiko iD backend locally in ONE terminal (development only).
 
 Starts each role as its own process (cell and global must stay separate processes: the global
-plane holds no personal data and uses its own database — ZID-TENANCY-001 §2, ADR-0031),
+plane holds no personal data and uses its own database — ZID-TENANCY-001 §2, DEC-D6),
 prefixes their output with the role name, and stops both on Ctrl+C.
 
 Usage (from backend/, with UV_PROJECT_ENVIRONMENT set as in the README):

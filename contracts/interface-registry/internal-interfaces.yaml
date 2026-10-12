@@ -16,7 +16,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -32,7 +32,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: required
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -48,7 +48,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -64,7 +64,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -80,7 +80,7 @@ interfaces:
     slo: "p95 <40ms R0/R1, <60ms R2/R3 (ZID-SVC-001 §28)"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -96,7 +96,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -112,7 +112,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -128,7 +128,7 @@ interfaces:
     slo: "p95 <=15ms home cell (ZID-SVC-001 §28)"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: required
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -144,7 +144,7 @@ interfaces:
     slo: "p95 <=15ms home cell (ZID-SVC-001 §28)"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: required
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -160,7 +160,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -176,7 +176,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -192,7 +192,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -208,7 +208,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -224,7 +224,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: required
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER
@@ -240,7 +240,7 @@ interfaces:
     slo: "TBD_BY_OWNER"
     data_class: TBD_BY_OWNER
     tenant_scope: tenant
-    auth_profile: "SPIFFE mTLS workload identity + service capability (ADR-0025)"
+    auth_profile: "SPIFFE mTLS workload identity + service capability (DEC-F7)"
     idempotency: n/a
     evidence_class: TBD_BY_OWNER
     dependencies: TBD_BY_OWNER

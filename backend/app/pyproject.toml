@@ -1,7 +1,7 @@
 [project]
 name = "zoiko-id-platform"
 version = "0.1.0"
-description = "Zoiko iD backend — modular monolith (ADR-0031)"
+description = "Zoiko iD backend — modular monolith (DEC-D6)"
 requires-python = ">=3.13"
 dependencies = [
   "zid-app",

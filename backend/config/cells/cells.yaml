@@ -1,7 +1,7 @@
 # status: DRAFT (doc-derived; not approved)
 # approval_ref: null   # set when the named approver signs off; releases are immutable after that
 # version: 0.1.0
-# owner: SRE / Platform Lead (ADR-0011, ADR-0018). Source: ZID-TENANCY-001 §3, §17; ZID-RESILIENCE-001 §4, §11, §14;
+# owner: SRE / Platform Lead (DEC-G1, DEC-G2). Source: ZID-TENANCY-001 §3, §17; ZID-RESILIENCE-001 §4, §11, §14;
 # ZID-ARCH-002 §15.3 ("sovereign tenants can prohibit cross-jurisdiction failover; DR must use an approved second
 # location or explicitly accept a different RTO/RPO").
 # Cell IDs are stable deployment identities, never inferred from cloud region names.
@@ -39,7 +39,7 @@ cells:
     role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE §14)
     pre_provisioned_tiers: [T1, T2, T3]
 
-recovery_tiers:   # RESILIENCE §11 (ADR-0011)
+recovery_tiers:   # RESILIENCE §11 (DEC-G1)
   T0: {subsystem: "Edge/stateless runtime", rto: "60s", rpo: "0"}
   T1: {subsystem: "Authn/PDP/security-state runtime", rto: "5m", rpo: "5s revision-convergent"}
   T2: {subsystem: "PostgreSQL C2 tenant state", rto: "5m", rpo: "30s target"}
@@ -47,7 +47,7 @@ recovery_tiers:   # RESILIENCE §11 (ADR-0011)
   T4: {subsystem: "Evidence E3 ledger", rto: "15m", rpo: "0 for acknowledged synchronous E3"}
   T5: {subsystem: "Analytics/search/reporting", rto: "24h", rpo: "24h"}
 
-capacity_admission:   # RESILIENCE §13.1, ADR-0010
+capacity_admission:   # RESILIENCE §13.1, DEC-B2
   min_compute_headroom: "30%"
   survive_one_az_loss: true
   stop_new_placement_before_saturation: true

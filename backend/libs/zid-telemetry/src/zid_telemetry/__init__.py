@@ -1,4 +1,4 @@
-"""Structured, PII-safe logging (ADR-0030). OpenTelemetry export is added with the collector stack.
+"""Structured, PII-safe logging (DEC-G5). OpenTelemetry export is added with the collector stack.
 
 Logs carry opaque identifiers only (request_id, correlation_id, tenant_id) — never bodies,
 tokens, credentials or personal data.

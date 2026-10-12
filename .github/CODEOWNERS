@@ -2,10 +2,10 @@
 # Trust-kernel paths require Security review in addition to the owning team.
 
 /docs/specs/                                 @zoiko/architecture
-/docs/adr/                                   @zoiko/architecture
+/docs/phases/                                @zoiko/architecture
 /contracts/                                  @zoiko/architecture @zoiko/api
 
-# Backend (modular monolith, ADR-0031).
+# Backend (modular monolith, DEC-D6).
 # GitHub uses the LAST matching rule: generic paths first, specific owners after.
 /backend/libs/                                           @zoiko/platform
 /backend/app/src/zid_platform/modules/                   @zoiko/platform

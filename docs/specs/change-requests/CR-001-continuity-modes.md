@@ -1,7 +1,7 @@
 # CR-001: Canonical continuity modes
 
 - **Target:** ZID-DOM-001 §6.3; ZID-DATA-001 `authz.authority_grant`
-- **Raised by:** ADR-0003 · **Status:** Open
+- **Raised by:** DEC-C2 · **Status:** Open
 
 ## Problem
 ZID-DOM-001 §6.3 names PERSONAL / ROLE-ISSUED / EXTERNAL-CONTRACTUAL. ZID-MANDATE-001 §5 and ZID-UX-001 §12.1 name PERSON_BOUND / ROLE_CONTINUOUS / ORGANIZATION_CONTINUOUS. Neither list is complete, and the Data Model defines no column.

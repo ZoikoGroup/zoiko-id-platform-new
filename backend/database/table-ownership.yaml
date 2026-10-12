@@ -1,4 +1,4 @@
-# Table ownership registry: exactly one owning module per table (modular monolith, ADR-0031).
+# Table ownership registry: exactly one owning module per table (modular monolith, DEC-D6).
 # role = which run mode of the single image serves the owning module (cell | global).
 # Source of truth for: migration ownership CI check, per-table DB role grants, RLS coverage check.
 # 'proposed' = table not named in ZID-DATA-001 v1.0; raise a Data Model change request before first migration.
@@ -43,12 +43,12 @@ tables:
     role: cell
     module: operator_access
     tenant_scoped: true
-    source: "proposed (ADR-0028)"
+    source: "proposed (DEC-F4)"
   platform.lockbox_request:
     role: cell
     module: operator_access
     tenant_scoped: true
-    source: "proposed (ADR-0028)"
+    source: "proposed (DEC-F4)"
   metering.usage_event:
     role: cell
     module: metering
@@ -153,7 +153,7 @@ tables:
     role: cell
     module: mandate
     tenant_scoped: true
-    source: "proposed (ADR-0020)"
+    source: "proposed (DEC-C5)"
   agent.agent_profile:
     role: cell
     module: machine
@@ -248,7 +248,7 @@ tables:
     role: cell
     module: privacy
     tenant_scoped: true
-    source: "PRIV-001 §1.1 (ADR-0007)"
+    source: "PRIV-001 §1.1 (DEC-F3)"
   authn.federation_connection:
     role: cell
     module: federation

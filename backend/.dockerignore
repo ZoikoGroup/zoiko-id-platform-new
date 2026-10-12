@@ -14,7 +14,7 @@ dist/
 **/*.egg-info/
 **/.gitkeep
 **/*.log
-# Secrets must never enter an image layer (ADR-0026, ADR-0027)
+# Secrets must never enter an image layer (DEC-F5, DEC-G4)
 .env
 .env.*
 **/*.pem

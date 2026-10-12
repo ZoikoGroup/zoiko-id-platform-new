@@ -1,11 +1,11 @@
-# The single Zoiko iD backend image (modular monolith, ADR-0031). Build context: backend/.
+# The single Zoiko iD backend image (modular monolith, DEC-D6). Build context: backend/.
 #   docker build -t zid/platform .            # runtime image
 #   docker build --target test .              # runs the backend test suite (fails the build on failure)
 # One container runs the roles listed in ZID_ROLES, each as its own process on its own port:
 #   ZID_ROLES=cell,global (default) -> cell :8000 + global :8100   |   ZID_ROLES=cell -> production cell only
 #   DBs per role: ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL   (see zid_platform/entrypoints/supervisor.py)
 # Other processes use the same image:  python -m zid_platform.entrypoints.<consumer|worker|outbox_relay>
-# Versions are pinned; dependencies come only from uv.lock (--frozen) for reproducible builds (ADR-0027).
+# Versions are pinned; dependencies come only from uv.lock (--frozen) for reproducible builds (DEC-G4).
 
 ARG PYTHON_IMAGE=python:3.13-slim-bookworm
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.0

@@ -1,9 +1,9 @@
 # status: DRAFT (doc-derived; not approved)
 # approval_ref: null   # set when the named approver signs off; releases are immutable after that
 # version: 0.1.0
-# owner: Authorization Lead + Security (ADR-0004). Source: ZID-ARCH-002 §11.1; ZID-REQ-001 §4; ZID-DECISION
+# owner: Authorization Lead + Security (DEC-B1). Source: ZID-ARCH-002 §11.1; ZID-REQ-001 §4; ZID-DECISION
 # EVIDENCE-001 §1.1 ("R3 actions are normally E3"); examples named in ZID-ARCH-002 §10.3, ZID-API-001 §12, ZID-UX-001 §11.
-# min_risk_class / min_evidence_class are FLOORS: callers and tenants may raise, never lower (ADR-0004).
+# min_risk_class / min_evidence_class are FLOORS: callers and tenants may raise, never lower (DEC-B1).
 # name_source: spec = action name appears in a spec; proposed = name assigned here for a spec-defined example category.
 
 evidence_floor_by_risk: {R0: E0, R1: E1, R2: E2, R3: E3}

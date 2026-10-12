@@ -1,4 +1,4 @@
-"""FastAPI service shell shared by every Zoiko iD role and process (ADR-0031).
+"""FastAPI service shell shared by every Zoiko iD role and process (DEC-D6).
 
 Provides: typed settings, request-context middleware, canonical error envelopes,
 structured request logging, and health endpoints (`/health/live`, `/health/ready`, `/`).
@@ -38,7 +38,7 @@ _log = get_logger("zid.request")
 
 
 class ServiceSettings(BaseSettings):
-    """Non-secret defaults only. Secrets arrive at runtime from the secrets broker (ADR-0026)."""
+    """Non-secret defaults only. Secrets arrive at runtime from the secrets broker (DEC-F5)."""
 
     model_config = SettingsConfigDict(env_prefix="ZID_", extra="ignore")
 

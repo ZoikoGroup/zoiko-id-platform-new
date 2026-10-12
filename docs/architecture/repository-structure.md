@@ -22,7 +22,7 @@ zoiko_ids/
 ├── tests/          System-level suites (e2e, concurrency, isolation, load, chaos, conformance, security)
 ├── local/          Local dev stack config + synthetic seed data
 ├── tools/          Code generation and repo scripts
-├── docs/           Specs, architecture, ADRs, traceability, threat model, runbooks
+├── docs/           Specs, architecture, build phases + decisions, traceability, threat model, runbooks
 ├── .github/        CI workflows, CODEOWNERS
 └── README.md · .editorconfig · .gitignore · .gitattributes (Git LFS for .docx/.pdf)
 ```
@@ -31,7 +31,7 @@ zoiko_ids/
 
 ---
 
-## 2. `backend/`: modular monolith (ADR-0031)
+## 2. `backend/`: modular monolith (DEC-D6)
 
 ```
 backend/
@@ -115,7 +115,7 @@ api ──► application ──► domain ◄── infrastructure
 - A module may import another module's `ports.py` only, never its `domain/`, `application/`, `infrastructure/` or ORM models. **`tests/unit/test_architecture.py` fails the build on any violation**, which is what keeps this a *modular* monolith.
 - One image; the process type is chosen by entrypoint, and the module set by `ZID_ROLE`.
 
-**Extracting a module later:** move `modules/<name>/` and `migrations/<name>/` into a new service, and swap its `ports.py` adapter for an HTTP client generated from `contracts/openapi/internal/`. Callers don't change. The only pre-approved extraction is `decision` (ADR-0021).
+**Extracting a module later:** move `modules/<name>/` and `migrations/<name>/` into a new service, and swap its `ports.py` adapter for an HTTP client generated from `contracts/openapi/internal/`. Callers don't change. The only pre-approved extraction is `decision` (DEC-B3).
 
 ### 2.3 `backend/libs/`: shared platform libraries
 
@@ -144,10 +144,10 @@ api ──► application ──► domain ◄── infrastructure
   - `extensions/` and `rls/`: shared RLS helper functions.
   - **No tables live here.** Tables belong to the owning module's `migrations/<module>/`.
 - `config/`: versioned, reviewed platform configuration that services load at runtime.
-  - `jurisdiction-packs/` (ADR-0007; Legal approves)
-  - `crypto-profiles/` (the Crypto Policy Registry; ADR-0009, ADR-0026)
+  - `jurisdiction-packs/` (DEC-F3; Legal approves)
+  - `crypto-profiles/` (the Crypto Policy Registry; DEC-F6, DEC-F5)
   - `residency-profiles/` (SRP-0 to SRP-3)
-  - `cells/` (cell catalog and recovery pairs; ADR-0011)
+  - `cells/` (cell catalog and recovery pairs; DEC-G1)
 
   This is **not** tenant data. Releases are immutable.
 - `policies/`: `cedar/schema/` (base entity and action types; tenant schemas are generated from it), `cedar/platform-floor/` (non-overridable fail-closed and deny rules) and `tests/` (golden allow/deny cases run against every policy release). Tenant-authored policies are **data**, stored and released by the `policy_authoring` module, not files in this repo.
@@ -216,7 +216,7 @@ frontend/apps/tenant-console/
 
 `hosted-login` has `api/flow/[...path]` instead of a BFF, because it drives authentication flows in the backend and has no console session yet.
 
-### 3.3 Frontend rules (ADR-0013)
+### 3.3 Frontend rules (DEC-H1)
 
 - The frontend never makes authorization decisions, holds business logic or touches a database. The backend re-authorizes every mutation. Hiding a button is cosmetic only.
 - The browser holds only an httpOnly session cookie. Tokens stay server-side in the BFF.
@@ -267,7 +267,7 @@ deploy/
 | `e2e/` | First-customer journey across backend and frontend (Playwright) | G2 |
 | `concurrency/` | Mandate 10k race, crash injection, reconciliation | P0-03 |
 | `tenant-isolation/` | Cross-tenant and cross-cell escape attempts | G2 blocker |
-| `load/` | k6 at Stage A and 2× | ADR-0021, G5 |
+| `load/` | k6 at Stage A and 2× | DEC-B3, G5 |
 | `chaos/` | AZ/dependency/region failure, R0–R3 revocation SLOs | W2, G3 |
 | `conformance/` | OpenID, AuthZEN, SSF, OID4VC suites | G6 |
 | `security/` | Abuse cases, fuzzing, DAST | G4 |
@@ -280,7 +280,7 @@ Unit, property, component and contract tests live **inside** each backend servic
 |---|---|
 | `specs/` | The 30 canonical documents (upstream authority) + [README.md](../specs/README.md) register: IDs, versions, status, duplicates, open spec change requests |
 | `architecture/` | ZID-SAD-001, this document |
-| `adr/` | Architecture decision records |
+| `phases/` | Build phases A–I (Guideline §3), each with its spec documents, gate and decisions |
 | `traceability/` | Master matrix: requirement → object → interface → threat → test |
 | `threat-model/` | STRIDE/LINDDUN models per trust boundary |
 | `runbooks/` | Operational runbooks (revocation, failover, key compromise, restore) |
@@ -307,7 +307,7 @@ Unit, property, component and contract tests live **inside** each backend servic
 
 ## 6. CI enforcement (added in W0)
 
-- **Architecture tests** (`backend/app/tests/unit/test_architecture.py`): "ports only" rule between modules, plane map, migration and table-owner consistency (ADR-0031).
+- **Architecture tests** (`backend/app/tests/unit/test_architecture.py`): "ports only" rule between modules, plane map, migration and table-owner consistency (DEC-D6).
 - **Table ownership check:** a migration may create or alter only tables its module owns in `backend/database/table-ownership.yaml`; every tenant-scoped table must have an RLS policy.
 - **Interface registry check:** every route, RPC and event has an entry in `contracts/interface-registry/`; declared dependencies must respect the acyclic rules.
 - **Frontend boundary lint:** no database clients, no Kafka, and no authorization logic in `frontend/`. ESLint import rules keep `app/` routes thin.

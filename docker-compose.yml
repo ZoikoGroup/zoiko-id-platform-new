@@ -1,12 +1,12 @@
 # Zoiko iD — local development stack (LOCAL environment only; synthetic data only).
 #   docker compose up --build -d      then open http://localhost:8000/docs and http://localhost:8100/docs
-# One backend container from the single image (modular monolith, ADR-0031) running both roles,
+# One backend container from the single image (modular monolith, DEC-D6) running both roles,
 # each as its own process on its own port:
 #   cell   — all 27 cell modules         -> http://localhost:8000
 #   global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
 # DB password: set ZID_DB_PASSWORD in a .env file next to this file (compose reads it automatically).
 # The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
-# Production gets short-lived credentials from the secrets broker instead (ADR-0026).
+# Production gets short-lived credentials from the secrets broker instead (DEC-F5).
 # Postgres is published on 127.0.0.1 only, never on a public interface.
 
 name: zoiko-id

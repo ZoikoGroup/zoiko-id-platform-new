@@ -1,9 +1,9 @@
 # Canonical specification register
 
-These documents are the **upstream authority** for Zoiko iD (Build Documentation Guideline §1). Engineering artifacts (architecture, ADRs, code) must not contradict an approved spec without an ADR and a spec change request.
+These documents are the **upstream authority** for Zoiko iD (Build Documentation Guideline §1). Engineering artifacts (architecture, decisions in [docs/phases/](../phases/README.md), code) must not contradict an approved spec without a recorded decision and a spec change request.
 
 - **Production build may rely only on Approved versions** (Guideline §5). Every spec below is currently a Draft or Baseline Candidate; release gate **G0** (Readiness plan §2) requires approval.
-- The `.docx` files are stored through Git LFS (see `/.gitattributes`). Because binaries can't be diffed, every new spec version must be logged in this register with what changed.
+- **The `.docx` files are confidential and are not in Git** (`/.gitignore` excludes `docs/**/*.docx`). Get them from the Architecture Chair and place them in `docs/specs/` locally; the File column gives the exact names. Every new spec version must still be logged in this register with what changed.
 
 | # | Doc ID | Title | Version · date | Status | File |
 |---|---|---|---|---|---|

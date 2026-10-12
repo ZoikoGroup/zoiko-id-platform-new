@@ -1,4 +1,4 @@
-"""Typed settings. Environment variables use the ZID_ prefix; no secret defaults (ADR-0026)."""
+"""Typed settings. Environment variables use the ZID_ prefix; no secret defaults (DEC-F5)."""
 
 from zid_app import ServiceSettings
 

@@ -1,6 +1,6 @@
 # Migrations: `organization` module
 
-Alembic stream owned by the **organization** module (zoiko-id-platform, ADR-0031). Version table: `zid_migrations.alembic_version__organization`.
+Alembic stream owned by the **organization** module (zoiko-id-platform, DEC-D6). Version table: `zid_migrations.alembic_version__organization`.
 
 May create or alter **only** these tables (enforced by CI against `backend/database/table-ownership.yaml`):
 

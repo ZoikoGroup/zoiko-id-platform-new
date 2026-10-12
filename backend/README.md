@@ -1,6 +1,6 @@
 # Backend
 
-All Zoiko iD server-side code: Python 3.13+ / FastAPI, **modular monolith** (ADR-0031), one uv workspace.
+All Zoiko iD server-side code: Python 3.13+ / FastAPI, **modular monolith** (DEC-D6), one uv workspace.
 
 ```
 backend/

@@ -1,9 +1,9 @@
-"""Which modules run in which role of the single Zoiko iD image (ADR-0031).
+"""Which modules run in which role of the single Zoiko iD image (DEC-D6).
 
 One codebase and one image. The same image runs in two roles:
 - `cell`   — every regional-cell module (deployed once per cell: uk-1, eu-1, …)
 - `global` — tenant locator + discovery only, on the global-plane database with no personal
-             data (ZID-TENANCY-001 §2; ADR-0019). It must never load cell modules.
+             data (ZID-TENANCY-001 §2; DEC-G3). It must never load cell modules.
 
 `PLANES` keeps the logical grouping from ZID-SVC-001 §2, so a plane can later be run as its own
 replica pool from the same image (bulkhead) or extracted, without changing module code.

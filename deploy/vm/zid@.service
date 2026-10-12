@@ -1,5 +1,5 @@
 # Zoiko iD backend role as a systemd service (dev/demo VM only — not the production topology).
-# One template, two instances:  zid@cell  and  zid@global   (same code, separate processes, ADR-0031)
+# One template, two instances:  zid@cell  and  zid@global   (same code, separate processes, DEC-D6)
 # Installed by deploy/vm/README.md, which replaces __USER__ and __HOME__.
 [Unit]
 Description=Zoiko iD backend (%i role)

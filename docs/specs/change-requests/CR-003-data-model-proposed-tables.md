@@ -6,7 +6,7 @@ Each table below is required by the cited spec. Fields are taken from that spec;
 
 | Table | Owner (unit/module) | Required by | Fields stated in the source spec |
 |---|---|---|---|
-| `agent.writer_fence` | authority-runtime/mandate | ADR-0020; ZID-RESILIENCE-001 §0.2, §7.1, §17 (writer epoch fencing) | tenant_id, epoch, updated_at |
+| `agent.writer_fence` | authority-runtime/mandate | DEC-C5; ZID-RESILIENCE-001 §0.2, §7.1, §17 (writer epoch fencing) | tenant_id, epoch, updated_at |
 | `agent.workload_binding` | authority-runtime/machine | ZID-MACHINE-001 §16 | binding_id, logical_principal_id, workload_identity_id, blueprint_version, artifact_digest, environment_id, attestation_level, status (ACTIVE/SUSPENDED/REVOKED/EXPIRED), valid_from/valid_to, security_revision, approved_by/evidence |
 | `authn.refresh_token_family` | identity-runtime/session | ZID-AUTH-001 (rotation; reuse revokes family), ZID-API-001 §2.1 | family_id, session_id, client_id, current token verifier, rotation counter, revoked_at, reuse_detected |
 | `authn.federation_connection` | enterprise-integration/federation | ZID-SVC-001 §5 (FED owns IdP/RP metadata, keys, trust, mapping reference); ZID-OVERLAY-001 §6–7 | issuer / SAML entityID, discovery/metadata ref, JWKS or signing cert refs, client/audience, allowed algorithms, mapping_release_id, status, metadata expiry |

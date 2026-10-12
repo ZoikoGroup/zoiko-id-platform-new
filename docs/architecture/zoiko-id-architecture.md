@@ -7,10 +7,10 @@
 | Status | **Draft — for Architecture Review Board** |
 | Date | 10 October 2026 |
 | Derived from | Canonical specs 01–25 (Back-End Target Architecture v2.0 is the master baseline) |
-| Decisions | [docs/adr/](../adr/README.md): baseline ADR-0001 to ADR-0010 (spec ADR-01 to 10), ADR-0011 cell topology, implementation and platform ADR-0012 to ADR-0030 |
+| Decisions | [docs/phases/](../phases/README.md): grouped by build phase A–I (`DEC-<phase><n>`); the ten spec baseline decisions ADR-01 to ADR-10 are listed in its baseline register |
 | Audience | Backend, frontend, platform, security, SRE, QA and data engineering |
 
-This document turns the 25 canonical specifications into one buildable architecture on the agreed stack (Python/FastAPI, Next.js, PostgreSQL, SpiceDB, Cedar, Kafka, AWS). Where the specs already fix a rule, this document cites it and shows how we implement it. Where the specs leave a choice open, the choice is made here and recorded as an ADR.
+This document turns the 25 canonical specifications into one buildable architecture on the agreed stack (Python/FastAPI, Next.js, PostgreSQL, SpiceDB, Cedar, Kafka, AWS). Where the specs already fix a rule, this document cites it and shows how we implement it. Where the specs leave a choice open, the choice is made here and recorded as a decision in the matching phase file ([docs/phases/](../phases/README.md)).
 
 If this document contradicts an approved canonical spec, the spec wins and this document must be corrected.
 
@@ -142,7 +142,7 @@ flowchart TB
 - **Global plane contents:** opaque tenant IDs, the home cell, placement epoch, release metadata and aggregate health. It never stores names, emails, domains or evidence.
 - **No multi-region writers.** Moving a tenant or failing over uses `placement_epoch` fencing. A stale-epoch write is rejected with `CELL_ROUTING_STALE` or `CELL_NOT_AUTHORITATIVE`.
 
-### 4.3 Routing (ADR-0019)
+### 4.3 Routing (DEC-G3)
 
 The global edge is used for **bootstrap and discovery**, not for every request.
 
@@ -188,14 +188,14 @@ Under pressure the cluster sheds non-critical work first (bulkhead rule, Service
 
 ---
 
-## 6. Logical services in a modular monolith (ADR-0031)
+## 6. Logical services in a modular monolith (DEC-D6)
 
 The specs define **27 logical services**. Stage A ships them as **one modular monolith**: one package (`zoiko-id-platform`), one image, one release. Each logical service is a **module** with its own `ports.py` interface, its own tables and its own migration stream, so any module can be extracted later (Service spec §4: *"no microservice dogma… an early modular deployment is acceptable"*).
 
 | Plane | Modules (logical services) | Tables live in schemas | Notes |
 |---|---|---|---|
-| **Runtime** | principal (PRN), authentication (AUTHN), session (SES), decision (AUTHZ), policy_runtime (POL runtime), relationship (REL), authority (AUTHY), mandate (MAND), machine (MACH) | `core`, `authn`, `authz`, `org`, `agent` | Latency-critical. The decision path is performance-gated (ADR-0021). |
-| **Trust** | organization (ROOT), verification (VER), credential (CRED) | `org`, `verify`, `cred` | Provider adapters isolated; CRED may move to Kotlin (ADR-0012) |
+| **Runtime** | principal (PRN), authentication (AUTHN), session (SES), decision (AUTHZ), policy_runtime (POL runtime), relationship (REL), authority (AUTHY), mandate (MAND), machine (MACH) | `core`, `authn`, `authz`, `org`, `agent` | Latency-critical. The decision path is performance-gated (DEC-B3). |
+| **Trust** | organization (ROOT), verification (VER), credential (CRED) | `org`, `verify`, `cred` | Provider adapters isolated; CRED may move to Kotlin (DEC-A2) |
 | **Security / Evidence** | signals (SIG), evidence (EVID), privacy (PRIV) | `signals`, `evidence`, `privacy` | SIG on the priority lane; EVID never blocks SIG |
 | **Integration** | federation (FED), provisioning (SCIM), integration (INT), onboarding (ONB), webhook (WHK) | `authn`, `platform`, `events` | Kept off runtime failure paths |
 | **Control / Support** | tenant (TEN), configuration (CFG), policy_authoring (POL), operator_access (OPS), metering (METER), notification (NOTIF), search (SEARCH) | `platform`, `authz`, `metering` | Never on the R2/R3 path |
@@ -204,7 +204,7 @@ The specs define **27 logical services**. Stage A ships them as **one modular mo
 **Run modes of the single image:**
 - **Role** (`ZID_ROLE`): `cell` loads the 27 cell modules and is deployed once per regional cell. `global` loads only `locator` and `discovery`, on the global-plane database with no personal data.
 - **Process:** the API is the default. `consumer` (Kafka consumers, for example the relationship projector into SpiceDB), `worker` (Temporal workflows, for example onboarding sagas and the evidence checkpointer) and `outbox_relay` run as separate processes of the same image.
-- **Hot-path protection:** separate connection pools and worker limits per plane inside the process. When load requires it, runtime and admin routes go to separate replica pools of the same image (ADR-0031 §4).
+- **Hot-path protection:** separate connection pools and worker limits per plane inside the process. When load requires it, runtime and admin routes go to separate replica pools of the same image (DEC-D6 §4).
 
 **Third-party engines run as services:** SpiceDB, Temporal, SPIRE, Envoy Gateway, OpenBao.
 
@@ -409,7 +409,7 @@ The onboarding states are DRAFT → ORGANIZATION_VERIFYING → CONFIGURING → I
 | 6 | Write the decision record + outbox (E2), or call the E3 gate | ≤5 ms async / sync E3 |
 | | **Total p95** | **<60 ms** |
 
-### 9.2 Policy (ADR-0014)
+### 9.2 Policy (DEC-C3)
 
 - Policies are written in **Cedar**, with a schema per tenant built from the action and resource catalog.
 - The policy service (the `policy_authoring` module) validates releases (schema typing, Cedar static analysis, property tests, conflict checks), freezes them, and publishes **immutable compiled bundles** identified by `policy_release_id`.
@@ -417,7 +417,7 @@ The onboarding states are DRAFT → ORGANIZATION_VERIFYING → CONFIGURING → I
 - Lifecycle: DRAFT → VALIDATING → REVIEW → SCHEDULED → ACTIVE → RETIRED / REVOKED. Shadow evaluation and simulation run on the same engine.
 - **Authority algebra is enforced in code before Cedar evaluation.** AUTHY returns only complete, attenuated chains. Cedar never composes partial grants (no privilege stitching).
 
-### 9.3 Relationship consistency by risk class (ADR-0015)
+### 9.3 Relationship consistency by risk class (DEC-C4)
 
 | Risk | SpiceDB consistency | If the projection is behind the required `relation_revision` |
 |---|---|---|
@@ -433,7 +433,7 @@ The onboarding states are DRAFT → ORGANIZATION_VERIFYING → CONFIGURING → I
 
 ---
 
-## 10. Mandate ledger (ADR-0020)
+## 10. Mandate ledger (DEC-C5)
 
 The mandate ledger is the only consumable-authority store. It has a single writer per mandate in its home cell.
 
@@ -462,7 +462,7 @@ Why this design: a conditional update on one row is atomic in PostgreSQL. Concur
 
 ## 11. Data architecture
 
-### 11.1 PostgreSQL (Aurora PostgreSQL, ADR-0016)
+### 11.1 PostgreSQL (Aurora PostgreSQL, DEC-D1)
 
 - **One Aurora cluster per cell at Stage A**, with tenant-aware partitioning. SpiceDB, Temporal and evidence metadata get their own clusters, so their load can't starve the trust kernel.
 - **Schema per module** (`platform`, `core`, `org`, `authn`, `verify`, `cred`, `authz`, `agent`, `privacy`, `evidence`, `signals`, `events`, `metering`). Each has its own runtime role (`svc_identity`, `svc_mandate`, …). Runtime roles never own tables and never have `BYPASSRLS`. Migrations run under `db_owner_migration`, which has no runtime credentials.
@@ -500,7 +500,7 @@ Why this design: a conditional update on one row is atomic in PostgreSQL. Concur
 
 ---
 
-## 12. Event architecture (ADR-0017)
+## 12. Event architecture (DEC-D2)
 
 - **Backbone:** Amazon MSK (Kafka) per cell. Topics are named `zid.<env>.<cell>.<domain>.<class>`.
 - **Envelope:** CloudEvents 1.0 with Zoiko extensions (`tenantid`, `cellid`, `correlationid`, `causationid`, `aggregateversion`, `classification`, `evidenceclass`). Event types are `com.zoiko.id.<domain>.<noun>.<past-tense>.v<major>`. AsyncAPI 3.1 is the contract source, with an Apicurio schema registry and BACKWARD compatibility by default.
@@ -522,7 +522,7 @@ Why this design: a conditional update on one row is atomic in PostgreSQL. Concur
 
 ## 13. Evidence architecture
 
-Decisions: ADR-0006 (evidence privacy), ADR-0024 (ledger and integrity profile).
+Decisions: DEC-F1 (evidence privacy), DEC-F2 (ledger and integrity profile).
 
 ```mermaid
 flowchart LR
@@ -558,7 +558,7 @@ flowchart LR
 
 ### 14.2 Workload identity and transport
 
-Decision: ADR-0025.
+Decision: DEC-F7.
 
 - **SPIRE** issues SVIDs to every pod. **Istio ambient** gives mTLS on every hop, and authorization policies allow only the dependency graph in §6.1.
 - **Cloud access** uses EKS Pod Identity (no static AWS keys). **Secrets** come from OpenBao as dynamic, short-lease database credentials per service role.
@@ -566,7 +566,7 @@ Decision: ADR-0025.
 
 ### 14.3 Keys (mapping the spec's K0–K5 hierarchy to AWS)
 
-Decision: ADR-0026 (keys and secrets); ADR-0009 (post-quantum).
+Decision: DEC-F5 (keys and secrets); DEC-F6 (post-quantum).
 
 | Spec layer | AWS implementation |
 |---|---|
@@ -581,7 +581,7 @@ Key purposes are never shared: token-signing, federation, VC issuer, evidence, w
 
 ### 14.4 Operator trust
 
-Decision: ADR-0028.
+Decision: DEC-F4.
 
 - No human has standing production data access.
 - The **OPS** service issues JIT elevation scoped to tenant, object classes, actions, reason, case and expiry, with dual control, plus a **customer lockbox** where the tenant requires it.
@@ -590,13 +590,13 @@ Decision: ADR-0028.
 
 ### 14.5 Supply chain
 
-Decision: ADR-0027.
+Decision: DEC-G4.
 
 GitHub Actions with OIDC to AWS (no stored keys). Builds produce SLSA L3 provenance, cosign signatures and Syft SBOMs, and are scanned with Trivy, Semgrep, gitleaks and pip-audit. **Kyverno** admits only signed images with verified provenance in production namespaces. Pre-production and production run the identical artifact digest.
 
 ---
 
-## 15. Frontend architecture (ADR-0013)
+## 15. Frontend architecture (DEC-H1)
 
 | App | Users | Origin | Notes |
 |---|---|---|---|
@@ -619,7 +619,7 @@ All apps live in one **pnpm/Turborepo workspace** under `frontend/` (`frontend/a
 
 ## 16. Infrastructure, environments and delivery
 
-### 16.1 AWS account topology (ADR-0018)
+### 16.1 AWS account topology (DEC-G2)
 
 | Accounts | Contents |
 |---|---|
@@ -646,7 +646,7 @@ LOCAL → EPHEMERAL (per PR) → DEV → INT/QA → SEC → PERF → PREPROD →
 
 ## 17. Observability and SLOs
 
-Decision: ADR-0030.
+Decision: DEC-G5.
 
 - **OpenTelemetry** in every service via `zid-telemetry`. Data goes to the cell-local stack: Prometheus/Mimir, Loki, Tempo and Grafana. Only PII-free aggregates reach the fleet view.
 - **Trust SLIs from day one** (Brief §8):
@@ -662,7 +662,7 @@ Decision: ADR-0030.
 
 ---
 
-## 18. Performance design and the W0 gate (ADR-0021)
+## 18. Performance design and the W0 gate (DEC-B3)
 
 Python carries the whole platform. The decision service is the single performance risk.
 
@@ -681,7 +681,7 @@ Python carries the whole platform. The decision service is the single performanc
 - Error rate <0.01%
 - Cost per million decisions within the agreed envelope
 
-**If it fails:** tune Python, then profile and fix the hot spot. Only after both, extract the `decision` module from the monolith and rewrite that path in Go behind the same AuthZEN and internal contracts (ADR-0021, ADR-0031). Nothing else changes.
+**If it fails:** tune Python, then profile and fix the hot spot. Only after both, extract the `decision` module from the monolith and rewrite that path in Go behind the same AuthZEN and internal contracts (DEC-B3, DEC-D6). Nothing else changes.
 
 ---
 
@@ -690,7 +690,7 @@ Python carries the whole platform. The decision service is the single performanc
 The full layout and its rules are in **[repository-structure.md](repository-structure.md)** (ZID-REPO-001). Key points:
 
 - **`backend/`** (uv workspace):
-  - `app/`: the modular monolith (`zoiko-id-platform`, ADR-0031): 29 modules in `src/zid_platform/modules/`, `roles.py` (cell/global), entrypoints (api, consumer, worker, outbox_relay), and one Alembic stream per owning module in `migrations/<module>/`. Table ownership is registered in `backend/database/table-ownership.yaml`.
+  - `app/`: the modular monolith (`zoiko-id-platform`, DEC-D6): 29 modules in `src/zid_platform/modules/`, `roles.py` (cell/global), entrypoints (api, consumer, worker, outbox_relay), and one Alembic stream per owning module in `migrations/<module>/`. Table ownership is registered in `backend/database/table-ownership.yaml`.
   - `Dockerfile`: the single backend image (test and runtime targets).
   - `libs/`: platform mechanics only; no domain entities or ORM models.
   - `database/`: cluster bootstrap only (roles, extensions, RLS helpers). No tables.
@@ -706,7 +706,7 @@ Python tooling: **uv** workspaces, ruff, mypy `--strict`, pytest, Hypothesis and
 
 | Wave | Architecture deliverables | Exit gate |
 |---|---|---|
-| **W0 Architecture proof** | `backend/libs` core (context, db/RLS, outbox, idempotency, errors); authority algebra in `domain/` with property tests; mandate ledger with 10k concurrency test; PDP skeleton with Cedar + SpiceDB; **performance benchmark**; threat model v1; ADRs ratified | P0 ADRs approved; property, concurrency and performance gates pass |
+| **W0 Architecture proof** | `backend/libs` core (context, db/RLS, outbox, idempotency, errors); authority algebra in `domain/` with property tests; mandate ledger with 10k concurrency test; PDP skeleton with Cedar + SpiceDB; **performance benchmark**; threat model v1; baseline decisions ratified | P0 decisions approved; property, concurrency and performance gates pass |
 | **W1 Overlay trust core** | OIDC/SAML federation, SCIM, principal/org model, authority roots and grants, decision receipts (E2), Tenant Console shell, one PEP SDK | Incumbent-IdP overlay proof |
 | **W2 Continuous trust** | SIG + priority lane, SSF transmitter/receiver, revocation SLO instrumentation | R0–R3 chaos test |
 | **W3 Credentials/EUDI** | CRED (OID4VCI/OID4VP, SD-JWT VC, mdoc), assurance engine, VER provider adapters | Conformance + privacy review |
@@ -725,8 +725,8 @@ The first customer bar (Brief §7) must be demonstrable at the end of W1–W2: o
 | Q1 | UK residency DR. **Doc default applied** ([cells.yaml](../../backend/config/cells/cells.yaml)): cross-border transfer is DENY by default (TENANCY §0.1), so `uk-1` has no approved recovery cell; recovery is in-region multi-AZ, and the tenant explicitly accepts a different regional-disaster RTO/RPO (ARCH §15.3). **Still open:** Legal may approve `eu-1` per tenant contract. | Legal + residency owner | Before G4 |
 | ~~Q2~~ | ~~Duplicate specs~~ **Resolved by ZID-SEC-001 §33** ([CR-005](../specs/change-requests/CR-005-master-sequence-reconciliation.md)): canonical Doc 18 = ZID-CRYPTO-MI-001 (CRYPTO-001 superseded); Doc 19 = ZID-TENANCY-001 and Doc 23 = ZID-SRE-001, with RESILIENCE-001 and OPS-001 supplementary until reconciled. Architecture Chair records it in the Guideline. | — | Closed |
 | Q3 | Python EUDI libraries (mdoc, OID4VP/HAIP) vs a Kotlin CRED service | Credentials lead | Start of W3 |
-| ~~Q4~~ | ~~Temporal hosting~~ **Resolved by ZID-TENANCY-001 §6, §20**: workflow state is tenant processing, so it must satisfy the residency coverage matrix and the dependency-sovereignty gate. **Self-hosted per cell** (ADR-0023); a managed service is allowed only for a profile whose gate it passes. | — | Closed |
-| ~~Q5~~ | ~~Evidence checkpoint anchoring target~~ **Resolved by the Evidence spec §10–11; see ADR-0024**: no public blockchain; signed Merkle checkpoints, checkpoint witnesses and optional RFC 3161 TSA | — | Closed |
+| ~~Q4~~ | ~~Temporal hosting~~ **Resolved by ZID-TENANCY-001 §6, §20**: workflow state is tenant processing, so it must satisfy the residency coverage matrix and the dependency-sovereignty gate. **Self-hosted per cell** (DEC-D5); a managed service is allowed only for a profile whose gate it passes. | — | Closed |
+| ~~Q5~~ | ~~Evidence checkpoint anchoring target~~ **Resolved by the Evidence spec §10–11; see DEC-F2**: no public blockchain; signed Merkle checkpoints, checkpoint witnesses and optional RFC 3161 TSA | — | Closed |
 | Q6 | First design-partner IdP for the overlay proof. The specs treat Entra, Okta and Ping equally (OVERLAY §8, test OVL: "Entra/Okta/Ping onboarding…"); the Readiness plan requires proof against **at least one**. Product chooses based on the design partner. | Product | W1 start |
 | Q7 | Jurisdiction packs: **engineering drafts written from ZID-PRIV-001** for EU GDPR, UK GDPR/DUAA and California CCPA ([backend/config/jurisdiction-packs/](../../backend/config/jurisdiction-packs/)). Fields marked COUNSEL (deadlines, retention, backup windows, data-broker status) and the role map need Legal/DPO approval. | Legal / DPO | Before G4 |
 

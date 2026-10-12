@@ -1,4 +1,4 @@
-"""Architecture guards for the modular monolith (ADR-0031, ZID-SVC-001 §4-6).
+"""Architecture guards for the modular monolith (DEC-D6, ZID-SVC-001 §4-6).
 
 These tests fail the build if the monolith starts turning into a shared-model monolith.
 """

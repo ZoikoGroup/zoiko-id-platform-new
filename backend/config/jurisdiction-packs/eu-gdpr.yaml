@@ -1,4 +1,4 @@
-# status: DRAFT — ENGINEERING SKELETON. NOT LEGAL ADVICE. Not deployable until Legal/DPO approve (ADR-0007).
+# status: DRAFT — ENGINEERING SKELETON. NOT LEGAL ADVICE. Not deployable until Legal/DPO approve (DEC-F3).
 # approval_ref: null
 # version: 0.1.0
 # Source: ZID-PRIV-001 §0.1, §4, §20-21, §24, §26, §31. Content below is only what the spec states;
@@ -21,4 +21,4 @@ international_transfers:
   supported_mechanisms: [adequacy, eu_standard_contractual_clauses]
   note: "Contracts are necessary but do not replace technical residency, access and minimisation enforcement (§24)"
 retention_overrides: COUNSEL          # engineering defaults in ZID-PRIV-001 §31 apply until counsel sets values
-backup_erasure_window: COUNSEL        # ADR-0006
+backup_erasure_window: COUNSEL        # DEC-F1

@@ -9,7 +9,7 @@ Overlay-first trust infrastructure: identity, verification, credentials, organiz
 | [docs/specs/](docs/specs/) | The canonical specifications (upstream authority) |
 | [docs/architecture/zoiko-id-architecture.md](docs/architecture/zoiko-id-architecture.md) | Buildable architecture (ZID-SAD-001) |
 | [docs/architecture/repository-structure.md](docs/architecture/repository-structure.md) | What lives where, and the rules |
-| [docs/adr/](docs/adr/README.md) | Architecture decisions |
+| [docs/phases/](docs/phases/README.md) | Build phases A–I and the architecture decisions in each |
 
 ## Layout
 
@@ -22,7 +22,7 @@ deploy/      OpenTofu, Helm, Argo CD, Kyverno, single-VM dev deployment
 tests/       system-level suites (e2e, concurrency, tenant isolation, load, chaos, conformance)
 local/       local dev stack config + synthetic seed data
 tools/       code generation and scripts
-docs/        specs, architecture, ADRs, traceability, threat model, runbooks
+docs/        specs, architecture, build phases + decisions, traceability, threat model, runbooks
 ```
 
 PostgreSQL **always runs in Docker** (`docker compose`); no local PostgreSQL install is needed. The backend can run in Docker too (option A) or directly on your machine (option B).

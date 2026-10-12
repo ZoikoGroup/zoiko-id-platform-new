@@ -2,7 +2,7 @@
 
 Each role is its own uvicorn **process** on its own port (cell and global must never share a
 process — the global plane holds no personal data and uses its own database, ZID-TENANCY-001 §2,
-ADR-0031). The supervisor forwards shutdown signals and exits if any role dies, so the container
+DEC-D6). The supervisor forwards shutdown signals and exits if any role dies, so the container
 runtime restarts the whole unit instead of leaving it half-up.
 
 Configuration (environment):

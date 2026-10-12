@@ -1,4 +1,4 @@
-"""App factory for the Zoiko iD modular monolith (ADR-0031).
+"""App factory for the Zoiko iD modular monolith (DEC-D6).
 
 Composes the shared service shell (zid-app) with the modules of the configured role.
 Module routers are mounted here as each module's api/ layer is implemented; modules talk to

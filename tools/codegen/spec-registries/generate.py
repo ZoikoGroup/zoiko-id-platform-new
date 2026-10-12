@@ -75,33 +75,33 @@ for name, best, sources in ev:
 (REPO / "contracts/asyncapi/event-catalogue.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 # ---------------- traceability ----------------
-OWNER = {  # requirement prefix -> (owning units/modules, governing ADRs, test suites)
-    "FR-TEN": ("tenant; locator", "0001, 0011, 0019", "tests/tenant-isolation"),
-    "FR-IDN": ("principal", "0001, 0029", "tests"),
-    "FR-ORG": ("organization", "0003", "tests; tests/golden"),
-    "FR-AUT": ("authentication, session; federation", "0005, 0029", "tests/conformance; tests"),
-    "FR-AUTHZ": ("decision, relationship; authority", "0002, 0004, 0014, 0015", "tests/property; tests/golden"),
-    "FR-MND": ("mandate, machine", "0003, 0005, 0020", "tests/concurrency; tests/property"),
-    "FR-VER": ("verification", "0007", "tests"),
-    "FR-VC": ("credential", "0008, 0029", "tests/conformance"),
-    "FR-SIG": ("signals", "0004, 0017", "tests/chaos"),
-    "FR-PRV": ("privacy", "0006, 0007", "tests"),
-    "FR-EVD": ("evidence", "0006, 0024", "tests; tests/golden"),
-    "FR-API": ("contracts/ (all units)", "0002, 0022", "*/tests/contract"),
-    "FR-OPS": ("operator_access; SRE", "0028, 0030", "tests/security"),
-    "FR-COM": ("privacy; Legal", "0007", "docs/traceability (evidence dossier)"),
-    "NFR-PERF": ("decision, mandate (runtime plane)", "0010, 0021", "tests/load"),
-    "NFR-SCL": ("all units; deploy/", "0010, 0011", "tests/load"),
-    "NFR-REL": ("all units; deploy/", "0011", "tests/chaos"),
-    "NFR-DR": ("deploy/; SRE", "0011", "tests/chaos"),
-    "NFR-SEC": ("all units; .github/; deploy/policies", "0025, 0027, 0028", "tests/security"),
-    "NFR-CRY": ("libs/zid-crypto", "0009, 0026", "zid-crypto/tests"),
-    "NFR-CON": ("libs/zid-db; relationship", "0002, 0015, 0016", "*/tests/component"),
-    "NFR-DP": ("privacy, evidence", "0006", "tests"),
-    "NFR-OBS": ("libs/zid-telemetry; SRE", "0030", "tests/chaos"),
-    "NFR-INT": ("federation, provisioning, integration; sdks/", "0001, 0029", "tests/conformance"),
-    "NFR-MNT": ("all units", "0012, 0016", "CI"),
-    "NFR-UX": ("frontend/", "0013", "frontend/apps/*/tests"),
+OWNER = {  # requirement prefix -> (owning units/modules, governing decisions in docs/phases/, test suites)
+    "FR-TEN": ("tenant; locator", "DEC-A1, DEC-G1, DEC-G3", "tests/tenant-isolation"),
+    "FR-IDN": ("principal", "DEC-A1, DEC-E1", "tests"),
+    "FR-ORG": ("organization", "DEC-C2", "tests; tests/golden"),
+    "FR-AUT": ("authentication, session; federation", "DEC-D3, DEC-E1", "tests/conformance; tests"),
+    "FR-AUTHZ": ("decision, relationship; authority", "DEC-C1, DEC-B1, DEC-C3, DEC-C4", "tests/property; tests/golden"),
+    "FR-MND": ("mandate, machine", "DEC-C2, DEC-D3, DEC-C5", "tests/concurrency; tests/property"),
+    "FR-VER": ("verification", "DEC-F3", "tests"),
+    "FR-VC": ("credential", "DEC-E2, DEC-E1", "tests/conformance"),
+    "FR-SIG": ("signals", "DEC-B1, DEC-D2", "tests/chaos"),
+    "FR-PRV": ("privacy", "DEC-F1, DEC-F3", "tests"),
+    "FR-EVD": ("evidence", "DEC-F1, DEC-F2", "tests; tests/golden"),
+    "FR-API": ("contracts/ (all units)", "DEC-C1, DEC-D4", "*/tests/contract"),
+    "FR-OPS": ("operator_access; SRE", "DEC-F4, DEC-G5", "tests/security"),
+    "FR-COM": ("privacy; Legal", "DEC-F3", "docs/traceability (evidence dossier)"),
+    "NFR-PERF": ("decision, mandate (runtime plane)", "DEC-B2, DEC-B3", "tests/load"),
+    "NFR-SCL": ("all units; deploy/", "DEC-B2, DEC-G1", "tests/load"),
+    "NFR-REL": ("all units; deploy/", "DEC-G1", "tests/chaos"),
+    "NFR-DR": ("deploy/; SRE", "DEC-G1", "tests/chaos"),
+    "NFR-SEC": ("all units; .github/; deploy/policies", "DEC-F7, DEC-G4, DEC-F4", "tests/security"),
+    "NFR-CRY": ("libs/zid-crypto", "DEC-F6, DEC-F5", "zid-crypto/tests"),
+    "NFR-CON": ("libs/zid-db; relationship", "DEC-C1, DEC-C4, DEC-D1", "*/tests/component"),
+    "NFR-DP": ("privacy, evidence", "DEC-F1", "tests"),
+    "NFR-OBS": ("libs/zid-telemetry; SRE", "DEC-G5", "tests/chaos"),
+    "NFR-INT": ("federation, provisioning, integration; sdks/", "DEC-A1, DEC-E1", "tests/conformance"),
+    "NFR-MNT": ("all units", "DEC-A2, DEC-D1", "CI"),
+    "NFR-UX": ("frontend/", "DEC-H1", "frontend/apps/*/tests"),
 }
 def owner(rid):
     pre = "-".join(rid.split("-")[:2])
@@ -110,7 +110,7 @@ tdir = REPO / "docs/traceability"
 with open(tdir / "requirements.csv", "w", newline="", encoding="utf-8") as fh:
     w = csv.writer(fh)
     w.writerow(["requirement_id", "priority", "requirement", "verification", "owning_units_modules",
-                "governing_adrs", "test_suites", "implementation_status", "test_status", "evidence_link"])
+                "governing_decisions", "test_suites", "implementation_status", "test_status", "evidence_link"])
     for r in reqs:
         o = owner(r["id"])
         w.writerow([r["id"], r["priority"], r["text"], r["verification"], o[0], o[1], o[2],

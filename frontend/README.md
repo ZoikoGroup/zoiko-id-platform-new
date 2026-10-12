@@ -18,6 +18,6 @@ frontend/
     └── config/              shared eslint, tsconfig, tailwind presets
 ```
 
-The frontend only shows screens and forwards calls. It never makes authorization decisions, holds business logic or touches a database (ADR-0013).
+The frontend only shows screens and forwards calls. It never makes authorization decisions, holds business logic or touches a database (DEC-H1).
 
 Full rules: [docs/architecture/repository-structure.md](../docs/architecture/repository-structure.md).

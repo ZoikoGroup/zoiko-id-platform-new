@@ -1,7 +1,7 @@
 # status: DRAFT (doc-derived; not approved)
 # approval_ref: null   # set when the named approver signs off; releases are immutable after that
 # version: 0.1.0
-# owner: Residency / Privacy owner + SRE (ADR-0011). Source: ZID-TENANCY-001 §4-6, §11-12.
+# owner: Residency / Privacy owner + SRE (DEC-G1). Source: ZID-TENANCY-001 §4-6, §11-12.
 # Profiles are contractual capabilities, not self-service labels; activation needs automated capability
 # checks plus approved legal/compliance mapping. A higher profile inherits all lower-profile controls.
 

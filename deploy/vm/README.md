@@ -2,7 +2,7 @@
 
 PostgreSQL runs in Docker; the backend runs directly on the VM with uv, as two systemd services (`zid@cell`, `zid@global`).
 
-> **Not production.** There's no TLS, no authentication, a single VM and a single database. Production follows the cell topology in ADR-0011/ADR-0018 (AWS for Stage A; running production on GCP would need that ADR revisited). Restrict the firewall to your own IP.
+> **Not production.** There's no TLS, no authentication, a single VM and a single database. Production follows the cell topology in DEC-G1/DEC-G2 (AWS for Stage A; running production on GCP would need DEC-G2 revisited). Restrict the firewall to your own IP.
 
 ## 1. On your laptop: create the VM and copy the code
 

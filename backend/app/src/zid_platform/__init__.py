@@ -1,1 +1,1 @@
-"""Zoiko iD platform — modular monolith (ADR-0031)."""
+"""Zoiko iD platform — modular monolith (DEC-D6)."""

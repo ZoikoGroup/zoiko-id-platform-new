@@ -2,7 +2,7 @@
 # Language-specific rules live next to the code: backend/.gitignore (Python), frontend/.gitignore (Node/Next.js).
 # Rule: lockfiles (uv.lock, pnpm-lock.yaml, .terraform.lock.hcl) and .python-version are ALWAYS committed.
 
-# ---------- Secrets & credentials — never commit (ADR-0026) ----------
+# ---------- Secrets & credentials — never commit (DEC-F5) ----------
 .env
 .env.*
 !.env.example
@@ -17,6 +17,15 @@
 credentials.json
 /.secrets/
 /secrets/
+
+# ---------- Confidential source documents — kept locally, never pushed ----------
+# The canonical specs (docs/specs/*.docx) are company-confidential. Each engineer keeps a local copy;
+# the register in docs/specs/README.md and the phase files in docs/phases/ are what the repo carries.
+/docs/**/*.docx
+/docs/**/*.pdf
+/docs/**/*.pptx
+/docs/**/*.xlsx
+~$*.docx
 
 # ---------- Infrastructure (OpenTofu/Terraform, Helm) ----------
 .terraform/

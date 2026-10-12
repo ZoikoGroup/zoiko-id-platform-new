@@ -1,4 +1,4 @@
-"""Database access with server-derived tenant scoping (ADR-0016, ZID-DATA-001 §12).
+"""Database access with server-derived tenant scoping (DEC-D1, ZID-DATA-001 §12).
 
 Every tenant-scoped transaction starts with `set_config(..., true)` — the parameterized,
 transaction-local equivalent of `SET LOCAL` — so PostgreSQL row-level security sees the tenant

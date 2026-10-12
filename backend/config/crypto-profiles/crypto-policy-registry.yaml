@@ -1,7 +1,7 @@
 # status: DRAFT (doc-derived; not approved)
 # approval_ref: null   # set when the named approver signs off; releases are immutable after that
 # version: 0.1.0
-# owner: Security / Cryptography Lead (ADR-0026). Source: ZID-CRYPTO-MI-001 §4-5, §8-13, §17.
+# owner: Security / Cryptography Lead (DEC-F5). Source: ZID-CRYPTO-MI-001 §4-5, §8-13, §17.
 # Loaded by libs/zid-crypto. Untrusted alg/header input never selects behavior (§4.1).
 
 security_tiers: [STANDARD, REGULATED, SOVEREIGN, FEDERAL]   # §4
