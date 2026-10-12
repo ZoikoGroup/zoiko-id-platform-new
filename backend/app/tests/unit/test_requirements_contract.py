@@ -212,3 +212,68 @@ def test_placement_keeps_thirty_percent_headroom() -> None:
 def test_single_az_cell_never_admits() -> None:
     one = CellCapacity(capacity_per_s=10_000, availability_zones=1, saturation_threshold=0.9)
     assert AdmissionRefusal.SINGLE_AZ in admission_refusals(one, 0, 1)
+
+
+# ---------------------------------------------------------------- progress tracking
+
+STATUSES = ["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED", "ACCEPTED"]
+
+
+def test_requirement_status_is_honest() -> None:
+    """Progress needs evidence that exists; VERIFIED needs a passing verification (README vocabulary)."""
+    problems = []
+    for rid, r in REQS.items():
+        impl, test, evidence = r["implementation_status"], r["test_status"], r["evidence_link"]
+        if impl not in STATUSES or test not in STATUSES:
+            problems.append(f"{rid}: unknown status {impl!r}/{test!r}")
+            continue
+        if impl != "NOT_STARTED" and not evidence:
+            problems.append(f"{rid}: {impl} without an evidence link")
+        if evidence and not evidence.startswith("http"):
+            path = REPO / evidence.split("::")[0]
+            if not path.exists():
+                problems.append(f"{rid}: evidence {evidence} does not exist")
+            elif "::" in evidence and f"def {evidence.split('::')[1]}(" not in path.read_text(
+                "utf-8"
+            ):
+                problems.append(f"{rid}: evidence test {evidence} does not exist")
+        if STATUSES.index(impl) >= STATUSES.index("VERIFIED") and test not in {
+            "VERIFIED",
+            "ACCEPTED",
+        }:
+            problems.append(f"{rid}: {impl} but test_status is {test}")
+    assert not problems, "\n".join(problems)
+
+
+def test_every_contract_is_independently_versioned() -> None:
+    """NFR-MNT-001: each contract registry carries its own version and approval status."""
+    problems = []
+    for f in sorted((REPO / "contracts").rglob("*.yaml")):
+        header = []
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("#"):
+                break
+            header.append(line)
+        if not any(re.fullmatch(r"# version: \d+\.\d+\.\d+.*", h) for h in header):
+            problems.append(f"{f.relative_to(REPO)}: no '# version: X.Y.Z' header")
+        if not any(h.startswith("# status: ") for h in header):
+            problems.append(f"{f.relative_to(REPO)}: no '# status:' header")
+    assert not problems, "\n".join(problems)
+
+
+def test_sli_contract_is_low_cardinality_and_alerts_resolve() -> None:
+    """NFR-OBS-002/004: required SLIs exist, carry no per-tenant labels, and every alert has an SLI."""
+    metrics = SLO["slis"]["metrics"]
+    for name, m in metrics.items():
+        assert name.startswith("zid_"), name
+        assert m["type"] in {"counter", "gauge", "histogram"}, name
+        assert not set(m["labels"]) & {"tenant_id", "principal_id", "subject", "request_id"}, name
+    rules = SLO["alerting"]["rules"]
+    assert all(r["sli"] in metrics for r in rules.values())
+    for must in (
+        "r2_r3_revocation_slo_breach",
+        "authorization_latency_slo_breach",
+        "mandate_integrity_failure",
+    ):
+        assert rules[must]["pages"], must
+    assert rules["r2_r3_revocation_slo_breach"]["severity"].endswith("security")

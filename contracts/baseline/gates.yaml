@@ -1,7 +1,9 @@
 # Architecture baseline gates (ZID-ARCH-002 §22-§24). Phase A deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
 # owner: Chief Architect; each item names the phase that must close it.
 #
-# status: open | in-progress | closed
+# entry status: open | in-progress | closed
 # A closed item MUST carry an evidence link (test report, signed approval, dossier entry).
 # "Narrative assurance" does not close a gate (§23.2): evidence is a link to a retained artifact.
 # backend/app/tests/unit/test_baseline.py checks every reference and every closed item.

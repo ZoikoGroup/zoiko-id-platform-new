@@ -1,4 +1,6 @@
 # Service-level objectives and latency budgets (ZID-REQ-001 §3.1-3.2; DEC-C1 §6; DEC-B3). Phase B deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
 # owner: SRE Lead + Authorization Lead. Architecture budgets, not vendor promises.
 # Every value names the requirement it comes from; test_requirements_contract.py checks the number
 # appears in that requirement's text, so the contract can't drift from ZID-REQ-001.
@@ -32,3 +34,30 @@ decision_service_gate:
   max_error_rate: 0.0001
   pass: "p95 budgets met for both paths, p99 within the agreed bound, cost per million decisions within envelope"
   on_fail: "tune Python, then profile and fix the hot spot; only then extract decision and rewrite in Go (DEC-B3)"
+
+# Required operational SLIs (NFR-OBS-002; DEC-G5 §4). Names are the metric contract that
+# zid-telemetry implements in Phase G; labels must stay low-cardinality (no tenant or principal IDs).
+slis:
+  requirement: NFR-OBS-002
+  metrics:
+    zid_decision_latency_seconds: {type: histogram, labels: [risk_class, outcome]}
+    zid_decision_outcomes_total: {type: counter, labels: [risk_class, outcome, reason_code]}
+    zid_errors_total: {type: counter, labels: [service, error_code]}
+    zid_saturation_ratio: {type: gauge, labels: [service, resource]}
+    zid_queue_lag_seconds: {type: gauge, labels: [lane]}  # outbox, projection and evidence lag
+    zid_retries_total: {type: counter, labels: [service, operation]}
+    zid_stale_revision_total: {type: counter, labels: [risk_class, revision_kind]}
+    zid_revocation_propagation_seconds: {type: histogram, labels: [risk_class, cross_party]}
+    zid_mandate_operation_failures_total: {type: counter, labels: [operation, reason_code]}  # reserve/commit/release
+    zid_fail_closed_total: {type: counter, labels: [risk_class, reason_code]}
+    zid_checkpoint_age_seconds: {type: gauge, labels: [partition_kind]}
+    zid_key_rotation_health: {type: gauge, labels: [key_purpose]}
+
+# Breaches page by security impact, not only availability impact (NFR-OBS-004).
+alerting:
+  requirement: NFR-OBS-004
+  rules:
+    r2_r3_revocation_slo_breach: {sli: zid_revocation_propagation_seconds, severity: SEV1-security, pages: true}
+    authorization_latency_slo_breach: {sli: zid_decision_latency_seconds, severity: SEV2, pages: true}
+    mandate_integrity_failure: {sli: zid_mandate_operation_failures_total, severity: SEV1-security, pages: true}
+    fail_closed_spike: {sli: zid_fail_closed_total, severity: SEV2, pages: true}

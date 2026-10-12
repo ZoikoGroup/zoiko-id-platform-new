@@ -1,4 +1,6 @@
 # Canonical error / reason code registry. GENERATED from canonical specs by tools/codegen (see README).
+# status: GENERATED (doc-derived; not approved)
+# version: 0.1.0
 # Do not edit by hand: change the spec, then regenerate. Stable machine contracts (ZID-API-001 §3.3).
 
 families:  # ZID-API-001 §20

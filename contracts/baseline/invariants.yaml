@@ -1,11 +1,13 @@
 # Non-negotiable architecture invariants (ZID-ARCH-002 §4). Phase A deliverable (docs/phases/phase-a-architecture-baseline.md).
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
 # owner: Chief Architect. Changing an invariant needs a recorded decision and ARB re-approval.
 #
 # enforcement kinds:
 #   architecture-test  executable guard that runs in CI today   ref = <test file>::<test function>
 #   acceptance-test    end-to-end proof from docs/traceability/acceptance-tests.csv   ref = AT-xx
 #   decision           the phase decision that implements it   ref = DEC-xx
-# status:
+# entry status:
 #   enforced           every listed architecture-test exists and the invariant is fully covered by them
 #   partial            some architecture-tests exist; the rest is proved later by the listed acceptance tests
 #   planned            no executable guard yet; the owning phase must add one before its gate

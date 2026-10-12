@@ -22,15 +22,20 @@ Back to the [phase index](README.md).
 | §3.1–3.2 availability targets and p95 latency budgets, bound to the requirement text | [slo.yaml](../../contracts/baseline/slo.yaml) | Done |
 | §5 Stage A/B/C design points, 2× qualification, unit-economics meters (DEC-B2) | [capacity.yaml](../../contracts/baseline/capacity.yaml) | Done |
 | Cell admission: 30% headroom, survive one-AZ loss, stop placing before saturation (DEC-B2 §3) | `modules/tenant/domain/placement.py` | Done |
-| DEC-B3 decision-service performance gate (k6, 10k/s per cell, 1 h soak) | gate defined in `slo.yaml` | **Waiting** for the real decision path (Phases C–D) |
+| DEC-B3 performance gate harness: k6 at 10k decisions/s per cell, 1 h soak, p95 and error thresholds bound to `slo.yaml` | [tests/load/decision-gate/](../../tests/load/decision-gate/README.md), `test_load_gate.py` | Done (harness) |
+| DEC-B3 gate **run** against the real decision path | PERF environment | **Waiting** for the decision path (Phases C–D) |
+| Required SLIs and paging rules: R2/R3 revocation and mandate-integrity breaches page as security incidents (NFR-OBS-002/004) | [slo.yaml](../../contracts/baseline/slo.yaml) `slis`, `alerting` | Done (contract; emitted by `zid-telemetry` in Phase G) |
+| Every contract registry independently versioned with an approval status (NFR-MNT-001) | `# version:` / `# status:` headers, `test_every_contract_is_independently_versioned` | Done |
+| Progress tracking that survives regeneration; 19 requirements carry status and evidence | `generate.py` keeps status columns; `test_requirement_status_is_honest` | Done |
 | DEC-B1/B2/B3 ratified; Stage A and R0–R3 SLO floor signed off (BG-06, BG-08) | this file, [gates.yaml](../../contracts/baseline/gates.yaml) | **Open** (needs the ARB, SRE and Security) |
 
-**Enforced in CI:** `test_risk_contract.py` and `test_requirements_contract.py` fail the build if the code and the published contract disagree, if an SLO or capacity number drifts from the requirement it cites, if a catalogued action sits below its evidence floor, or if a requirement row loses its owner, verification or decision.
+**Enforced in CI:** `test_risk_contract.py`, `test_requirements_contract.py` and `test_load_gate.py` fail the build if the code and the published contract disagree, if an SLO or capacity number drifts from the requirement it cites, if a catalogued action sits below its evidence floor, if a requirement row loses its owner, verification or decision, if a status claims progress without existing evidence, if a contract loses its version, or if the k6 gate drifts from `slo.yaml`.
 
 ### Findings
 - **Regulatory requirements were missing:** the extractor only matched `FR-`/`NFR-` IDs, so REG-001…010 never reached the CSV. Fixed in `extract.py`; 191 requirements now, P0 count 81 → 83.
 - **The CSV was malformed:** owner fields containing commas (`decision, mandate (runtime plane)`) were unquoted, so 10 rows had the wrong column count. Regenerating with the CSV writer fixed it, and a test now guards it.
 - **Weakening exceptions:** the specs say R2/R3 may be weakened by an approved exception but that "R3 fail-closed" can never change. Engineering's reading, written into `risk-classes.yaml` for the ARB to ratify: an exception lowers a class by one level at most and never takes an R3 action below R2.
+- **Regeneration wiped progress:** `generate.py` rewrote every status and evidence column as `NOT_STARTED`. It now carries them over by requirement ID (acceptance tests by spec + ID).
 - **Saturation threshold:** DEC-B2 requires stopping placement "before saturation" but gives no number. `placement.py` takes it from SRE per cell; SRE must set it from load tests.
 
 ## Decisions

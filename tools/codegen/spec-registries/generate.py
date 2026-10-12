@@ -42,6 +42,7 @@ def merge(items, key):
 # ---------------- error codes ----------------
 ec, ec_conf = merge(errors, "code")
 lines = ["# Canonical error / reason code registry. GENERATED from canonical specs by tools/codegen (see README).",
+         "# status: GENERATED (doc-derived; not approved)", "# version: 0.1.0",
          "# Do not edit by hand: change the spec, then regenerate. Stable machine contracts (ZID-API-001 §3.3).", "",
          "families:  # ZID-API-001 §20"]
 for f in fams:
@@ -65,6 +66,7 @@ def lane(name):
     return "domain"
 ev, ev_conf = merge(events, "event")
 lines = ["# Canonical event catalogue. GENERATED from the 'Mandatory ... Events' sections of the canonical specs.",
+         "# status: GENERATED (doc-derived; not approved)", "# version: 0.1.0",
          "# CloudEvents type rule: com.zoiko.id.<domain>.<noun>.<past-tense>.v<major> (ZID-EVENTS-001 §3).",
          "# 'lane' is derived (priority = revocation/compromise/security state; evidence = receipts/checkpoints)",
          "# and must be confirmed by the owning module when the AsyncAPI channel is written.", "", "events:"]
@@ -108,6 +110,16 @@ def owner(rid):
     pre = rid.rsplit("-", 1)[0]
     return OWNER.get(pre, ("UNMAPPED", "", ""))
 tdir = REPO / "docs/traceability"
+# Status and evidence columns are owned by engineering, not by the specs: carry them over by ID so
+# regeneration never resets progress (README: "the status and evidence columns must be merged back").
+def kept(name, key_cols, cols):
+    path = tdir / name
+    if not path.exists():
+        return {}
+    with open(path, newline="", encoding="utf-8") as fh:
+        return {tuple(r[k] for k in key_cols): [r.get(c, "") for c in cols] for r in csv.DictReader(fh)}
+REQ_KEPT = kept("requirements.csv", ["requirement_id"], ["implementation_status", "test_status", "evidence_link"])
+AT_KEPT = kept("acceptance-tests.csv", ["source_spec", "test_id"], ["test_status", "evidence_link"])
 with open(tdir / "requirements.csv", "w", newline="", encoding="utf-8") as fh:
     w = csv.writer(fh)
     w.writerow(["requirement_id", "priority", "requirement", "verification", "owning_units_modules",
@@ -115,7 +127,7 @@ with open(tdir / "requirements.csv", "w", newline="", encoding="utf-8") as fh:
     for r in reqs:
         o = owner(r["id"])
         w.writerow([r["id"], r["priority"], r["text"], r["verification"], o[0], o[1], o[2],
-                    "NOT_STARTED", "NOT_STARTED", ""])
+                    *REQ_KEPT.get((r["id"],), ["NOT_STARTED", "NOT_STARTED", ""])])
 with open(tdir / "acceptance-tests.csv", "w", newline="", encoding="utf-8") as fh:
     w = csv.writer(fh)
     w.writerow(["test_id", "source_spec", "source_status", "name", "pass_condition", "test_status", "evidence_link"])
@@ -125,7 +137,8 @@ with open(tdir / "acceptance-tests.csv", "w", newline="", encoding="utf-8") as f
         if key in seen:
             continue
         seen.add(key)
-        w.writerow([t["id"], t["source"], status(t["source"]), t["name"], t["criterion"], "NOT_STARTED", ""])
+        w.writerow([t["id"], t["source"], status(t["source"]), t["name"], t["criterion"],
+                    *AT_KEPT.get((t["source"], t["id"]), ["NOT_STARTED", ""])])
 
 unmapped = sorted({ r["id"].rsplit("-", 1)[0] for r in reqs if owner(r["id"])[0] == "UNMAPPED"})
 by_pri = defaultdict(int)

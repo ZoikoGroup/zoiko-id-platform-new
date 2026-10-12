@@ -1,4 +1,6 @@
 # Canonical event catalogue. GENERATED from the 'Mandatory ... Events' sections of the canonical specs.
+# status: GENERATED (doc-derived; not approved)
+# version: 0.1.0
 # CloudEvents type rule: com.zoiko.id.<domain>.<noun>.<past-tense>.v<major> (ZID-EVENTS-001 §3).
 # 'lane' is derived (priority = revocation/compromise/security state; evidence = receipts/checkpoints)
 # and must be confirmed by the owning module when the AsyncAPI channel is written.

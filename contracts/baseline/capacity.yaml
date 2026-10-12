@@ -1,4 +1,6 @@
 # Capacity design points and qualification gate (ZID-REQ-001 §5, NFR-SCL-001..005; DEC-B2). Phase B deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
 # owner: CTO + SRE Lead + Finance.
 # Stage A is the only build commitment. B and C are no-rewrite targets that need a signed commercial
 # forecast, load-test evidence and a unit-cost review (re-ratification) before they become commitments.

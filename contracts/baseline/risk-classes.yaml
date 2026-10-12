@@ -1,4 +1,6 @@
 # Risk-class enforcement contract (ZID-REQ-001 §4; ZID-ARCH-002 §11; DEC-B1). Phase B deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
 # owner: Security Lead + Product Lead. This is the platform floor: tenants may tighten, never silently weaken.
 #
 # Implemented by backend/app/src/zid_platform/modules/decision/domain/risk.py; test_risk_contract.py
