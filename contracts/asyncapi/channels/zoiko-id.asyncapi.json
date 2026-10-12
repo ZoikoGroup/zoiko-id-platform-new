@@ -1,0 +1,5166 @@
+{
+  "asyncapi": "3.0.0",
+  "channels": {
+    "agent.domain": {
+      "address": "zid.{env}.{region}.agent.domain",
+      "messages": {
+        "agent_activated": {
+          "$ref": "#/components/messages/agent_activated"
+        },
+        "agent_blueprint_approved": {
+          "$ref": "#/components/messages/agent_blueprint_approved"
+        },
+        "agent_registered": {
+          "$ref": "#/components/messages/agent_registered"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "agent.priority": {
+      "address": "zid.{env}.{region}.agent.priority",
+      "messages": {
+        "agent_blueprint_revoked": {
+          "$ref": "#/components/messages/agent_blueprint_revoked"
+        },
+        "agent_revoked": {
+          "$ref": "#/components/messages/agent_revoked"
+        },
+        "agent_suspended": {
+          "$ref": "#/components/messages/agent_suspended"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "application.domain": {
+      "address": "zid.{env}.{region}.application.domain",
+      "messages": {
+        "application_activated": {
+          "$ref": "#/components/messages/application_activated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "approval.domain": {
+      "address": "zid.{env}.{region}.approval.domain",
+      "messages": {
+        "approval_decided": {
+          "$ref": "#/components/messages/approval_decided"
+        },
+        "approval_requested": {
+          "$ref": "#/components/messages/approval_requested"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "approval.priority": {
+      "address": "zid.{env}.{region}.approval.priority",
+      "messages": {
+        "approval_invalidated": {
+          "$ref": "#/components/messages/approval_invalidated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "artifact.domain": {
+      "address": "zid.{env}.{region}.artifact.domain",
+      "messages": {
+        "artifact_published": {
+          "$ref": "#/components/messages/artifact_published"
+        },
+        "artifact_signed": {
+          "$ref": "#/components/messages/artifact_signed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "artifact.priority": {
+      "address": "zid.{env}.{region}.artifact.priority",
+      "messages": {
+        "artifact_quarantined": {
+          "$ref": "#/components/messages/artifact_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authentication.domain": {
+      "address": "zid.{env}.{region}.authentication.domain",
+      "messages": {
+        "authentication_failed": {
+          "$ref": "#/components/messages/authentication_failed"
+        },
+        "authentication_step_up_required": {
+          "$ref": "#/components/messages/authentication_step_up_required"
+        },
+        "authentication_succeeded": {
+          "$ref": "#/components/messages/authentication_succeeded"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authenticator.domain": {
+      "address": "zid.{env}.{region}.authenticator.domain",
+      "messages": {
+        "authenticator_registered": {
+          "$ref": "#/components/messages/authenticator_registered"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authenticator.priority": {
+      "address": "zid.{env}.{region}.authenticator.priority",
+      "messages": {
+        "authenticator_revoked": {
+          "$ref": "#/components/messages/authenticator_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authority.domain": {
+      "address": "zid.{env}.{region}.authority.domain",
+      "messages": {
+        "authority_grant_activated": {
+          "$ref": "#/components/messages/authority_grant_activated"
+        },
+        "authority_grant_created": {
+          "$ref": "#/components/messages/authority_grant_created"
+        },
+        "authority_grant_superseded": {
+          "$ref": "#/components/messages/authority_grant_superseded"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authority.priority": {
+      "address": "zid.{env}.{region}.authority.priority",
+      "messages": {
+        "authority_chain_invalidated": {
+          "$ref": "#/components/messages/authority_chain_invalidated"
+        },
+        "authority_grant_revoked": {
+          "$ref": "#/components/messages/authority_grant_revoked"
+        },
+        "authority_grant_suspended": {
+          "$ref": "#/components/messages/authority_grant_suspended"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authority_root.domain": {
+      "address": "zid.{env}.{region}.authority_root.domain",
+      "messages": {
+        "authority_root_activated": {
+          "$ref": "#/components/messages/authority_root_activated"
+        },
+        "authority_root_conflicted": {
+          "$ref": "#/components/messages/authority_root_conflicted"
+        },
+        "authority_root_created": {
+          "$ref": "#/components/messages/authority_root_created"
+        },
+        "authority_root_superseded": {
+          "$ref": "#/components/messages/authority_root_superseded"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "authority_root.priority": {
+      "address": "zid.{env}.{region}.authority_root.priority",
+      "messages": {
+        "authority_root_revoked": {
+          "$ref": "#/components/messages/authority_root_revoked"
+        },
+        "authority_root_stale": {
+          "$ref": "#/components/messages/authority_root_stale"
+        },
+        "authority_root_suspended": {
+          "$ref": "#/components/messages/authority_root_suspended"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "backup.domain": {
+      "address": "zid.{env}.{region}.backup.domain",
+      "messages": {
+        "backup_completed": {
+          "$ref": "#/components/messages/backup_completed"
+        },
+        "backup_verification_failed": {
+          "$ref": "#/components/messages/backup_verification_failed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "board_resolution.domain": {
+      "address": "zid.{env}.{region}.board_resolution.domain",
+      "messages": {
+        "board_resolution_verified": {
+          "$ref": "#/components/messages/board_resolution_verified"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "breakglass.domain": {
+      "address": "zid.{env}.{region}.breakglass.domain",
+      "messages": {
+        "breakglass_release_used": {
+          "$ref": "#/components/messages/breakglass_release_used"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "build.domain": {
+      "address": "zid.{env}.{region}.build.domain",
+      "messages": {
+        "build_completed": {
+          "$ref": "#/components/messages/build_completed"
+        },
+        "build_started": {
+          "$ref": "#/components/messages/build_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "cell.domain": {
+      "address": "zid.{env}.{region}.cell.domain",
+      "messages": {
+        "cell_capability_changed": {
+          "$ref": "#/components/messages/cell_capability_changed"
+        },
+        "cell_capacity_threshold": {
+          "$ref": "#/components/messages/cell_capacity_threshold"
+        },
+        "cell_status_changed": {
+          "$ref": "#/components/messages/cell_status_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "cell.priority": {
+      "address": "zid.{env}.{region}.cell.priority",
+      "messages": {
+        "cell_quarantined": {
+          "$ref": "#/components/messages/cell_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "client.domain": {
+      "address": "zid.{env}.{region}.client.domain",
+      "messages": {
+        "client_credential_rotated": {
+          "$ref": "#/components/messages/client_credential_rotated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "connector.priority": {
+      "address": "zid.{env}.{region}.connector.priority",
+      "messages": {
+        "connector_quarantined": {
+          "$ref": "#/components/messages/connector_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "credential.domain": {
+      "address": "zid.{env}.{region}.credential.domain",
+      "messages": {
+        "credential_configuration_activated": {
+          "$ref": "#/components/messages/credential_configuration_activated"
+        },
+        "credential_issuance_started": {
+          "$ref": "#/components/messages/credential_issuance_started"
+        },
+        "credential_issued": {
+          "$ref": "#/components/messages/credential_issued"
+        },
+        "credential_profile_deprecated": {
+          "$ref": "#/components/messages/credential_profile_deprecated"
+        },
+        "credential_status_changed": {
+          "$ref": "#/components/messages/credential_status_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "credential.priority": {
+      "address": "zid.{env}.{region}.credential.priority",
+      "messages": {
+        "credential_revoked": {
+          "$ref": "#/components/messages/credential_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "cross_cell_transfer.domain": {
+      "address": "zid.{env}.{region}.cross_cell_transfer.domain",
+      "messages": {
+        "cross_cell_transfer_authorized": {
+          "$ref": "#/components/messages/cross_cell_transfer_authorized"
+        },
+        "cross_cell_transfer_completed": {
+          "$ref": "#/components/messages/cross_cell_transfer_completed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "crypto.domain": {
+      "address": "zid.{env}.{region}.crypto.domain",
+      "messages": {
+        "crypto_certificate_issued": {
+          "$ref": "#/components/messages/crypto_certificate_issued"
+        },
+        "crypto_crypto_erasure_completed": {
+          "$ref": "#/components/messages/crypto_crypto_erasure_completed"
+        },
+        "crypto_customer_key_changed": {
+          "$ref": "#/components/messages/crypto_customer_key_changed"
+        },
+        "crypto_dek_rewrapped": {
+          "$ref": "#/components/messages/crypto_dek_rewrapped"
+        },
+        "crypto_hsm_ceremony_completed": {
+          "$ref": "#/components/messages/crypto_hsm_ceremony_completed"
+        },
+        "crypto_key_activated": {
+          "$ref": "#/components/messages/crypto_key_activated"
+        },
+        "crypto_key_created": {
+          "$ref": "#/components/messages/crypto_key_created"
+        },
+        "crypto_key_destroyed": {
+          "$ref": "#/components/messages/crypto_key_destroyed"
+        },
+        "crypto_key_retired": {
+          "$ref": "#/components/messages/crypto_key_retired"
+        },
+        "crypto_key_rotated": {
+          "$ref": "#/components/messages/crypto_key_rotated"
+        },
+        "crypto_module_validation_changed": {
+          "$ref": "#/components/messages/crypto_module_validation_changed"
+        },
+        "crypto_policy_activated": {
+          "$ref": "#/components/messages/crypto_policy_activated"
+        },
+        "crypto_pq_fallback_observed": {
+          "$ref": "#/components/messages/crypto_pq_fallback_observed"
+        },
+        "crypto_secret_issued": {
+          "$ref": "#/components/messages/crypto_secret_issued"
+        },
+        "crypto_secret_rotated": {
+          "$ref": "#/components/messages/crypto_secret_rotated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "crypto.priority": {
+      "address": "zid.{env}.{region}.crypto.priority",
+      "messages": {
+        "crypto_certificate_revoked": {
+          "$ref": "#/components/messages/crypto_certificate_revoked"
+        },
+        "crypto_key_compromised": {
+          "$ref": "#/components/messages/crypto_key_compromised"
+        },
+        "crypto_key_revoked": {
+          "$ref": "#/components/messages/crypto_key_revoked"
+        },
+        "crypto_policy_emergency_revoked": {
+          "$ref": "#/components/messages/crypto_policy_emergency_revoked"
+        },
+        "crypto_secret_revoked": {
+          "$ref": "#/components/messages/crypto_secret_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "dependency.domain": {
+      "address": "zid.{env}.{region}.dependency.domain",
+      "messages": {
+        "dependency_residency_changed": {
+          "$ref": "#/components/messages/dependency_residency_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "dr.domain": {
+      "address": "zid.{env}.{region}.dr.domain",
+      "messages": {
+        "dr_exercise_completed": {
+          "$ref": "#/components/messages/dr_exercise_completed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "environment.priority": {
+      "address": "zid.{env}.{region}.environment.priority",
+      "messages": {
+        "environment_quarantined": {
+          "$ref": "#/components/messages/environment_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "eudi.domain": {
+      "address": "zid.{env}.{region}.eudi.domain",
+      "messages": {
+        "eudi_rp_registration_changed": {
+          "$ref": "#/components/messages/eudi_rp_registration_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "event.domain": {
+      "address": "zid.{env}.{region}.event.domain",
+      "messages": {
+        "event_bridge_lag_high": {
+          "$ref": "#/components/messages/event_bridge_lag_high"
+        },
+        "event_outbox_backlog_high": {
+          "$ref": "#/components/messages/event_outbox_backlog_high"
+        },
+        "event_publish_failed": {
+          "$ref": "#/components/messages/event_publish_failed"
+        },
+        "event_schema_rejected": {
+          "$ref": "#/components/messages/event_schema_rejected"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "event.priority": {
+      "address": "zid.{env}.{region}.event.priority",
+      "messages": {
+        "event_consumer_quarantined": {
+          "$ref": "#/components/messages/event_consumer_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "evidence.evidence": {
+      "address": "zid.{env}.{region}.evidence.evidence",
+      "messages": {
+        "evidence_audit_committed": {
+          "$ref": "#/components/messages/evidence_audit_committed"
+        },
+        "evidence_case_created": {
+          "$ref": "#/components/messages/evidence_case_created"
+        },
+        "evidence_checkpoint_anchored": {
+          "$ref": "#/components/messages/evidence_checkpoint_anchored"
+        },
+        "evidence_checkpoint_created": {
+          "$ref": "#/components/messages/evidence_checkpoint_created"
+        },
+        "evidence_custody_changed": {
+          "$ref": "#/components/messages/evidence_custody_changed"
+        },
+        "evidence_deleted": {
+          "$ref": "#/components/messages/evidence_deleted"
+        },
+        "evidence_export_accessed": {
+          "$ref": "#/components/messages/evidence_export_accessed"
+        },
+        "evidence_export_created": {
+          "$ref": "#/components/messages/evidence_export_created"
+        },
+        "evidence_integrity_failed": {
+          "$ref": "#/components/messages/evidence_integrity_failed"
+        },
+        "evidence_key_rotated": {
+          "$ref": "#/components/messages/evidence_key_rotated"
+        },
+        "evidence_legal_hold_applied": {
+          "$ref": "#/components/messages/evidence_legal_hold_applied"
+        },
+        "evidence_legal_hold_created": {
+          "$ref": "#/components/messages/evidence_legal_hold_created"
+        },
+        "evidence_legal_hold_released": {
+          "$ref": "#/components/messages/evidence_legal_hold_released"
+        },
+        "evidence_object_erased": {
+          "$ref": "#/components/messages/evidence_object_erased"
+        },
+        "evidence_object_stored": {
+          "$ref": "#/components/messages/evidence_object_stored"
+        },
+        "evidence_receipt_committed": {
+          "$ref": "#/components/messages/evidence_receipt_committed"
+        },
+        "evidence_receipt_replay_completed": {
+          "$ref": "#/components/messages/evidence_receipt_replay_completed"
+        },
+        "evidence_receipt_verified": {
+          "$ref": "#/components/messages/evidence_receipt_verified"
+        },
+        "evidence_retention_deleted": {
+          "$ref": "#/components/messages/evidence_retention_deleted"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "evidence.priority": {
+      "address": "zid.{env}.{region}.evidence.priority",
+      "messages": {
+        "evidence_receipt_invalidated": {
+          "$ref": "#/components/messages/evidence_receipt_invalidated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "external_identity.domain": {
+      "address": "zid.{env}.{region}.external_identity.domain",
+      "messages": {
+        "external_identity_linked": {
+          "$ref": "#/components/messages/external_identity_linked"
+        },
+        "external_identity_unlinked": {
+          "$ref": "#/components/messages/external_identity_unlinked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "federation.domain": {
+      "address": "zid.{env}.{region}.federation.domain",
+      "messages": {
+        "federation_anchor_changed": {
+          "$ref": "#/components/messages/federation_anchor_changed"
+        },
+        "federation_entity_changed": {
+          "$ref": "#/components/messages/federation_entity_changed"
+        },
+        "federation_link_created": {
+          "$ref": "#/components/messages/federation_link_created"
+        },
+        "federation_metadata_changed": {
+          "$ref": "#/components/messages/federation_metadata_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "federation.priority": {
+      "address": "zid.{env}.{region}.federation.priority",
+      "messages": {
+        "federation_link_revoked": {
+          "$ref": "#/components/messages/federation_link_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "identity_source.domain": {
+      "address": "zid.{env}.{region}.identity_source.domain",
+      "messages": {
+        "identity_source_created": {
+          "$ref": "#/components/messages/identity_source_created"
+        },
+        "identity_source_trust_changed": {
+          "$ref": "#/components/messages/identity_source_trust_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "infrastructure.domain": {
+      "address": "zid.{env}.{region}.infrastructure.domain",
+      "messages": {
+        "infrastructure_drift_detected": {
+          "$ref": "#/components/messages/infrastructure_drift_detected"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "issuer.domain": {
+      "address": "zid.{env}.{region}.issuer.domain",
+      "messages": {
+        "issuer_trust_changed": {
+          "$ref": "#/components/messages/issuer_trust_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "machine.domain": {
+      "address": "zid.{env}.{region}.machine.domain",
+      "messages": {
+        "machine_attestation_failed": {
+          "$ref": "#/components/messages/machine_attestation_failed"
+        },
+        "machine_security_revision_changed": {
+          "$ref": "#/components/messages/machine_security_revision_changed"
+        },
+        "machine_trust_domain_changed": {
+          "$ref": "#/components/messages/machine_trust_domain_changed"
+        },
+        "machine_workload_credential_issued": {
+          "$ref": "#/components/messages/machine_workload_credential_issued"
+        },
+        "machine_workload_credential_rotated": {
+          "$ref": "#/components/messages/machine_workload_credential_rotated"
+        },
+        "machine_workload_registered": {
+          "$ref": "#/components/messages/machine_workload_registered"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "machine.priority": {
+      "address": "zid.{env}.{region}.machine.priority",
+      "messages": {
+        "machine_environment_quarantined": {
+          "$ref": "#/components/messages/machine_environment_quarantined"
+        },
+        "machine_workload_binding_revoked": {
+          "$ref": "#/components/messages/machine_workload_binding_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "mandate.domain": {
+      "address": "zid.{env}.{region}.mandate.domain",
+      "messages": {
+        "mandate_activated": {
+          "$ref": "#/components/messages/mandate_activated"
+        },
+        "mandate_completed": {
+          "$ref": "#/components/messages/mandate_completed"
+        },
+        "mandate_created": {
+          "$ref": "#/components/messages/mandate_created"
+        },
+        "mandate_exhausted": {
+          "$ref": "#/components/messages/mandate_exhausted"
+        },
+        "mandate_reconciliation_required": {
+          "$ref": "#/components/messages/mandate_reconciliation_required"
+        },
+        "mandate_reservation_committed": {
+          "$ref": "#/components/messages/mandate_reservation_committed"
+        },
+        "mandate_reservation_created": {
+          "$ref": "#/components/messages/mandate_reservation_created"
+        },
+        "mandate_reservation_expired": {
+          "$ref": "#/components/messages/mandate_reservation_expired"
+        },
+        "mandate_reservation_released": {
+          "$ref": "#/components/messages/mandate_reservation_released"
+        },
+        "mandate_writer_promoted": {
+          "$ref": "#/components/messages/mandate_writer_promoted"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "mandate.priority": {
+      "address": "zid.{env}.{region}.mandate.priority",
+      "messages": {
+        "mandate_paused": {
+          "$ref": "#/components/messages/mandate_paused"
+        },
+        "mandate_revoked": {
+          "$ref": "#/components/messages/mandate_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "mapping_release.domain": {
+      "address": "zid.{env}.{region}.mapping_release.domain",
+      "messages": {
+        "mapping_release_activated": {
+          "$ref": "#/components/messages/mapping_release_activated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "migration.domain": {
+      "address": "zid.{env}.{region}.migration.domain",
+      "messages": {
+        "migration_completed": {
+          "$ref": "#/components/messages/migration_completed"
+        },
+        "migration_failed": {
+          "$ref": "#/components/messages/migration_failed"
+        },
+        "migration_started": {
+          "$ref": "#/components/messages/migration_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "onboarding.domain": {
+      "address": "zid.{env}.{region}.onboarding.domain",
+      "messages": {
+        "onboarding_pilot_started": {
+          "$ref": "#/components/messages/onboarding_pilot_started"
+        },
+        "onboarding_rollback": {
+          "$ref": "#/components/messages/onboarding_rollback"
+        },
+        "onboarding_shadow_started": {
+          "$ref": "#/components/messages/onboarding_shadow_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "ops.domain": {
+      "address": "zid.{env}.{region}.ops.domain",
+      "messages": {
+        "ops_backup_restore_verified": {
+          "$ref": "#/components/messages/ops_backup_restore_verified"
+        },
+        "ops_capacity_threshold_crossed": {
+          "$ref": "#/components/messages/ops_capacity_threshold_crossed"
+        },
+        "ops_slo_budget_state_changed": {
+          "$ref": "#/components/messages/ops_slo_budget_state_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "organization.domain": {
+      "address": "zid.{env}.{region}.organization.domain",
+      "messages": {
+        "organization_control_changed": {
+          "$ref": "#/components/messages/organization_control_changed"
+        },
+        "organization_identifier_changed": {
+          "$ref": "#/components/messages/organization_identifier_changed"
+        },
+        "organization_officer_changed": {
+          "$ref": "#/components/messages/organization_officer_changed"
+        },
+        "organization_resolved": {
+          "$ref": "#/components/messages/organization_resolved"
+        },
+        "organization_source_refreshed": {
+          "$ref": "#/components/messages/organization_source_refreshed"
+        },
+        "organization_status_changed": {
+          "$ref": "#/components/messages/organization_status_changed"
+        },
+        "organization_successor_changed": {
+          "$ref": "#/components/messages/organization_successor_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "policy.domain": {
+      "address": "zid.{env}.{region}.policy.domain",
+      "messages": {
+        "policy_admission_denied": {
+          "$ref": "#/components/messages/policy_admission_denied"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "power_of_attorney.domain": {
+      "address": "zid.{env}.{region}.power_of_attorney.domain",
+      "messages": {
+        "power_of_attorney_verified": {
+          "$ref": "#/components/messages/power_of_attorney_verified"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "presentation.domain": {
+      "address": "zid.{env}.{region}.presentation.domain",
+      "messages": {
+        "presentation_received": {
+          "$ref": "#/components/messages/presentation_received"
+        },
+        "presentation_rejected": {
+          "$ref": "#/components/messages/presentation_rejected"
+        },
+        "presentation_requested": {
+          "$ref": "#/components/messages/presentation_requested"
+        },
+        "presentation_verified": {
+          "$ref": "#/components/messages/presentation_verified"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "principal.domain": {
+      "address": "zid.{env}.{region}.principal.domain",
+      "messages": {
+        "principal_security_revision_changed": {
+          "$ref": "#/components/messages/principal_security_revision_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "privacy.domain": {
+      "address": "zid.{env}.{region}.privacy.domain",
+      "messages": {
+        "privacy_backup_erasure_completed": {
+          "$ref": "#/components/messages/privacy_backup_erasure_completed"
+        },
+        "privacy_consent_given": {
+          "$ref": "#/components/messages/privacy_consent_given"
+        },
+        "privacy_consent_withdrawn": {
+          "$ref": "#/components/messages/privacy_consent_withdrawn"
+        },
+        "privacy_data_corrected": {
+          "$ref": "#/components/messages/privacy_data_corrected"
+        },
+        "privacy_deletion_completed": {
+          "$ref": "#/components/messages/privacy_deletion_completed"
+        },
+        "privacy_deletion_started": {
+          "$ref": "#/components/messages/privacy_deletion_started"
+        },
+        "privacy_legal_hold_applied": {
+          "$ref": "#/components/messages/privacy_legal_hold_applied"
+        },
+        "privacy_legal_hold_released": {
+          "$ref": "#/components/messages/privacy_legal_hold_released"
+        },
+        "privacy_notice_published": {
+          "$ref": "#/components/messages/privacy_notice_published"
+        },
+        "privacy_preference_changed": {
+          "$ref": "#/components/messages/privacy_preference_changed"
+        },
+        "privacy_processing_activity_changed": {
+          "$ref": "#/components/messages/privacy_processing_activity_changed"
+        },
+        "privacy_processor_deletion_confirmed": {
+          "$ref": "#/components/messages/privacy_processor_deletion_confirmed"
+        },
+        "privacy_restriction_applied": {
+          "$ref": "#/components/messages/privacy_restriction_applied"
+        },
+        "privacy_restriction_lifted": {
+          "$ref": "#/components/messages/privacy_restriction_lifted"
+        },
+        "privacy_retention_due": {
+          "$ref": "#/components/messages/privacy_retention_due"
+        },
+        "privacy_rights_completed": {
+          "$ref": "#/components/messages/privacy_rights_completed"
+        },
+        "privacy_rights_requested": {
+          "$ref": "#/components/messages/privacy_rights_requested"
+        },
+        "privacy_rights_verified": {
+          "$ref": "#/components/messages/privacy_rights_verified"
+        },
+        "privacy_transfer_policy_changed": {
+          "$ref": "#/components/messages/privacy_transfer_policy_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "provenance.domain": {
+      "address": "zid.{env}.{region}.provenance.domain",
+      "messages": {
+        "provenance_generated": {
+          "$ref": "#/components/messages/provenance_generated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "provisioning.domain": {
+      "address": "zid.{env}.{region}.provisioning.domain",
+      "messages": {
+        "provisioning_connector_changed": {
+          "$ref": "#/components/messages/provisioning_connector_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "recovery.domain": {
+      "address": "zid.{env}.{region}.recovery.domain",
+      "messages": {
+        "recovery_completed": {
+          "$ref": "#/components/messages/recovery_completed"
+        },
+        "recovery_denied": {
+          "$ref": "#/components/messages/recovery_denied"
+        },
+        "recovery_started": {
+          "$ref": "#/components/messages/recovery_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "refresh_token.domain": {
+      "address": "zid.{env}.{region}.refresh_token.domain",
+      "messages": {
+        "refresh_token_reuse_detected": {
+          "$ref": "#/components/messages/refresh_token_reuse_detected"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "relationship.domain": {
+      "address": "zid.{env}.{region}.relationship.domain",
+      "messages": {
+        "relationship_edge_changed": {
+          "$ref": "#/components/messages/relationship_edge_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "release.domain": {
+      "address": "zid.{env}.{region}.release.domain",
+      "messages": {
+        "release_approved": {
+          "$ref": "#/components/messages/release_approved"
+        },
+        "release_deployed": {
+          "$ref": "#/components/messages/release_deployed"
+        },
+        "release_rollback_completed": {
+          "$ref": "#/components/messages/release_rollback_completed"
+        },
+        "release_rollback_started": {
+          "$ref": "#/components/messages/release_rollback_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "resilience.domain": {
+      "address": "zid.{env}.{region}.resilience.domain",
+      "messages": {
+        "resilience_slo_breached": {
+          "$ref": "#/components/messages/resilience_slo_breached"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "restore.domain": {
+      "address": "zid.{env}.{region}.restore.domain",
+      "messages": {
+        "restore_completed": {
+          "$ref": "#/components/messages/restore_completed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "sbom.domain": {
+      "address": "zid.{env}.{region}.sbom.domain",
+      "messages": {
+        "sbom_generated": {
+          "$ref": "#/components/messages/sbom_generated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "security.domain": {
+      "address": "zid.{env}.{region}.security.domain",
+      "messages": {
+        "security_exception_created": {
+          "$ref": "#/components/messages/security_exception_created"
+        },
+        "security_exception_expired": {
+          "$ref": "#/components/messages/security_exception_expired"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "session.domain": {
+      "address": "zid.{env}.{region}.session.domain",
+      "messages": {
+        "session_created": {
+          "$ref": "#/components/messages/session_created"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "session.priority": {
+      "address": "zid.{env}.{region}.session.priority",
+      "messages": {
+        "session_revoked": {
+          "$ref": "#/components/messages/session_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "signing_matrix.domain": {
+      "address": "zid.{env}.{region}.signing_matrix.domain",
+      "messages": {
+        "signing_matrix_activated": {
+          "$ref": "#/components/messages/signing_matrix_activated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "source_adapter.priority": {
+      "address": "zid.{env}.{region}.source_adapter.priority",
+      "messages": {
+        "source_adapter_quarantined": {
+          "$ref": "#/components/messages/source_adapter_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "subagent.domain": {
+      "address": "zid.{env}.{region}.subagent.domain",
+      "messages": {
+        "subagent_created": {
+          "$ref": "#/components/messages/subagent_created"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "tenant.domain": {
+      "address": "zid.{env}.{region}.tenant.domain",
+      "messages": {
+        "tenant_activated": {
+          "$ref": "#/components/messages/tenant_activated"
+        },
+        "tenant_created": {
+          "$ref": "#/components/messages/tenant_created"
+        },
+        "tenant_deletion_completed": {
+          "$ref": "#/components/messages/tenant_deletion_completed"
+        },
+        "tenant_deletion_started": {
+          "$ref": "#/components/messages/tenant_deletion_started"
+        },
+        "tenant_domain_verified": {
+          "$ref": "#/components/messages/tenant_domain_verified"
+        },
+        "tenant_failback_completed": {
+          "$ref": "#/components/messages/tenant_failback_completed"
+        },
+        "tenant_failback_started": {
+          "$ref": "#/components/messages/tenant_failback_started"
+        },
+        "tenant_failover_completed": {
+          "$ref": "#/components/messages/tenant_failover_completed"
+        },
+        "tenant_failover_failed": {
+          "$ref": "#/components/messages/tenant_failover_failed"
+        },
+        "tenant_failover_started": {
+          "$ref": "#/components/messages/tenant_failover_started"
+        },
+        "tenant_migration_completed": {
+          "$ref": "#/components/messages/tenant_migration_completed"
+        },
+        "tenant_migration_cutover": {
+          "$ref": "#/components/messages/tenant_migration_cutover"
+        },
+        "tenant_migration_failed": {
+          "$ref": "#/components/messages/tenant_migration_failed"
+        },
+        "tenant_migration_quiesced": {
+          "$ref": "#/components/messages/tenant_migration_quiesced"
+        },
+        "tenant_migration_started": {
+          "$ref": "#/components/messages/tenant_migration_started"
+        },
+        "tenant_offboarding_started": {
+          "$ref": "#/components/messages/tenant_offboarding_started"
+        },
+        "tenant_organization_verified": {
+          "$ref": "#/components/messages/tenant_organization_verified"
+        },
+        "tenant_owner_changed": {
+          "$ref": "#/components/messages/tenant_owner_changed"
+        },
+        "tenant_placement_assigned": {
+          "$ref": "#/components/messages/tenant_placement_assigned"
+        },
+        "tenant_placement_changed": {
+          "$ref": "#/components/messages/tenant_placement_changed"
+        },
+        "tenant_provisioning_started": {
+          "$ref": "#/components/messages/tenant_provisioning_started"
+        },
+        "tenant_residency_profile_changed": {
+          "$ref": "#/components/messages/tenant_residency_profile_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "tool.domain": {
+      "address": "zid.{env}.{region}.tool.domain",
+      "messages": {
+        "tool_registered": {
+          "$ref": "#/components/messages/tool_registered"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "tool.priority": {
+      "address": "zid.{env}.{region}.tool.priority",
+      "messages": {
+        "tool_suspended": {
+          "$ref": "#/components/messages/tool_suspended"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "verification.domain": {
+      "address": "zid.{env}.{region}.verification.domain",
+      "messages": {
+        "verification_assertion_created": {
+          "$ref": "#/components/messages/verification_assertion_created"
+        },
+        "verification_assertion_expired": {
+          "$ref": "#/components/messages/verification_assertion_expired"
+        },
+        "verification_completed": {
+          "$ref": "#/components/messages/verification_completed"
+        },
+        "verification_created": {
+          "$ref": "#/components/messages/verification_created"
+        },
+        "verification_fraud_signal": {
+          "$ref": "#/components/messages/verification_fraud_signal"
+        },
+        "verification_manual_review_required": {
+          "$ref": "#/components/messages/verification_manual_review_required"
+        },
+        "verification_profile_activated": {
+          "$ref": "#/components/messages/verification_profile_activated"
+        },
+        "verification_provider_submitted": {
+          "$ref": "#/components/messages/verification_provider_submitted"
+        },
+        "verification_reliance_allowed": {
+          "$ref": "#/components/messages/verification_reliance_allowed"
+        },
+        "verification_reliance_denied": {
+          "$ref": "#/components/messages/verification_reliance_denied"
+        },
+        "verification_started": {
+          "$ref": "#/components/messages/verification_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "verification.priority": {
+      "address": "zid.{env}.{region}.verification.priority",
+      "messages": {
+        "verification_assertion_revoked": {
+          "$ref": "#/components/messages/verification_assertion_revoked"
+        },
+        "verification_provider_quarantined": {
+          "$ref": "#/components/messages/verification_provider_quarantined"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "webhook.domain": {
+      "address": "zid.{env}.{region}.webhook.domain",
+      "messages": {
+        "webhook_delivery_exhausted": {
+          "$ref": "#/components/messages/webhook_delivery_exhausted"
+        },
+        "webhook_delivery_failed": {
+          "$ref": "#/components/messages/webhook_delivery_failed"
+        },
+        "webhook_delivery_succeeded": {
+          "$ref": "#/components/messages/webhook_delivery_succeeded"
+        },
+        "webhook_endpoint_disabled": {
+          "$ref": "#/components/messages/webhook_endpoint_disabled"
+        },
+        "webhook_endpoint_registered": {
+          "$ref": "#/components/messages/webhook_endpoint_registered"
+        },
+        "webhook_endpoint_verified": {
+          "$ref": "#/components/messages/webhook_endpoint_verified"
+        },
+        "webhook_key_rotated": {
+          "$ref": "#/components/messages/webhook_key_rotated"
+        },
+        "webhook_security_rejected": {
+          "$ref": "#/components/messages/webhook_security_rejected"
+        },
+        "webhook_subscription_changed": {
+          "$ref": "#/components/messages/webhook_subscription_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "workload.domain": {
+      "address": "zid.{env}.{region}.workload.domain",
+      "messages": {
+        "workload_attestation_failed": {
+          "$ref": "#/components/messages/workload_attestation_failed"
+        },
+        "workload_attestation_verified": {
+          "$ref": "#/components/messages/workload_attestation_verified"
+        },
+        "workload_binding_created": {
+          "$ref": "#/components/messages/workload_binding_created"
+        },
+        "workload_credential_issued": {
+          "$ref": "#/components/messages/workload_credential_issued"
+        },
+        "workload_credential_rotated": {
+          "$ref": "#/components/messages/workload_credential_rotated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "workload.priority": {
+      "address": "zid.{env}.{region}.workload.priority",
+      "messages": {
+        "workload_binding_revoked": {
+          "$ref": "#/components/messages/workload_binding_revoked"
+        },
+        "workload_credential_revoked": {
+          "$ref": "#/components/messages/workload_credential_revoked"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "writer.domain": {
+      "address": "zid.{env}.{region}.writer.domain",
+      "messages": {
+        "writer_epoch_changed": {
+          "$ref": "#/components/messages/writer_epoch_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "agent_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Agent active.",
+        "title": "agent.activated",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "agent_blueprint_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.blueprint.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Blueprint release approved.",
+        "title": "agent.blueprint.approved",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "agent_blueprint_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.blueprint.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Blueprint/artifact quarantined.",
+        "title": "agent.blueprint.revoked",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "agent_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Logical agent created.",
+        "title": "agent.registered",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "agent_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Agent revoked.",
+        "title": "agent.revoked",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "agent_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Agent suspended.",
+        "title": "agent.suspended",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "application_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.application.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Application/PEP registration active.",
+        "title": "application.activated",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "approval_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.approval.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Approval/denial recorded.",
+        "title": "approval.decided",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "approval_invalidated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.approval.invalidated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Transaction/context changed.",
+        "title": "approval.invalidated",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "approval_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.approval.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Approval created.",
+        "title": "approval.requested",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "artifact_published": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.artifact.published.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Immutable artifact available.",
+        "title": "artifact.published",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "artifact_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.artifact.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Artifact blocked after policy/security finding.",
+        "title": "artifact.quarantined",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "artifact_signed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.artifact.signed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Signature/attestation created.",
+        "title": "artifact.signed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "authentication_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authentication.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Failed attempt; privacy-safe reason",
+        "title": "authentication.failed",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "authentication_step_up_required": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authentication.step_up.required.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Policy requires stronger/recent auth",
+        "title": "authentication.step_up.required",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "authentication_succeeded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authentication.succeeded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Successful authentication context",
+        "title": "authentication.succeeded",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "authenticator_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authenticator.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "New authenticator",
+        "title": "authenticator.registered",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "authenticator_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authenticator.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Revocation/loss/replacement",
+        "title": "authenticator.revoked",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_chain_invalidated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.chain.invalidated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Root/parent change invalidated chain.",
+        "title": "authority.chain.invalidated",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_grant_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.grant.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Grant active.",
+        "title": "authority.grant.activated",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_grant_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.grant.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Grant drafted/created.",
+        "title": "authority.grant.created",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_grant_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.grant.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Grant revoked.",
+        "title": "authority.grant.revoked",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_grant_superseded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.grant.superseded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Replaced by new grant.",
+        "title": "authority.grant.superseded",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_grant_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority.grant.suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Grant suspended.",
+        "title": "authority.grant.suspended",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Root active.",
+        "title": "authority_root.activated",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_conflicted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.conflicted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Source conflict detected.",
+        "title": "authority_root.conflicted",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Candidate root created.",
+        "title": "authority_root.created",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Root revoked.",
+        "title": "authority_root.revoked",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_stale": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.stale.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Freshness expired.",
+        "title": "authority_root.stale",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_superseded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.superseded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "New root/version replaced old.",
+        "title": "authority_root.superseded",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "authority_root_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.authority_root.suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Root paused.",
+        "title": "authority_root.suspended",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "backup_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.backup.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Backup completed and cataloged.",
+        "title": "backup.completed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "backup_verification_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.backup.verification.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Backup integrity/restore validation failed.",
+        "title": "backup.verification.failed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "board_resolution_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.board_resolution.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Resolution root verified.",
+        "title": "board_resolution.verified",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "breakglass_release_used": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.breakglass.release_used.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Emergency deployment path invoked.",
+        "title": "breakglass.release_used",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "build_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.build.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Trusted build lifecycle.",
+        "title": "build.completed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "build_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.build.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Trusted build lifecycle.",
+        "title": "build.started",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "cell_capability_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cell.capability.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Cell residency/service capability changed.",
+        "title": "cell.capability.changed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "cell_capacity_threshold": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cell.capacity.threshold.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Placement/capacity threshold crossed.",
+        "title": "cell.capacity.threshold",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "cell_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cell.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Cell or dependency cannot accept placement/new writes.",
+        "title": "cell.quarantined",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "cell_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cell.status.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Cell health/operational state changed.",
+        "title": "cell.status.changed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "client_credential_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.client.credential.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "OAuth/SAML client credential/key change",
+        "title": "client.credential.rotated",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "connector_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.connector.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Integration source quarantined.",
+        "title": "connector.quarantined",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_configuration_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.configuration.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Credential configuration activated.",
+        "title": "credential.configuration.activated",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_issuance_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.issuance.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Issuance transaction created.",
+        "title": "credential.issuance.started",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Credential issuance completed.",
+        "title": "credential.issued",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_profile_deprecated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.profile.deprecated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Protocol/format profile scheduled for retirement.",
+        "title": "credential.profile.deprecated",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Issued credential revoked where Zoiko is issuer.",
+        "title": "credential.revoked",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "credential_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.status.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Known credential status changed.",
+        "title": "credential.status.changed",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "cross_cell_transfer_authorized": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cross_cell_transfer.authorized.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Controlled transfer authorization created.",
+        "title": "cross_cell_transfer.authorized",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "cross_cell_transfer_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.cross_cell_transfer.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Approved transfer completed/evidenced.",
+        "title": "cross_cell_transfer.completed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_certificate_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.certificate.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Certificate issued.",
+        "title": "crypto.certificate.issued",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_certificate_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.certificate.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Certificate/CA status revoked.",
+        "title": "crypto.certificate.revoked",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_crypto_erasure_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.crypto_erasure.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Subject/object key destruction completed.",
+        "title": "crypto.crypto_erasure.completed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_customer_key_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.customer_key.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "CMK/BYOK/HYOK lifecycle change.",
+        "title": "crypto.customer_key.changed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_dek_rewrapped": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.dek.rewrapped.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Wrapped data key moved to new KEK.",
+        "title": "crypto.dek.rewrapped",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_hsm_ceremony_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.hsm.ceremony.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Protected key ceremony completed.",
+        "title": "crypto.hsm.ceremony.completed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Key became active.",
+        "title": "crypto.key.activated",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_compromised": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.compromised.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Compromise state entered.",
+        "title": "crypto.key.compromised",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Logical key created.",
+        "title": "crypto.key.created",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_destroyed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.destroyed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Secret/private material irreversibly destroyed.",
+        "title": "crypto.key.destroyed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_retired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.retired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "No new cryptographic creation allowed.",
+        "title": "crypto.key.retired",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Key security use revoked.",
+        "title": "crypto.key.revoked",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_key_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.key.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Successor activated / prior transitioned.",
+        "title": "crypto.key.rotated",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_module_validation_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.module.validation_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Deployed module/FIPS validation/profile status changed.",
+        "title": "crypto.module.validation_changed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_policy_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.policy.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Algorithm/key policy release active.",
+        "title": "crypto.policy.activated",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_policy_emergency_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.policy.emergency_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Crypto profile disabled.",
+        "title": "crypto.policy.emergency_revoked",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_pq_fallback_observed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.pq_fallback.observed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Hybrid/PQ-required/preferred path fell back to classical.",
+        "title": "crypto.pq_fallback.observed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_secret_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.secret.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Dynamic/leased secret issued.",
+        "title": "crypto.secret.issued",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_secret_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.secret.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Secret invalidated.",
+        "title": "crypto.secret.revoked",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "crypto_secret_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.crypto.secret.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Secret version changed.",
+        "title": "crypto.secret.rotated",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "dependency_residency_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.dependency.residency_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Subprocessor/dependency geography/control changed.",
+        "title": "dependency.residency_changed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "dr_exercise_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.dr.exercise.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "DR exercise result recorded.",
+        "title": "dr.exercise.completed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "environment_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.environment.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Environment blocked.",
+        "title": "environment.quarantined",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "eudi_rp_registration_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.eudi.rp_registration.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "RP registration/purpose changed.",
+        "title": "eudi.rp_registration.changed",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "event_bridge_lag_high": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.event.bridge.lag_high.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Cross-cell replication lag exceeded.",
+        "title": "event.bridge.lag_high",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "event_consumer_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.event.consumer.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Poison/permanent consumer failure.",
+        "title": "event.consumer.quarantined",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "event_outbox_backlog_high": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.event.outbox.backlog_high.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Producer outbox exceeds threshold.",
+        "title": "event.outbox.backlog_high",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "event_publish_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.event.publish.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Broker publication repeatedly failed.",
+        "title": "event.publish.failed",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "event_schema_rejected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.event.schema.rejected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Producer event failed contract.",
+        "title": "event.schema.rejected",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_audit_committed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.audit.committed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Protected audit record committed.",
+        "title": "evidence.audit.committed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_case_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.case.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Case opened.",
+        "title": "evidence.case.created",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_checkpoint_anchored": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.checkpoint.anchored.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Optional external timestamp/anchor completed.",
+        "title": "evidence.checkpoint.anchored",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_checkpoint_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.checkpoint.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Merkle/checkpoint manifest signed.",
+        "title": "evidence.checkpoint.created",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_custody_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.custody.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Evidence transferred/accessed/exported.",
+        "title": "evidence.custody.changed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_deleted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.deleted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Eligible raw evidence deleted.",
+        "title": "evidence.deleted",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_export_accessed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.export.accessed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Package accessed/downloaded.",
+        "title": "evidence.export.accessed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_export_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.export.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Signed package created.",
+        "title": "evidence.export.created",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_integrity_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.integrity.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Hash/signature/ledger inconsistency detected.",
+        "title": "evidence.integrity.failed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_key_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.key.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Evidence signing/checkpoint key lifecycle event.",
+        "title": "evidence.key.rotated",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_legal_hold_applied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.legal_hold_applied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Retention overridden by legal hold.",
+        "title": "evidence.legal_hold_applied",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_legal_hold_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.legal_hold.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Hold applied.",
+        "title": "evidence.legal_hold.created",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_legal_hold_released": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.legal_hold.released.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Hold removed.",
+        "title": "evidence.legal_hold.released",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_object_erased": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.object.erased.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Eligible object/key deleted.",
+        "title": "evidence.object.erased",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_object_stored": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.object.stored.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Supporting artifact stored.",
+        "title": "evidence.object.stored",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_receipt_committed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.receipt.committed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "DecisionReceipt durably committed.",
+        "title": "evidence.receipt.committed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_receipt_invalidated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.receipt.invalidated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Historic receipt reliability invalidated by append-only record.",
+        "title": "evidence.receipt.invalidated",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_receipt_replay_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.receipt.replay_completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Replay result produced.",
+        "title": "evidence.receipt.replay_completed",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_receipt_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.receipt.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Receipt integrity verification performed.",
+        "title": "evidence.receipt.verified",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "evidence_retention_deleted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.retention.deleted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Scheduled deletion executed.",
+        "title": "evidence.retention.deleted",
+        "x-zid-source": "ZID-EVIDENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "external_identity_linked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.external_identity.linked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "External source identity linked to canonical principal.",
+        "title": "external_identity.linked",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "external_identity_unlinked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.external_identity.unlinked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Link suspended/revoked.",
+        "title": "external_identity.unlinked",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "federation_anchor_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.federation.anchor.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Trust anchor lifecycle changed.",
+        "title": "federation.anchor.changed",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "federation_entity_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.federation.entity.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Entity metadata/trust chain changed.",
+        "title": "federation.entity.changed",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "federation_link_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.federation.link.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "External identity linked",
+        "title": "federation.link.created",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "federation_link_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.federation.link.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Link revoked",
+        "title": "federation.link.revoked",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "federation_metadata_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.federation.metadata.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Issuer/key/metadata material change",
+        "title": "federation.metadata.changed",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "identity_source_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.identity_source.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "OIDC/SAML/native source configured.",
+        "title": "identity_source.created",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "identity_source_trust_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.identity_source.trust_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Metadata/key/source trust changed.",
+        "title": "identity_source.trust_changed",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "infrastructure_drift_detected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.infrastructure.drift_detected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Desired/actual infrastructure diverged.",
+        "title": "infrastructure.drift_detected",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "issuer_trust_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.issuer.trust.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Issuer trust decision changed.",
+        "title": "issuer.trust.changed",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_attestation_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.attestation.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Required workload attestation failed.",
+        "title": "machine.attestation.failed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_environment_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.environment.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Runtime environment quarantined.",
+        "title": "machine.environment.quarantined",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_security_revision_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.security_revision.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Machine principal/binding security state changed.",
+        "title": "machine.security_revision.changed",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_trust_domain_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.trust_domain.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Trust-domain bundle/federation state changed.",
+        "title": "machine.trust_domain.changed",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_workload_binding_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.workload.binding_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Workload-to-principal binding revoked.",
+        "title": "machine.workload.binding_revoked",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_workload_credential_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.workload.credential_issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Short-lived SVID/certificate/token issued.",
+        "title": "machine.workload.credential_issued",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_workload_credential_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.workload.credential_rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Machine credential rotated.",
+        "title": "machine.workload.credential_rotated",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "machine_workload_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.workload.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Workload identity registration/binding created.",
+        "title": "machine.workload.registered",
+        "x-zid-source": "ZID-CRYPTO-MI-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Mandate active.",
+        "title": "mandate.activated",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Task completed.",
+        "title": "mandate.completed",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Mandate created.",
+        "title": "mandate.created",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_exhausted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.exhausted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Budget exhausted.",
+        "title": "mandate.exhausted",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_paused": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.paused.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Mandate paused.",
+        "title": "mandate.paused",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_reconciliation_required": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.reconciliation.required.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Execution outcome uncertain.",
+        "title": "mandate.reconciliation.required",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_reservation_committed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.reservation.committed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Capacity consumed.",
+        "title": "mandate.reservation.committed",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_reservation_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.reservation.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Capacity reserved.",
+        "title": "mandate.reservation.created",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_reservation_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.reservation.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Lease expired.",
+        "title": "mandate.reservation.expired",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_reservation_released": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.reservation.released.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Capacity returned.",
+        "title": "mandate.reservation.released",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Mandate revoked.",
+        "title": "mandate.revoked",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mandate_writer_promoted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mandate.writer.promoted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Home writer epoch changed.",
+        "title": "mandate.writer.promoted",
+        "x-zid-source": "ZID-MANDATE-001",
+        "x-zid-status": "catalogued"
+      },
+      "mapping_release_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.mapping_release.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Mapping release became active.",
+        "title": "mapping_release.activated",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "migration_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.migration.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Database/state migration evidence.",
+        "title": "migration.completed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "migration_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.migration.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Database/state migration evidence.",
+        "title": "migration.failed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "migration_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.migration.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Database/state migration evidence.",
+        "title": "migration.started",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "onboarding_pilot_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.pilot_started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Scoped enforcement pilot began.",
+        "title": "onboarding.pilot_started",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "onboarding_rollback": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.rollback.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Production rollout rolled back.",
+        "title": "onboarding.rollback",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "onboarding_shadow_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.shadow_started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Shadow evaluation began.",
+        "title": "onboarding.shadow_started",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "ops_backup_restore_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.backup.restore_verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Restore-validation event.",
+        "title": "ops.backup.restore_verified",
+        "x-zid-source": "ZID-SRE-001",
+        "x-zid-status": "catalogued"
+      },
+      "ops_capacity_threshold_crossed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.capacity.threshold_crossed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Capacity forecast/action event.",
+        "title": "ops.capacity.threshold_crossed",
+        "x-zid-source": "ZID-SRE-001",
+        "x-zid-status": "catalogued"
+      },
+      "ops_slo_budget_state_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.slo.budget_state_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Error-budget governance event.",
+        "title": "ops.slo.budget_state_changed",
+        "x-zid-source": "ZID-SRE-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_control_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.control_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Ownership/PSC/control changed.",
+        "title": "organization.control_changed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_identifier_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.identifier_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "LEI/EUID/local identifier linkage changed.",
+        "title": "organization.identifier_changed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_officer_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.officer_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Official role appointment/cessation detected.",
+        "title": "organization.officer_changed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_resolved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.resolved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Official organization identity established.",
+        "title": "organization.resolved",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_source_refreshed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.source_refreshed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Registry/source data refreshed.",
+        "title": "organization.source_refreshed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.status_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Legal/lifecycle status changed.",
+        "title": "organization.status_changed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "organization_successor_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.successor_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Merger/conversion/successor relation changed.",
+        "title": "organization.successor_changed",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "policy_admission_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.policy.admission_denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Runtime/deployment policy rejected artifact.",
+        "title": "policy.admission_denied",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "power_of_attorney_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.power_of_attorney.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "POA root verified.",
+        "title": "power_of_attorney.verified",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "presentation_received": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.presentation.received.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Presentation response received.",
+        "title": "presentation.received",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "presentation_rejected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.presentation.rejected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Verification failed/denied.",
+        "title": "presentation.rejected",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "presentation_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.presentation.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Verifier transaction created.",
+        "title": "presentation.requested",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "presentation_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.presentation.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Verification completed.",
+        "title": "presentation.verified",
+        "x-zid-source": "ZID-VC-001",
+        "x-zid-status": "catalogued"
+      },
+      "principal_security_revision_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.principal.security_revision.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Security state changed",
+        "title": "principal.security_revision.changed",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_backup_erasure_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.backup_erasure.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Backup expiry/tombstone target satisfied.",
+        "title": "privacy.backup_erasure.completed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_consent_given": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.consent.given.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Consent became active.",
+        "title": "privacy.consent.given",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_consent_withdrawn": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.consent.withdrawn.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Consent withdrawn.",
+        "title": "privacy.consent.withdrawn",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_data_corrected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.data.corrected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Correction applied/superseded.",
+        "title": "privacy.data.corrected",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_deletion_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.deletion.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Primary deletion/crypto-shred completed.",
+        "title": "privacy.deletion.completed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_deletion_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.deletion.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Deletion plan executing.",
+        "title": "privacy.deletion.started",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_legal_hold_applied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.legal_hold.applied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Retention disposal suspended for scoped objects.",
+        "title": "privacy.legal_hold.applied",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_legal_hold_released": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.legal_hold.released.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Hold released.",
+        "title": "privacy.legal_hold.released",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_notice_published": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.notice.published.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "New notice version active.",
+        "title": "privacy.notice.published",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_preference_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.preference.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Opt-out/limit preference changed.",
+        "title": "privacy.preference.changed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_processing_activity_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processing_activity.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Processing inventory/purpose changed.",
+        "title": "privacy.processing_activity.changed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_processor_deletion_confirmed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processor.deletion.confirmed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Processor deletion acknowledgement received.",
+        "title": "privacy.processor.deletion.confirmed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_restriction_applied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.restriction.applied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Processing restriction active.",
+        "title": "privacy.restriction.applied",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_restriction_lifted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.restriction.lifted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Restriction ended.",
+        "title": "privacy.restriction.lifted",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_retention_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.retention.due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Object/policy reached disposal time.",
+        "title": "privacy.retention.due",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_rights_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.rights.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Request fulfilled/closed.",
+        "title": "privacy.rights.completed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_rights_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.rights.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Rights request opened.",
+        "title": "privacy.rights.requested",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_rights_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.rights.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Requester verification completed.",
+        "title": "privacy.rights.verified",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "privacy_transfer_policy_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.transfer_policy.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Transfer/residency rule changed.",
+        "title": "privacy.transfer_policy.changed",
+        "x-zid-source": "ZID-PRIV-001",
+        "x-zid-status": "catalogued"
+      },
+      "provenance_generated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provenance.generated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "SLSA provenance attached.",
+        "title": "provenance.generated",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "provisioning_connector_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provisioning.connector_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "SCIM/HR lifecycle connector state changed.",
+        "title": "provisioning.connector_changed",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "recovery_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.recovery.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Recovery finished",
+        "title": "recovery.completed",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "recovery_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.recovery.denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Recovery rejected",
+        "title": "recovery.denied",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "recovery_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.recovery.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Recovery workflow starts",
+        "title": "recovery.started",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "refresh_token_reuse_detected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.refresh_token.reuse_detected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Probable token theft",
+        "title": "refresh_token.reuse_detected",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "relationship_edge_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.relationship.edge.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An authoritative relationship fact was recorded or changed; carries the tenant relation_revision (projector input, DEC-C4).",
+        "title": "relationship.edge.changed",
+        "x-zid-source": "ZID-AUTHZ-001 \u00a77.1 (revision-consistent projection); CR-008",
+        "x-zid-status": "proposed"
+      },
+      "release_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.release.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Promotion authorization granted.",
+        "title": "release.approved",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "release_deployed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.release.deployed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Artifact deployed to environment/cell.",
+        "title": "release.deployed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "release_rollback_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.release.rollback_completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Rollback lifecycle.",
+        "title": "release.rollback_completed",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "release_rollback_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.release.rollback_started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Rollback lifecycle.",
+        "title": "release.rollback_started",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "resilience_slo_breached": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.resilience.slo.breached.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "RTO/RPO/availability objective missed.",
+        "title": "resilience.slo.breached",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "restore_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.restore.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Restore/PITR job passed gate.",
+        "title": "restore.completed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "sbom_generated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.sbom.generated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "BOM attached to artifact.",
+        "title": "sbom.generated",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "security_exception_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.security.exception.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Time-bounded gate exception lifecycle.",
+        "title": "security.exception.created",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "security_exception_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.security.exception.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Time-bounded gate exception lifecycle.",
+        "title": "security.exception.expired",
+        "x-zid-source": "ZID-DEVSECOPS-001",
+        "x-zid-status": "catalogued"
+      },
+      "session_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.session.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Identity session created",
+        "title": "session.created",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "session_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.session.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Session invalidated",
+        "title": "session.revoked",
+        "x-zid-source": "ZID-AUTH-001",
+        "x-zid-status": "catalogued"
+      },
+      "signing_matrix_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.signing_matrix.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Matrix version active.",
+        "title": "signing_matrix.activated",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "source_adapter_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.source_adapter.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Source integration no longer trusted.",
+        "title": "source_adapter.quarantined",
+        "x-zid-source": "ZID-ROOT-001",
+        "x-zid-status": "catalogued"
+      },
+      "subagent_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.subagent.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Child agent identity established.",
+        "title": "subagent.created",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Production tenant state ACTIVE.",
+        "title": "tenant.activated",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "DRAFT tenant created.",
+        "title": "tenant.created",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_deletion_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.deletion.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Deletion/crypto-erasure completed.",
+        "title": "tenant.deletion.completed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_deletion_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.deletion.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Deletion workflow begun.",
+        "title": "tenant.deletion.started",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_domain_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.domain_verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Domain-control proof completed.",
+        "title": "tenant.domain_verified",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_failback_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failback.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Normal placement restored.",
+        "title": "tenant.failback.completed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_failback_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failback.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Return migration started.",
+        "title": "tenant.failback.started",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_failover_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failover.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Recovery cell became authoritative.",
+        "title": "tenant.failover.completed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_failover_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failover.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Promotion aborted/failed.",
+        "title": "tenant.failover.failed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_failover_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failover.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Disaster promotion workflow started.",
+        "title": "tenant.failover.started",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_migration_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.migration.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Old copy retired per policy.",
+        "title": "tenant.migration.completed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_migration_cutover": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.migration.cutover.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Placement epoch/home cell changed.",
+        "title": "tenant.migration.cutover",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_migration_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.migration.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Migration blocked/rolled back.",
+        "title": "tenant.migration.failed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_migration_quiesced": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.migration.quiesced.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Writes drained/blocked.",
+        "title": "tenant.migration.quiesced",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_migration_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.migration.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Migration workflow opened.",
+        "title": "tenant.migration.started",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_offboarding_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.offboarding_started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Offboarding workflow began.",
+        "title": "tenant.offboarding_started",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_organization_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.organization_verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Organization/root gate satisfied.",
+        "title": "tenant.organization_verified",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_owner_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.owner_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "OWNER role membership changed.",
+        "title": "tenant.owner_changed",
+        "x-zid-source": "ZID-OVERLAY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_placement_assigned": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.placement.assigned.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Home cell/profile/epoch assigned.",
+        "title": "tenant.placement.assigned",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_placement_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.placement.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Tenant home/recovery placement changed.",
+        "title": "tenant.placement.changed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_provisioning_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.provisioning.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Tenant provisioning begins.",
+        "title": "tenant.provisioning.started",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tenant_residency_profile_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.residency_profile.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Approved residency profile changed.",
+        "title": "tenant.residency_profile.changed",
+        "x-zid-source": "ZID-TENANCY-001",
+        "x-zid-status": "catalogued"
+      },
+      "tool_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tool.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Tool/capability active.",
+        "title": "tool.registered",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "tool_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tool.suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Tool/capability blocked.",
+        "title": "tool.suspended",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_assertion_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.assertion.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Verified/unverified claim assertion written.",
+        "title": "verification.assertion.created",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_assertion_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.assertion.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Assertion freshness elapsed.",
+        "title": "verification.assertion.expired",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_assertion_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.assertion.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Assertion invalidated.",
+        "title": "verification.assertion.revoked",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Canonical terminal verification outcome.",
+        "title": "verification.completed",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Verification session created.",
+        "title": "verification.created",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_fraud_signal": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.fraud_signal.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Security/fraud condition emitted.",
+        "title": "verification.fraud_signal",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_manual_review_required": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.manual_review_required.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Case routed for human review.",
+        "title": "verification.manual_review_required",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_profile_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.profile.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Profile release became active.",
+        "title": "verification.profile.activated",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_provider_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.provider.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Provider/adapter removed from trust.",
+        "title": "verification.provider.quarantined",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_provider_submitted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.provider_submitted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Provider transaction created.",
+        "title": "verification.provider_submitted",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_reliance_allowed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.reliance.allowed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Prior assertion reused under explicit reliance decision.",
+        "title": "verification.reliance.allowed",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_reliance_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.reliance.denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Reverification/supplement required.",
+        "title": "verification.reliance.denied",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Evidence collection started.",
+        "title": "verification.started",
+        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_delivery_exhausted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.delivery.exhausted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "No more automatic retries.",
+        "title": "webhook.delivery.exhausted",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_delivery_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.delivery.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Attempt failed.",
+        "title": "webhook.delivery.failed",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_delivery_succeeded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.delivery.succeeded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Delivery acknowledged.",
+        "title": "webhook.delivery.succeeded",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_endpoint_disabled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.endpoint.disabled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Endpoint disabled/410/security issue.",
+        "title": "webhook.endpoint.disabled",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_endpoint_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.endpoint.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Endpoint created.",
+        "title": "webhook.endpoint.registered",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_endpoint_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.endpoint.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Endpoint activated.",
+        "title": "webhook.endpoint.verified",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_key_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.key.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Signing key/profile changed.",
+        "title": "webhook.key.rotated",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_security_rejected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.security.rejected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Unsafe URL/TLS/signature/inbound authentication event.",
+        "title": "webhook.security.rejected",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "webhook_subscription_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.webhook.subscription.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Filter/type configuration changed.",
+        "title": "webhook.subscription.changed",
+        "x-zid-source": "ZID-EVENTS-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_attestation_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.attestation.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Attestation failed.",
+        "title": "workload.attestation.failed",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_attestation_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.attestation.verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Attestation verified.",
+        "title": "workload.attestation.verified",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_binding_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.binding.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Runtime-to-principal binding established.",
+        "title": "workload.binding.created",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_binding_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.binding.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Binding revoked.",
+        "title": "workload.binding.revoked",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_credential_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.credential.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Short-lived credential/SVID issued.",
+        "title": "workload.credential.issued",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_credential_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.credential.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Credential revoked.",
+        "title": "workload.credential.revoked",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "workload_credential_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.workload.credential.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Credential rotated.",
+        "title": "workload.credential.rotated",
+        "x-zid-source": "ZID-MACHINE-001",
+        "x-zid-status": "catalogued"
+      },
+      "writer_epoch_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.writer.epoch.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Authoritative writer generation advanced.",
+        "title": "writer.epoch.changed",
+        "x-zid-source": "ZID-RESILIENCE-001",
+        "x-zid-status": "catalogued"
+      }
+    },
+    "schemas": {
+      "CloudEvent": {
+        "description": "CloudEvents 1.0 structured envelope with Zoiko iD extensions (ZID-EVENTS-001 \u00a74).",
+        "properties": {
+          "aggregateid": {
+            "type": "string"
+          },
+          "aggregatetype": {
+            "type": "string"
+          },
+          "aggregateversion": {
+            "description": "ordering key per aggregate",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "causationid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cellid": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "correlationid": {
+            "type": "string"
+          },
+          "data": {
+            "description": "identifiers, versions and amounts only; no PII payloads",
+            "type": "object"
+          },
+          "datacontenttype": {
+            "const": "application/json"
+          },
+          "dataschema": {
+            "type": "string"
+          },
+          "id": {
+            "description": "UUIDv7; stable across retries and replays",
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "specversion": {
+            "const": "1.0"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "tenantid": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "pattern": "^com\\.zoiko\\.id\\.[a-z0-9_.]+\\.v[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "specversion",
+          "id",
+          "type",
+          "source",
+          "subject",
+          "time",
+          "tenantid",
+          "cellid",
+          "aggregatetype",
+          "aggregateid",
+          "aggregateversion",
+          "correlationid",
+          "data"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "At-least-once delivery from the transactional outbox; consumers dedupe by id.",
+    "title": "Zoiko iD integration events",
+    "version": "0.1.0"
+  },
+  "operations": {
+    "publish_agent_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/agent.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_agent_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/agent.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_application_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/application.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_approval_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/approval.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_approval_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/approval.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_artifact_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/artifact.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_artifact_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/artifact.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authentication_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authentication.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authenticator_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authenticator.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authenticator_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authenticator.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authority_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authority.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authority_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authority.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authority_root_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authority_root.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_authority_root_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authority_root.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_backup_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/backup.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_board_resolution_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/board_resolution.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_breakglass_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/breakglass.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_build_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/build.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_cell_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/cell.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_cell_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/cell.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_client_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/client.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_connector_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/connector.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_credential_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/credential.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_credential_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/credential.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_cross_cell_transfer_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/cross_cell_transfer.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_crypto_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/crypto.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_crypto_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/crypto.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_dependency_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dependency.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_dr_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dr.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_environment_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/environment.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_eudi_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/eudi.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_event_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/event.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_event_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/event.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_evidence_evidence": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/evidence.evidence"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_evidence_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/evidence.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_external_identity_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/external_identity.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_federation_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/federation.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_federation_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/federation.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_identity_source_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/identity_source.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_infrastructure_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/infrastructure.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_issuer_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/issuer.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_machine_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/machine.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_machine_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/machine.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_mandate_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/mandate.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_mandate_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/mandate.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_mapping_release_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/mapping_release.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_migration_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/migration.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_onboarding_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/onboarding.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_ops_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ops.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_organization_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/organization.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_policy_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/policy.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_power_of_attorney_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/power_of_attorney.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_presentation_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/presentation.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_principal_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/principal.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_privacy_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/privacy.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_provenance_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/provenance.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_provisioning_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/provisioning.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_recovery_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/recovery.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_refresh_token_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/refresh_token.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_relationship_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/relationship.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_release_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/release.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_resilience_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/resilience.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_restore_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/restore.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_sbom_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/sbom.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_security_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/security.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_session_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/session.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_session_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/session.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_signing_matrix_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/signing_matrix.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_source_adapter_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/source_adapter.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_subagent_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/subagent.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_tenant_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/tenant.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_tool_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/tool.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_tool_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/tool.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_verification_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/verification.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_verification_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/verification.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_webhook_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_workload_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/workload.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_workload_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/workload.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_writer_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/writer.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    }
+  }
+}

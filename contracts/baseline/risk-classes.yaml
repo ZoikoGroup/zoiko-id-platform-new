@@ -1,0 +1,71 @@
+# Risk-class enforcement contract (ZID-REQ-001 §4; ZID-ARCH-002 §11; DEC-B1). Phase B deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
+# owner: Security Lead + Product Lead. This is the platform floor: tenants may tighten, never silently weaken.
+#
+# Implemented by backend/app/src/zid_platform/modules/decision/domain/risk.py; test_risk_contract.py
+# fails if this file and the code disagree. PEP SDKs read this file, so keep it the single published copy.
+
+revocation_slo_measurement: >-
+  p99, from Zoiko iD's authoritative security-state commit to enforcement by a conforming
+  Zoiko-controlled PEP. Source-system detection delay and third-party receiver behavior are measured separately.
+
+classes:
+  R0:
+    name: Low
+    examples: "Public/low-sensitivity reads; non-privileged preferences"
+    enforcement: "Cached policy permitted; asynchronous signals"
+    revocation_slo_seconds: 900
+    failure_posture: DEGRADE_PER_TENANT_POLICY
+    evidence_floor: E0
+    online_decision: false
+    mandate_reservation: false
+    commit_recheck: false
+  R1:
+    name: Standard
+    examples: "Ordinary workforce access; normal business writes"
+    enforcement: "Short TTL + CAEP/SSF + revision checks"
+    revocation_slo_seconds: 60
+    failure_posture: DEGRADE_PER_TENANT_POLICY
+    evidence_floor: E1
+    online_decision: false
+    mandate_reservation: false
+    commit_recheck: false
+  R2:
+    name: High
+    examples: "Sensitive data; privileged workflow; external write; reusable verification"
+    enforcement: "Online authorization; fresh-enough revision; commit recheck for material change"
+    revocation_slo_seconds: 10
+    # A tightly bounded cached decision is allowed only where explicitly approved (DEC-B1 §4).
+    failure_posture: FAIL_CLOSED
+    evidence_floor: E2
+    online_decision: true
+    mandate_reservation: false
+    commit_recheck: true
+  R3:
+    name: Critical
+    examples: "IdP/MFA change; bulk export; authority delegation; credential signing; high-value agent/admin action"
+    enforcement: "Online PDP + mandate reservation + fresh security revision; human approval where required"
+    revocation_slo_seconds: 2
+    revocation_slo_cross_party_seconds: 5  # where the receiver supports real-time signals
+    failure_posture: FAIL_CLOSED
+    evidence_floor: E3
+    online_decision: true
+    mandate_reservation: true
+    commit_recheck: true
+
+# Floors no exception can change (ZID-VERIFY-MASTER-001 §22.1; DEC-B1 §3).
+platform_floors:
+  - tenant isolation
+  - key safety
+  - R3 fail-closed
+  - evidence integrity
+
+# Weakening R2/R3 is never self-service (DEC-B1 §3).
+weakening_exception:
+  approvers: [Product, Security]  # both required
+  required_fields: [action, tenant_id, compensating_control, expires_at, approval_ref]
+  # Engineering interpretation, pending ARB ratification: an exception lowers a class by at most one
+  # level and never takes an R3 action below R2, so "R3 fail-closed" survives every exception.
+  max_levels_lowered: 1
+  lowest_class_for_r3_action: R2

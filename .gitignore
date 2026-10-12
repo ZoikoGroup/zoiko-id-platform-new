@@ -1,0 +1,88 @@
+# Zoiko iD — repository-wide ignore rules.
+# Language-specific rules live next to the code: backend/.gitignore (Python), frontend/.gitignore (Node/Next.js).
+# Rule: lockfiles (uv.lock, pnpm-lock.yaml, .terraform.lock.hcl) and .python-version are ALWAYS committed.
+
+# ---------- Secrets & credentials — never commit (DEC-F5) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*-sa-key.json
+*service-account*.json
+credentials.json
+/.secrets/
+/secrets/
+
+# ---------- Confidential source documents — kept locally, never pushed ----------
+# The canonical specs (docs/specs/*.docx) are company-confidential. Each engineer keeps a local copy;
+# the register in docs/specs/README.md and the phase files in docs/phases/ are what the repo carries.
+/docs/**/*.docx
+/docs/**/*.pdf
+/docs/**/*.pptx
+/docs/**/*.xlsx
+~$*.docx
+
+# ---------- Infrastructure (OpenTofu/Terraform, Helm) ----------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+deploy/helm/**/charts/*.tgz
+
+# ---------- Local Docker overrides & deploy archives ----------
+docker-compose.override.yml
+compose.override.yml
+/*.tar.gz
+/*.zip
+
+# ---------- Generated locally (tools/codegen/spec-registries intermediate output) ----------
+/build/
+
+# ---------- Shared language artifacts (also used by tools/ and sdks/) ----------
+__pycache__/
+*.py[cod]
+node_modules/
+
+# ---------- Logs & temp ----------
+# Anchored to the repo root on purpose: a bare `logs/` would also hide code folders
+# such as the Developer Console's (console)/logs/ route.
+*.log
+/logs/
+/tmp/
+/.tmp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ---------- Editors & local tooling ----------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.history/
+.claude/settings.local.json
+
+# ---------- CI / local test reports ----------
+/reports/

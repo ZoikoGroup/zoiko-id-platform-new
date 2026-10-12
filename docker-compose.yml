@@ -1,0 +1,57 @@
+# Zoiko iD — local development stack (LOCAL environment only; synthetic data only).
+#   docker compose up --build -d      then open http://localhost:8000/docs and http://localhost:8100/docs
+# One backend container from the single image (modular monolith, DEC-D6) running both roles,
+# each as its own process on its own port:
+#   cell   — all 27 cell modules         -> http://localhost:8000
+#   global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
+# DB password: set ZID_DB_PASSWORD in a .env file next to this file (compose reads it automatically).
+# The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
+# Production gets short-lived credentials from the secrets broker instead (DEC-F5).
+# Postgres is published on 127.0.0.1 only, never on a public interface.
+
+name: zoiko-id
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_USER: zid
+      POSTGRES_PASSWORD: ${ZID_DB_PASSWORD:-zid_local_only}
+      POSTGRES_DB: zid_cell
+    volumes:
+      - ./backend/database/schemas/001_cell_schemas.sql:/docker-entrypoint-initdb.d/10_cell_schemas.sql:ro
+      - ./local/postgres/20_global_database.sh:/docker-entrypoint-initdb.d/20_global_database.sh:ro
+      - ./backend/database/schemas:/zid/schemas:ro
+      - pgdata:/var/lib/postgresql/data
+    ports: ["127.0.0.1:${ZID_DB_HOST_PORT:-5432}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zid -d zid_global"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: zid/platform:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ZID_ROLES: cell,global
+      ZID_ENVIRONMENT: local
+      ZID_CELL_ID: local-1
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
+      # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
+      ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    volumes:
+      - ./contracts:/app/contracts:ro
+    ports:
+      - "8000:8000"   # cell role
+      - "8100:8100"   # global role
+
+volumes:
+  pgdata:

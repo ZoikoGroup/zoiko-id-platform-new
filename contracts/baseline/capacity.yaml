@@ -1,0 +1,53 @@
+# Capacity design points and qualification gate (ZID-REQ-001 §5, NFR-SCL-001..005; DEC-B2). Phase B deliverable.
+# status: DRAFT (engineering baseline; pending ARB ratification)
+# version: 0.1.0
+# owner: CTO + SRE Lead + Finance.
+# Stage A is the only build commitment. B and C are no-rewrite targets that need a signed commercial
+# forecast, load-test evidence and a unit-cost review (re-ratification) before they become commitments.
+
+stages:
+  A:
+    name: "Launch / first enterprise"
+    status: approved  # ratified by DEC-B2 once DEC-B2 is Accepted
+    principals: 10_000_000
+    authz_decisions_per_s_global: 20_000
+    authz_decisions_per_s_per_cell: 5_000
+    token_issuance_per_s: 10_000
+    r2_r3_receipts_per_s: 2_000
+  B:
+    name: "Enterprise scale"
+    status: target
+    principals: 100_000_000
+    authz_decisions_per_s_global: 250_000
+    authz_decisions_per_s_per_cell: 50_000
+    token_issuance_per_s: 25_000
+    r2_r3_receipts_per_s: 10_000
+  C:
+    name: "Strategic envelope"
+    status: target
+    principals: 500_000_000
+    authz_decisions_per_s_global: 1_000_000
+    authz_decisions_per_s_per_cell: 200_000
+    token_issuance_per_s: 100_000
+    r2_r3_receipts_per_s: 50_000
+
+qualification:   # NFR-SCL-002, AT-16
+  multiplier: 2  # sustain 2x the approved stage while meeting latency, error, durability and cost limits
+  report: [p50, p95, p99, saturation, error_rate, queue_lag, cost_per_unit]  # NFR-PERF-006; averages alone are rejected
+  scenarios: [cold_cache, dependency_failure, noisy_neighbor, skewed_tenant_traffic, hot_mandate_rows,
+              cache_loss, dependency_latency, az_evacuation]
+
+admission:   # DEC-B2 §3; backend/config/cells/cells.yaml capacity_admission
+  min_compute_headroom: 0.30
+  survive_one_az_loss: true
+  stop_new_placement_before_saturation: true
+
+unit_economics:   # DEC-B2 §4: measured per cell and tenant tier; no public pricing until Stage A is measured
+  - cost_per_million_authzen_decisions_by_risk_class
+  - cost_per_million_token_issuances_or_exchanges
+  - cost_per_million_compact_and_r3_receipts_incl_retention
+  - cost_per_active_principal_per_month
+  - cost_per_active_organization_per_month
+  - cost_per_verification_or_presentation_with_and_without_provider_fees
+  - cost_per_ssf_event
+  - minimum_annual_cost_dedicated_cell

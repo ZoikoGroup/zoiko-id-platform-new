@@ -1,0 +1,84 @@
+# status: DRAFT (doc-derived; not approved)
+# approval_ref: null   # set when the named approver signs off; releases are immutable after that
+# version: 0.1.0
+# owner: Security / Cryptography Lead (DEC-F5). Source: ZID-CRYPTO-MI-001 §4-5, §8-13, §17.
+# Loaded by libs/zid-crypto. Untrusted alg/header input never selects behavior (§4.1).
+
+security_tiers: [STANDARD, REGULATED, SOVEREIGN, FEDERAL]   # §4
+
+kms_hsm_tiers:   # §9
+  STANDARD:  {implementation: "Managed cloud KMS/HSM-backed keys", rule: "Non-exportable master keys; auditable policy"}
+  REGULATED: {implementation: "FIPS 140-3 validated module/profile where required", rule: "Validated boundary and approved algorithms"}
+  SOVEREIGN: {implementation: "Dedicated regional/tenant HSM or approved sovereign KMS", rule: "Residency, customer lockbox, restricted operator access"}
+  FEDERAL:   {implementation: "FIPS/CMVP and procurement-specific validated modules", rule: "Configuration must match certificate/security policy"}
+  ROOT_CA_EVIDENCE: {implementation: "HSM or offline ceremony profile", rule: "No application-host private key files"}
+
+profiles:
+  data-encryption.v1:                 # §5, §5.1
+    purpose: DATA_ENCRYPTION
+    allowed_algorithms: [AES-256-GCM]
+    permitted_exceptions:
+      - {algorithm: ChaCha20-Poly1305, only_where: "protocol/profile explicitly permits; never default for stored evidence/data"}
+    aad_required: true
+    aad_fields: [tenant, object_type, object_id, field_or_purpose, schema_version]   # §1.1
+    nonce: "unique per key; approved library/KMS generation; counters never reset after restore/failover"
+    on_suspected_nonce_reuse: key_compromise_handling
+    key_export_policy: NON_EXPORTABLE
+    pq_mode: CLASSICAL
+  backup-encryption.v1:
+    purpose: BACKUP
+    allowed_algorithms: [AES-256-GCM]
+    rule: "Separate BACKUP_KEK and manifest integrity"
+  tls.v1:                             # §11, §12.1
+    purpose: TLS
+    min_version_new_protocols: "TLS1.3"
+    tls12: "compatibility profile only; RFC 9325 controls"
+    zero_rtt: disabled_for_state_changing_and_replay_sensitive
+    forward_secrecy: required
+    hybrid_groups_preferred: [X25519MLKEM768]
+    hybrid_groups_fips_oriented: [SecP256r1MLKEM768]
+    pq_mode: HYBRID_PREFERRED
+    classical_fallback: "only when profile permits; measured"
+    disabled: ["pre-standard Kyber code points"]
+    certificate_validation: "hostname/SAN, chain, validity; no disable-verify escape hatch in production"
+  token-signing.v1:                   # §13
+    purpose: TOKEN_SIGNING
+    allowed_algorithms: [ES256]
+    allowed_algorithms_non_fips_ecosystems: [EdDSA]
+    compatibility_only: [RS256]
+    prohibited: ["HS* for cross-party tokens", "none"]
+    rotation: "short cryptoperiod; publish new public key before activation; retain old public key through validation windows"
+    pq_mode: CLASSICAL                # PQC-4: migrate when counterparties support
+  federation-signing.v1:
+    purpose: FEDERATION_SIGNING
+    allowed_algorithms: [ES256]
+    rule: "Dedicated federation signing key"
+  evidence-signing.v1:                # §13, ZID-EVIDENCE-001 §5
+    purpose: EVIDENCE
+    allowed_algorithms: [ES256, ML-DSA-65]
+    pq_mode: DUAL_SIGNATURE           # PQC-2 priority
+    digest_minimum: SHA-256
+    rule: "Historic public key chain retained; never silently re-sign"
+  vc-issuer-signing.v1:
+    purpose: VC
+    allowed_algorithms_by_credential_profile: [ES256, EdDSA, ML-DSA-65]
+    rule: "Issuer key isolated per trust profile"
+  webhook-signing.v1:
+    purpose: WEBHOOK
+    standard: "RFC 9421 HTTP message signatures"
+    allowed_algorithms: [ES256]
+    hmac_only_for: "partner-specific inbound compatibility"
+  password-hash.v1:                   # §17
+    purpose: PASSWORD_HASH
+    standard_profile: {algorithm: Argon2id, parameters: "centrally calibrated, versioned; rehash on login after upgrade", salt: "unique random"}
+    fips_profile: {algorithm: PBKDF2-HMAC-SHA-256, parameters: "high calibrated iteration cost, versioned"}
+    pepper: "optional; HSM/secrets-service protected; never DB-resident"
+    recovery_codes: "high-entropy, one-time, stored as salted verifier"
+    totp: "RFC 6238 seed encrypted (not hashed), dedicated access policy"
+    user_api_tokens: "store verifier; show plaintext once"
+
+rotation_rules:                       # §8, §8.1
+  no_flag_day: true
+  signing_overlap: "active + previous verification keys"
+  kek_rotation: "rewrap DEKs in background; never decrypt all plaintext"
+  compromise: "immediate, independent of cryptoperiod"
