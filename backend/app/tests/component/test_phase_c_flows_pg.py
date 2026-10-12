@@ -644,4 +644,16 @@ def test_policy_release_lifecycle_and_decisions_bound_to_the_active_release(rt_u
             assert (await release_store.active_release(c, tenant)).release_id == r2  # type: ignore[union-attr]
             assert (await release_store.load_release(c, r1)).status is ReleaseStatus.RETIRED
 
+            # The database itself allows only one ACTIVE release per tenant (e.g. two racing activations).
+            r3 = uid()
+            await release_store.create_release(c, release(r3), policy_name="purchasing", version=3)
+            with pytest.raises(DBAPIError, match="one_active_release_per_tenant"):
+                async with c.begin_nested():
+                    await c.execute(
+                        text(
+                            "UPDATE authz.policy_release SET status = 'ACTIVE' WHERE release_id = :r"
+                        ),
+                        {"r": uuid.UUID(r3)},
+                    )
+
     asyncio.run(run())

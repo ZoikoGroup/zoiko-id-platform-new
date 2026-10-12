@@ -36,7 +36,16 @@ Built in slices; each slice is pure domain logic first, then persistence.
 | Cedar policy engine (DEC-C3): releases, platform floor, schema from the action catalog, pre-publication checks, fail-closed evaluation | `policy_runtime/`, `backend/policies/cedar/platform-floor/floor.cedar` | Done |
 | SpiceDB projection (DEC-C4): revision checkpoint, consistency by risk, outage fails closed, rebuild from PostgreSQL (AT-05) | `relationship/infrastructure/spicedb.py`, `tests/component/test_spicedb_projection_pg.py` | Done |
 | Decision algorithm (AUTHZ §12) over resolved facts, and the fact-gathering service through module ports; end-to-end over PostgreSQL + Cedar | `decision/domain/pdp.py`, `decision/application/pdp_service.py`, `tests/component/test_decision_e2e_pg.py` | Done |
+| Revocation cascade over the database: root change / personal authority end -> grants by continuity mode -> mandates revoked or paused; paused mandates can't resume while the source is invalid (AT-07, MAND-02/03/06/20) | `authority/application/cascade.py`, `mandate/infrastructure/mandate_store.py`, `mandate/application/service.py` | Done |
+| Mandate terms and sub-mandates persisted; allocations reserved on the parent ledger in the same transaction (MAND-18/19) | `migrations/mandate/versions/0002_mandate_terms.py` | Done |
+| Approvals persisted: one vote per person, transaction-bound, append-only (MAND-16/17, AUTHZ-15/16) | `migrations/authority/versions/0002_approvals.py`, `authority/infrastructure/approval_store.py` | Done |
+| Agents, blueprints, workload bindings, tool registry persisted; credential checks from stored state (MACH-02/03/09/20) | `migrations/machine/`, `machine/infrastructure/machine_store.py` | Done |
+| Policy releases persisted: publish checks, reviewer separation, one ACTIVE per tenant, immutable source (AUTHZ §18) | `migrations/policy_authoring/`, `policy_authoring/infrastructure/release_store.py` | Done |
+| Decision records: every decision appended with release, revisions, chain and input commitments (AUTHZ §24) | `migrations/decision/`, `decision/infrastructure/decision_store.py` | Done |
+| 80 spec acceptance tests (AUTHZ, MAND, MACH, ROOT, DM-AT) mapped to passing tests; CI guard keeps the mapping honest | `docs/traceability/acceptance-tests.csv`, `test_acceptance_test_status_is_honest` | Done (IN_PROGRESS until the CI report is attached) |
 | CI: lint, types, full suite with PostgreSQL and SpiceDB; JUnit report kept as evidence | `.github/workflows/backend.yml` | Done (runs on the first push/PR) |
+
+**Left for later phases by design:** domain events/outbox for grant, mandate and root changes (Doc 08 §23, Phase D event platform; the cascade is called directly until then); registry/vLEI source adapters (Phase G integrations); SPIFFE/SVID issuance (DEC-F7, Phase F); pseudonymous DecisionReceipts (Phase F evidence).
 
 **Owner actions to close Phase C** (engineering can't): ARB ratification of DEC-C1…C5 and of the engineering rules marked "for the ARB" below; spec owners accept CR-001, CR-002, CR-006, CR-007; the first CI run's JUnit report is attached as evidence to AT-02/03/04/05/07, P0-02/03/04/10, BG-04/05.
 

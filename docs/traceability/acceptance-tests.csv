@@ -37,29 +37,29 @@ AUTH-17,ZID-AUTH-001,canonical,Token audience,Token for API A is rejected by API
 AUTH-18,ZID-AUTH-001,canonical,Session fixation,Pre-auth session identifier cannot be fixed across successful authentication.,NOT_STARTED,
 AUTH-19,ZID-AUTH-001,canonical,Logout/revocation,Global revoke invalidates session/refresh state and protected actions within SLO.,NOT_STARTED,
 AUTH-20,ZID-AUTH-001,canonical,FAPI profile,Claimed high-assurance client passes applicable FAPI 2.0 conformance suite.,NOT_STARTED,
-AUTHZ-01,ZID-AUTHZ-001,canonical,Default deny,Unknown action/resource/request with no permit always denies.,NOT_STARTED,
-AUTHZ-02,ZID-AUTHZ-001,canonical,Forbid dominance,Matching forbid overrides any matching permit.,NOT_STARTED,
-AUTHZ-03,ZID-AUTHZ-001,canonical,Authority attenuation,Property tests prove no generated child grant widens any parent dimension.,NOT_STARTED,
-AUTHZ-04,ZID-AUTHZ-001,canonical,Privilege stitching,Two insufficient grants cannot accidentally combine into R2/R3 authority.,NOT_STARTED,
-AUTHZ-05,ZID-AUTHZ-001,canonical,Root continuity,Revoked/expired root invalidates dependent grant chain within SLO.,NOT_STARTED,
-AUTHZ-06,ZID-AUTHZ-001,canonical,Grantor continuity,Personal grant ends with grantor authority; role-issued continuity follows ADR semantics.,NOT_STARTED,
-AUTHZ-07,ZID-AUTHZ-001,canonical,Stale relation,Known-stale graph projection cannot produce a new R2/R3 ALLOW.,NOT_STARTED,
+AUTHZ-01,ZID-AUTHZ-001,canonical,Default deny,Unknown action/resource/request with no permit always denies.,IN_PROGRESS,backend/app/tests/unit/test_policy_engine.py::test_default_deny_for_unmatched_actions
+AUTHZ-02,ZID-AUTHZ-001,canonical,Forbid dominance,Matching forbid overrides any matching permit.,IN_PROGRESS,backend/app/tests/unit/test_policy_engine.py::test_forbid_overrides_permit
+AUTHZ-03,ZID-AUTHZ-001,canonical,Authority attenuation,Property tests prove no generated child grant widens any parent dimension.,IN_PROGRESS,backend/app/tests/property/test_authority_algebra.py::test_child_never_authorizes_what_parent_denies
+AUTHZ-04,ZID-AUTHZ-001,canonical,Privilege stitching,Two insufficient grants cannot accidentally combine into R2/R3 authority.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_no_privilege_stitching
+AUTHZ-05,ZID-AUTHZ-001,canonical,Root continuity,Revoked/expired root invalidates dependent grant chain within SLO.,IN_PROGRESS,backend/app/tests/component/test_authority_persistence_pg.py::test_grant_chain_issuance_resolution_revocation_and_root_events
+AUTHZ-06,ZID-AUTHZ-001,canonical,Grantor continuity,Personal grant ends with grantor authority; role-issued continuity follows ADR semantics.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_officer_removal_follows_each_continuity_mode
+AUTHZ-07,ZID-AUTHZ-001,canonical,Stale relation,Known-stale graph projection cannot produce a new R2/R3 ALLOW.,IN_PROGRESS,backend/app/tests/component/test_spicedb_projection_pg.py::test_projection_freshness_by_risk_class
 AUTHZ-08,ZID-AUTHZ-001,canonical,Cross-tenant,No policy/relationship/resource identifier substitution crosses tenant boundary.,NOT_STARTED,
-AUTHZ-09,ZID-AUTHZ-001,canonical,Risk cannot grant,Risk downgrade or missing risk engine cannot create authority absent policy/grant.,NOT_STARTED,
-AUTHZ-10,ZID-AUTHZ-001,canonical,Authentication not authority,AAL-Z3 user with no valid authority is denied material represented action.,NOT_STARTED,
+AUTHZ-09,ZID-AUTHZ-001,canonical,Risk cannot grant,Risk downgrade or missing risk engine cannot create authority absent policy/grant.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_risk_signals_can_deny_but_never_grant
+AUTHZ-10,ZID-AUTHZ-001,canonical,Authentication not authority,AAL-Z3 user with no valid authority is denied material represented action.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_authentication_is_not_authority
 AUTHZ-11,ZID-AUTHZ-001,canonical,External role injection,OIDC/SAML group/role claim cannot create unrestricted Zoiko authority.,NOT_STARTED,
-AUTHZ-12,ZID-AUTHZ-001,canonical,Mandate scope,"Agent cannot use valid mandate for wrong resource, purpose, action or tool.",NOT_STARTED,
-AUTHZ-13,ZID-AUTHZ-001,canonical,Mandate exhaustion,PDP + reservation path never permits over-consumption under parallel load.,NOT_STARTED,
-AUTHZ-14,ZID-AUTHZ-001,canonical,TOCTOU,R3 revocation after preflight but before side effect is denied on commit recheck.,NOT_STARTED,
-AUTHZ-15,ZID-AUTHZ-001,canonical,Composite authority,K-of-N/role-pair requires distinct qualified approvers; same principal twice fails.,NOT_STARTED,
-AUTHZ-16,ZID-AUTHZ-001,canonical,Approval mutation,Transaction material change invalidates prior approval commitment.,NOT_STARTED,
+AUTHZ-12,ZID-AUTHZ-001,canonical,Mandate scope,"Agent cannot use valid mandate for wrong resource, purpose, action or tool.",IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_agent_needs_a_mandate_and_valid_scope
+AUTHZ-13,ZID-AUTHZ-001,canonical,Mandate exhaustion,PDP + reservation path never permits over-consumption under parallel load.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_ten_thousand_parallel_reservations_never_exceed_the_limit
+AUTHZ-14,ZID-AUTHZ-001,canonical,TOCTOU,R3 revocation after preflight but before side effect is denied on commit recheck.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_revocation_between_reserve_and_commit_blocks_commit
+AUTHZ-15,ZID-AUTHZ-001,canonical,Composite authority,K-of-N/role-pair requires distinct qualified approvers; same principal twice fails.,IN_PROGRESS,backend/app/tests/unit/test_composite_and_subagents.py::test_two_of_n_needs_two_distinct_principals
+AUTHZ-16,ZID-AUTHZ-001,canonical,Approval mutation,Transaction material change invalidates prior approval commitment.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_approvals_are_one_vote_per_person_and_transaction_bound
 AUTHZ-17,ZID-AUTHZ-001,canonical,Obligation enforcement,PEP unable to satisfy mandatory obligation must not execute ALLOW.,NOT_STARTED,
 AUTHZ-18,ZID-AUTHZ-001,canonical,Policy rollback,Emergency revoke switches to last approved safe release without losing decision traceability.,NOT_STARTED,
-AUTHZ-19,ZID-AUTHZ-001,canonical,Policy analysis,Known conflicting/unreachable/unsafe policy fixtures are detected before publish.,NOT_STARTED,
+AUTHZ-19,ZID-AUTHZ-001,canonical,Policy analysis,Known conflicting/unreachable/unsafe policy fixtures are detected before publish.,IN_PROGRESS,backend/app/tests/unit/test_policy_engine.py::test_schema_rejects_undeclared_attributes
 AUTHZ-20,ZID-AUTHZ-001,canonical,AuthZEN contract,External evaluation endpoint passes Authorization API 1.0 contract/conformance tests.,NOT_STARTED,
-AUTHZ-21,ZID-AUTHZ-001,canonical,Decision replay,E3 recorded decision replays deterministically from retained policy/revision inputs.,NOT_STARTED,
+AUTHZ-21,ZID-AUTHZ-001,canonical,Decision replay,E3 recorded decision replays deterministically from retained policy/revision inputs.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_decisions_are_deterministic
 AUTHZ-22,ZID-AUTHZ-001,canonical,Crypto-erasure,"Erased person cannot be resolved from receipt, while structural decision verification remains.",NOT_STARTED,
-AUTHZ-23,ZID-AUTHZ-001,canonical,Fail closed,PDP/PIP/relationship/mandate failure follows R0-R3 failure contract; no hidden fail-open.,NOT_STARTED,
+AUTHZ-23,ZID-AUTHZ-001,canonical,Fail closed,PDP/PIP/relationship/mandate failure follows R0-R3 failure contract; no hidden fail-open.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_unavailable_state_fails_closed_for_r2_r3
 AUTHZ-24,ZID-AUTHZ-001,canonical,Load,2× Stage A peak meets p95/p99/error/cost targets with representative graph/policy complexity.,NOT_STARTED,
 CRYP-01,ZID-CRYPTO-MI-001,canonical,Key purpose,Token-signing key cannot decrypt data; data KEK cannot sign token/evidence.,NOT_STARTED,
 CRYP-02,ZID-CRYPTO-MI-001,canonical,Private export,Platform root/CA/evidence/token KEK private material cannot be exported through API/console by ordinary admins.,NOT_STARTED,
@@ -141,21 +141,21 @@ DEVSEC-29,ZID-DEVSECOPS-001,canonical,Release evidence,"Production deployment ma
 DEVSEC-30,ZID-DEVSECOPS-001,canonical,Golden path,"New service template produces secure baseline pipeline, telemetry, identity and policy configuration.",NOT_STARTED,
 DEVSEC-31,ZID-DEVSECOPS-001,canonical,Recovery path,Loss of primary CI/deploy control plane does not require deployment from a developer workstation.,NOT_STARTED,
 DEVSEC-32,ZID-DEVSECOPS-001,canonical,Scale,"Parallel build/promotion load meets target without bypassing signing, provenance, policy or evidence gates.",NOT_STARTED,
-DM-AT-01,ZID-DOM-001,canonical,Principal stability,"Changing email, employer, verification provider or authenticator leaves principal_id stable; history remains traceable.",NOT_STARTED,
-DM-AT-02,ZID-DOM-001,canonical,No unsafe identity merge,Same email from two tenants does not auto-merge HUMAN principals.,NOT_STARTED,
-DM-AT-03,ZID-DOM-001,canonical,Relationship ≠ authority,MEMBER_OF + MANAGES relation alone cannot authorize a protected action absent policy/grant basis.,NOT_STARTED,
-DM-AT-04,ZID-DOM-001,canonical,Root removal cascade,Revoked officer/root makes dependent grants non-authorizing within risk SLO while historical receipts still replay.,NOT_STARTED,
-DM-AT-05,ZID-DOM-001,canonical,Attenuation property,Generated child grants that widen any dimension are rejected.,NOT_STARTED,
-DM-AT-06,ZID-DOM-001,canonical,Mandate double-spend,Parallel reserve/commit cannot exceed limit and duplicate idempotency key returns same semantic result.,NOT_STARTED,
-DM-AT-07,ZID-DOM-001,canonical,Bitemporal correction,Late-arriving correction updates what Zoiko knows now without rewriting what a past decision observed.,NOT_STARTED,
+DM-AT-01,ZID-DOM-001,canonical,Principal stability,"Changing email, employer, verification provider or authenticator leaves principal_id stable; history remains traceable.",IN_PROGRESS,backend/app/tests/component/test_authority_persistence_pg.py::test_principal_lifecycle_and_identifier_scoping
+DM-AT-02,ZID-DOM-001,canonical,No unsafe identity merge,Same email from two tenants does not auto-merge HUMAN principals.,IN_PROGRESS,backend/app/tests/component/test_authority_persistence_pg.py::test_principal_lifecycle_and_identifier_scoping
+DM-AT-03,ZID-DOM-001,canonical,Relationship ≠ authority,MEMBER_OF + MANAGES relation alone cannot authorize a protected action absent policy/grant basis.,IN_PROGRESS,backend/app/tests/unit/test_domain_objects.py::test_relationship_is_not_authority
+DM-AT-04,ZID-DOM-001,canonical,Root removal cascade,Revoked officer/root makes dependent grants non-authorizing within risk SLO while historical receipts still replay.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_root_revocation_cascades_to_grants_and_mandates
+DM-AT-05,ZID-DOM-001,canonical,Attenuation property,Generated child grants that widen any dimension are rejected.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_issuance_gate_rejects_widening
+DM-AT-06,ZID-DOM-001,canonical,Mandate double-spend,Parallel reserve/commit cannot exceed limit and duplicate idempotency key returns same semantic result.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_ten_thousand_parallel_reservations_never_exceed_the_limit
+DM-AT-07,ZID-DOM-001,canonical,Bitemporal correction,Late-arriving correction updates what Zoiko knows now without rewriting what a past decision observed.,IN_PROGRESS,backend/app/tests/unit/test_domain_objects.py::test_partial_correction_leaves_the_rest_of_the_old_fact_in_force
 DM-AT-08,ZID-DOM-001,canonical,Credential minimization,Presentation can record validated claim types/commitments without storing full credential payload.,NOT_STARTED,
 DM-AT-09,ZID-DOM-001,canonical,Assurance separation,High identity assurance does not satisfy missing authentication or authority assurance.,NOT_STARTED,
 DM-AT-10,ZID-DOM-001,canonical,Erasure survivability,"After subject evidence key erasure, DecisionReceipt remains structurally valid but cannot resolve to erased PII.",NOT_STARTED,
 DM-AT-11,ZID-DOM-001,canonical,Unknown status,Credential/registry status INDETERMINATE causes R3 denial according to policy.,NOT_STARTED,
-DM-AT-12,ZID-DOM-001,canonical,Cross-tenant boundary,Invalid cross-tenant reference fails at domain validation before persistence.,NOT_STARTED,
-DM-AT-13,ZID-DOM-001,canonical,Projection lag,Stale graph revision cannot create R2/R3 allow.,NOT_STARTED,
+DM-AT-12,ZID-DOM-001,canonical,Cross-tenant boundary,Invalid cross-tenant reference fails at domain validation before persistence.,IN_PROGRESS,backend/app/tests/unit/test_domain_objects.py::test_cross_tenant_reference_fails_before_persistence
+DM-AT-13,ZID-DOM-001,canonical,Projection lag,Stale graph revision cannot create R2/R3 allow.,IN_PROGRESS,backend/app/tests/component/test_spicedb_projection_pg.py::test_projection_freshness_by_risk_class
 DM-AT-14,ZID-DOM-001,canonical,Provider swap,Verification provider can be replaced without changing VerificationAssertion semantics consumed by policy.,NOT_STARTED,
-DM-AT-15,ZID-DOM-001,canonical,State-machine legality,All invalid state transitions are rejected and auditable.,NOT_STARTED,
+DM-AT-15,ZID-DOM-001,canonical,State-machine legality,All invalid state transitions are rejected and auditable.,IN_PROGRESS,backend/app/tests/unit/test_domain_objects.py::test_lifecycle_is_a_state_machine_and_erasure_is_final
 DM-AT-16,ZID-DOM-001,canonical,Event reproducibility,Each authoritative mutation emits a versioned event tied to aggregate revision/correlation IDs.,NOT_STARTED,
 EVT-01,ZID-EVENTS-001,canonical,Atomic outbox,Kill producer between domain mutation and commit: state/event are both absent or both committed.,NOT_STARTED,
 EVT-02,ZID-EVENTS-001,canonical,Broker outage,Domain writes accumulate durable outbox and publish correctly after broker recovery without new event IDs.,NOT_STARTED,
@@ -217,56 +217,56 @@ EVID-27,ZID-EVIDENCE-001,canonical,Backup privacy,Restored backup cannot re-reso
 EVID-28,ZID-EVIDENCE-001,canonical,Provenance,E3 bundle resolves entity/activity/agent lineage without broken or cross-tenant edges.,NOT_STARTED,
 EVID-29,ZID-EVIDENCE-001,canonical,Telemetry boundary,OpenTelemetry loss does not destroy authoritative decision evidence; evidence loss cannot be masked by logs.,NOT_STARTED,
 EVID-30,ZID-EVIDENCE-001,canonical,Load,2× Stage A receipt/audit load loses no acknowledged E2/E3 record and meets latency/storage integrity targets.,NOT_STARTED,
-MACH-01,ZID-MACHINE-001,canonical,Distinct identity,"Two agent instances/logical agents cannot be confused by display name, model name or shared sponsor.",NOT_STARTED,
-MACH-02,ZID-MACHINE-001,canonical,Sponsor gate,Agent cannot activate without valid accountable sponsor/owning organization.,NOT_STARTED,
-MACH-03,ZID-MACHINE-001,canonical,Artifact binding,Unapproved artifact digest cannot obtain credential for approved agent binding.,NOT_STARTED,
-MACH-04,ZID-MACHINE-001,canonical,SPIFFE mapping,Unknown/unregistered SPIFFE ID cannot map itself to arbitrary Zoiko principal.,NOT_STARTED,
+MACH-01,ZID-MACHINE-001,canonical,Distinct identity,"Two agent instances/logical agents cannot be confused by display name, model name or shared sponsor.",IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_display_name_and_sponsor_never_identify_an_agent
+MACH-02,ZID-MACHINE-001,canonical,Sponsor gate,Agent cannot activate without valid accountable sponsor/owning organization.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_activation_needs_every_gate
+MACH-03,ZID-MACHINE-001,canonical,Artifact binding,Unapproved artifact digest cannot obtain credential for approved agent binding.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation
+MACH-04,ZID-MACHINE-001,canonical,SPIFFE mapping,Unknown/unregistered SPIFFE ID cannot map itself to arbitrary Zoiko principal.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers
 MACH-05,ZID-MACHINE-001,canonical,Issuer/audience,"Wrong workload issuer, trust domain or audience is rejected.",NOT_STARTED,
-MACH-06,ZID-MACHINE-001,canonical,Credential expiry,Expired SVID/token cannot be extended by cache or retry.,NOT_STARTED,
+MACH-06,ZID-MACHINE-001,canonical,Credential expiry,Expired SVID/token cannot be extended by cache or retry.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers
 MACH-07,ZID-MACHINE-001,canonical,Sender constraint,Stolen sender-constrained token fails from different key/certificate.,NOT_STARTED,
 MACH-08,ZID-MACHINE-001,canonical,Rotation,Workload credentials rotate without downtime and old credentials stop after overlap.,NOT_STARTED,
-MACH-09,ZID-MACHINE-001,canonical,Agent revoke,Revoking agent blocks new credentials and R2/R3 execution within SLO.,NOT_STARTED,
-MACH-10,ZID-MACHINE-001,canonical,Workload revoke,Revoking one compromised workload blocks it without necessarily disabling healthy replicas.,NOT_STARTED,
-MACH-11,ZID-MACHINE-001,canonical,Environment quarantine,All policy-dependent workloads in quarantined environment are denied/revoked as specified.,NOT_STARTED,
-MACH-12,ZID-MACHINE-001,canonical,Attestation floor,R3 workload requiring ATTEST-3 cannot execute with ATTEST-1.,NOT_STARTED,
-MACH-13,ZID-MACHINE-001,canonical,Authentication not authority,Valid workload credential with no AuthorityGrant/Mandate cannot act for a user/org.,NOT_STARTED,
+MACH-09,ZID-MACHINE-001,canonical,Agent revoke,Revoking agent blocks new credentials and R2/R3 execution within SLO.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation
+MACH-10,ZID-MACHINE-001,canonical,Workload revoke,Revoking one compromised workload blocks it without necessarily disabling healthy replicas.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_workload_compromise_spares_healthy_replicas
+MACH-11,ZID-MACHINE-001,canonical,Environment quarantine,All policy-dependent workloads in quarantined environment are denied/revoked as specified.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_blueprint_and_environment_quarantine
+MACH-12,ZID-MACHINE-001,canonical,Attestation floor,R3 workload requiring ATTEST-3 cannot execute with ATTEST-1.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers
+MACH-13,ZID-MACHINE-001,canonical,Authentication not authority,Valid workload credential with no AuthorityGrant/Mandate cannot act for a user/org.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_agent_needs_a_mandate_and_valid_scope
 MACH-14,ZID-MACHINE-001,canonical,Prompt cannot delegate,Prompt text instructing agent to 'act as admin' does not change principal/grant/mandate.,NOT_STARTED,
-MACH-15,ZID-MACHINE-001,canonical,Tool discovery,Tool from tools/list but absent/suspended in registry cannot execute.,NOT_STARTED,
+MACH-15,ZID-MACHINE-001,canonical,Tool discovery,Tool from tools/list but absent/suspended in registry cannot execute.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_discovered_but_unregistered_or_suspended_tools_never_run
 MACH-16,ZID-MACHINE-001,canonical,MCP mix-up,Client rejects wrong authorization issuer/resource audience in MCP integration.,NOT_STARTED,
-MACH-17,ZID-MACHINE-001,canonical,Sub-agent issuance,Parent agent cannot self-declare arbitrary child as trusted principal.,NOT_STARTED,
-MACH-18,ZID-MACHINE-001,canonical,Sub-agent authority,Child agent cannot exceed parent grant/mandate/depth/budget.,NOT_STARTED,
+MACH-17,ZID-MACHINE-001,canonical,Sub-agent issuance,Parent agent cannot self-declare arbitrary child as trusted principal.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_parent_cannot_mint_its_own_trusted_child
+MACH-18,ZID-MACHINE-001,canonical,Sub-agent authority,Child agent cannot exceed parent grant/mandate/depth/budget.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_parent_cannot_mint_its_own_trusted_child
 MACH-19,ZID-MACHINE-001,canonical,External agent,Third-party agent identity alone cannot create represented Zoiko authority.,NOT_STARTED,
-MACH-20,ZID-MACHINE-001,canonical,Blueprint revoke,Revoked blueprint blocks affected workload bindings and active high-risk execution.,NOT_STARTED,
-MACH-21,ZID-MACHINE-001,canonical,Service replica isolation,Compromise/revoke one workload identity does not require shared-secret rotation across all replicas.,NOT_STARTED,
+MACH-20,ZID-MACHINE-001,canonical,Blueprint revoke,Revoked blueprint blocks affected workload bindings and active high-risk execution.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation
+MACH-21,ZID-MACHINE-001,canonical,Service replica isolation,Compromise/revoke one workload identity does not require shared-secret rotation across all replicas.,IN_PROGRESS,backend/app/tests/unit/test_machine_identity.py::test_workload_compromise_spares_healthy_replicas
 MACH-22,ZID-MACHINE-001,canonical,Secret scan,No long-lived production machine credentials embedded in approved images/repos/config.,NOT_STARTED,
 MACH-23,ZID-MACHINE-001,canonical,Token exchange,Downstream token never has broader audience/scope/actor authority than exchange policy.,NOT_STARTED,
 MACH-24,ZID-MACHINE-001,canonical,Evidence linkage,"Decision receipt links logical agent, workload, mandate and tool commitments without raw prompt content.",NOT_STARTED,
 MACH-25,ZID-MACHINE-001,canonical,Failure mode,Identity/attestation/trust failure never silently falls back to static bearer/API key for R2/R3.,NOT_STARTED,
 MACH-26,ZID-MACHINE-001,canonical,Load,"2x Stage A machine-auth/token load meets latency, error and rotation objectives.",NOT_STARTED,
-MAND-01,ZID-MANDATE-001,canonical,Grant attenuation,Generated child grants never widen action/resource/purpose/data/jurisdiction/tool/value/time/assurance/depth.,NOT_STARTED,
-MAND-02,ZID-MANDATE-001,canonical,Personal continuity,Removing personal grantor's qualifying authority invalidates PERSON_BOUND grants and dependent mandates.,NOT_STARTED,
-MAND-03,ZID-MANDATE-001,canonical,Role continuity,ROLE_CONTINUOUS grant survives individual replacement only when role/root remains valid.,NOT_STARTED,
-MAND-04,ZID-MANDATE-001,canonical,Privilege stitching,Partial grants cannot combine unless named composite policy requires it.,NOT_STARTED,
-MAND-05,ZID-MANDATE-001,canonical,Cycle defense,Cyclic/self-referential grant chain is rejected.,NOT_STARTED,
-MAND-06,ZID-MANDATE-001,canonical,Mandate source,Mandate cannot activate or execute if source grant/root is invalid/stale beyond policy.,NOT_STARTED,
-MAND-07,ZID-MANDATE-001,canonical,Scope binding,Wrong action/resource/purpose/tool/jurisdiction is denied.,NOT_STARTED,
-MAND-08,ZID-MANDATE-001,canonical,Parallel value spend,"10,000 concurrent reservations never exceed value limit.",NOT_STARTED,
-MAND-09,ZID-MANDATE-001,canonical,Parallel count/data spend,Concurrent calls never exceed count or data limits.,NOT_STARTED,
-MAND-10,ZID-MANDATE-001,canonical,Idempotent reserve,100 same-key retries create one reservation; changed payload with same key conflicts.,NOT_STARTED,
-MAND-11,ZID-MANDATE-001,canonical,Idempotent commit,Repeated commit changes balance once and returns same terminal state.,NOT_STARTED,
-MAND-12,ZID-MANDATE-001,canonical,Lease expiry,Expired unexecuted reservation releases exactly once.,NOT_STARTED,
+MAND-01,ZID-MANDATE-001,canonical,Grant attenuation,Generated child grants never widen action/resource/purpose/data/jurisdiction/tool/value/time/assurance/depth.,IN_PROGRESS,backend/app/tests/property/test_authority_algebra.py::test_delegation_chains_only_narrow
+MAND-02,ZID-MANDATE-001,canonical,Personal continuity,Removing personal grantor's qualifying authority invalidates PERSON_BOUND grants and dependent mandates.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_root_revocation_cascades_to_grants_and_mandates
+MAND-03,ZID-MANDATE-001,canonical,Role continuity,ROLE_CONTINUOUS grant survives individual replacement only when role/root remains valid.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_root_revocation_cascades_to_grants_and_mandates
+MAND-04,ZID-MANDATE-001,canonical,Privilege stitching,Partial grants cannot combine unless named composite policy requires it.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_no_privilege_stitching
+MAND-05,ZID-MANDATE-001,canonical,Cycle defense,Cyclic/self-referential grant chain is rejected.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_cycle_is_rejected
+MAND-06,ZID-MANDATE-001,canonical,Mandate source,Mandate cannot activate or execute if source grant/root is invalid/stale beyond policy.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_root_revocation_cascades_to_grants_and_mandates
+MAND-07,ZID-MANDATE-001,canonical,Scope binding,Wrong action/resource/purpose/tool/jurisdiction is denied.,IN_PROGRESS,backend/app/tests/unit/test_pdp.py::test_agent_needs_a_mandate_and_valid_scope
+MAND-08,ZID-MANDATE-001,canonical,Parallel value spend,"10,000 concurrent reservations never exceed value limit.",IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_ten_thousand_parallel_reservations_never_exceed_the_limit
+MAND-09,ZID-MANDATE-001,canonical,Parallel count/data spend,Concurrent calls never exceed count or data limits.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_ledger_invariant_survives_any_operation_sequence
+MAND-10,ZID-MANDATE-001,canonical,Idempotent reserve,100 same-key retries create one reservation; changed payload with same key conflicts.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_same_key_storm_creates_one_reservation
+MAND-11,ZID-MANDATE-001,canonical,Idempotent commit,Repeated commit changes balance once and returns same terminal state.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_commit_is_idempotent
+MAND-12,ZID-MANDATE-001,canonical,Lease expiry,Expired unexecuted reservation releases exactly once.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_expired_unexecuted_reservation_releases_exactly_once
 MAND-13,ZID-MANDATE-001,canonical,Crash after side effect,Execution-ID reconciliation commits if side effect already happened; no duplicate execution.,NOT_STARTED,
-MAND-14,ZID-MANDATE-001,canonical,Unknown outcome,High-risk uncertain side effect remains reconciliation-required; capacity not prematurely released.,NOT_STARTED,
-MAND-15,ZID-MANDATE-001,canonical,TOCTOU revoke,Revocation between authorization/reserve and side effect blocks R3 commit path.,NOT_STARTED,
-MAND-16,ZID-MANDATE-001,canonical,Approval integrity,Changing transaction value/resource/tool invalidates existing approval.,NOT_STARTED,
-MAND-17,ZID-MANDATE-001,canonical,Separation of duties,Same principal cannot satisfy two-person approval where distinct principals required.,NOT_STARTED,
-MAND-18,ZID-MANDATE-001,canonical,Sub-agent depth,Child delegation stops when depth is exhausted.,NOT_STARTED,
-MAND-19,ZID-MANDATE-001,canonical,Sub-agent budget,Child mandates cannot collectively exceed parent budget under selected allocation mode.,NOT_STARTED,
-MAND-20,ZID-MANDATE-001,canonical,Parent cascade,Parent grant/mandate revoke blocks descendant sub-agents within SLO.,NOT_STARTED,
-MAND-21,ZID-MANDATE-001,canonical,Cross-cell partition,Non-home cell cannot spend during home-cell unavailability.,NOT_STARTED,
-MAND-22,ZID-MANDATE-001,canonical,Writer fencing,Old writer epoch cannot reserve/commit after failover promotion.,NOT_STARTED,
-MAND-23,ZID-MANDATE-001,canonical,Currency safety,Mismatched currency fails unless approved normalized budget policy applies.,NOT_STARTED,
-MAND-24,ZID-MANDATE-001,canonical,Negative values,Negative/overflow/precision-manipulated requests are rejected.,NOT_STARTED,
+MAND-14,ZID-MANDATE-001,canonical,Unknown outcome,High-risk uncertain side effect remains reconciliation-required; capacity not prematurely released.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_unknown_high_risk_outcome_stays_blocked_until_reconciled
+MAND-15,ZID-MANDATE-001,canonical,TOCTOU revoke,Revocation between authorization/reserve and side effect blocks R3 commit path.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_commit_recheck_failure_never_consumes_and_exhaustion_is_automatic
+MAND-16,ZID-MANDATE-001,canonical,Approval integrity,Changing transaction value/resource/tool invalidates existing approval.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_approvals_are_one_vote_per_person_and_transaction_bound
+MAND-17,ZID-MANDATE-001,canonical,Separation of duties,Same principal cannot satisfy two-person approval where distinct principals required.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_approvals_are_one_vote_per_person_and_transaction_bound
+MAND-18,ZID-MANDATE-001,canonical,Sub-agent depth,Child delegation stops when depth is exhausted.,IN_PROGRESS,backend/app/tests/unit/test_authority_chains.py::test_depth_strictly_decreases_until_delegation_stops
+MAND-19,ZID-MANDATE-001,canonical,Sub-agent budget,Child mandates cannot collectively exceed parent budget under selected allocation mode.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_sub_mandates_share_the_parent_budget_and_stop_with_it
+MAND-20,ZID-MANDATE-001,canonical,Parent cascade,Parent grant/mandate revoke blocks descendant sub-agents within SLO.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_sub_mandates_share_the_parent_budget_and_stop_with_it
+MAND-21,ZID-MANDATE-001,canonical,Cross-cell partition,Non-home cell cannot spend during home-cell unavailability.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_stale_writer_epoch_and_wrong_cell_cannot_spend
+MAND-22,ZID-MANDATE-001,canonical,Writer fencing,Old writer epoch cannot reserve/commit after failover promotion.,IN_PROGRESS,backend/app/tests/component/test_mandate_ledger_pg.py::test_stale_writer_epoch_and_wrong_cell_cannot_spend
+MAND-23,ZID-MANDATE-001,canonical,Currency safety,Mismatched currency fails unless approved normalized budget policy applies.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_bad_or_oversized_requests_are_rejected
+MAND-24,ZID-MANDATE-001,canonical,Negative values,Negative/overflow/precision-manipulated requests are rejected.,IN_PROGRESS,backend/app/tests/property/test_mandate_ledger.py::test_bad_or_oversized_requests_are_rejected
 MAND-25,ZID-MANDATE-001,canonical,Evidence linkage,"Grant, approval, reservation and commit receipts resolve to one transaction/authority chain without raw PII.",NOT_STARTED,
 MAND-26,ZID-MANDATE-001,canonical,Crypto-erasure,Eligible PII can be erased while ledger/receipt structural proof remains.,NOT_STARTED,
 MAND-27,ZID-MANDATE-001,canonical,Outbox replay,Event publication retries cannot duplicate state changes.,NOT_STARTED,
@@ -354,27 +354,27 @@ AT-16,ZID-REQ-001,canonical,Load and cost,2× approved design point meets p95/p9
 ROOT-01,ZID-ROOT-001,canonical,Entity resolution,"Same entity resolved through local number, EUID and LEI links to one canonical organization without unsafe merge.",NOT_STARTED,
 ROOT-02,ZID-ROOT-001,canonical,Namespace collision,Same raw registration number in two jurisdictions never merges entities.,NOT_STARTED,
 ROOT-03,ZID-ROOT-001,canonical,Name change,Official name change updates history without changing principal.,NOT_STARTED,
-ROOT-04,ZID-ROOT-001,canonical,Dissolution,Dissolved entity cannot originate new authority; dependent roots/grants are blocked per policy.,NOT_STARTED,
-ROOT-05,ZID-ROOT-001,canonical,Officer appointment,New officer creates role candidate only; no automatic unlimited AuthorityGrant.,NOT_STARTED,
-ROOT-06,ZID-ROOT-001,canonical,Officer cessation,Detected cessation invalidates affected roots/grants within R1/R2/R3 propagation SLO.,NOT_STARTED,
-ROOT-07,ZID-ROOT-001,canonical,PSC separation,Beneficial owner/PSC with no signatory basis cannot approve/sign protected transaction.,NOT_STARTED,
-ROOT-08,ZID-ROOT-001,canonical,Parent separation,Parent company cannot bind subsidiary without explicit authority root/grant.,NOT_STARTED,
-ROOT-09,ZID-ROOT-001,canonical,vLEI role,"Valid OOR credential verifies entity/role, but out-of-scope action is still denied.",NOT_STARTED,
+ROOT-04,ZID-ROOT-001,canonical,Dissolution,Dissolved entity cannot originate new authority; dependent roots/grants are blocked per policy.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_dissolution_blocks_authority_and_restoration_does_not_reactivate
+ROOT-05,ZID-ROOT-001,canonical,Officer appointment,New officer creates role candidate only; no automatic unlimited AuthorityGrant.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_officer_appointment_only_creates_a_candidate
+ROOT-06,ZID-ROOT-001,canonical,Officer cessation,Detected cessation invalidates affected roots/grants within R1/R2/R3 propagation SLO.,IN_PROGRESS,backend/app/tests/component/test_phase_c_flows_pg.py::test_root_revocation_cascades_to_grants_and_mandates
+ROOT-07,ZID-ROOT-001,canonical,PSC separation,Beneficial owner/PSC with no signatory basis cannot approve/sign protected transaction.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_psc_control_never_becomes_signing_authority
+ROOT-08,ZID-ROOT-001,canonical,Parent separation,Parent company cannot bind subsidiary without explicit authority root/grant.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_parent_company_roots_cannot_bind_a_subsidiary
+ROOT-09,ZID-ROOT-001,canonical,vLEI role,"Valid OOR credential verifies entity/role, but out-of-scope action is still denied.",IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_out_of_scope_action_or_value_is_denied
 ROOT-10,ZID-ROOT-001,canonical,vLEI revocation,Revoked/invalid credential makes dependent root unusable.,NOT_STARTED,
-ROOT-11,ZID-ROOT-001,canonical,Board resolution,Verified resolution roots only actions/value/time explicitly granted.,NOT_STARTED,
+ROOT-11,ZID-ROOT-001,canonical,Board resolution,Verified resolution roots only actions/value/time explicitly granted.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_out_of_scope_action_or_value_is_denied
 ROOT-12,ZID-ROOT-001,canonical,Resolution supersession,New resolution supersedes prior root without rewriting historic decisions.,NOT_STARTED,
 ROOT-13,ZID-ROOT-001,canonical,Signing matrix,Value-band/quorum rules map deterministically into root/policy facts.,NOT_STARTED,
 ROOT-14,ZID-ROOT-001,canonical,Matrix tamper,Hash/version mismatch prevents activation/use.,NOT_STARTED,
-ROOT-15,ZID-ROOT-001,canonical,Power of attorney,POA cannot be used outside instrument jurisdiction/scope/time.,NOT_STARTED,
-ROOT-16,ZID-ROOT-001,canonical,Source competence,Source proving entity existence cannot be misused to prove signing power it does not contain.,NOT_STARTED,
-ROOT-17,ZID-ROOT-001,canonical,Freshness,R3 action fails if required root cannot be refreshed to policy freshness.,NOT_STARTED,
-ROOT-18,ZID-ROOT-001,canonical,Source conflict,Conflicting authoritative sources produce CONFLICTED and no R3 allow.,NOT_STARTED,
+ROOT-15,ZID-ROOT-001,canonical,Power of attorney,POA cannot be used outside instrument jurisdiction/scope/time.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_power_of_attorney_bound_to_jurisdiction_and_time
+ROOT-16,ZID-ROOT-001,canonical,Source competence,Source proving entity existence cannot be misused to prove signing power it does not contain.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_registry_alone_proves_the_role_but_not_signing_power
+ROOT-17,ZID-ROOT-001,canonical,Freshness,R3 action fails if required root cannot be refreshed to policy freshness.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_stale_root_fails_r2_r3_but_not_r1
+ROOT-18,ZID-ROOT-001,canonical,Source conflict,Conflicting authoritative sources produce CONFLICTED and no R3 allow.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_conflicted_source_blocks_r3
 ROOT-19,ZID-ROOT-001,canonical,Source outage,No fail-open authority when required registry/status service unavailable beyond freshness.,NOT_STARTED,
-ROOT-20,ZID-ROOT-001,canonical,Merger,Successor/predecessor event forces revalidation; old grants do not silently transfer.,NOT_STARTED,
-ROOT-21,ZID-ROOT-001,canonical,Restoration,Restored company does not automatically reactivate historic revoked/expired roots.,NOT_STARTED,
-ROOT-22,ZID-ROOT-001,canonical,Corporate group,Same person director of two group companies receives entity-specific authority only.,NOT_STARTED,
+ROOT-20,ZID-ROOT-001,canonical,Merger,Successor/predecessor event forces revalidation; old grants do not silently transfer.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_merger_forces_revalidation
+ROOT-21,ZID-ROOT-001,canonical,Restoration,Restored company does not automatically reactivate historic revoked/expired roots.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_dissolution_blocks_authority_and_restoration_does_not_reactivate
+ROOT-22,ZID-ROOT-001,canonical,Corporate group,Same person director of two group companies receives entity-specific authority only.,IN_PROGRESS,backend/app/tests/unit/test_root_of_trust.py::test_parent_company_roots_cannot_bind_a_subsidiary
 ROOT-23,ZID-ROOT-001,canonical,Cross-border,National-role semantics use correct jurisdiction pack; no universal director rule.,NOT_STARTED,
-ROOT-24,ZID-ROOT-001,canonical,Event replay,Duplicate registry/source events are idempotent and do not create duplicate roots/revisions.,NOT_STARTED,
+ROOT-24,ZID-ROOT-001,canonical,Event replay,Duplicate registry/source events are idempotent and do not create duplicate roots/revisions.,IN_PROGRESS,backend/app/tests/component/test_authority_persistence_pg.py::test_grant_chain_issuance_resolution_revocation_and_root_events
 ROOT-25,ZID-ROOT-001,canonical,Adapter compromise,Quarantining a source stops new root reliance while preserving historic evidence.,NOT_STARTED,
 ROOT-26,ZID-ROOT-001,canonical,Evidence privacy,DecisionReceipt proves root provenance without embedding raw board/POA/identity documents.,NOT_STARTED,
 ROOT-27,ZID-ROOT-001,canonical,Manual override,Support/operator cannot force ACTIVE R3 root without protected approval/evidence path.,NOT_STARTED,

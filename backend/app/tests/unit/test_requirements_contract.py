@@ -277,3 +277,29 @@ def test_sli_contract_is_low_cardinality_and_alerts_resolve() -> None:
     ):
         assert rules[must]["pages"], must
     assert rules["r2_r3_revocation_slo_breach"]["severity"].endswith("security")
+
+
+def test_acceptance_test_status_is_honest() -> None:
+    """Same rule as requirements: progress needs evidence that exists (acceptance-tests.csv)."""
+    rows = list(
+        csv.DictReader(
+            (REPO / "docs/traceability/acceptance-tests.csv").open(encoding="utf-8", newline="")
+        )
+    )
+    problems = []
+    for r in rows:
+        status, evidence = r["test_status"], r["evidence_link"]
+        tag = f"{r['test_id']} ({r['source_spec']})"
+        if status not in STATUSES:
+            problems.append(f"{tag}: unknown status {status!r}")
+        elif status != "NOT_STARTED" and not evidence:
+            problems.append(f"{tag}: {status} without evidence")
+        if evidence and not evidence.startswith("http"):
+            path = REPO / evidence.split("::")[0]
+            if not path.exists():
+                problems.append(f"{tag}: evidence {evidence} does not exist")
+            elif "::" in evidence and f"def {evidence.split('::')[1]}(" not in path.read_text(
+                "utf-8"
+            ):
+                problems.append(f"{tag}: evidence test {evidence} does not exist")
+    assert not problems, "\n".join(problems)
