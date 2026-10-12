@@ -25,17 +25,21 @@ Built in slices; each slice is pure domain logic first, then persistence.
 | One complete chain per request, no privilege stitching (AT-03, AUTHZ-04, MAND-04); issuance gate (MANDATE §2.1, §4) | `grants.py`, `tests/unit/test_authority_chains.py` | Done |
 | Grantor continuity (DEC-C2): modes incl. CONTRACT_BOUND (CR-001), `REVALIDATION_PENDING` (CR-002), officeholder change, personal-authority cascade (AT-07, MAND-02/03) | `grants.py` | Done (domain) |
 | Mandate ledger rules: lifecycle, multi-dimensional budget, reserve/commit/release, idempotency, lease expiry, reconciliation (MAND-08…15, 23, 24) | `modules/mandate/domain/ledger.py`, `tests/property/test_mandate_ledger.py` | Done (domain) |
-| Ledger persistence in PostgreSQL with row lock + writer fencing; **10k-concurrency test** (AT-04, MAND-08/22) | — | **Next slice** |
-| Composite authority (ALL_OF, K_OF_N, ROLE_PAIR) and transaction-bound approvals (AUTHZ-15/16, MAND-16/17) | — | Planned |
-| Sub-agent mandates and parent-budget preservation (MAND-18…20) | — | Planned |
-| Root-of-trust evidence model: provenance, refresh, registry disagreement (Doc 10, FR-ORG-002/003/005/008) | — | Planned |
-| Canonical domain objects and lifecycles (Doc 03) | — | Planned |
+| Ledger persistence in PostgreSQL: per-module Alembic stream, RLS, writer fencing, balance row lock + SQL limit guard; **10k-concurrency test with 10% crashes** (AT-04, MAND-08/10/11/14/21/22) | `migrations/mandate/`, `mandate/infrastructure/ledger_store.py`, `tests/component/test_mandate_ledger_pg.py` | Done (passes locally; needs CI with PostgreSQL to close AT-04/BG-05) |
+| Composite authority (ALL_OF, K_OF_N, ROLE_PAIR, EXTERNAL_CONFIRMATION) and transaction-bound approvals (AUTHZ-15/16, MAND-16/17) | `authority/domain/composite.py` | Done (domain) |
+| Sub-agent mandates, allocated child budgets, revoke/pause cascade (MAND-18…20) | `mandate/domain/subagent.py` | Done (domain) |
+| Root of trust: three-part test, source competence, per-entity roots, STALE/CONFLICTED, lifecycle events, idempotent replay (ROOT-04…24) | `organization/domain/roots.py` | Done (domain); registry/vLEI adapters come with Phase G integrations |
+| Principal, Identifier, Relationship; monotonic revisions; bitemporal history (DM-AT-01/02/03/07/12/13/15) | `principal/domain/principal.py`, `relationship/domain/relationship.py` | Done (domain); authn/verification/credential/consent/evidence objects belong to Phases E–F |
 
-**Invariants now guarded by tests:** INV-03 (no amplification), INV-04 (no stitching), INV-12 (consumables ledgered) moved from `planned` to `partial`; end-to-end proof still comes from AT-02/03/04.
+**Still open in Phase C:** persistence for grants, roots, principals and relationships (tables + adapters), the SpiceDB relationship projector and Cedar policy engine (DEC-C3/C4, arriving with the decision path in Phase D), Doc 09 agent identity details (workload attestation, tool IDs; Phase F with DEC-F7), CI running the PostgreSQL suite, and ARB ratification of DEC-C1…C5.
+
+**Invariants now guarded by tests:** INV-02, 03, 04, 07 and 12 moved from `planned` to `partial`; INV-01 gained a cross-tenant identity test. End-to-end proof still comes from AT-02/03/04/05/07.
 
 ### Findings
 - **Continuity across modes:** the specs say a child "cannot adopt broader continuity than its parent", but don't order the modes. Engineering's rule (for the ARB): PERSON_BOUND fits under anything; ORGANIZATION_CONTINUOUS admits anything; ROLE_CONTINUOUS and CONTRACT_BOUND are different bases, so neither becomes the other.
 - **Currency mismatch:** intersecting value limits in different currencies leaves nothing spendable (ISO `XXX`, zero), rather than picking one side's currency.
+- **Bitemporal correction bug (fixed):** the first history implementation superseded any overlapping version, so a narrow correction hid the old fact for all other days. Caught by bug injection; fixed in `377192d`.
+- **Data Model alignment:** the ledger needs states and columns ZID-DATA-001 lacks; raised as [CR-006](../specs/change-requests/CR-006-mandate-ledger-columns.md).
 - **Root eligibility by risk:** AR-1 roots at most R1, AR-2 at most R2, AR-3 up to R3, AR-0 nothing (AUTHZ §6, DEC-C2 §2).
 
 ## Decisions
