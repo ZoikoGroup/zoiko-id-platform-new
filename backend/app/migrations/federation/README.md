@@ -5,3 +5,6 @@ Alembic stream owned by the **federation** module (zoiko-id-platform, DEC-D6). V
 May create or alter **only** these tables (enforced by CI against `backend/database/table-ownership.yaml`):
 
 - `authn.federation_connection`
+- `authn.federation_login`
+- `authn.saml_assertion_replay`
+- `authn.federation_trust_anchor`

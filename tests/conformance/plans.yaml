@@ -1,0 +1,119 @@
+# OpenID Foundation conformance suite plans for Zoiko iD (ZID-AUTH-001 §25; ZID-VC-001 §11;
+# ZID-SIGNALS-001 §21). Phase E exit evidence: each plan runs against a PERF/STAGING cell and its
+# exported result is attached to the release (never run against production).
+#
+# Plan and variant names are pinned to the suite release below. When the suite is upgraded,
+# check them with `run_conformance.py --list` first: the runner refuses plans the suite lacks.
+# ${VAR} placeholders are filled from the environment at run time; secrets never live here.
+# backend/app/tests/unit/test_conformance_plans.py keeps every variant consistent with what the
+# server advertises (a plan claiming DPoP for a server without DPoP would be a silent no-op).
+
+suite:
+  release: "release-v5.1.x"
+  url: "${CONFORMANCE_SERVER}"          # e.g. https://www.certification.openid.net or a local suite
+  token: "${CONFORMANCE_TOKEN}"         # suite API token (bearer)
+
+plans:
+  oidc-op-basic:
+    requirement: "OpenID Connect Core 1.0 - Basic OP (authorization code)"
+    plan: oidcc-basic-certification-test-plan
+    variant:
+      server_metadata: discovery
+      client_registration: static_client
+      client_auth_type: private_key_jwt
+      response_type: code
+    config:
+      alias: "zoiko-${ZID_CELL}"
+      description: "Zoiko iD OP basic (${ZID_CELL})"
+      server: {discoveryUrl: "${ZID_ISSUER}/.well-known/openid-configuration"}
+      client: {client_id: "${CONFORMANCE_CLIENT_ID}", scope: "openid", jwks: "${CONFORMANCE_CLIENT_JWKS}"}
+      client2: {client_id: "${CONFORMANCE_CLIENT2_ID}", scope: "openid", jwks: "${CONFORMANCE_CLIENT2_JWKS}"}
+
+  oidc-op-config:
+    requirement: "OpenID Connect Discovery 1.0 - Config OP"
+    plan: oidcc-config-certification-test-plan
+    variant: {}
+    config:
+      alias: "zoiko-${ZID_CELL}-config"
+      server: {discoveryUrl: "${ZID_ISSUER}/.well-known/openid-configuration"}
+
+  fapi2-dpop:
+    requirement: "FAPI 2.0 Security Profile (final) - private_key_jwt + DPoP"
+    plan: fapi2-security-profile-final-test-plan
+    variant:
+      client_auth_type: private_key_jwt
+      sender_constrain: dpop
+      fapi_profile: plain_fapi
+      openid: openid_connect
+      fapi_request_method: unsigned
+    config:
+      alias: "zoiko-${ZID_CELL}-fapi2-dpop"
+      server: {discoveryUrl: "${ZID_ISSUER}/.well-known/openid-configuration"}
+      resource: {resourceUrl: "${ZID_API}/sessions"}
+      client: {client_id: "${CONFORMANCE_FAPI_CLIENT_ID}", scope: "openid", jwks: "${CONFORMANCE_FAPI_CLIENT_JWKS}"}
+      client2: {client_id: "${CONFORMANCE_FAPI_CLIENT2_ID}", scope: "openid", jwks: "${CONFORMANCE_FAPI_CLIENT2_JWKS}"}
+
+  fapi2-mtls:
+    requirement: "FAPI 2.0 Security Profile (final) - mTLS client auth + certificate-bound tokens"
+    plan: fapi2-security-profile-final-test-plan
+    variant:
+      client_auth_type: mtls
+      sender_constrain: mtls
+      fapi_profile: plain_fapi
+      openid: openid_connect
+      fapi_request_method: unsigned
+    config:
+      alias: "zoiko-${ZID_CELL}-fapi2-mtls"
+      server: {discoveryUrl: "${ZID_ISSUER}/.well-known/openid-configuration"}
+      resource: {resourceUrl: "${ZID_API}/sessions"}
+      client: {client_id: "${CONFORMANCE_MTLS_CLIENT_ID}", scope: "openid", jwks: "${CONFORMANCE_MTLS_CLIENT_JWKS}"}
+      mtls: {cert: "${CONFORMANCE_MTLS_CERT}", key: "${CONFORMANCE_MTLS_KEY}"}
+      client2: {client_id: "${CONFORMANCE_MTLS_CLIENT2_ID}", scope: "openid", jwks: "${CONFORMANCE_MTLS_CLIENT2_JWKS}"}
+      mtls2: {cert: "${CONFORMANCE_MTLS2_CERT}", key: "${CONFORMANCE_MTLS2_KEY}"}
+
+  oid4vp-verifier-haip:
+    requirement: "OpenID4VP 1.0 verifier under HAIP (x509_hash, direct_post.jwt; SD-JWT VC and mdoc)"
+    plan: oid4vp-1final-verifier-test-plan
+    variant:
+      credential_format: sd_jwt_vc
+      client_id_prefix: x509_hash
+      request_method: request_uri_signed
+      response_mode: direct_post.jwt
+      vp_profile: haip
+    config:
+      alias: "zoiko-${ZID_CELL}-oid4vp"
+      description: "Zoiko iD verifier (HAIP)"
+      client: {client_id: "${ZID_VERIFIER_CLIENT_ID}", presentation_definition_endpoint: "${ZID_API}/presentations"}
+
+  oid4vp-verifier-haip-mdoc:
+    requirement: "OpenID4VP 1.0 verifier under HAIP - ISO mdoc"
+    plan: oid4vp-1final-verifier-test-plan
+    variant:
+      credential_format: iso_mdl
+      client_id_prefix: x509_hash
+      request_method: request_uri_signed
+      response_mode: direct_post.jwt
+      vp_profile: haip
+    config:
+      alias: "zoiko-${ZID_CELL}-oid4vp-mdoc"
+      client: {client_id: "${ZID_VERIFIER_CLIENT_ID}"}
+
+  ssf-transmitter:
+    requirement: "OpenID Shared Signals Framework 1.0 - transmitter (CAEP/RISC, push and poll)"
+    plan: openid-ssf-transmitter-test-plan
+    variant:
+      ssf_server_metadata: discovery
+      ssf_auth_mode: dynamic
+      ssf_delivery_mode: push
+    config:
+      alias: "zoiko-${ZID_CELL}-ssf"
+      ssf: {transmitter: {issuer: "${ZID_ISSUER}", metadata_suffix: ""}, stream: {audience: "${CONFORMANCE_SSF_AUDIENCE}"}}
+      client: {client_id: "${CONFORMANCE_SSF_CLIENT_ID}", jwks: "${CONFORMANCE_SSF_CLIENT_JWKS}"}
+
+# Profiles with no OpenID Foundation suite: covered by in-repo protocol tests instead (and the
+# vendor/third-party interop runs named here before production enablement).
+not_covered_by_oidf_suite:
+  saml2-sp: "test_federation_saml_pg.py, test_federation_saml_encrypted_pg.py; interop: Entra ID, Okta, ADFS"
+  scim2-service-provider: "test_scim_pg.py; interop: Entra ID provisioning validator"
+  webauthn-rp: "test_webauthn_pg.py; FIDO conformance tools (RP) before GA"
+  w3c-vcdm2: "test_vcdm_pg.py, test_vcdm.py; W3C VC test suite (vc-jose-cose) before GA"

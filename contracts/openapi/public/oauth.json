@@ -1,0 +1,520 @@
+{
+  "components": {
+    "schemas": {
+      "ConsentDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "deny"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ConsentDecision",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD protocol endpoints: OAuth 2.0 / OpenID Connect, federation, SSF and issuer metadata",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/.well-known/jwt-vc-issuer": {
+      "get": {
+        "operationId": "jwt_vc_issuer__well_known_jwt_vc_issuer_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Jwt Vc Issuer  Well Known Jwt Vc Issuer Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jwt Vc Issuer",
+        "tags": [
+          "credentials"
+        ]
+      }
+    },
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "operationId": "oauth_metadata__well_known_oauth_authorization_server_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Oauth Metadata",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/.well-known/openid-configuration": {
+      "get": {
+        "operationId": "oidc_metadata__well_known_openid_configuration_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Oidc Metadata",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/.well-known/openid-credential-issuer": {
+      "get": {
+        "operationId": "issuer_metadata__well_known_openid_credential_issuer_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issuer Metadata  Well Known Openid Credential Issuer Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Issuer Metadata",
+        "tags": [
+          "credentials"
+        ]
+      }
+    },
+    "/.well-known/openid-federation": {
+      "get": {
+        "description": "\u00a718: Zoiko's self-signed entity configuration (relying party + OpenID provider).",
+        "operationId": "our_entity_configuration__well_known_openid_federation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Our Entity Configuration",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
+    "/.well-known/ssf-configuration": {
+      "get": {
+        "operationId": "configuration__well_known_ssf_configuration_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Configuration  Well Known Ssf Configuration Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Configuration",
+        "tags": [
+          "signals"
+        ]
+      }
+    },
+    "/.well-known/webauthn": {
+      "get": {
+        "description": "WebAuthn L3 Related Origin Requests (FR-AUT-010): the governed list of related origins.",
+        "operationId": "related_origins__well_known_webauthn_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Related Origins  Well Known Webauthn Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Related Origins",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/oauth2/authorize": {
+      "get": {
+        "operationId": "authorize_endpoint_oauth2_authorize_get",
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Authorize Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/consent/{ref}": {
+      "get": {
+        "description": "For the consent UI: which client asks for which scopes (the user's own session only).",
+        "operationId": "consent_request_oauth2_consent__ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consent Request",
+        "tags": [
+          "oauth"
+        ]
+      },
+      "post": {
+        "operationId": "consent_decision_oauth2_consent__ref__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consent Decision",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/consents": {
+      "get": {
+        "operationId": "my_consents_oauth2_consents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Consents Oauth2 Consents Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Consents",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/consents/{client_id}:revoke": {
+      "post": {
+        "operationId": "revoke_my_consent_oauth2_consents__client_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "title": "Client Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke My Consent",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/introspect": {
+      "post": {
+        "operationId": "introspect_endpoint_oauth2_introspect_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Introspect Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/jwks": {
+      "get": {
+        "operationId": "jwks_endpoint_oauth2_jwks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Jwks Endpoint Oauth2 Jwks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jwks Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/par": {
+      "post": {
+        "operationId": "par_endpoint_oauth2_par_post",
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Par Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/revoke": {
+      "post": {
+        "operationId": "revoke_endpoint_oauth2_revoke_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/token": {
+      "post": {
+        "operationId": "token_endpoint_oauth2_token_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Token Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    },
+    "/oauth2/userinfo": {
+      "get": {
+        "description": "OIDC Core \u00a75.3. Zoiko keeps no profile PII in tokens or here: subject and tenant only.",
+        "operationId": "userinfo_endpoint_oauth2_userinfo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Userinfo Endpoint",
+        "tags": [
+          "oauth"
+        ]
+      }
+    }
+  }
+}

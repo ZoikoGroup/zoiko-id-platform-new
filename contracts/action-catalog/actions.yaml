@@ -21,11 +21,25 @@ actions:
   payment.release:                  {min_risk_class: R3, min_evidence_class: E3, category: "high-value financial action", name_source: spec, owner: customer-application (PEP)}
   purchase.create:                  {min_risk_class: R3, min_evidence_class: E3, category: "high-value agent action (TCE example)", name_source: spec, owner: customer-application (PEP)}
   operator.jit.elevate:             {min_risk_class: R3, min_evidence_class: E3, category: "high-value admin action", name_source: proposed, owner: operator_access}
+  signals.stream.manage:            {min_risk_class: R3, min_evidence_class: E3, category: "security signal stream (SIGNALS §26)", name_source: proposed, owner: signals, note: "CR-009"}
+  security_state.override:          {min_risk_class: R3, min_evidence_class: E3, category: "governed security-state re-evaluation (SIGNALS §26)", name_source: proposed, owner: signals, note: "CR-009"}
+  provisioning.source.manage:       {min_risk_class: R3, min_evidence_class: E3, category: "SCIM connector (can suspend every provisioned account)", name_source: proposed, owner: provisioning, note: "CR-009"}
+  verification.profile.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification profile release (VERIFY §21 protected admin)", name_source: proposed, owner: verification, note: "CR-009"}
+  verification.adapter.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification provider trust (VERIFY §9-10)", name_source: proposed, owner: verification, note: "CR-009"}
+  authentication.recovery.approve:  {min_risk_class: R3, min_evidence_class: E3, category: "RC-3 second-administrator recovery approval (AUTH §14.1)", name_source: proposed, owner: authentication, note: "CR-009"}
+  authentication.recovery.policy.manage: {min_risk_class: R3, min_evidence_class: E3, category: "RC-4 lockbox recovery policy (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}
+  credential.trust.manage:          {min_risk_class: R3, min_evidence_class: E3, category: "issuer trust and credential configuration (VC §4, §15)", name_source: proposed, owner: credential, note: "CR-009"}
+  credential.status.change:         {min_risk_class: R3, min_evidence_class: E3, category: "suspend/revoke an issued credential (VC §13)", name_source: proposed, owner: credential, note: "CR-009"}
   tenant.owner.change:              {min_risk_class: R3, min_evidence_class: E3, category: "protected administrative action (OVERLAY §4)", name_source: proposed, owner: tenant}
   # ---- R2 High: "sensitive data, external write, privileged workflow, reusable verification" ----
   invoice.approve:                  {min_risk_class: R2, min_evidence_class: E2, category: "privileged workflow (ARCH §10.3 example)", name_source: spec, owner: customer-application (PEP), note: "tenants handling high-value invoices should raise to R3"}
   data.sensitive.read:              {min_risk_class: R2, min_evidence_class: E2, category: "sensitive data", name_source: proposed, owner: customer-application (PEP)}
   external.write:                   {min_risk_class: R2, min_evidence_class: E2, category: "external write", name_source: proposed, owner: customer-application (PEP)}
+  verification.review.decide:       {min_risk_class: R2, min_evidence_class: E2, category: "manual verification review (VERIFY §16)", name_source: proposed, owner: verification, note: "CR-009"}
+  verification.assertion.revoke:    {min_risk_class: R2, min_evidence_class: E2, category: "invalidate a verification assertion (VERIFY §18)", name_source: proposed, owner: verification, note: "CR-009"}
+  authentication.recovery.assist:   {min_risk_class: R2, min_evidence_class: E2, category: "governed recovery case opened by support (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}
+  authentication.recovery.deny:     {min_risk_class: R2, min_evidence_class: E2, category: "deny a recovery case (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}
+  session.bulk_revoke:              {min_risk_class: R2, min_evidence_class: E2, category: "bulk session revoke (AUTH §24)", name_source: proposed, owner: session, note: "CR-009"}
   verification.rely:                {min_risk_class: R2, min_evidence_class: E2, category: "reusable verification", name_source: proposed, owner: verification}
   tool.execute:                     {min_risk_class: R2, min_evidence_class: E2, category: "agent tool call (raise per tool policy)", name_source: spec, owner: machine}
   # ---- R1 Standard: "normal workforce access, ordinary business writes" ----

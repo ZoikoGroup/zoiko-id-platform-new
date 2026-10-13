@@ -39,6 +39,11 @@ class Outcome(StrEnum):
     STATE_UNAVAILABLE = "STATE_UNAVAILABLE"
 
 
+# ZID-SIGNALS-001 §2: states a fresh strong authentication can satisfy; any other known
+# non-NORMAL state denies R2/R3 outright, and UNKNOWN fails closed as unavailable.
+STEP_UP_SECURITY_STATES = frozenset({"ELEVATED_RISK", "STEP_UP_REQUIRED", "REAUTH_REQUIRED"})
+
+
 class FactState(StrEnum):
     OK = "OK"
     UNAVAILABLE = "UNAVAILABLE"  # the PIP failed or timed out: typed, never treated as absence
@@ -60,7 +65,7 @@ class PrincipalFact:
     principal_id: str
     principal_type: str  # HUMAN, AI_AGENT, SERVICE, WORKLOAD, ...
     active: bool
-    security_state: str  # NORMAL | COMPROMISED | UNKNOWN
+    security_state: str  # NORMAL | COMPROMISED | UNKNOWN | a SIGNALS §2 state name
     security_revision: int
     state: FactState = FactState.OK
 
@@ -185,8 +190,12 @@ def decide(
         deny.append("PRINCIPAL_INACTIVE")
     elif principal.security_state == "COMPROMISED":
         deny.append("SECURITY_STATE_COMPROMISED")
+    elif principal.security_state == "UNKNOWN" and high:
+        unavailable.append("STATE_UNAVAILABLE")  # cannot be established: fail closed (INV-14)
+    elif principal.security_state in STEP_UP_SECURITY_STATES and high:
+        step_up.append("SECURITY_STEP_UP_REQUIRED")  # SIGNALS §2: fresh strong auth clears it
     elif principal.security_state != "NORMAL" and high:
-        unavailable.append("STATE_UNAVAILABLE")
+        deny.append("SECURITY_STATE_RESTRICTED")  # SUSPENDED, RESTRICTED, REPROOF_REQUIRED, ...
     if authn.state is FactState.UNAVAILABLE:
         unavailable.append("STATE_UNAVAILABLE")
     else:

@@ -41,7 +41,6 @@
 
 # Frontend
 /frontend/                                   @zoiko/frontend
-/frontend/apps/operator-console/             @zoiko/sre @zoiko/security
 /frontend/packages/auth-bff/                 @zoiko/frontend @zoiko/security
 
 # Shared

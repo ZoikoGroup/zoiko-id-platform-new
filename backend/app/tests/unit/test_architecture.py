@@ -113,7 +113,9 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
 
 
 EVENT_NAME = (
-    r"(authority|authority_root|mandate|agent|organization|relationship|principal)(\.[a-z_]+)+"
+    r"(authority|authority_root|mandate|agent|organization|relationship|principal|session"
+    r"|refresh_token|authentication|authenticator|federation|recovery|verification|presentation"
+    r"|credential|security|provisioning)(\.[a-z_]+)+"
 )
 EVENT_FILES = ("event-catalogue.yaml", "proposed-events.yaml")  # generated + proposed (with CRs)
 
@@ -139,4 +141,10 @@ def test_emitted_events_are_declared_in_the_catalogue() -> None:
                 emitted.add(node.value)
     # root events are built from the status: every status the lifecycle can emit must be declared
     emitted |= {f"authority_root.{s}" for s in ("revoked", "suspended", "stale")}
+    # Strings from other registries that share the dotted shape: catalogued action names and
+    # canonical security-signal types (ZID-SIGNALS-001 §3) are not outbox event types.
+    from zid_platform.modules.signals.domain.rules import RULES
+    from zid_platform.protected import catalog
+
+    emitted -= set(catalog()) | set(RULES)
     assert emitted and not emitted - catalogue, emitted - catalogue

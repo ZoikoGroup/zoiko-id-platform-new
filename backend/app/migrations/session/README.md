@@ -9,3 +9,9 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `authn.refresh_token_family`
 - `authn.refresh_token`
 - `authn.dpop_proof_jti`
+- `authn.authorization_code`
+- `authn.client_directory`
+- `authn.dpop_nonce`
+- `authn.par_request`
+- `authn.oauth_consent`
+- `authn.consent_request`

@@ -124,6 +124,38 @@ async def set_status(
     return new
 
 
+async def bump_security_revision(conn: AsyncConnection, principal_id: str, *, reason: str) -> int:
+    """Security-significant change (authenticator revoked, link changed, recovery...): every session
+    observing the old revision now needs re-authentication (ZID-DATA-001 §3.1; AUTH §16)."""
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE core.principal SET security_revision = security_revision + 1, "
+                "row_version = row_version + 1 WHERE principal_id = :id "
+                "RETURNING tenant_id, status, security_revision"
+            ),
+            {"id": uuid.UUID(principal_id)},
+        )
+    ).first()
+    if row is None:
+        raise DomainError("PRINCIPAL_NOT_FOUND")
+    await emit(
+        conn,
+        name="principal.security_revision.changed",
+        tenant_id=str(row.tenant_id),
+        aggregate_type="principal",
+        aggregate_id=principal_id,
+        aggregate_version=row.security_revision,
+        data={
+            "principal_id": principal_id,
+            "status": row.status,
+            "security_revision": row.security_revision,
+            "reason": reason,
+        },
+    )
+    return int(row.security_revision)
+
+
 async def add_identifier(conn: AsyncConnection, i: Identifier) -> None:
     try:
         async with conn.begin_nested():

@@ -6,3 +6,7 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `cred.credential_record`
 - `cred.presentation_record`
+- `cred.credential_configuration`
+- `cred.issuer_trust`
+- `cred.rp_registration`
+- `cred.status_list`

@@ -61,6 +61,8 @@ class AccessClaims:
     amr: tuple[str, ...] = ()
     auth_time: datetime | None = None
     cnf_jkt: str | None = None  # DPoP key binding
+    cnf_x5t: str | None = None  # mTLS certificate binding (RFC 8705 x5t#S256)
+    actor: str | None = None  # RFC 8693 `act.sub`: who acts for the subject (token exchange)
 
 
 def _time(claims: dict[str, Any], name: str, *, required: bool = True) -> datetime | None:
@@ -107,11 +109,16 @@ def validate_access_claims(
     if now >= exp + LEEWAY:
         raise TokenError("TOKEN_EXPIRED")
     cnf = claims.get("cnf")
-    jkt = None
-    if cnf is not None:
-        if not isinstance(cnf, dict) or not isinstance(cnf.get("jkt"), str) or set(cnf) != {"jkt"}:
-            raise TokenError("TOKEN_CLAIM_INVALID", "cnf")  # only DPoP binding is issued here
-        jkt = cnf["jkt"]
+    jkt = x5t = None
+    if cnf is not None:  # exactly one binding: a DPoP key or an mTLS certificate
+        if not isinstance(cnf, dict) or len(cnf) != 1:
+            raise TokenError("TOKEN_CLAIM_INVALID", "cnf")
+        jkt, x5t = cnf.get("jkt"), cnf.get("x5t#S256")
+        if not isinstance(jkt or x5t, str):
+            raise TokenError("TOKEN_CLAIM_INVALID", "cnf")
+    act = claims.get("act")
+    if act is not None and (not isinstance(act, dict) or not isinstance(act.get("sub"), str)):
+        raise TokenError("TOKEN_CLAIM_INVALID", "act")
     scope = claims.get("scope", "")
     amr = claims.get("amr", [])
     if (
@@ -134,6 +141,8 @@ def validate_access_claims(
         amr=tuple(amr),
         auth_time=_time(claims, "auth_time", required=False),
         cnf_jkt=jkt,
+        cnf_x5t=x5t,
+        actor=act["sub"] if act else None,
     )
 
 
@@ -160,6 +169,7 @@ def access_token_hash(token: str) -> str:
 class DPoPProof:
     jti: str
     issued_at: datetime
+    nonce: str | None = None  # server-issued nonce echoed by the client (RFC 9449 §8)
 
 
 def validate_dpop_claims(
@@ -168,11 +178,13 @@ def validate_dpop_claims(
     *,
     method: str,
     url: str,
-    access_token: str,
+    access_token: str | None,
     now: datetime,
     nonce: str | None = None,
 ) -> DPoPProof:
-    """Checks on a DPoP proof whose signature already verified against its own embedded `jwk`."""
+    """Checks on a DPoP proof whose signature already verified against its own embedded `jwk`.
+
+    `access_token` is None at the token endpoint, where no token is presented and so no `ath`."""
     if header.get("typ") != DPOP_TYP or not isinstance(header.get("jwk"), dict):
         raise TokenError("DPOP_PROOF_INVALID", "typ/jwk")
     if payload.get("htm") != method.upper():
@@ -189,8 +201,9 @@ def validate_dpop_claims(
     issued = datetime.fromtimestamp(iat, UTC)
     if issued > now + LEEWAY or now - issued > DPOP_MAX_AGE:
         raise TokenError("DPOP_PROOF_STALE")
-    if payload.get("ath") != access_token_hash(access_token):
+    if access_token is not None and payload.get("ath") != access_token_hash(access_token):
         raise TokenError("DPOP_PROOF_INVALID", "ath")
     if nonce is not None and payload.get("nonce") != nonce:
         raise TokenError("DPOP_NONCE_REQUIRED")
-    return DPoPProof(jti, issued)
+    echoed = payload.get("nonce")
+    return DPoPProof(jti, issued, echoed if isinstance(echoed, str) else None)

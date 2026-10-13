@@ -21,9 +21,13 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from joserfc import jws
 from joserfc.errors import JoseError
-from joserfc.jwk import ECKey, OKPKey
+from joserfc.jwk import ECKey, OKPKey, RSAKey
 
 ALLOWED_JWS_ALGS: tuple[str, ...] = ("ES256", "Ed25519")  # fully-specified algs (RFC 9864)
+# Verification only, for tokens *other* parties sign (enterprise IdP ID tokens, SSF transmitters,
+# trust-list signers). Zoiko never signs with these; each integration narrows the list further.
+EXTERNAL_VERIFY_ALGS: tuple[str, ...] = ("ES256", "Ed25519", "RS256", "PS256")
+MIN_RSA_BITS = 2048
 
 
 class CryptoError(ValueError):
@@ -71,6 +75,22 @@ class LocalSigner:
             else ed25519.Ed25519PrivateKey.generate()
         )
 
+    @classmethod
+    def from_pem(cls, kid: str, pem: str) -> LocalSigner:
+        """A development key shared by several local processes (API, consumer) - never production."""
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+        key = load_pem_private_key(pem.encode(), password=None)
+        if isinstance(key, ec.EllipticCurvePrivateKey) and isinstance(key.curve, ec.SECP256R1):
+            alg = "ES256"
+        elif isinstance(key, ed25519.Ed25519PrivateKey):
+            alg = "Ed25519"
+        else:
+            raise CryptoError("ALG_NOT_ALLOWED", "only P-256 or Ed25519 private keys")
+        signer = cls.__new__(cls)
+        signer._kid, signer._alg, signer._key = kid, alg, key
+        return signer
+
     @property
     def kid(self) -> str:
         return self._kid
@@ -86,6 +106,32 @@ class LocalSigner:
             r, s = decode_dss_signature(self._key.sign(signing_input, ec.ECDSA(hashes.SHA256())))
             return r.to_bytes(32, "big") + s.to_bytes(32, "big")  # JWS uses raw R||S, not DER
         return self._key.sign(signing_input)
+
+    def development_certificate(self, common_name: str, days: int = 90) -> bytes:
+        """Self-signed DER certificate for this key - local/test stand-in for a CA-issued one."""
+        from datetime import UTC, datetime, timedelta
+
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.serialization import Encoding
+        from cryptography.x509.oid import NameOID
+
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+        now = datetime.now(UTC)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(self._key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=5))
+            .not_valid_after(now + timedelta(days=days))
+            .sign(
+                self._key,
+                hashes.SHA256() if isinstance(self._key, ec.EllipticCurvePrivateKey) else None,
+            )
+        )
+        return cert.public_bytes(Encoding.DER)
 
     def public_jwk(self) -> dict[str, Any]:
         pub = self._key.public_key()
@@ -185,6 +231,57 @@ def verify_jws(
     return header, payload
 
 
+def _import_external(jwk: Mapping[str, Any]) -> ECKey | OKPKey | RSAKey:
+    if jwk.get("kty") == "RSA":
+        if any(k in jwk for k in ("d", "p", "q", "dp", "dq", "qi")):
+            raise CryptoError("JWK_PRIVATE_MATERIAL", "a public key must not carry private members")
+        n = jwk.get("n")
+        if not isinstance(n, str) or len(b64url_decode(n)) * 8 < MIN_RSA_BITS:
+            raise CryptoError("JWK_UNSUPPORTED", f"RSA keys must be at least {MIN_RSA_BITS} bits")
+        return RSAKey.import_key(dict(jwk))
+    return _import(jwk)
+
+
+def verify_external_jws(
+    token: str,
+    *,
+    keys: Sequence[Mapping[str, Any]],
+    algorithms: Sequence[str],
+    typ: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Verify a JWS signed by an external party with keys pinned for that integration.
+
+    `algorithms` is the integration's own allowlist (always a subset of EXTERNAL_VERIFY_ALGS);
+    `typ`, when given, must match exactly (SETs, for example, are always explicitly typed)."""
+    if token.count(".") != 2:
+        raise CryptoError("JWS_MALFORMED")
+    header = peek_header(token)
+    alg = header.get("alg")
+    if alg not in algorithms or alg not in EXTERNAL_VERIFY_ALGS:
+        raise CryptoError("ALG_NOT_ALLOWED", str(alg))
+    if typ is not None and header.get("typ") != typ:
+        raise CryptoError("JWS_TYP_INVALID", f"expected {typ}")
+    if "jku" in header or "x5u" in header or "jwk" in header:
+        raise CryptoError("JWS_HEADER_REJECTED", "remote or embedded keys are never trusted")
+    kid = header.get("kid")
+    candidates = [k for k in keys if k.get("kid") == kid] if kid is not None else list(keys)
+    candidates = [k for k in candidates if k.get("use") in (None, "sig")]
+    if len(candidates) != 1:
+        raise CryptoError("KEY_UNKNOWN", str(kid))
+    jwk = candidates[0]
+    if jwk.get("alg") not in (None, alg):
+        raise CryptoError("ALG_KEY_MISMATCH")
+    key = _import_external(jwk)
+    try:
+        obj = jws.deserialize_compact(token, key, algorithms=[alg])
+        payload = json.loads(obj.payload)
+    except (JoseError, ValueError) as e:
+        raise CryptoError("SIGNATURE_INVALID") from e
+    if not isinstance(payload, dict):
+        raise CryptoError("JWS_MALFORMED", "payload must be a JSON object")
+    return header, payload
+
+
 @dataclass
 class KeyRing:
     """Active signer plus public keys still accepted for verification (rotation window)."""
@@ -208,6 +305,7 @@ class KeyRing:
 
 __all__ = [
     "ALLOWED_JWS_ALGS",
+    "EXTERNAL_VERIFY_ALGS",
     "CryptoError",
     "KeyRing",
     "LocalSigner",
@@ -217,5 +315,6 @@ __all__ = [
     "jwk_thumbprint",
     "peek_header",
     "sign_jws",
+    "verify_external_jws",
     "verify_jws",
 ]

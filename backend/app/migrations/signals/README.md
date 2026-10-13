@@ -6,3 +6,6 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `signals.security_signal`
 - `signals.security_state`
+- `signals.ssf_stream`
+- `signals.ssf_subject_map`
+- `signals.ssf_outbound_set`

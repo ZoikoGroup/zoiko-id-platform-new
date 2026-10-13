@@ -85,7 +85,10 @@ def check(
     principal_active: bool,
     now: datetime,
     policy: SessionPolicy,
+    idle: bool = True,
 ) -> SessionCheck:
+    """`idle=False` for refresh-token redemption: a refresh is the client's own activity, and the
+    family is bounded by the session's absolute expiry, revocation and security revision instead."""
     if s.status is SessionStatus.REVOKED:
         return SessionCheck(False, "SESSION_REVOKED")
     if s.status is SessionStatus.EXPIRED:
@@ -101,6 +104,6 @@ def check(
         # Fail closed in both directions: a lower revision means our view is behind the session's.
         nxt = None if s.status is SessionStatus.REAUTH_REQUIRED else SessionStatus.REAUTH_REQUIRED
         return SessionCheck(False, "SESSION_REAUTH_REQUIRED", nxt)
-    if now - (s.last_seen_at or s.auth_time) > policy.idle_timeout:
+    if idle and now - (s.last_seen_at or s.auth_time) > policy.idle_timeout:
         return SessionCheck(False, "SESSION_IDLE_TIMEOUT", SessionStatus.EXPIRED)
     return SessionCheck(True)

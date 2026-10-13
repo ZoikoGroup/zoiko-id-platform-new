@@ -4,21 +4,34 @@ relationship projector into SpiceDB). Same image as the API, separate process (D
     ZID_DATABASE_URL       runtime role (RLS on: each event is handled inside its own tenant)
     ZID_KAFKA_BOOTSTRAP    MSK / Redpanda
     ZID_SPICEDB_URL, ZID_SPICEDB_KEY   relationship projection target (DEC-C4)
+
+The Shared Signals transmitter (ZID-SIGNALS-001 §21) runs here too when the process is given the
+issuer's signing keys (KMS-backed `Signer`, Phase F); without them it stays off rather than
+minting SETs under a key receivers cannot verify.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+from collections.abc import Mapping
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from zid_context import RequestContext, new_id
+from zid_crypto import KeyRing
 from zid_db import tenant_transaction
 from zid_outbox import CloudEvent, consume
 from zid_outbox.kafka import run_consumer
 from zid_telemetry import configure_logging
 
+from zid_platform.keys import KeyRings
 from zid_platform.modules.relationship.infrastructure.spicedb import SpiceDB, project
+from zid_platform.modules.signals.application.ssf import (
+    TRANSMITTER_CONSUMER,
+    TRANSMITTER_TOPICS,
+    transmitter_handler,
+)
 
 PROJECTOR = "relationship.projector.v1"
 EDGE_CHANGED = "com.zoiko.id.relationship.edge.changed.v1"
@@ -51,16 +64,32 @@ async def run(
     region: str,
     cell_id: str,
     stop_after: int | None = None,
+    transmitter: tuple[KeyRing, str] | None = None,
 ) -> int:
+    """`transmitter`: (issuer keyring, issuer) to also run the SSF transmitter consumer."""
     engine = create_async_engine(database_url, pool_size=4, max_overflow=0)
     try:
-        return await run_consumer(
-            bootstrap,
-            [f"zid.{env}.{region}.relationship.domain"],
-            PROJECTOR,
-            projector_handler(engine, spicedb, cell_id),
-            stop_after=stop_after,
-        )
+        consumers = [
+            run_consumer(
+                bootstrap,
+                [f"zid.{env}.{region}.relationship.domain"],
+                PROJECTOR,
+                projector_handler(engine, spicedb, cell_id),
+                stop_after=stop_after,
+            )
+        ]
+        if transmitter is not None:
+            keyring, issuer = transmitter
+            consumers.append(
+                run_consumer(
+                    bootstrap,
+                    [f"zid.{env}.{region}.{d}.{lane}" for d, lane in TRANSMITTER_TOPICS],
+                    TRANSMITTER_CONSUMER,
+                    transmitter_handler(engine, keyring, issuer, cell_id),
+                    stop_after=stop_after,
+                )
+            )
+        return sum(await asyncio.gather(*consumers))
     finally:
         await engine.dispose()
 
@@ -76,8 +105,22 @@ def main() -> None:
             env=os.environ.get("ZID_ENVIRONMENT", "local"),
             region=os.environ.get("ZID_REGION", cell),
             cell_id=cell,
+            transmitter=transmitter_keys(os.environ, cell),
         )
     )
+
+
+def transmitter_keys(environ: Mapping[str, str], cell: str) -> tuple[KeyRing, str] | None:
+    """The SET signing ring, when this process may have one: local/test development keys shared
+    with the API through ZID_DEV_SIGNING_KEYS. Deployed cells get the KMS signer (Phase F); until
+    then the transmitter stays off rather than signing with a key receivers cannot fetch."""
+    issuer = environ.get("ZID_TOKEN_ISSUER")
+    pems = json.loads(environ.get("ZID_DEV_SIGNING_KEYS") or "{}")
+    if not issuer or environ.get("ZID_ENVIRONMENT", "local") not in ("local", "test"):
+        return None
+    if "set" not in pems:
+        return None  # a fresh random key here would not match what the API publishes
+    return KeyRings.development(cell, pems).set, issuer
 
 
 if __name__ == "__main__":
