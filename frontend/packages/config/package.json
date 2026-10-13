@@ -1,0 +1,13 @@
+{
+  "name": "@zoiko/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.next.json": "./tsconfig.next.json",
+    "./tsconfig.library.json": "./tsconfig.library.json",
+    "./eslint": "./eslint.config.mjs",
+    "./postcss": "./postcss.config.mjs",
+    "./next": "./next.config.mjs"
+  }
+}

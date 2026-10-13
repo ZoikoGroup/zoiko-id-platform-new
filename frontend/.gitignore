@@ -1,9 +1,8 @@
-# Frontend (pnpm + Turborepo + Next.js) — repo-wide rules are in /.gitignore.
-# Committed on purpose: pnpm-lock.yaml, package.json files, next.config.*, tsconfig*.json.
+# Frontend (npm workspaces + Turborepo + Next.js) — repo-wide rules are in /.gitignore.
+# Committed on purpose: package-lock.json, package.json files, next.config.*, tsconfig*.json.
 
 # Dependencies
 node_modules/
-.pnpm-store/
 .pnp
 .pnp.*
 

@@ -1,0 +1,17 @@
+/* Single stylesheet entry for every app: Tailwind v4, Zoiko tokens, and the UI package sources
+   (apps' own files are picked up by Tailwind's automatic source detection). */
+@import "tailwindcss";
+@import "./tokens/tokens.css";
+
+@source "./";
+
+/* react-aria-components expose state as data attributes; these variants read them. focus-visible
+   also matches react-aria's [data-focus-visible], which lands on the label of a visually hidden
+   input (checkbox, radio, switch) where the native pseudo-class never matches. */
+@custom-variant focus-visible (&:is(:focus-visible, [data-focus-visible]));
+@custom-variant selected (&[data-selected]);
+@custom-variant pressed (&[data-pressed]);
+@custom-variant indeterminate (&[data-indeterminate]);
+@custom-variant entering (&[data-entering]);
+@custom-variant exiting (&[data-exiting]);
+@custom-variant current (&[aria-current="page"]);

@@ -1,11 +1,31 @@
 {
-  "name": "zoiko-id",
+  "name": "zoiko-id-frontend",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20.9.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:tenant": "npm run dev -w @zoiko/tenant-console",
+    "dev:developer": "npm run dev -w @zoiko/developer-console",
+    "dev:trust": "npm run dev -w @zoiko/trust-center",
+    "dev:login": "npm run dev -w @zoiko/hosted-login",
+    "dev:operator": "npm run dev -w @zoiko/operator-console",
+    "build": "turbo run build",
+    "start": "turbo run start",
     "lint": "turbo run lint",
-    "test": "turbo run test"
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "codegen": "npm run codegen -w @zoiko/api-client"
+  },
+  "devDependencies": {
+    "turbo": "2.10.3",
+    "typescript": "5.9.3"
   }
 }

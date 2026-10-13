@@ -1,6 +1,6 @@
 # Zoiko iD — repository-wide ignore rules.
 # Language-specific rules live next to the code: backend/.gitignore (Python), frontend/.gitignore (Node/Next.js).
-# Rule: lockfiles (uv.lock, pnpm-lock.yaml, .terraform.lock.hcl) and .python-version are ALWAYS committed.
+# Rule: lockfiles (uv.lock, package-lock.json, .terraform.lock.hcl) and .python-version are ALWAYS committed.
 
 # ---------- Secrets & credentials — never commit (DEC-F5) ----------
 .env
