@@ -15,6 +15,8 @@
 *-sa-key.json
 *service-account*.json
 credentials.json
+# The published OpenAPI contract for the credential module is not a secret.
+!/contracts/openapi/public/credentials.json
 /.secrets/
 /secrets/
 
