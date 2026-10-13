@@ -12,11 +12,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "dev:tenant": "npm run dev -w @zoiko/tenant-console",
-    "dev:developer": "npm run dev -w @zoiko/developer-console",
-    "dev:trust": "npm run dev -w @zoiko/trust-center",
-    "dev:login": "npm run dev -w @zoiko/hosted-login",
-    "dev:operator": "npm run dev -w @zoiko/operator-console",
+    "dev:web": "npm run dev -w @zoiko/web",
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",

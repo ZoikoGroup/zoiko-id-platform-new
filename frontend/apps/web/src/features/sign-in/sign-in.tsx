@@ -2,7 +2,7 @@
 
 import { Banner, Button, ButtonLink, Card } from "@zoiko/ui";
 import { Building2, Fingerprint, LifeBuoy } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { useRuntime } from "@/lib/runtime";
 import { browserSupportsWebAuthn, completeAppSession, getPasskey, passkeyErrorMessage } from "@/lib/webauthn";
@@ -16,6 +16,8 @@ const ERRORS: Record<string, string> = {
   invalid_id_token: "Sign-in could not be verified. Please try again.",
   temporarily_unavailable: "Sign-in is temporarily unavailable.",
 };
+
+const noSubscribe = () => () => {};
 
 function safePath(v: string | undefined) {
   return v && v.startsWith("/") && !v.startsWith("//") && !v.includes("\\") ? v : "/account";
@@ -35,10 +37,9 @@ export function SignIn({
   const { flow } = useRuntime();
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(error ? (ERRORS[error] ?? "Sign-in failed. Please try again.") : null);
-  const [supported, setSupported] = useState(true);
+  // Assume support on the server so hydration matches; the client snapshot is the real check.
+  const supported = useSyncExternalStore(noSubscribe, browserSupportsWebAuthn, () => true);
   const target = safePath(returnTo);
-
-  useEffect(() => setSupported(browserSupportsWebAuthn()), []);
 
   async function signInWithPasskey() {
     setPending(true);

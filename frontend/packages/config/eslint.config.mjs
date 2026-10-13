@@ -1,5 +1,9 @@
 // Shared ESLint flat config. Boundary rules from DEC-H1 / ZID-UX-001 §29, §36: the frontend never
 // talks to databases or brokers, never persists secrets in web storage, and never renders raw HTML.
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+import tseslint from "typescript-eslint";
+
 export const boundaryRules = {
   "no-restricted-imports": [
     "error",
@@ -24,4 +28,17 @@ export const boundaryRules = {
   "react/no-danger": "error",
 };
 
-export default [{ rules: boundaryRules }];
+export default tseslint.config(
+  { ignores: ["**/.next/**", "**/dist/**", "**/generated/**", "**/next-env.d.ts"] },
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,tsx,js,jsx,mjs}"],
+    plugins: { react, "react-hooks": reactHooks },
+    languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
+    settings: { react: { version: "detect" } },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      ...boundaryRules,
+    },
+  },
+);

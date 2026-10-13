@@ -66,16 +66,16 @@ function makeQueryClient(onLoginRequired: () => void) {
 
 export function RuntimeProvider({ clientId, children }: { clientId: string; children: ReactNode }) {
   const router = useRouter();
-  const redirecting = useRef(false);
-  const [queryClient] = useState(() =>
-    makeQueryClient(() => {
-      if (redirecting.current || typeof window === "undefined") return;
+  const [queryClient] = useState(() => {
+    let redirecting = false;
+    return makeQueryClient(() => {
+      if (redirecting || typeof window === "undefined") return;
       if (window.location.pathname.startsWith("/sign-in")) return;
-      redirecting.current = true;
+      redirecting = true;
       const returnTo = window.location.pathname + window.location.search;
       window.location.assign(`/sign-in?returnTo=${encodeURIComponent(returnTo)}&reason=expired`);
-    }),
-  );
+    });
+  });
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider navigate={(href) => router.push(href)}>
