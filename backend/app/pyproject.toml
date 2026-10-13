@@ -17,6 +17,10 @@ dependencies = [
   "cedarpy>=4.1",
   "httpx>=0.28",
   "zid-crypto",
+  "webauthn>=3.0",
+  "signxml>=4.0",
+  "defusedxml>=0.7",
+  "scim2-models>=0.3",
 ]
 
 [build-system]

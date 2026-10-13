@@ -186,6 +186,16 @@ def test_relay_publishes_once_priority_first_and_quarantines_after_retries(
                 aggregate_version=1,
                 data={},
             )
+        # Other tests share this database: park their unpublished events so the batch of 50 reaches
+        # this tenant's rows (otherwise their backlog fills the batch first).
+        async with engine(owner_url) as eng, eng.begin() as c:
+            await c.execute(
+                text(
+                    "UPDATE events.outbox_event SET published_at = now() "
+                    "WHERE published_at IS NULL AND tenant_id <> :t"
+                ),
+                {"t": uuid.UUID(tenant)},
+            )
         rec = Recorder()
 
         async def relay() -> int:

@@ -5,6 +5,19 @@ from zid_platform.modules.principal.domain.principal import (
     PrincipalStatus,
     PrincipalType,
 )
-from zid_platform.modules.principal.infrastructure.principal_store import load_principal
+from zid_platform.modules.principal.infrastructure.principal_store import (
+    bump_security_revision,
+    create_principal,
+    load_principal,
+    set_status,
+)
 
-__all__ = ["Principal", "PrincipalStatus", "PrincipalType", "load_principal"]
+__all__ = [
+    "Principal",
+    "PrincipalStatus",
+    "PrincipalType",
+    "bump_security_revision",
+    "create_principal",
+    "load_principal",
+    "set_status",
+]

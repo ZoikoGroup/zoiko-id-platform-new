@@ -89,6 +89,31 @@ tables:
     module: authentication
     tenant_scoped: true
     source: "ZID-DATA-001 §5.2"
+  authn.webauthn_challenge:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §3.1-3.3, §6.4 (single-use WebAuthn challenge, <= 5 min)"
+  authn.enrollment_ticket:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "proposed (ZID-AUTH-001 §3.1 account bootstrap context, §14 recovery-only enrollment)"
+  authn.recovery_code:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §4 (one-time hashed recovery codes); CR-009"
+  authn.recovery_case:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §14 (recovery classes, gates, outcome); CR-009"
+  authn.recovery_policy:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §14 (RC-4 lockbox: designated approvers, k, cooling-off); CR-009"
   authn.session:
     role: cell
     module: session
@@ -114,6 +139,36 @@ tables:
     module: session
     tenant_scoped: true
     source: "ZID-AUTH-001 §7.1 (unique DPoP jti, replay protection)"
+  authn.authorization_code:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.4 (authorization code: <= 60 s, single use)"
+  authn.client_directory:
+    role: cell
+    module: session
+    tenant_scoped: false
+    source: "proposed (tenant derived from client registration, ARCH edge rule; client_id -> tenant only)"
+  authn.dpop_nonce:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §7.1 (DPoP nonce challenges, RFC 9449 §8)"
+  authn.par_request:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.2, §6.4 (PAR request_uri: short TTL, one transaction; RFC 9126)"
+  authn.oauth_consent:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.2 (third-party client consent); CR-009"
+  authn.consent_request:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.2 (pending consent bound to session and request); CR-009"
   authz.policy_decision:
     role: cell
     module: decision
@@ -224,6 +279,36 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DATA-001 §6.2"
+  verify.provider_adapter:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §9-10 (provider adapter contract, failover, quarantine); CR-009"
+  verify.verification_session:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  verify.provider_callback:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §22 (callback dedupe); CR-009"
+  verify.review_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §16 (manual review case); CR-009"
+  verify.review_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §16 (reason-coded, dual-control review decisions); CR-009"
+  verify.reliance_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-VERIFY-001 §17 (reliance decision); CR-009"
   cred.credential_record:
     role: cell
     module: credential
@@ -234,6 +319,26 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-DATA-001 §6.3"
+  cred.credential_configuration:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-VC-001 §5 (credential configuration registry); CR-009"
+  cred.issuer_trust:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-VC-001 §4, §15 (typed issuer trust registry); CR-009"
+  cred.rp_registration:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-VC-001 §18 (relying-party purposes and attributes); CR-009"
+  cred.status_list:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-VC-001 §13 (Token Status List for issued credentials); CR-009"
   signals.security_signal:
     role: cell
     module: signals
@@ -244,6 +349,21 @@ tables:
     module: signals
     tenant_scoped: true
     source: "ZID-DATA-001 §10.1"
+  signals.ssf_stream:
+    role: cell
+    module: signals
+    tenant_scoped: true
+    source: "ZID-SIGNALS-001 §5-6 (stream and transmitter registry); CR-009"
+  signals.ssf_subject_map:
+    role: cell
+    module: signals
+    tenant_scoped: true
+    source: "ZID-SIGNALS-001 §9 (stream-scoped opaque subjects); CR-009"
+  signals.ssf_outbound_set:
+    role: cell
+    module: signals
+    tenant_scoped: true
+    source: "ZID-SIGNALS-001 §7, §21 (poll delivery, RFC 8936); CR-009"
   evidence.decision_receipt:
     role: cell
     module: evidence
@@ -289,11 +409,36 @@ tables:
     module: federation
     tenant_scoped: true
     source: "proposed (SVC FED ownership)"
+  authn.federation_login:
+    role: cell
+    module: federation
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §9, §10 (single-use federated login transaction: state, nonce, PKCE / SAML request id); CR-009"
+  authn.saml_assertion_replay:
+    role: cell
+    module: federation
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §10 (assertion ID replay cache through validity); CR-009"
+  authn.federation_trust_anchor:
+    role: cell
+    module: federation
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §12 (OpenID Federation trust anchors, pinned keys, trust domains); CR-009"
   platform.provisioning_source:
     role: cell
     module: provisioning
     tenant_scoped: true
     source: "proposed (OVERLAY §10)"
+  platform.scim_resource:
+    role: cell
+    module: provisioning
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §11 (SCIM User/Group as provisioned); CR-009"
+  platform.scim_group_member:
+    role: cell
+    module: provisioning
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §11 (group membership facts, never authority); CR-009"
   platform.integration_application:
     role: cell
     module: integration

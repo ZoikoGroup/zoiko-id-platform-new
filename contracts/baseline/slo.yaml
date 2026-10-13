@@ -35,6 +35,17 @@ decision_service_gate:
   pass: "p95 budgets met for both paths, p99 within the agreed bound, cost per million decisions within envelope"
   on_fail: "tune Python, then profile and fix the hot spot; only then extract decision and rewrite in Go (DEC-B3)"
 
+# FR-SIG-004: authoritative security-state commit -> PEP enforcement, p99 in seconds. The cache TTL
+# per risk class (signals domain STATE_CACHE_TTL) must fit inside these; test_propagation_load_pg.py
+# demonstrates them under concurrent load and test_load_gate.py keeps the two bound together.
+revocation_propagation_seconds:
+  requirement: FR-SIG-004
+  R3_in_cell: {p99_le: 2}
+  R3_cross_party: {p99_le: 5}  # where the receiver supports real-time signals
+  R2: {p99_le: 10}
+  R1: {p99_le: 60}
+  R0: {p99_le: 900}  # 15 minutes
+
 # Required operational SLIs (NFR-OBS-002; DEC-G5 §4). Names are the metric contract that
 # zid-telemetry implements in Phase G; labels must stay low-cardinality (no tenant or principal IDs).
 slis:

@@ -6,3 +6,8 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `authn.authenticator`
 - `authn.external_identity_link`
+- `authn.webauthn_challenge`
+- `authn.enrollment_ticket`
+- `authn.recovery_code`
+- `authn.recovery_case`
+- `authn.recovery_policy`

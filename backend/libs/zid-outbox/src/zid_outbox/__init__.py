@@ -56,7 +56,7 @@ def event_type(name: str, major: int = 1) -> str:
 
 def lane_for(name: str) -> str:
     """Security-state changes take the priority lane, never starved by bulk traffic (DEC-B1 §4)."""
-    if any(w in name for w in PRIORITY_WORDS):
+    if any(w in name for w in PRIORITY_WORDS) or name.startswith("security.state."):
         return "priority"
     if name.startswith(("evidence.", "audit.")) or "receipt" in name:
         return "evidence"

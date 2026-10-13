@@ -40,3 +40,16 @@ def test_k6_reports_percentiles_not_averages() -> None:
     assert stats, "summaryTrendStats missing"
     assert all(p in stats.group(1) for p in ('"p(50)"', '"p(95)"', '"p(99)"'))
     assert '"avg"' not in stats.group(1)
+
+
+def test_security_state_cache_fits_the_propagation_slo() -> None:
+    """FR-SIG-006 inside FR-SIG-004: no risk class may be served a cached state for longer than
+    its propagation budget (R2/R3 are never cached)."""
+    from zid_platform.modules.signals.domain.rules import STATE_CACHE_TTL
+
+    budget = SLO["revocation_propagation_seconds"]
+    assert budget["requirement"] == "FR-SIG-004"
+    limits = {0: "R0", 1: "R1", 2: "R2", 3: "R3_in_cell"}
+    for rc, name in limits.items():
+        assert STATE_CACHE_TTL[rc].total_seconds() < budget[name]["p99_le"], name
+    assert STATE_CACHE_TTL[2].total_seconds() == STATE_CACHE_TTL[3].total_seconds() == 0

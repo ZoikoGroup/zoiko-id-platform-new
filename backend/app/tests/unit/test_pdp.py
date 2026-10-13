@@ -110,6 +110,23 @@ def test_unavailable_state_fails_closed_for_r2_r3(facts: dict[str, object]) -> N
     assert d.outcome is Outcome.STATE_UNAVAILABLE and "STATE_UNAVAILABLE" in d.reason_codes
 
 
+@pytest.mark.parametrize(
+    ("state", "outcome", "code"),
+    [
+        ("ELEVATED_RISK", Outcome.STEP_UP, "SECURITY_STEP_UP_REQUIRED"),
+        ("STEP_UP_REQUIRED", Outcome.STEP_UP, "SECURITY_STEP_UP_REQUIRED"),
+        ("REAUTH_REQUIRED", Outcome.STEP_UP, "SECURITY_STEP_UP_REQUIRED"),
+        ("SUSPENDED", Outcome.DENY, "SECURITY_STATE_RESTRICTED"),
+        ("RESTRICTED", Outcome.DENY, "SECURITY_STATE_RESTRICTED"),
+        ("REPROOF_REQUIRED", Outcome.DENY, "SECURITY_STATE_RESTRICTED"),
+    ],
+)
+def test_known_security_states_tighten_r2_r3(state: str, outcome: Outcome, code: str) -> None:
+    """SIGNALS §2: a known restriction is a definite answer, not 'unavailable'."""
+    d = run(principal=replace(HUMAN, security_state=state))
+    assert d.outcome is outcome and code in d.reason_codes
+
+
 def test_unavailable_state_never_allows_r0_r1_either() -> None:
     low = ActionSpec("application.access", RiskClass.R1, EvidenceClass.E1)
     d = run(req(low), authority=replace(AUTHORITY, state=FactState.UNAVAILABLE))

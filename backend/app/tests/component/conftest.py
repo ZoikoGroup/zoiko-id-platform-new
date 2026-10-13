@@ -27,7 +27,18 @@ from zid_platform.migrations import split_sql, upgrade
 ADMIN_URL = os.environ.get("ZID_TEST_PG_URL")
 SCHEMAS_SQL = Path(__file__).resolve().parents[3] / "database" / "schemas" / "001_cell_schemas.sql"
 RT_ROLE, RT_PASSWORD = "zid_component_rt", "rt-test-only"
-RUNTIME_SCHEMAS = ("agent", "core", "org", "authz", "events", "platform", "authn")
+RUNTIME_SCHEMAS = (
+    "agent",
+    "core",
+    "org",
+    "authz",
+    "events",
+    "platform",
+    "authn",
+    "signals",
+    "verify",
+    "cred",
+)
 CELL = "00000000-0000-7000-8000-0000000000c1"
 
 

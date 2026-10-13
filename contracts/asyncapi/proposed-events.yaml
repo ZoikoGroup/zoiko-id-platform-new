@@ -10,3 +10,15 @@ events:
     source: ZID-AUTHZ-001 §7.1 (revision-consistent projection); CR-008
     lane: domain
     source_status: "proposed"
+  security.state.changed:
+    cloudevents_type: com.zoiko.id.security.state.changed.v1
+    meaning: "Canonical security state of a subject changed; carries previous/current state, revision, cause signal and risk floor (internal propagation envelope)."
+    source: ZID-SIGNALS-001 §27; CR-009
+    lane: priority
+    source_status: "proposed"
+  provisioning.resource.changed:
+    cloudevents_type: com.zoiko.id.provisioning.resource.changed.v1
+    meaning: "A SCIM User or Group was created, replaced, patched or deleted by a provisioning source (ids, operation and version only)."
+    source: ZID-AUTH-001 §11; CR-009
+    lane: domain
+    source_status: "proposed"
