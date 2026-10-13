@@ -109,6 +109,11 @@ tables:
     module: authentication
     tenant_scoped: true
     source: "ZID-AUTH-001 §14 (recovery classes, gates, outcome); CR-009"
+  authn.recovery_policy:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §14 (RC-4 lockbox: designated approvers, k, cooling-off); CR-009"
   authn.session:
     role: cell
     module: session
@@ -154,6 +159,16 @@ tables:
     module: session
     tenant_scoped: true
     source: "ZID-AUTH-001 §6.2, §6.4 (PAR request_uri: short TTL, one transaction; RFC 9126)"
+  authn.oauth_consent:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.2 (third-party client consent); CR-009"
+  authn.consent_request:
+    role: cell
+    module: session
+    tenant_scoped: true
+    source: "ZID-AUTH-001 §6.2 (pending consent bound to session and request); CR-009"
   authz.policy_decision:
     role: cell
     module: decision

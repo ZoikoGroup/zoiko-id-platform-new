@@ -7,6 +7,11 @@ Adapter MDOC_ADAPTER (iso18013-5:2021 + OID4VP 1.0 Appendix B handover):
   IssuerSignedItem must hash to its digest; nothing undisclosed is ever visible;
 - deviceAuth: COSE_Sign1 by the MSO's device key over DeviceAuthentication with the OID4VP
   session transcript (client_id, nonce, response_uri) - binds the response to this transaction.
+
+Status (Token Status List, CWT form): the MSO's status.status_list {idx, uri} points at a
+COSE_Sign1 status list token typed application/statuslist+cwt, signed by a certificate in its
+x5chain issued by the same pinned IACA roots; sub must equal the uri and exp must not have passed.
+Anything else is UNKNOWN, never VALID.
 """
 
 from __future__ import annotations
@@ -26,6 +31,9 @@ from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from zid_platform.modules.credential.domain.credentials import CredentialError, b64d
 
 ES256 = -7
+STATUS_LIST_CWT_TYP = "application/statuslist+cwt"
+CWT_SUB, CWT_EXP, CWT_IAT, CWT_STATUS_LIST = 2, 4, 6, 65533
+COSE_TYP = 16
 
 
 def session_transcript(
@@ -62,7 +70,7 @@ def _cose_key(key: Mapping[int, Any]) -> ec.EllipticCurvePublicKey:
 def _sign1(obj: Any) -> tuple[bytes, dict[Any, Any], bytes | None, bytes]:
     if isinstance(obj, cbor2.CBORTag) and obj.tag == 18:
         obj = obj.value
-    if not isinstance(obj, list) or len(obj) != 4:
+    if not isinstance(obj, list | tuple) or len(obj) != 4:  # cbor2 yields tuples inside tags
         raise CredentialError("MDOC_MALFORMED", "COSE_Sign1")
     protected, unprotected, payload, signature = obj
     if not isinstance(protected, bytes) or not isinstance(signature, bytes):
@@ -112,6 +120,49 @@ def _document_signer(
             raise CredentialError("MDOC_ISSUER_UNTRUSTED", "document signer key type")
         return key
     raise CredentialError("MDOC_ISSUER_UNTRUSTED", "not issued by a pinned IACA root")
+
+
+def status_reference(mso: Mapping[str, Any]) -> tuple[int, str] | None:
+    ref = (mso.get("status") or {}).get("status_list") or {}
+    idx, uri = ref.get("idx"), ref.get("uri")
+    if isinstance(idx, int) and not isinstance(idx, bool) and isinstance(uri, str):
+        return idx, uri
+    return None
+
+
+def verify_status_list_cwt(
+    data: bytes, *, uri: str, iaca_roots: Sequence[str], now: datetime
+) -> tuple[int, bytes]:
+    """(bits, deflated list) from a status list CWT signed under a pinned IACA root."""
+    try:
+        token = cbor2.loads(data)
+    except (ValueError, cbor2.CBORDecodeError) as e:
+        raise CredentialError("STATUS_LIST_INVALID") from e
+    if isinstance(token, cbor2.CBORTag) and token.tag == 61:  # optional CWT tag
+        token = token.value
+    protected_b, unprotected, payload, signature = _sign1(token)
+    protected = cbor2.loads(protected_b) if protected_b else {}
+    if protected.get(1) != ES256:
+        raise CredentialError("STATUS_LIST_INVALID", "alg")
+    if protected.get(COSE_TYP) != STATUS_LIST_CWT_TYP:
+        raise CredentialError("STATUS_LIST_INVALID", "typ")
+    signer = _document_signer(protected, unprotected, iaca_roots, now)
+    if not isinstance(payload, bytes):
+        raise CredentialError("STATUS_LIST_INVALID", "payload")
+    _verify_es256(signer, signature, cbor2.dumps(["Signature1", protected_b, b"", payload]))
+    claims = cbor2.loads(payload)
+    if not isinstance(claims, dict) or claims.get(CWT_SUB) != uri:
+        raise CredentialError("STATUS_LIST_INVALID", "sub")
+    exp = claims.get(CWT_EXP)
+    if isinstance(exp, int | float) and now.timestamp() >= exp:
+        raise CredentialError("STATUS_LIST_INVALID", "expired")
+    sl = claims.get(CWT_STATUS_LIST)
+    if not isinstance(sl, dict) or not isinstance(sl.get("lst"), bytes):
+        raise CredentialError("STATUS_LIST_INVALID", "status_list")
+    bits = sl.get("bits")
+    if not isinstance(bits, int):
+        raise CredentialError("STATUS_LIST_INVALID", "bits")
+    return bits, sl["lst"]
 
 
 def verify_device_response(

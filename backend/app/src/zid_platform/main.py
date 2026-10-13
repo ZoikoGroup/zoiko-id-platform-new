@@ -7,18 +7,24 @@ each other only through their `ports.py` interfaces.
 
 from fastapi import FastAPI
 from zid_app import ServiceSpec, create_service_app
-from zid_crypto import KeyRing, LocalSigner
+from zid_crypto import KeyRing
 
+from .keys import KeyRings
 from .modules.session.ports import ServerSettings, TokenSettings
 from .roles import Role, modules_for, schemas_for
 from .settings import Settings
 
 
-def create_app(settings: Settings | None = None, *, keyring: KeyRing | None = None) -> FastAPI:
-    """`keyring` holds the token issuer's keys (KMS/HSM-backed in deployed environments, DEC-F5).
-
-    Locally, with ZID_TOKEN_ISSUER set and no keyring given, an in-memory development key is created;
-    any other environment refuses to start without real keys rather than minting its own."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    keyring: KeyRing | None = None,
+    keyrings: KeyRings | None = None,
+) -> FastAPI:
+    """`keyrings`: signing keys by purpose (KMS/HSM-backed in deployed environments, DEC-F5);
+    a single `keyring` serves every purpose (tests). Locally, with ZID_TOKEN_ISSUER set and no keys
+    given, development keys are created per purpose (or loaded from ZID_DEV_SIGNING_KEYS); any
+    other environment refuses to start without real keys rather than minting its own."""
     settings = settings or Settings()
     role = Role(settings.role)
     spec = ServiceSpec(
@@ -43,20 +49,42 @@ def create_app(settings: Settings | None = None, *, keyring: KeyRing | None = No
         from .modules.authentication.application.webauthn import WebAuthnSettings
 
         app.state.webauthn_settings = WebAuthnSettings(
-            settings.webauthn_rp_id, settings.webauthn_rp_name, tuple(settings.webauthn_origins)
+            settings.webauthn_rp_id,
+            settings.webauthn_rp_name,
+            tuple(settings.webauthn_origins),
+            related_origins=tuple(settings.webauthn_related_origins),
         )
+    app.state.keyrings = None
+    app.state.verifier_x5c = ()
+    if settings.dev_signing_keys and settings.environment not in ("local", "test"):
+        raise RuntimeError("ZID_DEV_SIGNING_KEYS is for local/test only (DEC-F5)")
     if settings.token_issuer:
-        if keyring is None:
+        if keyrings is None and keyring is not None:
+            keyrings = KeyRings.single(keyring)
+        if keyrings is None:
             if settings.environment not in ("local", "test"):
                 raise RuntimeError(
                     "token issuer keys must come from the key broker outside local/test (DEC-F5)"
                 )
-            keyring = KeyRing(LocalSigner(f"dev-{settings.cell_id}"))
+            keyrings = KeyRings.development(settings.cell_id, settings.dev_signing_keys)
+        app.state.keyrings = keyrings
+        app.state.verifier_x5c = (
+            keyrings.verifier_x5c(
+                settings.verifier_certificate_chain,
+                development=settings.environment in ("local", "test"),
+            )
+            if settings.verifier_client_id_prefix == "x509_hash"
+            else ()
+        )
+        keyring = keyrings.token
         app.state.token_settings = TokenSettings(
             settings.token_issuer, settings.token_audience, keyring
         )
         app.state.oauth_settings = ServerSettings(
-            settings.token_issuer, keyring, settings.token_audience
+            settings.token_issuer,
+            keyring,
+            settings.token_audience,
+            consent_url=settings.consent_url,
         )
         from .modules.federation.application.oidc_login import FederationSettings, env_secrets
 

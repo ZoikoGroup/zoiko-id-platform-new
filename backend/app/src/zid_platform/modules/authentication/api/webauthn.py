@@ -99,7 +99,7 @@ def _ctx() -> RequestContext:
 
 
 def _check_origin(request: Request, settings: WebAuthnSettings) -> None:
-    if request.headers.get("origin") not in settings.origins:
+    if request.headers.get("origin") not in settings.all_origins:
         raise _error(AuthnError("CSRF_ORIGIN_REJECTED"))
 
 
@@ -135,6 +135,12 @@ def _set_cookie(response: Response, handle: str, session: Session) -> None:
         httponly=True,
         samesite="lax",
     )
+
+
+@router.get("/.well-known/webauthn")
+async def related_origins(request: Request) -> dict[str, Any]:
+    """WebAuthn L3 Related Origin Requests (FR-AUT-010): the governed list of related origins."""
+    return {"origins": list(_settings(request).all_origins)}
 
 
 class ClientRef(BaseModel):

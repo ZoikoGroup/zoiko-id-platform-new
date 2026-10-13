@@ -210,8 +210,9 @@ async def create_presentation(conn: AsyncConnection, tenant_id: str, p: dict[str
         text(
             "INSERT INTO cred.presentation_record (presentation_id, tenant_id, configuration_id, "
             "relying_client_id, purpose, requested_claims, subject_principal_id, jurisdiction, nonce, "
-            "state_hash, request_jwt, status, created_at, expires_at) VALUES (:id, :t, :c, :rc, :p, "
-            ":claims, :subj, :j, :n, :sh, :jwt, 'REQUESTED', :now, :exp)"
+            "state_hash, request_jwt, status, created_at, expires_at, response_mode, response_key) "
+            "VALUES (:id, :t, :c, :rc, :p, :claims, :subj, :j, :n, :sh, :jwt, 'REQUESTED', :now, "
+            ":exp, :mode, CAST(:rkey AS jsonb))"
         ),
         {
             "id": uuid.UUID(p["presentation_id"]),
@@ -227,6 +228,8 @@ async def create_presentation(conn: AsyncConnection, tenant_id: str, p: dict[str
             "jwt": p["request_jwt"],
             "now": p["created_at"],
             "exp": p["expires_at"],
+            "mode": p.get("response_mode", "direct_post"),
+            "rkey": json.dumps(p["response_key"]) if p.get("response_key") else None,
         },
     )
 
@@ -290,7 +293,7 @@ async def finish_presentation(
             "UPDATE cred.presentation_record SET status = :st, reason_codes = :r, "
             "issuer_identifier = :iss, credential_status = :cs, "
             "claim_commitments = CAST(:cc AS jsonb), disclosed_claims = CAST(:dc AS jsonb), "
-            "completed_at = :now WHERE presentation_id = :p"
+            "completed_at = :now, response_key = NULL WHERE presentation_id = :p"
         ),
         {
             "p": presentation_id,

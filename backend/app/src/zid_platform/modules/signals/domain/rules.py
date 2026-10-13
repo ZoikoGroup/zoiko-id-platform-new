@@ -14,10 +14,24 @@ committed: the PDP then sees NORMAL for that session, without anyone editing the
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 RULE_RELEASE = "signals-rules-2026-10-13"
+
+# FR-SIG-006: how long a cached security state may serve each risk class. R2/R3 always read the
+# committed state; the propagation SLO for them is "next request" (FR-SIG-003).
+STATE_CACHE_TTL = {
+    0: timedelta(seconds=30),
+    1: timedelta(seconds=5),
+    2: timedelta(0),
+    3: timedelta(0),
+}
+
+
+def cache_fresh(fetched_at: datetime, *, now: datetime, risk_class: int) -> bool:
+    ttl = STATE_CACHE_TTL.get(risk_class, timedelta(0))
+    return ttl > timedelta(0) and timedelta(0) <= now - fetched_at < ttl
 
 
 class State(StrEnum):

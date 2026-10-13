@@ -24,7 +24,8 @@ _COLS = (
     "connection_id, tenant_id, protocol, display_name, issuer, status, config_revision, "
     "metadata_expires_at, acr_levels, trust_amr, link_policy, client_id, client_auth, "
     "client_secret_ref, authorization_endpoint, token_endpoint, jwks, algorithms, scopes, sso_url, "
-    "idp_certificates, sp_entity_id, allow_idp_initiated, trust_anchor_id, federation_entity_id"
+    "idp_certificates, sp_entity_id, allow_idp_initiated, trust_anchor_id, federation_entity_id, "
+    "idp_initiated_targets, sp_decryption_key_ref, require_encrypted_assertions"
 )
 
 
@@ -60,6 +61,9 @@ def _conn(r: object) -> Connection:
         allow_idp_initiated=m["allow_idp_initiated"],
         trust_anchor_id=str(m["trust_anchor_id"]) if m["trust_anchor_id"] else None,
         federation_entity_id=m["federation_entity_id"],
+        idp_initiated_targets=tuple(m["idp_initiated_targets"] or ()),
+        sp_decryption_key_ref=m["sp_decryption_key_ref"],
+        require_encrypted_assertions=m["require_encrypted_assertions"],
     )
 
 
@@ -90,6 +94,9 @@ def _params(c: Connection) -> dict[str, object]:
         "idpinit": c.allow_idp_initiated,
         "anchor": uuid.UUID(c.trust_anchor_id) if c.trust_anchor_id else None,
         "entity": c.federation_entity_id,
+        "targets": list(c.idp_initiated_targets),
+        "deckey": c.sp_decryption_key_ref,
+        "enc": c.require_encrypted_assertions,
     }
 
 
@@ -99,7 +106,7 @@ async def create(conn: AsyncConnection, c: Connection) -> None:
             f"INSERT INTO authn.federation_connection ({_COLS}) VALUES (:id, :t, :protocol, :name, "
             ":iss, :status, :rev, :exp, CAST(:acr AS jsonb), :amr, :lp, :cid, :cauth, :sref, "
             ":authz, :token, CAST(:jwks AS jsonb), :algs, :scopes, :sso, :certs, :sp, :idpinit, "
-            ":anchor, :entity)"
+            ":anchor, :entity, :targets, :deckey, :enc)"
         ),
         _params(c),
     )
@@ -173,7 +180,9 @@ async def replace(conn: AsyncConnection, old: Connection, new: Connection, chang
             "link_policy = :lp, client_auth = :cauth, client_secret_ref = :sref, "
             "authorization_endpoint = :authz, token_endpoint = :token, jwks = CAST(:jwks AS jsonb), "
             "algorithms = :algs, scopes = :scopes, sso_url = :sso, idp_certificates = :certs, "
-            "allow_idp_initiated = :idpinit, updated_at = now() "
+            "allow_idp_initiated = :idpinit, idp_initiated_targets = :targets, "
+            "sp_decryption_key_ref = :deckey, require_encrypted_assertions = :enc, "
+            "updated_at = now() "
             "WHERE connection_id = :id AND config_revision = :old"
         ),
         {**p, "old": old.config_revision},

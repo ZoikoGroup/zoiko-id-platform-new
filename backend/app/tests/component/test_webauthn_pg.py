@@ -35,6 +35,7 @@ from zid_platform.settings import Settings
 
 ISS, AUD = "https://id.zoiko.test", "https://api.zoiko.test"
 RP, ORIGIN = "id.zoiko.test", "https://id.zoiko.test"
+RELATED = "https://accounts.zoiko-partner.test"  # FR-AUT-010 related origin
 CB = "https://app.example/cb"
 COOKIE = "__Host-zid_session"
 
@@ -101,6 +102,7 @@ def test_passkey_registration_login_step_up_and_lifecycle(rt_url: str, owner_url
             environment="test",
             webauthn_rp_id=RP,
             webauthn_origins=(ORIGIN,),
+            webauthn_related_origins=(RELATED,),
         ),
         keyring=ring,
     )
@@ -284,6 +286,29 @@ def test_passkey_registration_login_step_up_and_lifecycle(rt_url: str, owner_url
         r = post("/authn/logout", {}, cookie4)
         assert r.status_code == 204 and 'zid_session=""' in r.headers["set-cookie"]
         assert post("/authn/step-up", {}, cookie4).status_code == 401
+
+        # FR-AUT-010: a governed related origin may use this RP ID; anything else may not
+        assert http.get("/.well-known/webauthn").json() == {"origins": [ORIGIN, RELATED]}
+        related_key = SoftAuthenticator(RP, RELATED)
+        related_key.credential_id, related_key.key = alice_key.credential_id, alice_key.key
+        related_key.user_handle, related_key.sign_count = (
+            alice_key.user_handle,
+            alice_key.sign_count,
+        )
+        o = post("/authn/webauthn/authentication/options", {}).json()
+        r = post(
+            "/authn/webauthn/authentication/verify",
+            {"credential": related_key.get(o)},
+            Origin=RELATED,
+        )
+        assert r.status_code == 200 and r.json()["principal_id"] == alice, r.text
+        o = post("/authn/webauthn/authentication/options", {}).json()
+        r = post(
+            "/authn/webauthn/authentication/verify",
+            {"credential": related_key.get(o, origin="https://unrelated.example")},
+            Origin=RELATED,
+        )
+        assert r.status_code == 401
 
     async def facts() -> tuple[dict[str, int], int, int]:
         async with engine(owner_url) as eng, eng.begin() as c:

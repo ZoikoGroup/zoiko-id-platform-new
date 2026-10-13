@@ -11,6 +11,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -436,3 +437,163 @@ async def claim_par(
     if row is None:
         return None
     return dict(row.params), row.dpop_jkt
+
+
+async def consent_covers(
+    conn: AsyncConnection, principal_id: str, client_id: str, scopes: frozenset[str]
+) -> bool:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT scopes FROM authn.oauth_consent WHERE principal_id = :p AND client_id = :c "
+                "AND revoked_at IS NULL"
+            ),
+            {"p": uuid.UUID(principal_id), "c": client_id},
+        )
+    ).first()
+    return row is not None and scopes <= set(row.scopes)
+
+
+async def grant_consent(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str,
+    client_id: str,
+    scopes: frozenset[str],
+    now: datetime,
+) -> None:
+    """Widening is a new consent; the previous one stays as history (revoked)."""
+    old = (
+        await conn.execute(
+            text(
+                "UPDATE authn.oauth_consent SET revoked_at = :now WHERE principal_id = :p "
+                "AND client_id = :c AND revoked_at IS NULL RETURNING scopes"
+            ),
+            {"p": uuid.UUID(principal_id), "c": client_id, "now": now},
+        )
+    ).first()
+    merged = sorted(scopes | set(old.scopes if old else ()))
+    await conn.execute(
+        text(
+            "INSERT INTO authn.oauth_consent (consent_id, tenant_id, principal_id, client_id, "
+            "scopes, granted_at) VALUES (:id, :t, :p, :c, :s, :now)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "t": uuid.UUID(tenant_id),
+            "p": uuid.UUID(principal_id),
+            "c": client_id,
+            "s": merged,
+            "now": now,
+        },
+    )
+
+
+async def list_consents(conn: AsyncConnection, principal_id: str) -> list[dict[str, object]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT client_id, scopes, granted_at FROM authn.oauth_consent WHERE principal_id = :p "
+                "AND revoked_at IS NULL ORDER BY granted_at"
+            ),
+            {"p": uuid.UUID(principal_id)},
+        )
+    ).all()
+    return [
+        {"client_id": r.client_id, "scopes": list(r.scopes), "granted_at": r.granted_at.isoformat()}
+        for r in rows
+    ]
+
+
+async def revoke_consent(
+    conn: AsyncConnection, principal_id: str, client_id: str, now: datetime
+) -> int:
+    """Consent withdrawn: the client's refresh families for this principal end with it."""
+    result = await conn.execute(
+        text(
+            "UPDATE authn.oauth_consent SET revoked_at = :now WHERE principal_id = :p AND client_id = :c "
+            "AND revoked_at IS NULL"
+        ),
+        {"p": uuid.UUID(principal_id), "c": client_id, "now": now},
+    )
+    families = (
+        await conn.execute(
+            text(
+                "SELECT family_id FROM authn.refresh_token_family WHERE principal_id = :p "
+                "AND client_id = :c AND status = 'ACTIVE'"
+            ),
+            {"p": uuid.UUID(principal_id), "c": client_id},
+        )
+    ).all()
+    for f in families:
+        await end_family(
+            conn, str(f.family_id), status="REVOKED", reason="consent_revoked", now=now
+        )
+    return result.rowcount
+
+
+async def open_consent_request(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str,
+    session_id: str,
+    client_id: str,
+    scopes: frozenset[str],
+    params: dict[str, str],
+    pushed: bool,
+    expires_at: datetime,
+) -> str:
+    request_id = opaque_token()
+    await conn.execute(
+        text(
+            "INSERT INTO authn.consent_request (request_hash, tenant_id, principal_id, session_id, "
+            "client_id, scopes, params, pushed, expires_at) VALUES (:h, :t, :p, :s, :c, :sc, "
+            "CAST(:params AS jsonb), :pushed, :exp)"
+        ),
+        {
+            "h": token_hash(request_id),
+            "t": uuid.UUID(tenant_id),
+            "p": uuid.UUID(principal_id),
+            "s": uuid.UUID(session_id),
+            "c": client_id,
+            "sc": sorted(scopes),
+            "params": json.dumps(params),
+            "pushed": pushed,
+            "exp": expires_at,
+        },
+    )
+    return f"{tenant_id}.{request_id}"
+
+
+async def peek_consent_request(
+    conn: AsyncConnection, request_id: str, now: datetime
+) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT principal_id, session_id, client_id, scopes, params, pushed, expires_at "
+                "FROM authn.consent_request WHERE request_hash = :h AND used_at IS NULL "
+                "AND expires_at > :now"
+            ),
+            {"h": token_hash(request_id), "now": now},
+        )
+    ).first()
+    return dict(row._mapping) if row else None
+
+
+async def claim_consent_request(
+    conn: AsyncConnection, request_id: str, now: datetime
+) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE authn.consent_request SET used_at = :now WHERE request_hash = :h "
+                "AND used_at IS NULL AND expires_at > :now RETURNING principal_id, session_id, "
+                "client_id, scopes, params, pushed"
+            ),
+            {"h": token_hash(request_id), "now": now},
+        )
+    ).first()
+    return dict(row._mapping) if row else None

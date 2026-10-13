@@ -3,12 +3,14 @@
 SD-JWT VC: issuer-signed JWT with `_sd` digests of salted disclosures, `cnf.jwk` holder binding,
 Token Status List reference; the holder discloses a subset and adds a KB-JWT over sd_hash.
 mdoc: IACA root -> document signer certificate -> COSE_Sign1 MobileSecurityObject with value
-digests; the device signs DeviceAuthentication over the OID4VP session transcript.
+digests; the device signs DeviceAuthentication over the OID4VP session transcript. Its status
+list is a COSE_Sign1 CWT (application/statuslist+cwt) signed by a certificate under the IACA.
 """
 
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
 import json
 import os
@@ -147,6 +149,37 @@ class Mdoc:
         self.ds_key = ec.generate_private_key(ec.SECP256R1())
         self.ds = _cert("Test DS", self.ds_key, issuer=self.iaca.subject, signing=self.iaca_key)
         self.device_key = ec.generate_private_key(ec.SECP256R1())
+        self.statuses = bytearray(16)  # 1 bit per credential, LSB first
+
+    def set(self, idx: int, value: int) -> None:
+        byte, bit = divmod(idx, 8)
+        self.statuses[byte] = (self.statuses[byte] & ~(1 << bit)) | ((value & 1) << bit)
+
+    def status_cwt(
+        self,
+        uri: str,
+        *,
+        sub: str | None = None,
+        typ: str = "application/statuslist+cwt",
+        ttl: timedelta = timedelta(hours=1),
+        signer: tuple[ec.EllipticCurvePrivateKey, x509.Certificate] | None = None,
+    ) -> bytes:
+        key, cert = signer or (self.ds_key, self.ds)
+        now = int(time.time())
+        claims = {
+            2: sub or uri,
+            6: now,
+            4: now + int(ttl.total_seconds()),
+            65533: {"bits": 1, "lst": zlib.compress(bytes(self.statuses), 9)},
+        }
+        protected = cbor2.dumps({1: -7, 16: typ})
+        payload = cbor2.dumps(claims)
+        sig = _raw_sig(key, cbor2.dumps(["Signature1", protected, b"", payload]))
+        return cbor2.dumps(
+            cbor2.CBORTag(
+                18, [protected, {33: cert.public_bytes(serialization.Encoding.DER)}, payload, sig]
+            )
+        )
 
     def iaca_pem(self) -> str:
         return self.iaca.public_bytes(serialization.Encoding.PEM).decode()
@@ -159,6 +192,7 @@ class Mdoc:
         nonce: str,
         response_uri: str,
         tamper: str | None = None,
+        status: tuple[int, str] | None = None,
     ) -> str:
         items, digests = [], {}
         for i, (name, value) in enumerate(elements.items()):
@@ -197,6 +231,8 @@ class Mdoc:
                 "validUntil": cbor2.CBORTag(0, (now + timedelta(days=30)).isoformat()),
             },
         }
+        if status is not None:
+            mso["status"] = {"status_list": {"idx": status[0], "uri": status[1]}}
         protected = cbor2.dumps({1: -7})
         payload = cbor2.dumps(cbor2.CBORTag(24, cbor2.dumps(mso)))
         sig = _raw_sig(self.ds_key, cbor2.dumps(["Signature1", protected, b"", payload]))
@@ -233,3 +269,96 @@ class Mdoc:
             ],
         }
         return b64(cbor2.dumps(response))
+
+
+class VcJwtIssuer:
+    """W3C VCDM 2.0 issuer (vc+jwt) with a Bitstring Status List credential per purpose."""
+
+    BASE = "https://www.w3.org/ns/credentials/v2"
+
+    def __init__(self, iss: str, signer: LocalSigner | None = None) -> None:
+        self.iss = iss
+        self.signer = signer or LocalSigner(f"{iss}-vc-key")
+        self.bits = {"revocation": bytearray(16 * 1024), "suspension": bytearray(16 * 1024)}
+
+    def jwks(self) -> dict[str, Any]:
+        return {"keys": [self.signer.public_jwk()]}
+
+    def status_url(self, purpose: str) -> str:
+        return f"{self.iss}/status/{purpose}"
+
+    def issue(
+        self,
+        credential_type: str,
+        subject: dict[str, Any],
+        holder: LocalSigner,
+        idx: int = 0,
+        **extra: Any,
+    ) -> str:
+        now = datetime.now(UTC)
+        doc = {
+            "@context": [self.BASE],
+            "type": ["VerifiableCredential", credential_type],
+            "issuer": self.iss,
+            "validFrom": (now - timedelta(days=1)).isoformat(),
+            "validUntil": (now + timedelta(days=30)).isoformat(),
+            "credentialSubject": {"id": "did:example:holder", **subject},
+            "credentialStatus": [
+                {
+                    "type": "BitstringStatusListEntry",
+                    "statusPurpose": purpose,
+                    "statusListIndex": str(idx),
+                    "statusListCredential": self.status_url(purpose),
+                }
+                for purpose in ("revocation", "suspension")
+            ],
+            "cnf": {"jwk": holder.public_jwk()},
+            **extra,
+        }
+        return sign_jws(self.signer, doc, typ="vc+jwt")
+
+    def set(self, purpose: str, idx: int, value: int = 1) -> None:
+        byte, offset = divmod(idx, 8)
+        mask = 1 << (7 - offset)
+        bits = self.bits[purpose]
+        bits[byte] = (bits[byte] | mask) if value else (bits[byte] & ~mask)
+
+    def status_list(self, purpose: str) -> str:
+        encoded = "u" + b64(gzip.compress(bytes(self.bits[purpose])))
+        return sign_jws(
+            self.signer,
+            {
+                "@context": [self.BASE],
+                "id": self.status_url(purpose),
+                "type": ["VerifiableCredential", "BitstringStatusListCredential"],
+                "issuer": self.iss,
+                "validFrom": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+                "credentialSubject": {
+                    "type": "BitstringStatusList",
+                    "statusPurpose": purpose,
+                    "encodedList": encoded,
+                },
+            },
+            typ="vc+jwt",
+        )
+
+
+def present_vp(vc_jwt: str, holder: LocalSigner, *, aud: str, nonce: str) -> str:
+    return sign_jws(
+        holder,
+        {
+            "@context": [VcJwtIssuer.BASE],
+            "type": ["VerifiablePresentation"],
+            "verifiableCredential": [
+                {
+                    "@context": [VcJwtIssuer.BASE],
+                    "type": "EnvelopedVerifiableCredential",
+                    "id": "data:application/vc+jwt," + vc_jwt,
+                }
+            ],
+            "aud": aud,
+            "nonce": nonce,
+            "iat": int(time.time()),
+        },
+        typ="vp+jwt",
+    )

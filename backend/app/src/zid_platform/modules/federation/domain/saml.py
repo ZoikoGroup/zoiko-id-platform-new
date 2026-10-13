@@ -5,6 +5,10 @@ never reads the unsigned envelope for anything but routing), so signature-wrappi
 in an unsigned assertion. Exact Destination/Recipient/Audience, InResponseTo for SP-initiated
 flows, a strict validity window with small documented skew, and a stable subject: persistent
 NameIDs only - transient ones change per login and email ones are not immutable (§10 NameID).
+
+IdP-initiated (unsolicited) responses are accepted only where an approved R3 change enabled them
+for the connection, and then must carry no InResponseTo at all and a fresh AuthnInstant: with no
+request to bind to, freshness plus the assertion-ID replay cache is what stops reuse.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from datetime import datetime, timedelta
 from zid_platform.modules.federation.domain.connection import FederationError
 
 SAML_SKEW = timedelta(seconds=90)
+UNSOLICITED_MAX_AGE = timedelta(minutes=5)
 SUCCESS = "urn:oasis:names:tc:SAML:2.0:status:Success"
 BEARER = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
 PERSISTENT = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
@@ -50,6 +55,7 @@ def check_assertion(
     sp_entity_id: str,
     request_id: str | None,
     now: datetime,
+    unsolicited: bool = False,
 ) -> datetime:
     """Raises FederationError on any violation; returns when the assertion stops being valid."""
     if f.status != SUCCESS:
@@ -58,15 +64,26 @@ def check_assertion(
         raise FederationError("SAML_DESTINATION_MISMATCH")
     if f.issuer != issuer:
         raise FederationError("SAML_ISSUER_MISMATCH")
-    if request_id is None:
-        raise FederationError("SAML_UNSOLICITED")  # IdP-initiated SSO is disabled (§10)
-    if f.response_in_response_to not in (None, request_id):
+    if unsolicited:  # governed IdP-initiated SSO: nothing to respond to, so it must be fresh
+        if request_id is not None:
+            raise FederationError("SAML_UNSOLICITED")
+        if f.response_in_response_to is not None or f.confirmation_in_response_to is not None:
+            raise FederationError("SAML_IN_RESPONSE_TO_MISMATCH")
+        if (
+            f.authn_instant is None
+            or f.authn_instant > now + SAML_SKEW
+            or now - f.authn_instant > UNSOLICITED_MAX_AGE
+        ):
+            raise FederationError("SAML_ASSERTION_STALE")
+    elif request_id is None:
+        raise FederationError("SAML_UNSOLICITED")  # IdP-initiated SSO is off by default (§10)
+    elif f.response_in_response_to not in (None, request_id):
         raise FederationError("SAML_IN_RESPONSE_TO_MISMATCH")
     if f.confirmation_method != BEARER:
         raise FederationError("SAML_SUBJECT_CONFIRMATION_INVALID")
     if f.recipient != acs_url:
         raise FederationError("SAML_RECIPIENT_MISMATCH")
-    if f.confirmation_in_response_to != request_id:
+    if not unsolicited and f.confirmation_in_response_to != request_id:
         raise FederationError("SAML_IN_RESPONSE_TO_MISMATCH")
     if f.confirmation_not_on_or_after is None or now >= f.confirmation_not_on_or_after + SAML_SKEW:
         raise FederationError("SAML_ASSERTION_EXPIRED")

@@ -6,6 +6,9 @@
     POST /authn/recovery/{id}:cancel              the owner, from a live session, stops a recovery
     POST /admin/recovery-cases                    support opens a case   (authentication.recovery.assist)
     POST /admin/recovery-cases/{id}:deny          deny a case            (authentication.recovery.deny)
+    GET  /admin/recovery-policies/{principal}      the account's RC-4 lockbox policy
+    PUT  /admin/recovery-policies/{principal}      place under / change lockbox (R3 + approval)
+    POST /admin/recovery-policies/{principal}:lift lift the lockbox policy  (R3 + approval)
 
 The recovery handle and enrollment ticket are shown once; only their hashes are stored. The
 ticket registers exactly one passkey (POST /authn/webauthn/registration/*), which completes the
@@ -27,14 +30,21 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.authentication.application import recovery
 from zid_platform.modules.authentication.domain.assurance import AAL, effective_level
-from zid_platform.modules.authentication.domain.recovery import RecoveryError
+from zid_platform.modules.authentication.domain.recovery import LockboxPolicy, RecoveryError
 from zid_platform.modules.authentication.infrastructure import recovery_store
 from zid_platform.modules.session.ports import client_tenant
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["recovery"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
-_STATUS = {"RECOVERY_NOT_FOUND": 404, "RECOVERY_CODE_INVALID": 401, "RECOVERY_NOT_ALLOWED": 403}
+_STATUS = {
+    "RECOVERY_NOT_FOUND": 404,
+    "RECOVERY_CODE_INVALID": 401,
+    "RECOVERY_NOT_ALLOWED": 403,
+    "LOCKBOX_POLICY_INVALID": 422,
+    "LOCKBOX_POLICY_NOT_FOUND": 404,
+}
+POLICY_ACTION = "authentication.recovery.policy.manage"
 
 
 def _err(e: RecoveryError) -> ZidError:
@@ -211,3 +221,112 @@ async def deny(
         except RecoveryError as e:
             raise _err(e) from e
     return {"recovery_id": str(recovery_id), "status": "DENIED"}
+
+
+# --------------------------------------------------------------------- RC-4 lockbox policies
+
+
+class LockboxIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approvers: list[uuid.UUID] = Field(min_length=2, max_length=5)
+    k: int = Field(ge=2, le=5)
+    cooling_off_hours: int = Field(default=168, ge=168, le=720)
+    approval_request_id: str | None = None
+
+
+class LiftIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approval_request_id: str | None = None
+
+
+def lockbox_change(policy: LockboxPolicy | None) -> str:
+    """What the approval binds to: exactly these approvers, this k, this cooling-off - or lift."""
+    if policy is None:
+        return "lift"
+    hours = int(policy.cooling_off.total_seconds() // 3600)
+    return f"lockbox:k={policy.k}:h={hours}:{','.join(sorted(policy.approvers))}"
+
+
+def _policy_view(p: LockboxPolicy) -> dict[str, Any]:
+    return {
+        "principal_id": p.principal_id,
+        "recovery_class": "RC-4",
+        "approvers": list(p.approvers),
+        "k": p.k,
+        "cooling_off_hours": int(p.cooling_off.total_seconds() // 3600),
+        "revision": p.revision,
+    }
+
+
+@router.get("/admin/recovery-policies/{principal_id}")
+async def get_policy(
+    principal_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action=POLICY_ACTION, resource=f"principal:{principal_id}", change="read"
+        )
+        policy = await recovery_store.load_policy(conn, str(principal_id))
+    if policy is None:
+        raise _err(RecoveryError("LOCKBOX_POLICY_NOT_FOUND"))
+    return _policy_view(policy)
+
+
+@router.put("/admin/recovery-policies/{principal_id}")
+async def put_policy(
+    principal_id: uuid.UUID, body: LockboxIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    from datetime import timedelta
+
+    now = datetime.now(UTC)
+    try:
+        policy = LockboxPolicy(
+            str(principal_id),
+            tuple(sorted(str(a) for a in body.approvers)),
+            body.k,
+            timedelta(hours=body.cooling_off_hours),
+        )
+    except RecoveryError as e:
+        raise _err(e) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=POLICY_ACTION,
+            resource=f"principal:{principal_id}",
+            change=lockbox_change(policy),
+            approval_request_id=body.approval_request_id,
+            require_approval=True,
+        )
+        if await recovery_store.open_cases_for(conn, str(principal_id)):
+            raise ZidError(
+                "RECOVERY_IN_PROGRESS", "Close the open recovery first.", http_status=409
+            )
+        revision = await recovery_store.put_policy(
+            conn, caller.ctx.tenant_id or "", policy, caller.ctx.principal_id or "", now
+        )
+    return {**_policy_view(policy), "revision": revision}
+
+
+@router.post("/admin/recovery-policies/{principal_id}:lift")
+async def lift_policy(
+    principal_id: uuid.UUID, body: LiftIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Lifting is a downgrade of the account's recovery - it is approved like setting it."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=POLICY_ACTION,
+            resource=f"principal:{principal_id}",
+            change=lockbox_change(None),
+            approval_request_id=body.approval_request_id,
+            require_approval=True,
+        )
+        if await recovery_store.open_cases_for(conn, str(principal_id)):
+            raise ZidError(
+                "RECOVERY_IN_PROGRESS", "Close the open recovery first.", http_status=409
+            )
+        if not await recovery_store.delete_policy(conn, str(principal_id)):
+            raise _err(RecoveryError("LOCKBOX_POLICY_NOT_FOUND"))
+    return {"principal_id": str(principal_id), "recovery_class": None}

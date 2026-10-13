@@ -40,6 +40,7 @@ from zid_platform.modules.credential.domain.credentials import (
     SD_JWT_ADAPTER,
     CredentialError,
 )
+from zid_platform.modules.credential.domain.vcdm import VCDM_ADAPTER
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.protected import protected_action
 
@@ -88,7 +89,10 @@ def _verifier(request: Request) -> verifier.VerifierSettings:
     if s is None:
         raise ZidError("DEPENDENCY_UNAVAILABLE", "No issuer configured.", http_status=503)
     return verifier.VerifierSettings(
-        s.issuer, s.keyring, getattr(request.app.state, "credential_transport", None)
+        s.issuer,
+        request.app.state.keyrings.verifier,
+        getattr(request.app.state, "credential_transport", None),
+        tuple(getattr(request.app.state, "verifier_x5c", ())),
     )
 
 
@@ -96,7 +100,7 @@ def _issuer(request: Request) -> issuing.IssuerSettings:
     s = getattr(request.app.state, "oauth_settings", None)
     if s is None:
         raise ZidError("DEPENDENCY_UNAVAILABLE", "No issuer configured.", http_status=503)
-    return issuing.IssuerSettings(s.issuer, s.keyring)
+    return issuing.IssuerSettings(s.issuer, request.app.state.keyrings.credential)
 
 
 # ------------------------------------------------------------------------------------- verifier
@@ -109,6 +113,8 @@ class PresentationIn(BaseModel):
     claims: list[str] = Field(min_length=1, max_length=30)
     jurisdiction: str = Field(pattern=r"^[A-Z]{2}$")
     subject_principal_id: uuid.UUID | None = None
+    # HAIP: direct_post.jwt has the wallet encrypt its response to a per-presentation key
+    response_mode: Literal["direct_post", "direct_post.jwt"] = "direct_post"
 
 
 @router.post("/presentations", status_code=201)
@@ -131,6 +137,7 @@ async def create_presentation(
                 else None,
                 jurisdiction=body.jurisdiction,
                 now=datetime.now(UTC),
+                response_mode=body.response_mode,
             )
         except CredentialError as e:
             raise _err(e) from e
@@ -325,11 +332,11 @@ async def reinstate(
 class ConfigurationIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     credential_type: str = Field(min_length=1, max_length=256)
-    format: Literal["SD_JWT_VC", "MDOC"]
+    format: Literal["SD_JWT_VC", "MDOC", "VC_JWT"]
     required_claims: list[str] = Field(min_length=1, max_length=50)
     optional_claims: list[str] = Field(default_factory=list, max_length=50)
     holder_binding_required: bool = True
-    status_method: Literal["TOKEN_STATUS_LIST", "NONE"]
+    status_method: Literal["TOKEN_STATUS_LIST", "BITSTRING_STATUS_LIST", "NONE"]
     status_mandatory: bool = True
     risk_class: int = Field(default=2, ge=0, le=3)
     assurance_profile_id: uuid.UUID | None = None
@@ -341,7 +348,19 @@ async def create_configuration(
     body: ConfigurationIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     data = body.model_dump(mode="json")
-    data["adapter_version"] = SD_JWT_ADAPTER if body.format == "SD_JWT_VC" else MDOC_ADAPTER
+    data["adapter_version"] = {
+        "SD_JWT_VC": SD_JWT_ADAPTER,
+        "MDOC": MDOC_ADAPTER,
+        "VC_JWT": VCDM_ADAPTER,
+    }[body.format]
+    if body.status_method != "NONE" and (body.format == "VC_JWT") != (
+        body.status_method == "BITSTRING_STATUS_LIST"
+    ):
+        raise ZidError(
+            "VALIDATION_FAILED",
+            "VC_JWT uses a Bitstring Status List; SD-JWT VC and mdoc a Token Status List.",
+            http_status=422,
+        )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn,

@@ -75,6 +75,22 @@ class LocalSigner:
             else ed25519.Ed25519PrivateKey.generate()
         )
 
+    @classmethod
+    def from_pem(cls, kid: str, pem: str) -> LocalSigner:
+        """A development key shared by several local processes (API, consumer) - never production."""
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+        key = load_pem_private_key(pem.encode(), password=None)
+        if isinstance(key, ec.EllipticCurvePrivateKey) and isinstance(key.curve, ec.SECP256R1):
+            alg = "ES256"
+        elif isinstance(key, ed25519.Ed25519PrivateKey):
+            alg = "Ed25519"
+        else:
+            raise CryptoError("ALG_NOT_ALLOWED", "only P-256 or Ed25519 private keys")
+        signer = cls.__new__(cls)
+        signer._kid, signer._alg, signer._key = kid, alg, key
+        return signer
+
     @property
     def kid(self) -> str:
         return self._kid
@@ -90,6 +106,32 @@ class LocalSigner:
             r, s = decode_dss_signature(self._key.sign(signing_input, ec.ECDSA(hashes.SHA256())))
             return r.to_bytes(32, "big") + s.to_bytes(32, "big")  # JWS uses raw R||S, not DER
         return self._key.sign(signing_input)
+
+    def development_certificate(self, common_name: str, days: int = 90) -> bytes:
+        """Self-signed DER certificate for this key - local/test stand-in for a CA-issued one."""
+        from datetime import UTC, datetime, timedelta
+
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.serialization import Encoding
+        from cryptography.x509.oid import NameOID
+
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+        now = datetime.now(UTC)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(self._key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=5))
+            .not_valid_after(now + timedelta(days=days))
+            .sign(
+                self._key,
+                hashes.SHA256() if isinstance(self._key, ec.EllipticCurvePrivateKey) else None,
+            )
+        )
+        return cert.public_bytes(Encoding.DER)
 
     def public_jwk(self) -> dict[str, Any]:
         pub = self._key.public_key()

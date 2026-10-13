@@ -95,6 +95,69 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LiftIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          }
+        },
+        "title": "LiftIn",
+        "type": "object"
+      },
+      "LockboxIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "approvers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 2,
+            "title": "Approvers",
+            "type": "array"
+          },
+          "cooling_off_hours": {
+            "default": 168,
+            "maximum": 720.0,
+            "minimum": 168.0,
+            "title": "Cooling Off Hours",
+            "type": "integer"
+          },
+          "k": {
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "approvers",
+          "k"
+        ],
+        "title": "LockboxIn",
+        "type": "object"
+      },
       "RegistrationOptionsIn": {
         "additionalProperties": false,
         "properties": {
@@ -379,6 +442,160 @@
           }
         },
         "summary": "Deny",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/admin/recovery-policies/{principal_id}": {
+      "get": {
+        "operationId": "get_policy_admin_recovery_policies__principal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy Admin Recovery Policies  Principal Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "put": {
+        "operationId": "put_policy_admin_recovery_policies__principal_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LockboxIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Policy Admin Recovery Policies  Principal Id  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Policy",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/admin/recovery-policies/{principal_id}:lift": {
+      "post": {
+        "description": "Lifting is a downgrade of the account's recovery - it is approved like setting it.",
+        "operationId": "lift_policy_admin_recovery_policies__principal_id__lift_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lift Policy Admin Recovery Policies  Principal Id  Lift Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lift Policy",
         "tags": [
           "recovery"
         ]

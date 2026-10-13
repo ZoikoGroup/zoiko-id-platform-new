@@ -57,6 +57,39 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IdpInitiatedIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "IdpInitiatedIn",
+        "type": "object"
+      },
       "IntegrationIn": {
         "additionalProperties": false,
         "properties": {
@@ -210,12 +243,29 @@
             "title": "Protocol",
             "type": "string"
           },
+          "require_encrypted_assertions": {
+            "default": false,
+            "title": "Require Encrypted Assertions",
+            "type": "boolean"
+          },
           "scopes": {
             "items": {
               "type": "string"
             },
             "title": "Scopes",
             "type": "array"
+          },
+          "sp_decryption_key_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Decryption Key Ref"
           },
           "sp_entity_id": {
             "anyOf": [
@@ -363,6 +413,18 @@
             "format": "date-time",
             "title": "Metadata Expires At",
             "type": "string"
+          },
+          "sp_decryption_key_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Decryption Key Ref"
           }
         },
         "required": [
@@ -672,6 +734,62 @@
         ]
       }
     },
+    "/federation/integrations/{connection_id}:idp-initiated": {
+      "post": {
+        "description": "Enabling IdP-initiated SAML is an R3 change that always needs a second administrator's\napproval bound to these exact targets; switching it off needs no approval.",
+        "operationId": "set_idp_initiated_federation_integrations__connection_id__idp_initiated_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdpInitiatedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Idp Initiated Federation Integrations  Connection Id  Idp Initiated Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Idp Initiated",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
     "/federation/integrations/{connection_id}:rotate": {
       "post": {
         "description": "New pinned trust material: the retired key/certificate stops verifying at once (AUTH-15).",
@@ -742,6 +860,47 @@
           }
         },
         "summary": "Saml Acs",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
+    "/federation/saml/acs/{connection_ref}": {
+      "post": {
+        "description": "Governed IdP-initiated SSO: only for a connection an approved R3 change enabled.",
+        "operationId": "saml_acs_unsolicited_federation_saml_acs__connection_ref__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_ref",
+            "required": true,
+            "schema": {
+              "title": "Connection Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Saml Acs Unsolicited",
         "tags": [
           "federation"
         ]

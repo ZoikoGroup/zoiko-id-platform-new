@@ -16,6 +16,7 @@ the error is returned, so an attacker's retry finds the revoked state.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -48,6 +49,7 @@ from zid_platform.modules.session.domain.oauth import (
     PAR_URI_PREFIX,
     SUPPORTED_GRANTS,
     TOKEN_TYPE_ACCESS,
+    AuthorizationRequest,
     OAuthClient,
     OAuthError,
     client_usable,
@@ -73,6 +75,8 @@ from zid_platform.modules.session.domain.tokens import (
 )
 from zid_platform.modules.session.infrastructure import oauth_store, session_store
 
+CONSENT_TTL = timedelta(minutes=10)
+
 
 @dataclass(frozen=True, slots=True)
 class ServerSettings:
@@ -80,6 +84,9 @@ class ServerSettings:
     keyring: KeyRing
     default_audience: str
     session_policy: SessionPolicy = field(default_factory=SessionPolicy)
+    consent_url: str | None = (
+        None  # the consent UI; without one, third parties get consent_required
+    )
 
     @property
     def token_endpoint(self) -> str:
@@ -280,23 +287,145 @@ async def authorize(
         ):
             return fail("login_required", "fresh authentication required")
         if not req.client.first_party or "consent" in req.prompt:
-            return fail("consent_required", "consent is not available for this client yet")
-        await session_store.touch(conn, session.session_id, now)
-        code = await oauth_store.save_code(
+            covered = "consent" not in req.prompt and await oauth_store.consent_covers(
+                conn, session.principal_id, req.client.client_id, req.scope
+            )
+            if not covered:
+                if "none" in req.prompt or settings.consent_url is None:
+                    return fail("consent_required", "the user has not consented to this client")
+                ref = await oauth_store.open_consent_request(
+                    conn,
+                    tenant_id=tenant,
+                    principal_id=session.principal_id,
+                    session_id=session.session_id,
+                    client_id=req.client.client_id,
+                    scopes=req.scope,
+                    params=params,
+                    pushed=pushed,
+                    expires_at=now + CONSENT_TTL,
+                )
+                return with_query(settings.consent_url, {"consent_request": ref})
+        return await _issue_code(conn, settings, req, session, tenant, now)
+
+
+async def _issue_code(
+    conn: AsyncConnection,
+    settings: ServerSettings,
+    req: AuthorizationRequest,
+    session: Session,
+    tenant: str,
+    now: datetime,
+) -> str:
+    await session_store.touch(conn, session.session_id, now)
+    code = await oauth_store.save_code(
+        conn,
+        tenant_id=tenant,
+        client_id=req.client.client_id,
+        principal_id=session.principal_id,
+        session_id=session.session_id,
+        redirect_uri=req.redirect_uri,
+        scope=req.scope,
+        audience=req.audience,
+        code_challenge=req.code_challenge,
+        nonce=req.nonce,
+        dpop_jkt=req.dpop_jkt,
+        expires_at=now + AUTHORIZATION_CODE_TTL,
+    )
+    return with_query(req.redirect_uri, {"code": code, "state": req.state, "iss": settings.issuer})
+
+
+async def _consent_context(
+    engine: AsyncEngine, ref: str, session_handle: str | None, base_ctx: RequestContext
+) -> tuple[str, str, RequestContext]:
+    tenant, _, request_id = ref.partition(".")
+    if not request_id or session_handle is None:
+        raise OAuthError(
+            "invalid_request", "consent request unknown", status=404, redirectable=False
+        )
+    try:
+        tenant = str(uuid.UUID(tenant))
+    except ValueError as e:
+        raise OAuthError(
+            "invalid_request", "consent request unknown", status=404, redirectable=False
+        ) from e
+    return tenant, request_id, base_ctx.with_identity(tenant, None)
+
+
+async def _consent_session(conn: AsyncConnection, row: dict[str, Any], handle: str) -> Session:
+    """The decision must come from the very session that started the authorization."""
+    session = await session_store.load_session_by_handle(conn, handle)
+    if session is None or str(row["session_id"]) != session.session_id:
+        raise OAuthError(
+            "access_denied", "consent belongs to another session", status=403, redirectable=False
+        )
+    if session.status is not SessionStatus.ACTIVE:
+        raise OAuthError("login_required", "session is not usable", status=401, redirectable=False)
+    return session
+
+
+async def consent_details(
+    engine: AsyncEngine,
+    *,
+    ref: str,
+    session_handle: str | None,
+    base_ctx: RequestContext,
+    now: datetime,
+) -> dict[str, Any]:
+    _, request_id, ctx = await _consent_context(engine, ref, session_handle, base_ctx)
+    async with tenant_transaction(engine, ctx) as conn:
+        row = await oauth_store.peek_consent_request(conn, request_id, now)
+        if row is None:
+            raise OAuthError(
+                "invalid_request", "consent request unknown", status=404, redirectable=False
+            )
+        await _consent_session(conn, row, session_handle or "")
+    return {
+        "client_id": row["client_id"],
+        "scopes": list(row["scopes"]),
+        "expires_at": row["expires_at"].isoformat(),
+    }
+
+
+async def decide_consent(
+    engine: AsyncEngine,
+    settings: ServerSettings,
+    *,
+    ref: str,
+    session_handle: str | None,
+    approve: bool,
+    base_ctx: RequestContext,
+    now: datetime,
+) -> str:
+    """Approve: record the consent and issue the code; deny: access_denied to the client."""
+    tenant, request_id, ctx = await _consent_context(engine, ref, session_handle, base_ctx)
+    async with tenant_transaction(engine, ctx) as conn:
+        row = await oauth_store.claim_consent_request(conn, request_id, now)
+        if row is None:
+            raise OAuthError(
+                "invalid_request", "consent request unknown", status=404, redirectable=False
+            )
+        session = await _consent_session(conn, row, session_handle or "")
+        params = dict(row["params"])
+        client = await oauth_store.load_client(conn, str(row["client_id"]))
+        req = validate_authorization_request(  # re-validated: the client may have changed since
+            client, params, default_audience=settings.default_audience, pushed=bool(row["pushed"])
+        )
+        if not approve:
+            return _error_location(
+                req.redirect_uri,
+                OAuthError("access_denied", "the user declined"),
+                req.state,
+                settings.issuer,
+            )
+        await oauth_store.grant_consent(
             conn,
             tenant_id=tenant,
-            client_id=req.client.client_id,
             principal_id=session.principal_id,
-            session_id=session.session_id,
-            redirect_uri=req.redirect_uri,
-            scope=req.scope,
-            audience=req.audience,
-            code_challenge=req.code_challenge,
-            nonce=req.nonce,
-            dpop_jkt=req.dpop_jkt,
-            expires_at=now + AUTHORIZATION_CODE_TTL,
+            client_id=req.client.client_id,
+            scopes=req.scope,
+            now=now,
         )
-    return with_query(req.redirect_uri, {"code": code, "state": req.state, "iss": settings.issuer})
+        return await _issue_code(conn, settings, req, session, tenant, now)
 
 
 def _error_location(uri: str, e: OAuthError, state: str | None, issuer: str) -> str:

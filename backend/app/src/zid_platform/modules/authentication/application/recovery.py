@@ -1,9 +1,11 @@
 """Account recovery (ZID-AUTH-001 §4, §14, §16; AUTH-W7; AUTH-13).
 
 issue_codes()       new batch of one-time codes (the previous batch stops working)
-start_with_code()   RC-1 (ready at once) or, for an administrator, RC-3 (code is not enough)
+start_with_code()   RC-1 (ready at once) or, for an administrator, RC-3 and for a lockbox
+                    account RC-4 (a code is not enough for either)
 open_assisted()     support opens an RC-2/RC-3 case; it can never complete one
-advance()           re-proofing -> second-administrator approval -> cooling-off -> READY,
+advance()           re-proofing -> second-administrator approval (RC-4: k designated
+                    approvers) -> cooling-off -> READY,
                     then a 15-minute, purpose-bound enrollment ticket
 complete()          the new passkey registered with that ticket finishes the recovery:
                     recovery.activated signal (revision++, every session revoked), and for
@@ -29,9 +31,11 @@ from zid_platform.modules.authentication.domain.authenticator import (
 from zid_platform.modules.authentication.domain.recovery import (
     CASE_TTL,
     CODES_PER_BATCH,
+    LOCKBOX_CASE_TTL,
     PRIVILEGED_ACTIONS,
     RECOVERY_TICKET_TTL,
     REPROOF_LEVEL,
+    REPROOF_LEVELS,
     RecoveryError,
     classify,
     evaluate,
@@ -108,7 +112,8 @@ async def _open(
 ) -> tuple[store.Case, str]:
     await _eligible(conn, principal_id)
     privileged = await holds_any_action(conn, principal_id, PRIVILEGED_ACTIONS, now)
-    cls, method = classify(privileged=privileged, with_code=with_code)
+    lockbox = await store.load_policy(conn, principal_id) is not None
+    cls, method = classify(privileged=privileged, with_code=with_code, lockbox=lockbox)
     for existing in await store.open_cases_for(conn, principal_id):  # one live case at a time
         await store.update(conn, existing, status="DENIED", now=now, denied_reason="SUPERSEDED")
     handle = secrets.token_urlsafe(32)
@@ -123,7 +128,7 @@ async def _open(
         opened_by=opened_by,
         handle=handle,
         now=now,
-        expires_at=now + CASE_TTL,
+        expires_at=now + (LOCKBOX_CASE_TTL if cls == "RC-4" else CASE_TTL),
     )
     await _event(
         conn, "recovery.started", case, 1, method=method, opened_by=opened_by.split(":")[0]
@@ -198,12 +203,16 @@ async def advance(
     if now >= case.expires_at:
         await store.update(conn, case, status="EXPIRED", now=now)
         raise RecoveryError("RECOVERY_EXPIRED")
+    level = REPROOF_LEVELS.get(case.recovery_class, REPROOF_LEVEL)
     reproof = case.reproof_assertion_id or await fresh_reproof(
-        conn, case.principal_id, min_level=REPROOF_LEVEL, since=case.created_at, now=now
+        conn, case.principal_id, min_level=level, since=case.created_at, now=now
     )
+    policy = await store.load_policy(conn, case.principal_id)
+    if case.recovery_class == "RC-4" and policy is None:
+        raise RecoveryError("LOCKBOX_POLICY_MISSING")  # lifting is refused while a case is open
     approval_id = approval_request_id or case.approval_request_id
     approval_state = None
-    if case.recovery_class == "RC-3" and approval_id is not None:
+    if case.recovery_class in ("RC-3", "RC-4") and approval_id is not None:
         try:
             outcome = await evaluate_approval(
                 conn,
@@ -212,6 +221,13 @@ async def advance(
                 now=now,
             )
             approval_state = outcome.state.value
+            if (
+                case.recovery_class == "RC-4"
+                and policy is not None
+                and approval_state == "APPROVED"
+                and not policy.quorum(outcome.counted)
+            ):
+                approval_state = "PENDING"  # approved, but not by k designated approvers
         except ValueError:
             approval_state = "DENIED"
     gates = evaluate(
@@ -220,6 +236,7 @@ async def advance(
         approval_state=approval_state,
         cooling_off_until=case.cooling_off_until,
         now=now,
+        cooling_off=policy.cooling_off if case.recovery_class == "RC-4" and policy else None,
     )
     await store.update(
         conn,

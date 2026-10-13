@@ -1,4 +1,4 @@
-"""Recovery codes and recovery cases in PostgreSQL (ZID-AUTH-001 §4, §14).
+"""Recovery codes, recovery cases and RC-4 lockbox policies in PostgreSQL (ZID-AUTH-001 §4, §14).
 
 Inside the caller's tenant transaction (RLS). Codes and case handles are stored only as SHA-256;
 a code is spent with a conditional UPDATE, so it works exactly once.
@@ -9,12 +9,16 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.authentication.domain.recovery import RecoveryError, normalize_code
+from zid_platform.modules.authentication.domain.recovery import (
+    LockboxPolicy,
+    RecoveryError,
+    normalize_code,
+)
 
 
 def sha256(value: str) -> bytes:
@@ -199,6 +203,62 @@ async def update(
             "now": now,
         },
     )
+
+
+async def load_policy(conn: AsyncConnection, principal_id: str) -> LockboxPolicy | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT principal_id, approvers, k, cooling_off_hours, revision "
+                "FROM authn.recovery_policy WHERE principal_id = :p"
+            ),
+            {"p": uuid.UUID(principal_id)},
+        )
+    ).first()
+    if row is None:
+        return None
+    return LockboxPolicy(
+        str(row.principal_id),
+        tuple(str(a) for a in row.approvers),
+        row.k,
+        timedelta(hours=row.cooling_off_hours),
+        row.revision,
+    )
+
+
+async def put_policy(
+    conn: AsyncConnection, tenant_id: str, policy: LockboxPolicy, by: str, now: datetime
+) -> int:
+    row = (
+        await conn.execute(
+            text(
+                "INSERT INTO authn.recovery_policy (tenant_id, principal_id, approvers, k, "
+                "cooling_off_hours, updated_by, updated_at) VALUES (:t, :p, :a, :k, :h, :by, :now) "
+                "ON CONFLICT (principal_id) DO UPDATE SET approvers = EXCLUDED.approvers, "
+                "k = EXCLUDED.k, cooling_off_hours = EXCLUDED.cooling_off_hours, "
+                "revision = authn.recovery_policy.revision + 1, updated_by = EXCLUDED.updated_by, "
+                "updated_at = EXCLUDED.updated_at RETURNING revision"
+            ),
+            {
+                "t": uuid.UUID(tenant_id),
+                "p": uuid.UUID(policy.principal_id),
+                "a": [uuid.UUID(a) for a in policy.approvers],
+                "k": policy.k,
+                "h": int(policy.cooling_off.total_seconds() // 3600),
+                "by": uuid.UUID(by),
+                "now": now,
+            },
+        )
+    ).one()
+    return int(row.revision)
+
+
+async def delete_policy(conn: AsyncConnection, principal_id: str) -> bool:
+    r = await conn.execute(
+        text("DELETE FROM authn.recovery_policy WHERE principal_id = :p"),
+        {"p": uuid.UUID(principal_id)},
+    )
+    return r.rowcount == 1
 
 
 async def open_cases_for(conn: AsyncConnection, principal_id: str) -> list[Case]:

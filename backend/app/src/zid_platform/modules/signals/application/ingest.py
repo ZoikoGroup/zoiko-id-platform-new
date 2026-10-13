@@ -35,6 +35,7 @@ from zid_platform.modules.session.ports import (
     revoke_principal_sessions,
     set_session_status,
 )
+from zid_platform.modules.signals.application.state_cache import CACHE
 from zid_platform.modules.signals.domain.rules import (
     RULE_RELEASE,
     RULES,
@@ -135,6 +136,7 @@ async def ingest(conn: AsyncConnection, s: CanonicalSignal, *, now: datetime) ->
         reason=outcome.reason,
         cause_signal_id=signal_id,
     )
+    CACHE.invalidate(s.tenant_id, s.subject_ref, revision)
     await emit(
         conn,
         name="security.state.changed",

@@ -401,6 +401,72 @@ def test_verifier_and_issuer(rt_url: str) -> None:
             r = respond(out["req"], build(out["req"]))
             assert r.status_code == 400 and r.json()["error_description"] == code, (code, r.text)
 
+        # mdoc status: a Token Status List CWT signed under the same pinned IACA (mandatory here)
+        photo = Mdoc("org.iso.23220.photoid.1")
+        status_uri = "https://photoid.example/status/7"
+        admin_post(
+            "/credential-issuer-trust",
+            {
+                "issuer_identifier": "https://photoid.example",
+                "credential_types": [photo.doc_type],
+                "trust_source": "PINNED",
+                "iaca_certificates": [photo.iaca_pem()],
+                "valid_to": until,
+            },
+        )
+        photo_cfg = admin_post(
+            "/credential-configurations",
+            {
+                "credential_type": photo.doc_type,
+                "format": "MDOC",
+                "required_claims": ["age_over_18"],
+                "status_method": "TOKEN_STATUS_LIST",
+                "status_mandatory": True,
+            },
+        )["configuration_id"]
+        admin_post(f"/credential-configurations/{photo_cfg}:activate", {})
+
+        def photo_present(idx: int = 3, **cwt: Any) -> Any:
+            routes[status_uri] = httpx.Response(200, content=photo.status_cwt(status_uri, **cwt))
+            out = request(photo_cfg, ["age_over_18"])
+            body = photo.device_response(
+                {"age_over_18": True},
+                client_id=CLIENT_ID,
+                nonce=out["req"]["nonce"],
+                response_uri=out["req"]["response_uri"],
+                status=(idx, status_uri),
+            )
+            return respond(out["req"], body)
+
+        r0 = photo_present()
+        assert r0.status_code == 200, r0.text
+        photo.set(3, 1)
+        r = photo_present()
+        assert r.status_code == 400 and r.json()["error_description"] == "CREDENTIAL_REVOKED"
+        assert photo_present(idx=4).status_code == 200  # only that credential
+        rogue = Mdoc()
+        for cwt in (
+            {"signer": (rogue.ds_key, rogue.ds)},  # not under the pinned IACA
+            {"typ": "application/statuslist+jwt"},
+            {"sub": "https://photoid.example/status/8"},
+            {"ttl": timedelta(seconds=-5)},
+        ):
+            r = photo_present(idx=4, **cwt)
+            assert r.status_code == 400, (cwt, r.text)
+            assert r.json()["error_description"] == "CREDENTIAL_STATUS_UNAVAILABLE", (cwt, r.text)
+        routes[status_uri] = httpx.Response(503)
+        out = request(photo_cfg, ["age_over_18"])
+        body = photo.device_response(
+            {"age_over_18": True},
+            client_id=CLIENT_ID,
+            nonce=out["req"]["nonce"],
+            response_uri=out["req"]["response_uri"],
+            status=(4, status_uri),
+        )
+        assert respond(out["req"], body).json()["error_description"] == (
+            "CREDENTIAL_STATUS_UNAVAILABLE"
+        )
+
         # the verified PID raised alice's identity assurance through the verification module
         facts = http.get(f"/principals/{alice}/assurance", headers=bearer(alice, "wallet")).json()
         assert facts["identity_proofing"]["level"] == "IAL-Z2"

@@ -28,11 +28,16 @@ The Phase E specs require state that ZID-DATA-001 v1.0 does not name, and a few 
 | `verify.reliance_decision` | verification | VERIFY §17 | Explicit reliance decisions |
 | `authn.recovery_code` | authentication | AUTH §4 | One-time hashed recovery codes |
 | `authn.recovery_case` | authentication | AUTH §14 | Recovery class, gates and outcome |
+| `authn.recovery_policy` | authentication | AUTH §14 (RC-4) | Lockbox policy: designated approvers, k, cooling-off |
+| `authn.oauth_consent` | session | AUTH §6.2; PRIVACY consent | What a principal allowed a third-party client, until withdrawn |
+| `authn.consent_request` | session | AUTH §6.2 | Pending authorization awaiting the user's decision (single use, <= 10 min) |
 | `authn.federation_trust_anchor` | federation | AUTH §12 | OpenID Federation trust anchors (pinned keys, trust domains) |
 | `cred.credential_configuration` | credential | VC §5 | Credential configuration registry (pinned adapter versions) |
 | `cred.issuer_trust` | credential | VC §4, §15 | Typed issuer trust (per credential type and jurisdiction) |
 | `cred.rp_registration` | credential | VC §18 | Relying-party purposes and permitted attributes |
 | `cred.status_list` | credential | VC §13 | Token Status Lists for credentials Zoiko issues |
+
+Columns added to existing proposed tables: `authn.federation_connection` (`sp_decryption_key_ref`, `require_encrypted_assertions`, `idp_initiated_targets`), `cred.presentation_record` (`response_mode`, `response_key` - wiped on completion), and `cred.credential_configuration` accepts `VC_JWT` with `BITSTRING_STATUS_LIST`.
 
 `verify.assurance_profile` is implemented tenant-scoped (`tenant_id NOT NULL`); DATA §6.2 allows a NULL tenant for platform profiles, which needs an RLS read policy for shared rows and is left to the data-model owner.
 
@@ -56,6 +61,7 @@ The Phase E specs require state that ZID-DATA-001 v1.0 does not name, and a few 
 | `verification.assertion.revoke` | R2 / E2 | VERIFY §18 assertion invalidation |
 | `authentication.recovery.assist` | R2 / E2 | AUTH §14: support opens a governed case (cannot complete it) |
 | `authentication.recovery.approve` | R3 / E3 | AUTH §14.1 RC-3 second-administrator approval |
+| `authentication.recovery.policy.manage` | R3 / E3 | AUTH §14 RC-4: place an account under (or lift) a lockbox recovery policy; always needs an approval |
 | `authentication.recovery.deny` | R2 / E2 | AUTH §14 deny a suspicious recovery |
 | `session.bulk_revoke` | R2 / E2 | AUTH §24 bulk session revoke |
 | `credential.trust.manage` | R3 / E3 | VC §4, §15 issuer trust and configuration releases |

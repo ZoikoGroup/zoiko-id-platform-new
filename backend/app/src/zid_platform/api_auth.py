@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import text
@@ -22,7 +23,11 @@ from zid_errors import ZidError
 from zid_platform.modules.authentication.ports import effective_level
 from zid_platform.modules.decision.domain.pdp import AuthnFact
 from zid_platform.modules.session.ports import TokenError, TokenSettings, authenticate
-from zid_platform.modules.signals.ports import pdp_security_state
+from zid_platform.modules.signals.ports import security_view
+
+# The risk class the shared authentication seam reads security state for. Protected (R2/R3)
+# actions re-read the committed state in their own transaction (protected.py), never this one.
+CALLER_STATE_RISK_CLASS = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +38,8 @@ class Caller:
     client_id: str = "unknown-client"  # OAuth client, scopes idempotency keys
     scope: frozenset[str] = frozenset()  # coarse OAuth scopes of the access token
     actor: str | None = None  # RFC 8693 actor when the token came from a token exchange
+    security_revision: int = 0  # the security-state revision `security_state` was read at
+    session_auth_time: datetime | None = None  # as asserted (None: token without auth_time)
 
 
 def client_cert_thumbprint(request: Request) -> str | None:
@@ -98,12 +105,10 @@ async def authenticated_caller(request: Request) -> Caller:
         raise ZidError(
             code, "Authentication failed.", http_status=401, headers=_challenge(scheme, e.code)
         ) from e
-    security_state = "UNKNOWN"  # a failed read stays UNKNOWN: R2/R3 then fail closed
+    security_state, security_revision = "UNKNOWN", 0  # a failed read stays UNKNOWN
     try:
-        async with tenant_transaction(engine, auth.ctx) as conn:
-            security_state = await pdp_security_state(
-                conn, auth.claims.subject, auth_time=auth.auth_time
-            )
+        view = await _security_view(engine, auth.ctx, auth.claims.subject, auth.auth_time, now)
+        security_state, security_revision = view.state, view.revision
     except Exception:  # noqa: BLE001 - the PIP is optional for R0/R1, mandatory (fail closed) above
         security_state = "UNKNOWN"
     auth_time = auth.auth_time or auth.claims.issued_at
@@ -119,7 +124,39 @@ async def authenticated_caller(request: Request) -> Caller:
         client_id=auth.claims.client_id,
         scope=auth.claims.scope,
         actor=auth.claims.actor,
+        security_revision=security_revision,
+        session_auth_time=auth.auth_time,
     )
+
+
+async def _security_view(
+    engine: AsyncEngine,
+    ctx: RequestContext,
+    principal_id: str,
+    auth_time: datetime | None,
+    now: datetime,
+) -> Any:
+    """Cache first (bounded by CALLER_STATE_RISK_CLASS), else one read in its own transaction."""
+    tenant = ctx.tenant_id or ""
+    try:
+        return await security_view(
+            None,
+            tenant_id=tenant,
+            principal_id=principal_id,
+            auth_time=auth_time,
+            risk_class=CALLER_STATE_RISK_CLASS,
+            now=now,
+        )
+    except LookupError:
+        async with tenant_transaction(engine, ctx) as conn:
+            return await security_view(
+                conn,
+                tenant_id=tenant,
+                principal_id=principal_id,
+                auth_time=auth_time,
+                risk_class=CALLER_STATE_RISK_CLASS,
+                now=now,
+            )
 
 
 _FORBIDDEN = (

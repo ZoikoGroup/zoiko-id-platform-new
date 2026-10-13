@@ -76,6 +76,9 @@ class WebAuthnSettings:
     rp_name: str
     origins: tuple[str, ...]
     session_policy: SessionPolicy = field(default_factory=SessionPolicy)
+    # FR-AUT-010 / WebAuthn L3 Related Origin Requests: other Zoiko domains allowed to use this RP
+    # ID. Governed configuration only (published at /.well-known/webauthn); https, exact origins.
+    related_origins: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.rp_id or not self.origins:
@@ -85,6 +88,18 @@ class WebAuthnSettings:
                 raise ValueError(
                     f"origin {o} must be https (http://localhost only for development)"
                 )
+        labels = set()
+        for o in self.related_origins:
+            host = o.removeprefix("https://")
+            if not o.startswith("https://") or "/" in host or "*" in host or not host:
+                raise ValueError(f"related origin {o} must be an exact https origin")
+            labels.add(".".join(host.split(".")[-2:]))
+        if len(labels) > 5:  # WebAuthn L3 §5.11: clients honour at most five registrable labels
+            raise ValueError("at most five registrable domains may be related origins")
+
+    @property
+    def all_origins(self) -> tuple[str, ...]:
+        return self.origins + tuple(o for o in self.related_origins if o not in self.origins)
 
 
 def _b64(data: bytes) -> str:
@@ -203,7 +218,7 @@ async def registration_verify(
             credential=credential,
             expected_challenge=challenge,
             expected_rp_id=settings.rp_id,
-            expected_origin=list(settings.origins),
+            expected_origin=list(settings.all_origins),
             require_user_presence=True,
             require_user_verification=True,
             supported_pub_key_algs=PUBKEY_ALGS,
@@ -317,7 +332,7 @@ async def authentication_verify(
             credential=credential,
             expected_challenge=challenge,
             expected_rp_id=settings.rp_id,
-            expected_origin=list(settings.origins),
+            expected_origin=list(settings.all_origins),
             credential_public_key=authenticator.public_key_cose or b"",
             credential_current_sign_count=0,  # counter anomalies are a risk signal, not a lockout
             require_user_verification=claimed.user_verification == "required",

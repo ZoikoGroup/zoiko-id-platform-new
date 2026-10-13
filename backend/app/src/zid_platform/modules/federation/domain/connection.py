@@ -51,7 +51,10 @@ class Connection:
     sso_url: str | None = None
     idp_certificates: tuple[str, ...] = ()
     sp_entity_id: str | None = None
-    allow_idp_initiated: bool = False
+    allow_idp_initiated: bool = False  # only through a separately approved R3 change
+    idp_initiated_targets: tuple[str, ...] = ()  # exact https landing URLs for unsolicited logins
+    sp_decryption_key_ref: str | None = None  # brokered SP RSA key for EncryptedAssertion
+    require_encrypted_assertions: bool = False
     trust_anchor_id: str | None = None  # OpenID Federation: endpoints/keys come from a trust chain
     federation_entity_id: str | None = None
 

@@ -2,7 +2,8 @@
 
     create()    purpose-bound request: registered RP + purpose, minimized DCQL claim set, nonce,
                 state; a signed request object (oauth-authz-req+jwt) served once by request_uri
-    respond()   direct_post response: state -> single presentation -> format adapter ->
+    respond()   direct_post or HAIP direct_post.jwt (ECDH-ES JWE to a per-presentation key)
+                response: state -> single presentation -> format adapter ->
                 issuer trust (typed) -> holder binding to this transaction -> status -> claims;
                 then canonical assertions (verification module) where the configuration maps a
                 verification profile. A presentation never creates authority.
@@ -13,21 +14,35 @@ raw presentation is kept. UNKNOWN status is never VALID (fails closed when manda
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import secrets
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 import httpx
+from joserfc import jwe
+from joserfc.errors import JoseError
+from joserfc.jwk import ECKey
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_context import RequestContext
-from zid_crypto import CryptoError, KeyRing, peek_header, verify_external_jws
+from zid_crypto import (
+    CryptoError,
+    KeyRing,
+    b64url,
+    peek_header,
+    sign_jws,
+    verify_external_jws,
+)
 from zid_db import tenant_transaction
 from zid_outbox import emit
 
+from zid_platform.modules.credential.domain import vcdm
 from zid_platform.modules.credential.domain.credentials import (
     KB_TYP,
     SD_JWT_TYPS,
@@ -41,13 +56,17 @@ from zid_platform.modules.credential.domain.credentials import (
     sd_hash,
     split_presentation,
     status_at,
+    status_at_raw,
     status_decision,
     trust_decision,
 )
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.modules.credential.infrastructure.mdoc import (
+    STATUS_LIST_CWT_TYP,
     session_transcript,
+    status_reference,
     verify_device_response,
+    verify_status_list_cwt,
 )
 from zid_platform.modules.federation.ports import TrustChainError, resolve, trust_anchor
 from zid_platform.modules.verification.ports import record_presentation
@@ -58,15 +77,25 @@ SKEW = timedelta(seconds=60)
 REQUEST_TYP = "oauth-authz-req+jwt"
 
 
+RESPONSE_ENC_VALUES = ("A128GCM", "A256GCM")
+RESPONSE_MODES = ("direct_post", "direct_post.jwt")
+
+
 @dataclass(frozen=True, slots=True)
 class VerifierSettings:
     issuer: str
     keyring: KeyRing
     transport: httpx.AsyncBaseTransport | None = None
+    x5c: tuple[str, ...] = ()  # HAIP verifier certificate chain (base64 DER), leaf first
 
     @property
     def client_id(self) -> str:
-        return f"openid_federation:{self.issuer}"  # OID4VP 1.0 client identifier prefix
+        """OID4VP 1.0 client identifier prefix: x509_hash (HAIP) once a verifier certificate is
+        configured - the hash of the leaf that signs our request objects - else OpenID Federation."""
+        if self.x5c:
+            leaf = base64.b64decode(self.x5c[0])
+            return "x509_hash:" + b64url(hashlib.sha256(leaf).digest())
+        return f"openid_federation:{self.issuer}"
 
     def response_uri(self, tenant_id: str) -> str:
         return f"{self.issuer.rstrip('/')}/presentations/response/{tenant_id}"
@@ -84,6 +113,17 @@ def _dcql(config: Configuration, claims: tuple[str, ...]) -> dict[str, Any]:
                     "format": "dc+sd-jwt",
                     "meta": {"vct_values": [config.credential_type]},
                     "claims": [{"path": [c]} for c in claims],
+                }
+            ]
+        }
+    if config.format == "VC_JWT":
+        return {
+            "credentials": [
+                {
+                    "id": "cred1",
+                    "format": "jwt_vc_json",
+                    "meta": {"type_values": [["VerifiableCredential", config.credential_type]]},
+                    "claims": [{"path": ["credentialSubject", c]} for c in claims],
                 }
             ]
         }
@@ -112,8 +152,11 @@ async def create(
     subject_principal_id: str | None,
     jurisdiction: str,
     now: datetime,
+    response_mode: str = "direct_post",
 ) -> dict[str, Any]:
     require_role("VERIFIER")
+    if response_mode not in RESPONSE_MODES:
+        raise CredentialError("RESPONSE_MODE_UNSUPPORTED")
     config = await store.load_configuration(conn, configuration_id)
     if config.status != "ACTIVE":
         raise CredentialError("CONFIGURATION_NOT_ACTIVE")
@@ -123,27 +166,38 @@ async def create(
     requested = minimize(claims, config, allowed)
     pid, nonce, state = str(uuid.uuid4()), secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     iat = int(now.timestamp())
-    request_jwt = settings.keyring.sign(
+    client_metadata: dict[str, Any] = {
+        "vp_formats_supported": {
+            "dc+sd-jwt": {"sd-jwt_alg_values": ["ES256"], "kb-jwt_alg_values": ["ES256"]},
+            "mso_mdoc": {"issuerauth_alg_values": [-7], "deviceauth_alg_values": [-7]},
+            "jwt_vc_json": {"alg_values": ["ES256"]},
+        }
+    }
+    response_key = None
+    if response_mode == "direct_post.jwt":  # HAIP: an ephemeral key for this response only
+        key = ECKey.generate_key("P-256", private=True)
+        response_key = {**key.as_dict(private=True), "kid": pid}
+        public = {**key.as_dict(private=False), "kid": pid, "use": "enc", "alg": "ECDH-ES"}
+        client_metadata["jwks"] = {"keys": [public]}
+        client_metadata["encrypted_response_enc_values_supported"] = list(RESPONSE_ENC_VALUES)
+    request_jwt = sign_jws(
+        settings.keyring.active,
         {
             "iss": settings.client_id,
             "aud": "https://self-issued.me/v2",
             "client_id": settings.client_id,
             "response_type": "vp_token",
-            "response_mode": "direct_post",
+            "response_mode": response_mode,
             "response_uri": settings.response_uri(tenant_id),
             "nonce": nonce,
             "state": state,
             "dcql_query": _dcql(config, requested),
-            "client_metadata": {
-                "vp_formats_supported": {
-                    "dc+sd-jwt": {"sd-jwt_alg_values": ["ES256"], "kb-jwt_alg_values": ["ES256"]},
-                    "mso_mdoc": {"issuerauth_alg_values": [-7], "deviceauth_alg_values": [-7]},
-                }
-            },
+            "client_metadata": client_metadata,
             "iat": iat,
             "exp": iat + int(REQUEST_TTL.total_seconds()),
         },
         typ=REQUEST_TYP,
+        extra_header={"x5c": list(settings.x5c)} if settings.x5c else None,
     )
     await store.create_presentation(
         conn,
@@ -161,6 +215,8 @@ async def create(
             "request_jwt": request_jwt,
             "created_at": now,
             "expires_at": now + REQUEST_TTL,
+            "response_mode": response_mode,
+            "response_key": response_key,
         },
     )
     await emit(
@@ -337,6 +393,136 @@ async def _sd_jwt(
     return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound)
 
 
+def _jwt_payload(token: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        header = peek_header(token)
+        payload = json.loads(b64d(token.split(".")[1]))
+    except (CryptoError, ValueError, IndexError) as e:
+        raise CredentialError("VC_MALFORMED") from e
+    if not isinstance(payload, dict):
+        raise CredentialError("VC_MALFORMED")
+    return header, payload
+
+
+async def _vc_jwt(
+    conn: AsyncConnection,
+    settings: VerifierSettings,
+    config: Configuration,
+    presentation: str,
+    *,
+    nonce: str,
+    requested: list[str],
+    now: datetime,
+) -> Verified:
+    """W3C VCDM 2.0: holder-signed vp+jwt enveloping one issuer-signed vc+jwt."""
+    vp_header, vp_unverified = _jwt_payload(presentation)
+    if vp_header.get("typ") != vcdm.VP_TYP:
+        raise CredentialError("VP_MALFORMED", "typ")
+    vc_jwt = vcdm.enveloped_credential(vp_unverified)
+    vc_header, vc_unverified = _jwt_payload(vc_jwt)
+    if vc_header.get("typ") != vcdm.VC_TYP:
+        raise CredentialError("VC_MALFORMED", "typ")
+    issuer = vcdm.issuer_of(vc_unverified)
+    found = await store.load_trust(conn, issuer)
+    trust_decision(
+        found[0] if found else None,
+        credential_type=config.credential_type,
+        jurisdiction=None,
+        now=now,
+    )
+    assert found is not None
+    row = found[1]
+    keys = await _issuer_keys(conn, settings, row, now)
+    try:
+        _, vc = verify_external_jws(
+            vc_jwt, keys=keys.get("keys", []), algorithms=row["algorithms"], typ=vcdm.VC_TYP
+        )
+    except CryptoError as e:
+        raise CredentialError("CREDENTIAL_PROOF_INVALID", e.code) from e
+    if vcdm.issuer_of(vc) != issuer:
+        raise CredentialError("CREDENTIAL_PROOF_INVALID", "issuer")
+    claims = vcdm.check_credential(vc, credential_type=config.credential_type, now=now)
+    bound = False
+    if config.holder_binding_required:
+        jwk = (vc.get("cnf") or {}).get("jwk")
+        if not isinstance(jwk, dict):
+            raise CredentialError("HOLDER_BINDING_MISSING")
+        try:
+            _, vp = verify_external_jws(
+                presentation, keys=[jwk], algorithms=["ES256", "Ed25519"], typ=vcdm.VP_TYP
+            )
+        except CryptoError as e:
+            raise CredentialError("HOLDER_BINDING_INVALID", e.code) from e
+        iat = vp.get("iat")
+        if vp.get("aud") != settings.client_id or vp.get("nonce") != nonce:
+            raise CredentialError("HOLDER_BINDING_INVALID", "audience/nonce")
+        if (
+            not isinstance(iat, int | float)
+            or abs(now.timestamp() - iat) > KB_MAX_AGE.total_seconds()
+        ):
+            raise CredentialError("HOLDER_BINDING_INVALID", "iat")
+        if vcdm.enveloped_credential(vp) != vc_jwt:
+            raise CredentialError("HOLDER_BINDING_INVALID", "credential")
+        bound = True
+    status = (
+        await _bitstring_status(settings, vc, issuer, keys, list(row["algorithms"]), now)
+        if config.status_method == "BITSTRING_STATUS_LIST"
+        else "VALID"
+    )
+    status_decision(status, config)
+    missing = [c for c in requested if c in config.required_claims and c not in claims]
+    if missing:
+        raise CredentialError("CLAIMS_MISSING", ",".join(missing))
+    return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound)
+
+
+async def _bitstring_status(
+    settings: VerifierSettings,
+    vc: dict[str, Any],
+    issuer: str,
+    keys: dict[str, Any],
+    algorithms: list[str],
+    now: datetime,
+) -> str:
+    """Every BitstringStatusListEntry is checked; any set bit wins, any failure is UNKNOWN."""
+    try:
+        entries = vcdm.status_entries(vc)
+    except CredentialError:
+        return "UNKNOWN"
+    if not entries:
+        return "UNKNOWN"
+    issuer_host = urlsplit(issuer).hostname
+    result = "VALID"
+    async with httpx.AsyncClient(
+        transport=settings.transport, timeout=5.0, follow_redirects=False
+    ) as c:
+        for e in entries:
+            if not e.list_credential.startswith("https://") or (
+                urlsplit(e.list_credential).hostname != issuer_host
+            ):
+                return "UNKNOWN"  # status only from the issuer's own domain
+            try:
+                r = await c.get(e.list_credential, headers={"Accept": "application/vc+jwt"})
+                if r.status_code != 200 or len(r.content) > 256 * 1024:
+                    return "UNKNOWN"
+                _, doc = verify_external_jws(
+                    r.text.strip(),
+                    keys=keys.get("keys", []),
+                    algorithms=algorithms,
+                    typ=vcdm.VC_TYP,
+                )
+                bits = vcdm.status_list_bits(
+                    doc, issuer=issuer, url=e.list_credential, purpose=e.purpose, now=now
+                )
+                if vcdm.bit_at(bits, e.index):
+                    if vcdm.STATUS_PURPOSES[e.purpose] == "REVOKED":
+                        return "REVOKED"
+                    result = "SUSPENDED"
+            except (httpx.HTTPError, CryptoError, CredentialError):
+                return "UNKNOWN"
+    return result
+
+
 async def _mdoc(
     conn: AsyncConnection,
     settings: VerifierSettings,
@@ -355,7 +541,7 @@ async def _mdoc(
     transcript = session_transcript(
         client_id=settings.client_id, nonce=nonce, response_uri=settings.response_uri(tenant_id)
     )
-    claims, _ = verify_device_response(
+    claims, mso = verify_device_response(
         presentation,
         doc_type=config.credential_type,
         iaca_roots=roots,
@@ -364,12 +550,75 @@ async def _mdoc(
         holder_binding_required=config.holder_binding_required,
         now=now,
     )
-    if config.status_method != "NONE":
-        status_decision("UNKNOWN", config)  # mdoc status lists: adapter not enabled in this release
+    status = (
+        await _mdoc_status(settings, mso, roots, now)
+        if config.status_method == "TOKEN_STATUS_LIST"
+        else "VALID"
+    )
+    status_decision(status, config)
     missing = [c for c in requested if c in config.required_claims and c not in claims]
     if missing:
         raise CredentialError("CLAIMS_MISSING", ",".join(missing))
-    return Verified(rows[0]["issuer_identifier"], claims, "VALID", config.holder_binding_required)
+    return Verified(rows[0]["issuer_identifier"], claims, status, config.holder_binding_required)
+
+
+async def _mdoc_status(
+    settings: VerifierSettings, mso: Mapping[str, Any], roots: list[str], now: datetime
+) -> str:
+    """Token Status List in CWT form; the list's signer must chain to the same pinned IACA."""
+    ref = status_reference(mso)
+    if ref is None:
+        return "UNKNOWN"
+    idx, uri = ref
+    if not uri.startswith("https://"):
+        return "UNKNOWN"
+    try:
+        async with httpx.AsyncClient(
+            transport=settings.transport, timeout=5.0, follow_redirects=False
+        ) as c:
+            r = await c.get(uri, headers={"Accept": STATUS_LIST_CWT_TYP})
+        if r.status_code != 200 or len(r.content) > 256 * 1024:
+            return "UNKNOWN"
+        bits, lst = verify_status_list_cwt(r.content, uri=uri, iaca_roots=roots, now=now)
+        return status_at_raw(lst, bits, idx)
+    except (httpx.HTTPError, CredentialError):
+        return "UNKNOWN"
+
+
+async def _decrypt_response(conn: AsyncConnection, jwe_value: str) -> dict[str, str]:
+    """HAIP direct_post.jwt: ECDH-ES + A128GCM/A256GCM to this presentation's ephemeral key.
+
+    The JWE kid names the presentation; its payload must carry that presentation's own state,
+    so a response encrypted for one transaction can never answer another."""
+    try:
+        header = json.loads(b64d(jwe_value.split(".")[0]))
+    except (ValueError, IndexError) as e:
+        raise CredentialError("RESPONSE_DECRYPTION_FAILED") from e
+    if header.get("alg") != "ECDH-ES" or header.get("enc") not in RESPONSE_ENC_VALUES:
+        raise CredentialError("RESPONSE_DECRYPTION_FAILED", "algorithm")
+    try:
+        p = await store.load_presentation(conn, str(header.get("kid", "")))
+    except CredentialError as e:
+        raise CredentialError("RESPONSE_DECRYPTION_FAILED") from e
+    if p["response_key"] is None or p["status"] != "REQUESTED":
+        raise CredentialError("PRESENTATION_STATE_INVALID")
+    try:
+        key = ECKey.import_key(dict(p["response_key"]))
+        plaintext = jwe.decrypt_compact(
+            jwe_value, key, algorithms=["ECDH-ES", *RESPONSE_ENC_VALUES]
+        ).plaintext
+        payload = json.loads(plaintext or b"")
+    except (JoseError, ValueError) as e:
+        raise CredentialError("RESPONSE_DECRYPTION_FAILED") from e
+    if not isinstance(payload, dict) or store.sha256(str(payload.get("state", ""))) != bytes(
+        p["state_hash"]
+    ):
+        raise CredentialError("PRESENTATION_STATE_INVALID")
+    return {
+        k: v if isinstance(v, str) else json.dumps(v)
+        for k, v in payload.items()
+        if k in ("state", "vp_token", "error", "error_description")
+    }
 
 
 async def respond(
@@ -383,9 +632,14 @@ async def respond(
 ) -> str:
     ctx = base_ctx.with_identity(tenant_id, None)
     async with tenant_transaction(engine, ctx) as conn:
+        encrypted = "response" in form
+        if encrypted:
+            form = await _decrypt_response(conn, form["response"])
         p = await store.by_state(conn, form.get("state", ""))
         if p is None or p["status"] != "REQUESTED":
             raise CredentialError("PRESENTATION_STATE_INVALID")
+        if p["response_mode"] == "direct_post.jwt" and not encrypted:
+            raise CredentialError("RESPONSE_ENCRYPTION_REQUIRED")
         if now >= p["expires_at"]:
             await store.finish_presentation(
                 conn,
@@ -411,6 +665,10 @@ async def respond(
         async with tenant_transaction(engine, ctx) as conn:
             if config.format == "SD_JWT_VC":
                 verified = await _sd_jwt(
+                    conn, settings, config, items[0], nonce=p["nonce"], requested=requested, now=now
+                )
+            elif config.format == "VC_JWT":
+                verified = await _vc_jwt(
                     conn, settings, config, items[0], nonce=p["nonce"], requested=requested, now=now
                 )
             else:

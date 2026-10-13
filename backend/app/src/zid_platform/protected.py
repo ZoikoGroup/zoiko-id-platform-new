@@ -30,6 +30,7 @@ from zid_platform.modules.decision.ports import (
     action_spec,
     evaluate_request,
 )
+from zid_platform.modules.signals.ports import security_view
 
 CATALOG_FILE = Path(
     os.environ.get("ZID_ACTION_CATALOG")
@@ -56,8 +57,13 @@ async def protected_action(
     change: str = "",
     approval_request_id: str | None = None,
     now: datetime | None = None,
+    require_approval: bool = False,
 ) -> Decision:
-    """ALLOW or raise. STEP_UP and APPROVAL_REQUIRED come back as 403s the client can act on."""
+    """ALLOW or raise. STEP_UP and APPROVAL_REQUIRED come back as 403s the client can act on.
+
+    `require_approval`: a change that always needs a second administrator, whatever the policy
+    release says (e.g. enabling IdP-initiated SSO): without an APPROVED approval bound to exactly
+    this change it is refused before the PDP is asked."""
     now = now or datetime.now(UTC)
     tenant = caller.ctx.tenant_id or ""
     try:
@@ -76,6 +82,22 @@ async def protected_action(
             approval_state = outcome.state.value
         except ValueError:
             approval_state = "DENIED"
+    if require_approval and approval_state != "APPROVED":
+        raise ZidError(
+            "APPROVAL_REQUIRED",
+            "A second administrator must approve this exact change.",
+            http_status=403,
+        )
+    # FR-SIG-006: protected actions are R2/R3 - they never act on a cached security state,
+    # but read the committed one inside this very transaction.
+    fresh = await security_view(
+        conn,
+        tenant_id=tenant,
+        principal_id=caller.ctx.principal_id or "",
+        auth_time=caller.session_auth_time,
+        risk_class=max(int(spec.min_risk), 2),
+        now=now,
+    )
     decision = await evaluate_request(
         conn,
         req=DecisionRequest(
@@ -94,7 +116,7 @@ async def protected_action(
             action, resource, now, actor_assurance=caller.authn.level
         ),
         authn=caller.authn,
-        security_state=caller.security_state,
+        security_state=fresh.state,
         catalog=catalog(),
     )
     if decision.outcome is Outcome.ALLOW:

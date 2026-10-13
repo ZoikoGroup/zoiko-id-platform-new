@@ -524,6 +524,29 @@
         ]
       }
     },
+    "/ssf/jwks": {
+      "get": {
+        "operationId": "set_keys_ssf_jwks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Keys Ssf Jwks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Set Keys",
+        "tags": [
+          "signals"
+        ]
+      }
+    },
     "/ssf/poll/{stream_ref}": {
       "post": {
         "operationId": "poll_ssf_poll__stream_ref__post",

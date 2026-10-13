@@ -27,6 +27,7 @@ actions:
   verification.profile.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification profile release (VERIFY §21 protected admin)", name_source: proposed, owner: verification, note: "CR-009"}
   verification.adapter.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification provider trust (VERIFY §9-10)", name_source: proposed, owner: verification, note: "CR-009"}
   authentication.recovery.approve:  {min_risk_class: R3, min_evidence_class: E3, category: "RC-3 second-administrator recovery approval (AUTH §14.1)", name_source: proposed, owner: authentication, note: "CR-009"}
+  authentication.recovery.policy.manage: {min_risk_class: R3, min_evidence_class: E3, category: "RC-4 lockbox recovery policy (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}
   credential.trust.manage:          {min_risk_class: R3, min_evidence_class: E3, category: "issuer trust and credential configuration (VC §4, §15)", name_source: proposed, owner: credential, note: "CR-009"}
   credential.status.change:         {min_risk_class: R3, min_evidence_class: E3, category: "suspend/revoke an issued credential (VC §13)", name_source: proposed, owner: credential, note: "CR-009"}
   tenant.owner.change:              {min_risk_class: R3, min_evidence_class: E3, category: "protected administrative action (OVERLAY §4)", name_source: proposed, owner: tenant}

@@ -13,7 +13,9 @@ minting SETs under a key receivers cannot verify.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+from collections.abc import Mapping
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from zid_context import RequestContext, new_id
@@ -23,6 +25,7 @@ from zid_outbox import CloudEvent, consume
 from zid_outbox.kafka import run_consumer
 from zid_telemetry import configure_logging
 
+from zid_platform.keys import KeyRings
 from zid_platform.modules.relationship.infrastructure.spicedb import SpiceDB, project
 from zid_platform.modules.signals.application.ssf import (
     TRANSMITTER_CONSUMER,
@@ -102,8 +105,22 @@ def main() -> None:
             env=os.environ.get("ZID_ENVIRONMENT", "local"),
             region=os.environ.get("ZID_REGION", cell),
             cell_id=cell,
+            transmitter=transmitter_keys(os.environ, cell),
         )
     )
+
+
+def transmitter_keys(environ: Mapping[str, str], cell: str) -> tuple[KeyRing, str] | None:
+    """The SET signing ring, when this process may have one: local/test development keys shared
+    with the API through ZID_DEV_SIGNING_KEYS. Deployed cells get the KMS signer (Phase F); until
+    then the transmitter stays off rather than signing with a key receivers cannot fetch."""
+    issuer = environ.get("ZID_TOKEN_ISSUER")
+    pems = json.loads(environ.get("ZID_DEV_SIGNING_KEYS") or "{}")
+    if not issuer or environ.get("ZID_ENVIRONMENT", "local") not in ("local", "test"):
+        return None
+    if "set" not in pems:
+        return None  # a fresh random key here would not match what the API publishes
+    return KeyRings.development(cell, pems).set, issuer
 
 
 if __name__ == "__main__":

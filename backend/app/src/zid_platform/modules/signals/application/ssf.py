@@ -338,7 +338,7 @@ def ssf_configuration(issuer: str) -> dict[str, Any]:
     return {
         "spec_version": "1_0",
         "issuer": issuer,
-        "jwks_uri": f"{base}/oauth2/jwks",
+        "jwks_uri": f"{base}/ssf/jwks",  # SET keys are separate from token keys (§21)
         "delivery_methods_supported": ["urn:ietf:rfc:8936", "urn:ietf:rfc:8935"],
         "configuration_endpoint": f"{base}/ssf/streams",
         "authorization_schemes": [{"spec_urn": "urn:ietf:rfc:6749"}],

@@ -59,6 +59,12 @@ async def configuration(request: Request) -> dict[str, Any]:
     return ssf_configuration(_issuer(request))
 
 
+@router.get("/ssf/jwks")
+async def set_keys(request: Request) -> dict[str, Any]:
+    rings = getattr(request.app.state, "keyrings", None)
+    return rings.set.jwks() if rings else {"keys": []}
+
+
 @router.post("/ssf/events/push/{stream_ref}", status_code=202)
 async def push(stream_ref: str, request: Request) -> Response:
     try:

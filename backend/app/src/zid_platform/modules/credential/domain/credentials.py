@@ -210,12 +210,27 @@ STATUS_VALUES = {0: "VALID", 1: "REVOKED", 2: "SUSPENDED"}
 
 def status_at(lst: str, bits: int, idx: int) -> str:
     """Draft Token Status List: zlib-deflated bit array, `bits` per entry, LSB first."""
+    try:
+        deflated = b64d(lst)
+    except ValueError as e:
+        raise CredentialError("STATUS_LIST_INVALID") from e
+    return status_at_raw(deflated, bits, idx)
+
+
+MAX_STATUS_LIST_BYTES = 16 * 1024 * 1024
+
+
+def status_at_raw(deflated: bytes, bits: int, idx: int) -> str:
+    """The same list as raw bytes (the CWT form carries `lst` as a byte string)."""
     if bits not in (1, 2, 4, 8) or idx < 0:
         raise CredentialError("STATUS_LIST_INVALID")
     try:
-        raw = zlib.decompress(b64d(lst))
-    except (zlib.error, ValueError) as e:
+        inflater = zlib.decompressobj()
+        raw = inflater.decompress(deflated, MAX_STATUS_LIST_BYTES)  # bounded: no zip bomb
+    except zlib.error as e:
         raise CredentialError("STATUS_LIST_INVALID") from e
+    if inflater.unconsumed_tail:
+        raise CredentialError("STATUS_LIST_INVALID", "too large")
     per_byte = 8 // bits
     byte_index, slot = divmod(idx, per_byte)
     if byte_index >= len(raw):

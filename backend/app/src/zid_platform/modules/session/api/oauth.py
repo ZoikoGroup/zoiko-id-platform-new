@@ -7,6 +7,8 @@
     POST /oauth2/revoke                             RFC 7009
     POST /oauth2/introspect                         RFC 7662 (authorized confidential clients)
     GET  /oauth2/userinfo                           OIDC UserInfo (access token with `openid`)
+    GET|POST /oauth2/consent/{tenant}.{request}     consent UI support (session cookie, CSRF origin)
+    GET  /oauth2/consents | POST /oauth2/consents/{client}:revoke   the user's consents
     GET  /oauth2/jwks                               issuer verification keys (rotation window)
     GET  /.well-known/oauth-authorization-server    RFC 8414 metadata
     GET  /.well-known/openid-configuration          OIDC Discovery
@@ -18,19 +20,23 @@ because OAuth clients and conformance suites expect it. Token responses are neve
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import parse_qsl
 
 from cryptography import x509
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
+from pydantic import BaseModel, ConfigDict
 from zid_context import RequestContext, current_context
+from zid_db import tenant_transaction
 
 from zid_platform.api_auth import Caller, authenticated_caller
 from zid_platform.modules.session.application.client_auth import parse_client_cert
 from zid_platform.modules.session.application.oauth_server import (
     ServerSettings,
     authorize,
+    consent_details,
+    decide_consent,
     introspect,
     metadata,
     par,
@@ -38,6 +44,7 @@ from zid_platform.modules.session.application.oauth_server import (
     token,
 )
 from zid_platform.modules.session.domain.oauth import OAuthError
+from zid_platform.modules.session.infrastructure import oauth_store
 
 router = APIRouter(tags=["oauth"])
 SESSION_COOKIE = "__Host-zid_session"
@@ -233,3 +240,72 @@ async def oidc_metadata(request: Request) -> Response:
     except OAuthError as e:
         return _oauth_error(e)
     return JSONResponse(metadata(settings.issuer, oidc=True))
+
+
+# ---------------------------------------------------------------------- consent (third parties)
+
+
+def _origin_ok(request: Request) -> bool:
+    webauthn = getattr(request.app.state, "webauthn_settings", None)
+    return webauthn is not None and request.headers.get("origin") in webauthn.all_origins
+
+
+@router.get("/oauth2/consent/{ref}")
+async def consent_request(ref: str, request: Request) -> Response:
+    """For the consent UI: which client asks for which scopes (the user's own session only)."""
+    try:
+        details = await consent_details(
+            request.app.state.engine,
+            ref=ref,
+            session_handle=request.cookies.get(SESSION_COOKIE),
+            base_ctx=_ctx(),
+            now=datetime.now(UTC),
+        )
+    except OAuthError as e:
+        return _oauth_error(e)
+    return JSONResponse(details, headers=NO_STORE)
+
+
+class ConsentDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approve", "deny"]
+
+
+@router.post("/oauth2/consent/{ref}")
+async def consent_decision(ref: str, body: ConsentDecision, request: Request) -> Response:
+    if not _origin_ok(request):  # cookie-authenticated, state-changing: CSRF origin check
+        return _oauth_error(OAuthError("access_denied", "origin not allowed", status=403))
+    try:
+        location = await decide_consent(
+            request.app.state.engine,
+            _settings(request),
+            ref=ref,
+            session_handle=request.cookies.get(SESSION_COOKIE),
+            approve=body.decision == "approve",
+            base_ctx=_ctx(),
+            now=datetime.now(UTC),
+        )
+    except OAuthError as e:
+        return _oauth_error(e)
+    return JSONResponse({"redirect_to": location}, headers=NO_STORE)
+
+
+@router.get("/oauth2/consents")
+async def my_consents(
+    request: Request, caller: Annotated[Caller, Depends(authenticated_caller)]
+) -> dict[str, Any]:
+    async with tenant_transaction(request.app.state.engine, caller.ctx) as conn:
+        return {"items": await oauth_store.list_consents(conn, caller.ctx.principal_id or "")}
+
+
+@router.post("/oauth2/consents/{client_id}:revoke")
+async def revoke_my_consent(
+    client_id: str, request: Request, caller: Annotated[Caller, Depends(authenticated_caller)]
+) -> Response:
+    async with tenant_transaction(request.app.state.engine, caller.ctx) as conn:
+        n = await oauth_store.revoke_consent(
+            conn, caller.ctx.principal_id or "", client_id, datetime.now(UTC)
+        )
+    if n == 0:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return JSONResponse({"client_id": client_id, "status": "REVOKED"}, headers=NO_STORE)

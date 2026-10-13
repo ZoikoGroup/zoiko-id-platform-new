@@ -7,13 +7,14 @@ signals are applied to, so it is never older than the last committed signal. A g
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_outbox import emit
 from zid_telemetry import get_logger
 
+from zid_platform.modules.signals.application.state_cache import CACHE, observed
 from zid_platform.modules.signals.domain.rules import TERMINAL, State, pdp_state
 from zid_platform.modules.signals.infrastructure import signal_store as store
 
@@ -28,18 +29,7 @@ async def pdp_security_state(
     commit -> observation lag (FR-SIG-003)."""
     current = await store.read_state(conn, "PRINCIPAL", principal_id)
     state = pdp_state(current, auth_time=auth_time)
-    if current is not None and state != "NORMAL":
-        lag_ms = (datetime.now(UTC) - current.committed_at).total_seconds() * 1000
-        _log.info(
-            "security state observed by PEP",
-            extra={
-                "component": "signals.propagation",
-                "subject": principal_id,
-                "state": state,
-                "revision": current.revision,
-                "commit_to_observation_ms": round(lag_ms, 1),
-            },
-        )
+    observed(principal_id, current, state)
     return state
 
 
@@ -117,6 +107,7 @@ async def override(
         reason="SECURITY_STATE_OVERRIDE",
         cause_signal_id=signal_id,
     )
+    CACHE.invalidate(tenant_id, subject_id, written)
     await emit(
         conn,
         name="security.state.changed",

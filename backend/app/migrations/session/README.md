@@ -13,3 +13,5 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `authn.client_directory`
 - `authn.dpop_nonce`
 - `authn.par_request`
+- `authn.oauth_consent`
+- `authn.consent_request`

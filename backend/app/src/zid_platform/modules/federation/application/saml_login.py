@@ -1,12 +1,20 @@
 """SAML 2.0 SP adapter (ZID-AUTH-001 §10; AUTH-W5; AUTH-03, AUTH-10).
 
     begin_saml()     AuthnRequest over HTTP-Redirect; RelayState = single-use login transaction
-    complete_saml()  ACS (HTTP-POST): hardened parse -> signature with a pinned IdP certificate
+    complete_saml()  ACS (HTTP-POST): hardened parse -> [EncryptedAssertion: AES-GCM/RSA-OAEP
+                     decrypt with the brokered SP key] -> signature with a pinned IdP certificate
                      (SHA-256+ only) -> facts read ONLY from the signed element -> exact
                      Destination/Recipient/Audience, InResponseTo, time window, stable NameID ->
                      assertion-ID replay cache -> account link -> identity session
 
-IdP-initiated SSO is disabled (no RelayState, no login transaction, no session). Library choice:
+Encrypted assertions: either the decrypted assertion is itself signed, or the signed Response
+carries the EncryptedAssertion (the ciphertext is then covered by the IdP signature and GCM).
+
+IdP-initiated SSO is off unless an approved R3 change enabled it for one connection. Unsolicited
+responses then go to that connection's own ACS (/federation/saml/acs/{tenant}.{connection}), so
+Destination/Recipient name it exactly; they must be fresh and carry no InResponseTo; the
+assertion-ID replay cache applies; and RelayState may only name one of the approved landing URLs
+- never an arbitrary redirect. Library choice:
 signxml (pure Python, returns only what was signed) instead of pysaml2, whose verification needs
 the external xmlsec1 binary; recorded as an open DEC-E1 point.
 """
@@ -15,7 +23,9 @@ from __future__ import annotations
 
 import base64
 import secrets
+import uuid
 import zlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 from xml.etree.ElementTree import ParseError
@@ -35,6 +45,7 @@ from zid_platform.modules.federation.application.oidc_login import (
     LoggedIn,
     establish,
 )
+from zid_platform.modules.federation.application.saml_decrypt import decrypt_assertion, load_key
 from zid_platform.modules.federation.domain.connection import (
     LOGIN_TTL,
     Connection,
@@ -71,6 +82,11 @@ SIGNATURE_POLICY = SignatureConfiguration(
 
 def acs_url(settings: FederationSettings) -> str:
     return settings.issuer.rstrip("/") + "/federation/saml/acs"
+
+
+def connection_acs_url(settings: FederationSettings, c: Connection) -> str:
+    """Per-connection ACS for governed IdP-initiated SSO (no RelayState to route by)."""
+    return f"{acs_url(settings)}/{c.tenant_id}.{c.connection_id}"
 
 
 def _instant(now: datetime) -> str:
@@ -152,21 +168,70 @@ def _verified(xml: bytes, c: Connection) -> etree._Element:
     raise FederationError("SAML_SIGNATURE_INVALID")
 
 
-def _facts(xml: bytes, signed: etree._Element) -> AssertionFacts:
-    tag = etree.QName(signed).localname
-    if tag == "Assertion":
-        assertion = signed
-        envelope = etree.fromstring(
-            xml, parser=etree.XMLParser(resolve_entities=False, no_network=True)
-        )
-    elif tag == "Response":
+def _parse(xml: bytes) -> etree._Element:
+    """Only ever called on bytes that already passed the defusedxml gate."""
+    return etree.fromstring(xml, parser=etree.XMLParser(resolve_entities=False, no_network=True))
+
+
+def _safe(xml: bytes, error: str) -> None:
+    try:  # no DTDs, no entities, no external references - before any other parser sees it
+        SafeET.fromstring(xml, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except (DefusedXmlException, ParseError, ValueError) as e:
+        raise FederationError(error, type(e).__name__) from e
+
+
+def _authenticated(
+    xml: bytes, c: Connection, settings: FederationSettings
+) -> tuple[etree._Element, etree._Element]:
+    """(envelope, assertion): the assertion is always one the IdP signature covers."""
+    root = _parse(xml)
+    plain = root.findall("saml:Assertion", NS)
+    encrypted = root.findall("saml:EncryptedAssertion", NS)
+    if c.require_encrypted_assertions and (plain or not encrypted):
+        raise FederationError("SAML_ASSERTION_NOT_ENCRYPTED")
+    if not encrypted:
+        signed = _verified(xml, c)
+        tag = etree.QName(signed).localname
+        if tag == "Assertion":
+            return root, signed
+        if tag != "Response":
+            raise FederationError("SAML_SIGNATURE_INVALID", "unexpected signed element")
         found = signed.findall("saml:Assertion", NS)
         if len(found) != 1:
             raise FederationError("SAML_ASSERTION_INVALID", "exactly one assertion")
-        assertion, envelope = found[0], signed
-    else:
+        return signed, found[0]
+    if plain or len(encrypted) != 1:
+        raise FederationError("SAML_ASSERTION_INVALID", "exactly one assertion")
+    if not c.sp_decryption_key_ref:
+        raise FederationError("SAML_DECRYPTION_FAILED", "no SP decryption key")
+    key = load_key(settings.secrets(c.sp_decryption_key_ref))
+    try:  # a signed Response covering the ciphertext
+        outer: etree._Element | None = _verified(xml, c)
+    except FederationError:
+        outer = None
+    if outer is not None and etree.QName(outer).localname == "Response":
+        found = outer.findall("saml:EncryptedAssertion", NS)
+        if len(found) != 1:
+            raise FederationError("SAML_ASSERTION_INVALID", "exactly one assertion")
+        return outer, _decrypted(decrypt_assertion(found[0], key))
+    plaintext = decrypt_assertion(encrypted[0], key)
+    _decrypted(plaintext)
+    signed = _verified(plaintext, c)  # otherwise the assertion itself must be signed
+    if etree.QName(signed).localname != "Assertion":
         raise FederationError("SAML_SIGNATURE_INVALID", "unexpected signed element")
-    if etree.QName(envelope).localname != "Response":
+    return root, signed
+
+
+def _decrypted(plaintext: bytes) -> etree._Element:
+    _safe(plaintext, "SAML_DECRYPTION_FAILED")
+    assertion = _parse(plaintext)
+    if etree.QName(assertion).text != f"{{{NS['saml']}}}Assertion":
+        raise FederationError("SAML_DECRYPTION_FAILED", "not an assertion")
+    return assertion
+
+
+def _facts(envelope: etree._Element, assertion: etree._Element) -> AssertionFacts:
+    if etree.QName(envelope).text != f"{{{NS['samlp']}}}Response":
         raise FederationError("SAML_RESPONSE_INVALID")
 
     def text(node: etree._Element | None, path: str) -> str | None:
@@ -219,7 +284,8 @@ async def complete_saml(
 ) -> LoggedIn:
     tenant = store.state_tenant(relay_state or "")
     if tenant is None:
-        raise FederationError("SAML_UNSOLICITED")  # IdP-initiated: disabled by profile
+        # unsolicited at the shared ACS: never accepted, even where IdP-initiated SSO is enabled
+        raise FederationError("SAML_UNSOLICITED")
     ctx = base_ctx.with_identity(tenant, None)
     async with tenant_transaction(engine, ctx) as conn:
         login = await store.finish_login(conn, relay_state or "", now)
@@ -229,17 +295,7 @@ async def complete_saml(
     usable(c, now)
     if c.protocol != "SAML" or c.config_revision != login.config_revision:
         raise FederationError("FEDERATION_CONFIG_CHANGED")
-    try:
-        xml = base64.b64decode(saml_response or "", validate=True)
-    except ValueError as e:
-        raise FederationError("SAML_RESPONSE_INVALID") from e
-    if not xml or len(xml) > MAX_RESPONSE_BYTES:
-        raise FederationError("SAML_RESPONSE_INVALID")
-    try:  # no DTDs, no entities, no external references - before any other parser sees it
-        SafeET.fromstring(xml, forbid_dtd=True, forbid_entities=True, forbid_external=True)
-    except (DefusedXmlException, ParseError, ValueError) as e:
-        raise FederationError("SAML_RESPONSE_INVALID", type(e).__name__) from e
-    facts = _facts(xml, _verified(xml, c))
+    facts = _facts(*_authenticated(_decode(saml_response), c, settings))
     valid_until = check_assertion(
         facts,
         issuer=c.issuer,
@@ -248,6 +304,71 @@ async def complete_saml(
         request_id=login.request_id,
         now=now,
     )
+    return await _finish(engine, settings, c, facts, valid_until, login, ctx, now)
+
+
+async def complete_unsolicited_saml(
+    engine: AsyncEngine,
+    settings: FederationSettings,
+    *,
+    connection_ref: str,
+    saml_response: str | None,
+    relay_state: str | None,
+    base_ctx: RequestContext,
+    now: datetime,
+) -> LoggedIn:
+    """Governed IdP-initiated SSO at the connection's own ACS."""
+    tenant, _, connection_id = connection_ref.partition(".")
+    try:
+        tenant = str(uuid.UUID(tenant))
+    except ValueError as e:
+        raise FederationError("FEDERATION_CONNECTION_NOT_FOUND") from e
+    ctx = base_ctx.with_identity(tenant, None)
+    async with tenant_transaction(engine, ctx) as conn:
+        c = usable(await store.load(conn, connection_id), now)
+    if c.protocol != "SAML" or not c.allow_idp_initiated:
+        raise FederationError("SAML_UNSOLICITED")
+    return_to = None
+    if relay_state:  # a landing target, never an open redirect
+        if relay_state not in c.idp_initiated_targets:
+            raise FederationError("SAML_RELAY_STATE_REJECTED")
+        return_to = relay_state
+    facts = _facts(*_authenticated(_decode(saml_response), c, settings))
+    valid_until = check_assertion(
+        facts,
+        issuer=c.issuer,
+        acs_url=connection_acs_url(settings, c),
+        sp_entity_id=c.sp_entity_id or "",
+        request_id=None,
+        now=now,
+        unsolicited=True,
+    )
+    done = await _finish(engine, settings, c, facts, valid_until, None, ctx, now)
+    return replace(done, return_to=return_to)
+
+
+def _decode(saml_response: str | None) -> bytes:
+    try:
+        xml = base64.b64decode(saml_response or "", validate=True)
+    except ValueError as e:
+        raise FederationError("SAML_RESPONSE_INVALID") from e
+    if not xml or len(xml) > MAX_RESPONSE_BYTES:
+        raise FederationError("SAML_RESPONSE_INVALID")
+    _safe(xml, "SAML_RESPONSE_INVALID")
+    return xml
+
+
+async def _finish(
+    engine: AsyncEngine,
+    settings: FederationSettings,
+    c: Connection,
+    facts: AssertionFacts,
+    valid_until: datetime,
+    login: store.Login | None,
+    ctx: RequestContext,
+    now: datetime,
+) -> LoggedIn:
+    tenant = c.tenant_id
     async with tenant_transaction(engine, ctx) as conn:
         if not await store.record_assertion(
             conn,

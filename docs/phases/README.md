@@ -56,8 +56,9 @@ Everything engineering can build for Phase E is in the repository ([status](phas
 | Identity Lead + Security | Ratify DEC-E1, including its open points: RS256 for ID tokens (OIDC conformance), external-IdP verification algorithms (RS256/PS256), signxml for SAML instead of pysaml2, in-house SD-JWT parser instead of sd-jwt-python | DEC-E1 |
 | Product + Credentials Lead; Board | Ratify DEC-E2; decide when the controlled issuer role may be enabled per credential type | DEC-E2, FR-VC-003 |
 | Spec owners | Accept or amend CR-009 (Phase E tables, events, catalogue actions) | Data Model, event catalogue, action catalogue |
-| Identity Engineering | Run the OpenID conformance suites (OIDC OP, FAPI 2.0, OID4VP/HAIP) against a deployed cell; SAML negative suite; WebAuthn interop | AUTH-20, G6, W9 |
-| Platform + Security | KMS/HSM-backed `Signer` for issuer, federation and SET keys; secrets broker for federation client secrets; maintenance DB role for `entrypoints.maintenance` | DEC-F5, Phase F |
+| Identity Engineering | Run the OpenID conformance plans in `tests/conformance/` (OIDC OP, FAPI 2.0, OID4VP/HAIP, SSF) against a deployed cell and attach the exported results; SAML IdP interop (Entra ID, Okta, ADFS); WebAuthn interop | AUTH-20, G6, W9 |
+| SRE + Signals Lead | Run the propagation soak (`tests/load/propagation/`) at production scale on a PERF cell and attach the result | FR-SIG-004 |
+| Platform + Security | KMS/HSM-backed `Signer` per key purpose (token, SET, federation, credential, verifier) - deployed cells refuse to start without them; a CA-issued HAIP verifier certificate; secrets broker for federation client secrets and SAML SP decryption keys; maintenance DB role for `entrypoints.maintenance` | DEC-F5, Phase F |
 
 ## Architecture baseline register
 

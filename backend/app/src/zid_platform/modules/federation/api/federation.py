@@ -4,9 +4,11 @@
     POST /federation/connections/{id}/link        explicit linking from a fresh, strong cookie session
     GET  /federation/callback                     OIDC callback -> identity session + cookie
     POST /federation/saml/acs                     SAML ACS (HTTP-POST) -> identity session + cookie
+    POST /federation/saml/acs/{tenant}.{conn}     IdP-initiated SAML, only where an approved change enabled it
     GET  /federation/integrations                 list         (tenant.identity_provider.change, R3)
     POST /federation/integrations                 create       (R3)
     POST /federation/integrations/{id}:rotate     new pinned keys/certificates/metadata (R3)
+    POST /federation/integrations/{id}:idp-initiated   IdP-initiated SSO on (R3 + approval) / off
     POST /federation/integrations/{id}:disable    quarantine at once (R3)
 
 `return_to` may only continue a pending /oauth2/authorize request on this issuer: there is no
@@ -19,7 +21,7 @@ import uuid
 from dataclasses import replace as dc_replace
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlsplit
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
@@ -38,7 +40,12 @@ from zid_platform.modules.federation.application.oidc_login import (
     begin,
     complete,
 )
-from zid_platform.modules.federation.application.saml_login import begin_saml, complete_saml
+from zid_platform.modules.federation.application.saml_login import (
+    begin_saml,
+    complete_saml,
+    complete_unsolicited_saml,
+    connection_acs_url,
+)
 from zid_platform.modules.federation.application.trust_chain import entity_configuration
 from zid_platform.modules.federation.domain.connection import Connection, FederationError
 from zid_platform.modules.federation.infrastructure import connection_store as store
@@ -155,7 +162,7 @@ async def link(connection_id: uuid.UUID, body: LinkIn, request: Request) -> dict
     """§9.1: first federation of an existing account needs explicit, authenticated linking."""
     settings = _settings(request)
     webauthn = getattr(request.app.state, "webauthn_settings", None)
-    if webauthn is None or request.headers.get("origin") not in webauthn.origins:
+    if webauthn is None or request.headers.get("origin") not in webauthn.all_origins:
         raise ZidError("CSRF_ORIGIN_REJECTED", "Request origin is not allowed.", http_status=403)
     tenant = await client_tenant(request_engine(request), body.client_id)
     if tenant is None:
@@ -235,9 +242,7 @@ async def callback(request: Request) -> Response:
     return _session_response(done)
 
 
-@router.post("/federation/saml/acs")
-async def saml_acs(request: Request) -> Response:
-    settings = _settings(request)
+async def _saml_form(request: Request) -> dict[str, str]:
     if request.headers.get("content-type", "").split(";")[0].strip() != (
         "application/x-www-form-urlencoded"
     ):
@@ -245,11 +250,37 @@ async def saml_acs(request: Request) -> Response:
     body = await request.body()
     if len(body) > 400 * 1024:
         raise ZidError("SAML_RESPONSE_INVALID", "Federated authentication failed.", http_status=400)
-    form = dict(parse_qsl(body.decode("ascii", errors="replace")))
+    return dict(parse_qsl(body.decode("ascii", errors="replace")))
+
+
+@router.post("/federation/saml/acs")
+async def saml_acs(request: Request) -> Response:
+    settings = _settings(request)
+    form = await _saml_form(request)
     try:
         done = await complete_saml(
             request_engine(request),
             settings,
+            saml_response=form.get("SAMLResponse"),
+            relay_state=form.get("RelayState"),
+            base_ctx=_ctx(),
+            now=datetime.now(UTC),
+        )
+    except FederationError as e:
+        raise _fail(e) from e
+    return _session_response(done)
+
+
+@router.post("/federation/saml/acs/{connection_ref}")
+async def saml_acs_unsolicited(connection_ref: str, request: Request) -> Response:
+    """Governed IdP-initiated SSO: only for a connection an approved R3 change enabled."""
+    settings = _settings(request)
+    form = await _saml_form(request)
+    try:
+        done = await complete_unsolicited_saml(
+            request_engine(request),
+            settings,
+            connection_ref=connection_ref,
             saml_response=form.get("SAMLResponse"),
             relay_state=form.get("RelayState"),
             base_ctx=_ctx(),
@@ -265,8 +296,9 @@ async def our_entity_configuration(request: Request) -> Response:
     """§18: Zoiko's self-signed entity configuration (relying party + OpenID provider)."""
     settings = _settings(request)
     base = settings.issuer.rstrip("/")
+    rings = request.app.state.keyrings
     token = entity_configuration(
-        settings.keyring,
+        rings.federation,  # entity statements have their own key set (AUTH §17)
         issuer=settings.issuer,
         authority_hints=getattr(request.app.state, "federation_authority_hints", ()),
         metadata={
@@ -277,13 +309,13 @@ async def our_entity_configuration(request: Request) -> Response:
                 "grant_types": ["authorization_code"],
                 "token_endpoint_auth_method": "private_key_jwt",
                 "client_registration_types": ["explicit"],
-                "jwks": settings.keyring.jwks(),
+                "jwks": rings.token.jwks(),
             },
             "openid_provider": {
                 "issuer": settings.issuer,
                 "authorization_endpoint": f"{base}/oauth2/authorize",
                 "token_endpoint": f"{base}/oauth2/token",
-                "jwks": settings.keyring.jwks(),
+                "jwks": rings.token.jwks(),
                 "client_registration_types_supported": ["explicit"],
             },
         },
@@ -371,6 +403,8 @@ class IntegrationIn(BaseModel):
     sso_url: str | None = None
     idp_certificates: list[str] = Field(default_factory=list)
     sp_entity_id: str | None = None
+    sp_decryption_key_ref: str | None = Field(default=None, max_length=128)
+    require_encrypted_assertions: bool = False
     allow_idp_initiated: bool = False
     trust_anchor_id: uuid.UUID | None = None
     federation_entity_id: str | None = Field(default=None, pattern=r"^https://")
@@ -384,7 +418,27 @@ class RotateIn(BaseModel):
     idp_certificates: list[str] | None = None
     client_auth: Literal["private_key_jwt", "client_secret_basic"] | None = None
     client_secret_ref: str | None = None
+    sp_decryption_key_ref: str | None = Field(default=None, max_length=128)
     approval_request_id: str | None = None
+
+
+class IdpInitiatedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+    targets: list[str] = Field(default_factory=list, max_length=10)
+    approval_request_id: str | None = None
+
+
+def _target(url: str) -> str:
+    u = urlsplit(url)
+    if u.scheme != "https" or not u.hostname or u.fragment or u.username or len(url) > 512:
+        raise http_error("VALIDATION_FAILED", "targets are exact https URLs without fragments")
+    return url
+
+
+def idp_initiated_change(enabled: bool, targets: list[str]) -> str:
+    """What the approval binds to: on/off and exactly these landing URLs."""
+    return f"idp_initiated:{'on' if enabled else 'off'}:{','.join(sorted(targets))}"
 
 
 def _view(c: Connection) -> dict[str, Any]:
@@ -398,6 +452,8 @@ def _view(c: Connection) -> dict[str, Any]:
         "metadata_expires_at": c.metadata_expires_at.isoformat(),
         "link_policy": c.link_policy,
         "allow_idp_initiated": c.allow_idp_initiated,
+        "idp_initiated_targets": list(c.idp_initiated_targets),
+        "require_encrypted_assertions": c.require_encrypted_assertions,
     }
 
 
@@ -447,6 +503,8 @@ async def create_integration(
         sso_url=body.sso_url,
         idp_certificates=tuple(body.idp_certificates),
         sp_entity_id=body.sp_entity_id,
+        sp_decryption_key_ref=body.sp_decryption_key_ref,
+        require_encrypted_assertions=body.require_encrypted_assertions,
         trust_anchor_id=str(body.trust_anchor_id) if body.trust_anchor_id else None,
         federation_entity_id=body.federation_entity_id,
     )
@@ -497,6 +555,7 @@ async def rotate(
             else old.idp_certificates,
             client_auth=body.client_auth or old.client_auth,
             client_secret_ref=body.client_secret_ref or old.client_secret_ref,
+            sp_decryption_key_ref=body.sp_decryption_key_ref or old.sp_decryption_key_ref,
         )
         try:
             async with conn.begin_nested():
@@ -504,6 +563,45 @@ async def rotate(
         except DBAPIError as e:
             raise http_error("VALIDATION_FAILED", "rotation violates the federation profile") from e
     return _view(new)
+
+
+@router.post("/federation/integrations/{connection_id}:idp-initiated")
+async def set_idp_initiated(
+    connection_id: uuid.UUID, body: IdpInitiatedIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Enabling IdP-initiated SAML is an R3 change that always needs a second administrator's
+    approval bound to these exact targets; switching it off needs no approval."""
+    targets = sorted({_target(t) for t in body.targets}) if body.enabled else []
+    if body.enabled and not targets:
+        raise http_error("VALIDATION_FAILED", "at least one landing target is required")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=ADMIN_ACTION,
+            resource=f"federation_connection:{connection_id}",
+            change=idp_initiated_change(body.enabled, targets),
+            approval_request_id=body.approval_request_id,
+            require_approval=body.enabled,
+        )
+        old = await store.load(conn, str(connection_id), lock=True)
+        if old is None:
+            raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
+        if old.protocol != "SAML":
+            raise http_error("VALIDATION_FAILED", "IdP-initiated SSO is a SAML profile")
+        new = dc_replace(
+            old,
+            config_revision=old.config_revision + 1,
+            allow_idp_initiated=body.enabled,
+            idp_initiated_targets=tuple(targets),
+        )
+        await store.replace(
+            conn, old, new, "idp_initiated_enabled" if body.enabled else "idp_initiated_disabled"
+        )
+    out = _view(new)
+    if new.allow_idp_initiated:
+        out["acs_url"] = connection_acs_url(_settings(request), new)
+    return out
 
 
 @router.post("/federation/integrations/{connection_id}:disable")
