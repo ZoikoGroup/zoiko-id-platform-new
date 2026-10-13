@@ -30,9 +30,13 @@ def issue_access_token(
     amr: tuple[str, ...] = (),
     auth_time: datetime | None = None,
     dpop_jkt: str | None = None,
+    cert_thumbprint: str | None = None,
+    actor: dict[str, object] | None = None,
     risk_class: int = 1,
     lifetime: timedelta | None = None,
 ) -> str:
+    if dpop_jkt and cert_thumbprint:
+        raise ValueError("a token is bound to one sender key: DPoP or mTLS, not both")
     cap = MAX_ACCESS_LIFETIME[risk_class]
     ttl = min(lifetime or cap, cap)
     iat = int(now.timestamp())
@@ -59,4 +63,8 @@ def issue_access_token(
         claims["auth_time"] = int(auth_time.timestamp())
     if dpop_jkt:
         claims["cnf"] = {"jkt": dpop_jkt}
+    elif cert_thumbprint:
+        claims["cnf"] = {"x5t#S256": cert_thumbprint}
+    if actor:
+        claims["act"] = actor
     return keyring.sign(claims, typ=ACCESS_TOKEN_TYP)

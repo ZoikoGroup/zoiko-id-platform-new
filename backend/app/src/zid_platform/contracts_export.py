@@ -37,6 +37,34 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         ),
         "Zoiko iD Authority, Approval and Mandate API",
     ),
+    OPENAPI / "public" / "oauth.json": (
+        ("/oauth2/", "/.well-known/"),
+        "Zoiko iD protocol endpoints: OAuth 2.0 / OpenID Connect, federation, SSF and issuer metadata",
+    ),
+    OPENAPI / "public" / "authentication.json": (
+        ("/authn/", "/sessions", "/admin/"),
+        "Zoiko iD Authentication, Sessions and Recovery API",
+    ),
+    OPENAPI / "public" / "federation.json": (
+        ("/federation/",),
+        "Zoiko iD Enterprise Federation API (OIDC, SAML, OpenID Federation)",
+    ),
+    OPENAPI / "public" / "scim.json": (
+        ("/scim/v2/", "/provisioning/"),
+        "Zoiko iD SCIM 2.0 Provisioning API",
+    ),
+    OPENAPI / "public" / "verification.json": (
+        ("/verifications", "/verification-", "/principals/"),
+        "Zoiko iD Identity Verification and Assurance API",
+    ),
+    OPENAPI / "public" / "credentials.json": (
+        ("/presentations", "/credentials", "/credential-", "/relying-party-registrations"),
+        "Zoiko iD Verifiable Credentials API (OID4VP verifier, OID4VCI issuer)",
+    ),
+    OPENAPI / "public" / "signals.json": (
+        ("/ssf/", "/signals", "/security-state/"),
+        "Zoiko iD Security Signals and Shared Signals API",
+    ),
 }
 AUTHZEN_FILE = OPENAPI / "authzen" / "evaluation.json"
 

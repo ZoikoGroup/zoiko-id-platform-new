@@ -1,0 +1,961 @@
+{
+  "components": {
+    "schemas": {
+      "AdapterIn": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{1,62}$",
+            "title": "Adapter Id",
+            "type": "string"
+          },
+          "callback_algorithms": {
+            "items": {
+              "enum": [
+                "ES256",
+                "Ed25519",
+                "RS256",
+                "PS256"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Callback Algorithms",
+            "type": "array"
+          },
+          "callback_jwks": {
+            "additionalProperties": true,
+            "title": "Callback Jwks",
+            "type": "object"
+          },
+          "equivalence_group": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Equivalence Group",
+            "type": "string"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "mapping_version": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Mapping Version",
+            "type": "string"
+          },
+          "provider": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "submit_endpoint": {
+            "pattern": "^https://",
+            "title": "Submit Endpoint",
+            "type": "string"
+          },
+          "supported_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Supported Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "adapter_id",
+          "provider",
+          "mapping_version",
+          "submit_endpoint",
+          "callback_jwks",
+          "callback_algorithms",
+          "equivalence_group",
+          "supported_evidence",
+          "jurisdictions"
+        ],
+        "title": "AdapterIn",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ProfileIn": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "IAL-Z1",
+              "IAL-Z2",
+              "IAL-Z3"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "requirements": {
+            "additionalProperties": true,
+            "title": "Requirements",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "level",
+          "requirements"
+        ],
+        "title": "ProfileIn",
+        "type": "object"
+      },
+      "RelianceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "claims": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "jurisdiction": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction"
+          },
+          "purpose": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "required_level": {
+            "enum": [
+              "IAL-Z1",
+              "IAL-Z2",
+              "IAL-Z3"
+            ],
+            "title": "Required Level",
+            "type": "string"
+          },
+          "subject_principal_id": {
+            "format": "uuid",
+            "title": "Subject Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_principal_id",
+          "purpose",
+          "required_level",
+          "claims"
+        ],
+        "title": "RelianceIn",
+        "type": "object"
+      },
+      "ReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REQUEST_MORE_EVIDENCE",
+              "ESCALATE"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "reason_codes"
+        ],
+        "title": "ReviewIn",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__verification__StartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "required_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "IAL-Z1",
+                  "IAL-Z2",
+                  "IAL-Z3"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Level"
+          },
+          "subject_principal_id": {
+            "format": "uuid",
+            "title": "Subject Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "subject_principal_id",
+          "purpose",
+          "jurisdiction"
+        ],
+        "title": "StartIn",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Identity Verification and Assurance API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/principals/{principal_id}/assurance": {
+      "get": {
+        "operationId": "assurance_principals__principal_id__assurance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assurance Principals  Principal Id  Assurance Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assurance",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/principals/{principal_id}/verification-assertions": {
+      "get": {
+        "operationId": "assertions_principals__principal_id__verification_assertions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assertions Principals  Principal Id  Verification Assertions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assertions",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-adapters": {
+      "post": {
+        "operationId": "create_adapter_verification_adapters_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdapterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Adapter Verification Adapters Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Adapter",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-adapters/{adapter_id}:quarantine": {
+      "post": {
+        "operationId": "quarantine_verification_adapters__adapter_id__quarantine_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adapter_id",
+            "required": true,
+            "schema": {
+              "title": "Adapter Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quarantine Verification Adapters  Adapter Id  Quarantine Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quarantine",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-assertions/{assertion_id}:revoke": {
+      "post": {
+        "operationId": "revoke_assertion_verification_assertions__assertion_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assertion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assertion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Assertion Verification Assertions  Assertion Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Assertion",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-profiles": {
+      "get": {
+        "operationId": "profiles_verification_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profiles Verification Profiles Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Profiles",
+        "tags": [
+          "verification"
+        ]
+      },
+      "post": {
+        "operationId": "create_profile_verification_profiles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Profile Verification Profiles Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Profile",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-profiles/{profile_id}:activate": {
+      "post": {
+        "operationId": "activate_profile_verification_profiles__profile_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Profile Verification Profiles  Profile Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Profile",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-provider-callbacks/{adapter_ref}": {
+      "post": {
+        "operationId": "callback_verification_provider_callbacks__adapter_ref__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adapter_ref",
+            "required": true,
+            "schema": {
+              "title": "Adapter Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-reliance-decisions": {
+      "post": {
+        "operationId": "rely_verification_reliance_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelianceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rely Verification Reliance Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rely",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-review-cases/{case_id}/decisions": {
+      "post": {
+        "operationId": "review_verification_review_cases__case_id__decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Verification Review Cases  Case Id  Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications": {
+      "post": {
+        "operationId": "start_verifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__StartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Verifications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications/{verification_id}": {
+      "get": {
+        "operationId": "read_verifications__verification_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Verifications  Verification Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications/{verification_id}:cancel": {
+      "post": {
+        "operationId": "cancel_verifications__verification_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Verifications  Verification Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications/{verification_id}:reverify": {
+      "post": {
+        "description": "A new session (and new assertions); prior history stays immutable (\u00a718).",
+        "operationId": "reverify_verifications__verification_id__reverify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reverify Verifications  Verification Id  Reverify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverify",
+        "tags": [
+          "verification"
+        ]
+      }
+    }
+  }
+}

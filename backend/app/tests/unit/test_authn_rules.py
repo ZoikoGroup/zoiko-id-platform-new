@@ -261,7 +261,9 @@ def test_issued_token_validates() -> None:
         ({"mandate_balance": "10"}, "TOKEN_CLAIM_FORBIDDEN"),
         ({"exp": int(NOW.timestamp()) + 3600}, "TOKEN_LIFETIME_INVALID"),
         ({"risk_class": 3}, "TOKEN_LIFETIME_INVALID"),  # 15 min is too long for R3
-        ({"cnf": {"x5t#S256": "abc"}}, "TOKEN_CLAIM_INVALID"),
+        ({"cnf": {"jkt": "a", "x5t#S256": "b"}}, "TOKEN_CLAIM_INVALID"),  # one binding only
+        ({"cnf": {"x5t#S256": 7}}, "TOKEN_CLAIM_INVALID"),
+        ({"act": "someone"}, "TOKEN_CLAIM_INVALID"),
         ({"iat": True}, "TOKEN_CLAIM_INVALID"),
     ],
 )

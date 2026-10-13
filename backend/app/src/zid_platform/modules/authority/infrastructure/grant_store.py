@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import replace
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Row, text
@@ -252,3 +253,23 @@ GRANT_EVENTS = {
     GrantStatus.PENDING_APPROVAL: "authority.grant.created",
     GrantStatus.DRAFT: "authority.grant.created",
 }
+
+
+async def holds_any_action(
+    conn: AsyncConnection, grantee_principal_id: str, actions: list[str], now: datetime
+) -> bool:
+    """Whether the principal holds a currently valid grant covering any of `actions` (NULL = ANY).
+
+    Used to classify accounts (e.g. a privileged administrator recovers under RC-3, AUTH §14.1);
+    it is a coarse classification, never an authorization decision."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT 1 FROM authz.authority_grant WHERE grantee_principal_id = :g "
+                "AND status = 'ACTIVE' AND (valid_to IS NULL OR valid_to > :now) "
+                "AND (actions IS NULL OR actions && :a) LIMIT 1"
+            ),
+            {"g": uuid.UUID(grantee_principal_id), "now": now, "a": actions},
+        )
+    ).first()
+    return row is not None

@@ -45,7 +45,19 @@ Everything engineering can build for Phases A–D is in the repository. These it
 | Architecture Chair | Assign Document 09 a phase in the Guideline (engineering placed it in C) | Guideline §3 |
 | Engineering (on first push) | Attach the first CI run's JUnit report as `evidence` in `gates.yaml` / `acceptance-tests.csv` | AT-02/03/04/05/07, P0-02/03/04/10, BG-04/05 |
 
-Still waiting for later phases: P0-01 overlay proof (federation in E, overlay in G) and the DEC-B3 load run (the AuthZEN endpoint exists; it needs Phase E authentication in front of it).
+Still waiting for later phases: P0-01 overlay proof (federation is now built in E; the overlay itself is G) and the DEC-B3 load run (the AuthZEN endpoint now has Phase E authentication in front of it).
+
+## Owner actions (Phase E)
+
+Everything engineering can build for Phase E is in the repository ([status](phase-e-identity-protocols-and-assurance.md#deliverables-and-status)). These items need the named owners:
+
+| Owner | Action | Closes |
+|---|---|---|
+| Identity Lead + Security | Ratify DEC-E1, including its open points: RS256 for ID tokens (OIDC conformance), external-IdP verification algorithms (RS256/PS256), signxml for SAML instead of pysaml2, in-house SD-JWT parser instead of sd-jwt-python | DEC-E1 |
+| Product + Credentials Lead; Board | Ratify DEC-E2; decide when the controlled issuer role may be enabled per credential type | DEC-E2, FR-VC-003 |
+| Spec owners | Accept or amend CR-009 (Phase E tables, events, catalogue actions) | Data Model, event catalogue, action catalogue |
+| Identity Engineering | Run the OpenID conformance suites (OIDC OP, FAPI 2.0, OID4VP/HAIP) against a deployed cell; SAML negative suite; WebAuthn interop | AUTH-20, G6, W9 |
+| Platform + Security | KMS/HSM-backed `Signer` for issuer, federation and SET keys; secrets broker for federation client secrets; maintenance DB role for `entrypoints.maintenance` | DEC-F5, Phase F |
 
 ## Architecture baseline register
 

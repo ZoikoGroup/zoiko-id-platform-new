@@ -15,20 +15,62 @@ Back to the [phase index](README.md).
 
 ## Deliverables and status
 
-Built in the order of the Auth spec's build sequence (§27, AUTH-W0…W9), then Verification, Credentials and Signals.
+Built in the Auth spec's build order (§27, AUTH-W0…W8), then Signals, Verification and Credentials. Every row below is implemented and tested end to end against PostgreSQL with row-level security (component tests named in the last column); W9 (conformance, chaos and performance certification) needs a deployed cell and is an owner action ([phase index](README.md#owner-actions-phase-e)).
 
-| Deliverable | Where | Status |
+### Authentication, sessions and federation (ZID-AUTH-001)
+
+| Slice | Deliverable | Where | Evidence |
+|---|---|---|---|
+| W0 | Key ring and JWS policy (ES256/Ed25519, explicit `typ`, `kid`-pinned, rotation window); AAL-Z0…Z3 mapping; identity sessions; RFC 9068 access tokens; DPoP (RFC 9449); every protected API authenticates real tokens | `libs/zid-crypto`, `modules/session`, `api_auth.py` | `test_authn_pg.py` |
+| W1 | Passkeys (WebAuthn L3, py_webauthn): bootstrap enrollment tickets, registration and discoverable login with UV, single-use bound challenges, sign-count anomalies capped at Z1 (not locked), step-up rotates the session, `__Host-` cookie, CSRF origin check, protected authenticator removal (Z3, never the last strong factor, revision++), sessions list/revoke/revoke-all | `modules/authentication`, `session/api/sessions.py` | `test_webauthn_pg.py` (AUTH-01/02/03/12/18) |
+| W2 | Authorization server: code + PKCE S256, exact redirects, RFC 9207 `iss`, refresh rotation with reuse = family + session revoked + signal, RFC 7009 revocation, metadata, JWKS, ID tokens, DPoP nonces, tenant from client registration | `session/application/oauth_server.py` | `test_oauth_pg.py` (AUTH-03/04/05/06/07/19) |
+| W3 | private_key_jwt (RFC 7523) and tls_client_auth (RFC 8705) with certificate-bound tokens enforced at the resource server; PAR (RFC 9126); FAPI 2.0 rules (confidential, PAR, sender-constrained); client_credentials bound to a service principal; RFC 8693 delegation-only token exchange (actor chain, only narrows, keeps the session); RFC 7662 introspection; OIDC UserInfo; client secrets refused | `session/application/client_auth.py`, `oauth_server.py` | `test_oauth_w3_pg.py` |
+| W4 | Enterprise OIDC federation: pinned metadata with expiry, exact iss/aud/azp/nonce, RFC 9207, acr/amr through an approved mapping, outage fails closed; account linking by issuer+subject only (explicit authenticated linking from a fresh strong session, or JIT), conflicts refused; R3-protected integration admin with rotation and quarantine | `modules/federation` | `test_federation_oidc_pg.py` (AUTH-08/09/15/16) |
+| W5 | SAML 2.0 SP: SP-initiated only, signed assertions (SHA-256+ only) verified against pinned certificates, facts read only from the signed element (no signature wrapping), exact Destination/Recipient/Audience, InResponseTo, persistent NameID, assertion-ID replay cache, XXE/DTD refused, certificate rollover | `federation/application/saml_login.py` | `test_federation_saml_pg.py` (AUTH-10) |
+| W6 | SCIM 2.0 (scim2-models): Users/Groups CRUD, strict PATCH paths, ETags, source-scoped externalId, `active:false`/DELETE travel the signals path (suspend, revision++, sessions revoked), re-activation never restores sessions, groups never grant authority, R3-protected provisioning sources | `modules/provisioning` | `test_scim_pg.py` (AUTH-11) |
+| W7 | Recovery: hashed one-time codes; RC-1 (code), RC-2 (re-proofing + delay), RC-3 administrator (re-proofing + second-administrator approval bound to the case + 72 h cooling-off; a code alone is never enough); 15-minute purpose-bound enrollment ticket; completion revokes every session and marks old factors LOST; owner can cancel; support can open, never complete; §24 protected admin actions (bulk session revoke etc.) through the PDP | `authentication/application/recovery.py`, `protected.py` | `test_recovery_pg.py` (AUTH-13/14) |
+| W8 | OpenID Federation 1.1: trust chains to pinned anchors, keys only as vouched by the superior, expiry, `crit`, max path length and naming constraints, metadata policy merge/apply, SSRF-safe fetch limited to trust domains; federation-backed OIDC connections; Zoiko's own entity configuration | `federation/domain/openid_federation.py`, `federation/application/trust_chain.py` | `test_openid_federation_pg.py` |
+
+### Security signals (ZID-SIGNALS-001)
+
+| Deliverable | Where | Evidence |
 |---|---|---|
-| Key ring and JWS policy: private keys only behind a `Signer` (KMS/HSM in deployed envs, in-memory dev key only in local/test), allowlist ES256/Ed25519 (RFC 9864 fully-specified), explicit `typ`, `kid`-pinned keys, no `jku`/`x5u`, rotation window in the JWKS (AUTH §17; DEC-F5) | `libs/zid-crypto` | Done (KMS signer: Phase F) |
-| Assurance AAL-Z0…Z3: approved per-issuer acr/amr mapping profiles, weak-only methods capped at Z1, Z3 = Z2 + freshness (never mapped), step-up reason codes (AUTH §2, §15) | `modules/authentication/domain/assurance.py` | Done |
-| Identity sessions: absolute and idle expiry, one-way status, security-revision mismatch forces re-auth (both directions), principal must stay active; DB guard keeps identity and assurance fixed (AUTH §5; DATA §5.3) | `modules/session/`, `migrations/session/versions/0001_sessions_tokens.py` | Done |
-| Access tokens (RFC 9068 `at+jwt`): exact issuer/audience, lifetime capped by risk class, forbidden claims (authority, balances), DPoP binding (AUTH §6.3-6.4) | `session/domain/tokens.py`, `session/application/issue.py` | Done |
-| DPoP (RFC 9449): proof signed by its embedded key, thumbprint = `cnf.jkt`, `htm`/`htu`/`ath`/`iat` checks, one-time `jti` stored per tenant, bound tokens never downgraded to bearer, `WWW-Authenticate` challenges (AUTH §7.1) | `session/application/authenticate.py`, `api_auth.authenticated_caller` | Done (server nonces: with the token endpoint) |
-| Every protected API now authenticates real tokens and sessions; tenant and principal come only from them (INV-13) | `api_auth.py`, `tests/component/test_authn_pg.py` | Done |
-| OAuth clients, refresh-token families (hash-only storage) | `authn.oauth_client`, `authn.refresh_token_family`, `authn.refresh_token` | Schema done; token endpoint, PKCE, rotation and reuse detection: AUTH-W2 (next) |
-| Remaining: WebAuthn passkeys (W1), authorization server + refresh rotation + metadata/JWKS endpoints (W2), mTLS/private_key_jwt/PAR/FAPI 2.0 (W3), OIDC federation + account linking (W4), SAML (W5), SCIM (W6), recovery and protected admin (W7), OpenID Federation (W8); Verification, Credentials (OID4VP verifier first, DEC-E2), Signals (security state, CAEP/SSF) | — | Next slices |
+| Canonical signals and security state; deterministic versioned rules for CAEP, RISC and internal events; tightening always applies, loosening only from an authoritative, newer event; terminal states; append-only signal ledger with dedupe | `modules/signals/domain/rules.py`, `application/ingest.py` | `test_signals_pg.py` (SIG-05/06/16) |
+| SSF push receiver (RFC 8935): stream credential, explicit `secevent+jwt`, pinned keys and algorithms, exact iss/aud, jti dedupe, one allowlisted event, iss_sub (via federation link) / opaque subjects, critical members, informational sources cannot suspend | `signals/application/ssf.py` | SIG-01/02/03/04/07/08/14 |
+| SSF transmitter (poll, RFC 8936) with pairwise opaque subjects, as an outbox consumer; commit -> receiver-ack propagation measured per stream against R0-R3 SLOs; PEP observation lag logged | `ssf.py`, `entrypoints/consumer.py`, `signal_store.propagation` | FR-SIG-003/004 |
+| Real security state reaches every caller and the PDP; known restrictions now STEP_UP or DENY (UNKNOWN still fails closed); callers are credited AAL-Z3 when strong and fresh | `api_auth.py`, `decision/domain/pdp.py` | `test_pdp.py` |
 
-**Settings:** `ZID_TOKEN_ISSUER`, `ZID_TOKEN_AUDIENCE`, `ZID_PUBLIC_BASE_URL` (canonical external URL that DPoP `htu` is compared against; required behind a proxy).
+### Identity verification (ZID-VERIFY-001)
+
+| Deliverable | Where | Evidence |
+|---|---|---|
+| Immutable versioned profiles (IAL-Z1…Z3, claims, evidence, binding, biometric jurisdictions, freshness, review, reliance purposes); provider adapters with pinned signed callbacks and mapping versions, equivalence-group failover, circuit breaker, quarantine; deterministic per-claim decisions; assertions store commitments only; fraud -> manual review (dual control, never the subject) + risk signal; reliance decisions; assurance facts without evidence; credential presentations as DIGITAL_CREDENTIAL evidence | `modules/verification` | `test_verification_pg.py` |
+
+### Verifiable credentials (ZID-VC-001; DEC-E2 verifier first)
+
+| Deliverable | Where | Evidence |
+|---|---|---|
+| OID4VP 1.0 verifier: registered RP + purpose, minimized DCQL, signed single-use request object, direct_post, state/nonce binding; SD-JWT VC (RFC 9901 disclosures, KB-JWT aud/nonce/sd_hash, typed issuer trust by pinned keys or OpenID Federation); ISO mdoc (IACA chain, value digests, device signature over the OID4VP transcript); Token Status List (whole list, UNKNOWN never VALID); claims handed to the RP once | `modules/credential` | `test_credentials_pg.py` |
+| Controlled issuer (OID4VCI): assurance attestation (levels and claim names, never values), holder key proof, idempotent per proof, status list publication, R3 revoke/suspend; issuing a configuration needs `credential.issue`; QTSP, wallet, PID and Business Wallet roles refused | `credential/application/issuer.py` | same |
+
+### Operations
+
+| Deliverable | Where |
+|---|---|
+| Maintenance pass: purges spent single-use material, sweeps expired sessions, refresh families, verification assertions (with events), recovery cases and presentations, removes uncollected disclosed claims | `entrypoints/maintenance.py` (`test_maintenance_pg.py`) |
+| Published contracts: authentication, federation, SCIM, verification, credentials, signals and protocol endpoints (drift-tested) | `contracts/openapi/public/*.json` |
+| CR-009: Phase E tables, `security.state.changed` and `provisioning.resource.changed` events, catalogue actions | `docs/specs/change-requests/CR-009-phase-e-identity-additions.md` |
+
+**Settings:** `ZID_TOKEN_ISSUER` (authorization server issuer; OAuth endpoints and their DPoP `htu` are built from it), `ZID_TOKEN_AUDIENCE`, `ZID_PUBLIC_BASE_URL`, `ZID_WEBAUTHN_RP_ID` / `ZID_WEBAUTHN_RP_NAME` / `ZID_WEBAUTHN_ORIGINS` (explicit RP and origin allowlist), `ZID_MTLS_CLIENT_CERT_HEADER` (only when the edge strips it inbound), `ZID_FEDERATION_AUTHORITY_HINTS`, `ZID_MAINTENANCE_DATABASE_URL` (maintenance job).
+
+**Open points for DEC-E1 / DEC-F5 (owner decisions, recorded, not assumed):**
+- OIDC Discovery expects `RS256` in `id_token_signing_alg_values_supported`; the platform signs only ES256/Ed25519. Approve an ID-token exception or accept the conformance deviation.
+- External verification (enterprise IdP ID tokens, SSF transmitters) allows RS256/PS256 with RSA >= 2048, per integration; Zoiko never signs with them.
+- SAML uses signxml (pure Python, returns only the signed content) rather than pysaml2, whose verification needs the external xmlsec1 binary.
+- SD-JWT verification is implemented in-house (RFC 9901, pinned draft SD-JWT VC and Token Status List) rather than sd-jwt-python, to keep the platform algorithm allowlist and version pinning in one place.
+- The same issuer key signs tokens, ID tokens, SETs and entity statements until the KMS signer (Phase F) separates them.
+
+**Known limits of this release:** encrypted SAML assertions and IdP-initiated SSO are not supported; mdoc status lists are not enabled (mdoc configurations use `status_method: NONE`); consent UI for third-party OAuth clients is not built (`consent_required`); RC-4 (sovereign lockbox) recovery is not modelled; Related Origin Requests (FR-AUT-010, optional) are not enabled.
 
 ## Decisions
 

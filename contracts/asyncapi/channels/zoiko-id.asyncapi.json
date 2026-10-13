@@ -1259,6 +1259,9 @@
       "messages": {
         "provisioning_connector_changed": {
           "$ref": "#/components/messages/provisioning_connector_changed"
+        },
+        "provisioning_resource_changed": {
+          "$ref": "#/components/messages/provisioning_resource_changed"
         }
       },
       "parameters": {
@@ -1405,6 +1408,22 @@
         },
         "security_exception_expired": {
           "$ref": "#/components/messages/security_exception_expired"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "security.priority": {
+      "address": "zid.{env}.{region}.security.priority",
+      "messages": {
+        "security_state_changed": {
+          "$ref": "#/components/messages/security_state_changed"
         }
       },
       "parameters": {
@@ -3714,6 +3733,17 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "provisioning_resource_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provisioning.resource.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A SCIM User or Group was created, replaced, patched or deleted by a provisioning source (ids, operation and version only).",
+        "title": "provisioning.resource.changed",
+        "x-zid-source": "ZID-AUTH-001 \u00a711; CR-009",
+        "x-zid-status": "proposed"
+      },
       "recovery_completed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.recovery.completed.v1",
@@ -3867,6 +3897,17 @@
         "title": "security.exception.expired",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "security_state_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.security.state.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Canonical security state of a subject changed; carries previous/current state, revision, cause signal and risk floor (internal propagation envelope).",
+        "title": "security.state.changed",
+        "x-zid-source": "ZID-SIGNALS-001 \u00a727; CR-009",
+        "x-zid-status": "proposed"
       },
       "session_created": {
         "contentType": "application/cloudevents+json",
@@ -5061,6 +5102,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/security.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_security_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/security.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

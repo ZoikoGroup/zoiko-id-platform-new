@@ -29,6 +29,7 @@ from zid_platform.modules.session.domain.tokens import (
     DPOP_MAX_AGE,
     DPOP_TYP,
     AccessClaims,
+    DPoPProof,
     TokenError,
     validate_access_claims,
     validate_dpop_claims,
@@ -69,6 +70,29 @@ def _verify(
         raise TokenError(code, e.code) from e
 
 
+def verify_dpop_proof(
+    dpop: str, *, method: str, url: str, access_token: str | None, now: datetime
+) -> tuple[str, DPoPProof]:
+    """Signature by the proof's own embedded key, then the claim checks. Returns (jkt, proof).
+
+    The caller compares the thumbprint with the binding it expects and records the jti."""
+    try:
+        jwk = peek_header(dpop).get("jwk")
+    except CryptoError as e:
+        raise TokenError("DPOP_PROOF_INVALID", e.code) from e
+    if not isinstance(jwk, dict):
+        raise TokenError("DPOP_PROOF_INVALID", "jwk")
+    header, body = _verify(dpop, keys=[jwk], typ=DPOP_TYP, code="DPOP_PROOF_INVALID")
+    try:
+        thumbprint = jwk_thumbprint(jwk)
+    except CryptoError as e:
+        raise TokenError("DPOP_PROOF_INVALID", e.code) from e
+    proof = validate_dpop_claims(
+        header, body, method=method, url=url, access_token=access_token, now=now
+    )
+    return thumbprint, proof
+
+
 async def authenticate(
     engine: AsyncEngine,
     settings: TokenSettings,
@@ -79,7 +103,9 @@ async def authenticate(
     url: str,
     base_ctx: RequestContext,
     now: datetime,
+    client_cert_thumbprint: str | None = None,
 ) -> Authenticated:
+    """`client_cert_thumbprint`: x5t#S256 of the mTLS client certificate the edge forwarded."""
     if not authorization:
         raise TokenError("TOKEN_MISSING")
     scheme, token = _split(authorization)
@@ -94,24 +120,18 @@ async def authenticate(
     if claims.cnf_jkt is not None:
         if scheme != "dpop" or not dpop:
             raise TokenError("DPOP_PROOF_REQUIRED")  # never downgrade a bound token to bearer
-        try:
-            jwk = peek_header(dpop).get("jwk")
-        except CryptoError as e:
-            raise TokenError("DPOP_PROOF_INVALID", e.code) from e
-        if not isinstance(jwk, dict):
-            raise TokenError("DPOP_PROOF_INVALID", "jwk")
-        header, body = _verify(dpop, keys=[jwk], typ=DPOP_TYP, code="DPOP_PROOF_INVALID")
-        try:
-            thumbprint = jwk_thumbprint(jwk)
-        except CryptoError as e:
-            raise TokenError("DPOP_PROOF_INVALID", e.code) from e
+        thumbprint, proof = verify_dpop_proof(
+            dpop, method=method, url=url, access_token=token, now=now
+        )
         if thumbprint != claims.cnf_jkt:
             raise TokenError("DPOP_KEY_MISMATCH")
-        proof = validate_dpop_claims(
-            header, body, method=method, url=url, access_token=token, now=now
-        )
     elif scheme == "dpop":
         raise TokenError("TOKEN_NOT_SENDER_CONSTRAINED")
+    if claims.cnf_x5t is not None:  # RFC 8705 §3: the same certificate must present the token
+        if client_cert_thumbprint is None:
+            raise TokenError("MTLS_CERTIFICATE_REQUIRED")
+        if client_cert_thumbprint != claims.cnf_x5t:
+            raise TokenError("MTLS_CERTIFICATE_MISMATCH")
 
     ctx = base_ctx.with_identity(claims.tenant_id, claims.subject)
     failure: str | None = None
@@ -154,9 +174,24 @@ async def authenticate(
                 aal, auth_time = AAL(session.aal), session.auth_time
             else:
                 failure = result.code
+        else:  # no identity session (client_credentials): the subject itself must still be active
+            try:
+                principal, _ = await load_principal(conn, claims.subject)
+            except ValueError as e:
+                raise TokenError("PRINCIPAL_NOT_ACTIVE") from e
+            if principal.status is not PrincipalStatus.ACTIVE:
+                raise TokenError("PRINCIPAL_NOT_ACTIVE")
     if failure is not None:  # raised after commit, so the new session state is kept
         raise TokenError(failure)
-    return Authenticated(claims, ctx, aal, auth_time, proof is not None)
+    bound = proof is not None or claims.cnf_x5t is not None
+    return Authenticated(claims, ctx, aal, auth_time, bound)
 
 
-__all__ = ["Authenticated", "SessionStatus", "TokenError", "TokenSettings", "authenticate"]
+__all__ = [
+    "Authenticated",
+    "SessionStatus",
+    "TokenError",
+    "TokenSettings",
+    "authenticate",
+    "verify_dpop_proof",
+]

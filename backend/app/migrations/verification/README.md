@@ -6,3 +6,9 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `verify.verification_assertion`
 - `verify.assurance_profile`
+- `verify.provider_adapter`
+- `verify.verification_session`
+- `verify.provider_callback`
+- `verify.review_case`
+- `verify.review_decision`
+- `verify.reliance_decision`

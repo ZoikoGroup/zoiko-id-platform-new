@@ -6,6 +6,8 @@ revocation propagates (AUTH §16, §23).
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta
 
@@ -165,3 +167,47 @@ async def record_dpop_proof(
         {"t": uuid.UUID(tenant_id), "k": jkt, "j": jti, "exp": issued_at + window},
     )
     return result.rowcount == 1
+
+
+async def issue_handle(conn: AsyncConnection, session_id: str) -> str:
+    """Mint the browser handle (cookie value) of an authenticated session, once (AUTH §5.1, AUTH-18).
+
+    Only the SHA-256 is stored; a handle is never set before authentication and never replaced, so a
+    pre-authentication identifier cannot be fixed onto the session."""
+    handle = secrets.token_urlsafe(32)
+    result = await conn.execute(
+        text(
+            "UPDATE authn.session SET handle_hash = :h "
+            "WHERE session_id = :s AND handle_hash IS NULL AND status = 'ACTIVE'"
+        ),
+        {"h": hashlib.sha256(handle.encode()).digest(), "s": uuid.UUID(session_id)},
+    )
+    if result.rowcount != 1:
+        raise SessionError("SESSION_HANDLE_UNAVAILABLE")
+    return handle
+
+
+async def load_session_by_handle(conn: AsyncConnection, handle: str) -> Session | None:
+    if not handle or len(handle) > 128:
+        return None
+    row = (
+        await conn.execute(
+            text(f"SELECT {_COLS} FROM authn.session WHERE handle_hash = :h"),
+            {"h": hashlib.sha256(handle.encode()).digest()},
+        )
+    ).first()
+    return _session(row) if row else None
+
+
+async def list_sessions(conn: AsyncConnection, principal_id: str, now: datetime) -> list[Session]:
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_COLS} FROM authn.session WHERE principal_id = :p "
+                "AND status IN ('ACTIVE', 'REAUTH_REQUIRED') AND expires_at > :now "
+                "ORDER BY auth_time DESC LIMIT 100"
+            ),
+            {"p": uuid.UUID(principal_id), "now": now},
+        )
+    ).all()
+    return [_session(r) for r in rows]
