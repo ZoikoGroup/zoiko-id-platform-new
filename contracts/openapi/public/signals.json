@@ -602,6 +602,28 @@
       }
     },
     "/ssf/streams": {
+      "get": {
+        "description": "Pinned keys and the push credential's hash never leave the store (same view as one stream).",
+        "operationId": "list_streams_ssf_streams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Streams Ssf Streams Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Streams",
+        "tags": [
+          "signals"
+        ]
+      },
       "post": {
         "operationId": "create_stream_ssf_streams_post",
         "requestBody": {

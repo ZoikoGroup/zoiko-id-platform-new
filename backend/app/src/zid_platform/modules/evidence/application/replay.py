@@ -1,0 +1,321 @@
+"""Receipt verification, deterministic replay and signed export packages (EVIDENCE-001 §11.1, §17,
+§18, §19; DEC-F2 §6).
+
+Replay sequence (§19.1): verify the receipt hash and its ledger inclusion, load the retained
+material inputs and check them against the receipt's commitment, then hand them to the evaluator
+the producing module registered for the decision type (pinned to the historic immutable policy
+release; never today's provider or policy, EVID-11). Results:
+
+    VERIFIED_MATCH                  replayed outcome, reasons and obligations equal the receipt
+    VERIFIED_STRUCTURAL_ONLY        integrity verified; no material inputs retained (E1/E2)
+    MISMATCH                        replay differs (E3: a security incident, EVID-10)
+    INCOMPLETE_BY_LAWFUL_ERASURE    material inputs were lawfully crypto-erased
+    UNVERIFIABLE_INTEGRITY_FAILURE  hash, signature or ledger inconsistency
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_context import uuid7
+from zid_crypto import sign_jws
+from zid_evidence import Digest, canonicalize, hash_bytes, hash_json, loads_strict, verify_bundle
+from zid_outbox import emit
+
+from zid_platform.modules.evidence.application import ledger
+from zid_platform.modules.evidence.application.receipts import material_commitment
+from zid_platform.modules.evidence.application.runtime import EvidenceRuntime, current_runtime
+from zid_platform.modules.evidence.application.vault import actor_handle, read_object
+from zid_platform.modules.evidence.domain.ledger import LedgerError
+from zid_platform.modules.evidence.domain.receipts import (
+    CUSTODY_ACTIONS,
+    EXPORT_MODES,
+    ReplayResult,
+    compare_outcome,
+)
+from zid_platform.modules.evidence.infrastructure import receipt_store as store
+
+PACKAGE_TYP = "zid-evidence-package+jws"
+REPLAY_FIELDS = ("outcome", "reason_codes", "obligations")
+
+# decision_type -> evaluator(conn, receipt body, material inputs) -> replayed outcome fields
+Replayer = Callable[[AsyncConnection, Mapping[str, Any], Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
+_REPLAYERS: dict[str, Replayer] = {}
+
+
+def register_replayer(decision_type: str, replayer: Replayer) -> None:
+    _REPLAYERS[decision_type] = replayer
+
+
+@dataclass(slots=True)
+class ReceiptVerification:
+    receipt_id: str
+    hash_ok: bool = False
+    ledgered: bool = False
+    sealed: bool = False
+    checks: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.hash_ok and self.ledgered and all(c["ok"] for c in self.checks)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "receipt_id": self.receipt_id,
+            "ok": self.ok,
+            "receipt_hash_valid": self.hash_ok,
+            "ledgered": self.ledgered,
+            "sealed": self.sealed,
+            "checks": self.checks,
+        }
+
+
+async def verify_receipt(
+    conn: AsyncConnection, receipt_id: str, *, rt: EvidenceRuntime | None = None
+) -> ReceiptVerification:
+    """Recompute the receipt digest and verify its ledger entry, checkpoint and inclusion proof
+    against trusted evidence keys - the same checks an offline verifier runs (EVID-05, EVID-07)."""
+    rt = rt or current_runtime()
+    out = ReceiptVerification(receipt_id)
+    row = await store.load_receipt(conn, receipt_id)
+    if row is None:
+        raise LedgerError("NOT_FOUND", "unknown receipt")
+    body = dict(row.body)
+    out.hash_ok = hash_json(body, alg="sha-256").matches(Digest.parse(row.receipt_hash))
+    try:
+        bundle = await ledger.export_bundle(
+            conn, receipt_id, keys=rt.trusted_keys(), record_type="decision_receipt", record=body
+        )
+    except LedgerError as e:
+        if e.code == "NOT_FOUND":
+            return out  # not yet sequenced: committed, not ledgered
+        if e.code == "EVIDENCE_CHECKPOINT_MISSING":
+            out.ledgered = True
+            return out  # ledgered, not yet sealed: never reported as sealed (EVID-25)
+        raise
+    out.ledgered = out.sealed = True
+    report = verify_bundle(bundle, trusted_keys=rt.trusted_keys())
+    out.checks = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in report.checks]
+    entry_hash = Digest.parse(bundle["ledger_entry"]["record_hash"])
+    if not entry_hash.matches(Digest.parse(row.receipt_hash)):
+        out.checks.append({"name": "ledger_record_hash", "ok": False, "detail": "differs"})
+    return out
+
+
+async def replay_receipt(
+    conn: AsyncConnection, tenant_id: str, receipt_id: str, *, rt: EvidenceRuntime | None = None
+) -> dict[str, Any]:
+    rt = rt or current_runtime()
+    verification = await verify_receipt(conn, receipt_id, rt=rt)
+    row = await store.load_receipt(conn, receipt_id)
+    assert row is not None
+    body = dict(row.body)
+    result: dict[str, Any] = {"receipt_id": receipt_id, "verification": verification.to_dict()}
+    if not verification.hash_ok or (verification.sealed and not verification.ok):
+        result["result"] = ReplayResult.UNVERIFIABLE_INTEGRITY_FAILURE
+    elif row.material_object_id is None:
+        result["result"] = ReplayResult.VERIFIED_STRUCTURAL_ONLY
+    else:
+        try:
+            raw = await read_object(conn, tenant_id, str(row.material_object_id), rt=rt)
+        except LedgerError as e:
+            if e.code not in ("EVIDENCE_RAW_OBJECT_ERASED", "EVIDENCE_RETENTION_EXPIRED"):
+                raise
+            result["result"] = ReplayResult.INCOMPLETE_BY_LAWFUL_ERASURE
+            result["detail"] = "identity-resolution and material inputs unavailable by lawful erasure"
+        else:
+            material = loads_strict(raw)
+            if material_commitment(material) != row.input_commitment:
+                result["result"] = ReplayResult.UNVERIFIABLE_INTEGRITY_FAILURE
+                result["detail"] = "material inputs do not match the receipt commitment"
+            elif (replayer := _REPLAYERS.get(row.decision_type)) is None:
+                result["result"] = ReplayResult.VERIFIED_STRUCTURAL_ONLY
+                result["detail"] = f"no replay evaluator for {row.decision_type}"
+            else:
+                try:
+                    replayed = dict(await replayer(conn, body, material))
+                except LedgerError as e:
+                    if e.code != "EVIDENCE_POLICY_ARTIFACT_MISSING":
+                        raise
+                    result["result"] = ReplayResult.VERIFIED_STRUCTURAL_ONLY
+                    result["detail"] = e.detail
+                else:
+                    recorded = {f: body.get(f) for f in REPLAY_FIELDS}
+                    diff = compare_outcome(recorded, _plain(replayed), REPLAY_FIELDS)
+                    result["replayed"] = _plain(replayed)
+                    result["differences"] = diff
+                    result["result"] = (
+                        ReplayResult.MISMATCH if diff else ReplayResult.VERIFIED_MATCH
+                    )
+    replay_id = str(uuid7())
+    result["replay_id"] = replay_id
+    await emit(
+        conn,
+        name="evidence.receipt.replay_completed",
+        tenant_id=tenant_id,
+        aggregate_type="receipt_replay",
+        aggregate_id=replay_id,
+        aggregate_version=1,
+        data={"receipt_id": receipt_id, "result": result["result"]},
+    )
+    if result["result"] in (ReplayResult.MISMATCH, ReplayResult.UNVERIFIABLE_INTEGRITY_FAILURE):
+        await emit(
+            conn,
+            name="evidence.integrity.failed",
+            tenant_id=tenant_id,
+            aggregate_type="evidence_incident",
+            aggregate_id=str(uuid7()),
+            aggregate_version=1,
+            data={
+                "receipt_id": receipt_id,
+                "replay_id": replay_id,
+                "kinds": ["replay_mismatch" if result["result"] == ReplayResult.MISMATCH else "integrity"],
+                "evidence_class": body.get("evidence_class"),
+            },
+        )
+    return result
+
+
+def _plain(value: Any) -> Any:
+    return json.loads(json.dumps(value, default=str))
+
+
+async def export_package(
+    conn: AsyncConnection,
+    tenant_id: str,
+    receipt_id: str,
+    *,
+    mode: str,
+    purpose: str,
+    case_ref: str,
+    custodian_principal_id: str,
+    rt: EvidenceRuntime | None = None,
+) -> dict[str, Any]:
+    """A self-contained, signed EvidencePackage (§17): receipt, ledger entry, checkpoint, inclusion
+    proof, verification keys and the canonicalization profile; the manifest is canonicalized,
+    hashed and signed. Every export leaves a chain-of-custody record (§18, EVID-20)."""
+    rt = rt or current_runtime()
+    if mode not in EXPORT_MODES:
+        raise LedgerError("EVIDENCE_SCHEMA_INVALID", "unknown export mode")
+    row = await store.load_receipt(conn, receipt_id)
+    if row is None:
+        raise LedgerError("NOT_FOUND", "unknown receipt")
+    keys = rt.trusted_keys()
+    bundle = await ledger.export_bundle(
+        conn, receipt_id, keys=keys, record_type="decision_receipt", record=dict(row.body)
+    )
+    package_hash = hash_bytes(canonicalize(bundle), alg="sha-256")
+    manifest = {
+        "format": "zid-evidence-package/1",
+        "package_id": str(uuid7()),
+        "mode": mode,
+        "receipt_id": receipt_id,
+        "bundle_hash": str(package_hash),
+        "canonicalization": "RFC8785-JCS",
+        "hash_algorithm": "sha-256",
+        "verifier": "python -m zid_evidence verify <bundle.json> --keys <keys.json>",
+    }
+    signature = await asyncio.to_thread(sign_jws, rt.signer, manifest, typ=PACKAGE_TYP)
+    await record_custody(
+        conn,
+        tenant_id,
+        case_ref=case_ref,
+        item_id=receipt_id,
+        custodian_principal_id=custodian_principal_id,
+        action="EXPORTED",
+        purpose=purpose,
+        export_mode=mode,
+        package_hash=str(package_hash),
+        rt=rt,
+    )
+    await emit(
+        conn,
+        name="evidence.export.created",
+        tenant_id=tenant_id,
+        aggregate_type="evidence_package",
+        aggregate_id=manifest["package_id"],
+        aggregate_version=1,
+        data={
+            "package_id": manifest["package_id"],
+            "receipt_id": receipt_id,
+            "mode": mode,
+            "bundle_hash": str(package_hash),
+            "evidence_class": "E3",
+        },
+    )
+    return {"manifest": manifest, "manifest_signature": signature, "bundle": bundle, "keys": keys}
+
+
+async def record_custody(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    case_ref: str,
+    item_id: str,
+    custodian_principal_id: str,
+    action: str,
+    purpose: str,
+    export_mode: str | None = None,
+    package_hash: str | None = None,
+    rt: EvidenceRuntime | None = None,
+) -> str:
+    rt = rt or current_runtime()
+    if action not in CUSTODY_ACTIONS:
+        raise LedgerError("EVIDENCE_SCHEMA_INVALID", "unknown custody action")
+    custody_id = str(uuid7())
+    custodian = await actor_handle(conn, tenant_id, custodian_principal_id, rt=rt)
+    case_commitment = str(hash_json({"tenant": tenant_id, "case": case_ref}, alg="sha-256"))
+    body = {
+        "schema_version": "custody-record.v1",
+        "custody_id": custody_id,
+        "tenant_id": tenant_id,
+        "case_commitment": case_commitment,
+        "evidence_item_id": item_id,
+        "custodian_handle": custodian,
+        "custody_action": action,
+        "purpose": purpose,
+        "export_mode": export_mode,
+        "package_hash": package_hash,
+    }
+    await store.insert_custody(
+        conn,
+        {
+            "custody_id": custody_id,
+            "tenant_id": tenant_id,
+            "case_ref": case_commitment,
+            "evidence_item_id": item_id,
+            "custodian_handle": custodian,
+            "custody_action": action,
+            "purpose": purpose,
+            "export_mode": export_mode,
+            "package_hash": package_hash,
+            "body": body,
+            "record_hash": str(hash_json(body, alg="sha-256")),
+        },
+    )
+    await emit(
+        conn,
+        name="evidence.custody.changed",
+        tenant_id=tenant_id,
+        aggregate_type="custody_record",
+        aggregate_id=custody_id,
+        aggregate_version=1,
+        data={"custody_id": custody_id, "evidence_item_id": item_id, "custody_action": action},
+    )
+    return custody_id
+
+
+__all__ = [
+    "PACKAGE_TYP",
+    "ReceiptVerification",
+    "export_package",
+    "record_custody",
+    "register_replayer",
+    "replay_receipt",
+    "verify_receipt",
+]

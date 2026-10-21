@@ -7,7 +7,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Sources */
+        get: operations["list_sources_provisioning_sources_get"];
         put?: never;
         /** Create Source */
         post: operations["create_source_provisioning_sources_post"];
@@ -200,6 +201,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_sources_provisioning_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     create_source_provisioning_sources_post: {
         parameters: {
             query?: never;

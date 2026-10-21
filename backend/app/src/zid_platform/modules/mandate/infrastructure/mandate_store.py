@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -77,15 +78,60 @@ async def load_terms(conn: AsyncConnection, mandate_id: str) -> tuple[MandateTer
     ).first()
     if row is None:
         raise LedgerError("MANDATE_NOT_FOUND")
+    return _terms(row), _budget(row), str(row._mapping["authority_grant_id"])
+
+
+def _budget(row: Row[Any]) -> Budget:
     m = row._mapping
-    budget = Budget(
+    return Budget(
         currency=m["currency"].strip() if m["currency"] else None,
         value_limit=m["value_limit"],
         count_limit=m["count_limit"],
         data_limit_bytes=m["data_limit_bytes"],
         per_transaction_value_limit=m["per_transaction_value_limit"],
     )
-    return _terms(row), budget, str(m["authority_grant_id"])
+
+
+@dataclass(frozen=True, slots=True)
+class MandateListing:
+    terms: MandateTerms
+    budget: Budget
+    authority_grant_id: str
+    created_at: datetime
+
+
+async def list_mandates(
+    conn: AsyncConnection,
+    *,
+    status: MandateStatus | None = None,
+    executor_principal_id: str | None = None,
+    mandate_id: str | None = None,
+    limit: int = 100,
+) -> list[MandateListing]:
+    """The tenant's mandates, newest first (RLS scopes the read to the caller's tenant)."""
+    where: list[str] = ["TRUE"]
+    params: dict[str, Any] = {"lim": limit}
+    if status is not None:
+        where.append("status = CAST(:st AS agent.mandate_status)")
+        params["st"] = status.value
+    if executor_principal_id is not None:
+        where.append("executor_principal_id = :exe")
+        params["exe"] = uuid.UUID(executor_principal_id)
+    if mandate_id is not None:
+        where.append("mandate_id = :mid")
+        params["mid"] = uuid.UUID(mandate_id)
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_TERMS}, created_at FROM agent.mandate WHERE {' AND '.join(where)} "
+                "ORDER BY created_at DESC, mandate_id DESC LIMIT :lim"
+            ),
+            params,
+        )
+    ).all()
+    return [
+        MandateListing(_terms(r), _budget(r), str(r.authority_grant_id), r.created_at) for r in rows
+    ]
 
 
 async def set_mandate_status(

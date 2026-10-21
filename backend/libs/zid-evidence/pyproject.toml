@@ -1,10 +1,11 @@
 [project]
 name = "zid-evidence"
 version = "0.0.0"
+description = "Evidence integrity primitives: RFC 8785 JCS, algorithm-tagged digests, RFC 9162 Merkle proofs, signed checkpoints, offline bundle verifier (DEC-F2)"
 requires-python = ">=3.13"
+# Kept dependency-light on purpose: an external verifier installs only this and `cryptography`.
 dependencies = [
-  "zid-context",
-  "zid-errors",
+  "cryptography>=43",
 ]
 
 [build-system]

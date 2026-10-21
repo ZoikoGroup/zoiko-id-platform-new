@@ -377,6 +377,14 @@ class AdapterIn(BaseModel):
     jurisdictions: list[str] = Field(min_length=1)
 
 
+@router.get("/verification-adapters")
+async def adapters(request: Request, caller: CallerDep) -> dict[str, Any]:
+    _scope(caller, "verification:read")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        items = await store.list_adapters(conn)
+    return {"items": [store.adapter_view(a) for a in sorted(items, key=lambda a: a["adapter_id"])]}
+
+
 @router.post("/verification-adapters", status_code=201)
 async def create_adapter(body: AdapterIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:

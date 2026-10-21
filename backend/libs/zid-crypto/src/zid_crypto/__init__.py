@@ -6,6 +6,12 @@
   RSA-PKCS1 are never accepted, so algorithm-confusion attacks have nothing to confuse.
 - `KeyRing` signs with exactly one active key and publishes the active key plus keys still inside
   their verification window, so rotation never breaks tokens already issued.
+
+The crypto broker (DEC-F5, Phase F W0) lives in submodules, imported explicitly:
+  purposes       KeyPurpose (purpose separation)        policy        Crypto Policy Registry
+  providers      KeyProvider, LocalKeyProvider, KeyRef  aws_kms       AwsKmsKeyProvider
+  envelope       Aad, Envelope, seal, open_envelope     handles       keyed pseudonymous handles
+  secret_broker  SecretBroker, EnvSecretBroker, OpenBaoSecretBroker
 """
 
 from __future__ import annotations
@@ -15,13 +21,16 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from joserfc import jws
 from joserfc.errors import JoseError
 from joserfc.jwk import ECKey, OKPKey, RSAKey
+
+if TYPE_CHECKING:
+    from zid_crypto.purposes import KeyPurpose
 
 ALLOWED_JWS_ALGS: tuple[str, ...] = ("ES256", "Ed25519")  # fully-specified algs (RFC 9864)
 # Verification only, for tokens *other* parties sign (enterprise IdP ID tokens, SSF transmitters,
@@ -62,12 +71,21 @@ class Signer(Protocol):
     def public_jwk(self) -> dict[str, Any]: ...
 
 
+def _check_policy(purpose: KeyPurpose | None, alg: str) -> None:
+    """A signer bound to a key purpose must use an algorithm the Crypto Policy Registry allows."""
+    if purpose is not None:
+        from zid_crypto.policy import default_registry
+
+        default_registry().require(purpose, alg)
+
+
 class LocalSigner:
     """In-process key for development and tests only (production uses a KMS/HSM-backed Signer)."""
 
-    def __init__(self, kid: str, alg: str = "ES256") -> None:
+    def __init__(self, kid: str, alg: str = "ES256", *, purpose: KeyPurpose | None = None) -> None:
         if alg not in ALLOWED_JWS_ALGS:
             raise CryptoError("ALG_NOT_ALLOWED", alg)
+        _check_policy(purpose, alg)
         self._kid, self._alg = kid, alg
         self._key: ec.EllipticCurvePrivateKey | ed25519.Ed25519PrivateKey = (
             ec.generate_private_key(ec.SECP256R1())
@@ -76,7 +94,7 @@ class LocalSigner:
         )
 
     @classmethod
-    def from_pem(cls, kid: str, pem: str) -> LocalSigner:
+    def from_pem(cls, kid: str, pem: str, *, purpose: KeyPurpose | None = None) -> LocalSigner:
         """A development key shared by several local processes (API, consumer) - never production."""
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
@@ -87,6 +105,7 @@ class LocalSigner:
             alg = "Ed25519"
         else:
             raise CryptoError("ALG_NOT_ALLOWED", "only P-256 or Ed25519 private keys")
+        _check_policy(purpose, alg)
         signer = cls.__new__(cls)
         signer._kid, signer._alg, signer._key = kid, alg, key
         return signer

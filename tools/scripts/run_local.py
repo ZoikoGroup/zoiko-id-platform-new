@@ -22,6 +22,11 @@ import sys
 import threading
 import time
 
+from localenv import BACKEND_ENV, load_backend_env
+
+# backend/.env (copied from backend/.env.example) configures every role; shell variables win.
+_ENV_LOADED = load_backend_env()
+
 # Same settings as docker-compose.yml, so the backend finds the Docker Postgres:
 #   ZID_DB_PASSWORD  (fallback zid_local_only — laptop only)   ZID_DB_HOST_PORT (default 5432)
 _PW = os.environ.get("ZID_DB_PASSWORD", "zid_local_only")
@@ -67,6 +72,9 @@ def main() -> int:
     args = parser.parse_args()
 
     roles = [args.only] if args.only else list(ROLES)
+    if not _ENV_LOADED:
+        print(f"note: {BACKEND_ENV} not found; copy backend/.env.example to enable sign-in and passkeys.",
+              flush=True)
     procs = {role: start(role, reload=not args.no_reload) for role in roles}
     for role in roles:
         print(f"{COLORS[role]}[{role:<6}]{RESET} http://localhost:{ROLES[role]['port']}  "

@@ -1,5 +1,22 @@
 // GENERATED from contracts/openapi/public/authentication.json by packages/api-client/openapi/codegen.mjs. Do not edit.
 export interface paths {
+    "/admin/principals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List All */
+        get: operations["list_all_admin_principals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/principals/{principal_id}/sessions:revoke": {
         parameters: {
             query?: never;
@@ -405,6 +422,16 @@ export interface components {
             /** K */
             k: number;
         };
+        /**
+         * PrincipalStatus
+         * @enum {string}
+         */
+        PrincipalStatus: "PENDING" | "ACTIVE" | "SUSPENDED" | "DISABLED" | "SUPERSEDED" | "ERASED";
+        /**
+         * PrincipalType
+         * @enum {string}
+         */
+        PrincipalType: "HUMAN" | "ORGANIZATION" | "ORG_UNIT" | "DEVICE" | "APPLICATION" | "SERVICE" | "WORKLOAD" | "AI_AGENT" | "EXTERNAL_PRINCIPAL";
         /** RegistrationOptionsIn */
         RegistrationOptionsIn: {
             /** Client Id */
@@ -454,6 +481,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_all_admin_principals_get: {
+        parameters: {
+            query?: {
+                principal_type?: components["schemas"]["PrincipalType"] | null;
+                status?: components["schemas"]["PrincipalStatus"] | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_revoke_all_admin_principals__principal_id__sessions_revoke_post: {
         parameters: {
             query?: never;

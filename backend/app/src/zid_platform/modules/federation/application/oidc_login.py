@@ -390,13 +390,15 @@ async def _principal_for(
 
 def env_secrets(prefix: str = "ZID_SECRET__") -> SecretResolver:
     """Local/test resolver: `ref` -> environment variable. Deployed cells use the broker (DEC-F5)."""
-    import os
+    from zid_crypto.secret_broker import EnvSecretBroker, SecretError
+
+    broker = EnvSecretBroker(prefix=prefix)
 
     def resolve(ref: str) -> str:
-        value = os.environ.get(prefix + ref.upper().replace("-", "_"))
-        if not value:
-            raise FederationError("FEDERATION_SECRET_UNAVAILABLE")
-        return value
+        try:
+            return broker.get(ref)
+        except SecretError as e:
+            raise FederationError("FEDERATION_SECRET_UNAVAILABLE") from e
 
     return resolve
 

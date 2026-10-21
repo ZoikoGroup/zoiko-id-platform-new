@@ -122,6 +122,21 @@ async def source_for_client(conn: AsyncConnection, client_id: str) -> Source | N
     )
 
 
+async def list_sources(conn: AsyncConnection) -> list[Source]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT source_id, tenant_id, client_id, display_name, status "
+                "FROM platform.provisioning_source ORDER BY created_at DESC, source_id"
+            )
+        )
+    ).all()
+    return [
+        Source(str(r.source_id), str(r.tenant_id), r.client_id, r.display_name, r.status)
+        for r in rows
+    ]
+
+
 async def set_source_status(conn: AsyncConnection, source_id: str, status: str) -> Source | None:
     row = (
         await conn.execute(

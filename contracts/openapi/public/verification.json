@@ -400,6 +400,27 @@
       }
     },
     "/verification-adapters": {
+      "get": {
+        "operationId": "adapters_verification_adapters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Adapters Verification Adapters Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Adapters",
+        "tags": [
+          "verification"
+        ]
+      },
       "post": {
         "operationId": "create_adapter_verification_adapters_post",
         "requestBody": {

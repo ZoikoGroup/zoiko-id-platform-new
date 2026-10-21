@@ -1894,6 +1894,12 @@ requires-dist = [
 name = "zid-context"
 version = "0.0.0"
 source = { editable = "libs/zid-context" }
+dependencies = [
+    { name = "cryptography" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cryptography" }]
 
 [[package]]
 name = "zid-crypto"
@@ -1901,7 +1907,9 @@ version = "0.0.0"
 source = { editable = "libs/zid-crypto" }
 dependencies = [
     { name = "cryptography" },
+    { name = "httpx" },
     { name = "joserfc" },
+    { name = "pyyaml" },
     { name = "zid-context" },
     { name = "zid-errors" },
 ]
@@ -1909,7 +1917,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=43" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "joserfc", specifier = ">=1.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "zid-context", editable = "libs/zid-context" },
     { name = "zid-errors", editable = "libs/zid-errors" },
 ]
@@ -1949,15 +1959,11 @@ name = "zid-evidence"
 version = "0.0.0"
 source = { editable = "libs/zid-evidence" }
 dependencies = [
-    { name = "zid-context" },
-    { name = "zid-errors" },
+    { name = "cryptography" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "zid-context", editable = "libs/zid-context" },
-    { name = "zid-errors", editable = "libs/zid-errors" },
-]
+requires-dist = [{ name = "cryptography", specifier = ">=43" }]
 
 [[package]]
 name = "zid-idempotency"
@@ -2080,6 +2086,8 @@ dependencies = [
     { name = "zid-crypto" },
     { name = "zid-db" },
     { name = "zid-errors" },
+    { name = "zid-evidence" },
+    { name = "zid-idempotency" },
     { name = "zid-outbox" },
     { name = "zid-telemetry" },
 ]
@@ -2101,6 +2109,8 @@ requires-dist = [
     { name = "zid-crypto", editable = "libs/zid-crypto" },
     { name = "zid-db", editable = "libs/zid-db" },
     { name = "zid-errors", editable = "libs/zid-errors" },
+    { name = "zid-evidence", editable = "libs/zid-evidence" },
+    { name = "zid-idempotency", editable = "libs/zid-idempotency" },
     { name = "zid-outbox", editable = "libs/zid-outbox" },
     { name = "zid-telemetry", editable = "libs/zid-telemetry" },
 ]

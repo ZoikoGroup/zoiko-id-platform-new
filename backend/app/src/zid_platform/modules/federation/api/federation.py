@@ -5,6 +5,7 @@
     GET  /federation/callback                     OIDC callback -> identity session + cookie
     POST /federation/saml/acs                     SAML ACS (HTTP-POST) -> identity session + cookie
     POST /federation/saml/acs/{tenant}.{conn}     IdP-initiated SAML, only where an approved change enabled it
+    GET  /federation/trust-anchors                list         (tenant.identity_provider.change, R3)
     GET  /federation/integrations                 list         (tenant.identity_provider.change, R3)
     POST /federation/integrations                 create       (R3)
     POST /federation/integrations/{id}:rotate     new pinned keys/certificates/metadata (R3)
@@ -330,6 +331,26 @@ class AnchorIn(BaseModel):
     jwks: dict[str, Any]
     allowed_domains: list[str] = Field(min_length=1, max_length=20)
     approval_request_id: str | None = None
+
+
+def _anchor_view(a: dict[str, Any]) -> dict[str, Any]:
+    """Pinned keys are counted, not returned."""
+    return {
+        "anchor_id": str(a["anchor_id"]),
+        "entity_id": a["entity_id"],
+        "allowed_domains": list(a["allowed_domains"]),
+        "pinned_keys": a["pinned_keys"],
+        "status": a["status"],
+        "revision": a["revision"],
+        "created_at": a["created_at"].isoformat(),
+    }
+
+
+@router.get("/federation/trust-anchors")
+async def list_anchors(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as c:
+        await protected_action(c, caller, action=ADMIN_ACTION, resource="federation_trust_anchor:*")
+        return {"items": [_anchor_view(a) for a in await store.list_anchors(c)]}
 
 
 @router.post("/federation/trust-anchors", status_code=201)

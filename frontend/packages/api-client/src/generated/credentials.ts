@@ -7,7 +7,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Configurations */
+        get: operations["list_configurations_credential_configurations_get"];
         put?: never;
         /** Create Configuration */
         post: operations["create_configuration_credential_configurations_post"];
@@ -41,7 +42,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Trust */
+        get: operations["list_trust_credential_issuer_trust_get"];
         put?: never;
         /** Create Trust */
         post: operations["create_trust_credential_issuer_trust_post"];
@@ -75,7 +77,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Credentials */
+        get: operations["list_credentials_credentials_get"];
         put?: never;
         /** Issue Credential */
         post: operations["issue_credential_credentials_post"];
@@ -245,7 +248,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Registrations */
+        get: operations["list_registrations_relying_party_registrations_get"];
         put?: never;
         /** Register Rp */
         post: operations["register_rp_relying_party_registrations_post"];
@@ -419,6 +423,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_configurations_credential_configurations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     create_configuration_credential_configurations_post: {
         parameters: {
             query?: never;
@@ -487,6 +513,28 @@ export interface operations {
             };
         };
     };
+    list_trust_credential_issuer_trust_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     create_trust_credential_issuer_trust_post: {
         parameters: {
             query?: never;
@@ -534,6 +582,40 @@ export interface operations {
                 "application/json": components["schemas"]["TrustStatusIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_credentials_credentials_get: {
+        parameters: {
+            query?: {
+                status?: ("VALID" | "SUSPENDED" | "REVOKED" | "EXPIRED" | "UNKNOWN") | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -866,6 +948,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_registrations_relying_party_registrations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

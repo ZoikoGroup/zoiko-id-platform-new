@@ -1,0 +1,414 @@
+{
+  "components": {
+    "schemas": {
+      "BindingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Agent Principal Id",
+            "type": "string"
+          },
+          "artifact_digest": {
+            "pattern": "^sha-?256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "attestation_required": {
+            "default": 0,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Attestation Required",
+            "type": "integer"
+          },
+          "blueprint_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Blueprint Version",
+            "type": "string"
+          },
+          "environment_id": {
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "title": "Environment Id",
+            "type": "string"
+          },
+          "spiffe_id": {
+            "maxLength": 2048,
+            "minLength": 10,
+            "title": "Spiffe Id",
+            "type": "string"
+          },
+          "valid_to": {
+            "format": "date-time",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_principal_id",
+          "spiffe_id",
+          "blueprint_version",
+          "artifact_digest",
+          "environment_id",
+          "valid_to"
+        ],
+        "title": "BindingBody",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "QuarantineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "QuarantineBody",
+        "type": "object"
+      },
+      "RevokeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "spiffe_id": {
+            "maxLength": 2048,
+            "minLength": 10,
+            "title": "Spiffe Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spiffe_id",
+          "reason"
+        ],
+        "title": "RevokeBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Workload Identity API (SPIFFE bindings, environment quarantine)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/machine/environments/{environment_id}:quarantine": {
+      "post": {
+        "operationId": "quarantine_v1_machine_environments__environment_id__quarantine_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "environment_id",
+            "required": true,
+            "schema": {
+              "title": "Environment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuarantineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quarantine V1 Machine Environments  Environment Id  Quarantine Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quarantine",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/environments/{environment_id}:release": {
+      "post": {
+        "operationId": "release_v1_machine_environments__environment_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "environment_id",
+            "required": true,
+            "schema": {
+              "title": "Environment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release V1 Machine Environments  Environment Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/trust-domain": {
+      "get": {
+        "operationId": "trust_domain_v1_machine_trust_domain_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Trust Domain V1 Machine Trust Domain Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Trust Domain",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/workload-bindings": {
+      "get": {
+        "operationId": "list_bindings_v1_machine_workload_bindings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Bindings V1 Machine Workload Bindings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Bindings",
+        "tags": [
+          "workload-identity"
+        ]
+      },
+      "post": {
+        "operationId": "register_v1_machine_workload_bindings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register V1 Machine Workload Bindings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/workload-bindings:revoke": {
+      "post": {
+        "operationId": "revoke_v1_machine_workload_bindings_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke V1 Machine Workload Bindings Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    }
+  }
+}

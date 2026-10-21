@@ -97,6 +97,27 @@
   "openapi": "3.1.0",
   "paths": {
     "/provisioning/sources": {
+      "get": {
+        "operationId": "list_sources_provisioning_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Sources Provisioning Sources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "scim"
+        ]
+      },
       "post": {
         "operationId": "create_source_provisioning_sources_post",
         "requestBody": {

@@ -1,0 +1,269 @@
+# Zoiko iD key and algorithm inventory (PQC-0; DEC-F6 §2, DEC-F5; ZID-CRYPTO-MI-001 §12, §33).
+# status: DRAFT (doc-derived; not approved)   owner: Security / Cryptography Lead
+# version: 0.1.0
+#
+# Every key the platform holds, and every algorithm it signs, verifies, encrypts or negotiates with,
+# with where it is used, how long its artifacts must stay trustworthy, PQ readiness and the
+# migration wave that moves it. CI (backend/app/tests/unit/test_crypto_inventory.py) fails when a
+# key purpose (zid_crypto.purposes.KeyPurpose) or a signing key ring (zid_platform.keys.PURPOSES)
+# has no entry, or an algorithm here is unknown to the Crypto Policy Registry.
+#
+# Fields:
+#   key_purpose       DEC-F5 KeyPurpose of a key Zoiko holds; null = we only verify/decrypt with
+#                     keys other parties hold, or the key is protocol-managed
+#   keyring           zid_platform.keys.PURPOSES ring that holds the key today, if any
+#   profile           Crypto Policy Registry profile governing the algorithms
+#   algorithms        every algorithm used on this path today (planned ones under `planned`)
+#   custody           local/test vs deployed custody
+#   retention_horizon how long artifacts made with the key must stay verifiable/decryptable
+#   pq_ready          true only when the path already resists a cryptographically relevant QC
+#   migration_wave    PQC-0 (inventory only; symmetric 256-bit needs no migration) .. PQC-5
+
+version: 0.1.0
+registry: backend/config/crypto-profiles/crypto-policy-registry.yaml
+
+entries:
+  - id: token-signing
+    key_purpose: TOKEN_SIGNING
+    keyring: token
+    profile: token-signing.v1
+    algorithms: [ES256]
+    used_by: "access tokens, ID tokens, client assertions to upstream IdPs (session, federation)"
+    custody: "local/test: LocalSigner dev key; deployed: KMS asymmetric key per cell"
+    retention_horizon: "minutes to hours (token lifetime) plus JWKS overlap"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: set-signing
+    key_purpose: TOKEN_SIGNING
+    keyring: set
+    profile: token-signing.v1
+    algorithms: [ES256]
+    used_by: "Security Event Tokens to SSF receivers (signals)"
+    custody: "local/test: LocalSigner dev key; deployed: KMS asymmetric key, separate from token keys"
+    retention_horizon: "minutes (delivery) plus receiver audit"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: federation-signing
+    key_purpose: FEDERATION_SIGNING
+    keyring: federation
+    profile: federation-signing.v1
+    algorithms: [ES256]
+    used_by: "OpenID Federation entity configuration and subordinate statements"
+    custody: "local/test: LocalSigner dev key; deployed: dedicated KMS asymmetric key"
+    retention_horizon: "statement lifetime (hours to days) plus trust-chain caches"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: credential-issuer-signing
+    key_purpose: VC_ISSUER_SIGNING
+    keyring: credential
+    profile: vc-issuer-signing.v1
+    algorithms: [ES256]
+    planned: [ML-DSA-65]
+    used_by: "SD-JWT VC / VCDM 2.0 credentials and their status lists (credential)"
+    custody: "local/test: LocalSigner dev key; deployed: HSM-backed issuer key per trust profile"
+    retention_horizon: "credential validity (months to years) plus status-list history"
+    pq_ready: false
+    migration_wave: PQC-2
+
+  - id: verifier-signing
+    key_purpose: TOKEN_SIGNING
+    keyring: verifier
+    profile: token-signing.v1
+    algorithms: [ES256]
+    used_by: "OID4VP signed request objects and the HAIP x509_hash verifier certificate"
+    custody: "local/test: LocalSigner dev key + self-signed cert; deployed: KMS key + CA-issued chain"
+    retention_horizon: "minutes (request lifetime); certificate validity"
+    pq_ready: false
+    migration_wave: PQC-3
+
+  - id: evidence-signing
+    key_purpose: EVIDENCE_SIGNING
+    keyring: evidence
+    profile: evidence-signing.v1
+    algorithms: [ES256]
+    planned: [ML-DSA-65]
+    used_by: "E2/E3 evidence records, exports and checkpoints (zid-evidence, Phase F W1)"
+    custody: "local/test: dev key; deployed: dedicated HSM key, never exportable"
+    retention_horizon: "evidence retention (years); historic public key chain kept"
+    pq_ready: false
+    migration_wave: PQC-2
+
+  - id: webhook-signing
+    key_purpose: WEBHOOK_SIGNING
+    keyring: null
+    profile: webhook-signing.v1
+    algorithms: [ES256]
+    used_by: "RFC 9421 outbound webhook signatures (webhook delivery; key not yet provisioned)"
+    custody: "deployed: KMS asymmetric key per trust domain/tenant profile"
+    retention_horizon: "minutes (delivery verification)"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: ca
+    key_purpose: CA
+    keyring: null
+    profile: ca.v1
+    algorithms: [ES256]
+    used_by: "internal/service PKI: offline root, per-cell intermediates (SPIFFE, mTLS)"
+    custody: "root offline M-of-N ceremony; intermediates non-exportable in HSM/KMS"
+    retention_horizon: "root: years; intermediates: months"
+    pq_ready: false
+    migration_wave: PQC-3
+
+  - id: data-kek
+    key_purpose: DATA_KEK
+    keyring: null
+    profile: data-encryption.v1
+    algorithms: [AES-256-GCM]
+    used_by: "wraps application DEKs (zid_crypto.envelope)"
+    custody: "local/test: LocalKeyProvider; deployed: KMS key per purpose per cell / per tenant"
+    retention_horizon: "life of the data it protects (rewrapped on rotation)"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: data-dek
+    key_purpose: DATA_DEK
+    keyring: null
+    profile: data-encryption.v1
+    algorithms: [AES-256-GCM]
+    used_by: "per-object/field data keys in envelopes; stored only wrapped"
+    custody: "generated per envelope; plaintext in memory only, zeroized after use"
+    retention_horizon: "life of the ciphertext"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: subject-erasure-key
+    key_purpose: SUBJECT_ERASURE_KEY
+    keyring: null
+    profile: data-encryption.v1
+    algorithms: [AES-256-GCM]
+    used_by: "subject-identifying evidence/PII; destroy_key = crypto-erasure (DEC-F1, Phase F W2)"
+    custody: "local/test: LocalKeyProvider; deployed: wrapped under tenant/domain KEK in KMS"
+    retention_horizon: "until erasure or retention end"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: backup-kek
+    key_purpose: BACKUP_KEK
+    keyring: null
+    profile: backup-encryption.v1
+    algorithms: [AES-256-GCM]
+    used_by: "backup and export archive encryption, separate from live data KEKs"
+    custody: "deployed: KMS key in the cell and its approved recovery cell"
+    retention_horizon: "backup retention"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: secret-encryption
+    key_purpose: SECRET_ENCRYPTION
+    keyring: null
+    profile: secret-encryption.v1
+    algorithms: [AES-256-GCM]
+    used_by: "OpenBao seal/secret storage (secrets broker); the application never holds it"
+    custody: "deployed: KMS auto-unseal key per cell"
+    retention_horizon: "life of stored secrets"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: hmac-internal
+    key_purpose: HMAC_INTERNAL
+    keyring: null
+    profile: hmac-internal.v1
+    algorithms: [HMAC-SHA-256]
+    used_by: "pseudonymous evidence handles (zid_crypto.handles) and internal MACs"
+    custody: "local/test: LocalKeyProvider; deployed: KMS HMAC key"
+    retention_horizon: "evidence retention (handles must stay recomputable per key version)"
+    pq_ready: true
+    migration_wave: PQC-0
+
+  - id: tls
+    key_purpose: null
+    keyring: null
+    profile: tls.v1
+    algorithms: [X25519MLKEM768, SecP256r1MLKEM768]
+    used_by: "edge and internal TLS 1.3 / mTLS key exchange (platform ingress, mesh)"
+    custody: "certificate platform / SPIFFE; session keys memory-only (K5)"
+    retention_horizon: "harvest-now-decrypt-later: life of the most sensitive data in transit"
+    pq_ready: false   # hybrid groups preferred; classical fallback still permitted and measured
+    migration_wave: PQC-1
+
+  # --- verification / decryption with keys other parties hold ------------------------------------
+  - id: client-and-dpop-keys
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [ES256, Ed25519]
+    used_by: "DPoP proofs, private_key_jwt client assertions, KB-JWTs, VP holder proofs (zid_crypto.ALLOWED_JWS_ALGS)"
+    custody: "client/holder held; public keys pinned per client or bound in the credential"
+    retention_horizon: "seconds to minutes"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: external-jose-issuers
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [ES256, Ed25519, RS256, PS256]
+    used_by: "enterprise IdP ID tokens, SSF transmitter SETs, federation trust chains, VC issuers and status lists (zid_crypto.EXTERNAL_VERIFY_ALGS)"
+    custody: "counterparty held; JWKS pinned per integration"
+    retention_horizon: "token/statement lifetime"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: saml-idp-signatures
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [RSA-SHA256, RSA-SHA384, RSA-SHA512, ECDSA-SHA256, ECDSA-SHA384, ECDSA-SHA512]
+    used_by: "SAML response/assertion signatures from enterprise IdPs (federation saml_login)"
+    custody: "IdP held; certificate pinned per connection"
+    retention_horizon: "assertion lifetime"
+    pq_ready: false
+    migration_wave: PQC-3
+
+  - id: saml-sp-decryption
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [RSA-OAEP, AES-128-GCM, AES-256-GCM]
+    used_by: "EncryptedAssertion key transport + content decryption (federation saml_decrypt); SP RSA key from the secrets broker"
+    custody: "brokered secret per connection (sp_decryption_key_ref); move to KMS-held key"
+    retention_horizon: "assertion lifetime (transport only)"
+    pq_ready: false
+    migration_wave: PQC-3
+
+  - id: webauthn-authenticators
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [EdDSA, ES256, RS256]
+    used_by: "passkey/WebAuthn assertion signatures (authentication webauthn PUBKEY_ALGS)"
+    custody: "authenticator held; public key stored per credential"
+    retention_horizon: "per ceremony (seconds)"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: oid4vp-response-encryption
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [ECDH-ES, AES-128-GCM, AES-256-GCM]
+    used_by: "direct_post.jwt encrypted wallet responses (credential verifier); ephemeral verifier key per request"
+    custody: "ephemeral, memory only"
+    retention_horizon: "request lifetime; the disclosed claims inherit HNDL exposure"
+    pq_ready: false
+    migration_wave: PQC-4
+
+  - id: mdoc-issuer-signatures
+    key_purpose: null
+    keyring: null
+    profile: external-verification.v1
+    algorithms: [ES256]
+    used_by: "ISO mdoc issuerAuth / deviceAuth COSE_Sign1 and CWT status lists (credential mdoc)"
+    custody: "issuer/device held; x5chain validated against trust lists"
+    retention_horizon: "document validity"
+    pq_ready: false
+    migration_wave: PQC-3

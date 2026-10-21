@@ -432,3 +432,121 @@ async def set_issued_status(conn: AsyncConnection, credential_id: str, status: s
         text("UPDATE cred.credential_record SET status = :s WHERE credential_id = :c"),
         {"c": uuid.UUID(credential_id), "s": status},
     )
+
+
+# ------------------------------------------------------------------------------ administration
+# Listing views carry identifiers, states, limits and times only: no pinned key material, holder
+# key thumbprints, status-list positions or claim payloads.
+
+
+async def list_issued(
+    conn: AsyncConnection, *, status: str | None = None, limit: int = 100
+) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT credential_id, configuration_id, credential_type, format, issuer_identifier, "
+                "subject_principal_id, status, issued_at, expires_at FROM cred.credential_record "
+                + ("WHERE status = :s " if status is not None else "")
+                + "ORDER BY issued_at DESC, credential_id DESC LIMIT :lim"
+            ),
+            {"s": status, "lim": limit},
+        )
+    ).all()
+    return [
+        {
+            "credential_id": str(r.credential_id),
+            "configuration_id": str(r.configuration_id),
+            "credential_type": r.credential_type,
+            "format": r.format,
+            "issuer_identifier": r.issuer_identifier,
+            "subject_principal_id": str(r.subject_principal_id) if r.subject_principal_id else None,
+            "status": r.status,
+            "issued_at": r.issued_at.isoformat(),
+            "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+        }
+        for r in rows
+    ]
+
+
+async def list_configurations(conn: AsyncConnection) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT configuration_id, credential_type, format, adapter_version, required_claims, "
+                "optional_claims, holder_binding_required, status_method, status_mandatory, "
+                "risk_class, assurance_profile_id, issuance_enabled, status, created_at "
+                "FROM cred.credential_configuration ORDER BY created_at DESC, configuration_id"
+            )
+        )
+    ).all()
+    return [
+        {
+            "configuration_id": str(r.configuration_id),
+            "credential_type": r.credential_type,
+            "format": r.format,
+            "adapter_version": r.adapter_version,
+            "required_claims": list(r.required_claims),
+            "optional_claims": list(r.optional_claims),
+            "holder_binding_required": r.holder_binding_required,
+            "status_method": r.status_method,
+            "status_mandatory": r.status_mandatory,
+            "risk_class": r.risk_class,
+            "assurance_profile_id": str(r.assurance_profile_id) if r.assurance_profile_id else None,
+            "issuance_enabled": r.issuance_enabled,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
+
+
+async def list_trust(conn: AsyncConnection) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT trust_id, issuer_identifier, credential_types, jurisdictions, trust_source, "
+                "trust_anchor_id, algorithms, status, valid_to, revision, created_at "
+                "FROM cred.issuer_trust ORDER BY created_at DESC, trust_id"
+            )
+        )
+    ).all()
+    return [
+        {
+            "trust_id": str(r.trust_id),
+            "issuer_identifier": r.issuer_identifier,
+            "credential_types": list(r.credential_types),
+            "jurisdictions": list(r.jurisdictions),
+            "trust_source": r.trust_source,
+            "trust_anchor_id": str(r.trust_anchor_id) if r.trust_anchor_id else None,
+            "algorithms": list(r.algorithms),
+            "status": r.status,
+            "valid_to": r.valid_to.isoformat(),
+            "revision": r.revision,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
+
+
+async def list_registrations(conn: AsyncConnection) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT registration_id, client_id, purpose, allowed_attributes, retention_days, "
+                "status, valid_to FROM cred.rp_registration ORDER BY client_id, purpose"
+            )
+        )
+    ).all()
+    return [
+        {
+            "registration_id": str(r.registration_id),
+            "client_id": r.client_id,
+            "purpose": r.purpose,
+            "allowed_attributes": list(r.allowed_attributes),
+            "retention_days": r.retention_days,
+            "status": r.status,
+            "valid_to": r.valid_to.isoformat(),
+        }
+        for r in rows
+    ]

@@ -1,6 +1,7 @@
 """Typed settings. Environment variables use the ZID_ prefix; no secret defaults (DEC-F5)."""
 
-from typing import Literal
+from datetime import timedelta
+from typing import Any, Literal
 
 from zid_app import ServiceSettings
 
@@ -33,3 +34,56 @@ class Settings(ServiceSettings):
     verifier_client_id_prefix: Literal["openid_federation", "x509_hash"] = "openid_federation"
     verifier_certificate_chain: tuple[str, ...] = ()
     consent_url: str | None = None  # ZID_CONSENT_URL: consent UI for third-party OAuth clients
+    # --- Keys and secrets (DEC-F5; zid_crypto broker, see crypto_runtime.py) ---------------------
+    # ZID_KEY_PROVIDER: local (development KEKs; local/test only) | aws-kms (deployed cells)
+    key_provider: Literal["local", "aws-kms"] = "local"
+    # ZID_LOCAL_KEYSTORE (local only): JSON file so local processes share development KEKs;
+    # unset = in-memory keys, regenerated on every start.
+    local_keystore: str | None = None
+    kms_region: str | None = None  # ZID_KMS_REGION: the cell's KMS region (default: AWS SDK chain)
+    # ZID_KMS_KEY_IDS (JSON): KeyPurpose -> KMS key id/ARN/alias, e.g. {"DATA_KEK": "alias/..."};
+    # purposes not listed use ZID_KMS_KEY_ALIAS_PATTERN ({cell} = ZID_CELL_ID, {purpose} lower-case)
+    kms_key_ids: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
+    kms_key_alias_pattern: str = "alias/zid/{cell}/{purpose}"
+    kms_pending_window_days: int = 30  # ZID_KMS_PENDING_WINDOW_DAYS: ScheduleKeyDeletion (7-30)
+    # ZID_EVIDENCE_SIGNING_KID: published key id of the cell's KMS evidence key (default
+    # evidence-<cell>); historic public keys stay published for the life of the evidence (DEC-F2 §5)
+    evidence_signing_kid: str | None = None
+    # ZID_EVIDENCE_HISTORIC_KEYS (JSON list of public JWKs): retired evidence keys still trusted to
+    # verify older checkpoints and exports; never taken from the database next to the signature
+    evidence_historic_keys: tuple[dict[str, Any], ...] = ()
+    # Checkpoint cadence (DEC-F2 §2): partitions with unsealed E3 entries are sealed sooner
+    evidence_checkpoint_interval: timedelta = timedelta(minutes=5)
+    evidence_checkpoint_e3_interval: timedelta = timedelta(seconds=30)
+    # ZID_EVIDENCE_TSA_URL: optional RFC 3161 TSA; ZID_EVIDENCE_TSA_REQUIRED blocks sealing without it
+    evidence_tsa_url: str | None = None
+    evidence_tsa_required: bool = False
+    # --- Operator plane (DEC-F4; operator_access) -------------------------------------------------
+    # ZID_OPERATOR_TENANT_ID: the dedicated operator tenant; unset = the operator plane is disabled
+    operator_tenant_id: str | None = None
+    # ZID_OPERATOR_CLIENT_IDS: first-party Operator Console OIDC clients (never the customer web app)
+    operator_client_ids: tuple[str, ...] = ("zoiko-operator",)
+    # ZID_OPERATOR_MAX_MINUTES (JSON capability -> minutes): may only lower the catalog ceilings
+    operator_max_minutes: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
+    operator_break_glass_max: timedelta = timedelta(minutes=60)
+    # --- Workload identity (DEC-F7; zid_context.spiffe) ------------------------------------------
+    # ZID_SPIFFE_TRUST_DOMAIN: this cell+environment's governed trust domain (default
+    # <cell>.<environment>.id.zoiko); ZID_SPIFFE_BUNDLE_FILES (JSON): trust domain -> PEM bundle
+    # file; ZID_SPIFFE_FEDERATED_DOMAINS: explicitly federated domains (no trust-on-first-use);
+    # ZID_MESH_TRUSTED_PROXIES: local mesh data-plane addresses allowed to forward a peer SVID.
+    spiffe_trust_domain: str | None = None
+    spiffe_bundle_files: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
+    spiffe_federated_domains: tuple[str, ...] = ()
+    mesh_trusted_proxies: tuple[str, ...] = ()
+    # ZID_SECRET_BROKER: env (ZID_SECRET__<REF>; local/test only) | openbao (deployed cells)
+    secret_broker: Literal["env", "openbao"] = "env"
+    openbao_addr: str | None = None  # ZID_OPENBAO_ADDR: the cell's OpenBao, e.g. https://bao:8200
+    openbao_kv_mount: str = "secret"  # ZID_OPENBAO_KV_MOUNT: KV v2 mount holding service secrets
+    openbao_namespace: str | None = None  # ZID_OPENBAO_NAMESPACE
+    # ZID_OPENBAO_AUTH: jwt (workload JWT-SVID, DEC-F7) | token. Credentials are read from FILES
+    # (ZID_OPENBAO_JWT_FILE / ZID_OPENBAO_TOKEN_FILE), never from environment values.
+    openbao_auth: Literal["jwt", "token"] = "jwt"
+    openbao_jwt_mount: str = "jwt"
+    openbao_jwt_role: str | None = None  # ZID_OPENBAO_JWT_ROLE: role bound to this workload
+    openbao_jwt_file: str | None = None
+    openbao_token_file: str | None = None

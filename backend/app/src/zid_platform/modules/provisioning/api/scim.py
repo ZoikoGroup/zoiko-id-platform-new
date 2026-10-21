@@ -5,6 +5,7 @@
     GET|PUT|PATCH|DELETE /scim/v2/Users/{id}
     POST /scim/v2/Groups           GET /scim/v2/Groups
     GET|PATCH|DELETE /scim/v2/Groups/{id}
+    GET  /provisioning/sources               list connectors        (provisioning.source.read, R1)
     POST /provisioning/sources               register a connector   (provisioning.source.manage, R3)
     POST /provisioning/sources/{id}:suspend  stop it at once        (R3)
 
@@ -314,6 +315,25 @@ class SourceIn(BaseModel):
     client_id: str = Field(min_length=1, max_length=256)
     display_name: str = Field(min_length=1, max_length=128)
     approval_request_id: str | None = None
+
+
+def _source_view(s: Source) -> dict[str, Any]:
+    """The connector's identity and state; the client's credentials live with the OAuth client."""
+    return {
+        "source_id": s.source_id,
+        "client_id": s.client_id,
+        "display_name": s.display_name,
+        "status": s.status,
+    }
+
+
+@router.get("/provisioning/sources")
+async def list_sources(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="provisioning.source.read", resource="provisioning_source:*"
+        )
+        return {"items": [_source_view(s) for s in await store.list_sources(conn)]}
 
 
 @router.post("/provisioning/sources", status_code=201)

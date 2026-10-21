@@ -19,6 +19,7 @@ const API_PATH_PREFIXES = [
   "/authn/authenticators",
   "/authn/recovery-codes",
   "/authn/recovery/",
+  "/admin/principals$",
   "/admin/principals/",
   "/admin/recovery-cases",
   "/admin/recovery-policies/",
@@ -34,10 +35,12 @@ const API_PATH_PREFIXES = [
   "/credential-configurations",
   "/credential-issuer-trust",
   "/relying-party-registrations",
+  "/credentials$",
   "/credentials/",
   "/presentations",
   "/v1/authority-grants",
   "/v1/approval-requests",
+  "/v1/mandates$",
   "/v1/mandates/",
   "/v1/mandate-reservations/",
   "/access/v1/evaluation",
@@ -45,6 +48,14 @@ const API_PATH_PREFIXES = [
   "/signals",
   "/ssf/streams",
   "/provisioning/sources",
+  // Phase F: evidence, privacy, customer lockbox, residency, workload identity
+  "/v1/evidence/",
+  "/v1/privacy/",
+  "/v1/lockbox-requests",
+  "/v1/operator-access-policy$",
+  "/v1/cells$",
+  "/v1/tenant/",
+  "/v1/machine/",
 ];
 
 /** Browser-facing cell flows relayed on this origin (cell session cookie + Origin check). */
@@ -87,7 +98,9 @@ export function server(): { bff: Bff; env: RuntimeEnv } {
     clientId: env.clientId,
     publicOrigin: env.publicOrigin,
     callbackPath: "/auth/callback",
-    scopes: ["openid"],
+    redirectUri: env.redirectUri,
+    // Verification and presentation endpoints check these scopes; the first-party client holds them.
+    scopes: ["openid", "verification:read", "verification:execute", "presentation:request"],
     secureCookies: secure,
     sessionTtlSeconds: 8 * 60 * 60,
     apiPathPrefixes: API_PATH_PREFIXES,

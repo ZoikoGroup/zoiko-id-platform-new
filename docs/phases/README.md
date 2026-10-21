@@ -60,6 +60,22 @@ Everything engineering can build for Phase E is in the repository ([status](phas
 | SRE + Signals Lead | Run the propagation soak (`tests/load/propagation/`) at production scale on a PERF cell and attach the result | FR-SIG-004 |
 | Platform + Security | KMS/HSM-backed `Signer` per key purpose (token, SET, federation, credential, verifier) - deployed cells refuse to start without them; a CA-issued HAIP verifier certificate; secrets broker for federation client secrets and SAML SP decryption keys; maintenance DB role for `entrypoints.maintenance` | DEC-F5, Phase F |
 
+## Owner actions (Phase F)
+
+Everything engineering can build for Phase F is in the repository ([status](phase-f-privacy-evidence-and-security.md#deliverables-and-status)). These items need the named owners or real infrastructure:
+
+| Owner | Action | Closes |
+|---|---|---|
+| Evidence Lead + Privacy/DPO; Security Lead | Ratify DEC-F1, DEC-F2 | P0-06, EVID gate |
+| General Counsel + DPO | Ratify DEC-F3; approve the jurisdiction packs (`approval_ref`, `rights_response_deadlines`, retention overrides) and record counsel-approved role assignments for every launch flow (`GET /v1/privacy/admin/release-check` must report ready) | P0-08, G4 no-go |
+| Privacy / DPO | Set `backup_erasure_window_days` and the crypto-inaccessibility time per retention class | DEC-F1 §4 |
+| Security Lead + SRE Lead | Ratify DEC-F4; provision the operator tenant, the `zoiko-operator` client on its own origin, and operator profiles from the workforce IdP | P0-07 |
+| Platform + Security | KMS/CloudHSM keys per cell (`EVIDENCE_SIGNING`, `HMAC_INTERNAL`, `SUBJECT_ERASURE_KEY`, `DATA_KEK`); key ceremonies; the worker role (`ZID_WORKER_DATABASE_URL`, BYPASSRLS on evidence/privacy/platform, no DELETE); OpenBao per cell; a TSA profile if E3 exports need RFC 3161 | DEC-F5, DEC-F2 §3 |
+| Machine Identity + Platform | Ratify DEC-F7; SPIRE per cell with HSM-backed upstream authority; Istio ambient mTLS and authorization policies; trust bundles (`ZID_SPIFFE_BUNDLE_FILES`) | DEC-F7 |
+| Residency owner + Legal | Confirm the transfer mechanisms each pack lists and the DC1 rule for SRP-1 (CR-014); approve per-tenant residency profiles | TENANCY gate |
+| Spec owners | Accept or amend CR-011, CR-012, CR-013, CR-014 | Data Model, event and action catalogues |
+| Domain teams | Register every production personal-data store with `privacy.ports.register_store` / `register_personal_data` (disposer + exporter) | PRIV §32.1 data-map gate |
+
 ## Architecture baseline register
 
 Back-End Target Architecture §23.2 gate: *all ten baseline decisions (spec ADR-01 to ADR-10) ratified with a named owner and date.*

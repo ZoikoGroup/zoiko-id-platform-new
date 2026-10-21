@@ -38,8 +38,12 @@ COPY --from=builder --chown=zid:zid /app/.venv /app/.venv
 COPY --chown=zid:zid app/migrations /app/migrations
 # Platform-floor Cedar policies (DEC-C3), evaluated with every tenant release.
 COPY --chown=zid:zid policies /app/policies
+# Crypto Policy Registry and other reviewed platform configuration (DEC-F5/F6), read-only.
+COPY --chown=zid:zid config /app/config
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell,global \
-    ZID_MIGRATIONS_DIR=/app/migrations ZID_POLICY_DIR=/app/policies
+    ZID_MIGRATIONS_DIR=/app/migrations ZID_POLICY_DIR=/app/policies \
+    ZID_CRYPTO_POLICY_REGISTRY=/app/config/crypto-profiles/crypto-policy-registry.yaml \
+    ZID_JURISDICTION_PACKS=/app/config/jurisdiction-packs ZID_PLATFORM_CONFIG=/app/config
 USER zid
 EXPOSE 8000 8100
 # Healthy only if EVERY configured role answers /health/live on its port.

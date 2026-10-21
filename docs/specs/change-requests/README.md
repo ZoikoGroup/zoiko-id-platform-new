@@ -13,3 +13,8 @@ Raised by engineering when a decision ([docs/phases/](../../phases/README.md)) o
 | [CR-007](CR-007-phase-c-tables.md) | ZID-DATA-001 §3.2, §4.3, §7.1 | Grant, root, identifier and relationship columns required by upstream specs | Phase C migrations | Open |
 | [CR-008](CR-008-relationship-edge-event.md) | ZID-EVENTS-001 §22 | Declare a relationship change event for the projector | DEC-C4 | Open |
 | [CR-009](CR-009-phase-e-identity-additions.md) | ZID-DATA-001 §5, §6, §10; ZID-EVENTS-001 §22; action catalogue | Phase E tables, events and actions | Phase E implementation | Open |
+| [CR-010](CR-010-admin-read-actions.md) | Action catalogue; ZID-API-001 §10-11; ZID-MANDATE-001 §9-10 | Administrative read actions and mandate creation | Web admin console | Open |
+| [CR-011](CR-011-evidence-ledger-receipts-vault.md) | ZID-DATA-001 §9.2-9.3; EVIDENCE-001 §3, §7, §10-23 | Evidence ledger, receipts, audit records and subject-evidence vault | Phase F W1/W2 | Open |
+| [CR-012](CR-012-operator-access.md) | SEC-001 §11-13; TENANCY-001 §19 | Operator access tables, actions and events | Phase F W4 | Open |
+| [CR-013](CR-013-privacy-control-plane.md) | ZID-DATA-001 §7.2, §9.1; PRIV-001 | Privacy control plane tables and actions | Phase F W3 | Open |
+| [CR-014](CR-014-residency-workload-identity.md) | TENANCY-001 §11-19; MACHINE §16; CRYPTO-MI-001 §29 | Residency enforcement and workload identity | Phase F W5/W6 | Open |
