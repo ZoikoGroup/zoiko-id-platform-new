@@ -588,7 +588,7 @@ async def rewrap_subject_keys(
         try:
             key = await rt.provider.unwrap_data_key(old, bytes(row.wrapped_key), context)
         except CryptoError:
-            log.warning("evidence.rewrap.skipped", extra={"tenant_id": tenant, "kek_id": row.kek_id})
+            log.warning("subject key rewrap skipped (KEK unavailable)", extra={"tenant_id": tenant, "kek_id": row.kek_id})
             continue
         try:
             wrapped, exact = await rt.provider.wrap_data_key(target.at(version), key, context)
