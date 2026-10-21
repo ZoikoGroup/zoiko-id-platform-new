@@ -46,6 +46,76 @@
         "title": "AnnotateBody",
         "type": "object"
       },
+      "CaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^(INVESTIGATION|AUDIT|LEGAL|INCIDENT|DATA_RIGHTS)$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "legal_basis": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Basis"
+          },
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "purpose",
+          "reference",
+          "expires_at"
+        ],
+        "title": "CaseBody",
+        "type": "object"
+      },
+      "CaseItemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_item_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Evidence Item Id",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_item_id",
+          "purpose"
+        ],
+        "title": "CaseItemBody",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -127,6 +197,18 @@
       "PackageBody": {
         "additionalProperties": false,
         "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
           "case_ref": {
             "maxLength": 128,
             "minLength": 1,
@@ -148,6 +230,15 @@
             "format": "uuid",
             "title": "Receipt Id",
             "type": "string"
+          },
+          "redact": {
+            "items": {
+              "pattern": "^[a-z_]{1,64}$",
+              "type": "string"
+            },
+            "maxItems": 40,
+            "title": "Redact",
+            "type": "array"
           }
         },
         "required": [
@@ -252,6 +343,62 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/evidence/artifacts/{artifact_type}/{artifact_ref}": {
+      "get": {
+        "operationId": "get_artifact_v1_evidence_artifacts__artifact_type___artifact_ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_type",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z_]{1,64}$",
+              "title": "Artifact Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Artifact Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Artifact V1 Evidence Artifacts  Artifact Type   Artifact Ref  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Artifact",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
     "/v1/evidence/audit-events": {
       "get": {
         "operationId": "audit_events_v1_evidence_audit_events_get",
@@ -327,6 +474,243 @@
           }
         },
         "summary": "Audit Events",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/cases": {
+      "get": {
+        "operationId": "list_cases_v1_evidence_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Cases V1 Evidence Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Cases",
+        "tags": [
+          "evidence"
+        ]
+      },
+      "post": {
+        "operationId": "open_case_v1_evidence_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Case V1 Evidence Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Case",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/cases/{case_id}": {
+      "get": {
+        "operationId": "get_case_v1_evidence_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Case V1 Evidence Cases  Case Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Case",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/cases/{case_id}/items": {
+      "post": {
+        "operationId": "add_case_item_v1_evidence_cases__case_id__items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseItemBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Case Item V1 Evidence Cases  Case Id  Items Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Case Item",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/cases/{case_id}:close": {
+      "post": {
+        "operationId": "close_case_v1_evidence_cases__case_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Case V1 Evidence Cases  Case Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Case",
         "tags": [
           "evidence"
         ]
@@ -611,6 +995,74 @@
           }
         },
         "summary": "Verify Partition",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/provenance/{entity_type}/{entity_id}": {
+      "get": {
+        "operationId": "get_provenance_v1_evidence_provenance__entity_type___entity_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z_]{1,64}$",
+              "title": "Entity Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Entity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 5,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Provenance V1 Evidence Provenance  Entity Type   Entity Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provenance",
         "tags": [
           "evidence"
         ]

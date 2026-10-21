@@ -162,6 +162,7 @@ async def evaluate_request(
                 policy=evaluated[-1],
                 decision=decision,
             ),
+            release=release,
         )
     return decision
 

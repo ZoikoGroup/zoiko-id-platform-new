@@ -21,6 +21,7 @@ rotated and old versions retired after `backup_erasure_window`, which bounds the
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -43,6 +44,8 @@ from zid_platform.modules.evidence.domain.ledger import LedgerError
 from zid_platform.modules.evidence.domain.receipts import ACTOR_DOMAIN, SUBJECT_DOMAIN
 from zid_platform.modules.evidence.infrastructure import vault_store as store
 from zid_platform.modules.evidence.infrastructure.vault_store import Hold
+
+log = logging.getLogger("zid.evidence.vault")
 
 CLASSIFICATIONS = ("D1", "D2", "D3", "D4")
 _NONCE = 12
@@ -75,7 +78,7 @@ async def _subject_key(
         dek = bytearray(secrets.token_bytes(32))
         try:
             wrapped, exact = await rt.provider.wrap_data_key(
-                rt.subject_kek, dek, _context(tenant_id, ref)
+                rt.kek_for(tenant_id), dek, _context(tenant_id, ref)
             )
         finally:
             zeroize(dek)
@@ -560,8 +563,45 @@ async def dispose_due_objects(
     return disposed
 
 
+async def rewrap_subject_keys(
+    conn: AsyncConnection, *, rt: EvidenceRuntime | None = None, limit: int = 500, tenant_id: str | None = None
+) -> int:
+    """Background rewrap (DEC-F5 §7: no flag-day rotation): subject keys still wrapped under a
+    retired KEK version, or under the platform KEK after a tenant moved to its own key, are
+    rewrapped under the current KEK so the old version can be retired. Worker role (all tenants).
+    A destroyed (erased) subject key is never touched. A key that cannot be unwrapped (a
+    customer-held KEK that is unavailable) is skipped and retried next pass; it never blocks the
+    other tenants' rotation."""
+    rt = rt or current_runtime()
+    current: dict[str, int] = {}
+    done = 0
+    for row in await store.active_subject_keys(conn, limit, tenant_id):
+        tenant = str(row.tenant_id)
+        target = rt.kek_for(tenant)
+        if target.key_id not in current:
+            current[target.key_id] = (await rt.provider.metadata(target)).version
+        version = current[target.key_id]
+        if row.kek_id == target.key_id and int(row.kek_version) == version:
+            continue
+        context = _context(tenant, row.subject_ref)
+        old = KeyRef(rt.subject_kek.purpose, row.kek_id, int(row.kek_version))
+        try:
+            key = await rt.provider.unwrap_data_key(old, bytes(row.wrapped_key), context)
+        except CryptoError:
+            log.warning("evidence.rewrap.skipped", extra={"tenant_id": tenant, "kek_id": row.kek_id})
+            continue
+        try:
+            wrapped, exact = await rt.provider.wrap_data_key(target.at(version), key, context)
+        finally:
+            zeroize(key)
+        await store.rewrap_subject_key(conn, tenant, row.subject_ref, wrapped, exact.key_id, exact.version or version)
+        done += 1
+    return done
+
+
 __all__ = [
     "ErasureResult",
+    "rewrap_subject_keys",
     "actor_handle",
     "create_hold",
     "dispose_due_objects",

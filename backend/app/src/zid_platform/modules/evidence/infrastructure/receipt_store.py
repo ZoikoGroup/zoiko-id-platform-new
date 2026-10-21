@@ -13,13 +13,14 @@ from typing import Any
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-# record_type in the ledger -> (table, id column, timestamp column for observed_at)
-LEDGERED: dict[str, tuple[str, str]] = {
-    "decision_receipt": ("decision_receipt", "receipt_id"),
-    "audit_record": ("audit_record", "audit_id"),
-    "receipt_annotation": ("receipt_annotation", "annotation_id"),
-    "custody_record": ("custody_record", "custody_id"),
-    "erasure_tombstone": ("erasure_tombstone", "tombstone_id"),
+# record_type in the ledger -> (table, id column, hash column)
+LEDGERED: dict[str, tuple[str, str, str]] = {
+    "decision_receipt": ("decision_receipt", "receipt_id", "receipt_hash"),
+    "audit_record": ("audit_record", "audit_id", "record_hash"),
+    "receipt_annotation": ("receipt_annotation", "annotation_id", "record_hash"),
+    "custody_record": ("custody_record", "custody_id", "record_hash"),
+    "erasure_tombstone": ("erasure_tombstone", "tombstone_id", "record_hash"),
+    "artifact": ("artifact", "artifact_id", "content_hash"),
 }
 
 
@@ -232,18 +233,18 @@ async def unledgered(
     conn: AsyncConnection, record_type: str, limit: int
 ) -> Sequence[Row[Any]]:
     """Records visible in this transaction that the ledger has not committed yet, oldest first."""
-    table, id_col = LEDGERED[record_type]
+    table, id_col, hash_col = LEDGERED[record_type]
     cls = "evidence_class::text" if record_type in ("decision_receipt", "audit_record") else "NULL"
-    hash_col = "receipt_hash" if record_type == "decision_receipt" else "record_hash"
+    created = "registered_at" if record_type == "artifact" else "created_at"
     return (
         await conn.execute(
             text(f"""
                 SELECT r.{id_col}::text AS record_id, r.tenant_id, r.body, r.{hash_col} AS record_hash,
-                       {cls} AS evidence_class, r.created_at
+                       {cls} AS evidence_class, r.{created} AS created_at
                 FROM evidence.{table} r
                 WHERE NOT EXISTS (SELECT 1 FROM evidence.ledger_entry l
                                   WHERE l.record_id = r.{id_col}::text AND l.record_type = :rt)
-                ORDER BY r.created_at LIMIT :n
+                ORDER BY r.{created} LIMIT :n
             """),
             {"rt": record_type, "n": limit},
         )
@@ -251,7 +252,7 @@ async def unledgered(
 
 
 async def load_body(conn: AsyncConnection, record_type: str, record_id: str) -> Mapping[str, Any] | None:
-    table, id_col = LEDGERED[record_type]
+    table, id_col, _ = LEDGERED[record_type]
     row = (
         await conn.execute(
             text(f"SELECT body FROM evidence.{table} WHERE {id_col} = :id"),

@@ -33,13 +33,17 @@ from zid_platform.modules.decision.domain.pdp import (
 from zid_platform.modules.decision.domain.risk import EvidenceClass, RiskClass, WeakeningException
 from zid_platform.modules.evidence.ports import (
     LedgerError,
+    Node,
     ReceiptFacts,
+    add_edges,
+    artifact,
     record_decision_receipt,
+    register_artifact,
     register_replayer,
 )
 from zid_platform.modules.evidence.ports import EvidenceClass as EvClass
 from zid_platform.modules.policy_authoring.ports import load_release
-from zid_platform.modules.policy_runtime.ports import PolicyError, build_schema, evaluate
+from zid_platform.modules.policy_runtime.ports import PolicyError, PolicyRelease, build_schema, evaluate
 
 ENGINE_VERSION = "zid-pdp/1 cedar"
 
@@ -126,12 +130,33 @@ def _decision_type(action: str) -> str:
     return "AUTHORIZATION"
 
 
+def release_artifact(release: PolicyRelease) -> dict[str, Any]:
+    """The immutable snapshot of a policy release (no author/reviewer identities)."""
+    return {
+        "release_id": release.release_id,
+        "schema_version": release.schema_version,
+        "policies": release.policies,
+        "release_content_hash": release.content_hash,
+    }
+
+
+def action_artifact(action: ActionSpec) -> dict[str, Any]:
+    return {
+        "action": action.name,
+        "min_risk": int(action.min_risk),
+        "min_evidence": int(action.min_evidence),
+        "consumes_mandate": action.consumes_mandate,
+        "requires_approval": action.requires_approval,
+    }
+
+
 async def emit_receipt(
     conn: AsyncConnection,
     req: DecisionRequest,
     executor_id: str,
     decision: Decision,
     mat: Mapping[str, Any],
+    release: PolicyRelease | None = None,
 ) -> str | None:
     cls = EvClass(f"E{int(decision.evidence_class)}")
     facts = ReceiptFacts(
@@ -158,13 +183,37 @@ async def emit_receipt(
         obligations=decision.obligations,
         valid_until=decision.valid_until,
     )
-    return await record_decision_receipt(
+    receipt_id = await record_decision_receipt(
         conn,
         req.tenant_id,
         facts,
         floor=EvClass(f"E{int(req.action.min_evidence)}"),
         material=mat,
     )
+    if receipt_id is None:  # E0: aggregated, no lineage to record
+        return None
+    # Immutable artifacts the decision used, and its PROV lineage (EVIDENCE §8-9, EVID-28)
+    action_body = action_artifact(req.action)
+    action_id, _ = await register_artifact(
+        conn, None, "ACTION_DEFINITION", req.action.name, f"{action_body['min_risk']}.{action_body['min_evidence']}", action_body
+    )
+    decision_node = Node("activity", "authorization_decision", decision.decision_id)
+    edges = [
+        (Node("entity", "decision_receipt", receipt_id), "wasGeneratedBy", decision_node),
+        (decision_node, "used", Node("entity", "action_definition", action_id)),
+        (decision_node, "wasAssociatedWith", Node("agent", "service", ENGINE_VERSION)),
+    ]
+    if release is not None:
+        policy_id, _ = await register_artifact(
+            conn, req.tenant_id, "POLICY_RELEASE", release.release_id, release.content_hash, release_artifact(release)
+        )
+        edges.append((decision_node, "used", Node("entity", "policy_release", policy_id)))
+    if decision.authority_chain_commitment:
+        edges.append((decision_node, "used", Node("entity", "authority_chain", decision.authority_chain_commitment)))
+    if decision.mandate_id:
+        edges.append((decision_node, "used", Node("entity", "mandate", decision.mandate_id)))
+    await add_edges(conn, req.tenant_id, edges, receipt_id=receipt_id)
+    return receipt_id
 
 
 def _t(value: str) -> datetime:
@@ -251,6 +300,11 @@ def replayer(catalog: Mapping[str, Mapping[str, Any]]):  # type: ignore[no-untyp
                 release = await load_release(conn, pol["release_id"])  # immutable (EVID-08)
             except PolicyError as e:
                 raise LedgerError("EVIDENCE_POLICY_ARTIFACT_MISSING", str(e)) from e
+            registered = await artifact(conn, req.tenant_id, "POLICY_RELEASE", release.release_id)
+            if not registered:
+                raise LedgerError("EVIDENCE_POLICY_ARTIFACT_MISSING", "policy release was never registered")
+            if not any(a["body"].get("release_content_hash") == release.content_hash for a in registered):
+                raise LedgerError("EVIDENCE_REPLAY_MISMATCH", "policy release differs from the registered artifact")
         schema = build_schema(catalog)
 
         def policy(context: Mapping[str, object]) -> PolicyFact:

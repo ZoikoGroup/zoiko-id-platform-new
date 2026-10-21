@@ -530,13 +530,17 @@ async def export_bundle(
     record_type: str | None = None,
     record: Mapping[str, Any] | None = None,
     platform: bool = False,
+    withhold_record: bool = False,
 ) -> dict[str, Any]:
     """Self-contained bundle for offline verification (`python -m zid_evidence verify`).
 
     The record comes from the caller or from the loader its owning module registered; without
-    either the bundle is structural only (record digest committed, record withheld)."""
+    either - or with `withhold_record` (a redacted disclosure) - the bundle is structural only
+    (record digest committed, record withheld)."""
     proof = await inclusion_proof(conn, record_id, record_type=record_type, platform=platform)
-    if record is None and proof.entry.record_type in _LOADERS:
+    if withhold_record:
+        record = None
+    elif record is None and proof.entry.record_type in _LOADERS:
         record = await _LOADERS[proof.entry.record_type](conn, record_id)
     kid = proof.manifest.signer_key_id
     published = [dict(k) for k in keys if k.get("kid") == kid]

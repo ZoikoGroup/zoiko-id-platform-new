@@ -94,6 +94,9 @@ async def set_residency(
             "SOVEREIGN_OPERATOR_DENIED", "SRP-2/3 tenants must name their permitted operator jurisdictions"
         )
     pack_transfer_mechanisms(jurisdiction_pack_id)  # the pack must exist
+    from zid_platform.modules.tenant.application.routing import forget
+
+    forget(tenant_id)
     previous = await store.load(conn, tenant_id, lock=True)
     r = await store.save(
         conn,

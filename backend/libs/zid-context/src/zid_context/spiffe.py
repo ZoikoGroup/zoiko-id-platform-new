@@ -31,6 +31,8 @@ __all__ = [
     "SpiffeId",
     "TrustPolicy",
     "peer_spiffe_id",
+    "peer_svid",
+    "tenant_of",
     "verify_x509_svid",
 ]
 
@@ -178,6 +180,32 @@ def _xfcc_cert(header: str) -> bytes | None:
     return None
 
 
+def peer_svid(
+    scope: Mapping[str, Any],
+    headers: Mapping[str, str],
+    policy: TrustPolicy,
+    *,
+    now: datetime | None = None,
+    xfcc_chain: Iterable[bytes] = (),
+) -> tuple[SpiffeId, bytes]:
+    """The mesh-verified peer of this request and its leaf certificate (DER). Raises SpiffeError.
+
+    A forwarded certificate is honored only when the TCP peer is a trusted local proxy (the mesh
+    data plane), so a client reaching the process directly cannot claim an identity by header."""
+    tls = (scope.get("extensions") or {}).get("tls") or {}
+    chain = tls.get("client_cert_chain") or []
+    if chain:
+        ders = [c if isinstance(c, bytes) else _pem_to_der(c) for c in chain]
+        return verify_x509_svid(ders, policy, now=now), ders[0]
+    client = scope.get("client") or ("", 0)
+    header = headers.get("x-forwarded-client-cert")
+    if header and client[0] in policy.trusted_proxies:
+        der = _xfcc_cert(header)
+        if der is not None:
+            return verify_x509_svid([der, *xfcc_chain], policy, now=now), der
+    raise SpiffeError("SVID_MISSING", "no mesh-verified peer identity")
+
+
 def peer_spiffe_id(
     scope: Mapping[str, Any],
     headers: Mapping[str, str],
@@ -186,22 +214,19 @@ def peer_spiffe_id(
     now: datetime | None = None,
     xfcc_chain: Iterable[bytes] = (),
 ) -> SpiffeId:
-    """The mesh-verified peer of this request. Raises SpiffeError when there is none.
+    return peer_svid(scope, headers, policy, now=now, xfcc_chain=xfcc_chain)[0]
 
-    A forwarded certificate is honored only when the TCP peer is a trusted local proxy (the mesh
-    data plane), so a client reaching the process directly cannot claim an identity by header."""
-    tls = (scope.get("extensions") or {}).get("tls") or {}
-    chain = tls.get("client_cert_chain") or []
-    if chain:
-        ders = [c if isinstance(c, bytes) else _pem_to_der(c) for c in chain]
-        return verify_x509_svid(ders, policy, now=now)
-    client = scope.get("client") or ("", 0)
-    header = headers.get("x-forwarded-client-cert")
-    if header and client[0] in policy.trusted_proxies:
-        der = _xfcc_cert(header)
-        if der is not None:
-            return verify_x509_svid([der, *xfcc_chain], policy, now=now)
-    raise SpiffeError("SVID_MISSING", "no mesh-verified peer identity")
+
+_TENANT_PATH = re.compile(r"^/t/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/")
+
+
+def tenant_of(sid: SpiffeId) -> str:
+    """Tenant workloads are registered under `/t/<tenant uuid>/...` by Zoiko's SPIRE registration,
+    so the tenant is part of the authenticated identity, never a header or body (INV-13)."""
+    m = _TENANT_PATH.match(sid.path)
+    if m is None:
+        raise SpiffeError("SPIFFE_ID_INVALID", "tenant workloads live under /t/<tenant id>/")
+    return m.group(1)
 
 
 def _pem_to_der(pem: str) -> bytes:

@@ -57,6 +57,12 @@ class Settings(ServiceSettings):
     evidence_checkpoint_e3_interval: timedelta = timedelta(seconds=30)
     # ZID_EVIDENCE_TSA_URL: optional RFC 3161 TSA; ZID_EVIDENCE_TSA_REQUIRED blocks sealing without it
     evidence_tsa_url: str | None = None
+    # ZID_EVIDENCE_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
+    # unset classes are kept (the ledger entry is never purged, only the record body)
+    evidence_retention_days: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
+    # ZID_TENANT_KEK_IDS (JSON tenant -> KMS key id/ARN): DEDICATED_TENANT_KEY / BYOK / HYOK
+    # SUBJECT_ERASURE KEKs (DEC-F5 §4); tenants not listed use the cell's platform KEK
+    tenant_kek_ids: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
     evidence_tsa_required: bool = False
     # --- Operator plane (DEC-F4; operator_access) -------------------------------------------------
     # ZID_OPERATOR_TENANT_ID: the dedicated operator tenant; unset = the operator plane is disabled
@@ -72,6 +78,9 @@ class Settings(ServiceSettings):
     # file; ZID_SPIFFE_FEDERATED_DOMAINS: explicitly federated domains (no trust-on-first-use);
     # ZID_MESH_TRUSTED_PROXIES: local mesh data-plane addresses allowed to forward a peer SVID.
     spiffe_trust_domain: str | None = None
+    # ZID_PRIVACY_ENFORCEMENT: enforce | audit (default: enforce, audit in local/test) - see
+    # privacy.ports.enforce_processing; audit records every would-be refusal as evidence
+    privacy_enforcement: Literal["enforce", "audit"] | None = None
     spiffe_bundle_files: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
     spiffe_federated_domains: tuple[str, ...] = ()
     mesh_trusted_proxies: tuple[str, ...] = ()

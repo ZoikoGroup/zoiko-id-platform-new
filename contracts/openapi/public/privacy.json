@@ -146,6 +146,95 @@
         "title": "ActivityBody",
         "type": "object"
       },
+      "AdmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_class": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Decision Class",
+            "type": "string"
+          },
+          "explanation_profile": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Explanation Profile",
+            "type": "string"
+          },
+          "human_review_route": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Human Review Route",
+            "type": "string"
+          },
+          "input_data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Input Data Categories",
+            "type": "array"
+          },
+          "jurisdiction_rules": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Jurisdiction Rules",
+            "type": "object"
+          },
+          "model_or_rules_ref": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model Or Rules Ref",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "risk_assessment_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Ref"
+          },
+          "significance_class": {
+            "pattern": "^(NONE|MATERIAL|LEGAL_OR_SIMILARLY_SIGNIFICANT)$",
+            "title": "Significance Class",
+            "type": "string"
+          },
+          "solely_automated": {
+            "title": "Solely Automated",
+            "type": "boolean"
+          },
+          "special_category_use": {
+            "default": false,
+            "title": "Special Category Use",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "decision_class",
+          "purpose_code",
+          "input_data_categories",
+          "model_or_rules_ref",
+          "solely_automated",
+          "significance_class",
+          "explanation_profile",
+          "human_review_route"
+        ],
+        "title": "AdmBody",
+        "type": "object"
+      },
       "CloseBody": {
         "additionalProperties": false,
         "properties": {
@@ -244,6 +333,69 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "audience": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Audience",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 200000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "content_uri": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Uri"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "audience",
+          "content",
+          "approval_request_id"
+        ],
+        "title": "NoticeBody",
+        "type": "object"
+      },
       "OnBehalfBody": {
         "additionalProperties": false,
         "properties": {
@@ -304,6 +456,119 @@
           "value"
         ],
         "title": "PreferenceBody",
+        "type": "object"
+      },
+      "ProcessorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Ref"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "deletion_sla_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Sla Days"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Locations",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          },
+          "processor_id": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+            "title": "Processor Id",
+            "type": "string"
+          },
+          "purposes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "role": {
+            "pattern": "^(PROCESSOR|SUBPROCESSOR|INDEPENDENT_CONTROLLER|RECIPIENT)$",
+            "title": "Role",
+            "type": "string"
+          },
+          "security_assurance": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Assurance"
+          },
+          "transfer_mechanism": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Mechanism"
+          }
+        },
+        "required": [
+          "processor_id",
+          "name",
+          "role",
+          "data_categories",
+          "locations"
+        ],
+        "title": "ProcessorBody",
         "type": "object"
       },
       "PurposeBody": {
@@ -659,6 +924,70 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/privacy/admin/automated-decision-profiles": {
+      "get": {
+        "operationId": "list_adm_v1_privacy_admin_automated_decision_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Adm V1 Privacy Admin Automated Decision Profiles Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Adm",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "create_adm_v1_privacy_admin_automated_decision_profiles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Adm V1 Privacy Admin Automated Decision Profiles Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Adm",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
     "/v1/privacy/admin/data-map/{subject_id}": {
       "get": {
         "operationId": "data_map_v1_privacy_admin_data_map__subject_id__get",
@@ -699,6 +1028,70 @@
           }
         },
         "summary": "Data Map",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/notices": {
+      "get": {
+        "operationId": "list_notices_v1_privacy_admin_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Notices V1 Privacy Admin Notices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Notices",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "publish_notice_v1_privacy_admin_notices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish Notice V1 Privacy Admin Notices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Notice",
         "tags": [
           "privacy"
         ]
@@ -863,6 +1256,158 @@
           }
         },
         "summary": "Activate Activity",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors": {
+      "get": {
+        "operationId": "list_processors_v1_privacy_admin_processors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Processors V1 Privacy Admin Processors Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Processors",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "register_processor_v1_privacy_admin_processors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessorBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Processor V1 Privacy Admin Processors Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Processor",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors/{processor_id}:approve": {
+      "post": {
+        "operationId": "approve_processor_v1_privacy_admin_processors__processor_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "processor_id",
+            "required": true,
+            "schema": {
+              "title": "Processor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Processor V1 Privacy Admin Processors  Processor Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Processor",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors/{processor_id}:suspend": {
+      "post": {
+        "operationId": "suspend_processor_v1_privacy_admin_processors__processor_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "processor_id",
+            "required": true,
+            "schema": {
+              "title": "Processor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Processor V1 Privacy Admin Processors  Processor Id  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Processor",
         "tags": [
           "privacy"
         ]

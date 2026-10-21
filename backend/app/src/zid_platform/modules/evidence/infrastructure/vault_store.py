@@ -95,6 +95,33 @@ async def insert_subject_key(
     return row
 
 
+async def active_subject_keys(conn: AsyncConnection, limit: int, tenant_id: str | None = None) -> list[Row[Any]]:
+    return list(
+        (
+            await conn.execute(
+                text(
+                    "SELECT tenant_id, subject_ref, wrapped_key, kek_id, kek_version FROM evidence.subject_key "
+                    "WHERE state = 'ACTIVE' AND (CAST(:t AS uuid) IS NULL OR tenant_id = CAST(:t AS uuid)) "
+                    "ORDER BY created_at LIMIT :n"
+                ),
+                {"n": limit, "t": tenant_id},
+            )
+        ).all()
+    )
+
+
+async def rewrap_subject_key(
+    conn: AsyncConnection, tenant_id: str, subject_ref: str, wrapped: bytes, kek_id: str, kek_version: int
+) -> None:
+    await conn.execute(
+        text("""
+            UPDATE evidence.subject_key SET wrapped_key = :w, kek_id = :k, kek_version = :v
+            WHERE tenant_id = :t AND subject_ref = :s AND state = 'ACTIVE'
+        """),
+        {"w": wrapped, "k": kek_id, "v": kek_version, "t": _u(tenant_id), "s": subject_ref},
+    )
+
+
 async def destroy_subject_key(conn: AsyncConnection, tenant_id: str, subject_ref: str) -> bool:
     result = await conn.execute(
         text("""

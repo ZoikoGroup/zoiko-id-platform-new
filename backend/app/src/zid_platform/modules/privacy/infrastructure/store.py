@@ -690,6 +690,20 @@ async def subject_entries(conn: AsyncConnection, subject: str) -> list[Row[Any]]
     )
 
 
+async def schedule_open_entries(conn: AsyncConnection) -> int:
+    """Fix due_at for entries whose retention policy was published after they were registered,
+    from their original trigger (never from today)."""
+    result = await conn.execute(
+        text("""
+            UPDATE privacy.data_map_entry e SET due_at = e.trigger_at + make_interval(days => p.retention_days)
+            FROM privacy.retention_policy p
+            WHERE e.due_at IS NULL AND e.retention_policy_code IS NOT NULL AND e.status <> 'DISPOSED'
+              AND p.tenant_id = e.tenant_id AND p.policy_code = e.retention_policy_code AND p.status = 'ACTIVE'
+        """)
+    )
+    return int(result.rowcount or 0)
+
+
 async def due_entries(conn: AsyncConnection, now: datetime, limit: int) -> list[Row[Any]]:
     return list(
         (

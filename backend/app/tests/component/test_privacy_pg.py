@@ -21,6 +21,7 @@ from sqlalchemy.exc import DBAPIError
 from zid_db import tenant_transaction
 from zid_platform.modules.evidence.application import vault
 from zid_platform.modules.evidence.application.runtime import configure_runtime, development_runtime
+from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.application import service as privacy
 from zid_platform.modules.privacy.domain.model import PrivacyError
 from zid_platform.modules.tenant.application import residency
@@ -99,9 +100,19 @@ def test_registry_role_map_consent_and_processing_check(rt_url: str) -> None:
             assert (await check(purpose_code="ANALYTICS")).reason == "PRIVACY_PURPOSE_NOT_DECLARED"
             assert (await check(data_category="D3")).reason == "PRIVACY_DATA_CATEGORY_NOT_ALLOWED"
             assert (await check(activity_code="UNKNOWN")).reason == "PRIVACY_ACTIVITY_NOT_ACTIVE"
+            with pytest.raises(PrivacyError, match="PRIVACY_NOTICE_UNKNOWN"):  # PRIV-26
+                await privacy.give_consent(
+                    c, tenant, subject_principal_id=subject, activity_code="MARKETING_EMAIL",
+                    purpose_code="NEWSLETTER", notice_version="NEWS_NOTICE@1", capture_method="WEB",
+                    affirmative_action="checkbox:newsletter",
+                )
+            await registry.publish_notice(
+                c, tenant, code="NEWS_NOTICE", audience="end_user", content="We send product news monthly.",
+                created_by=author, approved_by=reviewer, processing_activity_codes=["MARKETING_EMAIL"],
+            )
             consent = await privacy.give_consent(
                 c, tenant, subject_principal_id=subject, activity_code="MARKETING_EMAIL",
-                purpose_code="NEWSLETTER", notice_version="n-2026-10", capture_method="WEB",
+                purpose_code="NEWSLETTER", notice_version="NEWS_NOTICE@1", capture_method="WEB",
                 affirmative_action="checkbox:newsletter",
             )
             ok = await check()
@@ -123,7 +134,7 @@ def test_registry_role_map_consent_and_processing_check(rt_url: str) -> None:
             with pytest.raises(PrivacyError, match="PRIVACY_FALSE_CONSENT"):  # PRIV-04
                 await privacy.give_consent(
                     c, tenant, subject_principal_id=subject, activity_code=contract,
-                    purpose_code="ACCOUNT", notice_version="n1", capture_method="WEB",
+                    purpose_code="ACCOUNT", notice_version="NEWS_NOTICE@1", capture_method="WEB",
                     affirmative_action="checkbox",
                 )
 
@@ -237,6 +248,15 @@ def test_erasure_holds_processors_and_retention(rt_url: str, owner_url: str) -> 
                                                  trigger_at=past, **reg)
             await privacy.register_personal_data(c, tenant, object_type="invoice", object_ref="inv-1",
                                                  retention_policy_code="STATUTORY", **reg)
+            with pytest.raises(PrivacyError, match="PRIVACY_PROCESSOR_NOT_APPROVED"):  # §23
+                await privacy.register_personal_data(c, tenant, object_type="crm_contact", object_ref="crm-0",
+                                                     retention_policy_code=None, processor_id="crm-vendor", **reg)
+            await registry.register_processor(
+                c, tenant, processor_id="crm-vendor", name="CRM Vendor", role="PROCESSOR",
+                data_categories=["D1"], locations=["GB"], created_by=author, deletion_sla_days=30,
+                contract_ref="DPA-CRM-1",
+            )
+            await registry.set_processor_status(c, tenant, "crm-vendor", "APPROVED", actor=reviewer)
             await privacy.register_personal_data(c, tenant, object_type="crm_contact", object_ref="crm-1",
                                                  retention_policy_code=None, processor_id="crm-vendor", **reg)
             await vault.store_object(c, tenant, content=b"doc", object_type="verification.document",
@@ -266,6 +286,7 @@ def test_erasure_holds_processors_and_retention(rt_url: str, owner_url: str) -> 
             assert items["test.records:inv-1"]["state"] == "RETAINED_RESTRICTED"
             assert items["test.records:inv-1"]["reason"] == "LEGAL_OBLIGATION"
             assert items["test.records:crm-1"]["state"] == "PENDING_PROCESSOR_ACK"
+            assert items["test.records:crm-1"]["deletion_due"] is not None  # processor deletion SLA
             assert items["evidence-vault"]["outcome"] == "ERASED"
             assert items["backups"]["backup_erasure_due"] is not None
             assert r.status == "FULFILLING"  # PRIV-12: never complete while a processor is pending

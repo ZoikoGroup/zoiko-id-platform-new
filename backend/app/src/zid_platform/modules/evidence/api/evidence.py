@@ -15,6 +15,11 @@
                                                            APPROVED second-administrator approval
     POST /v1/evidence/legal-holds/{id}:release             evidence.legal_hold.manage
     POST /v1/evidence/handles:resolve                      evidence.identity.resolve (R3/E3)
+    GET  /v1/evidence/provenance/{entity_type}/{id}        evidence.read (bounded PROV graph)
+    GET  /v1/evidence/artifacts/{artifact_type}/{ref}      evidence.read (immutable artifacts)
+    GET/POST /v1/evidence/cases, GET /v1/evidence/cases/{id}       evidence.case.manage (R2/E2)
+    POST /v1/evidence/cases/{id}/items                     attach evidence (custody COLLECTED)
+    POST /v1/evidence/cases/{id}:close                     evidence.case.manage
 
 Default deny and tenant-scoped (RLS): a tenant never sees another tenant's evidence, and the
 platform-security partition is not reachable from here at all. Every call is itself a PDP
@@ -27,13 +32,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.evidence.application import ledger, receipts, replay, vault
+from zid_platform.modules.evidence.application import ledger, provenance, receipts, replay, vault
 from zid_platform.modules.evidence.application.runtime import current_runtime
 from zid_platform.modules.evidence.domain.ledger import LedgerError, Partition
 from zid_platform.modules.evidence.domain.receipts import ANNOTATION_KINDS, EXPORT_MODES
@@ -219,6 +224,8 @@ class PackageBody(BaseModel):
     mode: str = Field(pattern="^(" + "|".join(sorted(EXPORT_MODES)) + ")$")
     purpose: str = Field(min_length=3, max_length=200)
     case_ref: str = Field(min_length=1, max_length=128)
+    redact: list[Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]] = Field(default_factory=list, max_length=40)
+    case_id: uuid.UUID | None = None
 
 
 @router.post("/packages", status_code=201)
@@ -235,6 +242,8 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
                 purpose=body.purpose,
                 case_ref=body.case_ref,
                 custodian_principal_id=caller.ctx.principal_id or "",
+                redact=body.redact or None,
+                case_id=str(body.case_id) if body.case_id else None,
             )
     except LedgerError as e:
         raise http(e) from e
@@ -417,3 +426,124 @@ async def resolve(body: ResolveBody, request: Request, caller: CallerDep) -> dic
     except LedgerError as e:
         raise http(e) from e
     return {"handle": body.handle, "principal_id": principal_id}
+
+
+CASE_ACTION = "evidence.case.manage"
+
+
+def _plain(v: Any) -> Any:
+    if isinstance(v, uuid.UUID):
+        return str(v)
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return v
+
+
+@router.get("/provenance/{entity_type}/{entity_id}")
+async def get_provenance(
+    entity_type: Annotated[str, Path(pattern=r"^[a-z_]{1,64}$")],
+    entity_id: Annotated[str, Path(min_length=1, max_length=200)],
+    request: Request,
+    caller: CallerDep,
+    depth: Annotated[int, Query(ge=1, le=5)] = 3,
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.read", resource=f"{entity_type}:{entity_id}")
+        return await provenance.provenance(conn, entity_type, entity_id, depth=depth)
+
+
+@router.get("/artifacts/{artifact_type}/{artifact_ref}")
+async def get_artifact(
+    artifact_type: Annotated[str, Path(pattern=r"^[A-Z_]{1,64}$")],
+    artifact_ref: Annotated[str, Path(min_length=1, max_length=200)],
+    request: Request,
+    caller: CallerDep,
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.read", resource=f"artifact:{artifact_ref}")
+        items = await provenance.artifact(conn, _tenant(caller), artifact_type, artifact_ref)
+    return {"items": [{k: _plain(v) for k, v in i.items()} for i in items]}
+
+
+class CaseBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(pattern="^(INVESTIGATION|AUDIT|LEGAL|INCIDENT|DATA_RIGHTS)$")
+    purpose: str = Field(min_length=3, max_length=200)
+    reference: str = Field(min_length=1, max_length=128)
+    legal_basis: str | None = Field(default=None, max_length=200)
+    expires_at: datetime
+
+
+@router.get("/cases")
+async def list_cases(request: Request, caller: CallerDep, status: str | None = None) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=CASE_ACTION, resource="evidence_case:*")
+        items = await provenance.cases(conn, status=status)
+    return {"items": [{k: _plain(v) for k, v in c.items()} for c in items]}
+
+
+@router.post("/cases", status_code=201)
+async def open_case(body: CaseBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    try:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await protected_action(conn, caller, action=CASE_ACTION, resource="evidence_case:*")
+            case_id = await provenance.open_case(
+                conn,
+                _tenant(caller),
+                kind=body.kind,
+                purpose=body.purpose,
+                reference=body.reference,
+                opened_by=caller.ctx.principal_id or "",
+                expires_at=body.expires_at,
+                legal_basis=body.legal_basis,
+            )
+    except LedgerError as e:
+        raise http(e) from e
+    return {"case_id": case_id, "status": "OPEN"}
+
+
+@router.get("/cases/{case_id}")
+async def get_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+        case = await provenance.load_case(conn, str(case_id))
+        if case is None:
+            raise ZidError("NOT_FOUND", "No such case.", http_status=404)
+        items = await provenance.case_items(conn, _tenant(caller), str(case_id))
+    view = {k: _plain(v) for k, v in dict(case._mapping).items()}
+    return {**view, "items": [{k: _plain(v) for k, v in i.items()} for i in items]}
+
+
+class CaseItemBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evidence_item_id: str = Field(min_length=1, max_length=200)
+    purpose: str = Field(min_length=3, max_length=200)
+
+
+@router.post("/cases/{case_id}/items", status_code=201)
+async def add_case_item(case_id: uuid.UUID, body: CaseItemBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    try:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+            await provenance.require_open_case(conn, str(case_id), now)
+            custody_id = await replay.record_custody(
+                conn,
+                _tenant(caller),
+                case_ref=provenance.case_ref(str(case_id)),
+                item_id=body.evidence_item_id,
+                custodian_principal_id=caller.ctx.principal_id or "",
+                action="COLLECTED",
+                purpose=body.purpose,
+            )
+    except LedgerError as e:
+        raise http(e) from e
+    return {"custody_id": custody_id, "case_id": str(case_id)}
+
+
+@router.post("/cases/{case_id}:close")
+async def close_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+        await provenance.close_case(conn, str(case_id))
+    return {"case_id": str(case_id), "status": "CLOSED"}

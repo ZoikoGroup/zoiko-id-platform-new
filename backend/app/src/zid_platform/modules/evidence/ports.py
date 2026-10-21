@@ -17,8 +17,16 @@ from zid_platform.modules.evidence.application.receipts import (
     ingest_event,
     material_commitment,
     record_audit,
+    principal_handle,
+    receipt_summary,
     record_decision_receipt,
     sequence_pending,
+)
+from zid_platform.modules.evidence.application.provenance import (
+    Node,
+    add_edges,
+    artifact,
+    register_artifact,
 )
 from zid_platform.modules.evidence.application.replay import register_replayer
 from zid_platform.modules.evidence.application.runtime import (
@@ -42,6 +50,10 @@ from zid_platform.modules.evidence.domain.receipts import AuditFacts, ReceiptFac
 
 __all__ = [
     "AuditFacts",
+    "Node",
+    "add_edges",
+    "artifact",
+    "register_artifact",
     "ErasureResult",
     "EvidenceClass",
     "EvidenceRuntime",
@@ -57,6 +69,8 @@ __all__ = [
     "ingest_event",
     "is_held",
     "material_commitment",
+    "principal_handle",
+    "receipt_summary",
     "read_object",
     "record_audit",
     "record_decision_receipt",

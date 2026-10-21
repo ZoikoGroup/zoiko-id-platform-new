@@ -124,3 +124,21 @@ events:
     source: DEC-F7 §4; CRYPTO-MI-001 §29; CR-014
     lane: domain
     source_status: "proposed"
+  privacy.processing.refused:
+    cloudevents_type: com.zoiko.id.privacy.processing.refused.v1
+    meaning: "A processing boundary refused processing the tenant's privacy registry does not permit (purpose, category, consent, restriction or transfer)."
+    source: ZID-PRIV-001 §3, §29; CR-013
+    lane: domain
+    source_status: "proposed"
+  privacy.processing.unregistered:
+    cloudevents_type: com.zoiko.id.privacy.processing.unregistered.v1
+    meaning: "Audit-mode record of processing that the registry would refuse once the tenant's processing activities are registered."
+    source: ZID-PRIV-001 §3; CR-013
+    lane: domain
+    source_status: "proposed"
+  privacy.processor.status_changed:
+    cloudevents_type: com.zoiko.id.privacy.processor.status_changed.v1
+    meaning: "A processor/subprocessor/recipient registry entry was approved, suspended or retired (PRIV-001 §23)."
+    source: ZID-PRIV-001 §23; CR-013
+    lane: domain
+    source_status: "proposed"

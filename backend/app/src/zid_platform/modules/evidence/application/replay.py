@@ -140,10 +140,15 @@ async def replay_receipt(
                 try:
                     replayed = dict(await replayer(conn, body, material))
                 except LedgerError as e:
-                    if e.code != "EVIDENCE_POLICY_ARTIFACT_MISSING":
+                    if e.code == "EVIDENCE_REPLAY_MISMATCH":  # the historic artifact was altered
+                        result["result"] = ReplayResult.MISMATCH
+                        result["differences"] = ["policy_artifact"]
+                        result["detail"] = e.detail
+                    elif e.code == "EVIDENCE_POLICY_ARTIFACT_MISSING":
+                        result["result"] = ReplayResult.VERIFIED_STRUCTURAL_ONLY
+                        result["detail"] = e.detail
+                    else:
                         raise
-                    result["result"] = ReplayResult.VERIFIED_STRUCTURAL_ONLY
-                    result["detail"] = e.detail
                 else:
                     recorded = {f: body.get(f) for f in REPLAY_FIELDS}
                     diff = compare_outcome(recorded, _plain(replayed), REPLAY_FIELDS)
@@ -194,21 +199,53 @@ async def export_package(
     purpose: str,
     case_ref: str,
     custodian_principal_id: str,
+    redact: list[str] | None = None,
+    case_id: str | None = None,
     rt: EvidenceRuntime | None = None,
 ) -> dict[str, Any]:
     """A self-contained, signed EvidencePackage (§17): receipt, ledger entry, checkpoint, inclusion
     proof, verification keys and the canonicalization profile; the manifest is canonicalized,
-    hashed and signed. Every export leaves a chain-of-custody record (§18, EVID-20)."""
+    hashed and signed. Every export leaves a chain-of-custody record (§18, EVID-20).
+
+    `redact`: fields withheld from a disclosure package (§13 "Redaction", EVID-19). The full record
+    is then not shipped; the package carries the redacted view, a digest of every withheld field
+    and the original record hash, and the signed manifest attests the view derives from it.
+    `case_id`: an export made for an open case is bound to it in the custody record."""
+    from datetime import UTC, datetime
+
+    from zid_platform.modules.evidence.application.provenance import case_ref as case_reference
+    from zid_platform.modules.evidence.application.provenance import provenance, require_open_case
+
     rt = rt or current_runtime()
     if mode not in EXPORT_MODES:
         raise LedgerError("EVIDENCE_SCHEMA_INVALID", "unknown export mode")
+    if case_id is not None:
+        await require_open_case(conn, case_id, datetime.now(UTC))
+        case_ref = case_reference(case_id)
     row = await store.load_receipt(conn, receipt_id)
     if row is None:
         raise LedgerError("NOT_FOUND", "unknown receipt")
+    body = dict(row.body)
     keys = rt.trusted_keys()
+    disclosure = None
+    if redact:
+        unknown = sorted(set(redact) - set(body))
+        if unknown:
+            raise LedgerError("EVIDENCE_SCHEMA_INVALID", f"not receipt fields: {', '.join(unknown)}")
+        view = {k: v for k, v in body.items() if k not in set(redact)}
+        disclosure = {
+            "view": view,
+            "withheld": {k: str(hash_json({k: body[k]}, alg="sha-256")) for k in sorted(set(redact))},
+            "source_record_hash": row.receipt_hash,
+        }
     bundle = await ledger.export_bundle(
-        conn, receipt_id, keys=keys, record_type="decision_receipt", record=dict(row.body)
+        conn, receipt_id, keys=keys, record_type="decision_receipt", record=None if redact else body,
+        withhold_record=bool(redact),
     )
+    if body.get("evidence_class") == "E3":  # §8.1: every E3 export carries its lineage
+        bundle["provenance"] = await provenance(conn, "decision_receipt", receipt_id, depth=3)
+    if disclosure is not None:
+        bundle["disclosure"] = disclosure
     package_hash = hash_bytes(canonicalize(bundle), alg="sha-256")
     manifest = {
         "format": "zid-evidence-package/1",
@@ -219,6 +256,8 @@ async def export_package(
         "canonicalization": "RFC8785-JCS",
         "hash_algorithm": "sha-256",
         "verifier": "python -m zid_evidence verify <bundle.json> --keys <keys.json>",
+        "redacted_fields": sorted(set(redact or ())),
+        "source_record_hash": row.receipt_hash,
     }
     signature = await asyncio.to_thread(sign_jws, rt.signer, manifest, typ=PACKAGE_TYP)
     await record_custody(

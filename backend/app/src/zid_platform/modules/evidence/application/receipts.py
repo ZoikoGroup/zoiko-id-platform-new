@@ -454,3 +454,28 @@ __all__ = [
     "record_decision_receipt",
     "sequence_pending",
 ]
+
+
+async def receipt_summary(conn: AsyncConnection, receipt_id: str) -> dict[str, Any] | None:
+    """The pseudonymous facts of a receipt other modules may route on (privacy human review)."""
+    row = await store.load_receipt(conn, receipt_id)
+    if row is None:
+        return None
+    return {
+        "receipt_id": str(row.receipt_id),
+        "decision_id": str(row.decision_id),
+        "action": row.action,
+        "outcome": row.outcome,
+        "reason_codes": list(row.reason_codes),
+        "evidence_class": row.evidence_class,
+        "actor_handle": row.actor_handle,
+        "effective_at": row.effective_at.isoformat(),
+    }
+
+
+async def principal_handle(tenant_id: str, principal_id: str, rt: EvidenceRuntime | None = None) -> str:
+    """The receipt actor handle of a principal (deterministic; no resolver row is written)."""
+    from zid_platform.modules.evidence.application.vault import make_handle
+    from zid_platform.modules.evidence.domain.receipts import ACTOR_DOMAIN
+
+    return await make_handle(rt or current_runtime(), tenant_id, ACTOR_DOMAIN, principal_id)

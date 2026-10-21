@@ -1281,8 +1281,17 @@
         "privacy_processing_activity_changed": {
           "$ref": "#/components/messages/privacy_processing_activity_changed"
         },
+        "privacy_processing_refused": {
+          "$ref": "#/components/messages/privacy_processing_refused"
+        },
+        "privacy_processing_unregistered": {
+          "$ref": "#/components/messages/privacy_processing_unregistered"
+        },
         "privacy_processor_deletion_confirmed": {
           "$ref": "#/components/messages/privacy_processor_deletion_confirmed"
+        },
+        "privacy_processor_status_changed": {
+          "$ref": "#/components/messages/privacy_processor_status_changed"
         },
         "privacy_restriction_applied": {
           "$ref": "#/components/messages/privacy_restriction_applied"
@@ -3887,6 +3896,28 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_processing_refused": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processing.refused.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A processing boundary refused processing the tenant's privacy registry does not permit (purpose, category, consent, restriction or transfer).",
+        "title": "privacy.processing.refused",
+        "x-zid-source": "ZID-PRIV-001 \u00a73, \u00a729; CR-013",
+        "x-zid-status": "proposed"
+      },
+      "privacy_processing_unregistered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processing.unregistered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Audit-mode record of processing that the registry would refuse once the tenant's processing activities are registered.",
+        "title": "privacy.processing.unregistered",
+        "x-zid-source": "ZID-PRIV-001 \u00a73; CR-013",
+        "x-zid-status": "proposed"
+      },
       "privacy_processor_deletion_confirmed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.processor.deletion.confirmed.v1",
@@ -3897,6 +3928,17 @@
         "title": "privacy.processor.deletion.confirmed",
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
+      },
+      "privacy_processor_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processor.status_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A processor/subprocessor/recipient registry entry was approved, suspended or retired (PRIV-001 \u00a723).",
+        "title": "privacy.processor.status_changed",
+        "x-zid-source": "ZID-PRIV-001 \u00a723; CR-013",
+        "x-zid-status": "proposed"
       },
       "privacy_restriction_applied": {
         "contentType": "application/cloudevents+json",

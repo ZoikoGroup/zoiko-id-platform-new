@@ -6,13 +6,22 @@
     POST /v1/machine/environments/{environment_id}:quarantine   machine.workload.manage
     POST /v1/machine/environments/{environment_id}:release      machine.workload.manage
     GET  /v1/machine/trust-domain                           the cell's trust domain (public)
+    POST /v1/machine/workload-token                         a mesh-verified workload's credential
+
+The workload token is the SVID -> logical principal step of DEC-F7 §3: the peer identity comes
+from the mesh (never a header the caller sets), the tenant from the SPIFFE path, the principal
+from the registered binding; the token is short-lived and bound to the presenting SVID (RFC 8705
+cnf.x5t), so it is useless away from that workload. Authority, mandate and policy are evaluated
+on every later call, as for any principal.
 
 Registration is a governed administrative act: a workload never registers or rebinds itself.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+import base64
+import hashlib
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -20,7 +29,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
+from zid_context import RequestContext, current_context
+from zid_context.spiffe import SpiffeError, SpiffeId, tenant_of
+
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.workload_identity import workload_peer_svid
 from zid_platform.modules.machine.application import workload as service
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.infrastructure import workload_store as store
@@ -151,3 +164,67 @@ async def release(environment_id: str, request: Request, caller: CallerDep) -> d
         return {"environment_id": environment_id, "quarantined": False}
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+class WorkloadTokenBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    environment_id: str = Field(pattern=r"^[a-z0-9-]{1,64}$")
+    artifact_digest: str = Field(pattern=r"^sha-?256:[0-9a-f]{64}$")
+    attestation: int = Field(default=0, ge=0, le=3)
+
+
+WORKLOAD_TOKEN_LIFETIME = timedelta(minutes=5)
+
+
+@router.post("/workload-token")
+async def workload_token(
+    body: WorkloadTokenBody,
+    request: Request,
+    peer: Annotated[tuple[SpiffeId, bytes], Depends(workload_peer_svid)],
+) -> dict[str, Any]:
+    from zid_platform.modules.session.ports import issue_access_token
+
+    settings = getattr(request.app.state, "token_settings", None)
+    if settings is None:
+        raise ZidError("UNAUTHENTICATED", "No token issuer is configured.", http_status=503)
+    sid, leaf = peer
+    try:
+        tenant = tenant_of(sid)
+    except SpiffeError as e:
+        raise ZidError(e.code, str(e), http_status=401) from e
+    base = current_context() or RequestContext("req_workload", "cor_workload", "zoiko-id", "unknown")
+    ctx = base.with_identity(tenant, None)
+    now = datetime.now(UTC)
+    try:
+        from zid_db import tenant_transaction as tx
+
+        async with tx(request_engine(request), ctx) as conn:
+            principal = await service.resolve_workload(
+                conn, spiffe_id=sid, environment_id=body.environment_id,
+                artifact_digest=body.artifact_digest, attestation=body.attestation,
+            )
+            await service.record_credential_issued(conn, tenant, principal, expires_at=now + WORKLOAD_TOKEN_LIFETIME)
+    except MachineError as e:
+        raise ZidError(e.code, "This workload may not act right now.", http_status=403) from e
+    x5t = base64.urlsafe_b64encode(hashlib.sha256(leaf).digest()).rstrip(b"=").decode("ascii")
+    token = issue_access_token(
+        settings.keyring,
+        issuer=settings.issuer,
+        audience=settings.audience,
+        subject=principal.logical_principal_id,
+        tenant_id=tenant,
+        client_id=f"workload:{sid}",
+        now=now,
+        scope=frozenset({"workload"}),
+        cert_thumbprint=x5t,
+        risk_class=2,
+        lifetime=WORKLOAD_TOKEN_LIFETIME,
+    )
+    return {
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": int(WORKLOAD_TOKEN_LIFETIME.total_seconds()),
+        "principal_id": principal.logical_principal_id,
+        "security_revision": principal.security_revision,
+        "cnf": {"x5t#S256": x5t},
+    }

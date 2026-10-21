@@ -26,6 +26,7 @@ from zid_crypto import CryptoError, verify_external_jws
 from zid_db import tenant_transaction
 from zid_outbox import emit
 
+from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
 from zid_platform.modules.verification.domain.verification import (
     IAL_RANK,
@@ -85,6 +86,15 @@ async def start(
     async with tenant_transaction(engine, ctx) as conn:
         profile = await store.load_profile(conn, profile_id)
         select_profile(profile, floor=floor, jurisdiction=jurisdiction)
+        # Identity evidence is D3: only for a purpose the tenant registered (PRIV-01/05)
+        await enforce_processing(
+            conn,
+            ctx.tenant_id or "",
+            activity_code="IDENTITY_VERIFICATION",
+            purpose=purpose,
+            data_category="D3",
+            subject_principal_id=subject_principal_id,
+        )
         s = store.VSession(
             session_id=str(uuid.uuid4()),
             tenant_id=ctx.tenant_id or "",

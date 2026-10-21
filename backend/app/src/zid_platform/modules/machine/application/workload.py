@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
-from zid_context.spiffe import SpiffeError, SpiffeId, TrustPolicy
+from zid_context.spiffe import SpiffeError, SpiffeId, TrustPolicy, tenant_of
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
@@ -82,8 +82,10 @@ async def register_binding(
     an explicitly federated one; the agent must exist; one live binding per SPIFFE ID."""
     try:
         sid = policy.require(SpiffeId.parse(spiffe_id))
+        if tenant_of(sid) != tenant_id:
+            raise SpiffeError("SPIFFE_ID_INVALID", "the SPIFFE ID belongs to another tenant")
     except SpiffeError as e:
-        raise MachineError(e.code) from e
+        raise MachineError(e.code, str(e)) from e
     if await machine_store.load_agent(conn, agent_principal_id) is None:
         raise MachineError("AGENT_NOT_FOUND")
     if not artifact_digest.startswith(("sha256:", "sha-256:")):
@@ -199,3 +201,23 @@ __all__ = [
     "resolve_workload",
     "revoke_binding",
 ]
+
+
+async def record_credential_issued(
+    conn: AsyncConnection, tenant_id: str, principal: WorkloadPrincipal, *, expires_at: datetime
+) -> None:
+    """E3 evidence that a workload credential was issued for a logical principal (§16)."""
+    data = {
+        "spiffe_id": principal.spiffe_id,
+        "binding_id": principal.binding_id,
+        "environment_id": principal.environment_id,
+        "security_revision": principal.security_revision,
+        "expires_at": expires_at.isoformat(),
+    }
+    event_id = await emit(
+        conn, name="machine.workload.credential_issued", tenant_id=tenant_id,
+        aggregate_type="workload_credential", aggregate_id=str(uuid7()), aggregate_version=1,
+        data={**data, "evidence_class": "E3"},
+    )
+    await _audit(conn, tenant_id, event_id, "machine.workload.credential_issued", actor=None,
+                 target_type="workload_binding", target_ref=principal.binding_id, details=data)

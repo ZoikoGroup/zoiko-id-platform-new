@@ -21,6 +21,9 @@ Administration (PDP-authorized catalogued actions; two-person changes need an ap
     GET/POST /v1/privacy/admin/retention-policies          privacy.retention.manage
     POST /v1/privacy/admin/restrictions/{id}:lift          privacy.rights.manage
     GET  /v1/privacy/jurisdiction-packs                    pack ids, versions, deployability
+    GET/POST /v1/privacy/admin/notices                     privacy.processing_activity.manage (+ approval)
+    GET/POST /v1/privacy/admin/processors, POST .../{id}:approve|:suspend   (approver != registrant)
+    GET/POST /v1/privacy/admin/automated-decision-profiles privacy.processing_activity.manage
 Legal holds live in the evidence API (/v1/evidence/legal-holds): one hold model for both.
 """
 
@@ -39,7 +42,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.privacy.application import service
+from zid_platform.modules.privacy.application import registry, service
 from zid_platform.modules.privacy.domain.model import PrivacyError
 from zid_platform.modules.privacy.infrastructure.packs import packs
 from zid_platform.modules.privacy.infrastructure import store
@@ -674,5 +677,135 @@ async def lift(restriction_id: uuid.UUID, request: Request, caller: CallerDep) -
         )
         await service.lift_restriction(conn, _tenant(caller), str(restriction_id), actor=_me(caller))
         return {"restriction_id": str(restriction_id), "active": False}
+
+    return await _run(request, caller, go)
+
+
+MANAGE = "privacy.processing_activity.manage"
+
+
+class NoticeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(pattern=CODE)
+    audience: str = Field(min_length=2, max_length=64)
+    content: str = Field(min_length=20, max_length=200_000)
+    jurisdictions: list[str] = Field(default_factory=list, max_length=50)
+    processing_activity_codes: list[str] = Field(default_factory=list, max_length=50)
+    content_uri: str | None = Field(default=None, max_length=500)
+    approval_request_id: uuid.UUID
+
+
+@router.get("/admin/notices")
+async def list_notices(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action="privacy.read", resource="privacy_notice:*")
+        return {"items": _rows(await registry.notices(conn))}
+
+    return await _run(request, caller, go)
+
+
+@router.post("/admin/notices", status_code=201)
+async def publish_notice(body: NoticeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    from zid_evidence import hash_bytes
+
+    change = f"{body.code}|{hash_bytes(body.content.encode('utf-8'), alg='sha-256')}"
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        approver = await approved_by_second_admin(
+            conn, caller, action=MANAGE, resource="privacy_notice:*", change=change,
+            approval_request_id=str(body.approval_request_id),
+        )
+        row = await registry.publish_notice(
+            conn, _tenant(caller), code=body.code, audience=body.audience, content=body.content,
+            created_by=_me(caller), approved_by=approver, jurisdictions=body.jurisdictions,
+            processing_activity_codes=body.processing_activity_codes, content_uri=body.content_uri,
+        )
+        return {**_rows([row])[0], "notice_version": f"{row.notice_code}@{row.version}"}
+
+    return await _run(request, caller, go)
+
+
+class ProcessorBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    processor_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+    name: str = Field(min_length=2, max_length=200)
+    role: str = Field(pattern="^(PROCESSOR|SUBPROCESSOR|INDEPENDENT_CONTROLLER|RECIPIENT)$")
+    data_categories: list[str] = Field(min_length=1, max_length=5)
+    locations: list[str] = Field(min_length=1, max_length=50)
+    processing_activity_codes: list[str] = Field(default_factory=list, max_length=50)
+    purposes: list[str] = Field(default_factory=list, max_length=50)
+    transfer_mechanism: str | None = Field(default=None, max_length=64)
+    deletion_sla_days: int | None = Field(default=None, ge=0, le=3650)
+    security_assurance: str | None = Field(default=None, max_length=200)
+    contract_ref: str | None = Field(default=None, max_length=200)
+
+
+@router.get("/admin/processors")
+async def list_processors(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action="privacy.read", resource="processor:*")
+        return {"items": _rows(await registry.processors(conn))}
+
+    return await _run(request, caller, go)
+
+
+@router.post("/admin/processors", status_code=201)
+async def register_processor(body: ProcessorBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action=MANAGE, resource="processor:*")
+        row = await registry.register_processor(conn, _tenant(caller), created_by=_me(caller), **body.model_dump())
+        return _rows([row])[0]
+
+    return await _run(request, caller, go)
+
+
+@router.post("/admin/processors/{processor_id}:approve")
+async def approve_processor(processor_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action=MANAGE, resource=f"processor:{processor_id}")
+        return _rows([await registry.set_processor_status(conn, _tenant(caller), processor_id, "APPROVED", actor=_me(caller))])[0]
+
+    return await _run(request, caller, go)
+
+
+@router.post("/admin/processors/{processor_id}:suspend")
+async def suspend_processor(processor_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action=MANAGE, resource=f"processor:{processor_id}")
+        return _rows([await registry.set_processor_status(conn, _tenant(caller), processor_id, "SUSPENDED", actor=_me(caller))])[0]
+
+    return await _run(request, caller, go)
+
+
+class AdmBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision_class: str = Field(min_length=3, max_length=128)
+    purpose_code: str = Field(pattern=CODE)
+    input_data_categories: list[str] = Field(min_length=1, max_length=5)
+    model_or_rules_ref: str = Field(min_length=1, max_length=200)
+    solely_automated: bool
+    significance_class: str = Field(pattern="^(NONE|MATERIAL|LEGAL_OR_SIMILARLY_SIGNIFICANT)$")
+    explanation_profile: str = Field(min_length=10, max_length=4000)
+    human_review_route: str = Field(min_length=2, max_length=200)
+    special_category_use: bool = False
+    jurisdiction_rules: dict[str, str] = Field(default_factory=dict, max_length=20)
+    risk_assessment_ref: str | None = Field(default=None, max_length=200)
+
+
+@router.get("/admin/automated-decision-profiles")
+async def list_adm(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action="privacy.read", resource="adm_profile:*")
+        return {"items": _rows(await registry.adm_profiles(conn))}
+
+    return await _run(request, caller, go)
+
+
+@router.post("/admin/automated-decision-profiles", status_code=201)
+async def create_adm(body: AdmBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        await protected_action(conn, caller, action=MANAGE, resource="adm_profile:*")
+        row = await registry.create_adm_profile(conn, _tenant(caller), created_by=_me(caller), **body.model_dump())
+        return _rows([row])[0]
 
     return await _run(request, caller, go)

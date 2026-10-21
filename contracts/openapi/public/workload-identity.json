@@ -145,6 +145,34 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WorkloadTokenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "pattern": "^sha-?256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "attestation": {
+            "default": 0,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Attestation",
+            "type": "integer"
+          },
+          "environment_id": {
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "title": "Environment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "environment_id",
+          "artifact_digest"
+        ],
+        "title": "WorkloadTokenBody",
+        "type": "object"
       }
     }
   },
@@ -405,6 +433,49 @@
           }
         },
         "summary": "Revoke",
+        "tags": [
+          "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/workload-token": {
+      "post": {
+        "operationId": "workload_token_v1_machine_workload_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkloadTokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Workload Token V1 Machine Workload Token Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workload Token",
         "tags": [
           "workload-identity"
         ]

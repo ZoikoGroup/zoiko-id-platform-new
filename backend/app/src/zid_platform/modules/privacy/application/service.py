@@ -30,10 +30,13 @@ from zid_platform.modules.evidence.ports import (
     commitment,
     erase_subject,
     is_held,
+    principal_handle,
     read_object,
+    receipt_summary,
     record_audit,
     store_object,
 )
+from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.domain.model import (
     NO_VERIFICATION,
     PREFERENCE_FOR,
@@ -63,16 +66,57 @@ EXPORT_TTL = timedelta(days=7)
 Disposer = Callable[[AsyncConnection, Row[Any], str], Awaitable[None]]
 # store -> exporter(conn, data map entry row) -> JSON-able data for access/portability (§15, §19)
 Exporter = Callable[[AsyncConnection, Row[Any]], Awaitable[Any]]
+# store -> locator(conn, subject) -> the subject's objects in that store (data-map discovery, §15)
+Locator = Callable[[AsyncConnection, str], Awaitable[list[dict[str, Any]]]]
 _DISPOSERS: dict[str, Disposer] = {}
 _EXPORTERS: dict[str, Exporter] = {}
+_LOCATORS: dict[str, Locator] = {}
 
 
-def register_store(store_name: str, *, disposer: Disposer | None = None, exporter: Exporter | None = None) -> None:
-    """A module that keeps personal data registers how it is exported and disposed."""
+def register_store(
+    store_name: str,
+    *,
+    disposer: Disposer | None = None,
+    exporter: Exporter | None = None,
+    locator: Locator | None = None,
+) -> None:
+    """A module that keeps personal data registers how it is found, exported and disposed.
+
+    The owning module's adapter touches only its own tables; privacy orchestrates."""
     if disposer:
         _DISPOSERS[store_name] = disposer
     if exporter:
         _EXPORTERS[store_name] = exporter
+    if locator:
+        _LOCATORS[store_name] = locator
+
+
+def registered_stores() -> list[str]:
+    return sorted(set(_DISPOSERS) | set(_EXPORTERS) | set(_LOCATORS))
+
+
+async def discover_subject(conn: AsyncConnection, tenant_id: str, subject_principal_id: str) -> int:
+    """Refresh the data map from every registered store's locator (PRIV-001 §15 "discover
+    processing activities + subject mappings"): rights requests then cover data written by any
+    module, whether or not it registered the object when it wrote it."""
+    found = 0
+    for store_name, locate in sorted(_LOCATORS.items()):
+        for obj in await locate(conn, subject_principal_id):
+            await register_personal_data(
+                conn,
+                tenant_id,
+                subject_principal_id=subject_principal_id,
+                store_name=store_name,
+                object_type=obj["object_type"],
+                object_ref=obj["object_ref"],
+                purpose_code=obj["purpose_code"],
+                data_category=obj["data_category"],
+                retention_policy_code=obj.get("retention_policy_code"),
+                trigger_at=obj.get("trigger_at"),
+                region=obj.get("region"),
+            )
+            found += 1
+    return found
 
 
 def _now() -> datetime:
@@ -445,6 +489,7 @@ async def give_consent(
     purpose = await store.active_purpose(conn, purpose_code)
     if purpose is None:
         raise PrivacyError("PRIVACY_PURPOSE_NOT_ACTIVE", purpose_code)
+    await registry.require_notice(conn, notice_version)  # PRIV-26: the exact notice shown
     consent_id, now = str(uuid7()), _now()
     body = {
         "consent_id": consent_id,
@@ -633,12 +678,15 @@ async def register_personal_data(
     """Record where a subject's personal data lives (the data map, PRIV-001 §10, §17). due_at is
     fixed now from the active policy, so a later hold release never restarts the clock."""
     trigger_at = trigger_at or _now()
+    if processor_id:  # §23: no processor holds personal data without approved metadata
+        await registry.require_processor(conn, processor_id, DataCategory(data_category).value)
     due = None
     if retention_policy_code:
+        # A policy the tenant has not published yet leaves due_at open; the sweeper fixes it from
+        # the original trigger once the policy exists (no silent "retain forever").
         policy = await store.active_retention_policy(conn, retention_policy_code)
-        if policy is None:
-            raise PrivacyError("PRIVACY_RETENTION_POLICY_UNKNOWN", retention_policy_code)
-        due = due_at(trigger_at, int(policy.retention_days))
+        if policy is not None:
+            due = due_at(trigger_at, int(policy.retention_days))
     return await store.upsert_data_map(
         conn,
         {
@@ -664,7 +712,7 @@ async def retention_sweep(conn: AsyncConnection, now: datetime | None = None, *,
     entries are marked HELD and re-evaluated on every pass; an entry with no registered disposer
     stays due and is counted (no silent missed schedule)."""
     now = now or _now()
-    counts = {"disposed": 0, "held": 0, "no_disposer": 0}
+    counts = {"disposed": 0, "held": 0, "no_disposer": 0, "scheduled": await store.schedule_open_entries(conn)}
     for e in await store.due_entries(conn, now, limit):
         tenant = str(e.tenant_id)
         policy = await store.active_retention_policy(conn, e.retention_policy_code) if e.retention_policy_code else None
@@ -828,6 +876,7 @@ async def _access_package(conn: AsyncConnection, tenant_id: str, r: Row[Any]) ->
     """Access/portability package from authoritative sources (§15, §19): structured JSON with a
     manifest of per-section hashes; stored encrypted under the subject's key, short-lived."""
     subject = str(r.subject_principal_id)
+    await discover_subject(conn, tenant_id, subject)
     entries = await store.subject_entries(conn, subject)
     sections: dict[str, Any] = {
         "data_locations": [
@@ -903,6 +952,7 @@ async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str 
     """§17: classify every data map entry, dispose what is eligible, keep what a hold or a legal
     obligation requires (restricted, reasoned), instruct processors, then crypto-erase the vault."""
     subject = str(r.subject_principal_id)
+    await discover_subject(conn, tenant_id, subject)
     await _event(
         conn, tenant_id, "privacy.deletion.started", ("rights_request", str(r.request_id)),
         {"request_id": str(r.request_id)}, actor=actor, version=int(r.version) + 1, evidence_class=EvidenceClass.E3,
@@ -925,7 +975,16 @@ async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str 
             items.append(_item(name, "RETAINED_RESTRICTED", reason="LEGAL_OBLIGATION", policy_code=policy.policy_code))
             continue
         if e.processor_id:
-            items.append(_item(name, "PENDING_PROCESSOR_ACK", processor_id=e.processor_id))
+            proc = await registry.processor(conn, e.processor_id)
+            sla = proc.deletion_sla_days if proc is not None else None
+            items.append(
+                _item(
+                    name,
+                    "PENDING_PROCESSOR_ACK",
+                    processor_id=e.processor_id,
+                    deletion_due=(_now() + timedelta(days=sla)).isoformat() if sla is not None else None,
+                )
+            )
             continue
         disposer = _DISPOSERS.get(e.store)
         if disposer is None:
@@ -973,10 +1032,12 @@ async def fulfil_request(conn: AsyncConnection, tenant_id: str, request_id: str,
     elif rtype in PREFERENCE_FOR:
         await set_preference(conn, tenant_id, subject, PREFERENCE_FOR[rtype], True, source="RIGHTS_REQUEST")
         items = [_item("preference", "DONE", preference_type=PREFERENCE_FOR[rtype])]
-    else:  # RECTIFICATION, COMPLAINT, HUMAN_REVIEW, ADMT_ACCESS: a qualified human decides
-        items = [_item("review", "PENDING", route="privacy-ops" if rtype is not RightsType.HUMAN_REVIEW else "qualified-reviewer")]
-        out = await store.update_request(conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items)
-        return out
+    elif rtype in (RightsType.HUMAN_REVIEW, RightsType.ADMT_ACCESS):
+        items = await _automated_decision_items(conn, tenant_id, r, rtype)
+        return await store.update_request(conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items)
+    else:  # RECTIFICATION, COMPLAINT: privacy operations decide
+        items = [_item("review", "PENDING", route="privacy-ops")]
+        return await store.update_request(conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items)
     status = summarize(items)
     out = await store.update_request(
         conn,
@@ -988,6 +1049,36 @@ async def fulfil_request(conn: AsyncConnection, tenant_id: str, request_id: str,
     )
     await _after_fulfil(conn, tenant_id, out, actor)
     return out
+
+
+async def _automated_decision_items(
+    conn: AsyncConnection, tenant_id: str, r: Row[Any], rtype: RightsType
+) -> list[dict[str, Any]]:
+    """PRIV-23: a challenge of an automated decision goes to a qualified human with the original
+    decision evidence; ADMT access returns the profile's explanation (PRIV-001 §20)."""
+    receipt_id = (r.scope or {}).get("receipt_id")
+    if not receipt_id:
+        raise PrivacyError("PRIVACY_SCHEMA_INVALID", "name the decision: scope.receipt_id")
+    receipt = await receipt_summary(conn, str(receipt_id))
+    subject_handle = await principal_handle(tenant_id, str(r.subject_principal_id))
+    if receipt is None or receipt["actor_handle"] != subject_handle:
+        raise PrivacyError("NOT_FOUND", "no such decision about this subject")
+    profile = await registry.adm_profile(conn, receipt["action"])
+    if profile is None or profile.significance_class == "NONE":
+        raise PrivacyError(
+            "PRIVACY_ADM_PROFILE_MISSING", "this decision class is not a registered significant automated decision"
+        )
+    common = {
+        "receipt_id": receipt["receipt_id"],
+        "decision_class": receipt["action"],
+        "outcome": receipt["outcome"],
+        "profile_id": str(profile.profile_id),
+        "significance_class": profile.significance_class,
+        "solely_automated": profile.solely_automated,
+    }
+    if rtype is RightsType.ADMT_ACCESS:
+        return [_item("explanation", "PENDING", explanation_profile=profile.explanation_profile, **common)]
+    return [_item("human-review", "PENDING", route=profile.human_review_route, **common)]
 
 
 async def _after_fulfil(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None) -> None:
@@ -1102,7 +1193,9 @@ __all__ = [
     "privacy_pass",
     "read_package",
     "register_personal_data",
+    "discover_subject",
     "register_store",
+    "registered_stores",
     "release_check",
     "request_view",
     "restrict",
@@ -1111,3 +1204,86 @@ __all__ = [
     "verify_request",
     "withdraw_consent",
 ]
+
+
+# ------------------------------------------------------------------- enforcement at the boundary
+
+_ENFORCEMENT: str | None = None
+
+
+def configure_enforcement(mode: str | None) -> None:
+    """`enforce` (default outside local/test): refuse processing the registry does not permit.
+    `audit`: allow, but record every would-be refusal as protected evidence (onboarding a tenant
+    whose processing activities are not registered yet)."""
+    global _ENFORCEMENT
+    if mode not in (None, "enforce", "audit"):
+        raise ValueError("privacy enforcement is 'enforce' or 'audit'")
+    _ENFORCEMENT = mode
+
+
+def enforcement_mode() -> str:
+    import os
+
+    if _ENFORCEMENT is not None:
+        return _ENFORCEMENT
+    return "audit" if os.environ.get("ZID_ENVIRONMENT", "local") in ("local", "test") else "enforce"
+
+
+def purpose_code(purpose: str) -> str:
+    """Free-text purpose labels from protocol requests -> registry purpose codes (`kyc onboarding`
+    -> `KYC_ONBOARDING`); the registry, not the caller, decides whether the code is permitted."""
+    import re
+
+    code = re.sub(r"[^A-Z0-9]+", "_", purpose.upper()).strip("_")[:63] or "UNSPECIFIED"
+    return code if code[0].isalpha() else f"P_{code}"[:63]
+
+
+async def enforce_processing(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    activity_code: str,
+    purpose: str,
+    data_category: str,
+    subject_principal_id: str | None,
+    recipient_class: str | None = None,
+    destination_cell_id: str | None = None,
+) -> ProcessingDecision:
+    """The processing boundary (PRIV-01/05/24): refuse (enforce) or evidence (audit) any processing
+    the tenant's registered purposes, activities, consents and restrictions do not permit."""
+    from zid_errors import ErrorDetail, ZidError
+
+    code = purpose_code(purpose)
+    decision = await check_processing(
+        conn,
+        tenant_id,
+        activity_code=activity_code,
+        purpose_code=code,
+        data_category=data_category,
+        subject_principal_id=subject_principal_id,
+        recipient_class=recipient_class,
+        destination_cell_id=destination_cell_id,
+    )
+    if decision.allowed:
+        return decision
+    mode = enforcement_mode()
+    await _audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.processing.refused" if mode == "enforce" else "privacy.processing.unregistered",
+        actor=None,
+        target_type="processing_activity",
+        target_ref=activity_code,
+        outcome="DENIED" if mode == "enforce" else "SUCCESS",
+        reason=decision.reason,
+        details={"purpose_code": code, "data_category": data_category, "mode": mode},
+    )
+    if mode == "enforce":
+        raise ZidError(
+            "PRIVACY_PROCESSING_NOT_PERMITTED",
+            "This processing is not permitted by the tenant's privacy registry.",
+            http_status=403,
+            details=[ErrorDetail(issue=decision.reason)],
+        )
+    return decision

@@ -459,6 +459,21 @@ tables:
     module: evidence
     tenant_scoped: true
     source: "EVIDENCE-001 §1 E0 (CR-011)"
+  evidence.artifact:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §9 (CR-011)"
+  evidence.provenance_edge:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §8 (CR-011)"
+  evidence.evidence_case:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §18 (CR-011)"
   privacy.consent_receipt:
     role: cell
     module: privacy
@@ -504,6 +519,21 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRIV-001 §10, §17 (CR-013)"
+  privacy.notice:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §22 (CR-013)"
+  privacy.processor:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §23 (CR-013)"
+  privacy.automated_decision_profile:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §20 (CR-013)"
   authn.federation_connection:
     role: cell
     module: federation

@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from zid_platform.modules.privacy.application.service import (
     check_processing,
+    configure_enforcement,
+    discover_subject,
+    enforce_processing,
     pack_transfer_mechanisms,
     privacy_pass,
     register_personal_data,
@@ -23,6 +26,9 @@ __all__ = [
     "PrivacyError",
     "ProcessingDecision",
     "check_processing",
+    "configure_enforcement",
+    "discover_subject",
+    "enforce_processing",
     "pack_transfer_mechanisms",
     "privacy_pass",
     "register_personal_data",

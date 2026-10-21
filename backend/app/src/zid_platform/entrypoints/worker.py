@@ -79,8 +79,11 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
     from zid_platform.modules.evidence.ports import configure_runtime, runtime_from_settings
     from zid_platform.protected import catalog
 
+    from zid_platform.main import register_privacy_stores
+
     configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
+    register_privacy_stores()  # the retention sweep disposes through the owning modules
     engine = create_async_engine(database_url(settings), pool_size=2, max_overflow=0)
     interval = float(os.environ.get("ZID_WORKER_INTERVAL_S", "10"))
     try:

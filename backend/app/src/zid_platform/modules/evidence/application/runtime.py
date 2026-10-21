@@ -39,6 +39,15 @@ class EvidenceRuntime:
     signer: Signer
     historic_keys: tuple[Mapping[str, Any], ...] = ()
     cadence: Cadence = field(default_factory=Cadence)
+    # evidence class -> retention days (EVIDENCE §22; the DPO's numbers; empty = keep)
+    retention_days: Mapping[str, int] = field(default_factory=dict)
+    # tenant id -> KeyRef of a DEDICATED_TENANT_KEY / BYOK / HYOK KEK (DEC-F5 §4); absent = platform
+    tenant_keks: Mapping[str, KeyRef] = field(default_factory=dict)
+
+    def kek_for(self, tenant_id: str) -> KeyRef:
+        """The KEK that wraps this tenant's subject keys. A customer-managed key never falls back
+        to the platform key (HYOK fails closed when the customer's key store is unavailable)."""
+        return self.tenant_keks.get(tenant_id, self.subject_kek)
 
     def trusted_keys(self) -> list[dict[str, Any]]:
         """The active evidence key plus historic keys, by kid (DEC-F2 §5: never re-signed)."""
@@ -107,6 +116,11 @@ def runtime_from_settings(settings: Any, *, kms_client: object | None = None) ->
             interval=settings.evidence_checkpoint_interval,
             e3_interval=settings.evidence_checkpoint_e3_interval,
         ),
+        retention_days=dict(settings.evidence_retention_days),
+        tenant_keks={
+            tenant: KeyRef(KeyPurpose.SUBJECT_ERASURE_KEY, key_id)
+            for tenant, key_id in settings.tenant_kek_ids.items()
+        },
     )
 
 

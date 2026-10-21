@@ -159,6 +159,10 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     else:
         configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
+    register_privacy_stores()
+    from .modules.privacy.ports import configure_enforcement
+
+    configure_enforcement(settings.privacy_enforcement)
     from .workload_identity import trust_policy_from_settings
 
     app.state.trust_policy = trust_policy_from_settings(settings)
@@ -170,3 +174,16 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         environment=settings.environment,
         cell_id=settings.cell_id,
     )
+
+
+def register_privacy_stores() -> None:
+    """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
+    data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
+    from .modules.authentication.infrastructure import privacy_adapter as authentication
+    from .modules.credential.infrastructure import privacy_adapter as credential
+    from .modules.principal.infrastructure import privacy_adapter as principal
+    from .modules.session.infrastructure import privacy_adapter as session
+    from .modules.verification.infrastructure import privacy_adapter as verification
+
+    for adapter in (principal, authentication, session, verification, credential):
+        adapter.register()
