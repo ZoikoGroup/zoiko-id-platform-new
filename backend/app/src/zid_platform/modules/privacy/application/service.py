@@ -52,11 +52,13 @@ from zid_platform.modules.privacy.domain.model import (
     ZoikoRole,
     check_code,
     check_consent_basis,
-    check_processing as decide_processing,
     due_at,
     initial_verification,
     require_disclosure_verification,
     summarize,
+)
+from zid_platform.modules.privacy.domain.model import (
+    check_processing as decide_processing,
 )
 from zid_platform.modules.privacy.infrastructure import store
 from zid_platform.modules.privacy.infrastructure.packs import pack
@@ -182,8 +184,16 @@ async def _event(
         data={**data, "evidence_class": evidence_class.value},
     )
     await _audit(
-        conn, tenant_id, event_id, name, actor=actor, target_type=aggregate[0],
-        target_ref=aggregate[1], outcome=outcome, reason=reason, details=data,
+        conn,
+        tenant_id,
+        event_id,
+        name,
+        actor=actor,
+        target_type=aggregate[0],
+        target_ref=aggregate[1],
+        outcome=outcome,
+        reason=reason,
+        details=data,
         evidence_class=evidence_class,
     )
 
@@ -234,20 +244,39 @@ async def create_purpose(
     return purpose_id
 
 
-async def activate_purpose(conn: AsyncConnection, tenant_id: str, purpose_id: str, *, approver: str) -> Row[Any]:
+async def activate_purpose(
+    conn: AsyncConnection, tenant_id: str, purpose_id: str, *, approver: str
+) -> Row[Any]:
     """Approval by someone other than the author (PRIV-27: no purpose expansion without review)."""
-    draft = next((p for p in await store.list_purposes(conn, status="DRAFT") if str(p.purpose_id) == purpose_id), None)
+    draft = next(
+        (
+            p
+            for p in await store.list_purposes(conn, status="DRAFT")
+            if str(p.purpose_id) == purpose_id
+        ),
+        None,
+    )
     if draft is not None and str(draft.created_by) == approver:
-        raise PrivacyError("PRIVACY_APPROVAL_REQUIRED", "the author cannot activate their own purpose")
+        raise PrivacyError(
+            "PRIVACY_APPROVAL_REQUIRED", "the author cannot activate their own purpose"
+        )
     row = await store.activate_purpose(conn, purpose_id, approver, _now())
     if row is None:
         raise PrivacyError("NOT_FOUND", "unknown purpose")
     if row.status != "ACTIVE":
         raise PrivacyError("PRIVACY_INVALID_STATE", f"purpose is {row.status}")
     await _event(
-        conn, tenant_id, "privacy.processing_activity.changed", ("purpose", purpose_id),
-        {"purpose_code": row.purpose_code, "purpose_version": row.purpose_version, "change": "PURPOSE_ACTIVATED"},
-        actor=approver, evidence_class=EvidenceClass.E3,
+        conn,
+        tenant_id,
+        "privacy.processing_activity.changed",
+        ("purpose", purpose_id),
+        {
+            "purpose_code": row.purpose_code,
+            "purpose_version": row.purpose_version,
+            "change": "PURPOSE_ACTIVATED",
+        },
+        actor=approver,
+        evidence_class=EvidenceClass.E3,
     )
     return row
 
@@ -295,7 +324,9 @@ async def create_activity(
             "processing_activity_id": activity_id,
             "tenant_id": tenant_id,
             "activity_code": code,
-            "version": await store.next_version(conn, "processing_activity", "activity_code", code, "version"),
+            "version": await store.next_version(
+                conn, "processing_activity", "activity_code", code, "version"
+            ),
             "name": name,
             "purpose_codes": sorted(set(purpose_codes)),
             "data_categories": cats,
@@ -339,7 +370,9 @@ async def assign_role(
     except ValueError as e:
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "unknown zoiko_role") from e
     if created_by == approved_by:
-        raise PrivacyError("PRIVACY_APPROVAL_REQUIRED", "a role assignment needs an independent approver")
+        raise PrivacyError(
+            "PRIVACY_APPROVAL_REQUIRED", "a role assignment needs an independent approver"
+        )
     if role is ZoikoRole.PROCESSOR and not contract_or_dpa_ref:
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "a processor role needs its DPA reference")
     if await store.load_activity(conn, activity_id) is None:
@@ -366,20 +399,28 @@ async def assign_role(
         },
     )
     await _event(
-        conn, tenant_id, "privacy.processing_activity.changed", ("processing_role_assignment", assignment_id),
+        conn,
+        tenant_id,
+        "privacy.processing_activity.changed",
+        ("processing_role_assignment", assignment_id),
         {
             "processing_activity_id": activity_id,
             "zoiko_role": role.value,
             "jurisdiction_pack_id": jurisdiction_pack_id,
-            "approval_ref_commitment": commitment(approval_ref, tenant_id=tenant_id, kind="approval"),
+            "approval_ref_commitment": commitment(
+                approval_ref, tenant_id=tenant_id, kind="approval"
+            ),
             "change": "ROLE_ASSIGNED",
         },
-        actor=approved_by, evidence_class=EvidenceClass.E3,
+        actor=approved_by,
+        evidence_class=EvidenceClass.E3,
     )
     return row
 
 
-async def activate_activity(conn: AsyncConnection, tenant_id: str, activity_id: str, *, actor: str) -> Row[Any]:
+async def activate_activity(
+    conn: AsyncConnection, tenant_id: str, activity_id: str, *, actor: str
+) -> Row[Any]:
     """DRAFT/APPROVED -> ACTIVE: every purpose ACTIVE, a DPIA for D3, an approved role (trigger)."""
     row = await store.load_activity(conn, activity_id, lock=True)
     if row is None:
@@ -392,12 +433,19 @@ async def activate_activity(conn: AsyncConnection, tenant_id: str, activity_id: 
     if "D3" in row.data_categories and not row.dpia_ref:
         raise PrivacyError("PRIVACY_DPIA_REQUIRED", "new D3 processing needs a DPIA (§25)")
     if not await _has_role(conn, activity_id):
-        raise PrivacyError("PRIVACY_ROLE_ASSIGNMENT_MISSING", "no approved role assignment (DEC-F3)")
+        raise PrivacyError(
+            "PRIVACY_ROLE_ASSIGNMENT_MISSING", "no approved role assignment (DEC-F3)"
+        )
     out = await store.set_activity_status(conn, activity_id, "ACTIVE", _now())
     await _event(
-        conn, tenant_id, "privacy.processing_activity.changed", ("processing_activity", activity_id),
+        conn,
+        tenant_id,
+        "privacy.processing_activity.changed",
+        ("processing_activity", activity_id),
         {"activity_code": out.activity_code, "version": out.version, "change": "ACTIVATED"},
-        actor=actor, evidence_class=EvidenceClass.E3, version=out.version,
+        actor=actor,
+        evidence_class=EvidenceClass.E3,
+        version=out.version,
     )
     return out
 
@@ -405,7 +453,9 @@ async def activate_activity(conn: AsyncConnection, tenant_id: str, activity_id: 
 async def _has_role(conn: AsyncConnection, activity_id: str) -> bool:
     now = _now()
     return any(
-        a.status == "APPROVED" and a.effective_from <= now and (a.valid_to is None or a.valid_to > now)
+        a.status == "APPROVED"
+        and a.effective_from <= now
+        and (a.valid_to is None or a.valid_to > now)
         for a in await store.assignments(conn, activity_id)
     )
 
@@ -436,7 +486,9 @@ async def check_processing(
     if subject_principal_id:
         consent = await store.active_consent(conn, subject_principal_id, purpose_code, _now())
         consent_id = str(consent.consent_id) if consent else None
-        restricted = [r.purpose_code for r in await store.restrictions_of(conn, subject_principal_id)]
+        restricted = [
+            r.purpose_code for r in await store.restrictions_of(conn, subject_principal_id)
+        ]
     decision = decide_processing(
         activity=activity,
         purpose=purpose,
@@ -451,7 +503,10 @@ async def check_processing(
         from zid_platform.modules.tenant.ports import check_category_transfer  # avoid import cycle
 
         transfer = await check_category_transfer(
-            conn, tenant_id, data_category=data_category, destination_cell_id=destination_cell_id,
+            conn,
+            tenant_id,
+            data_category=data_category,
+            destination_cell_id=destination_cell_id,
             purpose_code=purpose_code,
         )
         if not transfer.allowed:
@@ -517,7 +572,10 @@ async def give_consent(
         },
     )
     await _event(
-        conn, tenant_id, "privacy.consent.given", ("consent_receipt", consent_id),
+        conn,
+        tenant_id,
+        "privacy.consent.given",
+        ("consent_receipt", consent_id),
         {"consent_id": consent_id, "purpose_code": purpose_code, "notice_version": notice_version},
         actor=subject_principal_id,
     )
@@ -525,7 +583,12 @@ async def give_consent(
 
 
 async def withdraw_consent(
-    conn: AsyncConnection, tenant_id: str, consent_id: str, *, subject_principal_id: str, reason: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    consent_id: str,
+    *,
+    subject_principal_id: str,
+    reason: str,
 ) -> Row[Any]:
     """Stops only consent-dependent processing (PRIV-02); the record is never rewritten (PRIV-03)."""
     row = await store.load_consent(conn, consent_id, lock=True)
@@ -535,8 +598,13 @@ async def withdraw_consent(
         raise PrivacyError("PRIVACY_CONSENT_TERMINAL", f"consent is {row.status}")
     out = await store.withdraw_consent(conn, consent_id, reason, _now())
     await _event(
-        conn, tenant_id, "privacy.consent.withdrawn", ("consent_receipt", consent_id),
-        {"consent_id": consent_id, "purpose_code": row.purpose_code}, actor=subject_principal_id, version=2,
+        conn,
+        tenant_id,
+        "privacy.consent.withdrawn",
+        ("consent_receipt", consent_id),
+        {"consent_id": consent_id, "purpose_code": row.purpose_code},
+        actor=subject_principal_id,
+        version=2,
     )
     return out
 
@@ -545,18 +613,29 @@ async def withdraw_consent(
 
 
 async def set_preference(
-    conn: AsyncConnection, tenant_id: str, subject_principal_id: str, preference_type: str, value: bool, *, source: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    subject_principal_id: str,
+    preference_type: str,
+    value: bool,
+    *,
+    source: str,
 ) -> Row[Any]:
     """Opt-out / limit preferences, including Global Privacy Control signals (PRIV-21): never
     gated behind identity verification."""
     if preference_type not in PREFERENCE_TYPES:
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "unknown preference type")
-    row = await store.set_preference(conn, tenant_id, subject_principal_id, preference_type, value, source)
+    row = await store.set_preference(
+        conn, tenant_id, subject_principal_id, preference_type, value, source
+    )
     await _event(
-        conn, tenant_id, "privacy.preference.changed",
+        conn,
+        tenant_id,
+        "privacy.preference.changed",
         ("preference", f"{subject_principal_id}:{preference_type}"),
         {"preference_type": preference_type, "value": value, "source": source},
-        actor=subject_principal_id if source == "USER" else None, version=int(row.revision),
+        actor=subject_principal_id if source == "USER" else None,
+        version=int(row.revision),
     )
     return row
 
@@ -589,19 +668,34 @@ async def restrict(
         },
     )
     await _event(
-        conn, tenant_id, "privacy.restriction.applied", ("processing_restriction", restriction_id),
-        {"restriction_id": restriction_id, "kind": kind, "purpose_code": purpose_code, "reason_code": reason_code},
+        conn,
+        tenant_id,
+        "privacy.restriction.applied",
+        ("processing_restriction", restriction_id),
+        {
+            "restriction_id": restriction_id,
+            "kind": kind,
+            "purpose_code": purpose_code,
+            "reason_code": reason_code,
+        },
         actor=actor,
     )
     return restriction_id
 
 
-async def lift_restriction(conn: AsyncConnection, tenant_id: str, restriction_id: str, *, actor: str) -> None:
+async def lift_restriction(
+    conn: AsyncConnection, tenant_id: str, restriction_id: str, *, actor: str
+) -> None:
     if not await store.lift_restriction(conn, restriction_id, actor, _now()):
         raise PrivacyError("NOT_FOUND", "no active restriction")
     await _event(
-        conn, tenant_id, "privacy.restriction.lifted", ("processing_restriction", restriction_id),
-        {"restriction_id": restriction_id}, actor=actor, version=2,
+        conn,
+        tenant_id,
+        "privacy.restriction.lifted",
+        ("processing_restriction", restriction_id),
+        {"restriction_id": restriction_id},
+        actor=actor,
+        version=2,
     )
 
 
@@ -631,14 +725,18 @@ async def create_retention_policy(
     RetentionTrigger(trigger)
     pack(jurisdiction_pack_id)
     if created_by == approved_by:
-        raise PrivacyError("PRIVACY_APPROVAL_REQUIRED", "retention policies need an independent approver")
+        raise PrivacyError(
+            "PRIVACY_APPROVAL_REQUIRED", "retention policies need an independent approver"
+        )
     row = await store.insert_retention_policy(
         conn,
         {
             "retention_policy_id": str(uuid7()),
             "tenant_id": tenant_id,
             "policy_code": code,
-            "version": await store.next_version(conn, "retention_policy", "policy_code", code, "version"),
+            "version": await store.next_version(
+                conn, "retention_policy", "policy_code", code, "version"
+            ),
             "object_type": object_type,
             "purpose_code": purpose_code,
             "jurisdiction_pack_id": jurisdiction_pack_id,
@@ -653,9 +751,18 @@ async def create_retention_policy(
         },
     )
     await _event(
-        conn, tenant_id, "privacy.processing_activity.changed", ("retention_policy", str(row.retention_policy_id)),
-        {"policy_code": code, "version": row.version, "retention_days": retention_days, "change": "RETENTION_PUBLISHED"},
-        actor=approved_by, evidence_class=EvidenceClass.E3,
+        conn,
+        tenant_id,
+        "privacy.processing_activity.changed",
+        ("retention_policy", str(row.retention_policy_id)),
+        {
+            "policy_code": code,
+            "version": row.version,
+            "retention_days": retention_days,
+            "change": "RETENTION_PUBLISHED",
+        },
+        actor=approved_by,
+        evidence_class=EvidenceClass.E3,
     )
     return row
 
@@ -707,18 +814,33 @@ async def register_personal_data(
     )
 
 
-async def retention_sweep(conn: AsyncConnection, now: datetime | None = None, *, limit: int = 500) -> dict[str, int]:
+async def retention_sweep(
+    conn: AsyncConnection, now: datetime | None = None, *, limit: int = 500
+) -> dict[str, int]:
     """Worker pass (BYPASSRLS role): dispose every due entry no hold covers (PRIV-06/07); held
     entries are marked HELD and re-evaluated on every pass; an entry with no registered disposer
     stays due and is counted (no silent missed schedule)."""
     now = now or _now()
-    counts = {"disposed": 0, "held": 0, "no_disposer": 0, "scheduled": await store.schedule_open_entries(conn)}
+    counts = {
+        "disposed": 0,
+        "held": 0,
+        "no_disposer": 0,
+        "scheduled": await store.schedule_open_entries(conn),
+    }
     for e in await store.due_entries(conn, now, limit):
         tenant = str(e.tenant_id)
-        policy = await store.active_retention_policy(conn, e.retention_policy_code) if e.retention_policy_code else None
+        policy = (
+            await store.active_retention_policy(conn, e.retention_policy_code)
+            if e.retention_policy_code
+            else None
+        )
         suspends = policy.legal_hold_suspends if policy is not None else True
         if suspends and await is_held(
-            conn, tenant, subject_principal_id=str(e.subject_principal_id), object_type=e.object_type, now=now
+            conn,
+            tenant,
+            subject_principal_id=str(e.subject_principal_id),
+            object_type=e.object_type,
+            now=now,
         ):
             if e.status != "HELD":
                 await store.set_entry_status(conn, e.entry_id, "HELD")
@@ -733,7 +855,10 @@ async def retention_sweep(conn: AsyncConnection, now: datetime | None = None, *,
         await store.set_entry_status(conn, e.entry_id, "DISPOSED", action=action, now=now)
         counts["disposed"] += 1
         await _event(
-            conn, tenant, "privacy.retention.due", ("data_map_entry", str(e.entry_id)),
+            conn,
+            tenant,
+            "privacy.retention.due",
+            ("data_map_entry", str(e.entry_id)),
             {
                 "entry_id": str(e.entry_id),
                 "store": e.store,
@@ -760,7 +885,9 @@ def request_view(r: Row[Any], now: datetime | None = None) -> dict[str, Any]:
         "request_id": str(r.request_id),
         "request_type": r.request_type,
         "subject_principal_id": str(r.subject_principal_id),
-        "requester_principal_id": str(r.requester_principal_id) if r.requester_principal_id else None,
+        "requester_principal_id": str(r.requester_principal_id)
+        if r.requester_principal_id
+        else None,
         "jurisdiction_pack_id": r.jurisdiction_pack_id,
         "status": r.status,
         "identity_verification_state": r.identity_verification_state,
@@ -768,7 +895,9 @@ def request_view(r: Row[Any], now: datetime | None = None) -> dict[str, Any]:
         "deadline_at": r.deadline_at.isoformat() if r.deadline_at else None,
         "deadline_source": r.deadline_source,
         "deadline_consumed": consumed,
-        "deadline_warning": next((w for w in (0.9, 0.75, 0.5) if consumed is not None and consumed >= w), None),
+        "deadline_warning": next(
+            (w for w in (0.9, 0.75, 0.5) if consumed is not None and consumed >= w), None
+        ),
         "exemptions": list(r.exemptions),
         "fulfilment_items": list(r.fulfilment_items),
         "response_package_ref": str(r.response_package_ref) if r.response_package_ref else None,
@@ -818,13 +947,18 @@ async def open_request(
             "deadline_source": source,
             "identity_verification_state": verification,
             "verification_level": level,
-            "status": RightsStatus.RECEIVED.value if verification == "PENDING" else RightsStatus.SCOPING.value,
+            "status": RightsStatus.RECEIVED.value
+            if verification == "PENDING"
+            else RightsStatus.SCOPING.value,
             "scope": dict(scope or {}),
             "linked_request_id": None,
         },
     )
     await _event(
-        conn, tenant_id, "privacy.rights.requested", ("rights_request", request_id),
+        conn,
+        tenant_id,
+        "privacy.rights.requested",
+        ("rights_request", request_id),
         {
             "request_id": request_id,
             "request_type": rtype.value,
@@ -840,7 +974,14 @@ async def open_request(
 
 
 async def verify_request(
-    conn: AsyncConnection, tenant_id: str, request_id: str, *, verified: bool, level: int, method: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    request_id: str,
+    *,
+    verified: bool,
+    level: int,
+    method: str,
+    actor: str,
 ) -> Row[Any]:
     """Proportional verification outcome (§14); verification evidence has its own short retention."""
     r = await _load(conn, request_id)
@@ -854,9 +995,13 @@ async def verify_request(
         status=RightsStatus.SCOPING.value if verified else RightsStatus.VERIFYING.value,
     )
     await _event(
-        conn, tenant_id, "privacy.rights.verified", ("rights_request", request_id),
+        conn,
+        tenant_id,
+        "privacy.rights.verified",
+        ("rights_request", request_id),
         {"request_id": request_id, "verified": verified, "level": level, "method": method},
-        actor=actor, version=int(out.version),
+        actor=actor,
+        version=int(out.version),
     )
     return out
 
@@ -872,7 +1017,9 @@ def _item(name: str, state: str, **extra: Any) -> dict[str, Any]:
     return {"item_id": name, "state": state, **extra}
 
 
-async def _access_package(conn: AsyncConnection, tenant_id: str, r: Row[Any]) -> tuple[str, list[dict[str, Any]]]:
+async def _access_package(
+    conn: AsyncConnection, tenant_id: str, r: Row[Any]
+) -> tuple[str, list[dict[str, Any]]]:
     """Access/portability package from authoritative sources (§15, §19): structured JSON with a
     manifest of per-section hashes; stored encrypted under the subject's key, short-lived."""
     subject = str(r.subject_principal_id)
@@ -903,7 +1050,11 @@ async def _access_package(conn: AsyncConnection, tenant_id: str, r: Row[Any]) ->
             for c in await store.consents_of(conn, subject)
         ],
         "preferences": [
-            {"preference_type": p.preference_type, "value": p.value, "updated_at": p.updated_at.isoformat()}
+            {
+                "preference_type": p.preference_type,
+                "value": p.value,
+                "updated_at": p.updated_at.isoformat(),
+            }
             for p in await store.preferences_of(conn, subject)
         ],
         "restrictions": [
@@ -930,40 +1081,64 @@ async def _access_package(conn: AsyncConnection, tenant_id: str, r: Row[Any]) ->
         if exporter is None:
             items.append(_item(f"export:{e.store}:{e.object_ref}", "FAILED", reason="NO_EXPORTER"))
             continue
-        sections["records"].setdefault(e.store, []).append(json.loads(json.dumps(await exporter(conn, e), default=str)))
+        sections["records"].setdefault(e.store, []).append(
+            json.loads(json.dumps(await exporter(conn, e), default=str))
+        )
         items.append(_item(f"export:{e.store}:{e.object_ref}", "DONE"))
     manifest = {
         "format": "zid-privacy-export/1",
         "request_id": str(r.request_id),
         "request_type": r.request_type,
         "generated_at": _now().isoformat(),
-        "sections": {k: str(hash_bytes(canonicalize(v), alg="sha-256")) for k, v in sections.items()},
+        "sections": {
+            k: str(hash_bytes(canonicalize(v), alg="sha-256")) for k, v in sections.items()
+        },
     }
     package = canonicalize({"manifest": manifest, **sections})
     object_id, _ = await store_object(
-        conn, tenant_id, content=package, object_type="privacy_export_package", classification="D3",
-        retention_class="privacy_export", subject_principal_id=subject, expires_at=_now() + EXPORT_TTL,
+        conn,
+        tenant_id,
+        content=package,
+        object_type="privacy_export_package",
+        classification="D3",
+        retention_class="privacy_export",
+        subject_principal_id=subject,
+        expires_at=_now() + EXPORT_TTL,
     )
     items.append(_item("package", "DONE", evidence_object_id=object_id))
     return object_id, items
 
 
-async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None) -> list[dict[str, Any]]:
+async def _erase(
+    conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None
+) -> list[dict[str, Any]]:
     """§17: classify every data map entry, dispose what is eligible, keep what a hold or a legal
     obligation requires (restricted, reasoned), instruct processors, then crypto-erase the vault."""
     subject = str(r.subject_principal_id)
     await discover_subject(conn, tenant_id, subject)
     await _event(
-        conn, tenant_id, "privacy.deletion.started", ("rights_request", str(r.request_id)),
-        {"request_id": str(r.request_id)}, actor=actor, version=int(r.version) + 1, evidence_class=EvidenceClass.E3,
+        conn,
+        tenant_id,
+        "privacy.deletion.started",
+        ("rights_request", str(r.request_id)),
+        {"request_id": str(r.request_id)},
+        actor=actor,
+        version=int(r.version) + 1,
+        evidence_class=EvidenceClass.E3,
     )
     items: list[dict[str, Any]] = []
     backup_days: list[int] = []
     for e in await store.subject_entries(conn, subject):
         name = f"{e.store}:{e.object_ref}"
-        policy = await store.active_retention_policy(conn, e.retention_policy_code) if e.retention_policy_code else None
+        policy = (
+            await store.active_retention_policy(conn, e.retention_policy_code)
+            if e.retention_policy_code
+            else None
+        )
         if policy is not None and policy.backup_erasure_window_days is not None:
-            backup_days.append(int(policy.backup_erasure_window_days))  # disposed copies age out too
+            backup_days.append(
+                int(policy.backup_erasure_window_days)
+            )  # disposed copies age out too
         if e.status == "DISPOSED":
             continue
         if await is_held(conn, tenant_id, subject_principal_id=subject, object_type=e.object_type):
@@ -972,7 +1147,14 @@ async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str 
             continue
         if policy is not None and policy.legally_required:
             await store.set_entry_status(conn, e.entry_id, "RESTRICTED")
-            items.append(_item(name, "RETAINED_RESTRICTED", reason="LEGAL_OBLIGATION", policy_code=policy.policy_code))
+            items.append(
+                _item(
+                    name,
+                    "RETAINED_RESTRICTED",
+                    reason="LEGAL_OBLIGATION",
+                    policy_code=policy.policy_code,
+                )
+            )
             continue
         if e.processor_id:
             proc = await registry.processor(conn, e.processor_id)
@@ -982,7 +1164,9 @@ async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str 
                     name,
                     "PENDING_PROCESSOR_ACK",
                     processor_id=e.processor_id,
-                    deletion_due=(_now() + timedelta(days=sla)).isoformat() if sla is not None else None,
+                    deletion_due=(_now() + timedelta(days=sla)).isoformat()
+                    if sla is not None
+                    else None,
                 )
             )
             continue
@@ -995,21 +1179,34 @@ async def _erase(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str 
         await store.set_entry_status(conn, e.entry_id, "DISPOSED", action=action, now=_now())
         items.append(_item(name, "DONE", action=action))
     erasure = await erase_subject(conn, tenant_id, subject, request_ref=str(r.request_id))
-    vault_state = "DONE" if erasure.outcome in ("ERASED", "NOTHING_TO_ERASE") else "RETAINED_RESTRICTED"
-    items.append(_item("evidence-vault", vault_state, outcome=erasure.outcome, tombstone_id=erasure.tombstone_id))
+    vault_state = (
+        "DONE" if erasure.outcome in ("ERASED", "NOTHING_TO_ERASE") else "RETAINED_RESTRICTED"
+    )
+    items.append(
+        _item(
+            "evidence-vault",
+            vault_state,
+            outcome=erasure.outcome,
+            tombstone_id=erasure.tombstone_id,
+        )
+    )
     window = max(backup_days) if backup_days else None
     items.append(
         _item(
             "backups",
             "SCHEDULED",
-            backup_erasure_due=(_now() + timedelta(days=window)).isoformat() if window is not None else None,
+            backup_erasure_due=(_now() + timedelta(days=window)).isoformat()
+            if window is not None
+            else None,
             window_source="retention_policy" if window is not None else "DPO_PENDING",
         )
     )
     return items
 
 
-async def fulfil_request(conn: AsyncConnection, tenant_id: str, request_id: str, *, actor: str | None) -> Row[Any]:
+async def fulfil_request(
+    conn: AsyncConnection, tenant_id: str, request_id: str, *, actor: str | None
+) -> Row[Any]:
     r = await _load(conn, request_id)
     if r.status in TERMINAL_RIGHTS:
         raise PrivacyError("PRIVACY_INVALID_STATE", f"request is {r.status}")
@@ -1025,19 +1222,31 @@ async def fulfil_request(conn: AsyncConnection, tenant_id: str, request_id: str,
         items = await _erase(conn, tenant_id, r, actor)
     elif rtype in (RightsType.RESTRICTION, RightsType.OBJECTION):
         rid = await restrict(
-            conn, tenant_id, subject, kind=rtype.value, purpose_code=(r.scope or {}).get("purpose_code"),
-            reason_code=f"RIGHTS_{rtype.value}", rights_request_id=request_id, actor=actor,
+            conn,
+            tenant_id,
+            subject,
+            kind=rtype.value,
+            purpose_code=(r.scope or {}).get("purpose_code"),
+            reason_code=f"RIGHTS_{rtype.value}",
+            rights_request_id=request_id,
+            actor=actor,
         )
         items = [_item("restriction", "DONE", restriction_id=rid)]
     elif rtype in PREFERENCE_FOR:
-        await set_preference(conn, tenant_id, subject, PREFERENCE_FOR[rtype], True, source="RIGHTS_REQUEST")
+        await set_preference(
+            conn, tenant_id, subject, PREFERENCE_FOR[rtype], True, source="RIGHTS_REQUEST"
+        )
         items = [_item("preference", "DONE", preference_type=PREFERENCE_FOR[rtype])]
     elif rtype in (RightsType.HUMAN_REVIEW, RightsType.ADMT_ACCESS):
         items = await _automated_decision_items(conn, tenant_id, r, rtype)
-        return await store.update_request(conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items)
+        return await store.update_request(
+            conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items
+        )
     else:  # RECTIFICATION, COMPLAINT: privacy operations decide
         items = [_item("review", "PENDING", route="privacy-ops")]
-        return await store.update_request(conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items)
+        return await store.update_request(
+            conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items
+        )
     status = summarize(items)
     out = await store.update_request(
         conn,
@@ -1066,7 +1275,8 @@ async def _automated_decision_items(
     profile = await registry.adm_profile(conn, receipt["action"])
     if profile is None or profile.significance_class == "NONE":
         raise PrivacyError(
-            "PRIVACY_ADM_PROFILE_MISSING", "this decision class is not a registered significant automated decision"
+            "PRIVACY_ADM_PROFILE_MISSING",
+            "this decision class is not a registered significant automated decision",
         )
     common = {
         "receipt_id": receipt["receipt_id"],
@@ -1077,30 +1287,53 @@ async def _automated_decision_items(
         "solely_automated": profile.solely_automated,
     }
     if rtype is RightsType.ADMT_ACCESS:
-        return [_item("explanation", "PENDING", explanation_profile=profile.explanation_profile, **common)]
+        return [
+            _item(
+                "explanation", "PENDING", explanation_profile=profile.explanation_profile, **common
+            )
+        ]
     return [_item("human-review", "PENDING", route=profile.human_review_route, **common)]
 
 
-async def _after_fulfil(conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None) -> None:
+async def _after_fulfil(
+    conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None
+) -> None:
     rtype = RightsType(r.request_type)
     status = RightsStatus(r.status)
     if rtype is RightsType.ERASURE and status in TERMINAL_RIGHTS:
         await _event(
-            conn, tenant_id, "privacy.deletion.completed", ("rights_request", str(r.request_id)),
-            {"request_id": str(r.request_id), "status": status.value}, actor=actor,
-            version=int(r.version) + 1, evidence_class=EvidenceClass.E3,
+            conn,
+            tenant_id,
+            "privacy.deletion.completed",
+            ("rights_request", str(r.request_id)),
+            {"request_id": str(r.request_id), "status": status.value},
+            actor=actor,
+            version=int(r.version) + 1,
+            evidence_class=EvidenceClass.E3,
         )
     if status in TERMINAL_RIGHTS:
         await _event(
-            conn, tenant_id, "privacy.rights.completed", ("rights_request", str(r.request_id)),
+            conn,
+            tenant_id,
+            "privacy.rights.completed",
+            ("rights_request", str(r.request_id)),
             {"request_id": str(r.request_id), "request_type": rtype.value, "status": status.value},
-            actor=actor, version=int(r.version) + 2,
-            evidence_class=EvidenceClass.E3 if rtype in (RightsType.ERASURE, RightsType.ACCESS, RightsType.PORTABILITY) else EvidenceClass.E2,
+            actor=actor,
+            version=int(r.version) + 2,
+            evidence_class=EvidenceClass.E3
+            if rtype in (RightsType.ERASURE, RightsType.ACCESS, RightsType.PORTABILITY)
+            else EvidenceClass.E2,
         )
 
 
 async def acknowledge_item(
-    conn: AsyncConnection, tenant_id: str, request_id: str, item_id: str, *, ack_ref: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    request_id: str,
+    item_id: str,
+    *,
+    ack_ref: str,
+    actor: str,
 ) -> Row[Any]:
     """A processor/recipient confirmed deletion (PRIV-12, PRIV-20): only an explicit acknowledgement
     moves its stage on."""
@@ -1109,15 +1342,25 @@ async def acknowledge_item(
     target = next((i for i in items if i["item_id"] == item_id), None)
     if target is None or target["state"] != "PENDING_PROCESSOR_ACK":
         raise PrivacyError("PRIVACY_INVALID_STATE", "no pending processor stage with that id")
-    target.update(state="DONE", ack_ref_commitment=commitment(ack_ref, tenant_id=tenant_id, kind="processor-ack"))
+    target.update(
+        state="DONE",
+        ack_ref_commitment=commitment(ack_ref, tenant_id=tenant_id, kind="processor-ack"),
+    )
     status = summarize(items)
     out = await store.update_request(
-        conn, r, fulfilment_items=items, status=status.value,
+        conn,
+        r,
+        fulfilment_items=items,
+        status=status.value,
         completed_at=_now() if status in TERMINAL_RIGHTS else None,
     )
     await _event(
-        conn, tenant_id, "privacy.processor.deletion.confirmed", ("rights_request_item", f"{request_id}:{item_id}"),
-        {"request_id": request_id, "item_id": item_id}, actor=actor,
+        conn,
+        tenant_id,
+        "privacy.processor.deletion.confirmed",
+        ("rights_request_item", f"{request_id}:{item_id}"),
+        {"request_id": request_id, "item_id": item_id},
+        actor=actor,
     )
     await _after_fulfil(conn, tenant_id, out, actor)
     return out
@@ -1139,20 +1382,33 @@ async def close_request(
     r = await _load(conn, request_id)
     if r.status in TERMINAL_RIGHTS:
         raise PrivacyError("PRIVACY_INVALID_STATE", f"request is {r.status}")
-    items = [dict(i, state="DONE" if i["state"] == "PENDING" else i["state"]) for i in r.fulfilment_items]
+    items = [
+        dict(i, state="DONE" if i["state"] == "PENDING" else i["state"]) for i in r.fulfilment_items
+    ]
     out = await store.update_request(
-        conn, r, status=outcome, fulfilment_items=items,
-        exemptions=[{**dict(e), "reason_code": e.get("reason_code", reason_code)} for e in exemptions],
+        conn,
+        r,
+        status=outcome,
+        fulfilment_items=items,
+        exemptions=[
+            {**dict(e), "reason_code": e.get("reason_code", reason_code)} for e in exemptions
+        ],
         completed_at=_now(),
     )
     await _after_fulfil(conn, tenant_id, out, actor)
     return out
 
 
-async def read_package(conn: AsyncConnection, tenant_id: str, request_id: str, *, subject_principal_id: str) -> bytes:
+async def read_package(
+    conn: AsyncConnection, tenant_id: str, request_id: str, *, subject_principal_id: str
+) -> bytes:
     """Only the subject downloads their package, while it exists (short-lived, encrypted)."""
     r = await store.load_request(conn, request_id)
-    if r is None or str(r.subject_principal_id) != subject_principal_id or r.response_package_ref is None:
+    if (
+        r is None
+        or str(r.subject_principal_id) != subject_principal_id
+        or r.response_package_ref is None
+    ):
         raise PrivacyError("NOT_FOUND", "no package for this request")
     return await read_object(conn, tenant_id, str(r.response_package_ref))
 
@@ -1176,15 +1432,16 @@ async def privacy_pass(conn: AsyncConnection, *, now: datetime | None = None) ->
 
 
 __all__ = [
+    "acknowledge_item",
     "activate_activity",
     "activate_purpose",
-    "acknowledge_item",
     "assign_role",
     "check_processing",
     "close_request",
     "create_activity",
     "create_purpose",
     "create_retention_policy",
+    "discover_subject",
     "fulfil_request",
     "give_consent",
     "lift_restriction",
@@ -1193,7 +1450,6 @@ __all__ = [
     "privacy_pass",
     "read_package",
     "register_personal_data",
-    "discover_subject",
     "register_store",
     "registered_stores",
     "release_check",

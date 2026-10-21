@@ -69,7 +69,9 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
     alice, bob, carol, dave = uid(), uid(), uid(), uid()  # operators
     cust_admin, cust_user = uid(), uid()
     ring = KeyRing(LocalSigner("issuer-op"))
-    OPERATOR_CLIENT, WEB, CUST_WEB = (f"{n}-{uid()[:8]}" for n in ("zoiko-operator", "web-op", "web-cust"))
+    OPERATOR_CLIENT, WEB, CUST_WEB = (
+        f"{n}-{uid()[:8]}" for n in ("zoiko-operator", "web-op", "web-cust")
+    )
     web_client = {op_tenant: WEB, customer: CUST_WEB}
     sessions: dict[str, tuple[str, str, int]] = {}  # principal -> (tenant, session, level)
 
@@ -79,8 +81,17 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
         await create_session(
             c,
             Session(
-                sid, tenant, p, now - timedelta(seconds=5), "native:webauthn", level,
-                principal.security_revision, 1, SessionStatus.ACTIVE, now + timedelta(hours=1), now,
+                sid,
+                tenant,
+                p,
+                now - timedelta(seconds=5),
+                "native:webauthn",
+                level,
+                principal.security_revision,
+                1,
+                SessionStatus.ACTIVE,
+                now + timedelta(hours=1),
+                now,
             ),
         )
         sessions[p] = (tenant, sid, level)
@@ -93,7 +104,10 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
                 await create_client(c, client(WEB, op_tenant))
                 for p in (alice, bob, carol, dave):
                     await create_principal(
-                        c, Principal(p, op_tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+                        c,
+                        Principal(
+                            p, op_tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"
+                        ),
                     )
                     await session_for(c, op_tenant, p, 2)
                 roles = {
@@ -104,19 +118,26 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
                 }
                 for p, r in roles.items():
                     await service.register_operator(
-                        c, tenant_id=op_tenant, principal_id=p, jurisdiction="GB",
-                        roles=frozenset(r), now=now,
+                        c,
+                        tenant_id=op_tenant,
+                        principal_id=p,
+                        jurisdiction="GB",
+                        roles=frozenset(r),
+                        now=now,
                     )
             async with tenant_transaction(eng, ctx(customer)) as c:
                 await create_client(c, client(CUST_WEB, customer))
                 for p in (cust_admin, cust_user):
                     await create_principal(
-                        c, Principal(p, customer, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+                        c,
+                        Principal(p, customer, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"),
                     )
                 await session_for(c, customer, cust_admin, 2)
                 await session_for(c, customer, cust_user, 2)
                 await make_admin(
-                    c, customer, cust_admin,
+                    c,
+                    customer,
+                    cust_admin,
                     ["operator.lockbox.approve", "operator.access_policy.manage"],
                     ["lockbox_request:*", "operator_access_policy"],
                 )
@@ -124,8 +145,13 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
     asyncio.run(seed())
     app = create_app(
         Settings(
-            database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD,
-            environment="test", cell_id="uk-1", operator_tenant_id=op_tenant,
+            database_url=rt_url,
+            token_issuer=ISS,
+            token_audience=AUD,
+            public_base_url=AUD,
+            environment="test",
+            cell_id="uk-1",
+            operator_tenant_id=op_tenant,
             operator_client_ids=(OPERATOR_CLIENT,),
         ),
         keyring=ring,
@@ -136,8 +162,15 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
         cid = cid or OPERATOR_CLIENT
         now = datetime.now(UTC)
         tok = issue_access_token(
-            ring, issuer=ISS, audience=AUD, subject=p, tenant_id=tenant, client_id=cid, now=now,
-            session_id=sid, auth_time=now - timedelta(seconds=5),
+            ring,
+            issuer=ISS,
+            audience=AUD,
+            subject=p,
+            tenant_id=tenant,
+            client_id=cid,
+            now=now,
+            session_id=sid,
+            auth_time=now - timedelta(seconds=5),
         )
         return {"Authorization": f"Bearer {tok}"}
 
@@ -156,8 +189,12 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
     async def capability(op: str, cap: str, resource: str) -> Any:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(op_tenant)) as c:
             return await check_capability(
-                c, operator_principal_id=op, capability_name=cap, tenant_id=customer,
-                resource=resource, now=datetime.now(UTC),
+                c,
+                operator_principal_id=op,
+                capability_name=cap,
+                tenant_id=customer,
+                resource=resource,
+                now=datetime.now(UTC),
             )
 
     with TestClient(app) as api:
@@ -167,12 +204,17 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
         r = api.get("/operator/capabilities", headers=web(cust_user))
         assert r.status_code == 403
         assert api.get("/operator/capabilities", headers=bearer(alice)).status_code == 200
-        r = api.post("/operator/access-requests", json={**access, "cell_id": "eu-1"}, headers=bearer(alice))
+        r = api.post(
+            "/operator/access-requests", json={**access, "cell_id": "eu-1"}, headers=bearer(alice)
+        )
         assert r.status_code == 422  # cell/environment are never caller input (INV-13)
 
         # --- the customer requires its lockbox for operator data access -------------------------
-        r = api.put("/v1/operator-access-policy", json={"lockbox_required": True,
-                    "allowed_operator_jurisdictions": ["GB"]}, headers=web(cust_admin))
+        r = api.put(
+            "/v1/operator-access-policy",
+            json={"lockbox_required": True, "allowed_operator_jurisdictions": ["GB"]},
+            headers=web(cust_admin),
+        )
         assert r.status_code == 200, r.text
 
         r = api.post("/operator/access-requests", json=access, headers=bearer(alice))
@@ -191,16 +233,24 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
         lockboxes = api.get("/v1/lockbox-requests", headers=web(cust_admin)).json()["items"]
         assert len(lockboxes) == 1 and lockboxes[0]["jit_grant_id"] == gid
         lb = lockboxes[0]["lockbox_request_id"]
-        r = api.post(f"/v1/lockbox-requests/{lb}:approve", json={"reason": "ok"}, headers=web(cust_admin))
+        r = api.post(
+            f"/v1/lockbox-requests/{lb}:approve", json={"reason": "ok"}, headers=web(cust_admin)
+        )
         assert r.status_code == 200 and r.json()["state"] == "APPROVED", r.text
         r = api.post(f"/operator/access-requests/{gid}:activate", headers=bearer(alice))
         assert r.status_code == 200 and r.json()["state"] == "ACTIVE", r.text
         assert asyncio.run(capability(alice, "tenant.data.read", "principal:1")).allowed
         assert not asyncio.run(capability(alice, "tenant.data.read", "mandate:1")).allowed  # scope
-        assert not asyncio.run(capability(bob, "tenant.data.read", "principal:1")).allowed  # not his
+        assert not asyncio.run(
+            capability(bob, "tenant.data.read", "principal:1")
+        ).allowed  # not his
 
         # the customer withdraws: access stops at once (EVID-17)
-        r = api.post(f"/v1/lockbox-requests/{lb}:deny", json={"reason": "case closed"}, headers=web(cust_admin))
+        r = api.post(
+            f"/v1/lockbox-requests/{lb}:deny",
+            json={"reason": "case closed"},
+            headers=web(cust_admin),
+        )
         assert r.status_code == 200 and r.json()["state"] == "REVOKED"
         check = asyncio.run(capability(alice, "tenant.data.read", "principal:1"))
         assert not check.allowed and check.reason == "LOCKBOX_APPROVAL_WITHDRAWN"
@@ -213,27 +263,47 @@ def test_operator_jit_lockbox_break_glass_and_evidence(rt_url: str, owner_url: s
         assert r.json()["state"] == "REQUESTED" and r.json()["approvals_received"] == 1
         r = api.post(f"/operator/access-requests/{g2['jit_grant_id']}:approve", headers=bearer(bob))
         assert r.status_code == 403  # the same approver never counts twice
-        r = api.post(f"/operator/access-requests/{g2['jit_grant_id']}:approve", headers=bearer(carol))
+        r = api.post(
+            f"/operator/access-requests/{g2['jit_grant_id']}:approve", headers=bearer(carol)
+        )
         assert r.json()["state"] == "APPROVED"
 
         # --- break-glass: immediate, alerted, independently reviewed -----------------------------
-        bg = {**access, "capability": "security.policy", "target_tenant_id": None,
-              "resource_scope": "policy:*", "reason": "active credential-stuffing attack on login"}
+        bg = {
+            **access,
+            "capability": "security.policy",
+            "target_tenant_id": None,
+            "resource_scope": "policy:*",
+            "reason": "active credential-stuffing attack on login",
+        }
         r = api.post("/operator/break-glass", json=bg, headers=bearer(dave))
         assert r.status_code == 201, r.text
         b = r.json()
         assert b["state"] == "ACTIVE" and b["break_glass"] and b["evidence_class"] == "E3"
         assert b["duration_minutes"] <= 60
-        r = api.post(f"/operator/reviews/{b['review_id']}:complete",
-                     json={"outcome": "JUSTIFIED", "notes": "attack confirmed"}, headers=bearer(dave))
+        r = api.post(
+            f"/operator/reviews/{b['review_id']}:complete",
+            json={"outcome": "JUSTIFIED", "notes": "attack confirmed"},
+            headers=bearer(dave),
+        )
         assert r.status_code == 403  # the requester never reviews their own break-glass
-        r = api.post(f"/operator/reviews/{b['review_id']}:complete",
-                     json={"outcome": "JUSTIFIED", "notes": "attack confirmed"}, headers=bearer(carol))
+        r = api.post(
+            f"/operator/reviews/{b['review_id']}:complete",
+            json={"outcome": "JUSTIFIED", "notes": "attack confirmed"},
+            headers=bearer(carol),
+        )
         assert r.status_code == 200 and r.json()["state"] != "REVIEW_PENDING", r.text
         # separation of duties: holding security.policy, dave cannot also take key.admin
-        r = api.post("/operator/access-requests", json={**bg, "capability": "key.admin",
-                     "resource_scope": "key:*", "reason": "rotate the evidence key now"},
-                     headers=bearer(dave))
+        r = api.post(
+            "/operator/access-requests",
+            json={
+                **bg,
+                "capability": "key.admin",
+                "resource_scope": "key:*",
+                "reason": "rotate the evidence key now",
+            },
+            headers=bearer(dave),
+        )
         assert r.status_code == 403 and r.json()["error"]["code"] == "OPERATOR_SOD_CONFLICT", r.text
 
     # --- auto-expiry -----------------------------------------------------------------------------

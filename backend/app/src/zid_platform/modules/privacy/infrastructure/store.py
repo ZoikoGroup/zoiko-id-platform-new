@@ -35,10 +35,14 @@ def _purpose(r: Row[Any]) -> Purpose:
     )
 
 
-async def next_version(conn: AsyncConnection, table: str, code_col: str, code: str, ver_col: str) -> int:
+async def next_version(
+    conn: AsyncConnection, table: str, code_col: str, code: str, ver_col: str
+) -> int:
     v = (
         await conn.execute(
-            text(f"SELECT coalesce(max({ver_col}), 0) + 1 FROM privacy.{table} WHERE {code_col} = :c"),
+            text(
+                f"SELECT coalesce(max({ver_col}), 0) + 1 FROM privacy.{table} WHERE {code_col} = :c"
+            ),
             {"c": code},
         )
     ).scalar_one()
@@ -69,7 +73,9 @@ async def insert_purpose(conn: AsyncConnection, v: Mapping[str, Any]) -> None:
     )
 
 
-async def activate_purpose(conn: AsyncConnection, purpose_id: str, approver: str, now: datetime) -> Row[Any] | None:
+async def activate_purpose(
+    conn: AsyncConnection, purpose_id: str, approver: str, now: datetime
+) -> Row[Any] | None:
     """DRAFT -> ACTIVE (the previous ACTIVE version of the code is RETIRED first)."""
     row = (
         await conn.execute(
@@ -80,7 +86,9 @@ async def activate_purpose(conn: AsyncConnection, purpose_id: str, approver: str
     if row is None or row.status != "DRAFT":
         return row
     await conn.execute(
-        text("UPDATE privacy.purpose SET status = 'RETIRED' WHERE purpose_code = :c AND status = 'ACTIVE'"),
+        text(
+            "UPDATE privacy.purpose SET status = 'RETIRED' WHERE purpose_code = :c AND status = 'ACTIVE'"
+        ),
         {"c": row.purpose_code},
     )
     return (
@@ -172,7 +180,9 @@ async def insert_activity(conn: AsyncConnection, v: Mapping[str, Any]) -> None:
     )
 
 
-async def load_activity(conn: AsyncConnection, activity_id: str, *, lock: bool = False) -> Row[Any] | None:
+async def load_activity(
+    conn: AsyncConnection, activity_id: str, *, lock: bool = False
+) -> Row[Any] | None:
     return (
         await conn.execute(
             text(
@@ -184,7 +194,9 @@ async def load_activity(conn: AsyncConnection, activity_id: str, *, lock: bool =
     ).first()
 
 
-async def set_activity_status(conn: AsyncConnection, activity_id: str, status: str, now: datetime) -> Row[Any]:
+async def set_activity_status(
+    conn: AsyncConnection, activity_id: str, status: str, now: datetime
+) -> Row[Any]:
     if status == "ACTIVE":
         row = await load_activity(conn, activity_id)
         assert row is not None
@@ -210,7 +222,9 @@ async def set_activity_status(conn: AsyncConnection, activity_id: str, status: s
 async def active_activity(conn: AsyncConnection, code: str) -> Activity | None:
     row = (
         await conn.execute(
-            text("SELECT * FROM privacy.processing_activity WHERE activity_code = :c AND status = 'ACTIVE'"),
+            text(
+                "SELECT * FROM privacy.processing_activity WHERE activity_code = :c AND status = 'ACTIVE'"
+            ),
             {"c": code},
         )
     ).first()
@@ -221,7 +235,9 @@ async def list_activities(conn: AsyncConnection) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
-                text("SELECT * FROM privacy.processing_activity ORDER BY activity_code, version DESC")
+                text(
+                    "SELECT * FROM privacy.processing_activity ORDER BY activity_code, version DESC"
+                )
             )
         ).all()
     )
@@ -346,7 +362,9 @@ async def insert_consent(conn: AsyncConnection, v: Mapping[str, Any]) -> None:
     )
 
 
-async def load_consent(conn: AsyncConnection, consent_id: str, *, lock: bool = False) -> Row[Any] | None:
+async def load_consent(
+    conn: AsyncConnection, consent_id: str, *, lock: bool = False
+) -> Row[Any] | None:
     return (
         await conn.execute(
             text(
@@ -358,7 +376,9 @@ async def load_consent(conn: AsyncConnection, consent_id: str, *, lock: bool = F
     ).first()
 
 
-async def withdraw_consent(conn: AsyncConnection, consent_id: str, reason: str, now: datetime) -> Row[Any]:
+async def withdraw_consent(
+    conn: AsyncConnection, consent_id: str, reason: str, now: datetime
+) -> Row[Any]:
     return (
         await conn.execute(
             text("""
@@ -391,7 +411,9 @@ async def consents_of(conn: AsyncConnection, subject: str) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
-                text("SELECT * FROM privacy.consent_receipt WHERE subject_principal_id = :s ORDER BY granted_at"),
+                text(
+                    "SELECT * FROM privacy.consent_receipt WHERE subject_principal_id = :s ORDER BY granted_at"
+                ),
                 {"s": _u(subject)},
             )
         ).all()
@@ -424,7 +446,9 @@ async def preferences_of(conn: AsyncConnection, subject: str) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
-                text("SELECT * FROM privacy.preference WHERE subject_principal_id = :s ORDER BY preference_type"),
+                text(
+                    "SELECT * FROM privacy.preference WHERE subject_principal_id = :s ORDER BY preference_type"
+                ),
                 {"s": _u(subject)},
             )
         ).all()
@@ -453,7 +477,9 @@ async def add_restriction(conn: AsyncConnection, v: Mapping[str, Any]) -> None:
     )
 
 
-async def lift_restriction(conn: AsyncConnection, restriction_id: str, by: str, now: datetime) -> bool:
+async def lift_restriction(
+    conn: AsyncConnection, restriction_id: str, by: str, now: datetime
+) -> bool:
     result = await conn.execute(
         text("""
             UPDATE privacy.processing_restriction SET active = false, lifted_at = :now, lifted_by = :by
@@ -464,7 +490,9 @@ async def lift_restriction(conn: AsyncConnection, restriction_id: str, by: str, 
     return bool(result.rowcount)
 
 
-async def restrictions_of(conn: AsyncConnection, subject: str, *, active_only: bool = True) -> list[Row[Any]]:
+async def restrictions_of(
+    conn: AsyncConnection, subject: str, *, active_only: bool = True
+) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
@@ -516,7 +544,9 @@ async def insert_request(conn: AsyncConnection, v: Mapping[str, Any]) -> Row[Any
     ).one()
 
 
-async def load_request(conn: AsyncConnection, request_id: str, *, lock: bool = False) -> Row[Any] | None:
+async def load_request(
+    conn: AsyncConnection, request_id: str, *, lock: bool = False
+) -> Row[Any] | None:
     return (
         await conn.execute(
             text(
@@ -589,7 +619,9 @@ async def open_requests(conn: AsyncConnection) -> list[Row[Any]]:
 
 async def insert_retention_policy(conn: AsyncConnection, v: Mapping[str, Any]) -> Row[Any]:
     await conn.execute(
-        text("UPDATE privacy.retention_policy SET status = 'RETIRED' WHERE policy_code = :c AND status = 'ACTIVE'"),
+        text(
+            "UPDATE privacy.retention_policy SET status = 'RETIRED' WHERE policy_code = :c AND status = 'ACTIVE'"
+        ),
         {"c": v["policy_code"]},
     )
     return (
@@ -627,7 +659,9 @@ async def insert_retention_policy(conn: AsyncConnection, v: Mapping[str, Any]) -
 async def active_retention_policy(conn: AsyncConnection, code: str) -> Row[Any] | None:
     return (
         await conn.execute(
-            text("SELECT * FROM privacy.retention_policy WHERE policy_code = :c AND status = 'ACTIVE'"),
+            text(
+                "SELECT * FROM privacy.retention_policy WHERE policy_code = :c AND status = 'ACTIVE'"
+            ),
             {"c": code},
         )
     ).first()
@@ -720,7 +754,12 @@ async def due_entries(conn: AsyncConnection, now: datetime, limit: int) -> list[
 
 
 async def set_entry_status(
-    conn: AsyncConnection, entry_id: Any, status: str, *, action: str | None = None, now: datetime | None = None
+    conn: AsyncConnection,
+    entry_id: Any,
+    status: str,
+    *,
+    action: str | None = None,
+    now: datetime | None = None,
 ) -> None:
     await conn.execute(
         text("""

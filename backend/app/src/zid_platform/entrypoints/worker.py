@@ -50,7 +50,9 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
     return [("evidence", evidence), ("operator_access", operator), ("privacy", privacy)]
 
 
-async def run_pass(engine: AsyncEngine, settings: Settings, now: datetime | None = None) -> dict[str, str]:
+async def run_pass(
+    engine: AsyncEngine, settings: Settings, now: datetime | None = None
+) -> dict[str, str]:
     """One pass over every step; returns step -> "ok" | error code (for logs and tests)."""
     now = now or datetime.now(UTC)
     out: dict[str, str] = {}
@@ -59,7 +61,7 @@ async def run_pass(engine: AsyncEngine, settings: Settings, now: datetime | None
             async with engine.begin() as conn:
                 await step(conn, now)
             out[name] = "ok"
-        except Exception as e:  # noqa: BLE001 - one failing step must not stop the others
+        except Exception as e:
             out[name] = getattr(e, "code", type(e).__name__)
             log.exception("worker step %s failed", name)
     return out
@@ -75,11 +77,10 @@ def database_url(settings: Settings) -> str:
 
 
 async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
+    from zid_platform.main import register_privacy_stores
     from zid_platform.modules.decision.ports import register_evidence_replayer
     from zid_platform.modules.evidence.ports import configure_runtime, runtime_from_settings
     from zid_platform.protected import catalog
-
-    from zid_platform.main import register_privacy_stores
 
     configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())

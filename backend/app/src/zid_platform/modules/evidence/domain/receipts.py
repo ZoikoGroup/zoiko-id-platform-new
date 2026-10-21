@@ -20,7 +20,16 @@ from typing import Any
 from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
 
 DECISION_TYPES = frozenset(
-    {"AUTHORIZATION", "VERIFICATION", "AUTHORITY", "MANDATE", "CREDENTIAL", "RECOVERY", "ADMIN", "OTHER"}
+    {
+        "AUTHORIZATION",
+        "VERIFICATION",
+        "AUTHORITY",
+        "MANDATE",
+        "CREDENTIAL",
+        "RECOVERY",
+        "ADMIN",
+        "OTHER",
+    }
 )
 ACTOR_TYPES = frozenset({"HUMAN", "SERVICE", "AGENT", "OPERATOR", "SYSTEM"})
 AUDIT_OUTCOMES = frozenset({"SUCCESS", "FAILURE", "DENIED", "PARTIAL"})
@@ -28,7 +37,9 @@ ANNOTATION_KINDS = frozenset({"CORRECTION", "SUPERSESSION", "ANNOTATION", "INVAL
 CUSTODY_ACTIONS = frozenset(
     {"COLLECTED", "ACCESSED", "EXPORTED", "TRANSFERRED", "SEALED", "DESTROYED"}
 )
-EXPORT_MODES = frozenset({"CUSTOMER_VERIFY", "AUDITOR", "REGULATOR_LEGAL", "INCIDENT", "INTERNAL_REPLAY"})
+EXPORT_MODES = frozenset(
+    {"CUSTOMER_VERIFY", "AUDITOR", "REGULATOR_LEGAL", "INCIDENT", "INTERNAL_REPLAY"}
+)
 # Handle domains: the same principal gets unrelated handles per domain (DEC-F1 §2).
 ACTOR_DOMAIN = "evidence:actor"
 SUBJECT_DOMAIN = "evidence:subject"
@@ -135,15 +146,21 @@ def check_material(facts: ReceiptFacts) -> None:
     if facts.evidence_class in (EvidenceClass.E2, EvidenceClass.E3):
         if facts.input_commitment is None:
             missing.append("input_commitment")
-        if facts.decision_type == "AUTHORIZATION" and facts.relation_revision is None:
-            if "STATE_UNAVAILABLE" not in facts.reason_codes:
-                missing.append("relation_revision")
-    if facts.evidence_class is EvidenceClass.E3:
-        if facts.decision_type == "AUTHORIZATION" and facts.outcome == "ALLOW":
-            if not facts.policy_release_id:
-                missing.append("policy_release_id")
-            if facts.security_revision is None:
-                missing.append("security_revision")
+        if (
+            facts.decision_type == "AUTHORIZATION"
+            and facts.relation_revision is None
+            and "STATE_UNAVAILABLE" not in facts.reason_codes
+        ):
+            missing.append("relation_revision")
+    if (
+        facts.evidence_class is EvidenceClass.E3
+        and facts.decision_type == "AUTHORIZATION"
+        and facts.outcome == "ALLOW"
+    ):
+        if not facts.policy_release_id:
+            missing.append("policy_release_id")
+        if facts.security_revision is None:
+            missing.append("security_revision")
     if missing:
         raise LedgerError("EVIDENCE_MATERIAL_INPUT_MISSING", ", ".join(missing))
 

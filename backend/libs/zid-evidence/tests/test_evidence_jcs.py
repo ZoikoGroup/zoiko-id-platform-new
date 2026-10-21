@@ -149,8 +149,8 @@ def test_digest_always_carries_its_algorithm() -> None:
     assert len(hash_bytes(b"abc", alg="sha-512").value) == 64
     for bad in (
         d.value.hex(),  # no algorithm id
-        "md5:" + hashlib.md5(b"abc").hexdigest(),  # noqa: S324 - not allowed, by design
-        "sha-1:" + hashlib.sha1(b"abc").hexdigest(),  # noqa: S324
+        "md5:" + hashlib.md5(b"abc").hexdigest(),
+        "sha-1:" + hashlib.sha1(b"abc").hexdigest(),
         "sha-256:" + d.value.hex()[:-2],  # wrong length
         "sha-256:" + d.value.hex().upper(),
         "sha-256:zz",

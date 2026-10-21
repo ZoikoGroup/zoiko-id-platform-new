@@ -88,10 +88,13 @@ async def set_residency(
     check_placement(catalog(), profile, home_cell_id, recovery_cells)
     ops = tuple(sorted({j.strip().upper() for j in operator_juris}))
     if any(len(j) != 2 or not j.isalpha() for j in ops):
-        raise ResidencyError("RESIDENCY_PROFILE_UNSUPPORTED", "operator jurisdictions are ISO 3166-1 alpha-2")
+        raise ResidencyError(
+            "RESIDENCY_PROFILE_UNSUPPORTED", "operator jurisdictions are ISO 3166-1 alpha-2"
+        )
     if PROFILES.index(profile) >= 2 and not ops:
         raise ResidencyError(
-            "SOVEREIGN_OPERATOR_DENIED", "SRP-2/3 tenants must name their permitted operator jurisdictions"
+            "SOVEREIGN_OPERATOR_DENIED",
+            "SRP-2/3 tenants must name their permitted operator jurisdictions",
         )
     pack_transfer_mechanisms(jurisdiction_pack_id)  # the pack must exist
     from zid_platform.modules.tenant.application.routing import forget
@@ -132,8 +135,15 @@ async def set_residency(
         data=data,
     )
     await _audit(
-        conn, tenant_id, event_id, "tenant.residency_profile.changed", actor=actor,
-        target_type="tenant_residency", target_ref=tenant_id, outcome="SUCCESS", reason=None,
+        conn,
+        tenant_id,
+        event_id,
+        "tenant.residency_profile.changed",
+        actor=actor,
+        target_type="tenant_residency",
+        target_ref=tenant_id,
+        outcome="SUCCESS",
+        reason=None,
         details={k: v for k, v in data.items() if k != "evidence_class"},
     )
     return r
@@ -157,10 +167,13 @@ async def add_rule(
     if r is None:
         raise ResidencyError("RESIDENCY_PROFILE_UNSUPPORTED", "assign a residency profile first")
     if created_by == approved_by:
-        raise ResidencyError("RESIDENCY_TRANSFER_DENIED", "a transfer rule needs an independent approver")
+        raise ResidencyError(
+            "RESIDENCY_TRANSFER_DENIED", "a transfer rule needs an independent approver"
+        )
     if mechanism not in pack_transfer_mechanisms(r.jurisdiction_pack_id):
         raise ResidencyError(
-            "RESIDENCY_TRANSFER_DENIED", f"{mechanism} is not a mechanism of {r.jurisdiction_pack_id}"
+            "RESIDENCY_TRANSFER_DENIED",
+            f"{mechanism} is not a mechanism of {r.jurisdiction_pack_id}",
         )
     if r.profile == "SRP-3" and data_class == "DC3":
         raise ResidencyError("RESIDENCY_TRANSFER_DENIED", "SRP-3 DC3 data never leaves its cell")
@@ -200,21 +213,37 @@ async def add_rule(
         data=data,
     )
     await _audit(
-        conn, tenant_id, event_id, "privacy.transfer_policy.changed", actor=created_by,
-        target_type="residency_transfer_rule", target_ref=rule.rule_id, outcome="SUCCESS",
-        reason=None, details={k: v for k, v in data.items() if k != "evidence_class"},
+        conn,
+        tenant_id,
+        event_id,
+        "privacy.transfer_policy.changed",
+        actor=created_by,
+        target_type="residency_transfer_rule",
+        target_ref=rule.rule_id,
+        outcome="SUCCESS",
+        reason=None,
+        details={k: v for k, v in data.items() if k != "evidence_class"},
     )
     return rule
 
 
-async def suspend_rule(conn: AsyncConnection, tenant_id: str, rule_id: str, *, actor: str) -> TransferRule:
+async def suspend_rule(
+    conn: AsyncConnection, tenant_id: str, rule_id: str, *, actor: str
+) -> TransferRule:
     rule = await store.set_rule_status(conn, rule_id, "SUSPENDED")
     if rule is None:
         raise ResidencyError("NOT_FOUND", "unknown or retired transfer rule")
     await _audit(
-        conn, tenant_id, None, "privacy.transfer_policy.changed", actor=actor,
-        target_type="residency_transfer_rule", target_ref=rule_id, outcome="SUCCESS",
-        reason="SUSPENDED", details={"rule_id": rule_id, "status": "SUSPENDED"},
+        conn,
+        tenant_id,
+        None,
+        "privacy.transfer_policy.changed",
+        actor=actor,
+        target_type="residency_transfer_rule",
+        target_ref=rule_id,
+        outcome="SUCCESS",
+        reason="SUSPENDED",
+        details={"rule_id": rule_id, "status": "SUSPENDED"},
     )
     return rule
 
@@ -235,7 +264,8 @@ async def authorize_transfer(
     r = await store.load(conn, tenant_id)
     if r is None:
         decision = TransferDecision(
-            data_class == "DC0", "ALLOWED" if data_class == "DC0" else "RESIDENCY_PROFILE_UNSUPPORTED"
+            data_class == "DC0",
+            "ALLOWED" if data_class == "DC0" else "RESIDENCY_PROFILE_UNSUPPORTED",
         )
     else:
         decision = check_transfer(
@@ -251,10 +281,15 @@ async def authorize_transfer(
     if data_class != "DC0" and destination_cell_id != (r.home_cell_id if r else None):
         transfer_id = str(uuid.uuid4())
         await _audit(
-            conn, tenant_id, None,
+            conn,
+            tenant_id,
+            None,
             "cross_cell_transfer.authorized" if decision.allowed else "cross_cell_transfer.denied",
-            actor=actor, target_type="cross_cell_transfer", target_ref=transfer_id,
-            outcome="SUCCESS" if decision.allowed else "DENIED", reason=decision.code,
+            actor=actor,
+            target_type="cross_cell_transfer",
+            target_ref=transfer_id,
+            outcome="SUCCESS" if decision.allowed else "DENIED",
+            reason=decision.code,
             details={
                 "data_class": data_class,
                 "destination_cell_id": destination_cell_id,
@@ -268,7 +303,12 @@ async def authorize_transfer(
 
 
 async def check_category_transfer(
-    conn: AsyncConnection, tenant_id: str, *, data_category: str, destination_cell_id: str, purpose_code: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    data_category: str,
+    destination_cell_id: str,
+    purpose_code: str,
 ) -> TransferDecision:
     """Privacy-side entry point: a PRIV-001 data category (D0-D4) instead of a data class."""
     return await authorize_transfer(

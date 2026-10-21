@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 COUNSEL = "COUNSEL"
 
@@ -88,7 +89,12 @@ class RightsStatus(StrEnum):
 
 
 TERMINAL_RIGHTS = frozenset(
-    {RightsStatus.COMPLETED, RightsStatus.PARTIALLY_DENIED, RightsStatus.DENIED, RightsStatus.WITHDRAWN}
+    {
+        RightsStatus.COMPLETED,
+        RightsStatus.PARTIALLY_DENIED,
+        RightsStatus.DENIED,
+        RightsStatus.WITHDRAWN,
+    }
 )
 # PRIV-001 §14, §21; PRIV-15: requests that must not be gated behind identity verification.
 NO_VERIFICATION = frozenset(
@@ -153,7 +159,9 @@ class JurisdictionPack:
         """Counsel approved it and filled every field it must (DEC-F3 §3)."""
         return self.approval_ref is not None and self.deadlines is not None
 
-    def deadline(self, request_type: RightsType, received_at: datetime) -> tuple[datetime | None, str]:
+    def deadline(
+        self, request_type: RightsType, received_at: datetime
+    ) -> tuple[datetime | None, str]:
         """(deadline, source). Never guessed: an unset counsel field gives (None, COUNSEL_PENDING)."""
         if self.deadlines is None:
             return None, "COUNSEL_PENDING"
@@ -226,11 +234,17 @@ def check_processing(
         return no("PRIVACY_PURPOSE_NOT_DECLARED")  # a service cannot invent a purpose at runtime
     if purpose is None or purpose.status != "ACTIVE":
         return no("PRIVACY_PURPOSE_NOT_ACTIVE")
-    if data_category not in activity.data_categories or data_category not in purpose.allowed_data_categories:
+    if (
+        data_category not in activity.data_categories
+        or data_category not in purpose.allowed_data_categories
+    ):
         return no("PRIVACY_DATA_CATEGORY_NOT_ALLOWED")
     if recipient_class is not None and (
         recipient_class not in activity.recipient_classes
-        or (purpose.allowed_recipient_classes and recipient_class not in purpose.allowed_recipient_classes)
+        or (
+            purpose.allowed_recipient_classes
+            and recipient_class not in purpose.allowed_recipient_classes
+        )
     ):
         return no("PRIVACY_RECIPIENT_NOT_ALLOWED")
     restricted = set(restricted_purposes)
@@ -283,7 +297,12 @@ def initial_verification(
     is verified by that session; opt-outs never need it; everything else waits for verification."""
     if request_type in NO_VERIFICATION:
         return "NOT_REQUIRED", 0
-    if self_request and authn_level >= 2 and auth_age is not None and auth_age <= timedelta(minutes=15):
+    if (
+        self_request
+        and authn_level >= 2
+        and auth_age is not None
+        and auth_age <= timedelta(minutes=15)
+    ):
         return "VERIFIED", authn_level
     return "PENDING", 0
 

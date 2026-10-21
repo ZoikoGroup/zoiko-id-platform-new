@@ -33,7 +33,9 @@ def ca(name: str) -> tuple[x509.Certificate, ec.EllipticCurvePrivateKey]:
     return cert, key
 
 
-def svid(issuer: tuple[x509.Certificate, ec.EllipticCurvePrivateKey], uris: list[str], *, hours: int = 1) -> bytes:
+def svid(
+    issuer: tuple[x509.Certificate, ec.EllipticCurvePrivateKey], uris: list[str], *, hours: int = 1
+) -> bytes:
     key = ec.generate_private_key(ec.SECP256R1())
     b = (
         x509.CertificateBuilder()
@@ -47,7 +49,8 @@ def svid(issuer: tuple[x509.Certificate, ec.EllipticCurvePrivateKey], uris: list
     )
     if uris:
         b = b.add_extension(
-            x509.SubjectAlternativeName([x509.UniformResourceIdentifier(u) for u in uris]), critical=False
+            x509.SubjectAlternativeName([x509.UniformResourceIdentifier(u) for u in uris]),
+            critical=False,
         )
     return b.sign(issuer[1], hashes.SHA256()).public_bytes(Encoding.DER)
 
@@ -56,8 +59,10 @@ UK = ca("uk-1.prod.id.zoiko")
 EU = ca("eu-1.prod.id.zoiko")
 POLICY = TrustPolicy(
     "uk-1.prod.id.zoiko",
-    bundles={"uk-1.prod.id.zoiko": [UK[0].public_bytes(Encoding.DER)],
-             "eu-1.prod.id.zoiko": [EU[0].public_bytes(Encoding.DER)]},
+    bundles={
+        "uk-1.prod.id.zoiko": [UK[0].public_bytes(Encoding.DER)],
+        "eu-1.prod.id.zoiko": [EU[0].public_bytes(Encoding.DER)],
+    },
     trusted_proxies=frozenset({"127.0.0.1"}),
 )
 WORKLOAD = "spiffe://uk-1.prod.id.zoiko/ns/prod/sa/payments"
@@ -96,8 +101,13 @@ def test_svid_verifies_under_its_own_bundle_only() -> None:
         verify_x509_svid([svid(UK, [])], POLICY)  # never authorize from the CN
     with pytest.raises(SpiffeError, match="SVID_EXPIRED"):
         verify_x509_svid([svid(UK, [WORKLOAD])], POLICY, now=NOW + timedelta(hours=2))
-    federated = TrustPolicy(POLICY.own_domain, POLICY.bundles, federated=frozenset({"eu-1.prod.id.zoiko"}))
-    assert verify_x509_svid([svid(EU, ["spiffe://eu-1.prod.id.zoiko/ns/a"])], federated).trust_domain == "eu-1.prod.id.zoiko"
+    federated = TrustPolicy(
+        POLICY.own_domain, POLICY.bundles, federated=frozenset({"eu-1.prod.id.zoiko"})
+    )
+    assert (
+        verify_x509_svid([svid(EU, ["spiffe://eu-1.prod.id.zoiko/ns/a"])], federated).trust_domain
+        == "eu-1.prod.id.zoiko"
+    )
 
 
 def test_peer_identity_comes_from_the_mesh_never_from_a_caller_header() -> None:
@@ -105,7 +115,9 @@ def test_peer_identity_comes_from_the_mesh_never_from_a_caller_header() -> None:
     pem = x509.load_der_x509_certificate(der).public_bytes(Encoding.PEM).decode()
     direct = {"extensions": {"tls": {"client_cert_chain": [pem]}}, "client": ("10.0.0.9", 1234)}
     assert str(peer_spiffe_id(direct, {}, POLICY)) == WORKLOAD
-    xfcc = {"x-forwarded-client-cert": f'By=spiffe://uk-1.prod.id.zoiko/ns/prod/sa/zid;Cert="{urllib.parse.quote(pem)}"'}
+    xfcc = {
+        "x-forwarded-client-cert": f'By=spiffe://uk-1.prod.id.zoiko/ns/prod/sa/zid;Cert="{urllib.parse.quote(pem)}"'
+    }
     assert str(peer_spiffe_id({"client": ("127.0.0.1", 1)}, xfcc, POLICY)) == WORKLOAD
     with pytest.raises(SpiffeError, match="SVID_MISSING"):  # not from the local mesh proxy
         peer_spiffe_id({"client": ("10.0.0.9", 1)}, xfcc, POLICY)

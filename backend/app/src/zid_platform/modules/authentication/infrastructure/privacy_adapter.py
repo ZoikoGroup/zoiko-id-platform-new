@@ -22,7 +22,9 @@ STORE = "authn.authenticator"
 async def _locate(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text("SELECT authenticator_id, authenticator_type, registered_at FROM authn.authenticator WHERE principal_id = :p"),
+            text(
+                "SELECT authenticator_id, authenticator_type, registered_at FROM authn.authenticator WHERE principal_id = :p"
+            ),
             {"p": uuid.UUID(subject)},
         )
     ).all()

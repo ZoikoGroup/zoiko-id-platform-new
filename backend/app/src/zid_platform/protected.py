@@ -180,6 +180,8 @@ async def approved_by_second_admin(
     approver = next((p for p in outcome.counted if p != caller.ctx.principal_id), None)
     if approver is None:
         raise ZidError(
-            "APPROVAL_REQUIRED", "An independent second administrator must approve.", http_status=403
+            "APPROVAL_REQUIRED",
+            "An independent second administrator must approve.",
+            http_status=403,
         )
     return approver

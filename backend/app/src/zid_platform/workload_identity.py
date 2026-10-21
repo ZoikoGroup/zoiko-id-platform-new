@@ -39,22 +39,30 @@ def trust_policy_from_settings(settings: Settings) -> TrustPolicy:
 async def workload_peer(request: Request) -> SpiffeId:
     policy: TrustPolicy | None = getattr(request.app.state, "trust_policy", None)
     if policy is None:
-        raise ZidError("WORKLOAD_IDENTITY_UNAVAILABLE", "Workload identity is not configured.", http_status=503)
+        raise ZidError(
+            "WORKLOAD_IDENTITY_UNAVAILABLE", "Workload identity is not configured.", http_status=503
+        )
     try:
         return peer_spiffe_id(request.scope, request.headers, policy)
     except SpiffeError as e:
-        raise ZidError(e.code, "A mesh-verified workload identity is required.", http_status=401) from e
+        raise ZidError(
+            e.code, "A mesh-verified workload identity is required.", http_status=401
+        ) from e
 
 
 async def workload_peer_svid(request: Request) -> tuple[SpiffeId, bytes]:
     """The verified peer and its leaf certificate (to bind issued tokens to it, RFC 8705)."""
     policy: TrustPolicy | None = getattr(request.app.state, "trust_policy", None)
     if policy is None:
-        raise ZidError("WORKLOAD_IDENTITY_UNAVAILABLE", "Workload identity is not configured.", http_status=503)
+        raise ZidError(
+            "WORKLOAD_IDENTITY_UNAVAILABLE", "Workload identity is not configured.", http_status=503
+        )
     try:
         return peer_svid(request.scope, request.headers, policy)
     except SpiffeError as e:
-        raise ZidError(e.code, "A mesh-verified workload identity is required.", http_status=401) from e
+        raise ZidError(
+            e.code, "A mesh-verified workload identity is required.", http_status=401
+        ) from e
 
 
 def peer_thumbprint(request: Request) -> str | None:

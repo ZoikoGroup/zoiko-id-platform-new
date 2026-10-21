@@ -26,7 +26,9 @@ async def bindings(conn: AsyncConnection, *, status: str | None = None) -> list[
 async def active_binding(conn: AsyncConnection, workload_identity_id: str) -> Row[Any] | None:
     return (
         await conn.execute(
-            text("SELECT * FROM agent.workload_binding WHERE workload_identity_id = :w AND status = 'ACTIVE'"),
+            text(
+                "SELECT * FROM agent.workload_binding WHERE workload_identity_id = :w AND status = 'ACTIVE'"
+            ),
             {"w": workload_identity_id},
         )
     ).first()
@@ -44,14 +46,18 @@ async def quarantine(
 ) -> int | None:
     """Quarantine an environment; returns the new security revision (None: already quarantined)."""
     revision = (
-        await conn.execute(
-            text("""
+        (
+            await conn.execute(
+                text("""
                 UPDATE agent.workload_binding SET security_revision = security_revision + 1
                 WHERE environment_id = :e RETURNING security_revision
             """),
-            {"e": environment_id},
+                {"e": environment_id},
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     rev = max(revision, default=0) + 1
     result = await conn.execute(
         text("""

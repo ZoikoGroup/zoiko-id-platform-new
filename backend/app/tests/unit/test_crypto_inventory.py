@@ -35,7 +35,9 @@ def test_every_key_purpose_and_signing_ring_is_inventoried() -> None:
     missing = {p.value for p in KeyPurpose} - purposes
     assert not missing, f"key purposes missing from {INVENTORY.name}: {sorted(missing)}"
     rings = {e["keyring"] for e in inv}
-    assert not set(keys.PURPOSES) - rings, f"signing key rings missing: {set(keys.PURPOSES) - rings}"
+    assert not set(keys.PURPOSES) - rings, (
+        f"signing key rings missing: {set(keys.PURPOSES) - rings}"
+    )
 
 
 def test_inventory_algorithms_are_in_the_registry() -> None:

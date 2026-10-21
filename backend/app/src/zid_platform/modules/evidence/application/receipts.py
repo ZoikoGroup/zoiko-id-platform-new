@@ -30,8 +30,8 @@ from zid_evidence import Digest, canonicalize, hash_json
 from zid_outbox import CloudEvent, emit
 
 from zid_platform.modules.evidence.application import ledger
-from zid_platform.modules.evidence.application.runtime import EvidenceRuntime, current_runtime
 from zid_platform.modules.evidence.application.checkpointer import tenant_scope
+from zid_platform.modules.evidence.application.runtime import EvidenceRuntime, current_runtime
 from zid_platform.modules.evidence.application.vault import actor_handle, make_handle, store_object
 from zid_platform.modules.evidence.domain.ledger import (
     PLATFORM_TENANT_ID,
@@ -202,7 +202,9 @@ async def record_audit(
     )
     if facts.actor_principal_id and tenant_id is None:
         # platform partition: operators are pseudonymized under the platform scope
-        actor = await make_handle(rt, PLATFORM_TENANT_ID, "evidence:operator", facts.actor_principal_id)
+        actor = await make_handle(
+            rt, PLATFORM_TENANT_ID, "evidence:operator", facts.actor_principal_id
+        )
     body = audit_body(facts, audit_id=audit_id, tenant_id=tenant_id, actor_handle=actor)
     values = {
         "audit_id": audit_id,
@@ -301,7 +303,11 @@ async def annotate_receipt(
             aggregate_type="receipt_annotation",
             aggregate_id=annotation_id,
             aggregate_version=1,
-            data={"receipt_id": receipt_id, "annotation_id": annotation_id, "reason_code": reason_code},
+            data={
+                "receipt_id": receipt_id,
+                "annotation_id": annotation_id,
+                "reason_code": reason_code,
+            },
         )
     return annotation_id
 
@@ -473,7 +479,9 @@ async def receipt_summary(conn: AsyncConnection, receipt_id: str) -> dict[str, A
     }
 
 
-async def principal_handle(tenant_id: str, principal_id: str, rt: EvidenceRuntime | None = None) -> str:
+async def principal_handle(
+    tenant_id: str, principal_id: str, rt: EvidenceRuntime | None = None
+) -> str:
     """The receipt actor handle of a principal (deterministic; no resolver row is written)."""
     from zid_platform.modules.evidence.application.vault import make_handle
     from zid_platform.modules.evidence.domain.receipts import ACTOR_DOMAIN

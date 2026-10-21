@@ -95,7 +95,9 @@ async def insert_subject_key(
     return row
 
 
-async def active_subject_keys(conn: AsyncConnection, limit: int, tenant_id: str | None = None) -> list[Row[Any]]:
+async def active_subject_keys(
+    conn: AsyncConnection, limit: int, tenant_id: str | None = None
+) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
@@ -111,7 +113,12 @@ async def active_subject_keys(conn: AsyncConnection, limit: int, tenant_id: str 
 
 
 async def rewrap_subject_key(
-    conn: AsyncConnection, tenant_id: str, subject_ref: str, wrapped: bytes, kek_id: str, kek_version: int
+    conn: AsyncConnection,
+    tenant_id: str,
+    subject_ref: str,
+    wrapped: bytes,
+    kek_id: str,
+    kek_version: int,
 ) -> None:
     await conn.execute(
         text("""
@@ -214,7 +221,9 @@ async def load_object(conn: AsyncConnection, object_id: str) -> Row[Any] | None:
     ).first()
 
 
-async def subject_objects(conn: AsyncConnection, tenant_id: str, subject_ref: str) -> list[Row[Any]]:
+async def subject_objects(
+    conn: AsyncConnection, tenant_id: str, subject_ref: str
+) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
@@ -287,8 +296,12 @@ class Hold:
     def covers(self, subject_ref: str | None, object_type: str | None) -> bool:
         """Scope is the intersection of the listed subjects and object types (an empty list
         leaves that dimension unrestricted; a hold always names at least one of them)."""
-        subject_ok = not self.subject_refs or (subject_ref is not None and subject_ref in self.subject_refs)
-        type_ok = not self.object_types or (object_type is not None and object_type in self.object_types)
+        subject_ok = not self.subject_refs or (
+            subject_ref is not None and subject_ref in self.subject_refs
+        )
+        type_ok = not self.object_types or (
+            object_type is not None and object_type in self.object_types
+        )
         return subject_ok and type_ok
 
 
@@ -363,7 +376,13 @@ async def release_hold(
                 WHERE legal_hold_id = :id AND version = :v AND status = 'ACTIVE'
                 RETURNING *
             """),
-            {"id": _u(hold.legal_hold_id), "v": hold.version, "now": now, "by": _u(by), "reason": reason},
+            {
+                "id": _u(hold.legal_hold_id),
+                "v": hold.version,
+                "now": now,
+                "by": _u(by),
+                "reason": reason,
+            },
         )
     ).first()
     if row is None:
@@ -371,7 +390,9 @@ async def release_hold(
     return _hold(row)
 
 
-async def holds(conn: AsyncConnection, *, status: str | None = None, limit: int = 200) -> list[Hold]:
+async def holds(
+    conn: AsyncConnection, *, status: str | None = None, limit: int = 200
+) -> list[Hold]:
     rows = (
         await conn.execute(
             text(

@@ -335,7 +335,8 @@ def check_jurisdiction(operator_jurisdiction: str, allowed: tuple[str, ...] | li
     """SRP-2/3 tenants may restrict where operators sit (TENANCY-001 §19). Empty = unrestricted."""
     if allowed and operator_jurisdiction.upper() not in {a.upper() for a in allowed}:
         raise OperatorAccessError(
-            "SOVEREIGN_OPERATOR_DENIED", "The tenant does not permit operators in this jurisdiction."
+            "SOVEREIGN_OPERATOR_DENIED",
+            "The tenant does not permit operators in this jurisdiction.",
         )
 
 

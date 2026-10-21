@@ -205,7 +205,9 @@ def test_openbao_jwt_svid_login_and_relogin() -> None:
             logins.append(json.loads(request.content))
             token = next(tokens)
             valid.add(token)
-            return httpx.Response(200, json={"auth": {"client_token": token, "lease_duration": 600}})
+            return httpx.Response(
+                200, json={"auth": {"client_token": token, "lease_duration": 600}}
+            )
         if request.headers.get("X-Vault-Token") not in valid:
             return httpx.Response(403)
         return httpx.Response(200, json={"data": {"data": {"value": "db-pass"}}})
@@ -268,8 +270,9 @@ def test_kms_signer_produces_verifiable_es256_jws() -> None:
     from zid_crypto.aws_kms import KmsSigner
 
     fake = FakeKmsAsymmetric()
-    signer = KmsSigner(fake, "arn:aws:kms:eu-west-2:111:key/ev", kid="ev-1",
-                       purpose=KeyPurpose.EVIDENCE_SIGNING)
+    signer = KmsSigner(
+        fake, "arn:aws:kms:eu-west-2:111:key/ev", kid="ev-1", purpose=KeyPurpose.EVIDENCE_SIGNING
+    )
     token = sign_jws(signer, {"a": 1}, typ="test+jws")
     jwk = signer.public_jwk()
     assert "d" not in jwk and jwk["kid"] == "ev-1" and jwk["alg"] == "ES256"

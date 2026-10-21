@@ -165,8 +165,4 @@ def verify_consistency(
             sr = node_hash(sr, c, alg=alg)
         fn >>= 1
         sn >>= 1
-    return (
-        sn == 0
-        and hmac.compare_digest(fr, first_root)
-        and hmac.compare_digest(sr, second_root)
-    )
+    return sn == 0 and hmac.compare_digest(fr, first_root) and hmac.compare_digest(sr, second_root)

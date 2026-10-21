@@ -187,13 +187,20 @@ async def list_receipts(
                       AND (CAST(:b AS timestamptz) IS NULL OR created_at < :b)
                     ORDER BY created_at DESC LIMIT :n
                 """),
-                {"a": action, "o": outcome, "e": evidence_class, "h": actor_handle, "b": before, "n": limit},
+                {
+                    "a": action,
+                    "o": outcome,
+                    "e": evidence_class,
+                    "h": actor_handle,
+                    "b": before,
+                    "n": limit,
+                },
             )
         ).all()
     )
 
 
-async def annotations(conn: AsyncConnection, receipt_id: str) -> list[Row[Any]]:
+async def receipt_annotations(conn: AsyncConnection, receipt_id: str) -> list[Row[Any]]:
     return list(
         (
             await conn.execute(
@@ -229,9 +236,7 @@ async def list_audit(
     )
 
 
-async def unledgered(
-    conn: AsyncConnection, record_type: str, limit: int
-) -> Sequence[Row[Any]]:
+async def unledgered(conn: AsyncConnection, record_type: str, limit: int) -> Sequence[Row[Any]]:
     """Records visible in this transaction that the ledger has not committed yet, oldest first."""
     table, id_col, hash_col = LEDGERED[record_type]
     cls = "evidence_class::text" if record_type in ("decision_receipt", "audit_record") else "NULL"
@@ -251,7 +256,9 @@ async def unledgered(
     ).all()
 
 
-async def load_body(conn: AsyncConnection, record_type: str, record_id: str) -> Mapping[str, Any] | None:
+async def load_body(
+    conn: AsyncConnection, record_type: str, record_id: str
+) -> Mapping[str, Any] | None:
     table, id_col, _ = LEDGERED[record_type]
     row = (
         await conn.execute(

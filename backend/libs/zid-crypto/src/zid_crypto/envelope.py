@@ -151,7 +151,9 @@ async def seal(
         ciphertext = AESGCM(data_key.plaintext).encrypt(nonce, plaintext, aad.encode())
     finally:
         data_key.zeroize()
-    return Envelope(kek=data_key.kek, wrapped_dek=data_key.wrapped, nonce=nonce, ciphertext=ciphertext)
+    return Envelope(
+        kek=data_key.kek, wrapped_dek=data_key.wrapped, nonce=nonce, ciphertext=ciphertext
+    )
 
 
 async def open_envelope(

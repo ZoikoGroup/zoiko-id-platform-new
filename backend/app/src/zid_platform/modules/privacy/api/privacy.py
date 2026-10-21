@@ -32,7 +32,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
@@ -44,14 +44,13 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.privacy.application import registry, service
 from zid_platform.modules.privacy.domain.model import PrivacyError
-from zid_platform.modules.privacy.infrastructure.packs import packs
 from zid_platform.modules.privacy.infrastructure import store
+from zid_platform.modules.privacy.infrastructure.packs import packs
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(prefix="/v1/privacy", tags=["privacy"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 CODE = r"^[A-Z][A-Z0-9_]{1,63}$"
-T = TypeVar("T")
 
 _STATUS = {
     "NOT_FOUND": 404,
@@ -66,7 +65,9 @@ _STATUS = {
 
 def http(e: PrivacyError) -> ZidError:
     return ZidError(
-        e.code, e.detail or e.code.replace("_", " ").capitalize() + ".", http_status=_STATUS.get(e.code, 422)
+        e.code,
+        e.detail or e.code.replace("_", " ").capitalize() + ".",
+        http_status=_STATUS.get(e.code, 422),
     )
 
 
@@ -98,7 +99,9 @@ def _rows(items: Any) -> list[dict[str, Any]]:
     return [{k: _plain(v) for k, v in dict(r._mapping).items()} for r in items]
 
 
-async def _run(request: Request, caller: Caller, fn: Callable[[AsyncConnection], Awaitable[T]]) -> T:
+async def _run[T](
+    request: Request, caller: Caller, fn: Callable[[AsyncConnection], Awaitable[T]]
+) -> T:
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
             return await fn(conn)
@@ -163,7 +166,9 @@ async def give_consent(body: ConsentBody, request: Request, caller: CallerDep) -
     me = _me(caller)
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        cid = await service.give_consent(conn, _tenant(caller), subject_principal_id=me, **body.model_dump())
+        cid = await service.give_consent(
+            conn, _tenant(caller), subject_principal_id=me, **body.model_dump()
+        )
         return {"consent_id": cid, "status": "ACTIVE"}
 
     return await _run(request, caller, go)
@@ -221,7 +226,9 @@ async def put_preference(
     me = _me(caller)
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        r = await service.set_preference(conn, _tenant(caller), me, preference_type, body.value, source="USER")
+        r = await service.set_preference(
+            conn, _tenant(caller), me, preference_type, body.value, source="USER"
+        )
         return {"preference_type": r.preference_type, "value": r.value, "revision": r.revision}
 
     return await _run(request, caller, go)
@@ -292,7 +299,10 @@ async def get_request(request_id: uuid.UUID, request: Request, caller: CallerDep
             raise PrivacyError("NOT_FOUND", "unknown rights request")
         if str(r.subject_principal_id) != me:
             await protected_action(
-                conn, caller, action="privacy.rights.manage", resource=f"rights_request:{request_id}"
+                conn,
+                caller,
+                action="privacy.rights.manage",
+                resource=f"rights_request:{request_id}",
             )
         return service.request_view(r)
 
@@ -313,13 +323,18 @@ async def package(request_id: uuid.UUID, request: Request, caller: CallerDep) ->
         )
 
     async def go(conn: AsyncConnection) -> bytes:
-        return await service.read_package(conn, _tenant(caller), str(request_id), subject_principal_id=me)
+        return await service.read_package(
+            conn, _tenant(caller), str(request_id), subject_principal_id=me
+        )
 
     content = await _run(request, caller, go)
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Cache-Control": "no-store", "Content-Disposition": "attachment; filename=zoiko-data.json"},
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": "attachment; filename=zoiko-data.json",
+        },
     )
 
 
@@ -339,7 +354,9 @@ async def list_requests(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.rights.manage", resource="rights_request:*")
+        await protected_action(
+            conn, caller, action="privacy.rights.manage", resource="rights_request:*"
+        )
         rows = await store.list_requests(conn, status=status, subject=None, limit=limit)
         return {"items": [service.request_view(r) for r in rows]}
 
@@ -349,7 +366,9 @@ async def list_requests(
 @router.post("/admin/rights-requests", status_code=201)
 async def open_on_behalf(body: OnBehalfBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.rights.manage", resource="rights_request:*")
+        await protected_action(
+            conn, caller, action="privacy.rights.manage", resource="rights_request:*"
+        )
         r = await service.open_request(
             conn,
             _tenant(caller),
@@ -373,7 +392,9 @@ class VerifyBody(BaseModel):
 
 
 @router.post("/admin/rights-requests/{request_id}:verify")
-async def verify(request_id: uuid.UUID, body: VerifyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def verify(
+    request_id: uuid.UUID, body: VerifyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(
             conn, caller, action="privacy.rights.manage", resource=f"rights_request:{request_id}"
@@ -406,7 +427,9 @@ class CloseBody(BaseModel):
 
 
 @router.post("/admin/rights-requests/{request_id}:close")
-async def close(request_id: uuid.UUID, body: CloseBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def close(
+    request_id: uuid.UUID, body: CloseBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(
             conn, caller, action="privacy.rights.manage", resource=f"rights_request:{request_id}"
@@ -443,7 +466,9 @@ async def acknowledge(
 @router.get("/admin/data-map/{subject_id}")
 async def data_map(subject_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.rights.manage", resource=f"data_map:{subject_id}")
+        await protected_action(
+            conn, caller, action="privacy.rights.manage", resource=f"data_map:{subject_id}"
+        )
         return {"items": _rows(await store.subject_entries(conn, str(subject_id)))}
 
     return await _run(request, caller, go)
@@ -472,23 +497,38 @@ async def list_purposes(request: Request, caller: CallerDep) -> dict[str, Any]:
 @router.post("/admin/purposes", status_code=201)
 async def create_purpose(body: PurposeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.processing_activity.manage", resource="purpose:*")
-        pid = await service.create_purpose(conn, _tenant(caller), actor=_me(caller), **body.model_dump())
+        await protected_action(
+            conn, caller, action="privacy.processing_activity.manage", resource="purpose:*"
+        )
+        pid = await service.create_purpose(
+            conn, _tenant(caller), actor=_me(caller), **body.model_dump()
+        )
         return {"purpose_id": pid, "status": "DRAFT"}
 
     return await _run(request, caller, go)
 
 
 @router.post("/admin/purposes/{purpose_id}:activate")
-async def activate_purpose(purpose_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def activate_purpose(
+    purpose_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """The activating administrator reviews the draft and must not be its author (DB check)."""
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(
-            conn, caller, action="privacy.processing_activity.manage", resource=f"purpose:{purpose_id}"
+            conn,
+            caller,
+            action="privacy.processing_activity.manage",
+            resource=f"purpose:{purpose_id}",
         )
-        r = await service.activate_purpose(conn, _tenant(caller), str(purpose_id), approver=_me(caller))
-        return {"purpose_id": str(r.purpose_id), "status": r.status, "purpose_version": r.purpose_version}
+        r = await service.activate_purpose(
+            conn, _tenant(caller), str(purpose_id), approver=_me(caller)
+        )
+        return {
+            "purpose_id": str(r.purpose_id),
+            "status": r.status,
+            "purpose_version": r.purpose_version,
+        }
 
     return await _run(request, caller, go)
 
@@ -514,26 +554,37 @@ class ActivityBody(BaseModel):
 @router.get("/admin/processing-activities")
 async def list_activities(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.read", resource="processing_activity:*")
+        await protected_action(
+            conn, caller, action="privacy.read", resource="processing_activity:*"
+        )
         return {"items": _rows(await store.list_activities(conn))}
 
     return await _run(request, caller, go)
 
 
 @router.post("/admin/processing-activities", status_code=201)
-async def create_activity(body: ActivityBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def create_activity(
+    body: ActivityBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(
-            conn, caller, action="privacy.processing_activity.manage", resource="processing_activity:*"
+            conn,
+            caller,
+            action="privacy.processing_activity.manage",
+            resource="processing_activity:*",
         )
-        aid = await service.create_activity(conn, _tenant(caller), actor=_me(caller), **body.model_dump())
+        aid = await service.create_activity(
+            conn, _tenant(caller), actor=_me(caller), **body.model_dump()
+        )
         return {"processing_activity_id": aid, "status": "DRAFT"}
 
     return await _run(request, caller, go)
 
 
 @router.post("/admin/processing-activities/{activity_id}:activate")
-async def activate_activity(activity_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def activate_activity(
+    activity_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(
             conn,
@@ -541,8 +592,14 @@ async def activate_activity(activity_id: uuid.UUID, request: Request, caller: Ca
             action="privacy.processing_activity.manage",
             resource=f"processing_activity:{activity_id}",
         )
-        r = await service.activate_activity(conn, _tenant(caller), str(activity_id), actor=_me(caller))
-        return {"processing_activity_id": str(r.processing_activity_id), "status": r.status, "version": r.version}
+        r = await service.activate_activity(
+            conn, _tenant(caller), str(activity_id), actor=_me(caller)
+        )
+        return {
+            "processing_activity_id": str(r.processing_activity_id),
+            "status": r.status,
+            "version": r.version,
+        }
 
     return await _run(request, caller, go)
 
@@ -550,7 +607,9 @@ async def activate_activity(activity_id: uuid.UUID, request: Request, caller: Ca
 class RoleBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     data_controller_principal_id: uuid.UUID
-    zoiko_role: str = Field(pattern="^(CONTROLLER|PROCESSOR|JOINT_CONTROLLER|INDEPENDENT_CONTROLLER)$")
+    zoiko_role: str = Field(
+        pattern="^(CONTROLLER|PROCESSOR|JOINT_CONTROLLER|INDEPENDENT_CONTROLLER)$"
+    )
     jurisdiction_pack_id: str
     approval_ref: str = Field(min_length=3, max_length=200)  # counsel's approval reference
     processor_principal_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
@@ -599,7 +658,9 @@ async def assign_role(
 @router.get("/admin/role-map")
 async def role_map(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.read", resource="processing_role_assignment:*")
+        await protected_action(
+            conn, caller, action="privacy.read", resource="processing_role_assignment:*"
+        )
         return {"items": _rows(await store.assignments(conn))}
 
     return await _run(request, caller, go)
@@ -610,9 +671,14 @@ async def release_check(request: Request, caller: CallerDep) -> dict[str, Any]:
     """DEC-F3: launch flows without an approved role assignment block G4."""
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
-        await protected_action(conn, caller, action="privacy.read", resource="processing_activity:*")
+        await protected_action(
+            conn, caller, action="privacy.read", resource="processing_activity:*"
+        )
         blockers = await service.release_check(conn)
-        return {"ready": not blockers, "blockers": [{k: _plain(v) for k, v in b.items()} for b in blockers]}
+        return {
+            "ready": not blockers,
+            "blockers": [{k: _plain(v) for k, v in b.items()} for b in blockers],
+        }
 
     return await _run(request, caller, go)
 
@@ -647,7 +713,9 @@ async def list_retention(request: Request, caller: CallerDep) -> dict[str, Any]:
 
 
 @router.post("/admin/retention-policies", status_code=201)
-async def create_retention(body: RetentionBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def create_retention(
+    body: RetentionBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         approver = await approved_by_second_admin(
             conn,
@@ -675,7 +743,9 @@ async def lift(restriction_id: uuid.UUID, request: Request, caller: CallerDep) -
         await protected_action(
             conn, caller, action="privacy.rights.manage", resource=f"restriction:{restriction_id}"
         )
-        await service.lift_restriction(conn, _tenant(caller), str(restriction_id), actor=_me(caller))
+        await service.lift_restriction(
+            conn, _tenant(caller), str(restriction_id), actor=_me(caller)
+        )
         return {"restriction_id": str(restriction_id), "active": False}
 
     return await _run(request, caller, go)
@@ -712,13 +782,24 @@ async def publish_notice(body: NoticeBody, request: Request, caller: CallerDep) 
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         approver = await approved_by_second_admin(
-            conn, caller, action=MANAGE, resource="privacy_notice:*", change=change,
+            conn,
+            caller,
+            action=MANAGE,
+            resource="privacy_notice:*",
+            change=change,
             approval_request_id=str(body.approval_request_id),
         )
         row = await registry.publish_notice(
-            conn, _tenant(caller), code=body.code, audience=body.audience, content=body.content,
-            created_by=_me(caller), approved_by=approver, jurisdictions=body.jurisdictions,
-            processing_activity_codes=body.processing_activity_codes, content_uri=body.content_uri,
+            conn,
+            _tenant(caller),
+            code=body.code,
+            audience=body.audience,
+            content=body.content,
+            created_by=_me(caller),
+            approved_by=approver,
+            jurisdictions=body.jurisdictions,
+            processing_activity_codes=body.processing_activity_codes,
+            content_uri=body.content_uri,
         )
         return {**_rows([row])[0], "notice_version": f"{row.notice_code}@{row.version}"}
 
@@ -750,29 +831,49 @@ async def list_processors(request: Request, caller: CallerDep) -> dict[str, Any]
 
 
 @router.post("/admin/processors", status_code=201)
-async def register_processor(body: ProcessorBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def register_processor(
+    body: ProcessorBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(conn, caller, action=MANAGE, resource="processor:*")
-        row = await registry.register_processor(conn, _tenant(caller), created_by=_me(caller), **body.model_dump())
+        row = await registry.register_processor(
+            conn, _tenant(caller), created_by=_me(caller), **body.model_dump()
+        )
         return _rows([row])[0]
 
     return await _run(request, caller, go)
 
 
 @router.post("/admin/processors/{processor_id}:approve")
-async def approve_processor(processor_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def approve_processor(
+    processor_id: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(conn, caller, action=MANAGE, resource=f"processor:{processor_id}")
-        return _rows([await registry.set_processor_status(conn, _tenant(caller), processor_id, "APPROVED", actor=_me(caller))])[0]
+        return _rows(
+            [
+                await registry.set_processor_status(
+                    conn, _tenant(caller), processor_id, "APPROVED", actor=_me(caller)
+                )
+            ]
+        )[0]
 
     return await _run(request, caller, go)
 
 
 @router.post("/admin/processors/{processor_id}:suspend")
-async def suspend_processor(processor_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def suspend_processor(
+    processor_id: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(conn, caller, action=MANAGE, resource=f"processor:{processor_id}")
-        return _rows([await registry.set_processor_status(conn, _tenant(caller), processor_id, "SUSPENDED", actor=_me(caller))])[0]
+        return _rows(
+            [
+                await registry.set_processor_status(
+                    conn, _tenant(caller), processor_id, "SUSPENDED", actor=_me(caller)
+                )
+            ]
+        )[0]
 
     return await _run(request, caller, go)
 
@@ -805,7 +906,9 @@ async def list_adm(request: Request, caller: CallerDep) -> dict[str, Any]:
 async def create_adm(body: AdmBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await protected_action(conn, caller, action=MANAGE, resource="adm_profile:*")
-        row = await registry.create_adm_profile(conn, _tenant(caller), created_by=_me(caller), **body.model_dump())
+        row = await registry.create_adm_profile(
+            conn, _tenant(caller), created_by=_me(caller), **body.model_dump()
+        )
         return _rows([row])[0]
 
     return await _run(request, caller, go)

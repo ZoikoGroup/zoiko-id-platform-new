@@ -22,7 +22,10 @@ from zid_crypto.purposes import KeyPurpose
 # backend/config/... relative to libs/zid-crypto/src/zid_crypto (source checkouts and tests); the
 # runtime image sets ZID_CRYPTO_POLICY_REGISTRY.
 DEFAULT_PATH = (
-    Path(__file__).resolve().parents[4] / "config" / "crypto-profiles" / "crypto-policy-registry.yaml"
+    Path(__file__).resolve().parents[4]
+    / "config"
+    / "crypto-profiles"
+    / "crypto-policy-registry.yaml"
 )
 # Lists that permit creating new artifacts with a key of the profile's purpose.
 ISSUANCE_FIELDS = (
@@ -76,13 +79,16 @@ class CryptoPolicyRegistry:
         missing = {p.value for p in KeyPurpose} - set(mapping)
         if unknown or missing:
             raise CryptoError(
-                "CRYPTO_POLICY_INVALID", f"key_purposes unknown={sorted(unknown)} missing={sorted(missing)}"
+                "CRYPTO_POLICY_INVALID",
+                f"key_purposes unknown={sorted(unknown)} missing={sorted(missing)}",
             )
         self._purpose_profile: dict[KeyPurpose, str] = {}
         for purpose in KeyPurpose:
             profile_id = mapping[purpose.value]
             if profile_id not in self._profiles:
-                raise CryptoError("CRYPTO_POLICY_INVALID", f"{purpose}: unknown profile {profile_id}")
+                raise CryptoError(
+                    "CRYPTO_POLICY_INVALID", f"{purpose}: unknown profile {profile_id}"
+                )
             if not self._issuance(profile_id):
                 raise CryptoError("CRYPTO_POLICY_INVALID", f"{profile_id}: no allowed algorithms")
             self._purpose_profile[purpose] = profile_id

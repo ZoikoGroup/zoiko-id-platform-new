@@ -72,7 +72,7 @@ def test_every_inclusion_proof_verifies_and_only_for_its_leaf(n: int) -> None:
 def test_every_consistency_proof_verifies(n: int) -> None:
     data = leaves(n)
     second = merkle.root(data, alg=ALG)
-    for m in range(0, n + 1):
+    for m in range(n + 1):
         first = merkle.root(data[:m], alg=ALG)
         proof = merkle.consistency_proof(m, data, alg=ALG)
         assert merkle.verify_consistency(

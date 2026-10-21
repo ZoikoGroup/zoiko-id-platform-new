@@ -45,19 +45,31 @@ ARTIFACT_TYPES = frozenset(
     }
 )
 RELATIONS = frozenset(
-    {"used", "wasGeneratedBy", "wasAssociatedWith", "wasAttributedTo", "wasDerivedFrom", "wasInformedBy", "actedOnBehalfOf"}
+    {
+        "used",
+        "wasGeneratedBy",
+        "wasAssociatedWith",
+        "wasAttributedTo",
+        "wasDerivedFrom",
+        "wasInformedBy",
+        "actedOnBehalfOf",
+    }
 )
 CASE_KINDS = frozenset({"INVESTIGATION", "AUDIT", "LEGAL", "INCIDENT", "DATA_RIGHTS"})
 
 
 @asynccontextmanager
 async def _artifact_scope(conn: AsyncConnection) -> AsyncIterator[None]:
-    prev = (await conn.execute(text("SELECT current_setting('app.evidence_scope', true)"))).scalar_one()
+    prev = (
+        await conn.execute(text("SELECT current_setting('app.evidence_scope', true)"))
+    ).scalar_one()
     await conn.execute(text("SELECT set_config('app.evidence_scope', 'artifacts', true)"))
     try:
         yield
     finally:
-        await conn.execute(text("SELECT set_config('app.evidence_scope', :s, true)"), {"s": prev or ""})
+        await conn.execute(
+            text("SELECT set_config('app.evidence_scope', :s, true)"), {"s": prev or ""}
+        )
 
 
 async def register_artifact(
@@ -86,7 +98,10 @@ async def register_artifact(
         ).first()
         if existing is not None:
             if existing.content_hash != content_hash:
-                raise LedgerError("EVIDENCE_LEDGER_CONFLICT", f"{artifact_type} {artifact_ref}@{version} changed in place")
+                raise LedgerError(
+                    "EVIDENCE_LEDGER_CONFLICT",
+                    f"{artifact_type} {artifact_ref}@{version} changed in place",
+                )
             return str(existing.artifact_id), content_hash
         artifact_id = str(uuid7())
         inserted = await conn.execute(
@@ -107,11 +122,15 @@ async def register_artifact(
             },
         )
         if not inserted.rowcount:  # a concurrent transaction registered it first
-            return await register_artifact(conn, tenant_id, artifact_type, artifact_ref, version, body)
+            return await register_artifact(
+                conn, tenant_id, artifact_type, artifact_ref, version, body
+            )
     return artifact_id, content_hash
 
 
-async def artifact(conn: AsyncConnection, tenant_id: str | None, artifact_type: str, artifact_ref: str) -> list[dict[str, Any]]:
+async def artifact(
+    conn: AsyncConnection, tenant_id: str | None, artifact_type: str, artifact_ref: str
+) -> list[dict[str, Any]]:
     async with _artifact_scope(conn):
         rows = (
             await conn.execute(
@@ -136,7 +155,11 @@ class Node:
 
 
 async def add_edges(
-    conn: AsyncConnection, tenant_id: str, edges: Iterable[tuple[Node, str, Node]], *, receipt_id: str | None = None
+    conn: AsyncConnection,
+    tenant_id: str,
+    edges: Iterable[tuple[Node, str, Node]],
+    *,
+    receipt_id: str | None = None,
 ) -> int:
     n = 0
     for subj, relation, obj in edges:
@@ -166,7 +189,9 @@ async def add_edges(
     return n
 
 
-async def provenance(conn: AsyncConnection, entity_type: str, entity_ref: str, *, depth: int = 3, limit: int = 200) -> dict[str, Any]:
+async def provenance(
+    conn: AsyncConnection, entity_type: str, entity_ref: str, *, depth: int = 3, limit: int = 200
+) -> dict[str, Any]:
     """Bounded lineage around one node (both directions), as a PROV-compatible view (§8.1)."""
     seen: set[tuple[str, str]] = {(entity_type, entity_ref)}
     frontier = [(entity_type, entity_ref)]
@@ -187,8 +212,16 @@ async def provenance(conn: AsyncConnection, entity_type: str, entity_ref: str, *
                 )
             ).all()
             for e in rows:
-                d = {k: (str(v) if isinstance(v, uuid.UUID) else v.isoformat() if isinstance(v, datetime) else v)
-                     for k, v in dict(e._mapping).items()}
+                d = {
+                    k: (
+                        str(v)
+                        if isinstance(v, uuid.UUID)
+                        else v.isoformat()
+                        if isinstance(v, datetime)
+                        else v
+                    )
+                    for k, v in dict(e._mapping).items()
+                }
                 if d not in edges:
                     edges.append(d)
                 for node in ((e.subject_type, e.subject_ref), (e.object_type, e.object_ref)):
@@ -260,7 +293,10 @@ async def open_case(
 
 async def load_case(conn: AsyncConnection, case_id: str) -> Any:
     return (
-        await conn.execute(text("SELECT * FROM evidence.evidence_case WHERE case_id = :c"), {"c": uuid.UUID(case_id)})
+        await conn.execute(
+            text("SELECT * FROM evidence.evidence_case WHERE case_id = :c"),
+            {"c": uuid.UUID(case_id)},
+        )
     ).first()
 
 
@@ -275,7 +311,9 @@ async def require_open_case(conn: AsyncConnection, case_id: str, now: datetime) 
 
 async def close_case(conn: AsyncConnection, case_id: str) -> None:
     await conn.execute(
-        text("UPDATE evidence.evidence_case SET status = 'CLOSED', closed_at = clock_timestamp() WHERE case_id = :c AND status = 'OPEN'"),
+        text(
+            "UPDATE evidence.evidence_case SET status = 'CLOSED', closed_at = clock_timestamp() WHERE case_id = :c AND status = 'OPEN'"
+        ),
         {"c": uuid.UUID(case_id)},
     )
 

@@ -42,8 +42,11 @@ _STATUS = {"NOT_FOUND": 404, "SOVEREIGN_OPERATOR_DENIED": 403}
 
 
 def http(e: ResidencyError) -> ZidError:
-    return ZidError(e.code, e.detail or e.code.replace("_", " ").capitalize() + ".",
-                    http_status=_STATUS.get(e.code, 422))
+    return ZidError(
+        e.code,
+        e.detail or e.code.replace("_", " ").capitalize() + ".",
+        http_status=_STATUS.get(e.code, 422),
+    )
 
 
 def residency_view(r: Residency | None) -> dict[str, Any] | None:
@@ -105,7 +108,9 @@ async def _session(request: Request, caller: Caller, fn: Any) -> Any:
 @router.get("/v1/tenant/residency")
 async def get_residency(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource="tenant_residency", change="read")
+        await protected_action(
+            conn, caller, action=ACTION, resource="tenant_residency", change="read"
+        )
         return {"residency": residency_view(await store.load(conn, caller.ctx.tenant_id or ""))}
 
     return await _session(request, caller, go)  # type: ignore[no-any-return]
@@ -118,7 +123,9 @@ class ResidencyBody(BaseModel):
     permitted_recovery_cells: list[str] = Field(default_factory=list, max_length=5)
     prohibited_cells: list[str] = Field(default_factory=list, max_length=50)
     operator_jurisdictions: list[str] = Field(default_factory=list, max_length=20)
-    key_profile: str = Field(default="PLATFORM_MANAGED", pattern="^(PLATFORM_MANAGED|DEDICATED_TENANT_KEY|BYOK|HYOK)$")
+    key_profile: str = Field(
+        default="PLATFORM_MANAGED", pattern="^(PLATFORM_MANAGED|DEDICATED_TENANT_KEY|BYOK|HYOK)$"
+    )
     jurisdiction_pack_id: str
     approval_ref: str = Field(min_length=3, max_length=200)  # legal/compliance mapping approval
     approval_request_id: uuid.UUID
@@ -134,15 +141,24 @@ class ResidencyBody(BaseModel):
 async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         await approved_by_second_admin(
-            conn, caller, action=ACTION, resource="tenant_residency", change=body.change(),
+            conn,
+            caller,
+            action=ACTION,
+            resource="tenant_residency",
+            change=body.change(),
             approval_request_id=str(body.approval_request_id),
         )
         r = await service.set_residency(
-            conn, caller.ctx.tenant_id or "",
-            profile=body.residency_profile_id, home_cell_id=body.home_cell_id,
-            recovery_cells=body.permitted_recovery_cells, prohibited_cells=body.prohibited_cells,
-            operator_juris=body.operator_jurisdictions, key_profile=body.key_profile,
-            jurisdiction_pack_id=body.jurisdiction_pack_id, approval_ref=body.approval_ref,
+            conn,
+            caller.ctx.tenant_id or "",
+            profile=body.residency_profile_id,
+            home_cell_id=body.home_cell_id,
+            recovery_cells=body.permitted_recovery_cells,
+            prohibited_cells=body.prohibited_cells,
+            operator_juris=body.operator_jurisdictions,
+            key_profile=body.key_profile,
+            jurisdiction_pack_id=body.jurisdiction_pack_id,
+            approval_ref=body.approval_ref,
             actor=caller.ctx.principal_id or "",
         )
         return {"residency": residency_view(r)}
@@ -153,7 +169,9 @@ async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep
 @router.get("/v1/tenant/residency-matrix")
 async def residency_matrix(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource="tenant_residency", change="read")
+        await protected_action(
+            conn, caller, action=ACTION, resource="tenant_residency", change="read"
+        )
         r = await store.load(conn, caller.ctx.tenant_id or "")
         if r is None:
             raise ResidencyError("NOT_FOUND", "no residency profile assigned")
@@ -165,7 +183,9 @@ async def residency_matrix(request: Request, caller: CallerDep) -> dict[str, Any
 @router.get("/v1/tenant/transfer-rules")
 async def list_rules(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource="transfer_rule:*", change="read")
+        await protected_action(
+            conn, caller, action=ACTION, resource="transfer_rule:*", change="read"
+        )
         return {"items": [rule_view(r) for r in await store.rules(conn)]}
 
     return await _session(request, caller, go)  # type: ignore[no-any-return]
@@ -190,15 +210,25 @@ class RuleBody(BaseModel):
 async def add_rule(body: RuleBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         approver = await approved_by_second_admin(
-            conn, caller, action=ACTION, resource="transfer_rule:*", change=body.change(),
+            conn,
+            caller,
+            action=ACTION,
+            resource="transfer_rule:*",
+            change=body.change(),
             approval_request_id=str(body.approval_request_id),
         )
         r = await service.add_rule(
-            conn, caller.ctx.tenant_id or "", data_class=body.data_class,
-            destination_cell_id=body.destination_cell_id, purpose_code=body.purpose_code,
-            mechanism=body.mechanism, field_allowlist=body.field_allowlist,
-            approval_ref=body.approval_ref, created_by=caller.ctx.principal_id or "",
-            approved_by=approver, valid_to=body.valid_to,
+            conn,
+            caller.ctx.tenant_id or "",
+            data_class=body.data_class,
+            destination_cell_id=body.destination_cell_id,
+            purpose_code=body.purpose_code,
+            mechanism=body.mechanism,
+            field_allowlist=body.field_allowlist,
+            approval_ref=body.approval_ref,
+            created_by=caller.ctx.principal_id or "",
+            approved_by=approver,
+            valid_to=body.valid_to,
         )
         return rule_view(r)
 
@@ -208,8 +238,12 @@ async def add_rule(body: RuleBody, request: Request, caller: CallerDep) -> dict[
 @router.post("/v1/tenant/transfer-rules/{rule_id}:suspend")
 async def suspend_rule(rule_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource=f"transfer_rule:{rule_id}", change="suspend")
-        r = await service.suspend_rule(conn, caller.ctx.tenant_id or "", str(rule_id), actor=caller.ctx.principal_id or "")
+        await protected_action(
+            conn, caller, action=ACTION, resource=f"transfer_rule:{rule_id}", change="suspend"
+        )
+        r = await service.suspend_rule(
+            conn, caller.ctx.tenant_id or "", str(rule_id), actor=caller.ctx.principal_id or ""
+        )
         return rule_view(r)
 
     return await _session(request, caller, go)  # type: ignore[no-any-return]
@@ -225,13 +259,23 @@ class TransferBody(BaseModel):
 @router.post("/v1/tenant/cross-cell-transfers:authorize")
 async def authorize(body: TransferBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource="cross_cell_transfer:*", change="authorize")
+        await protected_action(
+            conn, caller, action=ACTION, resource="cross_cell_transfer:*", change="authorize"
+        )
         d = await service.authorize_transfer(
-            conn, caller.ctx.tenant_id or "", data_class=body.data_class,
-            destination_cell_id=body.destination_cell_id, purpose_code=body.purpose_code,
+            conn,
+            caller.ctx.tenant_id or "",
+            data_class=body.data_class,
+            destination_cell_id=body.destination_cell_id,
+            purpose_code=body.purpose_code,
             actor=caller.ctx.principal_id,
         )
-        return {"allowed": d.allowed, "code": d.code, "rule_id": d.rule_id,
-                "field_allowlist": list(d.field_allowlist), "cross_border": d.cross_border}
+        return {
+            "allowed": d.allowed,
+            "code": d.code,
+            "rule_id": d.rule_id,
+            "field_allowlist": list(d.field_allowlist),
+            "cross_border": d.cross_border,
+        }
 
     return await _session(request, caller, go)  # type: ignore[no-any-return]

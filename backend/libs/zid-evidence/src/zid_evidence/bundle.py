@@ -71,7 +71,9 @@ class VerificationReport:
     @property
     def structural_only(self) -> bool:
         """Verified without the record itself (withheld or lawfully erased)."""
-        return any(c.name == "record_hash" and c.detail == "record not included" for c in self.checks)
+        return any(
+            c.name == "record_hash" and c.detail == "record not included" for c in self.checks
+        )
 
     def add(self, name: str, ok: bool, detail: str = "") -> bool:
         self.checks.append(Check(name, ok, detail))

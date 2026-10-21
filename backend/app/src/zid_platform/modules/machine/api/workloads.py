@@ -26,18 +26,17 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
+from zid_context import RequestContext, current_context
+from zid_context.spiffe import SpiffeError, SpiffeId, tenant_of
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
-from zid_context import RequestContext, current_context
-from zid_context.spiffe import SpiffeError, SpiffeId, tenant_of
-
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.workload_identity import workload_peer_svid
 from zid_platform.modules.machine.application import workload as service
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.infrastructure import workload_store as store
 from zid_platform.protected import protected_action
+from zid_platform.workload_identity import workload_peer_svid
 
 router = APIRouter(prefix="/v1/machine", tags=["workload-identity"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -69,9 +68,13 @@ async def trust_domain(request: Request) -> dict[str, Any]:
 
 
 @router.get("/workload-bindings")
-async def list_bindings(request: Request, caller: CallerDep, status: str | None = None) -> dict[str, Any]:
+async def list_bindings(
+    request: Request, caller: CallerDep, status: str | None = None
+) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource="workload_binding:*", change="read")
+        await protected_action(
+            conn, caller, action=ACTION, resource="workload_binding:*", change="read"
+        )
         return {
             "items": [
                 {
@@ -108,15 +111,26 @@ class BindingBody(BaseModel):
 async def register(body: BindingBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     policy = getattr(request.app.state, "trust_policy", None)
     if policy is None:
-        raise ZidError("WORKLOAD_IDENTITY_UNAVAILABLE", "No trust domain is configured.", http_status=503)
+        raise ZidError(
+            "WORKLOAD_IDENTITY_UNAVAILABLE", "No trust domain is configured.", http_status=503
+        )
 
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource=f"workload_binding:{body.spiffe_id}")
+        await protected_action(
+            conn, caller, action=ACTION, resource=f"workload_binding:{body.spiffe_id}"
+        )
         b = await service.register_binding(
-            conn, caller.ctx.tenant_id or "", policy=policy, actor=caller.ctx.principal_id or "",
+            conn,
+            caller.ctx.tenant_id or "",
+            policy=policy,
+            actor=caller.ctx.principal_id or "",
             **body.model_dump(),
         )
-        return {"binding_id": b.binding_id, "spiffe_id": b.workload_identity_id, "status": b.status.value}
+        return {
+            "binding_id": b.binding_id,
+            "spiffe_id": b.workload_identity_id,
+            "status": b.status.value,
+        }
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
@@ -130,9 +144,15 @@ class RevokeBody(BaseModel):
 @router.post("/workload-bindings:revoke")
 async def revoke(body: RevokeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource=f"workload_binding:{body.spiffe_id}")
+        await protected_action(
+            conn, caller, action=ACTION, resource=f"workload_binding:{body.spiffe_id}"
+        )
         n = await service.revoke_binding(
-            conn, caller.ctx.tenant_id or "", body.spiffe_id, reason=body.reason, actor=caller.ctx.principal_id
+            conn,
+            caller.ctx.tenant_id or "",
+            body.spiffe_id,
+            reason=body.reason,
+            actor=caller.ctx.principal_id,
         )
         return {"spiffe_id": body.spiffe_id, "revoked": n}
 
@@ -145,11 +165,19 @@ class QuarantineBody(BaseModel):
 
 
 @router.post("/environments/{environment_id}:quarantine")
-async def quarantine(environment_id: str, body: QuarantineBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def quarantine(
+    environment_id: str, body: QuarantineBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource=f"workload_environment:{environment_id}")
+        await protected_action(
+            conn, caller, action=ACTION, resource=f"workload_environment:{environment_id}"
+        )
         rev = await service.quarantine_environment(
-            conn, caller.ctx.tenant_id or "", environment_id, reason=body.reason, actor=caller.ctx.principal_id
+            conn,
+            caller.ctx.tenant_id or "",
+            environment_id,
+            reason=body.reason,
+            actor=caller.ctx.principal_id,
         )
         return {"environment_id": environment_id, "quarantined": True, "security_revision": rev}
 
@@ -159,8 +187,12 @@ async def quarantine(environment_id: str, body: QuarantineBody, request: Request
 @router.post("/environments/{environment_id}:release")
 async def release(environment_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action=ACTION, resource=f"workload_environment:{environment_id}")
-        await service.release_environment(conn, caller.ctx.tenant_id or "", environment_id, actor=caller.ctx.principal_id or "")
+        await protected_action(
+            conn, caller, action=ACTION, resource=f"workload_environment:{environment_id}"
+        )
+        await service.release_environment(
+            conn, caller.ctx.tenant_id or "", environment_id, actor=caller.ctx.principal_id or ""
+        )
         return {"environment_id": environment_id, "quarantined": False}
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
@@ -192,7 +224,9 @@ async def workload_token(
         tenant = tenant_of(sid)
     except SpiffeError as e:
         raise ZidError(e.code, str(e), http_status=401) from e
-    base = current_context() or RequestContext("req_workload", "cor_workload", "zoiko-id", "unknown")
+    base = current_context() or RequestContext(
+        "req_workload", "cor_workload", "zoiko-id", "unknown"
+    )
     ctx = base.with_identity(tenant, None)
     now = datetime.now(UTC)
     try:
@@ -200,10 +234,15 @@ async def workload_token(
 
         async with tx(request_engine(request), ctx) as conn:
             principal = await service.resolve_workload(
-                conn, spiffe_id=sid, environment_id=body.environment_id,
-                artifact_digest=body.artifact_digest, attestation=body.attestation,
+                conn,
+                spiffe_id=sid,
+                environment_id=body.environment_id,
+                artifact_digest=body.artifact_digest,
+                attestation=body.attestation,
             )
-            await service.record_credential_issued(conn, tenant, principal, expires_at=now + WORKLOAD_TOKEN_LIFETIME)
+            await service.record_credential_issued(
+                conn, tenant, principal, expires_at=now + WORKLOAD_TOKEN_LIFETIME
+            )
     except MachineError as e:
         raise ZidError(e.code, "This workload may not act right now.", http_status=403) from e
     x5t = base64.urlsafe_b64encode(hashlib.sha256(leaf).digest()).rstrip(b"=").decode("ascii")

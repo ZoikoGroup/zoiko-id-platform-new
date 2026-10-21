@@ -101,9 +101,18 @@ def _verify_signature(child: Any, issuer: Any) -> bool:
     key = issuer.public_key()
     try:
         if isinstance(key, ec.EllipticCurvePublicKey):
-            key.verify(child.signature, child.tbs_certificate_bytes, ec.ECDSA(child.signature_hash_algorithm))
+            key.verify(
+                child.signature,
+                child.tbs_certificate_bytes,
+                ec.ECDSA(child.signature_hash_algorithm),
+            )
         elif isinstance(key, rsa.RSAPublicKey):
-            key.verify(child.signature, child.tbs_certificate_bytes, padding.PKCS1v15(), child.signature_hash_algorithm)
+            key.verify(
+                child.signature,
+                child.tbs_certificate_bytes,
+                padding.PKCS1v15(),
+                child.signature_hash_algorithm,
+            )
         elif isinstance(key, ed25519.Ed25519PublicKey):
             key.verify(child.signature, child.tbs_certificate_bytes)
         else:

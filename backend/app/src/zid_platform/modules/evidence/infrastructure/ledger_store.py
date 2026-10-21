@@ -166,7 +166,11 @@ async def last_checkpoint(conn: AsyncConnection, partition_id: str) -> Row[Any] 
 
 
 async def checkpoints(
-    conn: AsyncConnection, partition_id: str, *, limit: int | None = None, newest_first: bool = False
+    conn: AsyncConnection,
+    partition_id: str,
+    *,
+    limit: int | None = None,
+    newest_first: bool = False,
 ) -> list[Row[Any]]:
     order = "DESC" if newest_first else "ASC"
     return list(

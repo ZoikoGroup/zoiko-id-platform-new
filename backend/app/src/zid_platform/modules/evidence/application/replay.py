@@ -44,7 +44,9 @@ PACKAGE_TYP = "zid-evidence-package+jws"
 REPLAY_FIELDS = ("outcome", "reason_codes", "obligations")
 
 # decision_type -> evaluator(conn, receipt body, material inputs) -> replayed outcome fields
-Replayer = Callable[[AsyncConnection, Mapping[str, Any], Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
+Replayer = Callable[
+    [AsyncConnection, Mapping[str, Any], Mapping[str, Any]], Awaitable[Mapping[str, Any]]
+]
 _REPLAYERS: dict[str, Replayer] = {}
 
 
@@ -127,7 +129,9 @@ async def replay_receipt(
             if e.code not in ("EVIDENCE_RAW_OBJECT_ERASED", "EVIDENCE_RETENTION_EXPIRED"):
                 raise
             result["result"] = ReplayResult.INCOMPLETE_BY_LAWFUL_ERASURE
-            result["detail"] = "identity-resolution and material inputs unavailable by lawful erasure"
+            result["detail"] = (
+                "identity-resolution and material inputs unavailable by lawful erasure"
+            )
         else:
             material = loads_strict(raw)
             if material_commitment(material) != row.input_commitment:
@@ -179,7 +183,9 @@ async def replay_receipt(
             data={
                 "receipt_id": receipt_id,
                 "replay_id": replay_id,
-                "kinds": ["replay_mismatch" if result["result"] == ReplayResult.MISMATCH else "integrity"],
+                "kinds": [
+                    "replay_mismatch" if result["result"] == ReplayResult.MISMATCH else "integrity"
+                ],
                 "evidence_class": body.get("evidence_class"),
             },
         )
@@ -231,15 +237,23 @@ async def export_package(
     if redact:
         unknown = sorted(set(redact) - set(body))
         if unknown:
-            raise LedgerError("EVIDENCE_SCHEMA_INVALID", f"not receipt fields: {', '.join(unknown)}")
+            raise LedgerError(
+                "EVIDENCE_SCHEMA_INVALID", f"not receipt fields: {', '.join(unknown)}"
+            )
         view = {k: v for k, v in body.items() if k not in set(redact)}
         disclosure = {
             "view": view,
-            "withheld": {k: str(hash_json({k: body[k]}, alg="sha-256")) for k in sorted(set(redact))},
+            "withheld": {
+                k: str(hash_json({k: body[k]}, alg="sha-256")) for k in sorted(set(redact))
+            },
             "source_record_hash": row.receipt_hash,
         }
     bundle = await ledger.export_bundle(
-        conn, receipt_id, keys=keys, record_type="decision_receipt", record=None if redact else body,
+        conn,
+        receipt_id,
+        keys=keys,
+        record_type="decision_receipt",
+        record=None if redact else body,
         withhold_record=bool(redact),
     )
     if body.get("evidence_class") == "E3":  # §8.1: every E3 export carries its lineage

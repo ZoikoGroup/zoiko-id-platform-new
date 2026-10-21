@@ -95,8 +95,10 @@ class TransferRule:
     status: str
 
     def active(self, now: datetime) -> bool:
-        return self.status == "ACTIVE" and self.valid_from <= now and (
-            self.valid_to is None or now < self.valid_to
+        return (
+            self.status == "ACTIVE"
+            and self.valid_from <= now
+            and (self.valid_to is None or now < self.valid_to)
         )
 
 
@@ -137,18 +139,24 @@ def check_storage(cat: Catalog, r: Residency, data_class: str, cell_id: str) -> 
     """May `data_class` of this tenant be stored/processed in `cell_id`? (TENANCY §5-6)."""
     rank = _class_rank(data_class)
     if cell_id in r.prohibited_cells:
-        raise ResidencyError("DATA_CLASS_PLACEMENT_DENIED", f"{cell_id} is prohibited for the tenant")
+        raise ResidencyError(
+            "DATA_CLASS_PLACEMENT_DENIED", f"{cell_id} is prohibited for the tenant"
+        )
     if rank == 0:
         return
     home, dest = cat.cell(r.home_cell_id), cat.cell(cell_id)
     if cell_id == r.home_cell_id:
         return
     if r.profile == "SRP-3":
-        raise ResidencyError("DATA_CLASS_PLACEMENT_DENIED", "SRP-3 data stays in its dedicated cell")
+        raise ResidencyError(
+            "DATA_CLASS_PLACEMENT_DENIED", "SRP-3 data stays in its dedicated cell"
+        )
     if rank >= 3 and (dest.country != home.country or r.level >= 2):
         raise ResidencyError("DATA_CLASS_PLACEMENT_DENIED", f"{data_class} stays in {home.country}")
     if r.level >= 1 and dest.legal_zone != home.legal_zone:
-        raise ResidencyError("DATA_CLASS_PLACEMENT_DENIED", f"{data_class} stays in {home.legal_zone}")
+        raise ResidencyError(
+            "DATA_CLASS_PLACEMENT_DENIED", f"{data_class} stays in {home.legal_zone}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,7 +210,9 @@ def check_transfer(
         ):
             if rule.mechanism not in pack_mechanisms:
                 return TransferDecision(False, "RESIDENCY_TRANSFER_DENIED", rule.rule_id)
-            return TransferDecision(True, "ALLOWED_BY_RULE", rule.rule_id, rule.field_allowlist, cross_border)
+            return TransferDecision(
+                True, "ALLOWED_BY_RULE", rule.rule_id, rule.field_allowlist, cross_border
+            )
     return TransferDecision(False, "RESIDENCY_TRANSFER_DENIED", cross_border=cross_border)
 
 
@@ -245,7 +255,9 @@ def coverage_matrix(cat: Catalog, r: Residency) -> list[dict[str, Any]]:
                 "jurisdiction": home.country,
                 "legal_zone": home.legal_zone,
                 "recovery_cells": list(r.permitted_recovery_cells),
-                "evidence": "configuration" if s not in ("authoritative_db", "kms_hsm") else "deployment",
+                "evidence": "configuration"
+                if s not in ("authoritative_db", "kms_hsm")
+                else "deployment",
             }
         )
     return out

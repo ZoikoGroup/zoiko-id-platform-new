@@ -109,7 +109,9 @@ class AwsKmsKeyProvider:
                 raise CryptoError("CRYPTO_KEY_UNKNOWN", str(kwargs.get("KeyId"))) from e
             if code == "AccessDeniedException":
                 raise CryptoError("CRYPTO_ACCESS_DENIED", method) from e
-            raise CryptoError("CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}") from e
+            raise CryptoError(
+                "CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}"
+            ) from e
         return result
 
     async def _gone(self, key_id: str) -> bool:
@@ -130,7 +132,10 @@ class AwsKmsKeyProvider:
     async def generate_data_key(self, kek: KeyRef, context: Mapping[str, str]) -> DataKey:
         self._check(kek, *WRAPPING_PURPOSES)
         out = await self._call(
-            "generate_data_key", KeyId=kek.key_id, KeySpec="AES_256", EncryptionContext=dict(context)
+            "generate_data_key",
+            KeyId=kek.key_id,
+            KeySpec="AES_256",
+            EncryptionContext=dict(context),
         )
         return DataKey(
             plaintext=bytearray(out["Plaintext"]),
@@ -197,7 +202,9 @@ def _sync_call(client: Any, method: str, **kwargs: Any) -> dict[str, Any]:
             raise CryptoError("CRYPTO_KEY_UNKNOWN", key_id) from e
         if code == "AccessDeniedException":
             raise CryptoError("CRYPTO_ACCESS_DENIED", method) from e
-        raise CryptoError("CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}") from e
+        raise CryptoError(
+            "CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}"
+        ) from e
     return result
 
 

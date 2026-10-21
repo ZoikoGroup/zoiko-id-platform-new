@@ -131,11 +131,13 @@ async def list_receipts(
 async def get_receipt(receipt_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     rid = str(receipt_id)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="evidence.read", resource=f"decision_receipt:{rid}")
+        await protected_action(
+            conn, caller, action="evidence.read", resource=f"decision_receipt:{rid}"
+        )
         row = await receipt_store.load_receipt(conn, rid)
         if row is None:
             raise ZidError("NOT_FOUND", "No such receipt.", http_status=404)
-        notes = await receipt_store.annotations(conn, rid)
+        notes = await receipt_store.receipt_annotations(conn, rid)
     return {
         **receipt_summary(row),
         "receipt": dict(row.body),
@@ -157,7 +159,9 @@ async def verify(receipt_id: uuid.UUID, request: Request, caller: CallerDep) -> 
     rid = str(receipt_id)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.verify", resource=f"decision_receipt:{rid}")
+            await protected_action(
+                conn, caller, action="evidence.verify", resource=f"decision_receipt:{rid}"
+            )
             result = await replay.verify_receipt(conn, rid)
     except LedgerError as e:
         raise http(e) from e
@@ -169,7 +173,9 @@ async def proof(receipt_id: uuid.UUID, request: Request, caller: CallerDep) -> d
     rid = str(receipt_id)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.verify", resource=f"decision_receipt:{rid}")
+            await protected_action(
+                conn, caller, action="evidence.verify", resource=f"decision_receipt:{rid}"
+            )
             p = await ledger.inclusion_proof(conn, rid, record_type="decision_receipt")
     except LedgerError as e:
         raise http(e) from e
@@ -181,7 +187,9 @@ async def run_replay(receipt_id: uuid.UUID, request: Request, caller: CallerDep)
     rid = str(receipt_id)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.replay", resource=f"decision_receipt:{rid}")
+            await protected_action(
+                conn, caller, action="evidence.replay", resource=f"decision_receipt:{rid}"
+            )
             return await replay.replay_receipt(conn, _tenant(caller), rid)
     except LedgerError as e:
         raise http(e) from e
@@ -202,7 +210,9 @@ async def annotate(
     rid = str(receipt_id)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.annotate", resource=f"decision_receipt:{rid}")
+            await protected_action(
+                conn, caller, action="evidence.annotate", resource=f"decision_receipt:{rid}"
+            )
             annotation_id = await receipts.annotate_receipt(
                 conn,
                 _tenant(caller),
@@ -224,7 +234,9 @@ class PackageBody(BaseModel):
     mode: str = Field(pattern="^(" + "|".join(sorted(EXPORT_MODES)) + ")$")
     purpose: str = Field(min_length=3, max_length=200)
     case_ref: str = Field(min_length=1, max_length=128)
-    redact: list[Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]] = Field(default_factory=list, max_length=40)
+    redact: list[Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]] = Field(
+        default_factory=list, max_length=40
+    )
     case_id: uuid.UUID | None = None
 
 
@@ -233,7 +245,9 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
     rid = str(body.receipt_id)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.export", resource=f"decision_receipt:{rid}")
+            await protected_action(
+                conn, caller, action="evidence.export", resource=f"decision_receipt:{rid}"
+            )
             return await replay.export_package(
                 conn,
                 _tenant(caller),
@@ -259,7 +273,9 @@ async def audit_events(
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.read", resource="audit_record:*")
-        rows = await receipt_store.list_audit(conn, event_type=event_type, before=before, limit=limit)
+        rows = await receipt_store.list_audit(
+            conn, event_type=event_type, before=before, limit=limit
+        )
     return {
         "items": [
             {
@@ -287,9 +303,13 @@ async def verify_partition(request: Request, caller: CallerDep) -> dict[str, Any
     """Recompute the tenant's whole hash chain and every checkpoint; a failure is an incident."""
     tenant = _tenant(caller)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="evidence.verify", resource="evidence_partition:*")
+        await protected_action(
+            conn, caller, action="evidence.verify", resource="evidence_partition:*"
+        )
         report = await ledger.verify_partition(
-            conn, Partition(tenant, current_runtime().cell_id).id, keys=current_runtime().trusted_keys()
+            conn,
+            Partition(tenant, current_runtime().cell_id).id,
+            keys=current_runtime().trusted_keys(),
         )
     return report.to_dict()
 
@@ -307,7 +327,9 @@ def hold_view(h: vault_store.Hold, now: datetime) -> dict[str, Any]:
         "review_at": _iso(h.review_at),
         "review_overdue": h.status == "ACTIVE" and h.review_at <= now,
         "expires_at": _iso(h.expires_at),
-        "status": "EXPIRED" if h.status == "ACTIVE" and not h.active(now) and h.expires_at and h.expires_at <= now else h.status,
+        "status": "EXPIRED"
+        if h.status == "ACTIVE" and not h.active(now) and h.expires_at and h.expires_at <= now
+        else h.status,
         "released_at": _iso(h.released_at),
     }
 
@@ -388,9 +410,16 @@ async def release_hold(
     now = datetime.now(UTC)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action=HOLD_ACTION, resource=f"legal_hold:{hold_id}")
+            await protected_action(
+                conn, caller, action=HOLD_ACTION, resource=f"legal_hold:{hold_id}"
+            )
             hold = await vault.release_hold(
-                conn, _tenant(caller), str(hold_id), by=caller.ctx.principal_id or "", reason=body.reason, now=now
+                conn,
+                _tenant(caller),
+                str(hold_id),
+                by=caller.ctx.principal_id or "",
+                reason=body.reason,
+                now=now,
             )
     except LedgerError as e:
         raise http(e) from e
@@ -412,7 +441,9 @@ async def resolve(body: ResolveBody, request: Request, caller: CallerDep) -> dic
     tenant = _tenant(caller)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action="evidence.identity.resolve", resource="evidence_handle:*")
+            await protected_action(
+                conn, caller, action="evidence.identity.resolve", resource="evidence_handle:*"
+            )
             principal_id = await vault.resolve_handle(conn, tenant, body.handle)
             await replay.record_custody(
                 conn,
@@ -448,7 +479,9 @@ async def get_provenance(
     depth: Annotated[int, Query(ge=1, le=5)] = 3,
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="evidence.read", resource=f"{entity_type}:{entity_id}")
+        await protected_action(
+            conn, caller, action="evidence.read", resource=f"{entity_type}:{entity_id}"
+        )
         return await provenance.provenance(conn, entity_type, entity_id, depth=depth)
 
 
@@ -460,7 +493,9 @@ async def get_artifact(
     caller: CallerDep,
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="evidence.read", resource=f"artifact:{artifact_ref}")
+        await protected_action(
+            conn, caller, action="evidence.read", resource=f"artifact:{artifact_ref}"
+        )
         items = await provenance.artifact(conn, _tenant(caller), artifact_type, artifact_ref)
     return {"items": [{k: _plain(v) for k, v in i.items()} for i in items]}
 
@@ -475,7 +510,9 @@ class CaseBody(BaseModel):
 
 
 @router.get("/cases")
-async def list_cases(request: Request, caller: CallerDep, status: str | None = None) -> dict[str, Any]:
+async def list_cases(
+    request: Request, caller: CallerDep, status: str | None = None
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=CASE_ACTION, resource="evidence_case:*")
         items = await provenance.cases(conn, status=status)
@@ -505,7 +542,9 @@ async def open_case(body: CaseBody, request: Request, caller: CallerDep) -> dict
 @router.get("/cases/{case_id}")
 async def get_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+        await protected_action(
+            conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}"
+        )
         case = await provenance.load_case(conn, str(case_id))
         if case is None:
             raise ZidError("NOT_FOUND", "No such case.", http_status=404)
@@ -521,11 +560,15 @@ class CaseItemBody(BaseModel):
 
 
 @router.post("/cases/{case_id}/items", status_code=201)
-async def add_case_item(case_id: uuid.UUID, body: CaseItemBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def add_case_item(
+    case_id: uuid.UUID, body: CaseItemBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     now = datetime.now(UTC)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+            await protected_action(
+                conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}"
+            )
             await provenance.require_open_case(conn, str(case_id), now)
             custody_id = await replay.record_custody(
                 conn,
@@ -544,6 +587,8 @@ async def add_case_item(case_id: uuid.UUID, body: CaseItemBody, request: Request
 @router.post("/cases/{case_id}:close")
 async def close_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}")
+        await protected_action(
+            conn, caller, action=CASE_ACTION, resource=f"evidence_case:{case_id}"
+        )
         await provenance.close_case(conn, str(case_id))
     return {"case_id": str(case_id), "status": "CLOSED"}

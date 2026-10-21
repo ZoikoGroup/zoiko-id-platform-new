@@ -50,7 +50,9 @@ def _message(tenant_id: str, domain: str, value: str) -> bytes:
     out = bytearray(_LABEL)
     for part in (tenant_id, domain, value):
         if not isinstance(part, str) or not part:
-            raise CryptoError("CRYPTO_KEY_CONTEXT_MISMATCH", "tenant, domain and value are required")
+            raise CryptoError(
+                "CRYPTO_KEY_CONTEXT_MISMATCH", "tenant, domain and value are required"
+            )
         raw = part.encode("utf-8")
         out += len(raw).to_bytes(4, "big") + raw
     return bytes(out)

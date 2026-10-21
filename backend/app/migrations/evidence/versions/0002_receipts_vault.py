@@ -49,7 +49,13 @@ TABLES = (
     "decision_aggregate",
 )
 IMMUTABLE = frozenset(
-    {"decision_receipt", "audit_record", "receipt_annotation", "custody_record", "erasure_tombstone"}
+    {
+        "decision_receipt",
+        "audit_record",
+        "receipt_annotation",
+        "custody_record",
+        "erasure_tombstone",
+    }
 )
 PLATFORM_CAPABLE = frozenset({"audit_record", "custody_record"})  # may hold platform rows
 

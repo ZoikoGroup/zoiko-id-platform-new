@@ -27,7 +27,9 @@ IDENTIFIER_STORE = "core.principal_identifier"
 async def _locate_principal(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
     row = (
         await conn.execute(
-            text("SELECT principal_id, home_cell, created_at, status::text AS status FROM core.principal WHERE principal_id = :p"),
+            text(
+                "SELECT principal_id, home_cell, created_at, status::text AS status FROM core.principal WHERE principal_id = :p"
+            ),
             {"p": uuid.UUID(subject)},
         )
     ).first()
@@ -120,8 +122,18 @@ async def _dispose_identifier(conn: AsyncConnection, entry: Row[Any], action: st
 
 
 def register() -> None:
-    register_store(IDENTIFIER_STORE, locator=_locate_identifiers, exporter=_export_identifier, disposer=_dispose_identifier)
-    register_store(PRINCIPAL_STORE, locator=_locate_principal, exporter=_export_principal, disposer=_dispose_principal)
+    register_store(
+        IDENTIFIER_STORE,
+        locator=_locate_identifiers,
+        exporter=_export_identifier,
+        disposer=_dispose_identifier,
+    )
+    register_store(
+        PRINCIPAL_STORE,
+        locator=_locate_principal,
+        exporter=_export_principal,
+        disposer=_dispose_principal,
+    )
 
 
 __all__ = ["register"]

@@ -74,7 +74,9 @@ async def _dispose_assertion(conn: AsyncConnection, entry: Row[Any], action: str
 async def _locate_sessions(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text("SELECT session_id, purpose, created_at FROM verify.verification_session WHERE subject_principal_id = :p"),
+            text(
+                "SELECT session_id, purpose, created_at FROM verify.verification_session WHERE subject_principal_id = :p"
+            ),
             {"p": uuid.UUID(subject)},
         )
     ).all()
@@ -117,8 +119,15 @@ async def _dispose_session(conn: AsyncConnection, entry: Row[Any], action: str) 
 
 
 def register() -> None:
-    register_store(ASSERTIONS, locator=_locate_assertions, exporter=_export_assertion, disposer=_dispose_assertion)
-    register_store(SESSIONS, locator=_locate_sessions, exporter=_export_session, disposer=_dispose_session)
+    register_store(
+        ASSERTIONS,
+        locator=_locate_assertions,
+        exporter=_export_assertion,
+        disposer=_dispose_assertion,
+    )
+    register_store(
+        SESSIONS, locator=_locate_sessions, exporter=_export_session, disposer=_dispose_session
+    )
 
 
 __all__ = ["register"]

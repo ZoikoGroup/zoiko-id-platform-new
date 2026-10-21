@@ -114,7 +114,9 @@ class KeyProvider(Protocol):
 
 def canonical_context(context: Mapping[str, str]) -> bytes:
     """Deterministic encoding of an encryption context (sorted keys, no whitespace)."""
-    if not context or not all(isinstance(k, str) and isinstance(v, str) for k, v in context.items()):
+    if not context or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in context.items()
+    ):
         raise CryptoError("CRYPTO_KEY_CONTEXT_MISMATCH", "a non-empty str->str context is required")
     return json.dumps(dict(context), sort_keys=True, separators=(",", ":")).encode()
 
@@ -272,7 +274,9 @@ class LocalKeyProvider:
             key.purpose, algorithm or self._registry.algorithms(key.purpose)[0]
         )
         if alg not in ("AES-256-GCM", "HMAC-SHA-256"):
-            raise CryptoError("CRYPTO_ALGORITHM_NOT_ALLOWED", f"local keys are symmetric, not {alg}")
+            raise CryptoError(
+                "CRYPTO_ALGORITHM_NOT_ALLOWED", f"local keys are symmetric, not {alg}"
+            )
         number = max(key.versions, default=0) + 1
         now = self._clock()
         meta = KeyMetadata(

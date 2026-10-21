@@ -215,7 +215,9 @@ async def store_object(
             zeroize(key)
         key_ref = f"subject:{key_id}"
     else:
-        envelope = await seal(content, _object_aad(tenant_id, object_id, object_type), rt.provider, rt.data_kek)
+        envelope = await seal(
+            content, _object_aad(tenant_id, object_id, object_type), rt.provider, rt.data_kek
+        )
         ciphertext = envelope.to_bytes()
         key_ref = f"kek:{envelope.kek.key_id}:{envelope.kek.version}"
     await store.insert_object(
@@ -277,7 +279,9 @@ async def read_object(
             zeroize(key)
     else:
         try:
-            content = await open_envelope(Envelope.from_bytes(bytes(row.ciphertext)), aad, rt.provider)
+            content = await open_envelope(
+                Envelope.from_bytes(bytes(row.ciphertext)), aad, rt.provider
+            )
         except CryptoError as e:
             raise LedgerError("EVIDENCE_KEY_UNAVAILABLE", e.code) from e
     if not hash_bytes(content, alg="sha-256").matches(Digest.parse(row.content_hash)):
@@ -349,7 +353,13 @@ async def create_hold(
 
 
 async def release_hold(
-    conn: AsyncConnection, tenant_id: str, hold_id: str, *, by: str, reason: str, now: datetime | None = None
+    conn: AsyncConnection,
+    tenant_id: str,
+    hold_id: str,
+    *,
+    by: str,
+    reason: str,
+    now: datetime | None = None,
 ) -> Hold:
     """Release: ordinary retention resumes from the original trigger (PRIV-08), nothing resets."""
     now = now or _now()
@@ -439,7 +449,7 @@ async def erase_subject(
     the key are kept (PARTIAL, PRIV-17: retained items are restricted and reasoned). Idempotent."""
     rt, now = rt or current_runtime(), now or _now()
     ref = await make_handle(rt, tenant_id, SUBJECT_DOMAIN, principal_id)
-    key = await store.load_subject_key(conn, tenant_id, ref, lock=True)
+    await store.load_subject_key(conn, tenant_id, ref, lock=True)  # serialize erasure per subject
     objects = await store.subject_objects(conn, tenant_id, ref)
     holds_now = await store.active_holds(conn, tenant_id, now)
     erased, retained, hold_ids = [], [], set()
@@ -497,7 +507,10 @@ async def erase_subject(
         aggregate_type="erasure_tombstone",
         aggregate_id=tombstone_id,
         aggregate_version=1,
-        data={k: body[k] for k in ("tombstone_id", "subject_ref", "outcome", "key_destroyed", "erased_objects")},
+        data={
+            k: body[k]
+            for k in ("tombstone_id", "subject_ref", "outcome", "key_destroyed", "erased_objects")
+        },
     )
     return ErasureResult(
         ref,
@@ -542,7 +555,9 @@ async def dispose_due_objects(
     disposed = []
     for row in await store.objects_due(conn, now, limit):
         tenant = str(row.tenant_id)
-        if await holding(conn, tenant, subject_ref=row.subject_ref, object_type=row.object_type, now=now):
+        if await holding(
+            conn, tenant, subject_ref=row.subject_ref, object_type=row.object_type, now=now
+        ):
             continue
         if await store.dispose_object(conn, str(row.evidence_object_id), "EXPIRED"):
             disposed.append(str(row.evidence_object_id))
@@ -564,7 +579,11 @@ async def dispose_due_objects(
 
 
 async def rewrap_subject_keys(
-    conn: AsyncConnection, *, rt: EvidenceRuntime | None = None, limit: int = 500, tenant_id: str | None = None
+    conn: AsyncConnection,
+    *,
+    rt: EvidenceRuntime | None = None,
+    limit: int = 500,
+    tenant_id: str | None = None,
 ) -> int:
     """Background rewrap (DEC-F5 §7: no flag-day rotation): subject keys still wrapped under a
     retired KEK version, or under the platform KEK after a tenant moved to its own key, are
@@ -588,20 +607,24 @@ async def rewrap_subject_keys(
         try:
             key = await rt.provider.unwrap_data_key(old, bytes(row.wrapped_key), context)
         except CryptoError:
-            log.warning("subject key rewrap skipped (KEK unavailable)", extra={"tenant_id": tenant, "kek_id": row.kek_id})
+            log.warning(
+                "subject key rewrap skipped (KEK unavailable)",
+                extra={"tenant_id": tenant, "kek_id": row.kek_id},
+            )
             continue
         try:
             wrapped, exact = await rt.provider.wrap_data_key(target.at(version), key, context)
         finally:
             zeroize(key)
-        await store.rewrap_subject_key(conn, tenant, row.subject_ref, wrapped, exact.key_id, exact.version or version)
+        await store.rewrap_subject_key(
+            conn, tenant, row.subject_ref, wrapped, exact.key_id, exact.version or version
+        )
         done += 1
     return done
 
 
 __all__ = [
     "ErasureResult",
-    "rewrap_subject_keys",
     "actor_handle",
     "create_hold",
     "dispose_due_objects",
@@ -613,6 +636,7 @@ __all__ = [
     "reapply_tombstones",
     "release_hold",
     "resolve_handle",
+    "rewrap_subject_keys",
     "store_object",
     "subject_ref",
 ]

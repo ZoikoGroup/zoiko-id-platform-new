@@ -9,12 +9,12 @@ Residency (F-W5; ZID-TENANCY-001):
 
 from __future__ import annotations
 
-from zid_platform.modules.tenant.application.routing import cached_home_cell, home_cell
 from zid_platform.modules.tenant.application.residency import (
     authorize_transfer,
     check_category_transfer,
     effective_operator_jurisdictions,
 )
+from zid_platform.modules.tenant.application.routing import cached_home_cell, home_cell
 from zid_platform.modules.tenant.domain.residency import (
     CATEGORY_CLASS,
     ResidencyError,
@@ -28,8 +28,8 @@ __all__ = [
     "TransferDecision",
     "authorize_transfer",
     "cached_home_cell",
-    "home_cell",
     "check_category_transfer",
     "effective_operator_jurisdictions",
+    "home_cell",
     "minimize",
 ]

@@ -274,7 +274,7 @@ async def list_grants(
     rows = (
         await conn.execute(
             text(
-                f"SELECT * FROM platform.jit_grant WHERE {' AND '.join(where)} "  # noqa: S608
+                f"SELECT * FROM platform.jit_grant WHERE {' AND '.join(where)} "
                 "ORDER BY created_at DESC LIMIT :lim"
             ),
             params,
@@ -288,13 +288,13 @@ async def update_grant(conn: AsyncConnection, g: Grant, **fields: Any) -> Grant:
     sets = dict(fields)
     if "state" in sets and isinstance(sets["state"], GrantState):
         sets["state"] = sets["state"].value
-    if "ended_by" in sets and sets["ended_by"]:
+    if sets.get("ended_by"):
         sets["ended_by"] = uuid.UUID(sets["ended_by"])
     assignments = ", ".join(f"{k} = :{k}" for k in sets)
     row = (
         await conn.execute(
             text(
-                f"UPDATE platform.jit_grant SET {assignments}, version = version + 1 "  # noqa: S608
+                f"UPDATE platform.jit_grant SET {assignments}, version = version + 1 "
                 "WHERE jit_grant_id = :gid AND version = :ver RETURNING *"
             ),
             {**sets, "gid": uuid.UUID(g.jit_grant_id), "ver": g.version},

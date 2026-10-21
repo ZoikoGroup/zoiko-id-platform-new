@@ -41,9 +41,21 @@ PROJECTOR = "relationship.projector.v1"
 EVIDENCE_INGEST = "evidence.ingest.v1"
 # Domains whose events may carry evidence (both lanes: state changes take the priority lane).
 EVIDENCE_DOMAINS = (
-    "authority", "mandate", "agent", "machine", "organization", "authentication", "session",
-    "federation", "verification", "credential", "signals", "provisioning", "privacy",
-    "operator_access", "tenant",
+    "authority",
+    "mandate",
+    "agent",
+    "machine",
+    "organization",
+    "authentication",
+    "session",
+    "federation",
+    "verification",
+    "credential",
+    "signals",
+    "provisioning",
+    "privacy",
+    "operator_access",
+    "tenant",
 )
 EDGE_CHANGED = "com.zoiko.id.relationship.edge.changed.v1"
 
@@ -108,7 +120,11 @@ async def run(
             ),
             run_consumer(
                 bootstrap,
-                [f"zid.{env}.{region}.{d}.{lane}" for d in EVIDENCE_DOMAINS for lane in ("domain", "priority")],
+                [
+                    f"zid.{env}.{region}.{d}.{lane}"
+                    for d in EVIDENCE_DOMAINS
+                    for lane in ("domain", "priority")
+                ],
                 EVIDENCE_INGEST,
                 evidence_ingest_handler(engine, cell_id),
                 stop_after=stop_after,

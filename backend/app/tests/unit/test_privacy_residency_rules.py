@@ -35,7 +35,9 @@ from zid_platform.modules.tenant.infrastructure.catalog import catalog
 NOW = datetime(2026, 10, 21, tzinfo=UTC)
 CAT = Catalog(
     cells={
-        "uk-1": Cell("uk-1", "eu-west-2", "GB", "UK", ("SRP-0", "SRP-1", "SRP-2"), ("uk-2",), False),
+        "uk-1": Cell(
+            "uk-1", "eu-west-2", "GB", "UK", ("SRP-0", "SRP-1", "SRP-2"), ("uk-2",), False
+        ),
         "uk-2": Cell("uk-2", "eu-west-1", "GB", "UK", ("SRP-0", "SRP-1"), (), False),
         "eu-1": Cell("eu-1", "eu-central-1", "DE", "EU", ("SRP-0", "SRP-1"), ("eu-1-dr",), False),
         "eu-1-dr": Cell("eu-1-dr", "eu-west-1", "IE", "EU", (), (), True),
@@ -69,21 +71,63 @@ def test_pack_deadlines_come_only_from_counsel() -> None:
 
 
 def test_processing_check_is_default_deny() -> None:
-    act = Activity("a", "t", "ACT", 1, ("P",), ("D1", "D2"), LawfulBasis.CONTRACT, ("tenant",), "uk-gdpr", None, "ACTIVE", True)
+    act = Activity(
+        "a",
+        "t",
+        "ACT",
+        1,
+        ("P",),
+        ("D1", "D2"),
+        LawfulBasis.CONTRACT,
+        ("tenant",),
+        "uk-gdpr",
+        None,
+        "ACTIVE",
+        True,
+    )
     pur = Purpose("p", "P", 1, ("D1",), ("tenant",), (), (), "ACTIVE")
-    base = {"activity": act, "purpose": pur, "purpose_code": "P", "data_category": "D1",
-            "recipient_class": None, "consent_id": None, "restricted_purposes": [], "activity_code": "ACT"}
+    base = {
+        "activity": act,
+        "purpose": pur,
+        "purpose_code": "P",
+        "data_category": "D1",
+        "recipient_class": None,
+        "consent_id": None,
+        "restricted_purposes": [],
+        "activity_code": "ACT",
+    }
     assert check_processing(**base).allowed
-    assert check_processing(**{**base, "data_category": "D2"}).reason == "PRIVACY_DATA_CATEGORY_NOT_ALLOWED"
-    assert check_processing(**{**base, "recipient_class": "ad-network"}).reason == "PRIVACY_RECIPIENT_NOT_ALLOWED"
-    assert check_processing(**{**base, "restricted_purposes": [None]}).reason == "PRIVACY_PROCESSING_RESTRICTED"
+    assert (
+        check_processing(**{**base, "data_category": "D2"}).reason
+        == "PRIVACY_DATA_CATEGORY_NOT_ALLOWED"
+    )
+    assert (
+        check_processing(**{**base, "recipient_class": "ad-network"}).reason
+        == "PRIVACY_RECIPIENT_NOT_ALLOWED"
+    )
+    assert (
+        check_processing(**{**base, "restricted_purposes": [None]}).reason
+        == "PRIVACY_PROCESSING_RESTRICTED"
+    )
     assert check_processing(**{**base, "activity": None}).reason == "PRIVACY_ACTIVITY_NOT_ACTIVE"
 
 
 def test_verification_is_proportional() -> None:
-    assert initial_verification(RightsType.OPT_OUT_SALE_SHARING, self_request=False, authn_level=0, auth_age=None)[0] == "NOT_REQUIRED"
-    assert initial_verification(RightsType.ACCESS, self_request=True, authn_level=2, auth_age=timedelta(minutes=3)) == ("VERIFIED", 2)
-    assert initial_verification(RightsType.ACCESS, self_request=True, authn_level=2, auth_age=timedelta(hours=2))[0] == "PENDING"
+    assert (
+        initial_verification(
+            RightsType.OPT_OUT_SALE_SHARING, self_request=False, authn_level=0, auth_age=None
+        )[0]
+        == "NOT_REQUIRED"
+    )
+    assert initial_verification(
+        RightsType.ACCESS, self_request=True, authn_level=2, auth_age=timedelta(minutes=3)
+    ) == ("VERIFIED", 2)
+    assert (
+        initial_verification(
+            RightsType.ACCESS, self_request=True, authn_level=2, auth_age=timedelta(hours=2)
+        )[0]
+        == "PENDING"
+    )
     with pytest.raises(PrivacyError):
         require_disclosure_verification(RightsType.PORTABILITY, "VERIFIED", 1)
     assert retention_outcome(due=NOW, held=True, now=NOW) == "HELD"
@@ -93,7 +137,9 @@ def test_verification_is_proportional() -> None:
 def test_fulfilment_never_completes_with_pending_stages() -> None:
     assert summarize([{"state": "DONE"}, {"state": "PENDING_PROCESSOR_ACK"}]).value == "FULFILLING"
     assert summarize([{"state": "DONE"}, {"state": "FAILED"}]).value == "FULFILLING"
-    assert summarize([{"state": "DONE"}, {"state": "RETAINED_RESTRICTED"}]).value == "PARTIALLY_DENIED"
+    assert (
+        summarize([{"state": "DONE"}, {"state": "RETAINED_RESTRICTED"}]).value == "PARTIALLY_DENIED"
+    )
     assert summarize([{"state": "DONE"}, {"state": "SCHEDULED"}]).value == "COMPLETED"
 
 
@@ -116,11 +162,29 @@ def test_placement_and_storage() -> None:
 
 def test_transfers_need_an_exact_approved_rule() -> None:
     r = residency()
-    rule = TransferRule("rule-1", "DC2", "eu-1", "SUPPORT", "uk_idta", "uk-gdpr", ("ticket_id",), NOW - timedelta(days=1), None, "ACTIVE")
+    rule = TransferRule(
+        "rule-1",
+        "DC2",
+        "eu-1",
+        "SUPPORT",
+        "uk_idta",
+        "uk-gdpr",
+        ("ticket_id",),
+        NOW - timedelta(days=1),
+        None,
+        "ACTIVE",
+    )
 
     def go(**kw: object) -> object:
-        args = {"data_class": "DC2", "destination_cell_id": "eu-1", "purpose_code": "SUPPORT",
-                "rules": [rule], "pack_mechanisms": ("uk_idta",), "now": NOW, **kw}
+        args = {
+            "data_class": "DC2",
+            "destination_cell_id": "eu-1",
+            "purpose_code": "SUPPORT",
+            "rules": [rule],
+            "pack_mechanisms": ("uk_idta",),
+            "now": NOW,
+            **kw,
+        }
         return check_transfer(CAT, r, **args)  # type: ignore[arg-type]
 
     assert go().allowed  # type: ignore[attr-defined]

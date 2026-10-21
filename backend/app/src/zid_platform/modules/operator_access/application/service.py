@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_outbox import emit
 
+from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.operator_access.domain.model import (
     Capability,
     GrantState,
@@ -45,7 +46,6 @@ from zid_platform.modules.operator_access.infrastructure.store import (
     Review,
     in_tenant,
 )
-from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.signals.ports import security_view
 from zid_platform.modules.tenant.ports import effective_operator_jurisdictions
 
@@ -261,7 +261,9 @@ async def _security_ok(conn: AsyncConnection, tenant_id: str, principal_id: str)
     return bool(view.state == "NORMAL")
 
 
-async def operator_profile(conn: AsyncConnection, op: Operator, role: OperatorRole) -> OperatorProfile:
+async def operator_profile(
+    conn: AsyncConnection, op: Operator, role: OperatorRole
+) -> OperatorProfile:
     """A registered, ACTIVE operator with `role`, in a NORMAL security state (fresh read, R3)."""
     profile = await store.load_profile(conn, op.principal_id)
     if profile is None or not profile.active:
@@ -304,9 +306,7 @@ def _live(g: Grant, now: datetime, *expected: GrantState) -> None:
     if state is GrantState.EXPIRED and g.state is not GrantState.EXPIRED:
         raise OperatorAccessError("OPERATOR_ACCESS_EXPIRED", "The request or grant has expired.")
     if state not in expected:
-        raise OperatorAccessError(
-            "OPERATOR_ACCESS_INVALID_STATE", f"The request is {state.value}."
-        )
+        raise OperatorAccessError("OPERATOR_ACCESS_INVALID_STATE", f"The request is {state.value}.")
 
 
 # ------------------------------------------------------------------------------- JIT request
@@ -320,7 +320,9 @@ async def request_access(
     _region(s, inp.environment, inp.cell_id)
     duration = bounded_duration(inp.duration, s.ceiling(cap))
     profile = await operator_profile(conn, op, OperatorRole.REQUESTER)
-    check_sod(cap.name, await store.held_capabilities(conn, op.principal_id, now, include_pending=True))
+    check_sod(
+        cap.name, await store.held_capabilities(conn, op.principal_id, now, include_pending=True)
+    )
     policy = await _target_policy(conn, inp.target_tenant_id)
     if policy is not None:
         check_jurisdiction(profile.jurisdiction, policy.allowed_operator_jurisdictions)

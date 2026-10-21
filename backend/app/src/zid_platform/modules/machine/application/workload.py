@@ -48,18 +48,35 @@ def _now() -> datetime:
 
 
 async def _audit(
-    conn: AsyncConnection, tenant_id: str, event_id: str | None, name: str, *, actor: str | None,
-    target_type: str, target_ref: str, outcome: str = "SUCCESS", reason: str | None = None,
+    conn: AsyncConnection,
+    tenant_id: str,
+    event_id: str | None,
+    name: str,
+    *,
+    actor: str | None,
+    target_type: str,
+    target_ref: str,
+    outcome: str = "SUCCESS",
+    reason: str | None = None,
     details: dict[str, object] | None = None,
 ) -> None:
     await record_audit(
         conn,
         tenant_id,
         AuditFacts(
-            event_type=name, actor_type="HUMAN" if actor else "SYSTEM", action=name.rsplit(".", 1)[-1],
-            target_type=target_type, target_ref=target_ref, outcome=outcome, reason_code=reason,
-            evidence_class=EvidenceClass.E3, occurred_at=_now(), actor_principal_id=actor,
-            source_service="machine", source_event_id=event_id, details=dict(details or {}),
+            event_type=name,
+            actor_type="HUMAN" if actor else "SYSTEM",
+            action=name.rsplit(".", 1)[-1],
+            target_type=target_type,
+            target_ref=target_ref,
+            outcome=outcome,
+            reason_code=reason,
+            evidence_class=EvidenceClass.E3,
+            occurred_at=_now(),
+            actor_principal_id=actor,
+            source_service="machine",
+            source_event_id=event_id,
+            details=dict(details or {}),
         ),
     )
 
@@ -96,8 +113,16 @@ async def register_binding(
     if valid_to <= now:
         raise MachineError("WORKLOAD_BINDING_INACTIVE")
     binding = WorkloadBinding(
-        str(uuid7()), agent_principal_id, str(sid), blueprint_version, artifact_digest, environment_id,
-        Attestation(attestation_required), BindingStatus.ACTIVE, now, valid_to,
+        str(uuid7()),
+        agent_principal_id,
+        str(sid),
+        blueprint_version,
+        artifact_digest,
+        environment_id,
+        Attestation(attestation_required),
+        BindingStatus.ACTIVE,
+        now,
+        valid_to,
     )
     await machine_store.save_binding(conn, tenant_id, binding)
     data = {
@@ -109,12 +134,24 @@ async def register_binding(
         "attestation_required": attestation_required,
     }
     event_id = await emit(
-        conn, name="machine.workload.registered", tenant_id=tenant_id, aggregate_type="workload_binding",
-        aggregate_id=binding.binding_id, aggregate_version=1, data={**data, "evidence_class": "E3"},
+        conn,
+        name="machine.workload.registered",
+        tenant_id=tenant_id,
+        aggregate_type="workload_binding",
+        aggregate_id=binding.binding_id,
+        aggregate_version=1,
+        data={**data, "evidence_class": "E3"},
     )
-    await _audit(conn, tenant_id, event_id, "machine.workload.registered", actor=actor,
-                 target_type="workload_binding", target_ref=binding.binding_id,
-                 details={k: v for k, v in data.items() if k != "logical_principal_id"})
+    await _audit(
+        conn,
+        tenant_id,
+        event_id,
+        "machine.workload.registered",
+        actor=actor,
+        target_type="workload_binding",
+        target_ref=binding.binding_id,
+        details={k: v for k, v in data.items() if k != "logical_principal_id"},
+    )
     return binding
 
 
@@ -125,12 +162,24 @@ async def revoke_binding(
     if not changed:
         raise MachineError("WORKLOAD_IDENTITY_UNREGISTERED")
     event_id = await emit(
-        conn, name="machine.workload.binding_revoked", tenant_id=tenant_id,
-        aggregate_type="workload_identity", aggregate_id=spiffe_id, aggregate_version=1,
+        conn,
+        name="machine.workload.binding_revoked",
+        tenant_id=tenant_id,
+        aggregate_type="workload_identity",
+        aggregate_id=spiffe_id,
+        aggregate_version=1,
         data={"spiffe_id": spiffe_id, "reason_code": reason, "evidence_class": "E3"},
     )
-    await _audit(conn, tenant_id, event_id, "machine.workload.binding_revoked", actor=actor,
-                 target_type="workload_identity", target_ref=spiffe_id, reason=reason)
+    await _audit(
+        conn,
+        tenant_id,
+        event_id,
+        "machine.workload.binding_revoked",
+        actor=actor,
+        target_type="workload_identity",
+        target_ref=spiffe_id,
+        reason=reason,
+    )
     return changed
 
 
@@ -143,26 +192,56 @@ async def quarantine_environment(
         raise MachineError("ENVIRONMENT_ALREADY_QUARANTINED")
     for name in ("machine.environment.quarantined", "machine.security_revision.changed"):
         event_id = await emit(
-            conn, name=name, tenant_id=tenant_id, aggregate_type="workload_environment",
-            aggregate_id=f"{environment_id}:{name.rsplit('.', 1)[-1]}", aggregate_version=rev,
-            data={"environment_id": environment_id, "security_revision": rev, "reason_code": reason,
-                  "evidence_class": "E3"},
+            conn,
+            name=name,
+            tenant_id=tenant_id,
+            aggregate_type="workload_environment",
+            aggregate_id=f"{environment_id}:{name.rsplit('.', 1)[-1]}",
+            aggregate_version=rev,
+            data={
+                "environment_id": environment_id,
+                "security_revision": rev,
+                "reason_code": reason,
+                "evidence_class": "E3",
+            },
         )
-        await _audit(conn, tenant_id, event_id, name, actor=actor, target_type="workload_environment",
-                     target_ref=environment_id, reason=reason, details={"security_revision": rev})
+        await _audit(
+            conn,
+            tenant_id,
+            event_id,
+            name,
+            actor=actor,
+            target_type="workload_environment",
+            target_ref=environment_id,
+            reason=reason,
+            details={"security_revision": rev},
+        )
     return rev
 
 
-async def release_environment(conn: AsyncConnection, tenant_id: str, environment_id: str, *, actor: str) -> None:
+async def release_environment(
+    conn: AsyncConnection, tenant_id: str, environment_id: str, *, actor: str
+) -> None:
     if not await store.lift(conn, environment_id, actor):
         raise MachineError("ENVIRONMENT_NOT_QUARANTINED")
     event_id = await emit(
-        conn, name="machine.environment.released", tenant_id=tenant_id,
-        aggregate_type="workload_environment_release", aggregate_id=str(uuid7()), aggregate_version=1,
+        conn,
+        name="machine.environment.released",
+        tenant_id=tenant_id,
+        aggregate_type="workload_environment_release",
+        aggregate_id=str(uuid7()),
+        aggregate_version=1,
         data={"environment_id": environment_id, "evidence_class": "E3"},
     )
-    await _audit(conn, tenant_id, event_id, "machine.environment.released", actor=actor,
-                 target_type="workload_environment", target_ref=environment_id)
+    await _audit(
+        conn,
+        tenant_id,
+        event_id,
+        "machine.environment.released",
+        actor=actor,
+        target_type="workload_environment",
+        target_ref=environment_id,
+    )
 
 
 async def resolve_workload(
@@ -178,7 +257,12 @@ async def resolve_workload(
     every blocker (unregistered, inactive, wrong artifact, revoked blueprint, quarantined, weak
     attestation). `spiffe_id` must come from `zid_context.spiffe.peer_spiffe_id`, never a body."""
     req = CredentialRequest(
-        str(spiffe_id), artifact_digest, Attestation(attestation), environment_id, _now(), risk_level
+        str(spiffe_id),
+        artifact_digest,
+        Attestation(attestation),
+        environment_id,
+        _now(),
+        risk_level,
     )
     blockers = await machine_store.credential_check(
         conn, req, quarantined_environments=await store.quarantined_environments(conn)
@@ -188,7 +272,10 @@ async def resolve_workload(
     row = await store.active_binding(conn, str(spiffe_id))
     assert row is not None
     return WorkloadPrincipal(
-        str(spiffe_id), str(row.logical_principal_id), str(row.binding_id), row.environment_id,
+        str(spiffe_id),
+        str(row.logical_principal_id),
+        str(row.binding_id),
+        row.environment_id,
         int(row.security_revision),
     )
 
@@ -215,9 +302,21 @@ async def record_credential_issued(
         "expires_at": expires_at.isoformat(),
     }
     event_id = await emit(
-        conn, name="machine.workload.credential_issued", tenant_id=tenant_id,
-        aggregate_type="workload_credential", aggregate_id=str(uuid7()), aggregate_version=1,
+        conn,
+        name="machine.workload.credential_issued",
+        tenant_id=tenant_id,
+        aggregate_type="workload_credential",
+        aggregate_id=str(uuid7()),
+        aggregate_version=1,
         data={**data, "evidence_class": "E3"},
     )
-    await _audit(conn, tenant_id, event_id, "machine.workload.credential_issued", actor=None,
-                 target_type="workload_binding", target_ref=principal.binding_id, details=data)
+    await _audit(
+        conn,
+        tenant_id,
+        event_id,
+        "machine.workload.credential_issued",
+        actor=None,
+        target_type="workload_binding",
+        target_ref=principal.binding_id,
+        details=data,
+    )

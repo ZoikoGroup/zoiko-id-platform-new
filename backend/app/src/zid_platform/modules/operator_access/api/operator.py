@@ -193,7 +193,9 @@ def _iso(d: datetime | None) -> str | None:
     return d.isoformat() if d else None
 
 
-def grant_view(g: Grant, now: datetime, approvals: list[tuple[str, str]] | None = None) -> dict[str, Any]:
+def grant_view(
+    g: Grant, now: datetime, approvals: list[tuple[str, str]] | None = None
+) -> dict[str, Any]:
     out: dict[str, Any] = {
         "jit_grant_id": g.jit_grant_id,
         "requester_principal_id": g.requester_principal_id,

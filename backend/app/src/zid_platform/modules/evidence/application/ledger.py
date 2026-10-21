@@ -286,7 +286,7 @@ async def append(
                 "committed_at": db_now,
                 "effective_at": effective_at,
                 "observed_at": observed_at,
-                "signer_key_id": signer.kid if signature else None,
+                "signer_key_id": signer.kid if signer is not None and signature else None,
                 "entry_signature": signature,
             },
         )
@@ -379,7 +379,9 @@ async def verify_partition(
         if row.entry_signature is None:
             continue
         try:
-            header, payload = verify_compact(row.entry_signature, keys=keys, typ=ENTRY_SIGNATURE_TYP)
+            header, payload = verify_compact(
+                row.entry_signature, keys=keys, typ=ENTRY_SIGNATURE_TYP
+            )
             if header.get("kid") != row.signer_key_id or payload != entry_signature_payload(
                 entry, digest
             ):
@@ -391,10 +393,14 @@ async def verify_partition(
         manifest = manifest_from_row(row)
         first, last = manifest.first_sequence, manifest.last_sequence
         if first != expected_first:
-            report.problem("checkpoint_gap", min(first, expected_first), "checkpoints not contiguous")
-        link = previous.hash(alg=manifest.previous_checkpoint_hash.alg) if (
-            previous is not None and manifest.previous_checkpoint_hash is not None
-        ) else None
+            report.problem(
+                "checkpoint_gap", min(first, expected_first), "checkpoints not contiguous"
+            )
+        link = (
+            previous.hash(alg=manifest.previous_checkpoint_hash.alg)
+            if (previous is not None and manifest.previous_checkpoint_hash is not None)
+            else None
+        )
         if (previous is None) != (manifest.previous_checkpoint_hash is None) or (
             link is not None
             and manifest.previous_checkpoint_hash is not None
@@ -414,7 +420,9 @@ async def verify_partition(
         try:
             verify_checkpoint_signature(manifest, row.checkpoint_signature, keys=keys)
         except SignatureError as e:
-            report.problem("checkpoint_signature", first, str(e), checkpoint_id=str(row.checkpoint_id))
+            report.problem(
+                "checkpoint_signature", first, str(e), checkpoint_id=str(row.checkpoint_id)
+            )
         expected_first, previous = last + 1, manifest
         report.sealed_through = last
     if not report.ok and emit_incident:
@@ -470,9 +478,7 @@ class Proof:
         }
 
 
-async def _locate(
-    conn: AsyncConnection, record_id: str, record_type: str | None
-) -> Row[Any]:
+async def _locate(conn: AsyncConnection, record_id: str, record_type: str | None) -> Row[Any]:
     rows = await store.find_record(conn, record_id, record_type)
     if not rows:
         raise LedgerError("NOT_FOUND", "no ledger entry for this record")
@@ -499,7 +505,9 @@ async def inclusion_proof(
     if cp is None:
         raise LedgerError("EVIDENCE_CHECKPOINT_MISSING", "entry not yet sealed by a checkpoint")
     manifest = manifest_from_row(cp)
-    batch = await store.entries(conn, row.partition_id, manifest.first_sequence, manifest.last_sequence)
+    batch = await store.entries(
+        conn, row.partition_id, manifest.first_sequence, manifest.last_sequence
+    )
     digests = [Digest.parse(r.entry_hash) for r in batch]
     if len(digests) != manifest.tree_size:
         raise LedgerError("EVIDENCE_LEDGER_CONFLICT", "checkpoint covers missing entries")

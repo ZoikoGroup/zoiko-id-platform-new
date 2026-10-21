@@ -103,7 +103,7 @@ def runtime_from_settings(settings: Any, *, kms_client: object | None = None) ->
         key_provider_from_settings,
     )
 
-    provider = key_provider_from_settings(settings)  # type: ignore[arg-type]
+    provider = key_provider_from_settings(settings)
     return EvidenceRuntime(
         cell_id=settings.cell_id,
         mac_key=handle_key_from_settings(settings, provider, kms_client=kms_client),

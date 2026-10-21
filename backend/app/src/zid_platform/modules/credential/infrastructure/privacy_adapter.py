@@ -18,7 +18,9 @@ STORE = "cred.presentation_record"
 async def _locate(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text("SELECT presentation_id, created_at FROM cred.presentation_record WHERE subject_principal_id = :p"),
+            text(
+                "SELECT presentation_id, created_at FROM cred.presentation_record WHERE subject_principal_id = :p"
+            ),
             {"p": uuid.UUID(subject)},
         )
     ).all()
@@ -51,7 +53,9 @@ async def _export(conn: AsyncConnection, entry: Row[Any]) -> dict[str, Any]:
 
 async def _dispose(conn: AsyncConnection, entry: Row[Any], action: str) -> None:
     await conn.execute(
-        text("UPDATE cred.presentation_record SET disclosed_claims = NULL WHERE presentation_id = :p"),
+        text(
+            "UPDATE cred.presentation_record SET disclosed_claims = NULL WHERE presentation_id = :p"
+        ),
         {"p": uuid.UUID(entry.object_ref)},
     )
 

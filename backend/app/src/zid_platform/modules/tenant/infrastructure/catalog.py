@@ -12,7 +12,9 @@ import yaml
 
 from zid_platform.modules.tenant.domain.residency import Catalog, Cell
 
-CONFIG = Path(os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config")
+CONFIG = Path(
+    os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
+)
 
 
 def _yaml(path: Path) -> dict[str, Any]:

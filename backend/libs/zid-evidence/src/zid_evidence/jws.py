@@ -51,9 +51,7 @@ def _verify(jwk: Mapping[str, Any], alg: str, signing_input: bytes, sig: bytes) 
             return True
         if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519":
             return False
-        ed25519.Ed25519PublicKey.from_public_bytes(_b64d(str(jwk["x"]))).verify(
-            sig, signing_input
-        )
+        ed25519.Ed25519PublicKey.from_public_bytes(_b64d(str(jwk["x"]))).verify(sig, signing_input)
         return True
     except (InvalidSignature, ValueError, KeyError):
         return False

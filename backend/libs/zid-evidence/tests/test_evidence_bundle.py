@@ -34,7 +34,9 @@ ALG = "sha-256"
 T0 = datetime(2026, 10, 21, 9, 0, tzinfo=UTC)
 
 
-def make_chain(n: int, partition: str = "tenant:t1:uk-1") -> list[tuple[dict[str, Any], LedgerEntry, Digest]]:
+def make_chain(
+    n: int, partition: str = "tenant:t1:uk-1"
+) -> list[tuple[dict[str, Any], LedgerEntry, Digest]]:
     out: list[tuple[dict[str, Any], LedgerEntry, Digest]] = []
     previous: Digest | None = None
     for i in range(1, n + 1):
@@ -162,7 +164,7 @@ def test_root_and_signature_tampering_and_untrusted_keys() -> None:
     forged = copy.deepcopy(b)
     chain = make_chain(5)
     chain[2] = ({"x": 1}, chain[2][1], chain[2][2])
-    manifest, sig = checkpoint(chain, attacker)
+    _manifest, sig = checkpoint(chain, attacker)
     forged["checkpoint"]["signature"] = sig
     assert not verify_bundle(forged, trusted_keys=[signer.public_jwk()]).ok
     # a corrupted signature

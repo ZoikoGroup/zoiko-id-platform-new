@@ -44,9 +44,7 @@ def key_provider_from_settings(
     settings: Settings, *, kms_client: KmsClient | None = None
 ) -> KeyProvider:
     if settings.key_provider == "local":
-        local = LocalKeyProvider(
-            environment=settings.environment, keystore=settings.local_keystore
-        )
+        local = LocalKeyProvider(environment=settings.environment, keystore=settings.local_keystore)
         for purpose in PROVIDER_PURPOSES:
             local.ensure_key(purpose, kek_ref(settings, purpose).key_id)
         return local
@@ -66,7 +64,9 @@ def _kms_client(settings: Settings) -> object:
     return boto3.client("kms", region_name=settings.kms_region)
 
 
-def evidence_signer_from_settings(settings: Settings, *, kms_client: object | None = None) -> Signer:
+def evidence_signer_from_settings(
+    settings: Settings, *, kms_client: object | None = None
+) -> Signer:
     """The EVIDENCE_SIGNING key (DEC-F2 §5): separate from every token/credential key.
 
     Local/test: a development key, shared between processes through ZID_DEV_SIGNING_KEYS
@@ -74,7 +74,9 @@ def evidence_signer_from_settings(settings: Settings, *, kms_client: object | No
     kid = f"evidence-{settings.cell_id}"
     if settings.key_provider == "local":
         if settings.environment not in ("local", "test"):
-            raise RuntimeError("evidence signing keys must come from KMS outside local/test (DEC-F5)")
+            raise RuntimeError(
+                "evidence signing keys must come from KMS outside local/test (DEC-F5)"
+            )
         pem = settings.dev_signing_keys.get("evidence")
         kid = f"dev-evidence-{settings.cell_id}"
         if pem:
@@ -94,7 +96,11 @@ def handle_key_from_settings(
     """The HMAC_INTERNAL key that makes pseudonymous evidence handles (DEC-F1 §2)."""
     ref = kek_ref(settings, KeyPurpose.HMAC_INTERNAL)
     if settings.key_provider == "local":
-        local = provider if isinstance(provider, LocalKeyProvider) else key_provider_from_settings(settings)
+        local = (
+            provider
+            if isinstance(provider, LocalKeyProvider)
+            else key_provider_from_settings(settings)
+        )
         assert isinstance(local, LocalKeyProvider)
         return local.hmac_key(ref)
     return KmsMacKey(kms_client or _kms_client(settings), ref.key_id)
@@ -112,10 +118,12 @@ def secret_broker_from_settings(
         return EnvSecretBroker(environment=settings.environment)
     if not settings.openbao_addr:
         raise RuntimeError("ZID_SECRET_BROKER=openbao needs ZID_OPENBAO_ADDR (DEC-F5)")
-    source = settings.openbao_jwt_file if settings.openbao_auth == "jwt" else settings.openbao_token_file
+    source = (
+        settings.openbao_jwt_file if settings.openbao_auth == "jwt" else settings.openbao_token_file
+    )
     if not source:
         raise RuntimeError(f"ZID_OPENBAO_AUTH={settings.openbao_auth} needs its credential file")
-    reader = lambda: _file_reader(source)  # noqa: E731
+    reader = lambda: _file_reader(source)
     return OpenBaoSecretBroker(
         settings.openbao_addr,
         mount=settings.openbao_kv_mount,
