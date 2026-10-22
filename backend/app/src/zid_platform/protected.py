@@ -32,6 +32,10 @@ from zid_platform.modules.decision.ports import (
 )
 from zid_platform.modules.signals.ports import security_view
 
+# A SUSPENDED tenant gets no protected decisions except its governed lifecycle (resume/offboard;
+# OVERLAY-001 §2 "ACTIVE after governed recovery").
+SUSPENDED_TENANT_ACTIONS = frozenset({"tenant.lifecycle.manage"})
+
 CATALOG_FILE = Path(
     os.environ.get("ZID_ACTION_CATALOG")
     or Path(__file__).resolve().parents[4] / "contracts" / "action-catalog" / "actions.yaml"
@@ -66,6 +70,12 @@ async def protected_action(
     this change it is refused before the PDP is asked."""
     now = now or datetime.now(UTC)
     tenant = caller.ctx.tenant_id or ""
+    if caller.tenant_status == "SUSPENDED" and action not in SUSPENDED_TENANT_ACTIONS:
+        raise ZidError(
+            "TENANT_SUSPENDED",
+            "This tenant is suspended; only its governed resumption is possible.",
+            http_status=403,
+        )
     try:
         spec = action_spec(action, catalog())
     except KeyError as e:

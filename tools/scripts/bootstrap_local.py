@@ -5,10 +5,12 @@
 2. Applies every module's migrations to the cell database.
 3. Seeds, idempotently: a local tenant, a human principal, the web app's first-party OAuth
    client (`zoiko-web`) and this cell as the tenant's mandate writer (ZID_CELL_UUID).
-4. Makes that principal a tenant administrator through the real authority path: organization,
+4. Gives the tenant its tenant record (ACTIVE, Native mode) with that principal as its ACTIVE
+   OWNER, so the Team page can invite people (G-W0).
+5. Makes that principal a tenant administrator through the real authority path: organization,
    registry root of trust, an authority grant for every platform action, and an ACTIVE policy
    release (re-run after the action catalog grows to cover new actions).
-5. Issues a one-time enrollment ticket and prints the web app URL that registers a passkey.
+6. Issues a one-time enrollment ticket and prints the web app URL that registers a passkey.
 
 Usage (from backend/, with UV_PROJECT_ENVIRONMENT set as in the README; Postgres running):
     python -m uv run python ../tools/scripts/bootstrap_local.py
@@ -60,6 +62,7 @@ ADMIN_RESOURCE_TYPES = (
     "rp_registration",
     "security_state",
     "ssf_stream",
+    "tenant",
     "verification_adapter",
     "verification_assertion",
     "verification_profile",
@@ -163,7 +166,12 @@ async def ensure_admin(c: object) -> None:
         for g in await load_grants_for_grantee(c, PRINCIPAL_ID)
         if g.status is GrantStatus.ACTIVE and g.grantor_principal_id == ROOT_HOLDER_ID
     ]
-    covered = any(g.authority.actions is ANY or set(actions) <= g.authority.actions for g in held)  # type: ignore[operator]
+    wanted = {f"{t}:*" for t in ADMIN_RESOURCE_TYPES}
+    covered = any(
+        (g.authority.actions is ANY or set(actions) <= g.authority.actions)  # type: ignore[operator]
+        and (g.authority.resources is ANY or wanted <= g.authority.resources)  # type: ignore[operator]
+        for g in held
+    )
     if not covered:  # first run, or the catalog gained actions since the last grant
         await issue_grant(
             c,
@@ -222,6 +230,36 @@ async def ensure_admin(c: object) -> None:
         await release_store.add_reviewer(c, rid, ROOT_HOLDER_ID)
         await release_store.move(c, rid, ReleaseStatus.ACTIVE, catalog=catalog(), now=now)
         print("policy release activated")
+
+
+async def ensure_tenant_record(c: object, cell_id: str) -> None:
+    """The local tenant's platform.tenant row and its OWNER (idempotent; local only)."""
+    from sqlalchemy import text
+
+    t, p = uuid.UUID(TENANT_ID), uuid.UUID(PRINCIPAL_ID)
+    inserted = await c.execute(  # type: ignore[attr-defined]
+        text(
+            "INSERT INTO platform.tenant (tenant_id, display_name, tenant_slug, status, "
+            "deployment_mode, home_cell_id, organization_id, creator_tenant_id, creator_principal_id) "
+            "VALUES (:t, 'Local Company', 'local-company', 'ACTIVE', 'O0', :cell, :o, :t, :p) "
+            "ON CONFLICT (tenant_id) DO NOTHING"
+        ),
+        {"t": t, "cell": cell_id, "o": uuid.UUID(ORG_ID), "p": p},
+    )
+    if inserted.rowcount:
+        print("tenant record created (ACTIVE)")
+    owner = await c.execute(  # type: ignore[attr-defined]
+        text(
+            "INSERT INTO platform.tenant_role_assignment (assignment_id, tenant_id, principal_id, "
+            "role, status, origin, activated_at) "
+            "SELECT :id, :t, :p, 'OWNER', 'ACTIVE', 'BOOTSTRAP', now() WHERE NOT EXISTS ("
+            "SELECT 1 FROM platform.tenant_role_assignment WHERE tenant_id = :t AND principal_id = :p "
+            "AND role = 'OWNER' AND status <> 'REVOKED')"
+        ),
+        {"id": uuid.uuid4(), "t": t, "p": p},
+    )
+    if owner.rowcount:
+        print(f"principal {PRINCIPAL_ID} is the tenant OWNER")
 
 
 def cell_db_url() -> str:
@@ -321,6 +359,7 @@ async def seed(url: str, args: argparse.Namespace) -> str:
                         {"t": uuid.UUID(TENANT_ID), "c": uuid.UUID(cell_uuid)},
                     )
                 await ensure_admin(c)
+                await ensure_tenant_record(c, cell_id)
             return await issue_ticket(
                 c,
                 tenant_id=TENANT_ID,
@@ -432,6 +471,10 @@ def main() -> int:
 
         upgrade(url)
         print("migrations applied to the cell database")
+        global_url = os.environ.get("ZID_GLOBAL_DATABASE_URL")
+        if global_url:  # the global plane's own database: locator + discovery only (DEC-G3)
+            upgrade(global_url, role="global")
+            print("migrations applied to the global-plane database")
     ticket = asyncio.run(seed(url, args))
     print()
     print("Register the first passkey (link valid 23 hours, single use):")

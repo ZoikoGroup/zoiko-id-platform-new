@@ -1,5 +1,9 @@
 """Public interface of the authority module. Other modules import ONLY this."""
 
+from zid_platform.modules.authority.application.cascade import (
+    on_person_authority_ended,
+    on_root_changed,
+)
 from zid_platform.modules.authority.application.service import (
     authorize_request,
     issue_grant,
@@ -13,8 +17,13 @@ from zid_platform.modules.authority.domain.algebra import (
     ValueLimit,
     Window,
 )
+from zid_platform.modules.authority.domain.grants import (
+    ContinuityMode,
+    Grant,
+    GrantStatus,
+    GrantType,
+)
 from zid_platform.modules.authority.domain.grants import Decision as AuthorityDecision
-from zid_platform.modules.authority.domain.grants import Grant
 from zid_platform.modules.authority.infrastructure.approval_store import (
     evaluate as evaluate_approval,
 )
@@ -24,7 +33,10 @@ __all__ = [
     "ANY",
     "Authority",
     "AuthorityDecision",
+    "ContinuityMode",
     "Grant",
+    "GrantStatus",
+    "GrantType",
     "Request",
     "ValueLimit",
     "Window",
@@ -33,6 +45,8 @@ __all__ = [
     "holds_any_action",
     "issue_grant",
     "load_grant",
+    "on_person_authority_ended",
+    "on_root_changed",
     "resolve",
     "revoke_grant",
 ]

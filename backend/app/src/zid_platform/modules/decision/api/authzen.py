@@ -7,6 +7,11 @@ The caller is a PEP. Its tenant comes from the authenticated request context, ne
 `decision` is true only for ALLOW, and Zoiko facts sit in `context` (reason codes, obligations,
 policy release, revisions, valid_until). A PEP that can't fulfil a mandatory obligation must not act.
 
+Overlay (G-W4): `context.enforcement` is ENFORCE or EVALUATE_ONLY. While the tenant is in SHADOW,
+or in PILOT outside an active scope, the decision is evaluated and recorded next to
+`context.incumbent_decision`, but the incumbent still decides. An obligation the PEP's registered
+profile cannot enforce, or an R2/R3 request without the context that profile requires, is DENY.
+
 Authentication is Phase E: until its middleware sets `request.state.authn`, every call is refused
 with 401 rather than evaluated without a trusted caller.
 """
@@ -14,11 +19,12 @@ with 401 rather than evaluated without a trusted caller.
 from __future__ import annotations
 
 import os
+import time
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import yaml
 from fastapi import APIRouter, Depends, Request
@@ -34,6 +40,7 @@ from zid_platform.modules.authority.ports import ValueLimit
 from zid_platform.modules.decision.application.pdp_service import action_spec, evaluate_request
 from zid_platform.modules.decision.domain.pdp import DecisionRequest
 from zid_platform.modules.decision.domain.risk import RiskClass
+from zid_platform.modules.onboarding.ports import apply_overlay
 
 router = APIRouter(tags=["authzen"])
 
@@ -77,6 +84,8 @@ class EvaluationContext(BaseModel):
     transaction_context_id: str | None = None
     tool_id: str | None = None
     value: Value | None = None
+    # Shadow/pilot (OVERLAY §18): what the incumbent system decided for this very request
+    incumbent_decision: Literal["ALLOW", "DENY"] | None = None
 
 
 class EvaluationRequest(BaseModel):
@@ -117,6 +126,7 @@ async def evaluation(
             retryable=True,
             retry_after_ms=1000,
         )
+    started = time.perf_counter()
     decision_id, now = str(uuid7()), datetime.now(UTC)
     try:
         spec = action_spec(body.action.name, catalog())
@@ -155,12 +165,44 @@ async def evaluation(
             security_state=caller.security_state,
             catalog=catalog(),
         )
+        present = frozenset(
+            k
+            for k in (
+                "purpose",
+                "represented_principal_id",
+                "mandate_id",
+                "transaction_context_id",
+                "tool_id",
+                "value",
+            )
+            if getattr(c, k) is not None
+        )
+        verdict = await apply_overlay(
+            conn,
+            tenant_id=ctx.tenant_id,
+            tenant_status=caller.tenant_status,
+            client_id=caller.client_id,
+            subject=body.subject.id,
+            action=body.action.name,
+            risk=int(d.risk_class),
+            decision_id=d.decision_id,
+            outcome=d.outcome.value,
+            decision_allow=d.outcome.value == "ALLOW",
+            obligations=[str(o["type"]) for o in d.obligations],
+            present_context=present,
+            incumbent=c.incumbent_decision,
+            latency_ms=(time.perf_counter() - started) * 1000,
+        )
     return {
-        "decision": d.outcome.value == "ALLOW",
+        "decision": verdict.allow,
         "context": {
             "decision_id": d.decision_id,
-            "outcome": d.outcome.value,
-            "reason_codes": list(d.reason_codes),
+            # the overlay can only ever turn an ALLOW into a DENY, never the reverse
+            "outcome": "DENY"
+            if d.outcome.value == "ALLOW" and not verdict.allow
+            else d.outcome.value,
+            "enforcement": verdict.enforcement.value,
+            "reason_codes": [*d.reason_codes, *verdict.reason_codes],
             "obligations": [{**o, "type": str(o["type"]).lower()} for o in d.obligations],
             "risk_class": d.risk_class.name,
             "policy_release_id": d.policy_release_id,

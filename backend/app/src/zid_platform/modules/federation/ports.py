@@ -22,4 +22,28 @@ async def trust_anchor(conn: AsyncConnection, anchor_id: str) -> Anchor | None:
     )
 
 
-__all__ = ["Anchor", "Resolved", "TrustChainError", "resolve", "trust_anchor"]
+async def set_connection_status(conn: AsyncConnection, connection_id: str, status: str) -> bool:
+    """QUARANTINED / ACTIVE / DISABLED for one federation connection (connector framework, G-W2).
+
+    Returns False when there is no such connection in this tenant."""
+    from dataclasses import replace as dc_replace
+
+    from zid_platform.modules.federation.infrastructure.connection_store import load, replace
+
+    old = await load(conn, connection_id, lock=True)
+    if old is None:
+        return False
+    if old.status != status:
+        new = dc_replace(old, status=status, config_revision=old.config_revision + 1)
+        await replace(conn, old, new, status.lower())
+    return True
+
+
+__all__ = [
+    "Anchor",
+    "Resolved",
+    "TrustChainError",
+    "resolve",
+    "set_connection_status",
+    "trust_anchor",
+]

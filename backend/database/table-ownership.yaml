@@ -34,6 +34,41 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "TENANCY-001 §11 (CR-014)"
+  platform.tenant_role_assignment:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §4 (OWNER/ADMIN/MEMBER, bootstrap; CR-015)"
+  platform.tenant_state_transition:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §2 (append-only lifecycle history; CR-015)"
+  platform.tenant_configuration_revision:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §3 configuration_revision (append-only; CR-015)"
+  platform.tenant_bootstrap_request:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §4 bootstrap; TENANCY-001 §14 (kept in the creating tenant; CR-015)"
+  platform.tenant_domain:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §5 domain verification (CR-015)"
+  platform.workspace_directory:
+    role: cell
+    module: tenant
+    tenant_scoped: false
+    source: "proposed (workspace name -> console client, looked up before a tenant is known; CR-015)"
+  platform.directory_publication:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "TENANCY-001 §2, §14 step 11 (last record published to the locator; CR-016)"
   platform.configuration_snapshot:
     role: cell
     module: configuration
@@ -304,6 +339,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "proposed (ZID-ROOT-001 §18, ROOT-24 idempotent source events; CR-007)"
+  org.registry_observation:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ROOT-001 §4, §6 (registry provenance and root bindings; CR-015)"
   verify.verification_assertion:
     role: cell
     module: verification
@@ -573,17 +613,42 @@ tables:
     role: cell
     module: integration
     tenant_scoped: true
-    source: "proposed (SVC INT)"
+    source: "OVERLAY-001 §14 application registry (CR-015)"
+  platform.integration_connector:
+    role: cell
+    module: integration
+    tenant_scoped: true
+    source: "OVERLAY-001 §15 connector framework (CR-015)"
+  platform.connector_credential:
+    role: cell
+    module: integration
+    tenant_scoped: true
+    source: "OVERLAY-001 §16 write-only connector credentials (CR-015)"
   platform.mapping_release:
     role: cell
     module: integration
     tenant_scoped: true
-    source: "proposed (OVERLAY §3)"
+    source: "OVERLAY-001 §11 immutable mapping releases (CR-015)"
+  platform.identity_routing_rule:
+    role: cell
+    module: integration
+    tenant_scoped: true
+    source: "OVERLAY-001 §8 multi-IdP routing (CR-015)"
   platform.onboarding_plan:
     role: cell
     module: onboarding
     tenant_scoped: true
-    source: "proposed (OVERLAY §3)"
+    source: "OVERLAY-001 §17 versioned onboarding plan (CR-015)"
+  platform.onboarding_stage:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "OVERLAY-001 §19 progressive enforcement stages (CR-015)"
+  platform.shadow_observation:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "OVERLAY-001 §18 minimized shadow observations (CR-015)"
   events.webhook_endpoint:
     role: cell
     module: webhook
@@ -613,4 +678,64 @@ tables:
     role: global
     module: locator
     tenant_scoped: false
-    source: "TENANCY-001 §2"
+    source: "TENANCY-001 §2 (signed, epoch-fenced; CR-016)"
+  global_directory.routing_alias:
+    role: global
+    module: locator
+    tenant_scoped: false
+    source: "TENANCY-001 §2 routing_aliases, §9 (alias -> tenant; CR-016)"
+  platform.cell_state:
+    role: cell
+    module: resilience
+    tenant_scoped: false
+    source: "RESILIENCE-001 §4, §28 cell state / quarantine (CR-016)"
+  platform.cell_readiness:
+    role: cell
+    module: resilience
+    tenant_scoped: false
+    source: "RESILIENCE-001 §25 recovery readiness telemetry (CR-016)"
+  platform.recovery_operation:
+    role: cell
+    module: resilience
+    tenant_scoped: false
+    source: "RESILIENCE-001 §15-20 governed recovery operations (CR-016)"
+  platform.recovery_step:
+    role: cell
+    module: resilience
+    tenant_scoped: false
+    source: "RESILIENCE-001 §15 append-only runbook step log (CR-016)"
+  platform.dr_exercise:
+    role: cell
+    module: resilience
+    tenant_scoped: false
+    source: "RESILIENCE-001 §27, RES-30 exercise results (CR-016)"
+  platform.incident:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §15-17 incident record (CR-017)"
+  platform.incident_entry:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §16-17 append-only incident timeline (CR-017)"
+  platform.incident_action_item:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §26 post-incident action items (CR-017)"
+  platform.readiness_review:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §24 production readiness review (CR-017)"
+  platform.readiness_gate:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §24 PRR gate results (CR-017)"
+  platform.change_freeze:
+    role: cell
+    module: operations
+    tenant_scoped: false
+    source: "SRE-001 §5.1, §23 change freeze (CR-017)"

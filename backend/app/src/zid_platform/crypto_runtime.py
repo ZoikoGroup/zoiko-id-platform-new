@@ -90,6 +90,29 @@ def evidence_signer_from_settings(
     )
 
 
+def placement_signer(
+    settings: Settings,
+    *,
+    dev_purpose: str,
+    kid: str,
+    kms_key_id: str | None,
+    kms_client: object | None = None,
+) -> Signer | None:
+    """Signer for placement statements (DEC-G3): a cell's directory records, the global plane's
+    discovery answers. Local/test: the development key `dev_purpose` from ZID_DEV_SIGNING_KEYS (shared
+    by the processes of one machine) or a fresh one; deployed: the KMS key, or None (not configured)."""
+    if settings.environment in ("local", "test") and settings.key_provider == "local":
+        pem = settings.dev_signing_keys.get(dev_purpose)
+        return (
+            LocalSigner.from_pem(f"dev-{dev_purpose}-{settings.cell_id}", pem)
+            if pem
+            else LocalSigner(kid)
+        )
+    if not kms_key_id:
+        return None
+    return KmsSigner(kms_client or _kms_client(settings), kms_key_id, kid=kid)
+
+
 def handle_key_from_settings(
     settings: Settings, provider: KeyProvider | None = None, *, kms_client: object | None = None
 ) -> MacKey:
@@ -141,5 +164,6 @@ __all__ = [
     "handle_key_from_settings",
     "kek_ref",
     "key_provider_from_settings",
+    "placement_signer",
     "secret_broker_from_settings",
 ]

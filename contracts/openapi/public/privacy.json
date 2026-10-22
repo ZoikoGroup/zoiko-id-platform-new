@@ -235,38 +235,6 @@
         "title": "AdmBody",
         "type": "object"
       },
-      "CloseBody": {
-        "additionalProperties": false,
-        "properties": {
-          "exemptions": {
-            "items": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            "maxItems": 20,
-            "title": "Exemptions",
-            "type": "array"
-          },
-          "outcome": {
-            "pattern": "^(COMPLETED|PARTIALLY_DENIED|DENIED|WITHDRAWN)$",
-            "title": "Outcome",
-            "type": "string"
-          },
-          "reason_code": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Reason Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "outcome",
-          "reason_code"
-        ],
-        "title": "CloseBody",
-        "type": "object"
-      },
       "ConsentBody": {
         "additionalProperties": false,
         "properties": {
@@ -914,6 +882,38 @@
           }
         },
         "title": "WithdrawBody",
+        "type": "object"
+      },
+      "zid_platform__modules__privacy__api__privacy__CloseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "exemptions": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "maxItems": 20,
+            "title": "Exemptions",
+            "type": "array"
+          },
+          "outcome": {
+            "pattern": "^(COMPLETED|PARTIALLY_DENIED|DENIED|WITHDRAWN)$",
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason_code"
+        ],
+        "title": "CloseBody",
         "type": "object"
       }
     }
@@ -1843,7 +1843,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CloseBody"
+                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__privacy__CloseBody"
               }
             }
           },

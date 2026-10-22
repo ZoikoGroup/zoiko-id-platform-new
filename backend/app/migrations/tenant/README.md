@@ -8,3 +8,12 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `platform.cell`
 - `platform.tenant_shard`
 - `platform.entitlement`
+- `platform.tenant_residency`
+- `platform.residency_transfer_rule`
+- `platform.tenant_role_assignment`
+- `platform.tenant_state_transition`
+- `platform.tenant_configuration_revision`
+- `platform.tenant_bootstrap_request`
+- `platform.tenant_domain`
+- `platform.workspace_directory`
+- `platform.directory_publication`

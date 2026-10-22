@@ -13,6 +13,38 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.organization.application.registry import (
+    EstablishedRoot,
+    NameMatcher,
+    establish_development_root,
+    establish_registry_root,
+    refresh_registry_roots,
+)
+from zid_platform.modules.organization.domain.registry import RegistryError
+from zid_platform.modules.organization.infrastructure.registry_adapters import (
+    CompaniesHouse,
+    Gleif,
+    RegistryAdapter,
+    adapter_for,
+)
+
+__all__ = [
+    "CompaniesHouse",
+    "EstablishedRoot",
+    "Gleif",
+    "NameMatcher",
+    "RegistryAdapter",
+    "RegistryError",
+    "RootReader",
+    "RootView",
+    "adapter_for",
+    "establish_development_root",
+    "establish_registry_root",
+    "has_usable_root",
+    "read_root",
+    "refresh_registry_roots",
+]
+
 
 @dataclass(frozen=True, slots=True)
 class RootView:
@@ -62,3 +94,16 @@ async def read_root(conn: AsyncConnection, tenant_id: str, root_id: str) -> Root
         value_limit=r.value_limit,
         currency=r.currency,
     )
+
+
+async def has_usable_root(
+    conn: AsyncConnection, tenant_id: str, organization_id: str, now: datetime
+) -> bool:
+    """Does the organization hold an ACTIVE, still-fresh authority root (onboarding gate)?"""
+    from zid_platform.modules.organization.infrastructure.root_store import load_roots
+
+    for r in await load_roots(conn, organization_id):
+        view = await read_root(conn, tenant_id, r.root_id)
+        if view is not None and view.usable and view.fresh_until > now:
+            return True
+    return False

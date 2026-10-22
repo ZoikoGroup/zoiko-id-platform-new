@@ -5,6 +5,7 @@ table `zid_migrations.alembic_version__<module>`, so a module's schema history c
 module if it is ever extracted. Schemas themselves are created once by `backend/database/schemas/`.
 
     python -m zid_platform.migrations upgrade --url postgresql+asyncpg://... [--stream mandate ...]
+    python -m zid_platform.migrations upgrade --role global --url <global-plane database>
 
 Run as the migration owner role (`db_owner_migration`), never as a runtime role.
 """
@@ -60,12 +61,19 @@ def execute_script(sql: str) -> None:
         op.execute(statement)
 
 
-def streams_with_revisions() -> list[str]:
-    """Streams that have at least one revision, in a stable order."""
+# Streams of the global-plane database (ZID-TENANCY-001 §2): never applied to a cell database,
+# and the cell streams are never applied to the global one (roles.PLANES["global"]).
+GLOBAL_STREAMS = frozenset({"locator", "discovery"})
+
+
+def streams_with_revisions(role: str = "cell") -> list[str]:
+    """Streams of `role` (cell | global) that have at least one revision, in a stable order."""
     return sorted(
         p.name
         for p in MIGRATIONS_DIR.iterdir()
-        if p.is_dir() and any((p / "versions").glob("*.py"))
+        if p.is_dir()
+        and any((p / "versions").glob("*.py"))
+        and ((p.name in GLOBAL_STREAMS) == (role == "global"))
     )
 
 
@@ -109,8 +117,10 @@ def run_env(context: object) -> None:
     asyncio.run(main())
 
 
-def upgrade(url: str, streams: list[str] | None = None, revision: str = "head") -> None:
-    for stream in streams or streams_with_revisions():
+def upgrade(
+    url: str, streams: list[str] | None = None, revision: str = "head", *, role: str = "cell"
+) -> None:
+    for stream in streams or streams_with_revisions(role):
         command.upgrade(config_for(stream, url), revision)
 
 
@@ -119,8 +129,9 @@ def main() -> None:
     parser.add_argument("action", choices=["upgrade"])
     parser.add_argument("--url", required=True)
     parser.add_argument("--stream", action="append", dest="streams")
+    parser.add_argument("--role", choices=["cell", "global"], default="cell")
     args = parser.parse_args()
-    upgrade(args.url, args.streams)
+    upgrade(args.url, args.streams, role=args.role)
 
 
 if __name__ == "__main__":

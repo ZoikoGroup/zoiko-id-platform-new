@@ -30,6 +30,8 @@
 /backend/app/src/zid_platform/modules/onboarding/        @zoiko/integration
 /backend/app/src/zid_platform/modules/webhook/           @zoiko/integration
 /backend/app/src/zid_platform/modules/operator_access/   @zoiko/sre @zoiko/security
+/backend/app/src/zid_platform/modules/resilience/        @zoiko/sre @zoiko/security
+/backend/app/src/zid_platform/modules/operations/        @zoiko/sre
 /backend/app/src/zid_platform/roles.py                   @zoiko/architecture
 /backend/app/tests/unit/test_architecture.py             @zoiko/architecture
 /backend/app/migrations/                                 @zoiko/data

@@ -1,0 +1,206 @@
+# Production service catalogue, SLOs and alert ownership (ZID-SRE-001 §1, §4-6, §22; OPS-01/04; SRE-04)
+# status: PROPOSED (CR-017) - the operational source of truth the code, alert rules and runbook index are checked against.
+# version: 0.1.0
+#
+# Every production service resolves to one owner, an on-call rotation, a criticality tier, its
+# journeys (path prefixes measured as SLIs), its SLOs and its runbooks. CI checks (test_operations_catalogue.py):
+#   - every runbook referenced here exists in docs/runbooks with every §22 field;
+#   - every PAGE alert carries owner, runbook and dashboard (an ownerless alert is rejected);
+#   - every T0/T1 service has at least one runbook and availability + latency SLOs;
+#   - deploy/observability/prometheus/rules/*.yaml match what this file generates (no drift).
+#
+# targets: availability is good/total of eligible requests (server errors and timeouts Zoiko owns
+# are bad; caller-caused 4xx are not); latency is the share answered within the journey threshold.
+
+version: 0.1.0
+
+tiers:
+  T0: {availability: 0.99995, meaning: "Trust kernel: a failure is a security or correctness event"}
+  T1: {availability: 0.9999, meaning: "Core identity journeys"}
+  T2: {availability: 0.999, meaning: "Administration, onboarding and integration"}
+  T3: {availability: 0.99, meaning: "Batch, analytics, non-interactive"}
+
+services:
+  authorization:
+    name: "Authorization decision (AuthZEN PDP)"
+    tier: T0
+    owner: "@zoiko/authorization"
+    oncall: authorization-primary
+    dashboard: zid-authorization
+    journeys:
+      - {prefix: /access/v1/, latency_s: 0.06}       # R2/R3 p95 < 60 ms in-region (SRE-001 §5)
+    slos:
+      - {id: authorization-availability, sli: availability, target: 0.99995}
+      - {id: authorization-latency, sli: latency, target: 0.95}
+    runbooks: [RB-01, RB-03, RB-09]
+
+  authentication:
+    name: "Authentication, OAuth/OIDC token and session endpoints"
+    tier: T0
+    owner: "@zoiko/identity"
+    oncall: identity-primary
+    dashboard: zid-authentication
+    journeys:
+      - {prefix: /oauth2/, latency_s: 0.3}
+      - {prefix: /authn/, latency_s: 0.5}
+      - {prefix: /sessions, latency_s: 0.3}
+      - {prefix: /federation/, latency_s: 1.0}
+    slos:
+      - {id: authentication-availability, sli: availability, target: 0.99995}
+      - {id: authentication-latency, sli: latency, target: 0.95}
+    runbooks: [RB-02, RB-16]
+
+  mandate:
+    name: "Delegated authority and mandate ledger"
+    tier: T0
+    owner: "@zoiko/authority"
+    oncall: authority-primary
+    dashboard: zid-mandate
+    journeys:
+      - {prefix: /v1/mandate-reservations, latency_s: 0.1}
+      - {prefix: /v1/mandates, latency_s: 0.2}
+      - {prefix: /v1/authority-grants, latency_s: 0.2}
+      - {prefix: /v1/approval-requests, latency_s: 0.3}
+    slos:
+      - {id: mandate-availability, sli: availability, target: 0.99995}
+      - {id: mandate-latency, sli: latency, target: 0.95}
+    runbooks: [RB-04, RB-12]
+
+  evidence:
+    name: "Decision evidence, receipts and audit"
+    tier: T1
+    owner: "@zoiko/evidence"
+    oncall: evidence-primary
+    dashboard: zid-evidence
+    journeys:
+      - {prefix: /v1/evidence, latency_s: 0.5}
+    slos:
+      - {id: evidence-availability, sli: availability, target: 0.9999}
+      - {id: evidence-latency, sli: latency, target: 0.95}
+    runbooks: [RB-10, RB-15]
+
+  signals:
+    name: "Continuous evaluation, revocation and shared signals"
+    tier: T0
+    owner: "@zoiko/security"
+    oncall: security-primary
+    dashboard: zid-signals
+    journeys:
+      - {prefix: /signals, latency_s: 0.2}
+      - {prefix: /ssf/, latency_s: 0.5}
+      - {prefix: /security-state/, latency_s: 0.1}
+    slos:
+      - {id: signals-availability, sli: availability, target: 0.99995}
+      - {id: signals-latency, sli: latency, target: 0.95}
+    runbooks: [RB-03, RB-07]
+
+  verification:
+    name: "Identity verification and credentials"
+    tier: T1
+    owner: "@zoiko/trust"
+    oncall: trust-primary
+    dashboard: zid-verification
+    journeys:
+      - {prefix: /verifications, latency_s: 2.0}
+      - {prefix: /presentations, latency_s: 1.0}
+      - {prefix: /credentials, latency_s: 1.0}
+    slos:
+      - {id: verification-availability, sli: availability, target: 0.9999}
+      - {id: verification-latency, sli: latency, target: 0.95}
+    runbooks: [RB-11]
+
+  provisioning:
+    name: "SCIM provisioning and HR lifecycle"
+    tier: T2
+    owner: "@zoiko/integration"
+    oncall: integration-primary
+    dashboard: zid-provisioning
+    journeys:
+      - {prefix: /scim/v2/, latency_s: 1.0}
+      - {prefix: /provisioning/, latency_s: 1.0}
+    slos:
+      - {id: provisioning-availability, sli: availability, target: 0.999}
+    runbooks: [RB-07, RB-08]
+
+  administration:
+    name: "Tenant administration, onboarding and integration"
+    tier: T2
+    owner: "@zoiko/platform"
+    oncall: platform-primary
+    dashboard: zid-administration
+    journeys:
+      - {prefix: /v1/tenant, latency_s: 1.0}
+      - {prefix: /v1/onboarding, latency_s: 1.0}
+      - {prefix: /v1/integration, latency_s: 1.0}
+      - {prefix: /v1/signup, latency_s: 2.0}
+      - {prefix: /admin/, latency_s: 1.0}
+    slos:
+      - {id: administration-availability, sli: availability, target: 0.999}
+    runbooks: [RB-06, RB-18]
+
+  platform-operations:
+    name: "Operator plane, recovery operations and incident tooling"
+    tier: T2
+    owner: "@zoiko/sre"
+    oncall: sre-primary
+    dashboard: zid-operations
+    journeys:
+      - {prefix: /platform/, latency_s: 2.0}
+      - {prefix: /operator/, latency_s: 1.0}
+      - {prefix: /ops/, latency_s: 1.0}
+    slos:
+      - {id: platform-operations-availability, sli: availability, target: 0.999}
+    runbooks: [RB-12, RB-13, RB-14]
+
+# Hard safety invariants: static thresholds, zero budget, PAGE on the first event (SRE-001 §5, §6.1).
+invariants:
+  - id: mandate-ledger-integrity
+    expr: 'increase(zid_mandate_ledger_corruption_total[5m]) > 0'
+    severity_hypothesis: SEV0
+    owner: "@zoiko/authority"
+    runbook: RB-12
+    dashboard: zid-mandate
+    summary: "A ledger settlement would have driven a mandate balance negative (overspend guard)"
+  - id: writer-epoch-fenced
+    expr: 'increase(zid_writer_epoch_fenced_total[5m]) > 0'
+    severity_hypothesis: SEV0
+    owner: "@zoiko/sre"
+    runbook: RB-12
+    dashboard: zid-operations
+    summary: "A fenced writer is still attempting ledger writes (split-brain risk)"
+  - id: evidence-integrity
+    expr: 'increase(zid_evidence_checkpoint_verify_failures_total[15m]) > 0'
+    severity_hypothesis: SEV0
+    owner: "@zoiko/evidence"
+    runbook: RB-15
+    dashboard: zid-evidence
+    summary: "An evidence checkpoint or receipt chain failed verification"
+  - id: cross-tenant-access
+    expr: 'increase(zid_tenant_isolation_violations_total[5m]) > 0'
+    severity_hypothesis: SEV0
+    owner: "@zoiko/security"
+    runbook: RB-17
+    dashboard: zid-security
+    summary: "A request crossed a tenant boundary (RLS refusal on a server-derived scope)"
+  - id: revocation-propagation
+    expr: 'histogram_quantile(0.99, sum by (le, cell) (rate(zid_revocation_propagation_seconds_bucket[5m]))) > 2'
+    severity_hypothesis: SEV1
+    owner: "@zoiko/security"
+    runbook: RB-03
+    dashboard: zid-signals
+    summary: "R3 revocation propagation p99 above 2 s in-cell"
+  - id: outbox-priority-lag
+    expr: 'max by (cell) (zid_outbox_oldest_unpublished_seconds{lane="priority"}) > 2'
+    severity_hypothesis: SEV1
+    owner: "@zoiko/sre"
+    runbook: RB-07
+    dashboard: zid-operations
+    summary: "Priority-lane events older than the R3 propagation budget"
+  - id: telemetry-cardinality-overflow
+    expr: 'increase(zid_telemetry_cardinality_overflow_total[30m]) > 0'
+    severity_hypothesis: SEV4
+    class: TICKET
+    owner: "@zoiko/sre"
+    runbook: RB-18
+    dashboard: zid-operations
+    summary: "A metric exceeded its series budget (unbounded label)"
