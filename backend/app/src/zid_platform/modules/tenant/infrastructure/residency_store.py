@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.tenant.domain.residency import Residency, TransferRule
+from zid_platform.modules.tenant.domain.residency import Residency, ResidencyError, TransferRule
 
 
 def _residency(r: Row[Any]) -> Residency:
@@ -153,3 +153,33 @@ async def set_rule_status(conn: AsyncConnection, rule_id: str, status: str) -> T
         )
     ).first()
     return _rule(row) if row else None
+
+
+async def advance_placement(
+    conn: AsyncConnection, tenant_id: str, *, new_home: str, actor: str
+) -> int:
+    """placement_epoch + 1 and the new home cell, inside a governed recovery operation only (the
+    transaction-local `app.governed_placement` flag lets tenant_guard accept the home change)."""
+    await conn.execute(text("SELECT set_config('app.governed_placement', 'on', true)"))
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE platform.tenant_residency SET placement_epoch = placement_epoch + 1, "
+                "home_cell_id = :home, revision = revision + 1, updated_by = :by, updated_at = now() "
+                "WHERE tenant_id = :t RETURNING placement_epoch"
+            ),
+            {"t": uuid.UUID(tenant_id), "home": new_home, "by": uuid.UUID(actor)},
+        )
+    ).first()
+    await conn.execute(
+        text(
+            "UPDATE platform.tenant SET home_cell_id = :home, row_version = row_version + 1 WHERE tenant_id = :t"
+        ),
+        {"t": uuid.UUID(tenant_id), "home": new_home},
+    )
+    await conn.execute(text("SELECT set_config('app.governed_placement', '', true)"))
+    if row is None:
+        raise ResidencyError(
+            "RESIDENCY_PLACEMENT_REQUIRED", "The tenant has no placement decision."
+        )
+    return int(row.placement_epoch)

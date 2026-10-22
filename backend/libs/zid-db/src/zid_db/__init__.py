@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from zid_context import RequestContext
 from zid_errors import DEPENDENCY_UNAVAILABLE, ZidError
 
-__all__ = ["CheckResult", "check_database", "create_engine", "tenant_transaction"]
+__all__ = ["CheckResult", "check_database", "create_engine", "in_tenant", "tenant_transaction"]
 
 
 def create_engine(url: str, *, pool_size: int = 5) -> AsyncEngine:
@@ -42,6 +42,19 @@ async def tenant_transaction(
             text("SELECT set_config('app.principal_id', :p, true)"), {"p": ctx.principal_id or ""}
         )
         yield conn
+
+
+@asynccontextmanager
+async def in_tenant(conn: AsyncConnection, tenant_id: str) -> AsyncIterator[AsyncConnection]:
+    """Run a block under another tenant's RLS scope inside the same transaction, then restore.
+
+    Only for a tenant id the server itself derived or generated (a new tenant being provisioned,
+    the target recorded on a grant); never for an id taken from a request."""
+    previous = (await conn.execute(text("SELECT current_setting('app.tenant_id', true)"))).scalar()
+    await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
+    # On an error the transaction is failing anyway (and may be aborted): re-raise untouched.
+    yield conn
+    await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": previous or ""})
 
 
 @dataclass(frozen=True, slots=True)

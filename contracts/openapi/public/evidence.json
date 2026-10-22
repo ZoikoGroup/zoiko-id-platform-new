@@ -250,51 +250,6 @@
         "title": "PackageBody",
         "type": "object"
       },
-      "ReleaseBody": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "maxLength": 500,
-            "minLength": 3,
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "ReleaseBody",
-        "type": "object"
-      },
-      "ResolveBody": {
-        "additionalProperties": false,
-        "properties": {
-          "case_ref": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Case Ref",
-            "type": "string"
-          },
-          "handle": {
-            "pattern": "^ph1\\.[0-9]+\\.[A-Za-z0-9_-]+$",
-            "title": "Handle",
-            "type": "string"
-          },
-          "purpose": {
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Purpose",
-            "type": "string"
-          }
-        },
-        "required": [
-          "handle",
-          "purpose",
-          "case_ref"
-        ],
-        "title": "ResolveBody",
-        "type": "object"
-      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -333,6 +288,51 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__evidence__ReleaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReleaseBody",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__evidence__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "case_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "handle": {
+            "pattern": "^ph1\\.[0-9]+\\.[A-Za-z0-9_-]+$",
+            "title": "Handle",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "purpose",
+          "case_ref"
+        ],
+        "title": "ResolveBody",
         "type": "object"
       }
     }
@@ -724,7 +724,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResolveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__evidence__ResolveBody"
               }
             }
           },
@@ -897,7 +897,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReleaseBody"
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__evidence__ReleaseBody"
               }
             }
           },

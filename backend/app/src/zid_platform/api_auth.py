@@ -24,7 +24,7 @@ from zid_platform.modules.authentication.ports import effective_level
 from zid_platform.modules.decision.domain.pdp import AuthnFact
 from zid_platform.modules.session.ports import TokenError, TokenSettings, authenticate
 from zid_platform.modules.signals.ports import security_view
-from zid_platform.modules.tenant.ports import cached_home_cell, home_cell
+from zid_platform.modules.tenant.ports import cached_placement, placement
 
 # The risk class the shared authentication seam reads security state for. Protected (R2/R3)
 # actions re-read the committed state in their own transaction (protected.py), never this one.
@@ -41,6 +41,9 @@ class Caller:
     actor: str | None = None  # RFC 8693 actor when the token came from a token exchange
     security_revision: int = 0  # the security-state revision `security_state` was read at
     session_auth_time: datetime | None = None  # as asserted (None: token without auth_time)
+    # The tenant's lifecycle status (OVERLAY §2); None = not managed by a tenant record here.
+    # SUSPENDED tenants get no decisions (protected.py, AuthZEN); CLOSED never authenticate.
+    tenant_status: str | None = None
 
 
 def client_cert_thumbprint(request: Request) -> str | None:
@@ -109,7 +112,7 @@ async def authenticated_caller(request: Request) -> Caller:
         raise ZidError(
             code, "Authentication failed.", http_status=401, headers=_challenge(scheme, e.code)
         ) from e
-    await _require_home_cell(request, engine, auth.ctx)
+    tenant_status = await _require_home_cell(request, engine, auth.ctx)
     security_state, security_revision = "UNKNOWN", 0  # a failed read stays UNKNOWN
     try:
         view = await _security_view(engine, auth.ctx, auth.claims.subject, auth.auth_time, now)
@@ -131,25 +134,45 @@ async def authenticated_caller(request: Request) -> Caller:
         actor=auth.claims.actor,
         security_revision=security_revision,
         session_auth_time=auth.auth_time,
+        tenant_status=tenant_status,
     )
 
 
-async def _require_home_cell(request: Request, engine: AsyncEngine, ctx: RequestContext) -> None:
-    """TEN-10: only the tenant's authoritative home cell serves it (routing never trusted)."""
+async def _require_home_cell(
+    request: Request, engine: AsyncEngine, ctx: RequestContext
+) -> str | None:
+    """TEN-10: only the tenant's authoritative home cell serves it (routing never trusted).
+
+    Returns the tenant's lifecycle status; a CLOSED tenant has no runtime trust (DATA §2.1)."""
     this_cell = getattr(request.app.state, "home_cell", None)
     tenant = ctx.tenant_id
-    if not this_cell or not tenant:
-        return
-    known, home = cached_home_cell(tenant)
+    if not tenant:
+        return None
+    known, home, status, epoch = cached_placement(tenant)
     if not known:
         async with tenant_transaction(engine, ctx) as conn:
-            home = await home_cell(conn, tenant)
-    if home is not None and home != this_cell:
+            home, status, epoch = await placement(conn, tenant)
+    endpoints: dict[str, str] = getattr(request.app.state, "cell_endpoints", {}) or {}
+    hint = {"Location": endpoints[home]} if home and home in endpoints else {}
+    if this_cell and home is not None and home != this_cell:
         raise ZidError(
             "CELL_NOT_AUTHORITATIVE",
             "This cell is not the tenant's home cell; resolve the tenant's cell and retry there.",
             http_status=421,
+            headers=hint or None,
         )
+    # DEC-G3: a client routed by an older discovery answer re-discovers instead of being served
+    claimed = request.headers.get("x-zoiko-placement-epoch")
+    if claimed is not None and (not claimed.isdigit() or int(claimed) < epoch):
+        raise ZidError(
+            "CELL_ROUTING_STALE",
+            f"Placement epoch {claimed} is stale (current {epoch}); re-discover the tenant's cell.",
+            http_status=421,
+            headers={**hint, "X-Zoiko-Placement-Epoch": str(epoch)},
+        )
+    if status == "CLOSED":
+        raise ZidError("TENANT_CLOSED", "This tenant is closed.", http_status=403)
+    return status
 
 
 async def _security_view(

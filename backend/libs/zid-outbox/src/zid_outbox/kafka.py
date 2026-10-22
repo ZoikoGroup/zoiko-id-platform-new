@@ -8,6 +8,7 @@ commits (effectively-once processing, EVENTS §8).
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -79,9 +80,11 @@ async def run_consumer(
     handle: Callable[[CloudEvent], Awaitable[None]],
     *,
     stop_after: int | None = None,
+    idle_timeout_s: float | None = None,
 ) -> int:
-    """Consume until `stop_after` messages (tests) or forever. `handle` must be idempotent (use
-    zid_outbox.consume inside a transaction); the offset is committed only after it returns."""
+    """Consume until `stop_after` messages, until no message arrived for `idle_timeout_s` (tests
+    and one-shot drains), or forever. `handle` must be idempotent (use zid_outbox.consume inside a
+    transaction); the offset is committed only after it returns."""
     consumer = AIOKafkaConsumer(
         *topics,
         bootstrap_servers=bootstrap_servers,
@@ -92,16 +95,25 @@ async def run_consumer(
     )
     await consumer.start()
     handled = 0
+    loop = asyncio.get_running_loop()
+    last = loop.time()
     try:
-        async for msg in consumer:
-            if msg.value is None:
-                await consumer.commit()
+        while True:
+            batches = await consumer.getmany(timeout_ms=500)
+            if not batches:
+                if idle_timeout_s is not None and loop.time() - last >= idle_timeout_s:
+                    break
                 continue
-            await handle(decode(msg.value))
-            await consumer.commit()
-            handled += 1
-            if stop_after is not None and handled >= stop_after:
-                break
+            last = loop.time()
+            for tp, records in batches.items():
+                for msg in records:
+                    if msg.value is not None:
+                        await handle(decode(msg.value))
+                        handled += 1
+                    # exactly this message: never past one that is fetched but not yet handled
+                    await consumer.commit({tp: msg.offset + 1})
+                    if stop_after is not None and handled >= stop_after:
+                        return handled
     finally:
         await consumer.stop()
     return handled

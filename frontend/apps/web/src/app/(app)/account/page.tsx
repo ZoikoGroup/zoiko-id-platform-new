@@ -4,6 +4,7 @@ import { AccountOverview } from "@/features/account/overview";
 
 export const metadata: Metadata = { title: "My account" };
 
-export default function Page() {
-  return <AccountOverview />;
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
+  return <AccountOverview welcome={sp.welcome === "1"} />;
 }

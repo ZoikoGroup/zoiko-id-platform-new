@@ -74,12 +74,38 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Privacy, Consent and Data Rights API",
     ),
     OPENAPI / "public" / "operator-access.json": (
-        ("/operator/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
+        ("/operator/", "/platform/", "/ops/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
         "Zoiko iD Operator Access API (JIT, customer lockbox, break-glass review)",
     ),
     OPENAPI / "public" / "residency.json": (
-        ("/v1/cells", "/v1/tenant/"),
+        (
+            "/v1/cells",
+            "/v1/tenant/residency",
+            "/v1/tenant/transfer-rules",
+            "/v1/tenant/cross-cell-transfers",
+        ),
         "Zoiko iD Tenant Residency and Sovereignty API",
+    ),
+    OPENAPI / "public" / "tenant.json": (
+        (
+            "/v1/tenants",
+            "/v1/tenant$",
+            "/v1/tenant:",
+            "/v1/tenant/members",
+            "/v1/tenant/owners",
+            "/v1/tenant/transitions",
+            "/v1/tenant/configuration-revisions",
+            "/v1/tenant/domains",
+        ),
+        "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle)",
+    ),
+    OPENAPI / "public" / "onboarding.json": (
+        ("/v1/onboarding/",),
+        "Zoiko iD Tenant Onboarding API (organization gate, gates, plans, shadow, pilot, rollback)",
+    ),
+    OPENAPI / "public" / "integration.json": (
+        ("/v1/integration/",),
+        "Zoiko iD Integration API (application registry, connectors, mapping releases)",
     ),
     OPENAPI / "public" / "workload-identity.json": (
         ("/v1/machine/",),
@@ -106,7 +132,9 @@ def contract(prefixes: tuple[str, ...], title: str) -> dict[str, Any]:
     from zid_platform.settings import Settings
 
     spec = create_app(Settings(database_url=None)).openapi()
-    paths = {p: v for p, v in spec["paths"].items() if p.startswith(prefixes)}
+    exact = {x[:-1] for x in prefixes if x.endswith("$")}  # "/v1/tenant$": that path only
+    starts = tuple(x for x in prefixes if not x.endswith("$"))
+    paths = {p: v for p, v in spec["paths"].items() if p in exact or p.startswith(starts)}
     schemas = spec.get("components", {}).get("schemas", {})
     used: set[str] = set()
     _refs(paths, used)

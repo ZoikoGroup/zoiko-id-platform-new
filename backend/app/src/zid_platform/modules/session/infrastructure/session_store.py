@@ -211,3 +211,33 @@ async def list_sessions(conn: AsyncConnection, principal_id: str, now: datetime)
         )
     ).all()
     return [_session(r) for r in rows]
+
+
+async def last_sign_in(conn: AsyncConnection, principal_ids: list[str]) -> dict[str, datetime]:
+    """Per principal: the auth_time of the most recent identity session (any status)."""
+    if not principal_ids:
+        return {}
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT principal_id, max(auth_time) AS at FROM authn.session "
+                "WHERE principal_id = ANY(:p) GROUP BY principal_id"
+            ),
+            {"p": [uuid.UUID(x) for x in principal_ids]},
+        )
+    ).all()
+    return {str(r.principal_id): r.at for r in rows}
+
+
+async def revoke_tenant_sessions(conn: AsyncConnection, *, reason: str) -> int:
+    """Every live session of the tenant the connection is scoped to (tenant offboarding)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT session_id FROM authn.session WHERE status IN ('ACTIVE', 'REAUTH_REQUIRED')"
+            )
+        )
+    ).all()
+    for r in rows:
+        await set_status(conn, str(r.session_id), SessionStatus.REVOKED, reason=reason)
+    return len(rows)

@@ -36,6 +36,8 @@ PLANES: dict[str, tuple[str, ...]] = {
     "integration": ("federation", "provisioning", "integration", "onboarding", "webhook"),
     "control": (
         "tenant",
+        "resilience",
+        "operations",
         "configuration",
         "policy_authoring",
         "operator_access",

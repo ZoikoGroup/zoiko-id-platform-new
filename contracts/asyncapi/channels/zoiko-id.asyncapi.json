@@ -851,6 +851,50 @@
         }
       }
     },
+    "integration.domain": {
+      "address": "zid.{env}.{region}.integration.domain",
+      "messages": {
+        "integration_application_changed": {
+          "$ref": "#/components/messages/integration_application_changed"
+        },
+        "integration_connector_changed": {
+          "$ref": "#/components/messages/integration_connector_changed"
+        },
+        "integration_credential_expiring": {
+          "$ref": "#/components/messages/integration_credential_expiring"
+        },
+        "integration_credential_rotated": {
+          "$ref": "#/components/messages/integration_credential_rotated"
+        },
+        "integration_mapping_release_changed": {
+          "$ref": "#/components/messages/integration_mapping_release_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "integration.priority": {
+      "address": "zid.{env}.{region}.integration.priority",
+      "messages": {
+        "integration_connector_stale": {
+          "$ref": "#/components/messages/integration_connector_stale"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "issuer.domain": {
       "address": "zid.{env}.{region}.issuer.domain",
       "messages": {
@@ -1026,11 +1070,17 @@
         "onboarding_pilot_started": {
           "$ref": "#/components/messages/onboarding_pilot_started"
         },
+        "onboarding_plan_changed": {
+          "$ref": "#/components/messages/onboarding_plan_changed"
+        },
         "onboarding_rollback": {
           "$ref": "#/components/messages/onboarding_rollback"
         },
         "onboarding_shadow_started": {
           "$ref": "#/components/messages/onboarding_shadow_started"
+        },
+        "onboarding_stage_changed": {
+          "$ref": "#/components/messages/onboarding_stage_changed"
         }
       },
       "parameters": {
@@ -1124,6 +1174,30 @@
         },
         "ops_capacity_threshold_crossed": {
           "$ref": "#/components/messages/ops_capacity_threshold_crossed"
+        },
+        "ops_change_freeze_applied": {
+          "$ref": "#/components/messages/ops_change_freeze_applied"
+        },
+        "ops_change_freeze_lifted": {
+          "$ref": "#/components/messages/ops_change_freeze_lifted"
+        },
+        "ops_incident_closed": {
+          "$ref": "#/components/messages/ops_incident_closed"
+        },
+        "ops_incident_declared": {
+          "$ref": "#/components/messages/ops_incident_declared"
+        },
+        "ops_incident_resolved": {
+          "$ref": "#/components/messages/ops_incident_resolved"
+        },
+        "ops_incident_severity_changed": {
+          "$ref": "#/components/messages/ops_incident_severity_changed"
+        },
+        "ops_incident_updated": {
+          "$ref": "#/components/messages/ops_incident_updated"
+        },
+        "ops_readiness_review_recorded": {
+          "$ref": "#/components/messages/ops_readiness_review_recorded"
         },
         "ops_slo_budget_state_changed": {
           "$ref": "#/components/messages/ops_slo_budget_state_changed"
@@ -1346,6 +1420,9 @@
         "provisioning_connector_changed": {
           "$ref": "#/components/messages/provisioning_connector_changed"
         },
+        "provisioning_lifecycle_changed": {
+          "$ref": "#/components/messages/provisioning_lifecycle_changed"
+        },
         "provisioning_resource_changed": {
           "$ref": "#/components/messages/provisioning_resource_changed"
         }
@@ -1459,6 +1536,9 @@
       "messages": {
         "restore_completed": {
           "$ref": "#/components/messages/restore_completed"
+        },
+        "restore_failed": {
+          "$ref": "#/components/messages/restore_failed"
         }
       },
       "parameters": {
@@ -1607,6 +1687,9 @@
         "tenant_activated": {
           "$ref": "#/components/messages/tenant_activated"
         },
+        "tenant_closed": {
+          "$ref": "#/components/messages/tenant_closed"
+        },
         "tenant_created": {
           "$ref": "#/components/messages/tenant_created"
         },
@@ -1616,11 +1699,17 @@
         "tenant_deletion_started": {
           "$ref": "#/components/messages/tenant_deletion_started"
         },
+        "tenant_domain_changed": {
+          "$ref": "#/components/messages/tenant_domain_changed"
+        },
         "tenant_domain_verified": {
           "$ref": "#/components/messages/tenant_domain_verified"
         },
         "tenant_failback_completed": {
           "$ref": "#/components/messages/tenant_failback_completed"
+        },
+        "tenant_failback_failed": {
+          "$ref": "#/components/messages/tenant_failback_failed"
         },
         "tenant_failback_started": {
           "$ref": "#/components/messages/tenant_failback_started"
@@ -1633,6 +1722,12 @@
         },
         "tenant_failover_started": {
           "$ref": "#/components/messages/tenant_failover_started"
+        },
+        "tenant_lifecycle_changed": {
+          "$ref": "#/components/messages/tenant_lifecycle_changed"
+        },
+        "tenant_member_changed": {
+          "$ref": "#/components/messages/tenant_member_changed"
         },
         "tenant_migration_completed": {
           "$ref": "#/components/messages/tenant_migration_completed"
@@ -1669,6 +1764,28 @@
         },
         "tenant_residency_profile_changed": {
           "$ref": "#/components/messages/tenant_residency_profile_changed"
+        },
+        "tenant_resumed": {
+          "$ref": "#/components/messages/tenant_resumed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "tenant.priority": {
+      "address": "zid.{env}.{region}.tenant.priority",
+      "messages": {
+        "tenant_domain_stale": {
+          "$ref": "#/components/messages/tenant_domain_stale"
+        },
+        "tenant_suspended": {
+          "$ref": "#/components/messages/tenant_suspended"
         }
       },
       "parameters": {
@@ -3093,6 +3210,72 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "integration_application_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.application.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An application/PEP registration was created or changed status (OVERLAY \u00a714).",
+        "title": "integration.application.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a714; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "integration_connector_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.connector.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A non-identity connector (signals, webhook, directory) was registered or released.",
+        "title": "integration.connector.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a715; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "integration_connector_stale": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.connector.stale.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A connector's facts passed their freshness bound; health dropped to DEGRADED (high-risk use refused).",
+        "title": "integration.connector.stale",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a724, \u00a731; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "integration_credential_expiring": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.credential.expiring.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A connector credential crossed a 30/14/7/1-day expiry threshold.",
+        "title": "integration.credential.expiring",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a716, \u00a729; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "integration_credential_rotated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.credential.rotated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A connector credential version was set; the previous one overlaps for a bounded window (fingerprint only).",
+        "title": "integration.credential.rotated",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a716; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "integration_mapping_release_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.integration.mapping_release.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A mapping release was created or simulated (DRAFT/REVIEW; content hash, version).",
+        "title": "integration.mapping_release.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a711; CR-015",
+        "x-zid-status": "proposed"
+      },
       "issuer_trust_changed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.issuer.trust.changed.v1",
@@ -3390,6 +3573,17 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "onboarding_plan_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.plan.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An onboarding plan version was created or approved (version, status, target mode).",
+        "title": "onboarding.plan.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a717-19; CR-015",
+        "x-zid-status": "proposed"
+      },
       "onboarding_rollback": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.onboarding.rollback.v1",
@@ -3411,6 +3605,17 @@
         "title": "onboarding.shadow_started",
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
+      },
+      "onboarding_stage_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.stage.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A pilot enforcement stage was planned or activated (scope risk ceiling, status).",
+        "title": "onboarding.stage.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a717-19; CR-015",
+        "x-zid-status": "proposed"
       },
       "operator_access_activated": {
         "contentType": "application/cloudevents+json",
@@ -3609,6 +3814,94 @@
         "title": "ops.capacity.threshold_crossed",
         "x-zid-source": "ZID-SRE-001",
         "x-zid-status": "catalogued"
+      },
+      "ops_change_freeze_applied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.change_freeze.applied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A service change freeze was applied (reason code, optional incident).",
+        "title": "ops.change_freeze.applied",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_change_freeze_lifted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.change_freeze.lifted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A service change freeze was lifted under an approved platform.change.manage grant.",
+        "title": "ops.change_freeze.lifted",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_incident_closed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.incident.closed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An incident was closed after its post-incident review and verified action items.",
+        "title": "ops.incident.closed",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_incident_declared": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.incident.declared.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An incident was declared (severity, security flag, services, cells; no approval step).",
+        "title": "ops.incident.declared",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_incident_resolved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.incident.resolved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An incident was resolved after validation (duration).",
+        "title": "ops.incident.resolved",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_incident_severity_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.incident.severity_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An incident's severity was raised or lowered (previous/new severity, reason commitment).",
+        "title": "ops.incident.severity_changed",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_incident_updated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.incident.updated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An incident's status or role assignments changed.",
+        "title": "ops.incident.updated",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
+      },
+      "ops_readiness_review_recorded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.ops.readiness_review.recorded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A production readiness review was recorded for a service (ready or the number of blocking gates).",
+        "title": "ops.readiness_review.recorded",
+        "x-zid-source": "ZID-SRE-001 \u00a715-17, \u00a723-24, \u00a726; CR-017",
+        "x-zid-status": "proposed"
       },
       "ops_slo_budget_state_changed": {
         "contentType": "application/cloudevents+json",
@@ -4039,6 +4332,17 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "provisioning_lifecycle_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provisioning.lifecycle.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An HR lifecycle event (joiner, mover, leaver, leave start/end) was applied to a provisioned principal.",
+        "title": "provisioning.lifecycle.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a710.1, \u00a722; CR-015",
+        "x-zid-status": "proposed"
+      },
       "provisioning_resource_changed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.provisioning.resource.changed.v1",
@@ -4171,6 +4475,17 @@
         "x-zid-source": "ZID-RESILIENCE-001",
         "x-zid-status": "catalogued"
       },
+      "restore_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.restore.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A restore into an isolated recovery environment was blocked by a gate or aborted (operation id, step, code).",
+        "title": "restore.failed",
+        "x-zid-source": "ZID-RESILIENCE-001 \u00a716, \u00a720; CR-016",
+        "x-zid-status": "proposed"
+      },
       "sbom_generated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.sbom.generated.v1",
@@ -4281,6 +4596,17 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "tenant_closed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.closed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant reached CLOSED: no runtime trust, retained evidence only.",
+        "title": "tenant.closed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a72-4; CR-015",
+        "x-zid-status": "proposed"
+      },
       "tenant_created": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.tenant.created.v1",
@@ -4314,6 +4640,28 @@
         "x-zid-source": "ZID-TENANCY-001",
         "x-zid-status": "catalogued"
       },
+      "tenant_domain_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.domain.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A domain challenge was started, expired or revoked (ids, method, status; the domain as a commitment).",
+        "title": "tenant.domain.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a75; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "tenant_domain_stale": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.domain.stale.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verified domain could no longer be re-proven: verification STALE, tenant security revision bumped.",
+        "title": "tenant.domain.stale",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a75, \u00a731; CR-015",
+        "x-zid-status": "proposed"
+      },
       "tenant_domain_verified": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.tenant.domain_verified.v1",
@@ -4335,6 +4683,17 @@
         "title": "tenant.failback.completed",
         "x-zid-source": "ZID-RESILIENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "tenant_failback_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.failback.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A governed failback was blocked by a gate or aborted before cutover (operation id, step, canonical code).",
+        "title": "tenant.failback.failed",
+        "x-zid-source": "ZID-RESILIENCE-001 \u00a716, \u00a720; CR-016",
+        "x-zid-status": "proposed"
       },
       "tenant_failback_started": {
         "contentType": "application/cloudevents+json",
@@ -4379,6 +4738,28 @@
         "title": "tenant.failover.started",
         "x-zid-source": "ZID-RESILIENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "tenant_lifecycle_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.lifecycle.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Any tenant lifecycle transition (from/to status, move, reason code, gate counts); OVERLAY \u00a72 history.",
+        "title": "tenant.lifecycle.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a72-4; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "tenant_member_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.member.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A MEMBER/ADMIN role was invited, accepted or revoked (ids and states only).",
+        "title": "tenant.member.changed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a72-4; CR-015",
+        "x-zid-status": "proposed"
       },
       "tenant_migration_completed": {
         "contentType": "application/cloudevents+json",
@@ -4511,6 +4892,28 @@
         "title": "tenant.residency_profile.changed",
         "x-zid-source": "ZID-TENANCY-001",
         "x-zid-status": "catalogued"
+      },
+      "tenant_resumed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.resumed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A suspended tenant resumed after governed recovery (second administrator).",
+        "title": "tenant.resumed",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a72-4; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "tenant_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.tenant.suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant was suspended: production trust/enforcement disabled (OVERLAY \u00a72).",
+        "title": "tenant.suspended",
+        "x-zid-source": "ZID-OVERLAY-001 \u00a72-4; CR-015",
+        "x-zid-status": "proposed"
       },
       "tool_registered": {
         "contentType": "application/cloudevents+json",
@@ -5236,6 +5639,20 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_integration_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/integration.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_integration_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/integration.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_issuer_domain": {
       "action": "send",
       "channel": {
@@ -5471,6 +5888,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/tenant.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_tenant_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/tenant.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

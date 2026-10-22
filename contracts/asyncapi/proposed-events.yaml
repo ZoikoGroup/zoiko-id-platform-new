@@ -142,3 +142,159 @@ events:
     source: ZID-PRIV-001 §23; CR-013
     lane: domain
     source_status: "proposed"
+  tenant.lifecycle.changed:
+    cloudevents_type: com.zoiko.id.tenant.lifecycle.changed.v1
+    meaning: "Any tenant lifecycle transition (from/to status, move, reason code, gate counts); OVERLAY §2 history."
+    source: ZID-OVERLAY-001 §2-4; CR-015
+    lane: domain
+    source_status: "proposed"
+  tenant.member.changed:
+    cloudevents_type: com.zoiko.id.tenant.member.changed.v1
+    meaning: "A MEMBER/ADMIN role was invited, accepted or revoked (ids and states only)."
+    source: ZID-OVERLAY-001 §2-4; CR-015
+    lane: domain
+    source_status: "proposed"
+  tenant.suspended:
+    cloudevents_type: com.zoiko.id.tenant.suspended.v1
+    meaning: "A tenant was suspended: production trust/enforcement disabled (OVERLAY §2)."
+    source: ZID-OVERLAY-001 §2-4; CR-015
+    lane: priority
+    source_status: "proposed"
+  tenant.resumed:
+    cloudevents_type: com.zoiko.id.tenant.resumed.v1
+    meaning: "A suspended tenant resumed after governed recovery (second administrator)."
+    source: ZID-OVERLAY-001 §2-4; CR-015
+    lane: domain
+    source_status: "proposed"
+  tenant.closed:
+    cloudevents_type: com.zoiko.id.tenant.closed.v1
+    meaning: "A tenant reached CLOSED: no runtime trust, retained evidence only."
+    source: ZID-OVERLAY-001 §2-4; CR-015
+    lane: domain
+    source_status: "proposed"
+  tenant.domain.changed:
+    cloudevents_type: com.zoiko.id.tenant.domain.changed.v1
+    meaning: "A domain challenge was started, expired or revoked (ids, method, status; the domain as a commitment)."
+    source: ZID-OVERLAY-001 §5; CR-015
+    lane: domain
+    source_status: "proposed"
+  tenant.domain.stale:
+    cloudevents_type: com.zoiko.id.tenant.domain.stale.v1
+    meaning: "A verified domain could no longer be re-proven: verification STALE, tenant security revision bumped."
+    source: ZID-OVERLAY-001 §5, §31; CR-015
+    lane: priority
+    source_status: "proposed"
+  integration.application.changed:
+    cloudevents_type: com.zoiko.id.integration.application.changed.v1
+    meaning: "An application/PEP registration was created or changed status (OVERLAY §14)."
+    source: ZID-OVERLAY-001 §14; CR-015
+    lane: domain
+    source_status: "proposed"
+  integration.connector.changed:
+    cloudevents_type: com.zoiko.id.integration.connector.changed.v1
+    meaning: "A non-identity connector (signals, webhook, directory) was registered or released."
+    source: ZID-OVERLAY-001 §15; CR-015
+    lane: domain
+    source_status: "proposed"
+  integration.credential.rotated:
+    cloudevents_type: com.zoiko.id.integration.credential.rotated.v1
+    meaning: "A connector credential version was set; the previous one overlaps for a bounded window (fingerprint only)."
+    source: ZID-OVERLAY-001 §16; CR-015
+    lane: domain
+    source_status: "proposed"
+  integration.credential.expiring:
+    cloudevents_type: com.zoiko.id.integration.credential.expiring.v1
+    meaning: "A connector credential crossed a 30/14/7/1-day expiry threshold."
+    source: ZID-OVERLAY-001 §16, §29; CR-015
+    lane: domain
+    source_status: "proposed"
+  integration.mapping_release.changed:
+    cloudevents_type: com.zoiko.id.integration.mapping_release.changed.v1
+    meaning: "A mapping release was created or simulated (DRAFT/REVIEW; content hash, version)."
+    source: ZID-OVERLAY-001 §11; CR-015
+    lane: domain
+    source_status: "proposed"
+  onboarding.plan.changed:
+    cloudevents_type: com.zoiko.id.onboarding.plan.changed.v1
+    meaning: "An onboarding plan version was created or approved (version, status, target mode)."
+    source: ZID-OVERLAY-001 §17-19; CR-015
+    lane: domain
+    source_status: "proposed"
+  onboarding.stage.changed:
+    cloudevents_type: com.zoiko.id.onboarding.stage.changed.v1
+    meaning: "A pilot enforcement stage was planned or activated (scope risk ceiling, status)."
+    source: ZID-OVERLAY-001 §17-19; CR-015
+    lane: domain
+    source_status: "proposed"
+  provisioning.lifecycle.changed:
+    cloudevents_type: com.zoiko.id.provisioning.lifecycle.changed.v1
+    meaning: "An HR lifecycle event (joiner, mover, leaver, leave start/end) was applied to a provisioned principal."
+    source: ZID-OVERLAY-001 §10.1, §22; CR-015
+    lane: domain
+    source_status: "proposed"
+  integration.connector.stale:
+    cloudevents_type: com.zoiko.id.integration.connector.stale.v1
+    meaning: "A connector's facts passed their freshness bound; health dropped to DEGRADED (high-risk use refused)."
+    source: ZID-OVERLAY-001 §24, §31; CR-015
+    lane: priority
+    source_status: "proposed"
+  tenant.failback.failed:
+    cloudevents_type: com.zoiko.id.tenant.failback.failed.v1
+    meaning: "A governed failback was blocked by a gate or aborted before cutover (operation id, step, canonical code)."
+    source: ZID-RESILIENCE-001 §16, §20; CR-016
+    lane: priority
+    source_status: "proposed"
+  restore.failed:
+    cloudevents_type: com.zoiko.id.restore.failed.v1
+    meaning: "A restore into an isolated recovery environment was blocked by a gate or aborted (operation id, step, code)."
+    source: ZID-RESILIENCE-001 §16, §20; CR-016
+    lane: priority
+    source_status: "proposed"
+  ops.incident.declared:
+    cloudevents_type: com.zoiko.id.ops.incident.declared.v1
+    meaning: "An incident was declared (severity, security flag, services, cells; no approval step)."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.incident.severity_changed:
+    cloudevents_type: com.zoiko.id.ops.incident.severity_changed.v1
+    meaning: "An incident's severity was raised or lowered (previous/new severity, reason commitment)."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.incident.updated:
+    cloudevents_type: com.zoiko.id.ops.incident.updated.v1
+    meaning: "An incident's status or role assignments changed."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.incident.resolved:
+    cloudevents_type: com.zoiko.id.ops.incident.resolved.v1
+    meaning: "An incident was resolved after validation (duration)."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.incident.closed:
+    cloudevents_type: com.zoiko.id.ops.incident.closed.v1
+    meaning: "An incident was closed after its post-incident review and verified action items."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.readiness_review.recorded:
+    cloudevents_type: com.zoiko.id.ops.readiness_review.recorded.v1
+    meaning: "A production readiness review was recorded for a service (ready or the number of blocking gates)."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.change_freeze.applied:
+    cloudevents_type: com.zoiko.id.ops.change_freeze.applied.v1
+    meaning: "A service change freeze was applied (reason code, optional incident)."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  ops.change_freeze.lifted:
+    cloudevents_type: com.zoiko.id.ops.change_freeze.lifted.v1
+    meaning: "A service change freeze was lifted under an approved platform.change.manage grant."
+    source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"

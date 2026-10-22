@@ -2,6 +2,7 @@ import "@fontsource-variable/inter";
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import { RuntimeProvider } from "@/lib/runtime";
@@ -22,12 +23,13 @@ export const viewport: Viewport = {
 
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-  const { env } = server();
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const { bff } = server();
+  const clientId = bff.clientFor((await headers()).get("cookie"));
   return (
     <html lang="en-US" suppressHydrationWarning>
       <body className="min-h-dvh bg-canvas text-ink antialiased">
-        <RuntimeProvider clientId={env.clientId}>{children}</RuntimeProvider>
+        <RuntimeProvider clientId={clientId}>{children}</RuntimeProvider>
       </body>
     </html>
   );

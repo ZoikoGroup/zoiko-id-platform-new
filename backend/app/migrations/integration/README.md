@@ -6,3 +6,6 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `platform.integration_application`
 - `platform.mapping_release`
+- `platform.integration_connector`
+- `platform.connector_credential`
+- `platform.identity_routing_rule`

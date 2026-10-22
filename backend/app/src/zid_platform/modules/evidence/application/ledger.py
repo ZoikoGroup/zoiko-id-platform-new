@@ -59,6 +59,11 @@ from zid_platform.modules.evidence.infrastructure import ledger_store as store
 ENTRY_SIGNATURE_TYP = "zid-evidence-entry+jws"
 RecordLoader = Callable[[AsyncConnection, str], Awaitable[Mapping[str, Any] | None]]
 _LOADERS: dict[str, RecordLoader] = {}
+from zid_telemetry.metrics import REGISTRY
+
+VERIFY_FAILURES = REGISTRY.counter(
+    "zid_evidence_checkpoint_verify_failures_total", "Evidence partitions that failed verification"
+)
 
 
 def _utcnow() -> datetime:
@@ -425,6 +430,8 @@ async def verify_partition(
             )
         expected_first, previous = last + 1, manifest
         report.sealed_through = last
+    if not report.ok:
+        VERIFY_FAILURES.inc()
     if not report.ok and emit_incident:
         await report_integrity_failure(conn, partition, report)
     return report

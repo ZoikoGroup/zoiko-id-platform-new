@@ -2,7 +2,7 @@
 # including the PostgreSQL component tests (AT-04 mandate concurrency). The JUnit report is kept
 # as a build artifact: it is the retained evidence that closes gates in contracts/baseline/gates.yaml.
 #
-# TODO(DEC-G4): pin actions by commit SHA, add SAST/secret/SCA scans, SBOM, signing and provenance.
+# Actions are pinned by commit SHA (DEC-G4); the tag is kept in a trailing comment for updates.
 name: backend
 
 on:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine
@@ -39,11 +39,11 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: false  # specs are not in Git; nothing to fetch
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: "0.13.0"
           enable-cache: true
@@ -78,12 +78,17 @@ jobs:
       - name: Types
         run: uv run --frozen mypy app/src/zid_platform
 
+      # One line per test (-v) so a slow or stuck test is visible in the live log; the step has
+      # its own timeout so a hang fails fast instead of holding the runner until the job limit.
       - name: Tests (unit, property, contract, PostgreSQL component)
-        run: uv run --frozen pytest -q --junitxml=../reports/backend-junit.xml -o junit_family=xunit2
+        timeout-minutes: 15
+        run: >-
+          uv run --frozen pytest -v -p no:logging --durations=15
+          --junitxml=../reports/backend-junit.xml -o junit_family=xunit2
 
       - name: Keep the test report as evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: backend-junit-${{ github.sha }}
           path: reports/backend-junit.xml

@@ -57,6 +57,48 @@
         "title": "AccessBody",
         "type": "object"
       },
+      "AdvanceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "probes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probes"
+          },
+          "step": {
+            "pattern": "^[A-Z_]{2,40}$",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "AdvanceBody",
+        "type": "object"
+      },
       "BreakGlassBody": {
         "additionalProperties": false,
         "properties": {
@@ -113,6 +155,16 @@
         "title": "BreakGlassBody",
         "type": "object"
       },
+      "ChangeClass": {
+        "enum": [
+          "STANDARD",
+          "RISKY",
+          "FIX",
+          "SECURITY"
+        ],
+        "title": "ChangeClass",
+        "type": "string"
+      },
       "DecisionBody": {
         "additionalProperties": false,
         "properties": {
@@ -125,6 +177,300 @@
         },
         "title": "DecisionBody",
         "type": "object"
+      },
+      "DeclareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Cells",
+            "type": "array"
+          },
+          "roles": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "object"
+          },
+          "security": {
+            "default": false,
+            "title": "Security",
+            "type": "boolean"
+          },
+          "services": {
+            "items": {
+              "pattern": "^[a-z][a-z0-9-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Services",
+            "type": "array"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 4,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "severity"
+        ],
+        "title": "DeclareBody",
+        "type": "object"
+      },
+      "EntryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "maxProperties": 20,
+            "title": "Data",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "ACTION",
+              "DECISION",
+              "COMMUNICATION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4000,
+            "minLength": 2,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "note"
+        ],
+        "title": "EntryBody",
+        "type": "object"
+      },
+      "ExerciseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "exercised_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Exercised Cell Id",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Findings",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "FAILOVER",
+              "MIGRATION",
+              "FAILBACK",
+              "RESTORE",
+              "AZ_LOSS",
+              "PROCESS_KILL",
+              "BROKER_DEGRADATION",
+              "KMS_OUTAGE",
+              "CONTROL_PLANE_LOSS",
+              "PARTITION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "observed_rpo_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Rpo S"
+          },
+          "observed_rto_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Rto S"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "scenario": {
+            "maxLength": 500,
+            "minLength": 4,
+            "title": "Scenario",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "exercised_cell_id",
+          "scenario",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "ExerciseBody",
+        "type": "object"
+      },
+      "FreezeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "FreezeBody",
+        "type": "object"
+      },
+      "GateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "compensating_control": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compensating Control"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "gate": {
+            "maxLength": 40,
+            "title": "Gate",
+            "type": "string"
+          },
+          "risk_expires": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Expires"
+          },
+          "risk_owner": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Owner"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GateStatus"
+          }
+        },
+        "required": [
+          "gate",
+          "status"
+        ],
+        "title": "GateBody",
+        "type": "object"
+      },
+      "GateStatus": {
+        "enum": [
+          "PASS",
+          "FAIL",
+          "ACCEPTED"
+        ],
+        "title": "GateStatus",
+        "type": "string"
       },
       "GrantState": {
         "enum": [
@@ -152,6 +498,46 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ItemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "due": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 4,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ItemBody",
+        "type": "object"
+      },
       "ListView": {
         "enum": [
           "mine",
@@ -171,6 +557,21 @@
         ],
         "title": "LockboxState",
         "type": "string"
+      },
+      "MoveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "target_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Target Cell Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_cell_id"
+        ],
+        "title": "MoveBody",
+        "type": "object"
       },
       "PolicyBody": {
         "additionalProperties": false,
@@ -192,37 +593,92 @@
         "title": "PolicyBody",
         "type": "object"
       },
-      "ReasonBody": {
+      "ReadinessBody": {
         "additionalProperties": false,
         "properties": {
-          "reason": {
-            "default": "",
-            "maxLength": 2000,
-            "title": "Reason",
-            "type": "string"
+          "backup_age_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Age S"
+          },
+          "last_restore_verified": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Restore Verified"
+          },
+          "one_az_loss_headroom": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Az Loss Headroom"
+          },
+          "recovery_keys_ready": {
+            "default": false,
+            "title": "Recovery Keys Ready",
+            "type": "boolean"
+          },
+          "replica_lag_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replica Lag S"
           }
         },
-        "title": "ReasonBody",
+        "title": "ReadinessBody",
         "type": "object"
       },
-      "ReviewBody": {
+      "RestoreBody": {
         "additionalProperties": false,
         "properties": {
-          "notes": {
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Notes",
+          "target_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Target Cell Id",
             "type": "string"
           },
-          "outcome": {
-            "$ref": "#/components/schemas/ReviewOutcome"
+          "target_tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Tenant Id"
           }
         },
         "required": [
-          "outcome",
-          "notes"
+          "target_cell_id"
         ],
-        "title": "ReviewBody",
+        "title": "RestoreBody",
         "type": "object"
       },
       "ReviewOutcome": {
@@ -240,6 +696,73 @@
         ],
         "title": "ReviewState",
         "type": "string"
+      },
+      "Severity": {
+        "enum": [
+          "SEV0",
+          "SEV1",
+          "SEV2",
+          "SEV3",
+          "SEV4"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "UpdateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 4,
+            "title": "Reason",
+            "type": "string"
+          },
+          "roles": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roles"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "MITIGATING",
+                  "RECOVERY_VALIDATION"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "UpdateBody",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {
@@ -279,6 +802,122 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__operations__api__ops__CloseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "pir_ref": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pir Ref"
+          }
+        },
+        "title": "CloseBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operations__api__ops__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "validation": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation"
+        ],
+        "title": "ResolveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operations__api__ops__ReviewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "gates": {
+            "items": {
+              "$ref": "#/components/schemas/GateBody"
+            },
+            "maxItems": 20,
+            "title": "Gates",
+            "type": "array"
+          },
+          "release_ref": {
+            "maxLength": 256,
+            "minLength": 2,
+            "title": "Release Ref",
+            "type": "string"
+          },
+          "service_id": {
+            "pattern": "^[a-z][a-z0-9-]{1,62}$",
+            "title": "Service Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_id",
+          "release_ref",
+          "gates"
+        ],
+        "title": "ReviewBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__operator__ReasonBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "ReasonBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__operator__ReviewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "notes": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Notes",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ReviewOutcome"
+          }
+        },
+        "required": [
+          "outcome",
+          "notes"
+        ],
+        "title": "ReviewBody",
+        "type": "object"
+      },
+      "zid_platform__modules__resilience__api__platform__ReasonBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 4,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonBody",
         "type": "object"
       }
     }
@@ -601,7 +1240,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__operator__ReasonBody"
               }
             }
           },
@@ -656,7 +1295,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__operator__ReasonBody"
               }
             }
           },
@@ -841,7 +1480,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__operator__ReviewBody"
               }
             }
           },
@@ -874,6 +1513,1559 @@
         "summary": "Complete Review",
         "tags": [
           "operator-access"
+        ]
+      }
+    },
+    "/ops/cells/{cell_id}/health": {
+      "get": {
+        "operationId": "cell_health_ops_cells__cell_id__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cell_id",
+            "required": true,
+            "schema": {
+              "title": "Cell Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cell Health Ops Cells  Cell Id  Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cell Health",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents": {
+      "get": {
+        "operationId": "list_incidents_ops_incidents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "open",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Open",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Incidents Ops Incidents Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Incidents",
+        "tags": [
+          "operations"
+        ]
+      },
+      "post": {
+        "operationId": "declare_ops_incidents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Declare Ops Incidents Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Declare",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}": {
+      "get": {
+        "operationId": "get_incident_ops_incidents__incident_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Incident Ops Incidents  Incident Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Incident",
+        "tags": [
+          "operations"
+        ]
+      },
+      "patch": {
+        "operationId": "update_incident_ops_incidents__incident_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Incident Ops Incidents  Incident Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Incident",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}/action-items": {
+      "post": {
+        "operationId": "add_item_ops_incidents__incident_id__action_items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Item Ops Incidents  Incident Id  Action Items Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Item",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}/action-items/{item_id}:verify": {
+      "post": {
+        "operationId": "verify_item_ops_incidents__incident_id__action_items__item_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Item Ops Incidents  Incident Id  Action Items  Item Id  Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Item",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}/actions": {
+      "post": {
+        "operationId": "add_entry_ops_incidents__incident_id__actions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Entry Ops Incidents  Incident Id  Actions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Entry",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}:close": {
+      "post": {
+        "operationId": "close_ops_incidents__incident_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operations__api__ops__CloseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Ops Incidents  Incident Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}:resolve": {
+      "post": {
+        "operationId": "resolve_ops_incidents__incident_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operations__api__ops__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Ops Incidents  Incident Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/readiness-reviews": {
+      "post": {
+        "operationId": "record_review_ops_readiness_reviews_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operations__api__ops__ReviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Review Ops Readiness Reviews Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Review",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services": {
+      "get": {
+        "operationId": "list_services_ops_services_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Services Ops Services Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Services",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}/change-policy": {
+      "get": {
+        "operationId": "change_policy_ops_services__service_id__change_policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "change_class",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ChangeClass",
+              "default": "STANDARD"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Change Policy Ops Services  Service Id  Change Policy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Policy",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}/health": {
+      "get": {
+        "operationId": "service_health_ops_services__service_id__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Service Health Ops Services  Service Id  Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Health",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}/readiness": {
+      "get": {
+        "operationId": "service_readiness_ops_services__service_id__readiness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Service Readiness Ops Services  Service Id  Readiness Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Readiness",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}/slos": {
+      "get": {
+        "operationId": "get_slos_ops_services__service_id__slos_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Slos Ops Services  Service Id  Slos Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Slos",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}:freeze-changes": {
+      "post": {
+        "operationId": "freeze_ops_services__service_id__freeze_changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Freeze Ops Services  Service Id  Freeze Changes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Freeze",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/services/{service_id}:unfreeze-changes": {
+      "post": {
+        "operationId": "unfreeze_ops_services__service_id__unfreeze_changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Unfreeze Ops Services  Service Id  Unfreeze Changes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unfreeze",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/platform/cells/{cell_id}": {
+      "get": {
+        "operationId": "get_cell_platform_cells__cell_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cell_id",
+            "required": true,
+            "schema": {
+              "title": "Cell Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Cell Platform Cells  Cell Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cell",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/cells/{cell_id}/readiness": {
+      "put": {
+        "operationId": "put_readiness_platform_cells__cell_id__readiness_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cell_id",
+            "required": true,
+            "schema": {
+              "title": "Cell Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadinessBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Readiness Platform Cells  Cell Id  Readiness Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Readiness",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/cells/{cell_id}:quarantine": {
+      "post": {
+        "operationId": "quarantine_cell_platform_cells__cell_id__quarantine_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cell_id",
+            "required": true,
+            "schema": {
+              "title": "Cell Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__resilience__api__platform__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quarantine Cell Platform Cells  Cell Id  Quarantine Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quarantine Cell",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/cells/{cell_id}:restore": {
+      "post": {
+        "operationId": "restore_cell_platform_cells__cell_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cell_id",
+            "required": true,
+            "schema": {
+              "title": "Cell Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__resilience__api__platform__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Restore Cell Platform Cells  Cell Id  Restore Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Cell",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/dr-exercises": {
+      "get": {
+        "operationId": "list_exercises_platform_dr_exercises_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Exercises Platform Dr Exercises Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Exercises",
+        "tags": [
+          "resilience"
+        ]
+      },
+      "post": {
+        "operationId": "record_exercise_platform_dr_exercises_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Exercise Platform Dr Exercises Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Exercise",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/operations": {
+      "get": {
+        "operationId": "list_operations_platform_operations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Operations Platform Operations Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Operations",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/operations/{operation_id}": {
+      "get": {
+        "operationId": "get_operation_platform_operations__operation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Operation Platform Operations  Operation Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Operation",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/operations/{operation_id}:abort": {
+      "post": {
+        "operationId": "abort_platform_operations__operation_id__abort_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__resilience__api__platform__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Abort Platform Operations  Operation Id  Abort Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Abort",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/operations/{operation_id}:advance": {
+      "post": {
+        "operationId": "advance_platform_operations__operation_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advance Platform Operations  Operation Id  Advance Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/recovery-readiness": {
+      "get": {
+        "operationId": "recovery_readiness_platform_recovery_readiness_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cells",
+            "required": true,
+            "schema": {
+              "maxLength": 800,
+              "title": "Cells",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recovery Readiness Platform Recovery Readiness Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recovery Readiness",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/restore-jobs": {
+      "post": {
+        "operationId": "restore_job_platform_restore_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Restore Job Platform Restore Jobs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Job",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/tenants/{tenant_id}:failback": {
+      "post": {
+        "operationId": "failback_platform_tenants__tenant_id__failback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Failback Platform Tenants  Tenant Id  Failback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Failback",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/tenants/{tenant_id}:failover": {
+      "post": {
+        "operationId": "failover_platform_tenants__tenant_id__failover_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Failover Platform Tenants  Tenant Id  Failover Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Failover",
+        "tags": [
+          "resilience"
+        ]
+      }
+    },
+    "/platform/tenants/{tenant_id}:migrate": {
+      "post": {
+        "operationId": "migrate_platform_tenants__tenant_id__migrate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Migrate Platform Tenants  Tenant Id  Migrate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Migrate",
+        "tags": [
+          "resilience"
         ]
       }
     },

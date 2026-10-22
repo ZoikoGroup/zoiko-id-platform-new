@@ -1,4 +1,4 @@
-export { CELL_SESSION_COOKIE, createBff, safeReturnTo, type Bff, type BffConfig } from "./bff";
+export { CELL_SESSION_COOKIE, createBff, safeReturnTo, workspaceClient, type Bff, type BffConfig } from "./bff";
 export { buildCsp, createNonce } from "./csp";
 export { readCookie, sessionCookieName } from "./cookies";
 export {
