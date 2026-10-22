@@ -3,6 +3,7 @@
 GET  /.well-known/ssf-configuration                transmitter metadata
 POST /ssf/events/push/{tenant}.{stream}            receive a pushed SET (stream credential)
 POST /ssf/poll/{tenant}.{stream}                   receiver client polls queued SETs + acks
+GET  /ssf/streams                                  list streams             (signals.stream.read)
 POST /ssf/streams                                  create a stream          (signals.stream.manage)
 GET  /ssf/streams/{id}                             read a stream            (signals.stream.manage)
 POST /ssf/streams/{id}:enable | :disable           enable / quarantine      (signals.stream.manage)
@@ -197,6 +198,14 @@ async def create_stream(body: StreamIn, request: Request, caller: CallerDep) -> 
     if push_token:
         out["push_authorization"] = f"Bearer {push_token}"  # shown once; only its hash is kept
     return out
+
+
+@router.get("/ssf/streams")
+async def list_streams(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Pinned keys and the push credential's hash never leave the store (same view as one stream)."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="signals.stream.read", resource="ssf_stream:*")
+        return {"items": [_stream_view(s) for s in await store.list_streams(conn)]}
 
 
 @router.get("/ssf/streams/{stream_id}")

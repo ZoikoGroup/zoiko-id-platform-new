@@ -106,6 +106,7 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
   const [stepUp, setStepUp] = useState<null | { resolve: (ok: boolean) => void; reason?: string }>(null);
   const [stepUpError, setStepUpError] = useState<unknown>(null);
   const [stepUpPending, setStepUpPending] = useState(false);
+  const pendingStepUp = useRef<Promise<boolean> | null>(null);
 
   const refreshSession = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["session"] });
@@ -117,7 +118,11 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
         return await run();
       } catch (e) {
         if (!(e instanceof ApiError) || !e.isStepUpRequired) throw e;
-        const ok = await new Promise<boolean>((resolve) => setStepUp({ resolve, reason: e.message }));
+        // Calls failing together (e.g. a page's queries) share one passkey prompt.
+        pendingStepUp.current ??= new Promise<boolean>((resolve) => setStepUp({ resolve, reason: e.message })).finally(() => {
+          pendingStepUp.current = null;
+        });
+        const ok = await pendingStepUp.current;
         if (!ok) throw e;
         return run();
       }

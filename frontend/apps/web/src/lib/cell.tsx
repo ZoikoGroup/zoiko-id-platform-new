@@ -6,12 +6,14 @@ import { AccessUnavailable, Banner, Button, Code, ErrorState, LoadingRows, TextF
 import { Search, ShieldOff, Stamp } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import { useApi, useRuntime } from "./runtime";
+import { useRuntime } from "./runtime";
 
-/** Read from the cell. `fn` receives the typed API; `enabled` gates lookups until an id is entered. */
+/** Read from the cell. `fn` receives the typed API; `enabled` gates lookups until an id is entered.
+ * Protected reads (R1+ admin lists) can need a fresh passkey check: those go through the same
+ * step-up prompt as writes and are retried once. */
 export function useCellQuery<T>(key: QueryKey, fn: (api: CellApi) => Promise<T>, opts: { enabled?: boolean; refetchInterval?: number } = {}) {
-  const api = useApi();
-  return useQuery({ queryKey: key, queryFn: () => fn(api), ...opts });
+  const { api, protect } = useRuntime();
+  return useQuery({ queryKey: key, queryFn: () => protect(() => fn(api)), ...opts });
 }
 
 /** Write to the cell through the step-up interceptor; invalidates `invalidate` keys on success. */
@@ -68,7 +70,8 @@ export function ApiErrorView({ error, title, onRetry }: { error: unknown; title?
     return (
       <ErrorState
         title={title ?? "The request was not completed"}
-        onRetry={error.retryable ? onRetry : undefined}
+        // A dismissed passkey check can be retried: the retry asks for the passkey again.
+        onRetry={error.retryable || error.isStepUpRequired ? onRetry : undefined}
         error={{
           code: error.code,
           message: help && error.message.endsWith("failed.") ? help : error.message,

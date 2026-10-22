@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CopyId, KeyValues, MetricCard, PageHeader, RevisionChip, Skeleton, StatusBadge } from "@zoiko/ui";
-import { Fingerprint, Link2, MonitorSmartphone, ShieldCheck } from "lucide-react";
+import { ButtonLink, Card, CopyId, KeyValues, MetricCard, PageHeader, RevisionChip, Skeleton, StatusBadge } from "@zoiko/ui";
+import { Fingerprint, LifeBuoy, Link2, MonitorSmartphone, ScanFace, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 
@@ -88,6 +88,21 @@ export function AccountOverview() {
               )}
             </QueryView>
           )}
+        </Card>
+
+        <Card
+          className="lg:col-span-2"
+          title="Verification and recovery"
+          description="Raise your identity assurance, and keep a way back in if you lose your passkeys."
+        >
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/account/verification" icon={<ScanFace aria-hidden className="size-4" />}>
+              Identity verification
+            </ButtonLink>
+            <ButtonLink href="/account/recovery" icon={<LifeBuoy aria-hidden className="size-4" />}>
+              Recovery codes
+            </ButtonLink>
+          </div>
         </Card>
       </div>
     </>

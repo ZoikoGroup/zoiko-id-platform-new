@@ -8,10 +8,13 @@ Verifier (baseline role)
 Issuer (controlled)
     GET  /.well-known/openid-credential-issuer | /.well-known/jwt-vc-issuer
     POST /credentials/nonce                           c_nonce for the key proof
+    GET  /credentials                                 issued credentials       (credential.read, R1)
     POST /credentials                                 issue (access token scope credential:<config>)
     GET  /credentials/status-lists/{tenant}.{list}    Token Status List
     POST /credentials/{id}:revoke | :suspend | :reinstate      (credential.status.change, R3)
 Trust and configuration (protected administration)
+    GET  /credential-configurations | /credential-issuer-trust | /relying-party-registrations
+                                                                  list (credential.read, R1)
     POST /credential-configurations | /{id}:activate             (credential.trust.manage, R3;
                                                                    + credential.issue to enable issuance)
     POST /credential-issuer-trust | /credential-issuer-trust:suspend   (credential.trust.manage)
@@ -25,7 +28,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import parse_qsl
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from zid_context import RequestContext, current_context
@@ -243,6 +246,18 @@ class CredentialIn(BaseModel):
     proofs: dict[str, list[str]]
 
 
+@router.get("/credentials")
+async def list_credentials(
+    request: Request,
+    caller: CallerDep,
+    status: Literal["VALID", "SUSPENDED", "REVOKED", "EXPIRED", "UNKNOWN"] | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="credential.read", resource="credential:*")
+        return {"items": await store.list_issued(conn, status=status, limit=limit)}
+
+
 @router.post("/credentials")
 async def issue_credential(body: CredentialIn, request: Request, caller: CallerDep) -> Response:
     _scope(caller, f"credential:{body.credential_configuration_id}")
@@ -343,6 +358,15 @@ class ConfigurationIn(BaseModel):
     issuance_enabled: bool = False
 
 
+@router.get("/credential-configurations")
+async def list_configurations(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="credential.read", resource="credential_configuration:*"
+        )
+        return {"items": await store.list_configurations(conn)}
+
+
 @router.post("/credential-configurations", status_code=201)
 async def create_configuration(
     body: ConfigurationIn, request: Request, caller: CallerDep
@@ -420,6 +444,15 @@ class TrustIn(BaseModel):
     valid_to: datetime
 
 
+@router.get("/credential-issuer-trust")
+async def list_trust(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="credential.read", resource="credential_issuer:*"
+        )
+        return {"items": await store.list_trust(conn)}
+
+
 @router.post("/credential-issuer-trust", status_code=201)
 async def create_trust(body: TrustIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -463,6 +496,13 @@ class RegistrationIn(BaseModel):
     allowed_attributes: list[str] = Field(min_length=1, max_length=50)
     retention_days: int = Field(default=0, ge=0, le=3650)
     valid_to: datetime
+
+
+@router.get("/relying-party-registrations")
+async def list_registrations(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="credential.read", resource="rp_registration:*")
+        return {"items": await store.list_registrations(conn)}
 
 
 @router.post("/relying-party-registrations", status_code=201)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -78,6 +79,45 @@ async def load_principal(conn: AsyncConnection, principal_id: str) -> tuple[Prin
         has_organization_profile=True,  # profile presence is checked by the organization module
     )
     return p, row.row_version
+
+
+async def list_principals(
+    conn: AsyncConnection,
+    *,
+    principal_type: PrincipalType | None = None,
+    status: PrincipalStatus | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Directory rows, newest first: identifiers, type, state and times; no labels or identifiers."""
+    where: list[str] = ["TRUE"]
+    params: dict[str, Any] = {"lim": limit}
+    if principal_type is not None:
+        where.append("principal_type = CAST(:ty AS core.principal_type)")
+        params["ty"] = principal_type.value
+    if status is not None:
+        where.append("status = CAST(:st AS core.principal_status)")
+        params["st"] = status.value
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT principal_id, principal_type, status, home_cell, security_revision, "
+                f"created_at FROM core.principal WHERE {' AND '.join(where)} "
+                "ORDER BY created_at DESC, principal_id DESC LIMIT :lim"
+            ),
+            params,
+        )
+    ).all()
+    return [
+        {
+            "principal_id": str(r.principal_id),
+            "principal_type": r.principal_type,
+            "status": r.status,
+            "home_cell": r.home_cell,
+            "security_revision": r.security_revision,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
 
 
 async def set_status(

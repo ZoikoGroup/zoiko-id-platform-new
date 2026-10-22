@@ -39,6 +39,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Sign-in, passkey and token settings (copy backend/.env.example). The `environment` entries
+    # below win over the file, so the database URLs always point at the compose Postgres.
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       ZID_ROLES: cell,global
       ZID_ENVIRONMENT: local
@@ -53,5 +58,50 @@ services:
       - "8000:8000"   # cell role
       - "8100:8100"   # global role
 
+  # Background worker (DEC-D6): evidence sequencing + signed checkpoints, operator-grant expiry,
+  # privacy retention sweep (Phase F). Locally it uses the owner role; deployed cells give it the
+  # dedicated BYPASSRLS worker role (ZID_WORKER_DATABASE_URL), never the API's runtime role.
+  worker:
+    image: zid/platform:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      ZID_ENVIRONMENT: local
+      ZID_CELL_ID: local-1
+      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    volumes:
+      - ./contracts:/app/contracts:ro
+    command: ["python", "-m", "zid_platform.entrypoints.worker"]
+    healthcheck:
+      disable: true
+
+  # SPIFFE/SPIRE development profile (DEC-F7): `docker compose --profile spire up -d`, then
+  # `sh local/spire/bootstrap.sh`. Not started by default.
+  spire-server:
+    profiles: ["spire"]
+    image: ghcr.io/spiffe/spire-server:1.13.2
+    command: ["-config", "/opt/spire/conf/server/server.conf"]
+    volumes:
+      - ./local/spire/server.conf:/opt/spire/conf/server/server.conf:ro
+      - spire-server:/run/spire/data
+  spire-agent:
+    profiles: ["spire"]
+    image: ghcr.io/spiffe/spire-agent:1.13.2
+    depends_on: [spire-server]
+    command: ["-config", "/opt/spire/conf/agent/agent.conf"]
+    volumes:
+      - ./local/spire/agent.conf:/opt/spire/conf/agent/agent.conf:ro
+      - spire-sockets:/run/spire/sockets
+
 volumes:
   pgdata:
+  spire-server:
+  spire-sockets:

@@ -77,6 +77,37 @@ Don't run the `backend` container (option A) and the launcher (option B) at the 
 
 The two roles stay **separate processes** (the global plane holds no personal data and uses its own database, ZID-TENANCY-001 §2). The launcher runs both from one terminal, labels their output `[cell]` / `[global]`, and reloads automatically on code changes. Database URLs can be overridden with `ZID_CELL_DATABASE_URL` / `ZID_GLOBAL_DATABASE_URL`.
 
+## Connect the web app to the backend (local)
+
+The web app (`frontend/apps/web`) is a backend-for-frontend: the browser only talks to `http://localhost:3000`, and the Next.js server calls the cell API with tokens it keeps server-side.
+
+```powershell
+# 1. Backend config (once): all settings are documented in the template
+Copy-Item backend\.env.example backend\.env
+
+# 2. Database up, then migrations + local tenant, user, `zoiko-web` OAuth client (once; repeatable)
+docker compose up -d postgres
+cd backend
+$env:UV_PROJECT_ENVIRONMENT = "$env:LOCALAPPDATA\zoiko-id\venv"
+python -m uv run python ..\tools\scripts\bootstrap_local.py     # prints a /enroll?ticket=... link
+
+# 3. Backend (terminal 1) and web app (terminal 2)
+python -m uv run python ..\tools\scripts\run_local.py --only cell
+cd ..\frontend; Copy-Item apps\web\.env.example apps\web\.env.local; npm run dev:web
+```
+
+Open the printed `http://localhost:3000/enroll?ticket=…` link to create a passkey and sign in. Use `localhost`, not `127.0.0.1`, because passkeys need a domain. For another link, run `bootstrap_local.py --ticket-only`.
+
+Values that must agree:
+
+| Backend (`backend/.env`) | Web app (`frontend/apps/web/.env.local`) |
+|---|---|
+| `ZID_TOKEN_ISSUER` | `ZID_TOKEN_ISSUER` |
+| `ZID_WEBAUTHN_ORIGINS` includes it | `ZID_PUBLIC_ORIGIN` |
+| `ZID_WEBAUTHN_RP_ID` = its host | `ZID_PUBLIC_ORIGIN` |
+| client redirect URI (seeded by `bootstrap_local.py`) | `ZID_OAUTH_REDIRECT_URI` |
+| port in `ZID_CELL_PORT` | `ZID_CELL_API_URL` |
+
 ## Stack
 
 Python 3.13+ / FastAPI · Next.js + TypeScript · PostgreSQL (Aurora) · SpiceDB · Cedar · Kafka (MSK) · Valkey · Temporal · SPIFFE/SPIRE · KMS/CloudHSM · EKS · OpenTofu · Argo CD · OpenTelemetry

@@ -1,6 +1,17 @@
 {
   "components": {
     "schemas": {
+      "ApprovalState": {
+        "enum": [
+          "PENDING",
+          "APPROVED",
+          "DENIED",
+          "EXPIRED",
+          "STALE"
+        ],
+        "title": "ApprovalState",
+        "type": "string"
+      },
       "CommitBody": {
         "additionalProperties": false,
         "properties": {
@@ -287,6 +298,20 @@
         "title": "GrantCreate",
         "type": "object"
       },
+      "GrantStatus": {
+        "enum": [
+          "DRAFT",
+          "PENDING_APPROVAL",
+          "ACTIVE",
+          "REVALIDATION_PENDING",
+          "SUSPENDED",
+          "REVOKED",
+          "EXPIRED",
+          "SUPERSEDED"
+        ],
+        "title": "GrantStatus",
+        "type": "string"
+      },
       "GrantType": {
         "enum": [
           "PERSONAL",
@@ -311,6 +336,148 @@
         },
         "title": "HTTPValidationError",
         "type": "object"
+      },
+      "MandateCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "authority_grant_id": {
+            "format": "uuid",
+            "title": "Authority Grant Id",
+            "type": "string"
+          },
+          "count_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count Limit"
+          },
+          "data_limit_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Limit Bytes"
+          },
+          "delegation": {
+            "$ref": "#/components/schemas/Delegation"
+          },
+          "executor_principal_id": {
+            "format": "uuid",
+            "title": "Executor Principal Id",
+            "type": "string"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "per_transaction_value_limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueAmount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "purpose_id": {
+            "format": "uuid",
+            "title": "Purpose Id",
+            "type": "string"
+          },
+          "resource_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Resource Scopes",
+            "type": "array"
+          },
+          "risk_class": {
+            "default": 3,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Risk Class",
+            "type": "integer"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tools",
+            "type": "array"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "format": "date-time",
+            "title": "Valid To",
+            "type": "string"
+          },
+          "value_limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueAmount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authority_grant_id",
+          "executor_principal_id",
+          "purpose_id",
+          "allowed_actions",
+          "resource_scopes",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "MandateCreate",
+        "type": "object"
+      },
+      "MandateStatus": {
+        "enum": [
+          "PENDING_APPROVAL",
+          "ACTIVE",
+          "PAUSED",
+          "EXHAUSTED",
+          "COMPLETED",
+          "EXPIRED",
+          "REVOKED"
+        ],
+        "title": "MandateStatus",
+        "type": "string"
       },
       "Money": {
         "additionalProperties": false,
@@ -513,6 +680,67 @@
   "openapi": "3.1.0",
   "paths": {
     "/v1/approval-requests": {
+      "get": {
+        "operationId": "list_all_v1_approval_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ApprovalState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List All V1 Approval Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List All",
+        "tags": [
+          "authority"
+        ]
+      },
       "post": {
         "operationId": "create_v1_approval_requests_post",
         "requestBody": {
@@ -667,6 +895,84 @@
       }
     },
     "/v1/authority-grants": {
+      "get": {
+        "operationId": "list_all_v1_authority_grants_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GrantStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "grantee_principal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grantee Principal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List All V1 Authority Grants Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List All",
+        "tags": [
+          "authority"
+        ]
+      },
       "post": {
         "operationId": "create_grant_v1_authority_grants_post",
         "parameters": [
@@ -962,6 +1268,140 @@
           }
         },
         "summary": "Release",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
+    "/v1/mandates": {
+      "get": {
+        "operationId": "list_all_v1_mandates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MandateStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "executor_principal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Executor Principal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List All V1 Mandates Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List All",
+        "tags": [
+          "mandate"
+        ]
+      },
+      "post": {
+        "operationId": "create_v1_mandates_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create V1 Mandates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
         "tags": [
           "mandate"
         ]

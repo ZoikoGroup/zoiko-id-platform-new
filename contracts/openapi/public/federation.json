@@ -907,6 +907,27 @@
       }
     },
     "/federation/trust-anchors": {
+      "get": {
+        "operationId": "list_anchors_federation_trust_anchors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Anchors Federation Trust Anchors Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Anchors",
+        "tags": [
+          "federation"
+        ]
+      },
       "post": {
         "description": "Configured, pinned trust: a federation can only be joined through an anchor added here.",
         "operationId": "create_anchor_federation_trust_anchors_post",

@@ -1,5 +1,6 @@
 """Transaction-bound approval API (ZID-API-001 §10.3; ZID-MANDATE-001 §16; MAND-16/17, AUTHZ-15/16).
 
+    GET  /v1/approval-requests                     list, newest first   (authority.approval.read, R1)
     POST /v1/approval-requests                     open a request bound to one transaction context
     POST /v1/approval-requests/{id}/decisions      the caller approves or denies
     GET  /v1/approval-requests/{id}?transaction_context=...   current outcome for that exact transaction
@@ -27,12 +28,14 @@ from zid_platform.modules.authority.domain.composite import (
     ApprovalDecision,
     ApprovalOutcome,
     ApprovalPolicy,
+    ApprovalState,
     CompositeMode,
     Verdict,
 )
 from zid_platform.modules.authority.domain.grants import AuthorityError
 from zid_platform.modules.authority.infrastructure import approval_store
 from zid_platform.modules.authority.infrastructure.grant_store import load_chain
+from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/approval-requests", tags=["authority"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -61,6 +64,41 @@ class DecisionCreate(BaseModel):
 
 def _outcome(o: ApprovalOutcome) -> dict[str, Any]:
     return {"state": o.state.value, "codes": list(o.codes), "counted_approvers": len(o.counted)}
+
+
+def _summary(s: approval_store.RequestSummary) -> dict[str, Any]:
+    """No transaction context, not even its hash: only what the request is about and where it is."""
+    r = s.request
+    return {
+        "approval_request_id": r.approval_request_id,
+        "subject_ref": s.subject_ref,
+        "requester_principal_id": r.requester_principal_id,
+        "mode": r.policy.mode.value,
+        "roles": list(r.policy.roles),
+        "state": s.outcome.state.value,
+        "codes": list(s.outcome.codes),
+        "required_approvals": approval_store.required_approvals(r.policy),
+        "approvals_received": s.approvals_received,
+        "created_at": s.created_at.isoformat(),
+        "expires_at": r.expires_at.isoformat(),
+    }
+
+
+@router.get("")
+async def list_all(
+    request: Request,
+    caller: CallerDep,
+    state: ApprovalState | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="authority.approval.read", resource="approval_request:*"
+        )
+        items = await approval_store.list_requests(
+            conn, now=datetime.now(UTC), state=state, limit=limit
+        )
+    return {"items": [_summary(s) for s in items]}
 
 
 @router.post("", status_code=201)

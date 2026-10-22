@@ -65,6 +65,26 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         ("/ssf/", "/signals", "/security-state/"),
         "Zoiko iD Security Signals and Shared Signals API",
     ),
+    OPENAPI / "public" / "evidence.json": (
+        ("/v1/evidence/",),
+        "Zoiko iD Evidence, Audit and Provenance API (receipts, proofs, replay, export, legal holds)",
+    ),
+    OPENAPI / "public" / "privacy.json": (
+        ("/v1/privacy/",),
+        "Zoiko iD Privacy, Consent and Data Rights API",
+    ),
+    OPENAPI / "public" / "operator-access.json": (
+        ("/operator/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
+        "Zoiko iD Operator Access API (JIT, customer lockbox, break-glass review)",
+    ),
+    OPENAPI / "public" / "residency.json": (
+        ("/v1/cells", "/v1/tenant/"),
+        "Zoiko iD Tenant Residency and Sovereignty API",
+    ),
+    OPENAPI / "public" / "workload-identity.json": (
+        ("/v1/machine/",),
+        "Zoiko iD Workload Identity API (SPIFFE bindings, environment quarantine)",
+    ),
 }
 AUTHZEN_FILE = OPENAPI / "authzen" / "evaluation.json"
 

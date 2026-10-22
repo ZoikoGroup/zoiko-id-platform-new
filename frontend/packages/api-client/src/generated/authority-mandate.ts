@@ -7,7 +7,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List All */
+        get: operations["list_all_v1_approval_requests_get"];
         put?: never;
         /** Create */
         post: operations["create_v1_approval_requests_post"];
@@ -58,7 +59,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List All */
+        get: operations["list_all_v1_authority_grants_get"];
         put?: never;
         /** Create Grant */
         post: operations["create_grant_v1_authority_grants_post"];
@@ -147,6 +149,24 @@ export interface paths {
         put?: never;
         /** Release */
         post: operations["release_v1_mandate_reservations__reservation_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mandates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List All */
+        get: operations["list_all_v1_mandates_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_v1_mandates_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -242,6 +262,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ApprovalState
+         * @enum {string}
+         */
+        ApprovalState: "PENDING" | "APPROVED" | "DENIED" | "EXPIRED" | "STALE";
         /** CommitBody */
         CommitBody: {
             /** Execution Id */
@@ -343,6 +368,11 @@ export interface components {
             value_limit?: components["schemas"]["Money"] | null;
         };
         /**
+         * GrantStatus
+         * @enum {string}
+         */
+        GrantStatus: "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "REVALIDATION_PENDING" | "SUSPENDED" | "REVOKED" | "EXPIRED" | "SUPERSEDED";
+        /**
          * GrantType
          * @enum {string}
          */
@@ -352,6 +382,59 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** MandateCreate */
+        MandateCreate: {
+            /** Allowed Actions */
+            allowed_actions: string[];
+            /**
+             * Authority Grant Id
+             * Format: uuid
+             */
+            authority_grant_id: string;
+            /** Count Limit */
+            count_limit?: number | null;
+            /** Data Limit Bytes */
+            data_limit_bytes?: number | null;
+            delegation?: components["schemas"]["Delegation"];
+            /**
+             * Executor Principal Id
+             * Format: uuid
+             */
+            executor_principal_id: string;
+            /** Jurisdictions */
+            jurisdictions?: string[];
+            per_transaction_value_limit?: components["schemas"]["ValueAmount"] | null;
+            /**
+             * Purpose Id
+             * Format: uuid
+             */
+            purpose_id: string;
+            /** Resource Scopes */
+            resource_scopes: string[];
+            /**
+             * Risk Class
+             * @default 3
+             */
+            risk_class: number;
+            /** Tools */
+            tools?: string[];
+            /**
+             * Valid From
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Valid To
+             * Format: date-time
+             */
+            valid_to: string;
+            value_limit?: components["schemas"]["ValueAmount"] | null;
+        };
+        /**
+         * MandateStatus
+         * @enum {string}
+         */
+        MandateStatus: "PENDING_APPROVAL" | "ACTIVE" | "PAUSED" | "EXHAUSTED" | "COMPLETED" | "EXPIRED" | "REVOKED";
         /** Money */
         Money: {
             /** Amount */
@@ -434,6 +517,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_all_v1_approval_requests_get: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["ApprovalState"] | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_v1_approval_requests_post: {
         parameters: {
             query?: never;
@@ -521,6 +638,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_v1_authority_grants_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["GrantStatus"] | null;
+                grantee_principal_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -729,6 +881,78 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_v1_mandates_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MandateStatus"] | null;
+                executor_principal_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_v1_mandates_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MandateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

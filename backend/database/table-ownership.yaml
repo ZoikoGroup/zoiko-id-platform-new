@@ -24,6 +24,16 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "ZID-DATA-001 §1.1"
+  platform.tenant_residency:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "TENANCY-001 §13.1 (CR-014)"
+  platform.residency_transfer_rule:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "TENANCY-001 §11 (CR-014)"
   platform.configuration_snapshot:
     role: cell
     module: configuration
@@ -45,6 +55,26 @@ tables:
     tenant_scoped: true
     source: "proposed (DEC-F4)"
   platform.lockbox_request:
+    role: cell
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (DEC-F4)"
+  platform.operator_profile:
+    role: cell
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (DEC-F4)"
+  platform.operator_access_approval:
+    role: cell
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (DEC-F4)"
+  platform.operator_access_policy:
+    role: cell
+    module: operator_access
+    tenant_scoped: true
+    source: "proposed (DEC-F4)"
+  platform.break_glass_review:
     role: cell
     module: operator_access
     tenant_scoped: true
@@ -249,6 +279,11 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (MACHINE spec §16)"
+  agent.environment_quarantine:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "DEC-F7 §4, CRYPTO-MI-001 §29 (CR-014)"
   org.organization:
     role: cell
     module: organization
@@ -389,6 +424,56 @@ tables:
     module: evidence
     tenant_scoped: true
     source: "EVIDENCE-001 §10"
+  evidence.audit_record:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §7 (CR-011)"
+  evidence.receipt_annotation:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §20 (CR-011)"
+  evidence.custody_record:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §18 (CR-011)"
+  evidence.erasure_tombstone:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "PRIV-001 §10, DEC-F1 §4 (CR-011)"
+  evidence.subject_key:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "DEC-F1 §2 (CR-011)"
+  evidence.legal_hold:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §22, PRIV-001 §11 (CR-011)"
+  evidence.decision_aggregate:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §1 E0 (CR-011)"
+  evidence.artifact:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §9 (CR-011)"
+  evidence.provenance_edge:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §8 (CR-011)"
+  evidence.evidence_case:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "EVIDENCE-001 §18 (CR-011)"
   privacy.consent_receipt:
     role: cell
     module: privacy
@@ -404,6 +489,51 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRIV-001 §1.1 (DEC-F3)"
+  privacy.processing_activity:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §2.1 (CR-013)"
+  privacy.preference:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §18, §21 (CR-013)"
+  privacy.processing_restriction:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §18 (CR-013)"
+  privacy.rights_request:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §13 (CR-013)"
+  privacy.retention_policy:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §7 (CR-013)"
+  privacy.data_map_entry:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §10, §17 (CR-013)"
+  privacy.notice:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §22 (CR-013)"
+  privacy.processor:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §23 (CR-013)"
+  privacy.automated_decision_profile:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRIV-001 §20 (CR-013)"
   authn.federation_connection:
     role: cell
     module: federation

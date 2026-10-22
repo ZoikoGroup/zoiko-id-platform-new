@@ -173,6 +173,16 @@ export type Presentation = {
   [k: string]: unknown;
 };
 
+/** POST /presentations: the OpenID4VP request to hand to a wallet (status is read separately). */
+export type PresentationCreated = {
+  presentation_id: string;
+  request_uri: string;
+  /** `openid4vp://?client_id=…&request_uri=…` */
+  authorization_request: string;
+  claims: string[];
+  expires_at: Iso;
+};
+
 /* ---------------------------------------------------------------- authority & mandates */
 
 export type GrantType =
@@ -203,11 +213,12 @@ export type AuthorityGrant = {
   represented_principal_id: string;
   authority_root_assertion_id: string | null;
   parent_grant_id: string | null;
-  actions: string[];
-  resources: string[];
+  /** null = any action / resource. */
+  actions: string[] | null;
+  resources: string[] | null;
   value_limit: Money | null;
-  valid_from: Iso;
-  valid_to: Iso;
+  valid_from: Iso | null;
+  valid_to: Iso | null;
   delegation: { allowed: boolean; max_depth: number };
   revision: number;
 };
@@ -232,7 +243,8 @@ export type MandateBalance = {
 };
 export type ReservationStatus = "RESERVED" | "COMMITTED" | "RELEASED" | "EXPIRED" | "RECONCILIATION_REQUIRED";
 export type Reservation = {
-  mandate_id: string;
+  /** Not echoed by the cell's reservation view. */
+  mandate_id?: string;
   reservation_id: string;
   status: ReservationStatus;
   expires_at: Iso | null;
@@ -242,18 +254,20 @@ export type Reservation = {
 /* ---------------------------------------------------------------- decisions */
 
 export type DecisionOutcome = "ALLOW" | "DENY" | "STEP_UP" | "APPROVAL_REQUIRED" | "STATE_UNAVAILABLE";
+/** For a request the cell cannot evaluate (e.g. an uncatalogued action) only `decision_id` and
+ * `reason_codes` are present. */
 export type EvaluationResult = {
   decision: boolean;
   context: {
     decision_id: string;
-    outcome: DecisionOutcome;
     reason_codes: string[];
-    obligations: unknown[];
-    risk_class: string;
-    policy_release_id: string | null;
-    relation_revision: number | null;
-    security_revision: number | null;
-    valid_until: Iso | null;
+    outcome?: DecisionOutcome;
+    obligations?: unknown[];
+    risk_class?: string;
+    policy_release_id?: string | null;
+    relation_revision?: number | null;
+    security_revision?: number | null;
+    valid_until?: Iso | null;
   };
 };
 
@@ -297,12 +311,15 @@ export type SsfStream = {
 };
 export type StreamPropagation = {
   stream_id: string;
-  acked?: number;
-  pending?: number;
-  p50?: number | null;
-  p99?: number | null;
-  max_ms?: number | null;
-  oldest_pending_ms?: number | null;
+  acknowledged: number;
+  pending: number;
+  p50_ms: number | null;
+  p99_ms: number | null;
+  max_ms: number | null;
+  oldest_pending_ms: number | null;
+  slo_breaches: number;
+  /** Propagation SLO per risk class (ms). */
+  slo_ms_by_risk: Record<string, number>;
   [k: string]: unknown;
 };
 
@@ -310,6 +327,419 @@ export type StreamPropagation = {
 
 export type ProvisioningSource = { source_id: string; client_id: string; status: string };
 
+/* ---------------------------------------------------------------- admin lists (CR-010) */
+
+export type ApprovalListItem = {
+  approval_request_id: string;
+  subject_ref: string;
+  requester_principal_id: string;
+  mode: ApprovalMode;
+  roles: string[];
+  state: ApprovalState;
+  codes: string[];
+  required_approvals: number;
+  approvals_received: number;
+  created_at: Iso;
+  expires_at: Iso;
+};
+
+export type Mandate = {
+  mandate_id: string;
+  status: MandateStatus;
+  authority_grant_id: string;
+  executor_principal_id: string;
+  represented_principal_id: string;
+  purpose_id: string;
+  allowed_actions: string[];
+  resource_scopes: string[];
+  tools: string[];
+  jurisdictions: string[];
+  currency: string | null;
+  value_limit: string | null;
+  per_transaction_value_limit: string | null;
+  count_limit: number | null;
+  data_limit_bytes: number | null;
+  valid_from: Iso;
+  valid_to: Iso;
+  delegation_allowed: boolean;
+  max_delegation_depth: number;
+  parent_mandate_id: string | null;
+  created_at: Iso;
+};
+
+export type IssuedCredentialStatus = "VALID" | "SUSPENDED" | "REVOKED" | "EXPIRED" | "UNKNOWN";
+export type IssuedCredential = {
+  credential_id: string;
+  configuration_id: string;
+  credential_type: string;
+  format: CredentialFormat | string;
+  issuer_identifier: string;
+  subject_principal_id: string | null;
+  status: IssuedCredentialStatus;
+  issued_at: Iso;
+  expires_at: Iso | null;
+};
+
+export type CredentialConfigurationItem = {
+  configuration_id: string;
+  credential_type: string;
+  format: CredentialFormat | string;
+  adapter_version: string;
+  required_claims: string[];
+  optional_claims: string[];
+  holder_binding_required: boolean;
+  status_method: string;
+  status_mandatory: boolean;
+  risk_class: RiskClassNumber;
+  assurance_profile_id: string | null;
+  issuance_enabled: boolean;
+  status: string;
+  created_at: Iso;
+};
+
+export type IssuerTrustItem = {
+  trust_id: string;
+  issuer_identifier: string;
+  credential_types: string[];
+  jurisdictions: string[];
+  trust_source: string;
+  trust_anchor_id: string | null;
+  algorithms: string[];
+  status: string;
+  valid_to: Iso;
+  revision: number;
+  created_at: Iso;
+};
+
+export type RpRegistrationItem = {
+  registration_id: string;
+  client_id: string;
+  purpose: string;
+  allowed_attributes: string[];
+  retention_days: number;
+  status: string;
+  valid_to: Iso;
+};
+
+export type ProvisioningSourceItem = { source_id: string; client_id: string; display_name: string; status: string };
+
+export type PrincipalType = "HUMAN" | "ORGANIZATION" | "ORG_UNIT" | "DEVICE" | "APPLICATION" | "SERVICE" | "WORKLOAD" | "AI_AGENT";
+export type PrincipalStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "DISABLED" | "SUPERSEDED" | "ERASED";
+export type PrincipalItem = {
+  principal_id: string;
+  principal_type: PrincipalType;
+  status: PrincipalStatus;
+  home_cell: string;
+  security_revision: number;
+  created_at: Iso;
+};
+
+export type TrustAnchorItem = {
+  anchor_id: string;
+  entity_id: string;
+  allowed_domains: string[];
+  /** Number of pinned keys; the keys themselves are never returned. */
+  pinned_keys: number;
+  status: string;
+  revision: number;
+  created_at: Iso;
+};
+
+export type VerificationAdapterItem = {
+  adapter_id: string;
+  provider: string;
+  mapping_version: string;
+  submit_endpoint: string;
+  callback_algorithms: string[];
+  equivalence_group: string;
+  supported_evidence: string[];
+  jurisdictions: string[];
+  status: string;
+  consecutive_failures: number;
+  open_until: Iso | null;
+};
+
 /* ---------------------------------------------------------------- health */
 
 export type Health = { success: boolean; data?: { status?: string; checks?: Record<string, unknown> } & Record<string, unknown> };
+
+/* ---------------------------------------------------------------- evidence (Phase F, /v1/evidence) */
+
+export type EvidenceClass = "E1" | "E2" | "E3";
+export type ReceiptSummary = {
+  receipt_id: string;
+  decision_id: string;
+  evidence_class: EvidenceClass;
+  decision_type: string;
+  outcome: string;
+  reason_codes: string[];
+  actor_handle: string;
+  action: string;
+  resource_class: string;
+  risk_class: string;
+  policy_release_id: string | null;
+  receipt_hash: string;
+  effective_at: Iso;
+  created_at: Iso;
+};
+export type ReceiptAnnotation = { annotation_id: string; kind: string; body: Record<string, unknown>; record_hash: string; created_at: Iso };
+export type ReceiptDetail = ReceiptSummary & { receipt: Record<string, unknown>; annotations: ReceiptAnnotation[] };
+export type VerificationCheck = { name: string; ok: boolean; detail: string };
+export type ReceiptVerification = {
+  receipt_id: string;
+  ok: boolean;
+  receipt_hash_valid: boolean;
+  ledgered: boolean;
+  sealed: boolean;
+  checks: VerificationCheck[];
+};
+export type ReplayResultValue =
+  | "VERIFIED_MATCH"
+  | "VERIFIED_STRUCTURAL_ONLY"
+  | "MISMATCH"
+  | "INCOMPLETE_BY_LAWFUL_ERASURE"
+  | "UNVERIFIABLE_INTEGRITY_FAILURE";
+export type ReplayOutcome = {
+  receipt_id: string;
+  replay_id: string;
+  result: ReplayResultValue;
+  detail?: string;
+  differences?: string[];
+  verification: ReceiptVerification;
+};
+export type EvidencePackage = {
+  manifest: Record<string, unknown> & { package_id: string; bundle_hash: string; mode: string };
+  manifest_signature: string;
+  bundle: Record<string, unknown>;
+  keys: Record<string, unknown>[];
+};
+export type AuditEvent = {
+  audit_id: string;
+  event_type: string;
+  actor_type: string;
+  actor_handle: string | null;
+  target_type: string;
+  target_ref: string;
+  action: string;
+  outcome: "SUCCESS" | "FAILURE" | "DENIED" | "PARTIAL";
+  reason_code: string | null;
+  evidence_class: EvidenceClass;
+  record_hash: string;
+  occurred_at: Iso;
+  created_at: Iso;
+};
+export type PartitionReport = {
+  partition_id: string;
+  ok: boolean;
+  entries: number;
+  checkpoints: number;
+  sealed_through: number;
+  unsealed: number;
+  first_broken_sequence: number | null;
+  problems: { kind: string; sequence_no: number | null; detail: string }[];
+};
+export type LegalHold = {
+  legal_hold_id: string;
+  basis: string;
+  reference: string;
+  requested_by: string;
+  approved_by: string;
+  subject_count: number;
+  object_types: string[];
+  effective_at: Iso;
+  review_at: Iso;
+  review_overdue: boolean;
+  expires_at: Iso | null;
+  status: "ACTIVE" | "RELEASED" | "EXPIRED";
+  released_at: Iso | null;
+};
+
+/* ---------------------------------------------------------------- privacy (Phase F, /v1/privacy) */
+
+export type PurposeView = { purpose_code: string; purpose_version: number; description: string; data_categories: string[]; recipient_classes: string[] };
+export type ConsentRecord = {
+  consent_id: string;
+  purpose_code: string;
+  purpose_version: number;
+  notice_version: string;
+  status: "ACTIVE" | "WITHDRAWN" | "EXPIRED" | "SUPERSEDED" | "INVALIDATED";
+  granted_at: Iso;
+  withdrawn_at: Iso | null;
+  capture_method: string;
+};
+export type PreferenceRecord = { preference_type: string; value: boolean; source: string; revision: number; updated_at: Iso };
+export type RightsType =
+  | "ACCESS"
+  | "RECTIFICATION"
+  | "ERASURE"
+  | "RESTRICTION"
+  | "OBJECTION"
+  | "PORTABILITY"
+  | "OPT_OUT_SALE_SHARING"
+  | "LIMIT_SENSITIVE_PI"
+  | "ADMT_ACCESS"
+  | "ADMT_OPT_OUT"
+  | "COMPLAINT"
+  | "HUMAN_REVIEW";
+export type FulfilmentItem = { item_id: string; state: string; reason?: string } & Record<string, unknown>;
+export type RightsRequest = {
+  request_id: string;
+  request_type: RightsType;
+  subject_principal_id: string;
+  requester_principal_id: string | null;
+  jurisdiction_pack_id: string;
+  status: string;
+  identity_verification_state: "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "FAILED";
+  received_at: Iso;
+  deadline_at: Iso | null;
+  deadline_source: string;
+  deadline_consumed: number | null;
+  deadline_warning: number | null;
+  exemptions: Record<string, unknown>[];
+  fulfilment_items: FulfilmentItem[];
+  response_package_ref: string | null;
+  completed_at: Iso | null;
+};
+export type JurisdictionPackView = {
+  pack_id: string;
+  version: string;
+  framework: string;
+  deployable: boolean;
+  approval_ref: string | null;
+  deadlines_configured: boolean;
+};
+export type PrivacyRow = Record<string, unknown>;
+export type ReleaseCheck = { ready: boolean; blockers: Record<string, string>[] };
+
+/* ---------------------------------------------------------------- operator access (customer side) */
+
+export type LockboxRequest = {
+  lockbox_request_id: string;
+  jit_grant_id: string;
+  requester_principal_id: string;
+  capability: string;
+  resource_scope: string;
+  case_ref: string;
+  reason: string;
+  duration_minutes: number;
+  state: "PENDING" | "APPROVED" | "DENIED" | "REVOKED" | "EXPIRED";
+  created_at: Iso;
+  expires_at: Iso;
+  decided_by: string | null;
+  decided_at: Iso | null;
+};
+export type OperatorAccessPolicy = { lockbox_required: boolean; allowed_operator_jurisdictions: string[]; revision: number };
+
+/* ---------------------------------------------------------------- residency and workloads */
+
+export type CellView = {
+  cell_id: string;
+  region: string | null;
+  jurisdiction: string | null;
+  legal_zone: string | null;
+  supported_profiles: string[];
+  approved_recovery_cells: string[];
+  recovery_only: boolean;
+};
+export type TenantResidency = {
+  residency_profile_id: "SRP-0" | "SRP-1" | "SRP-2" | "SRP-3";
+  home_cell_id: string;
+  permitted_recovery_cells: string[];
+  prohibited_cells: string[];
+  operator_jurisdictions: string[];
+  key_profile: string;
+  jurisdiction_pack_id: string;
+  placement_epoch: number;
+  revision: number;
+};
+export type ResidencyMatrixRow = {
+  subsystem: string;
+  cell_id: string;
+  region: string | null;
+  jurisdiction: string | null;
+  legal_zone: string | null;
+  recovery_cells: string[];
+  evidence: string;
+};
+export type TransferRule = {
+  rule_id: string;
+  data_class: "DC1" | "DC2" | "DC3";
+  destination_cell_id: string;
+  purpose_code: string;
+  mechanism: string;
+  field_allowlist: string[];
+  valid_from: Iso;
+  valid_to: Iso | null;
+  status: "ACTIVE" | "SUSPENDED" | "RETIRED";
+};
+export type TransferDecision = { allowed: boolean; code: string; rule_id: string | null; field_allowlist: string[]; cross_border: boolean };
+export type WorkloadBindingView = {
+  binding_id: string;
+  spiffe_id: string;
+  logical_principal_id: string;
+  environment_id: string;
+  artifact_digest: string;
+  attestation_required: number;
+  status: "ACTIVE" | "SUSPENDED" | "REVOKED" | "EXPIRED";
+  security_revision: number;
+  valid_from: Iso;
+  valid_to: Iso;
+};
+
+/* ---------------------------------------------------------------- operator console (/operator) */
+
+export type OperatorCapability = {
+  capability: string;
+  description: string;
+  risk_class: string;
+  evidence_class: string;
+  scope: "PLATFORM" | "TENANT" | "EITHER";
+  customer_data: boolean;
+  required_approvals: number;
+  max_duration_minutes: number;
+  break_glass_allowed: boolean;
+};
+export type OperatorCapabilities = {
+  items: OperatorCapability[];
+  separation_of_duties: { rule: string; capabilities: string[]; rationale: string }[];
+  break_glass_max_minutes: number;
+};
+export type JitGrantState = "REQUESTED" | "APPROVED" | "ACTIVE" | "DENIED" | "CANCELLED" | "REVOKED" | "EXPIRED";
+export type JitGrant = {
+  jit_grant_id: string;
+  requester_principal_id: string;
+  capability: string;
+  target_tenant_id: string | null;
+  environment: string;
+  cell_id: string;
+  resource_scope: string;
+  case_ref: string;
+  reason: string;
+  risk_class: string;
+  evidence_class: string;
+  duration_minutes: number;
+  required_approvals: number;
+  lockbox_required: boolean;
+  lockbox_request_id: string | null;
+  break_glass: boolean;
+  state: JitGrantState;
+  created_at: Iso;
+  request_expires_at: Iso | null;
+  approved_at: Iso | null;
+  activated_at: Iso | null;
+  expires_at: Iso | null;
+  ended_at: Iso | null;
+  end_reason: string | null;
+  approvals?: { approver_principal_id: string; verdict: string }[];
+  approvals_received?: number;
+};
+export type BreakGlassReview = {
+  review_id: string;
+  jit_grant_id: string;
+  requester_principal_id: string;
+  state: string;
+  reviewer_principal_id: string | null;
+  outcome: string | null;
+  created_at: Iso;
+  reviewed_at: Iso | null;
+};

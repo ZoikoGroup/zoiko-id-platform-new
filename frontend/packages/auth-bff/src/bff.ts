@@ -32,6 +32,8 @@ export type BffConfig = {
   publicOrigin: string;
   /** Path of this app's OAuth redirect endpoint. */
   callbackPath: string;
+  /** Registered redirect URI when it differs from `${publicOrigin}${callbackPath}`. */
+  redirectUri?: string;
   scopes: string[];
   secureCookies: boolean;
   sessionTtlSeconds: number;
@@ -45,7 +47,8 @@ export type BffConfig = {
   fetchImpl?: typeof fetch;
 };
 
-const FORWARD_REQUEST_HEADERS = ["accept", "accept-language", "content-type", "idempotency-key", "if-match", "if-none-match"];
+// sec-gpc: Global Privacy Control, an opt-out signal the cell must honor without verification (PRIV-21).
+const FORWARD_REQUEST_HEADERS = ["accept", "accept-language", "content-type", "idempotency-key", "if-match", "if-none-match", "sec-gpc"];
 const FORWARD_RESPONSE_HEADERS = ["content-type", "etag", "retry-after", "x-correlation-id", "x-request-id", "www-authenticate"];
 /** Prefix match, or exact match when the entry ends with "$". */
 function allowed(list: string[], path: string): boolean {
@@ -104,7 +107,7 @@ export function createBff(config: BffConfig) {
   const upstream = config.cellApiUrl.replace(/\/$/, "");
   const issuer = config.issuer.replace(/\/$/, "");
   const publicOrigin = config.publicOrigin.replace(/\/$/, "");
-  const redirectUri = `${publicOrigin}${config.callbackPath}`;
+  const redirectUri = config.redirectUri ?? `${publicOrigin}${config.callbackPath}`;
   const cookieName = sessionCookieName(config.app, config.secureCookies);
 
   async function loadSession(req: Request): Promise<ConsoleSession | null> {

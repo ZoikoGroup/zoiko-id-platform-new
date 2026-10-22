@@ -5,6 +5,10 @@ relationship projector into SpiceDB). Same image as the API, separate process (D
     ZID_KAFKA_BOOTSTRAP    MSK / Redpanda
     ZID_SPICEDB_URL, ZID_SPICEDB_KEY   relationship projection target (DEC-C4)
 
+The evidence ingest (EVIDENCE-001 §2.1, §7.1) runs here too: every event whose payload names an
+evidence class (E1-E3) becomes a protected AuditRecord, effectively once per event id (records a
+producer already wrote in its own transaction share the id and are skipped).
+
 The Shared Signals transmitter (ZID-SIGNALS-001 §21) runs here too when the process is given the
 issuer's signing keys (KMS-backed `Signer`, Phase F); without them it stays off rather than
 minting SETs under a key receivers cannot verify.
@@ -34,6 +38,25 @@ from zid_platform.modules.signals.application.ssf import (
 )
 
 PROJECTOR = "relationship.projector.v1"
+EVIDENCE_INGEST = "evidence.ingest.v1"
+# Domains whose events may carry evidence (both lanes: state changes take the priority lane).
+EVIDENCE_DOMAINS = (
+    "authority",
+    "mandate",
+    "agent",
+    "machine",
+    "organization",
+    "authentication",
+    "session",
+    "federation",
+    "verification",
+    "credential",
+    "signals",
+    "provisioning",
+    "privacy",
+    "operator_access",
+    "tenant",
+)
 EDGE_CHANGED = "com.zoiko.id.relationship.edge.changed.v1"
 
 
@@ -51,6 +74,24 @@ def projector_handler(engine: AsyncEngine, spicedb: SpiceDB, cell_id: str):  # t
         )
         async with tenant_transaction(engine, ctx) as conn:
             await consume(conn, PROJECTOR, event, apply)
+
+    return handle
+
+
+def evidence_ingest_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[no-untyped-def]
+    from zid_platform.modules.evidence.ports import ingest_event
+
+    async def apply(conn: AsyncConnection, event: CloudEvent) -> None:
+        await ingest_event(conn, event)
+
+    async def handle(event: CloudEvent) -> None:
+        if (event.data or {}).get("evidence_class") not in ("E1", "E2", "E3"):
+            return
+        ctx = RequestContext(
+            new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid
+        )
+        async with tenant_transaction(engine, ctx) as conn:
+            await consume(conn, EVIDENCE_INGEST, event, apply)
 
     return handle
 
@@ -76,7 +117,18 @@ async def run(
                 PROJECTOR,
                 projector_handler(engine, spicedb, cell_id),
                 stop_after=stop_after,
-            )
+            ),
+            run_consumer(
+                bootstrap,
+                [
+                    f"zid.{env}.{region}.{d}.{lane}"
+                    for d in EVIDENCE_DOMAINS
+                    for lane in ("domain", "priority")
+                ],
+                EVIDENCE_INGEST,
+                evidence_ingest_handler(engine, cell_id),
+                stop_after=stop_after,
+            ),
         ]
         if transmitter is not None:
             keyring, issuer = transmitter
@@ -97,6 +149,10 @@ async def run(
 def main() -> None:
     cell = os.environ.get("ZID_CELL_ID", "local-1")
     configure_logging("zid-consumer", cell)
+    from zid_platform.modules.evidence.ports import configure_runtime, runtime_from_settings
+    from zid_platform.settings import Settings
+
+    configure_runtime(runtime_from_settings(Settings()))  # pseudonymous handles for audit records
     asyncio.run(
         run(
             database_url=os.environ["ZID_DATABASE_URL"],

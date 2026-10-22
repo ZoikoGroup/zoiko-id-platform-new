@@ -3,6 +3,7 @@ name = "zid-context"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+    "cryptography",  # X.509-SVID verification (zid_context.spiffe)
 ]
 
 [build-system]

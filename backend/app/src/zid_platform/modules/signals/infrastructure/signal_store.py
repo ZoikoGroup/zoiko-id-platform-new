@@ -278,6 +278,17 @@ async def load_stream(conn: AsyncConnection, stream_id: str) -> Stream | None:
     return _stream(row) if row else None
 
 
+async def list_streams(conn: AsyncConnection) -> list[Stream]:
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_STREAM_COLS} FROM signals.ssf_stream ORDER BY created_at DESC, stream_id"
+            )
+        )
+    ).all()
+    return [_stream(r) for r in rows]
+
+
 async def set_stream_status(conn: AsyncConnection, stream_id: str, status: str) -> bool:
     result = await conn.execute(
         text(

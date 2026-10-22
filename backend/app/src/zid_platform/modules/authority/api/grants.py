@@ -1,5 +1,6 @@
 """Authority grant API (ZID-API-001 §10; ZID-MANDATE-001 §2.1, §6, §21).
 
+    GET  /v1/authority-grants                  list, newest first     (authority.grant.read, R1)
     POST /v1/authority-grants                  create (root-backed or delegated) after attenuation checks
     GET  /v1/authority-grants/{id}             read
     GET  /v1/authority-grants/{id}/chain       chain summary (ids and commitments only)
@@ -32,7 +33,8 @@ from zid_platform.modules.authority.domain.grants import (
     GrantStatus,
     GrantType,
 )
-from zid_platform.modules.authority.infrastructure.grant_store import load_chain
+from zid_platform.modules.authority.infrastructure.grant_store import list_grants, load_chain
+from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/authority-grants", tags=["authority"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -169,6 +171,27 @@ async def create_grant(
         out = _view(grant)
         await complete(conn, scope=scope, key=idempotency_key, status=201, body=out)
     return out
+
+
+@router.get("")
+async def list_all(
+    request: Request,
+    caller: CallerDep,
+    status: GrantStatus | None = None,
+    grantee_principal_id: uuid.UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="authority.grant.read", resource="authority_grant:*"
+        )
+        grants = await list_grants(
+            conn,
+            status=status,
+            grantee_principal_id=str(grantee_principal_id) if grantee_principal_id else None,
+            limit=limit,
+        )
+    return {"items": [_view(g) for g in grants]}
 
 
 @router.get("/{grant_id}")
