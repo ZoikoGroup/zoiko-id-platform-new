@@ -99,18 +99,26 @@ def create_app(
             else env_secrets("ZID_UNAVAILABLE__"),
         )
     if role is Role.CELL:
+        _configure_phase_f(app, settings)
         from .modules.authentication.api.recovery import router as recovery_router
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.decision.api.authzen import router as authzen_router
+        from .modules.evidence.api.evidence import router as evidence_router
         from .modules.federation.api.federation import router as federation_router
+        from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
+        from .modules.operator_access.api.lockbox import router as lockbox_router
+        from .modules.operator_access.api.operator import router as operator_router
+        from .modules.principal.api.principals import router as principals_router
+        from .modules.privacy.api.privacy import router as privacy_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.session.api.oauth import router as oauth_router
         from .modules.session.api.sessions import router as sessions_router
         from .modules.signals.api.signals import router as signals_router
+        from .modules.tenant.api.residency import router as residency_router
         from .modules.verification.api.verification import router as verification_router
 
         for router in (
@@ -127,6 +135,55 @@ def create_app(
             verification_router,
             recovery_router,
             credentials_router,
+            principals_router,
+            evidence_router,
+            operator_router,
+            lockbox_router,
+            privacy_router,
+            residency_router,
+            workloads_router,
         ):
             app.include_router(router)
     return app
+
+
+def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
+    """Evidence keys (DEC-F1/F2/F5) and the operator plane (DEC-F4) for a cell process."""
+    from .modules.decision.ports import register_evidence_replayer
+    from .modules.evidence.ports import configure_runtime, current_runtime, runtime_from_settings
+    from .modules.operator_access.ports import OperatorSettings
+    from .protected import catalog
+
+    if settings.environment in ("local", "test") and not settings.local_keystore:
+        current_runtime()  # one process-wide development runtime (in-memory keys)
+    else:
+        configure_runtime(runtime_from_settings(settings))
+    register_evidence_replayer(catalog())
+    register_privacy_stores()
+    from .modules.privacy.ports import configure_enforcement
+
+    configure_enforcement(settings.privacy_enforcement)
+    from .workload_identity import trust_policy_from_settings
+
+    app.state.trust_policy = trust_policy_from_settings(settings)
+    app.state.operator_settings = OperatorSettings(
+        tenant_id=settings.operator_tenant_id,
+        client_ids=tuple(settings.operator_client_ids),
+        max_minutes=dict(settings.operator_max_minutes),
+        break_glass_max=settings.operator_break_glass_max,
+        environment=settings.environment,
+        cell_id=settings.cell_id,
+    )
+
+
+def register_privacy_stores() -> None:
+    """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
+    data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
+    from .modules.authentication.infrastructure import privacy_adapter as authentication
+    from .modules.credential.infrastructure import privacy_adapter as credential
+    from .modules.principal.infrastructure import privacy_adapter as principal
+    from .modules.session.infrastructure import privacy_adapter as session
+    from .modules.verification.infrastructure import privacy_adapter as verification
+
+    for adapter in (principal, authentication, session, verification, credential):
+        adapter.register()

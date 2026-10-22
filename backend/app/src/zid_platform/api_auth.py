@@ -24,6 +24,7 @@ from zid_platform.modules.authentication.ports import effective_level
 from zid_platform.modules.decision.domain.pdp import AuthnFact
 from zid_platform.modules.session.ports import TokenError, TokenSettings, authenticate
 from zid_platform.modules.signals.ports import security_view
+from zid_platform.modules.tenant.ports import cached_home_cell, home_cell
 
 # The risk class the shared authentication seam reads security state for. Protected (R2/R3)
 # actions re-read the committed state in their own transaction (protected.py), never this one.
@@ -48,7 +49,10 @@ def client_cert_thumbprint(request: Request) -> str | None:
     The header is trusted only because the deployment names it and the edge strips it inbound."""
     header: str | None = getattr(request.app.state, "mtls_cert_header", None)
     if not header:
-        return None
+        # Mesh workloads: the SVID the mesh verified (DEC-F7) binds workload tokens (cnf.x5t)
+        from zid_platform.workload_identity import peer_thumbprint
+
+        return peer_thumbprint(request)
     from zid_platform.modules.session.ports import cert_thumbprint, parse_client_cert
 
     try:
@@ -105,6 +109,7 @@ async def authenticated_caller(request: Request) -> Caller:
         raise ZidError(
             code, "Authentication failed.", http_status=401, headers=_challenge(scheme, e.code)
         ) from e
+    await _require_home_cell(request, engine, auth.ctx)
     security_state, security_revision = "UNKNOWN", 0  # a failed read stays UNKNOWN
     try:
         view = await _security_view(engine, auth.ctx, auth.claims.subject, auth.auth_time, now)
@@ -127,6 +132,24 @@ async def authenticated_caller(request: Request) -> Caller:
         security_revision=security_revision,
         session_auth_time=auth.auth_time,
     )
+
+
+async def _require_home_cell(request: Request, engine: AsyncEngine, ctx: RequestContext) -> None:
+    """TEN-10: only the tenant's authoritative home cell serves it (routing never trusted)."""
+    this_cell = getattr(request.app.state, "home_cell", None)
+    tenant = ctx.tenant_id
+    if not this_cell or not tenant:
+        return
+    known, home = cached_home_cell(tenant)
+    if not known:
+        async with tenant_transaction(engine, ctx) as conn:
+            home = await home_cell(conn, tenant)
+    if home is not None and home != this_cell:
+        raise ZidError(
+            "CELL_NOT_AUTHORITATIVE",
+            "This cell is not the tenant's home cell; resolve the tenant's cell and retry there.",
+            http_status=421,
+        )
 
 
 async def _security_view(

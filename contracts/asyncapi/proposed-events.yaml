@@ -22,3 +22,123 @@ events:
     source: ZID-AUTH-001 §11; CR-009
     lane: domain
     source_status: "proposed"
+  operator_access.requested:
+    cloudevents_type: com.zoiko.id.operator_access.requested.v1
+    meaning: "An operator requested just-in-time access (case, scope, capability, duration as commitments)."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.approval.recorded:
+    cloudevents_type: com.zoiko.id.operator_access.approval.recorded.v1
+    meaning: "An independent approver approved a JIT request (one per approver)."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.approved:
+    cloudevents_type: com.zoiko.id.operator_access.approved.v1
+    meaning: "A JIT request reached its required approvals (two-person for R3)."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.denied:
+    cloudevents_type: com.zoiko.id.operator_access.denied.v1
+    meaning: "A JIT request was denied by an approver."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.cancelled:
+    cloudevents_type: com.zoiko.id.operator_access.cancelled.v1
+    meaning: "The requester cancelled a JIT request."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.activated:
+    cloudevents_type: com.zoiko.id.operator_access.activated.v1
+    meaning: "An approved JIT grant became active; its expiry clock started."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.revoked:
+    cloudevents_type: com.zoiko.id.operator_access.revoked.v1
+    meaning: "An active JIT grant was revoked before expiry."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: priority
+    source_status: "proposed"
+  operator_access.expired:
+    cloudevents_type: com.zoiko.id.operator_access.expired.v1
+    meaning: "A JIT grant or request reached its end and was marked expired."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.break_glass.activated:
+    cloudevents_type: com.zoiko.id.operator_access.break_glass.activated.v1
+    meaning: "Emergency break-glass access activated; Security alerted; post-review pending."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: priority
+    source_status: "proposed"
+  operator_access.review.completed:
+    cloudevents_type: com.zoiko.id.operator_access.review.completed.v1
+    meaning: "The independent post-review of a break-glass grant was completed."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.lockbox.requested:
+    cloudevents_type: com.zoiko.id.operator_access.lockbox.requested.v1
+    meaning: "A customer lockbox approval was requested for operator access to tenant data."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.lockbox.approved:
+    cloudevents_type: com.zoiko.id.operator_access.lockbox.approved.v1
+    meaning: "The customer approved the lockbox request (scoped, time-bound)."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.lockbox.denied:
+    cloudevents_type: com.zoiko.id.operator_access.lockbox.denied.v1
+    meaning: "The customer denied the lockbox request."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.lockbox.revoked:
+    cloudevents_type: com.zoiko.id.operator_access.lockbox.revoked.v1
+    meaning: "The customer withdrew a lockbox approval; operator access stops at once."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: priority
+    source_status: "proposed"
+  operator_access.policy.changed:
+    cloudevents_type: com.zoiko.id.operator_access.policy.changed.v1
+    meaning: "The tenant changed its operator-access policy (lockbox, operator jurisdictions)."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  operator_access.operator.registered:
+    cloudevents_type: com.zoiko.id.operator_access.operator.registered.v1
+    meaning: "A workforce operator profile was provisioned or changed."
+    source: ZID-SEC-001 §11-13; DEC-F4; CR-012
+    lane: domain
+    source_status: "proposed"
+  machine.environment.released:
+    cloudevents_type: com.zoiko.id.machine.environment.released.v1
+    meaning: "A quarantined workload environment was released after review (security_revision stays bumped)."
+    source: DEC-F7 §4; CRYPTO-MI-001 §29; CR-014
+    lane: domain
+    source_status: "proposed"
+  privacy.processing.refused:
+    cloudevents_type: com.zoiko.id.privacy.processing.refused.v1
+    meaning: "A processing boundary refused processing the tenant's privacy registry does not permit (purpose, category, consent, restriction or transfer)."
+    source: ZID-PRIV-001 §3, §29; CR-013
+    lane: domain
+    source_status: "proposed"
+  privacy.processing.unregistered:
+    cloudevents_type: com.zoiko.id.privacy.processing.unregistered.v1
+    meaning: "Audit-mode record of processing that the registry would refuse once the tenant's processing activities are registered."
+    source: ZID-PRIV-001 §3; CR-013
+    lane: domain
+    source_status: "proposed"
+  privacy.processor.status_changed:
+    cloudevents_type: com.zoiko.id.privacy.processor.status_changed.v1
+    meaning: "A processor/subprocessor/recipient registry entry was approved, suspended or retired (PRIV-001 §23)."
+    source: ZID-PRIV-001 §23; CR-013
+    lane: domain
+    source_status: "proposed"

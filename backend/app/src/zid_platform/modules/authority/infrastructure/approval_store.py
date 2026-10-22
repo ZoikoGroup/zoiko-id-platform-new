@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import Row, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -20,6 +22,7 @@ from zid_platform.modules.authority.domain.composite import (
     ApprovalOutcome,
     ApprovalPolicy,
     ApprovalRequest,
+    ApprovalState,
     CompositeMode,
     Verdict,
     evaluate_approval,
@@ -103,19 +106,9 @@ async def record_decision(
         ) from e
 
 
-async def evaluate(
-    conn: AsyncConnection, *, request_id: str, current_transaction_context: str, now: datetime
-) -> ApprovalOutcome:
-    row = (
-        await conn.execute(
-            text("SELECT * FROM authz.approval_request WHERE approval_request_id = :r"),
-            {"r": uuid.UUID(request_id)},
-        )
-    ).first()
-    if row is None:
-        raise AuthorityError("APPROVAL_REQUIRED", "no such approval request")
+def _request(row: Row[Any]) -> ApprovalRequest:
     m = row._mapping
-    req = ApprovalRequest(
+    return ApprovalRequest(
         approval_request_id=str(m["approval_request_id"]),
         requester_principal_id=str(m["requester_principal_id"]),
         transaction_context_hash=bytes(m["transaction_context_hash"]).hex(),
@@ -129,28 +122,111 @@ async def evaluate(
         expires_at=m["expires_at"],
         external_confirmation_valid=m["external_confirmation_valid"],
     )
+
+
+def _decision(d: Row[Any]) -> ApprovalDecision:
+    return ApprovalDecision(
+        approver_principal_id=str(d.approver_principal_id),
+        approver_roles=frozenset(d.approver_roles),
+        authority_grant_id=str(d.authority_grant_id),
+        authority_valid=d.authority_valid,
+        verdict=Verdict(d.verdict),
+        transaction_context_hash=bytes(d.transaction_context_hash).hex(),
+        decided_at=d.decided_at,
+        session_id=d.session_id,
+    )
+
+
+async def evaluate(
+    conn: AsyncConnection, *, request_id: str, current_transaction_context: str, now: datetime
+) -> ApprovalOutcome:
+    row = (
+        await conn.execute(
+            text("SELECT * FROM authz.approval_request WHERE approval_request_id = :r"),
+            {"r": uuid.UUID(request_id)},
+        )
+    ).first()
+    if row is None:
+        raise AuthorityError("APPROVAL_REQUIRED", "no such approval request")
+    req = _request(row)
     rows = (
         await conn.execute(
             text("SELECT * FROM authz.approval_decision WHERE approval_request_id = :r"),
             {"r": uuid.UUID(request_id)},
         )
     ).all()
-    decisions = [
-        ApprovalDecision(
-            approver_principal_id=str(d.approver_principal_id),
-            approver_roles=frozenset(d.approver_roles),
-            authority_grant_id=str(d.authority_grant_id),
-            authority_valid=d.authority_valid,
-            verdict=Verdict(d.verdict),
-            transaction_context_hash=bytes(d.transaction_context_hash).hex(),
-            decided_at=d.decided_at,
-            session_id=d.session_id,
-        )
-        for d in rows
-    ]
     return evaluate_approval(
         req,
-        decisions,
+        [_decision(d) for d in rows],
         current_transaction_context_hash=tx_hash(current_transaction_context).hex(),
         now=now,
     )
+
+
+def required_approvals(policy: ApprovalPolicy) -> int:
+    """How many distinct approvers the policy needs (an external confirmation needs none)."""
+    if policy.mode is CompositeMode.SINGLE:
+        return 1
+    if policy.mode is CompositeMode.K_OF_N:
+        return policy.k
+    if policy.mode is CompositeMode.EXTERNAL_CONFIRMATION:
+        return 0
+    return len(policy.roles)  # ALL_OF / ROLE_PAIR: one distinct principal per branch
+
+
+@dataclass(frozen=True, slots=True)
+class RequestSummary:
+    request: ApprovalRequest
+    subject_ref: str
+    created_at: datetime
+    outcome: ApprovalOutcome
+    approvals_received: int  # distinct principals that voted APPROVE (qualified or not)
+
+
+async def list_requests(
+    conn: AsyncConnection, *, now: datetime, state: ApprovalState | None = None, limit: int = 100
+) -> list[RequestSummary]:
+    """The tenant's approval requests, newest first, each evaluated for its own bound transaction.
+
+    State is derived, never stored: EXPIRED is selected in SQL; the others are evaluated over the
+    live (unexpired, so at most MAX_TTL old) requests and then filtered."""
+    if state is ApprovalState.EXPIRED:
+        cond, lim = "expires_at <= :now", limit
+    elif state is not None:
+        cond, lim = "expires_at > :now", None
+    else:
+        cond, lim = "TRUE", limit
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT * FROM authz.approval_request WHERE {cond} "
+                "ORDER BY created_at DESC, approval_request_id DESC"
+                + (" LIMIT :lim" if lim is not None else "")
+            ),
+            {"now": now, "lim": lim},
+        )
+    ).all()
+    if not rows:
+        return []
+    by_request: dict[str, list[ApprovalDecision]] = {}
+    for d in (
+        await conn.execute(
+            text("SELECT * FROM authz.approval_decision WHERE approval_request_id = ANY(:ids)"),
+            {"ids": [r.approval_request_id for r in rows]},
+        )
+    ).all():
+        by_request.setdefault(str(d.approval_request_id), []).append(_decision(d))
+    out: list[RequestSummary] = []
+    for r in rows:
+        req = _request(r)
+        decisions = by_request.get(req.approval_request_id, [])
+        outcome = evaluate_approval(
+            req, decisions, current_transaction_context_hash=req.transaction_context_hash, now=now
+        )
+        if state is not None and outcome.state is not state:
+            continue
+        approvers = {d.approver_principal_id for d in decisions if d.verdict is Verdict.APPROVE}
+        out.append(RequestSummary(req, r.subject_ref, r.created_at, outcome, len(approvers)))
+        if len(out) >= limit:
+            break
+    return out

@@ -158,6 +158,33 @@
         "title": "LockboxIn",
         "type": "object"
       },
+      "PrincipalStatus": {
+        "enum": [
+          "PENDING",
+          "ACTIVE",
+          "SUSPENDED",
+          "DISABLED",
+          "SUPERSEDED",
+          "ERASED"
+        ],
+        "title": "PrincipalStatus",
+        "type": "string"
+      },
+      "PrincipalType": {
+        "enum": [
+          "HUMAN",
+          "ORGANIZATION",
+          "ORG_UNIT",
+          "DEVICE",
+          "APPLICATION",
+          "SERVICE",
+          "WORKLOAD",
+          "AI_AGENT",
+          "EXTERNAL_PRINCIPAL"
+        ],
+        "title": "PrincipalType",
+        "type": "string"
+      },
       "RegistrationOptionsIn": {
         "additionalProperties": false,
         "properties": {
@@ -303,6 +330,85 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/principals": {
+      "get": {
+        "operationId": "list_all_admin_principals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "principal_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PrincipalType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Principal Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PrincipalStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List All Admin Principals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List All",
+        "tags": [
+          "principals"
+        ]
+      }
+    },
     "/admin/principals/{principal_id}/sessions:revoke": {
       "post": {
         "description": "\u00a724 protected administrator action: bulk session revoke for one principal.",

@@ -181,6 +181,23 @@ async def list_adapters(conn: AsyncConnection) -> list[dict[str, Any]]:
     return [_adapter(r) for r in rows]
 
 
+def adapter_view(a: dict[str, Any]) -> dict[str, Any]:
+    """Administrative view: no callback keys (they are pinned trust, not display data)."""
+    return {
+        "adapter_id": a["adapter_id"],
+        "provider": a["provider"],
+        "mapping_version": a["mapping_version"],
+        "submit_endpoint": a["submit_endpoint"],
+        "callback_algorithms": list(a["callback_algorithms"]),
+        "equivalence_group": a["equivalence_group"],
+        "supported_evidence": list(a["supported_evidence"]),
+        "jurisdictions": list(a["jurisdictions"]),
+        "status": a["status"],
+        "consecutive_failures": a["consecutive_failures"],
+        "open_until": a["open_until"].isoformat() if a["open_until"] else None,
+    }
+
+
 async def adapter_failed(conn: AsyncConnection, adapter_id: str, now: datetime) -> None:
     """Circuit breaker (FR-VER-006): N consecutive failures open the circuit for a while."""
     await conn.execute(

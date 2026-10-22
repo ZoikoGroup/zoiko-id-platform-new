@@ -115,7 +115,8 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
 EVENT_NAME = (
     r"(authority|authority_root|mandate|agent|organization|relationship|principal|session"
     r"|refresh_token|authentication|authenticator|federation|recovery|verification|presentation"
-    r"|credential|security|provisioning)(\.[a-z_]+)+"
+    r"|credential|security|provisioning|evidence|privacy|operator_access|tenant|machine)"
+    r"(\.[a-z_]+)+"
 )
 EVENT_FILES = ("event-catalogue.yaml", "proposed-events.yaml")  # generated + proposed (with CRs)
 

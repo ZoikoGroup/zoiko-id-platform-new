@@ -109,7 +109,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Streams
+         * @description Pinned keys and the push credential's hash never leave the store (same view as one stream).
+         */
+        get: operations["list_streams_ssf_streams_get"];
         put?: never;
         /** Create Stream */
         post: operations["create_stream_ssf_streams_post"];
@@ -519,6 +523,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_streams_ssf_streams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

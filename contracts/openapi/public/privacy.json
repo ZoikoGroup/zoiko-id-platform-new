@@ -1,0 +1,2425 @@
+{
+  "components": {
+    "schemas": {
+      "AckBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ack_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Ack Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ack_ref"
+        ],
+        "title": "AckBody",
+        "type": "object"
+      },
+      "ActivityBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "data_subject_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Data Subject Classes",
+            "type": "array"
+          },
+          "dpia_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dpia Ref"
+          },
+          "jurisdiction_pack_id": {
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "launch_flow": {
+            "default": false,
+            "title": "Launch Flow",
+            "type": "boolean"
+          },
+          "lawful_basis": {
+            "title": "Lawful Basis",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Purpose Codes",
+            "type": "array"
+          },
+          "recipient_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Recipient Classes",
+            "type": "array"
+          },
+          "residency_profile": {
+            "anyOf": [
+              {
+                "pattern": "^SRP-[0-3]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residency Profile"
+          },
+          "retention_policy_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Policy Code"
+          },
+          "source_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Source Classes",
+            "type": "array"
+          },
+          "special_category_condition": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Category Condition"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "purpose_codes",
+          "data_categories",
+          "lawful_basis",
+          "jurisdiction_pack_id"
+        ],
+        "title": "ActivityBody",
+        "type": "object"
+      },
+      "AdmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_class": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Decision Class",
+            "type": "string"
+          },
+          "explanation_profile": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Explanation Profile",
+            "type": "string"
+          },
+          "human_review_route": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Human Review Route",
+            "type": "string"
+          },
+          "input_data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Input Data Categories",
+            "type": "array"
+          },
+          "jurisdiction_rules": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Jurisdiction Rules",
+            "type": "object"
+          },
+          "model_or_rules_ref": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model Or Rules Ref",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "risk_assessment_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Ref"
+          },
+          "significance_class": {
+            "pattern": "^(NONE|MATERIAL|LEGAL_OR_SIMILARLY_SIGNIFICANT)$",
+            "title": "Significance Class",
+            "type": "string"
+          },
+          "solely_automated": {
+            "title": "Solely Automated",
+            "type": "boolean"
+          },
+          "special_category_use": {
+            "default": false,
+            "title": "Special Category Use",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "decision_class",
+          "purpose_code",
+          "input_data_categories",
+          "model_or_rules_ref",
+          "solely_automated",
+          "significance_class",
+          "explanation_profile",
+          "human_review_route"
+        ],
+        "title": "AdmBody",
+        "type": "object"
+      },
+      "CloseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "exemptions": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "maxItems": 20,
+            "title": "Exemptions",
+            "type": "array"
+          },
+          "outcome": {
+            "pattern": "^(COMPLETED|PARTIALLY_DENIED|DENIED|WITHDRAWN)$",
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason_code"
+        ],
+        "title": "CloseBody",
+        "type": "object"
+      },
+      "ConsentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Activity Code",
+            "type": "string"
+          },
+          "affirmative_action": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Affirmative Action",
+            "type": "string"
+          },
+          "capture_method": {
+            "pattern": "^(WEB|MOBILE|API|PAPER_VERIFIED|OTHER)$",
+            "title": "Capture Method",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "notice_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Notice Version",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_code",
+          "purpose_code",
+          "notice_version",
+          "capture_method",
+          "affirmative_action"
+        ],
+        "title": "ConsentBody",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "audience": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Audience",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 200000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "content_uri": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Uri"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "audience",
+          "content",
+          "approval_request_id"
+        ],
+        "title": "NoticeBody",
+        "type": "object"
+      },
+      "OnBehalfBody": {
+        "additionalProperties": false,
+        "properties": {
+          "authorized_agent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized Agent Ref"
+          },
+          "jurisdiction_pack_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "request_type": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Request Type",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Scope",
+            "type": "object"
+          },
+          "subject_principal_id": {
+            "format": "uuid",
+            "title": "Subject Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type",
+          "jurisdiction_pack_id",
+          "subject_principal_id"
+        ],
+        "title": "OnBehalfBody",
+        "type": "object"
+      },
+      "PreferenceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "PreferenceBody",
+        "type": "object"
+      },
+      "ProcessorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Ref"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "deletion_sla_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Sla Days"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Locations",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          },
+          "processor_id": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+            "title": "Processor Id",
+            "type": "string"
+          },
+          "purposes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "role": {
+            "pattern": "^(PROCESSOR|SUBPROCESSOR|INDEPENDENT_CONTROLLER|RECIPIENT)$",
+            "title": "Role",
+            "type": "string"
+          },
+          "security_assurance": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Assurance"
+          },
+          "transfer_mechanism": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Mechanism"
+          }
+        },
+        "required": [
+          "processor_id",
+          "name",
+          "role",
+          "data_categories",
+          "locations"
+        ],
+        "title": "ProcessorBody",
+        "type": "object"
+      },
+      "PurposeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "compatible_secondary_purposes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Compatible Secondary Purposes",
+            "type": "array"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 10,
+            "title": "Description",
+            "type": "string"
+          },
+          "prohibited_uses": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Prohibited Uses",
+            "type": "array"
+          },
+          "recipient_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Recipient Classes",
+            "type": "array"
+          },
+          "retention_policy_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Policy Code"
+          }
+        },
+        "required": [
+          "code",
+          "description",
+          "data_categories"
+        ],
+        "title": "PurposeBody",
+        "type": "object"
+      },
+      "RetentionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "pattern": "^(DELETE|CRYPTO_SHRED|ANONYMIZE|ARCHIVE_RESTRICTED)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "backup_erasure_window_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Erasure Window Days"
+          },
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "legal_hold_suspends": {
+            "default": true,
+            "title": "Legal Hold Suspends",
+            "type": "boolean"
+          },
+          "legally_required": {
+            "default": false,
+            "title": "Legally Required",
+            "type": "boolean"
+          },
+          "object_type": {
+            "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+            "title": "Object Type",
+            "type": "string"
+          },
+          "purpose_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose Code"
+          },
+          "retention_days": {
+            "maximum": 36500.0,
+            "minimum": 0.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "trigger": {
+            "pattern": "^(CREATED_AT|LAST_USED|VERIFIED_AT|CONTRACT_END|ACCOUNT_CLOSE|GRANT_EXPIRY|EVENT_DATE)$",
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "object_type",
+          "jurisdiction_pack_id",
+          "trigger",
+          "retention_days",
+          "action",
+          "approval_request_id"
+        ],
+        "title": "RetentionBody",
+        "type": "object"
+      },
+      "RightsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction_pack_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "request_type": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Request Type",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Scope",
+            "type": "object"
+          }
+        },
+        "required": [
+          "request_type",
+          "jurisdiction_pack_id"
+        ],
+        "title": "RightsBody",
+        "type": "object"
+      },
+      "RoleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "contract_or_dpa_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Or Dpa Ref"
+          },
+          "data_controller_principal_id": {
+            "format": "uuid",
+            "title": "Data Controller Principal Id",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "processor_principal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processor Principal Ids",
+            "type": "array"
+          },
+          "recipient_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Recipient Classes",
+            "type": "array"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "zoiko_role": {
+            "pattern": "^(CONTROLLER|PROCESSOR|JOINT_CONTROLLER|INDEPENDENT_CONTROLLER)$",
+            "title": "Zoiko Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_controller_principal_id",
+          "zoiko_role",
+          "jurisdiction_pack_id",
+          "approval_ref",
+          "approval_request_id"
+        ],
+        "title": "RoleBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Level",
+            "type": "integer"
+          },
+          "method": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Method",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verified",
+          "level",
+          "method"
+        ],
+        "title": "VerifyBody",
+        "type": "object"
+      },
+      "WithdrawBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "withdrawn by subject",
+            "maxLength": 200,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "WithdrawBody",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Privacy, Consent and Data Rights API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/privacy/admin/automated-decision-profiles": {
+      "get": {
+        "operationId": "list_adm_v1_privacy_admin_automated_decision_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Adm V1 Privacy Admin Automated Decision Profiles Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Adm",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "create_adm_v1_privacy_admin_automated_decision_profiles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Adm V1 Privacy Admin Automated Decision Profiles Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Adm",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/data-map/{subject_id}": {
+      "get": {
+        "operationId": "data_map_v1_privacy_admin_data_map__subject_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subject Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Data Map V1 Privacy Admin Data Map  Subject Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data Map",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/notices": {
+      "get": {
+        "operationId": "list_notices_v1_privacy_admin_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Notices V1 Privacy Admin Notices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Notices",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "publish_notice_v1_privacy_admin_notices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish Notice V1 Privacy Admin Notices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Notice",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processing-activities": {
+      "get": {
+        "operationId": "list_activities_v1_privacy_admin_processing_activities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Activities V1 Privacy Admin Processing Activities Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Activities",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "create_activity_v1_privacy_admin_processing_activities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Activity V1 Privacy Admin Processing Activities Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Activity",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processing-activities/{activity_id}/role-assignments": {
+      "post": {
+        "operationId": "assign_role_v1_privacy_admin_processing_activities__activity_id__role_assignments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "activity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Activity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assign Role V1 Privacy Admin Processing Activities  Activity Id  Role Assignments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Role",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processing-activities/{activity_id}:activate": {
+      "post": {
+        "operationId": "activate_activity_v1_privacy_admin_processing_activities__activity_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "activity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Activity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Activity V1 Privacy Admin Processing Activities  Activity Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Activity",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors": {
+      "get": {
+        "operationId": "list_processors_v1_privacy_admin_processors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Processors V1 Privacy Admin Processors Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Processors",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "register_processor_v1_privacy_admin_processors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessorBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Processor V1 Privacy Admin Processors Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Processor",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors/{processor_id}:approve": {
+      "post": {
+        "operationId": "approve_processor_v1_privacy_admin_processors__processor_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "processor_id",
+            "required": true,
+            "schema": {
+              "title": "Processor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Processor V1 Privacy Admin Processors  Processor Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Processor",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/processors/{processor_id}:suspend": {
+      "post": {
+        "operationId": "suspend_processor_v1_privacy_admin_processors__processor_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "processor_id",
+            "required": true,
+            "schema": {
+              "title": "Processor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Processor V1 Privacy Admin Processors  Processor Id  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Processor",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/purposes": {
+      "get": {
+        "operationId": "list_purposes_v1_privacy_admin_purposes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Purposes V1 Privacy Admin Purposes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Purposes",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "create_purpose_v1_privacy_admin_purposes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurposeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Purpose V1 Privacy Admin Purposes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Purpose",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/purposes/{purpose_id}:activate": {
+      "post": {
+        "description": "The activating administrator reviews the draft and must not be its author (DB check).",
+        "operationId": "activate_purpose_v1_privacy_admin_purposes__purpose_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Purpose Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Purpose V1 Privacy Admin Purposes  Purpose Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Purpose",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/release-check": {
+      "get": {
+        "description": "DEC-F3: launch flows without an approved role assignment block G4.",
+        "operationId": "release_check_v1_privacy_admin_release_check_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Check V1 Privacy Admin Release Check Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Release Check",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/restrictions/{restriction_id}:lift": {
+      "post": {
+        "operationId": "lift_v1_privacy_admin_restrictions__restriction_id__lift_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "restriction_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Restriction Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lift V1 Privacy Admin Restrictions  Restriction Id  Lift Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lift",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/retention-policies": {
+      "get": {
+        "operationId": "list_retention_v1_privacy_admin_retention_policies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Retention V1 Privacy Admin Retention Policies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Retention",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "create_retention_v1_privacy_admin_retention_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Retention V1 Privacy Admin Retention Policies Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Retention",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/rights-requests": {
+      "get": {
+        "operationId": "list_requests_v1_privacy_admin_rights_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Requests V1 Privacy Admin Rights Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "open_on_behalf_v1_privacy_admin_rights_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnBehalfBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open On Behalf V1 Privacy Admin Rights Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open On Behalf",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/rights-requests/{request_id}/items/{item_id}:acknowledge": {
+      "post": {
+        "operationId": "acknowledge_v1_privacy_admin_rights_requests__request_id__items__item_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AckBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Acknowledge V1 Privacy Admin Rights Requests  Request Id  Items  Item Id  Acknowledge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/rights-requests/{request_id}:close": {
+      "post": {
+        "operationId": "close_v1_privacy_admin_rights_requests__request_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close V1 Privacy Admin Rights Requests  Request Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/rights-requests/{request_id}:fulfill": {
+      "post": {
+        "operationId": "fulfill_v1_privacy_admin_rights_requests__request_id__fulfill_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fulfill V1 Privacy Admin Rights Requests  Request Id  Fulfill Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fulfill",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/rights-requests/{request_id}:verify": {
+      "post": {
+        "operationId": "verify_v1_privacy_admin_rights_requests__request_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify V1 Privacy Admin Rights Requests  Request Id  Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/admin/role-map": {
+      "get": {
+        "operationId": "role_map_v1_privacy_admin_role_map_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Role Map V1 Privacy Admin Role Map Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Role Map",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/consents": {
+      "get": {
+        "operationId": "my_consents_v1_privacy_consents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Consents V1 Privacy Consents Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Consents",
+        "tags": [
+          "privacy"
+        ]
+      },
+      "post": {
+        "operationId": "give_consent_v1_privacy_consents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Give Consent V1 Privacy Consents Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Consent",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/consents/{consent_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_v1_privacy_consents__consent_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw V1 Privacy Consents  Consent Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/jurisdiction-packs": {
+      "get": {
+        "operationId": "jurisdiction_packs_v1_privacy_jurisdiction_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Jurisdiction Packs V1 Privacy Jurisdiction Packs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jurisdiction Packs",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/preferences": {
+      "get": {
+        "operationId": "my_preferences_v1_privacy_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Preferences V1 Privacy Preferences Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Preferences",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/preferences/{preference_type}": {
+      "put": {
+        "operationId": "put_preference_v1_privacy_preferences__preference_type__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preference_type",
+            "required": true,
+            "schema": {
+              "title": "Preference Type",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Preference V1 Privacy Preferences  Preference Type  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Preference",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/preferences:signal": {
+      "post": {
+        "description": "Global Privacy Control: a valid `Sec-GPC: 1` opts out of sale/sharing (PRIV-21).",
+        "operationId": "preference_signal_v1_privacy_preferences_signal_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preference Signal V1 Privacy Preferences Signal Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Preference Signal",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/purposes": {
+      "get": {
+        "operationId": "purposes_v1_privacy_purposes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Purposes V1 Privacy Purposes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Purposes",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/rights-requests": {
+      "post": {
+        "operationId": "open_request_v1_privacy_rights_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RightsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Request V1 Privacy Rights Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Request",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/rights-requests/mine": {
+      "get": {
+        "operationId": "my_requests_v1_privacy_rights_requests_mine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Requests V1 Privacy Rights Requests Mine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Requests",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/rights-requests/{request_id}": {
+      "get": {
+        "operationId": "get_request_v1_privacy_rights_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Request V1 Privacy Rights Requests  Request Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Request",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/rights-requests/{request_id}/package": {
+      "get": {
+        "description": "Delivery needs a fresh strong authentication (\u00a715 \"step-up authenticated delivery\").",
+        "operationId": "package_v1_privacy_rights_requests__request_id__package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Package",
+        "tags": [
+          "privacy"
+        ]
+      }
+    }
+  }
+}

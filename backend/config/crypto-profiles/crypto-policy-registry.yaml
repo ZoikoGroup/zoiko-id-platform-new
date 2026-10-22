@@ -1,8 +1,11 @@
 # status: DRAFT (doc-derived; not approved)
 # approval_ref: null   # set when the named approver signs off; releases are immutable after that
-# version: 0.1.0
+# version: 0.2.0   (0.2.0: key_purposes map, Ed25519 JOSE name, ca/hmac/secret/external profiles; F-W0)
 # owner: Security / Cryptography Lead (DEC-F5). Source: ZID-CRYPTO-MI-001 §4-5, §8-13, §17.
 # Loaded by libs/zid-crypto. Untrusted alg/header input never selects behavior (§4.1).
+
+version: 0.2.0
+status: DRAFT
 
 security_tiers: [STANDARD, REGULATED, SOVEREIGN, FEDERAL]   # §4
 
@@ -44,7 +47,7 @@ profiles:
   token-signing.v1:                   # §13
     purpose: TOKEN_SIGNING
     allowed_algorithms: [ES256]
-    allowed_algorithms_non_fips_ecosystems: [EdDSA]
+    allowed_algorithms_non_fips_ecosystems: [EdDSA, Ed25519]   # Ed25519 = fully-specified EdDSA (RFC 9864), the JOSE name zid-crypto emits
     compatibility_only: [RS256]
     prohibited: ["HS* for cross-party tokens", "none"]
     rotation: "short cryptoperiod; publish new public key before activation; retain old public key through validation windows"
@@ -61,7 +64,7 @@ profiles:
     rule: "Historic public key chain retained; never silently re-sign"
   vc-issuer-signing.v1:
     purpose: VC
-    allowed_algorithms_by_credential_profile: [ES256, EdDSA, ML-DSA-65]
+    allowed_algorithms_by_credential_profile: [ES256, EdDSA, Ed25519, ML-DSA-65]
     rule: "Issuer key isolated per trust profile"
   webhook-signing.v1:
     purpose: WEBHOOK
@@ -76,6 +79,43 @@ profiles:
     recovery_codes: "high-entropy, one-time, stored as salted verifier"
     totp: "RFC 6238 seed encrypted (not hashed), dedicated access policy"
     user_api_tokens: "store verifier; show plaintext once"
+  ca.v1:                              # §3 CA_ROOT / CA_INTERMEDIATE, §14
+    purpose: CA
+    allowed_algorithms: [ES256, ES384]
+    key_export_policy: NON_EXPORTABLE
+    rule: "Root offline/quorum ceremony; intermediates online in HSM, scoped per cell and environment"
+    pq_mode: CLASSICAL                # PQC-3: ML-DSA certificates piloted only where ecosystems support
+  hmac-internal.v1:                   # §3 HMAC_INTERNAL
+    purpose: HMAC_INTERNAL
+    allowed_algorithms: [HMAC-SHA-256]
+    rule: "Internal MACs and pseudonymous handles only; never JWT or public verification"
+    pq_mode: CLASSICAL                # 256-bit symmetric key: no PQ migration needed
+  secret-encryption.v1:               # §3 SECRET_ENCRYPTION, §15
+    purpose: SECRET_ENCRYPTION
+    allowed_algorithms: [AES-256-GCM]
+    rule: "Managed by the secrets service/KMS; application never handles the master key"
+  external-verification.v1:           # §4.1: artifacts other parties sign or encrypt to us; no Zoiko key
+    purpose: EXTERNAL_VERIFICATION
+    verify_only_algorithms: [ES256, Ed25519, EdDSA, RS256, PS256, RSA-SHA256, RSA-SHA384, RSA-SHA512, ECDSA-SHA256, ECDSA-SHA384, ECDSA-SHA512]
+    key_transport_algorithms: [RSA-OAEP, ECDH-ES]
+    content_encryption_algorithms: [AES-128-GCM, AES-256-GCM]
+    rule: "Each integration pins its own subset (zid_crypto.EXTERNAL_VERIFY_ALGS for JOSE); never chosen by the message"
+
+# DEC-F5 key purposes (zid_crypto.KeyPurpose) -> the profile whose allowlist governs keys of that purpose.
+# Purposes never share keys; several purposes may share one algorithm profile.
+key_purposes:
+  DATA_KEK: data-encryption.v1
+  DATA_DEK: data-encryption.v1
+  SUBJECT_ERASURE_KEY: data-encryption.v1
+  TOKEN_SIGNING: token-signing.v1
+  FEDERATION_SIGNING: federation-signing.v1
+  VC_ISSUER_SIGNING: vc-issuer-signing.v1
+  EVIDENCE_SIGNING: evidence-signing.v1
+  WEBHOOK_SIGNING: webhook-signing.v1
+  CA: ca.v1
+  HMAC_INTERNAL: hmac-internal.v1
+  BACKUP_KEK: backup-encryption.v1
+  SECRET_ENCRYPTION: secret-encryption.v1
 
 rotation_rules:                       # §8, §8.1
   no_flag_day: true

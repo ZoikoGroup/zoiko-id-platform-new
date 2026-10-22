@@ -1,0 +1,491 @@
+{
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ResidencyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "home_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Home Cell Id",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "key_profile": {
+            "default": "PLATFORM_MANAGED",
+            "pattern": "^(PLATFORM_MANAGED|DEDICATED_TENANT_KEY|BYOK|HYOK)$",
+            "title": "Key Profile",
+            "type": "string"
+          },
+          "operator_jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Operator Jurisdictions",
+            "type": "array"
+          },
+          "permitted_recovery_cells": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Permitted Recovery Cells",
+            "type": "array"
+          },
+          "prohibited_cells": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Prohibited Cells",
+            "type": "array"
+          },
+          "residency_profile_id": {
+            "pattern": "^SRP-[0-3]$",
+            "title": "Residency Profile Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "residency_profile_id",
+          "home_cell_id",
+          "jurisdiction_pack_id",
+          "approval_ref",
+          "approval_request_id"
+        ],
+        "title": "ResidencyBody",
+        "type": "object"
+      },
+      "RuleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "data_class": {
+            "pattern": "^DC[1-3]$",
+            "title": "Data Class",
+            "type": "string"
+          },
+          "destination_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Destination Cell Id",
+            "type": "string"
+          },
+          "field_allowlist": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Field Allowlist",
+            "type": "array"
+          },
+          "mechanism": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Mechanism",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "data_class",
+          "destination_cell_id",
+          "purpose_code",
+          "mechanism",
+          "approval_ref",
+          "approval_request_id"
+        ],
+        "title": "RuleBody",
+        "type": "object"
+      },
+      "TransferBody": {
+        "additionalProperties": false,
+        "properties": {
+          "data_class": {
+            "pattern": "^(DC0|DC1|DC2|DC3|KEY_MATERIAL)$",
+            "title": "Data Class",
+            "type": "string"
+          },
+          "destination_cell_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Destination Cell Id",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_class",
+          "destination_cell_id",
+          "purpose_code"
+        ],
+        "title": "TransferBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Tenant Residency and Sovereignty API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/cells": {
+      "get": {
+        "operationId": "list_cells_v1_cells_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Cells V1 Cells Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Cells",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
+    "/v1/tenant/cross-cell-transfers:authorize": {
+      "post": {
+        "operationId": "authorize_v1_tenant_cross_cell_transfers_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Authorize V1 Tenant Cross Cell Transfers Authorize Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
+    "/v1/tenant/residency": {
+      "get": {
+        "operationId": "get_residency_v1_tenant_residency_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Residency V1 Tenant Residency Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Residency",
+        "tags": [
+          "residency"
+        ]
+      },
+      "put": {
+        "operationId": "put_residency_v1_tenant_residency_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResidencyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Residency V1 Tenant Residency Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Residency",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
+    "/v1/tenant/residency-matrix": {
+      "get": {
+        "operationId": "residency_matrix_v1_tenant_residency_matrix_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Residency Matrix V1 Tenant Residency Matrix Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Residency Matrix",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
+    "/v1/tenant/transfer-rules": {
+      "get": {
+        "operationId": "list_rules_v1_tenant_transfer_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Rules V1 Tenant Transfer Rules Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rules",
+        "tags": [
+          "residency"
+        ]
+      },
+      "post": {
+        "operationId": "add_rule_v1_tenant_transfer_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Rule V1 Tenant Transfer Rules Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Rule",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
+    "/v1/tenant/transfer-rules/{rule_id}:suspend": {
+      "post": {
+        "operationId": "suspend_rule_v1_tenant_transfer_rules__rule_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Rule V1 Tenant Transfer Rules  Rule Id  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Rule",
+        "tags": [
+          "residency"
+        ]
+      }
+    }
+  }
+}

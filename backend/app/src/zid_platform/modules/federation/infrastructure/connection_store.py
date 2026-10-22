@@ -339,6 +339,19 @@ async def load_anchor(conn: AsyncConnection, anchor_id: str) -> dict[str, object
     return dict(row._mapping) if row else None
 
 
+async def list_anchors(conn: AsyncConnection) -> list[dict[str, object]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT anchor_id, entity_id, jsonb_array_length(jwks -> 'keys') AS pinned_keys, "
+                "allowed_domains, status, revision, created_at FROM authn.federation_trust_anchor "
+                "ORDER BY created_at DESC, anchor_id"
+            )
+        )
+    ).all()
+    return [dict(r._mapping) for r in rows]
+
+
 async def set_anchor_status(conn: AsyncConnection, anchor_id: str, status: str) -> int | None:
     row = (
         await conn.execute(

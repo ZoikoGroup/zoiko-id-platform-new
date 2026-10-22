@@ -1,6 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["ZID_ENVIRONMENT", "ZID_CELL_API_URL", "NODE_ENV"],
+  "globalEnv": [
+    "NODE_ENV",
+    "ZID_ENVIRONMENT",
+    "ZID_CELL_API_URL",
+    "ZID_TOKEN_ISSUER",
+    "ZID_PUBLIC_ORIGIN",
+    "ZID_OAUTH_CLIENT_ID",
+    "ZID_OAUTH_REDIRECT_URI",
+    "ZID_FEDERATION_CONNECTIONS",
+    "ZID_VALKEY_URL",
+    "ZID_ALLOW_MEMORY_SESSIONS"
+  ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
     "start": { "dependsOn": ["build"], "cache": false, "persistent": true },

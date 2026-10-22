@@ -145,3 +145,43 @@ async def protected_action(
         http_status=403 if decision.outcome is Outcome.DENY else 503,
         details=[ErrorDetail(issue=c) for c in codes],
     )
+
+
+async def approved_by_second_admin(
+    conn: AsyncConnection,
+    caller: Caller,
+    *,
+    action: str,
+    resource: str,
+    change: str,
+    approval_request_id: str,
+    now: datetime | None = None,
+) -> str:
+    """Authorize a two-person change and return the approving administrator (never the caller).
+
+    The approval must be APPROVED and bound to exactly this action, resource and change."""
+    now = now or datetime.now(UTC)
+    await protected_action(
+        conn,
+        caller,
+        action=action,
+        resource=resource,
+        change=change,
+        approval_request_id=approval_request_id,
+        now=now,
+        require_approval=True,
+    )
+    outcome = await evaluate_approval(
+        conn,
+        request_id=approval_request_id,
+        current_transaction_context=transaction_context(action, resource, change),
+        now=now,
+    )
+    approver = next((p for p in outcome.counted if p != caller.ctx.principal_id), None)
+    if approver is None:
+        raise ZidError(
+            "APPROVAL_REQUIRED",
+            "An independent second administrator must approve.",
+            http_status=403,
+        )
+    return approver

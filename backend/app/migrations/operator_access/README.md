@@ -6,3 +6,7 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `platform.jit_grant`
 - `platform.lockbox_request`
+- `platform.operator_profile`
+- `platform.operator_access_approval`
+- `platform.operator_access_policy`
+- `platform.break_glass_review`

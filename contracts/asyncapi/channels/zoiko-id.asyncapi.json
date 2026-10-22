@@ -873,6 +873,9 @@
         "machine_attestation_failed": {
           "$ref": "#/components/messages/machine_attestation_failed"
         },
+        "machine_environment_released": {
+          "$ref": "#/components/messages/machine_environment_released"
+        },
         "machine_security_revision_changed": {
           "$ref": "#/components/messages/machine_security_revision_changed"
         },
@@ -1028,6 +1031,80 @@
         },
         "onboarding_shadow_started": {
           "$ref": "#/components/messages/onboarding_shadow_started"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "operator_access.domain": {
+      "address": "zid.{env}.{region}.operator_access.domain",
+      "messages": {
+        "operator_access_activated": {
+          "$ref": "#/components/messages/operator_access_activated"
+        },
+        "operator_access_approval_recorded": {
+          "$ref": "#/components/messages/operator_access_approval_recorded"
+        },
+        "operator_access_approved": {
+          "$ref": "#/components/messages/operator_access_approved"
+        },
+        "operator_access_break_glass_activated": {
+          "$ref": "#/components/messages/operator_access_break_glass_activated"
+        },
+        "operator_access_cancelled": {
+          "$ref": "#/components/messages/operator_access_cancelled"
+        },
+        "operator_access_denied": {
+          "$ref": "#/components/messages/operator_access_denied"
+        },
+        "operator_access_expired": {
+          "$ref": "#/components/messages/operator_access_expired"
+        },
+        "operator_access_lockbox_approved": {
+          "$ref": "#/components/messages/operator_access_lockbox_approved"
+        },
+        "operator_access_lockbox_denied": {
+          "$ref": "#/components/messages/operator_access_lockbox_denied"
+        },
+        "operator_access_lockbox_requested": {
+          "$ref": "#/components/messages/operator_access_lockbox_requested"
+        },
+        "operator_access_operator_registered": {
+          "$ref": "#/components/messages/operator_access_operator_registered"
+        },
+        "operator_access_policy_changed": {
+          "$ref": "#/components/messages/operator_access_policy_changed"
+        },
+        "operator_access_requested": {
+          "$ref": "#/components/messages/operator_access_requested"
+        },
+        "operator_access_review_completed": {
+          "$ref": "#/components/messages/operator_access_review_completed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "operator_access.priority": {
+      "address": "zid.{env}.{region}.operator_access.priority",
+      "messages": {
+        "operator_access_lockbox_revoked": {
+          "$ref": "#/components/messages/operator_access_lockbox_revoked"
+        },
+        "operator_access_revoked": {
+          "$ref": "#/components/messages/operator_access_revoked"
         }
       },
       "parameters": {
@@ -1204,8 +1281,17 @@
         "privacy_processing_activity_changed": {
           "$ref": "#/components/messages/privacy_processing_activity_changed"
         },
+        "privacy_processing_refused": {
+          "$ref": "#/components/messages/privacy_processing_refused"
+        },
+        "privacy_processing_unregistered": {
+          "$ref": "#/components/messages/privacy_processing_unregistered"
+        },
         "privacy_processor_deletion_confirmed": {
           "$ref": "#/components/messages/privacy_processor_deletion_confirmed"
+        },
+        "privacy_processor_status_changed": {
+          "$ref": "#/components/messages/privacy_processor_status_changed"
         },
         "privacy_restriction_applied": {
           "$ref": "#/components/messages/privacy_restriction_applied"
@@ -3040,6 +3126,17 @@
         "x-zid-source": "ZID-CRYPTO-MI-001",
         "x-zid-status": "catalogued"
       },
+      "machine_environment_released": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.machine.environment.released.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A quarantined workload environment was released after review (security_revision stays bumped).",
+        "title": "machine.environment.released",
+        "x-zid-source": "DEC-F7 \u00a74; CRYPTO-MI-001 \u00a729; CR-014",
+        "x-zid-status": "proposed"
+      },
       "machine_security_revision_changed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.machine.security_revision.changed.v1",
@@ -3314,6 +3411,182 @@
         "title": "onboarding.shadow_started",
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
+      },
+      "operator_access_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approved JIT grant became active; its expiry clock started.",
+        "title": "operator_access.activated",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_approval_recorded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.approval.recorded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An independent approver approved a JIT request (one per approver).",
+        "title": "operator_access.approval.recorded",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A JIT request reached its required approvals (two-person for R3).",
+        "title": "operator_access.approved",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_break_glass_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.break_glass.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Emergency break-glass access activated; Security alerted; post-review pending.",
+        "title": "operator_access.break_glass.activated",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_cancelled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.cancelled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The requester cancelled a JIT request.",
+        "title": "operator_access.cancelled",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A JIT request was denied by an approver.",
+        "title": "operator_access.denied",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A JIT grant or request reached its end and was marked expired.",
+        "title": "operator_access.expired",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_lockbox_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.lockbox.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The customer approved the lockbox request (scoped, time-bound).",
+        "title": "operator_access.lockbox.approved",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_lockbox_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.lockbox.denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The customer denied the lockbox request.",
+        "title": "operator_access.lockbox.denied",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_lockbox_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.lockbox.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A customer lockbox approval was requested for operator access to tenant data.",
+        "title": "operator_access.lockbox.requested",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_lockbox_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.lockbox.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The customer withdrew a lockbox approval; operator access stops at once.",
+        "title": "operator_access.lockbox.revoked",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_operator_registered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.operator.registered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A workforce operator profile was provisioned or changed.",
+        "title": "operator_access.operator.registered",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_policy_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.policy.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The tenant changed its operator-access policy (lockbox, operator jurisdictions).",
+        "title": "operator_access.policy.changed",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An operator requested just-in-time access (case, scope, capability, duration as commitments).",
+        "title": "operator_access.requested",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_review_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.review.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The independent post-review of a break-glass grant was completed.",
+        "title": "operator_access.review.completed",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An active JIT grant was revoked before expiry.",
+        "title": "operator_access.revoked",
+        "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
       },
       "ops_backup_restore_verified": {
         "contentType": "application/cloudevents+json",
@@ -3623,6 +3896,28 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_processing_refused": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processing.refused.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A processing boundary refused processing the tenant's privacy registry does not permit (purpose, category, consent, restriction or transfer).",
+        "title": "privacy.processing.refused",
+        "x-zid-source": "ZID-PRIV-001 \u00a73, \u00a729; CR-013",
+        "x-zid-status": "proposed"
+      },
+      "privacy_processing_unregistered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processing.unregistered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Audit-mode record of processing that the registry would refuse once the tenant's processing activities are registered.",
+        "title": "privacy.processing.unregistered",
+        "x-zid-source": "ZID-PRIV-001 \u00a73; CR-013",
+        "x-zid-status": "proposed"
+      },
       "privacy_processor_deletion_confirmed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.processor.deletion.confirmed.v1",
@@ -3633,6 +3928,17 @@
         "title": "privacy.processor.deletion.confirmed",
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
+      },
+      "privacy_processor_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.processor.status_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A processor/subprocessor/recipient registry entry was approved, suspended or retired (PRIV-001 \u00a723).",
+        "title": "privacy.processor.status_changed",
+        "x-zid-source": "ZID-PRIV-001 \u00a723; CR-013",
+        "x-zid-status": "proposed"
       },
       "privacy_restriction_applied": {
         "contentType": "application/cloudevents+json",
@@ -4983,6 +5289,20 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/onboarding.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_operator_access_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/operator_access.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_operator_access_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/operator_access.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

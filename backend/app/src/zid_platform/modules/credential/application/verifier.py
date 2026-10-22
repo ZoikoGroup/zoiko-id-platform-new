@@ -69,6 +69,7 @@ from zid_platform.modules.credential.infrastructure.mdoc import (
     verify_status_list_cwt,
 )
 from zid_platform.modules.federation.ports import TrustChainError, resolve, trust_anchor
+from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.verification.ports import record_presentation
 
 REQUEST_TTL = timedelta(minutes=10)
@@ -163,6 +164,16 @@ async def create(
     allowed = await store.registration(conn, client_id, purpose, now)
     if allowed is None:
         raise CredentialError("RP_NOT_REGISTERED_FOR_PURPOSE")
+    # Disclosure to a relying party: a registered purpose and recipient class (PRIV-01, §23)
+    await enforce_processing(
+        conn,
+        tenant_id,
+        activity_code="CREDENTIAL_PRESENTATION",
+        purpose=purpose,
+        data_category="D3",
+        subject_principal_id=subject_principal_id,
+        recipient_class="relying_party",
+    )
     requested = minimize(claims, config, allowed)
     pid, nonce, state = str(uuid.uuid4()), secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     iat = int(now.timestamp())

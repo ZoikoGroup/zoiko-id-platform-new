@@ -8,6 +8,8 @@ dependencies = [
   "zid-context",
   "zid-db",
   "zid-errors",
+  "zid-evidence",
+  "zid-idempotency",
   "zid-outbox",
   "zid-telemetry",
   "uvicorn[standard]>=0.32",

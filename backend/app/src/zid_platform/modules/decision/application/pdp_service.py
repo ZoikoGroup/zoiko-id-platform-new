@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.authority.ports import Request, authorize_request
+from zid_platform.modules.decision.application.receipts import emit_receipt, material
 from zid_platform.modules.decision.domain.pdp import (
     ActionSpec,
     AuthnFact,
@@ -109,18 +110,23 @@ async def evaluate_request(
     if release is None:
         release = await _guard(lambda: active_release(conn, req.tenant_id), None)
 
+    evaluated: list[PolicyFact] = []
+
     def policy(context: Mapping[str, object]) -> PolicyFact:
         if release is None:
-            return PolicyFact("", False, ("POLICY_NO_ACTIVE_RELEASE",))
-        out = evaluate(
-            release,
-            principal_id=executor_id,
-            action=req.action.name,
-            resource_id=req.resource_id,
-            context=context,
-            schema=schema,
-        )
-        return PolicyFact(release.release_id, out.allowed, out.codes)
+            fact = PolicyFact("", False, ("POLICY_NO_ACTIVE_RELEASE",))
+        else:
+            out = evaluate(
+                release,
+                principal_id=executor_id,
+                action=req.action.name,
+                resource_id=req.resource_id,
+                context=context,
+                schema=schema,
+            )
+            fact = PolicyFact(release.release_id, out.allowed, out.codes)
+        evaluated.append(fact)
+        return fact
 
     if (
         relation is None
@@ -140,6 +146,24 @@ async def evaluate_request(
     )
     if record:
         await record_decision(conn, req, executor_id, decision)
+        # F-W2: every recorded decision leaves a receipt (E0: aggregate only), same transaction
+        await emit_receipt(
+            conn,
+            req,
+            executor_id,
+            decision,
+            material(
+                req,
+                principal=principal,
+                authn=authn,
+                authority=authority,
+                relation=relation,
+                mandate=mandate,
+                policy=evaluated[-1],
+                decision=decision,
+            ),
+            release=release,
+        )
     return decision
 
 

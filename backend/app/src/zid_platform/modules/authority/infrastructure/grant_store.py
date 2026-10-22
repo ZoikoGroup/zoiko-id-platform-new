@@ -212,6 +212,43 @@ async def load_grants_for_grantee(conn: AsyncConnection, grantee_id: str) -> lis
     return [_grant(r) for r in rows]
 
 
+async def list_grants(
+    conn: AsyncConnection,
+    *,
+    status: GrantStatus | None = None,
+    grantee_principal_id: str | None = None,
+    limit: int = 100,
+) -> list[Grant]:
+    """The tenant's grants, newest first (RLS scopes the read to the caller's tenant)."""
+    where: list[str] = ["TRUE"]
+    params: dict[str, Any] = {"lim": limit}
+    if status is not None:
+        where.append("g.status = CAST(:st AS authz.grant_status)")
+        params["st"] = status.value
+    if grantee_principal_id is not None:
+        where.append("g.grantee_principal_id = :gee")
+        params["gee"] = uuid.UUID(grantee_principal_id)
+    rows = (
+        await conn.execute(
+            text(
+                f"{_SELECT} WHERE {' AND '.join(where)} "
+                "ORDER BY g.issued_at DESC, g.authority_grant_id DESC LIMIT :lim"
+            ),
+            params,
+        )
+    ).all()
+    return [_grant(r) for r in rows]
+
+
+async def load_grant(conn: AsyncConnection, grant_id: str) -> Grant | None:
+    row = (
+        await conn.execute(
+            text(f"{_SELECT} WHERE g.authority_grant_id = :id"), {"id": uuid.UUID(grant_id)}
+        )
+    ).first()
+    return _grant(row) if row else None
+
+
 async def set_grant_status(conn: AsyncConnection, grant_id: str, target: GrantStatus) -> Grant:
     chain = await load_chain(conn, grant_id)
     if grant_id not in chain:
