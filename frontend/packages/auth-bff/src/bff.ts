@@ -27,7 +27,12 @@ export type BffConfig = {
   cellApiUrl: string;
   /** Token issuer (`iss`), i.e. the cell's ZID_TOKEN_ISSUER. */
   issuer: string;
+  /** Default OAuth client (the app's own workspace). */
   clientId: string;
+  /** Cookie naming another workspace's first-party console client (multi-company sign-up). The
+   * cookie only chooses which tenant the user signs in to: the cell maps the client to its tenant
+   * and the user must still authenticate there, so it never grants anything by itself. */
+  workspaceCookie?: string;
   /** This app's public origin, e.g. https://id.acme.zoiko.com (sent as Origin on server-side calls). */
   publicOrigin: string;
   /** Path of this app's OAuth redirect endpoint. */
@@ -102,6 +107,14 @@ class AuthFailure extends Error {
   }
 }
 
+const CLIENT_ID = /^[A-Za-z0-9._:-]{3,128}$/;
+
+/** The workspace client from a cookie header, or the default client. */
+export function workspaceClient(cookieHeader: string | null, cookieName: string | undefined, fallback: string): string {
+  const v = cookieName ? readCookie(cookieHeader, cookieName) : null;
+  return v && CLIENT_ID.test(v) ? v : fallback;
+}
+
 export function createBff(config: BffConfig) {
   const doFetch = config.fetchImpl ?? fetch;
   const upstream = config.cellApiUrl.replace(/\/$/, "");
@@ -109,14 +122,15 @@ export function createBff(config: BffConfig) {
   const publicOrigin = config.publicOrigin.replace(/\/$/, "");
   const redirectUri = config.redirectUri ?? `${publicOrigin}${config.callbackPath}`;
   const cookieName = sessionCookieName(config.app, config.secureCookies);
+  const clientFor = (req: Request) => workspaceClient(req.headers.get("cookie"), config.workspaceCookie, config.clientId);
 
   async function loadSession(req: Request): Promise<ConsoleSession | null> {
     const id = readCookie(req.headers.get("cookie"), cookieName);
     return id ? config.store.get(id) : null;
   }
 
-  async function tokenRequest(body: URLSearchParams) {
-    body.set("client_id", config.clientId);
+  async function tokenRequest(body: URLSearchParams, clientId: string) {
+    body.set("client_id", clientId);
     await config.clientAuth?.(body);
     const res = await doFetch(`${upstream}/oauth2/token`, {
       method: "POST",
@@ -129,14 +143,14 @@ export function createBff(config: BffConfig) {
   }
 
   /** Builds the authorize query for a fresh PKCE login and remembers the verifier. */
-  async function beginAuthorization(returnTo: string) {
+  async function beginAuthorization(returnTo: string, clientId: string) {
     const state = randomToken();
     const nonce = randomToken();
     const codeVerifier = randomToken(48);
-    await config.store.putPending({ state, nonce, codeVerifier, returnTo: safeReturnTo(returnTo), createdAt: Date.now() }, 600);
+    await config.store.putPending({ state, nonce, codeVerifier, returnTo: safeReturnTo(returnTo), createdAt: Date.now(), clientId }, 600);
     const q = new URLSearchParams({
       response_type: "code",
-      client_id: config.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri,
       scope: config.scopes.join(" "),
       state,
@@ -151,10 +165,12 @@ export function createBff(config: BffConfig) {
   async function completeAuthorization(state: string, code: string, previous: ConsoleSession | null) {
     const pending = await config.store.takePending(state);
     if (!pending) throw new AuthFailure("login_expired");
+    const clientId = pending.clientId ?? config.clientId;
     let tokens;
     try {
       tokens = await tokenRequest(
         new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, code_verifier: pending.codeVerifier }),
+        clientId,
       );
     } catch {
       throw new AuthFailure("token_exchange_failed");
@@ -169,7 +185,7 @@ export function createBff(config: BffConfig) {
         throw new AuthFailure("invalid_id_token");
       }
       const aud = claims.aud;
-      const audOk = Array.isArray(aud) ? aud.includes(config.clientId) : aud === config.clientId;
+      const audOk = Array.isArray(aud) ? aud.includes(clientId) : aud === clientId;
       if (claims.nonce !== pending.nonce || !audOk || String(claims.iss ?? "").replace(/\/$/, "") !== issuer) {
         throw new AuthFailure("invalid_id_token");
       }
@@ -184,6 +200,7 @@ export function createBff(config: BffConfig) {
       idToken: tokens.id_token,
       accessTokenExpiresAt: now + (tokens.expires_in ?? 300),
       createdAt: now,
+      clientId,
       subject: {
         sub: String(claims.sub ?? "unknown"),
         tenantId: typeof claims.tenant_id === "string" ? claims.tenant_id : undefined,
@@ -196,8 +213,8 @@ export function createBff(config: BffConfig) {
   }
 
   /** Server-side authorize using the browser's cell session cookie (no page redirect). */
-  async function authorizeWithCellCookie(cellCookie: string, previous: ConsoleSession | null) {
-    const path = await beginAuthorization("/");
+  async function authorizeWithCellCookie(cellCookie: string, previous: ConsoleSession | null, clientId: string) {
+    const path = await beginAuthorization("/", clientId);
     const res = await doFetch(`${upstream}${path}`, {
       method: "GET",
       headers: { cookie: cellCookie, accept: "application/json" },
@@ -220,7 +237,10 @@ export function createBff(config: BffConfig) {
     if (session.accessTokenExpiresAt - 20 > now) return session;
     if (session.refreshToken) {
       try {
-        const t = await tokenRequest(new URLSearchParams({ grant_type: "refresh_token", refresh_token: session.refreshToken }));
+        const t = await tokenRequest(
+          new URLSearchParams({ grant_type: "refresh_token", refresh_token: session.refreshToken }),
+          session.clientId ?? config.clientId,
+        );
         const next: ConsoleSession = {
           ...session,
           accessToken: t.access_token,
@@ -237,7 +257,7 @@ export function createBff(config: BffConfig) {
     if (!cellCookie) return null;
     try {
       // Re-saved under the existing app session id so the browser cookie stays valid.
-      const { session: renewed } = await authorizeWithCellCookie(cellCookie, null);
+      const { session: renewed } = await authorizeWithCellCookie(cellCookie, null, session.clientId ?? clientFor(req));
       await config.store.delete(renewed.id);
       const merged: ConsoleSession = { ...renewed, id: session.id, csrf: session.csrf };
       await config.store.set(merged, config.sessionTtlSeconds);
@@ -252,8 +272,13 @@ export function createBff(config: BffConfig) {
 
   return {
     /** Relative authorize URL for redirect-based flows (federation `return_to`). */
-    authorizePath(returnTo: string): Promise<string> {
-      return beginAuthorization(returnTo);
+    authorizePath(returnTo: string, clientId?: string): Promise<string> {
+      return beginAuthorization(returnTo, clientId ?? config.clientId);
+    },
+
+    /** The workspace client this request signs in through (cookie, else the default). */
+    clientFor(cookieHeader: string | null): string {
+      return workspaceClient(cookieHeader, config.workspaceCookie, config.clientId);
     },
 
     /** POST /api/auth/session — after passkey sign-in or step-up: cell cookie → app session. */
@@ -265,7 +290,7 @@ export function createBff(config: BffConfig) {
       if (!cellCookie) return bffError(401, "LOGIN_REQUIRED", "Sign in to continue.", correlationId);
       const previous = await loadSession(req);
       try {
-        const { session } = await authorizeWithCellCookie(cellCookie, previous);
+        const { session } = await authorizeWithCellCookie(cellCookie, previous, clientFor(req));
         return json({ authenticated: true, subject: session.subject, csrf: session.csrf }, 200, { "set-cookie": sessionCookie(session) });
       } catch (e) {
         const reason = e instanceof AuthFailure ? e.reason : "authorize_failed";
@@ -304,11 +329,15 @@ export function createBff(config: BffConfig) {
         await doFetch(`${upstream}/authn/logout`, {
           method: "POST",
           headers: { cookie: cellCookie, origin: publicOrigin, "content-type": "application/json" },
-          body: JSON.stringify({ client_id: config.clientId }),
+          body: JSON.stringify({ client_id: session?.clientId ?? clientFor(req) }),
         }).catch(() => null);
       }
       if (session?.refreshToken) {
-        const body = new URLSearchParams({ token: session.refreshToken, token_type_hint: "refresh_token", client_id: config.clientId });
+        const body = new URLSearchParams({
+          token: session.refreshToken,
+          token_type_hint: "refresh_token",
+          client_id: session.clientId ?? config.clientId,
+        });
         await config.clientAuth?.(body);
         await doFetch(`${upstream}/oauth2/revoke`, {
           method: "POST",

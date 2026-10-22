@@ -4,6 +4,7 @@ import { Banner, Button, ButtonLink, Card } from "@zoiko/ui";
 import { Building2, Fingerprint, LifeBuoy } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 
+import { WorkspacePicker } from "@/features/sign-in/workspace-picker";
 import { useRuntime } from "@/lib/runtime";
 import { browserSupportsWebAuthn, completeAppSession, getPasskey, passkeyErrorMessage } from "@/lib/webauthn";
 
@@ -28,11 +29,13 @@ export function SignIn({
   error,
   reason,
   connections,
+  workspace,
 }: {
   returnTo?: string;
   error?: string;
   reason?: string;
   connections: { id: string; label: string }[];
+  workspace: string | null;
 }) {
   const { flow } = useRuntime();
   const [pending, setPending] = useState(false);
@@ -62,6 +65,8 @@ export function SignIn({
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Sign in</h1>
         <p className="mt-1 text-sm text-ink-muted">Use the passkey on this device or your security key.</p>
       </div>
+
+      <WorkspacePicker current={workspace} />
 
       {reason === "expired" && !failure ? (
         <Banner tone="info" title="Your session ended">
@@ -113,7 +118,10 @@ export function SignIn({
         </div>
       </Card>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-1">
+        <ButtonLink href="/register" variant="ghost" size="sm" icon={<Building2 aria-hidden className="size-4" />}>
+          New company? Register your workspace
+        </ButtonLink>
         <ButtonLink href="/recover" variant="ghost" size="sm" icon={<LifeBuoy aria-hidden className="size-4" />}>
           Lost your passkey? Recover your account
         </ButtonLink>

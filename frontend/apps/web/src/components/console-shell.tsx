@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ShieldOff,
   UserLock,
+  UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
@@ -48,6 +49,7 @@ const NAV: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      { id: "team", label: "Team & invitations", href: "/admin/team", icon: UserPlus },
       { id: "idp", label: "Identity providers", href: "/admin/identity-providers", icon: Building2 },
       { id: "verification", label: "Verification", href: "/admin/verification", icon: BadgeCheck },
       { id: "credentials", label: "Credentials & trust", href: "/admin/credentials", icon: Wallet },

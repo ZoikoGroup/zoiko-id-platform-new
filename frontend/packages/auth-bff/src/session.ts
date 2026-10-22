@@ -12,6 +12,8 @@ export type ConsoleSession = {
   /** Epoch seconds. */
   accessTokenExpiresAt: number;
   createdAt: number;
+  /** The OAuth client (workspace) this session signed in through; refresh and logout use it. */
+  clientId?: string;
   /** Display-only claims from the id_token; never used for authorization. */
   subject: { sub: string; tenantId?: string; acr?: string; authTime?: number };
 };
@@ -22,6 +24,7 @@ export type PendingLogin = {
   codeVerifier: string;
   returnTo: string;
   createdAt: number;
+  clientId?: string;
 };
 
 /** Valkey in deployed cells (cell-local, DEC-H1); in-memory for local development and tests. */

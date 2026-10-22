@@ -13,8 +13,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ connectionId: s
     return new Response(null, { status: 303, headers: { location: "/sign-in?error=unknown_connection" } });
   }
   const returnTo = safeReturnTo(new URL(req.url).searchParams.get("returnTo"), "/account");
-  const authorize = await bff.authorizePath(returnTo);
-  const q = new URLSearchParams({ client_id: env.clientId, return_to: authorize });
+  const clientId = bff.clientFor(req.headers.get("cookie"));
+  const authorize = await bff.authorizePath(returnTo, clientId);
+  const q = new URLSearchParams({ client_id: clientId, return_to: authorize });
   return new Response(null, {
     status: 303,
     headers: { location: `/federation/connections/${encodeURIComponent(connectionId)}/login?${q.toString()}`, "cache-control": "no-store" },
