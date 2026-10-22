@@ -105,9 +105,13 @@ async def run(
     region: str,
     cell_id: str,
     stop_after: int | None = None,
+    idle_timeout_s: float | None = None,
     transmitter: tuple[KeyRing, str] | None = None,
 ) -> int:
-    """`transmitter`: (issuer keyring, issuer) to also run the SSF transmitter consumer."""
+    """`transmitter`: (issuer keyring, issuer) to also run the SSF transmitter consumer.
+
+    Every consumer runs concurrently; with `stop_after`, pass `idle_timeout_s` too, or a consumer
+    whose topics stay empty would wait forever and the whole run with it."""
     engine = create_async_engine(database_url, pool_size=4, max_overflow=0)
     try:
         consumers = [
@@ -117,6 +121,7 @@ async def run(
                 PROJECTOR,
                 projector_handler(engine, spicedb, cell_id),
                 stop_after=stop_after,
+                idle_timeout_s=idle_timeout_s,
             ),
             run_consumer(
                 bootstrap,
@@ -128,6 +133,7 @@ async def run(
                 EVIDENCE_INGEST,
                 evidence_ingest_handler(engine, cell_id),
                 stop_after=stop_after,
+                idle_timeout_s=idle_timeout_s,
             ),
         ]
         if transmitter is not None:
@@ -139,6 +145,7 @@ async def run(
                     TRANSMITTER_CONSUMER,
                     transmitter_handler(engine, keyring, issuer, cell_id),
                     stop_after=stop_after,
+                    idle_timeout_s=idle_timeout_s,
                 )
             )
         return sum(await asyncio.gather(*consumers))

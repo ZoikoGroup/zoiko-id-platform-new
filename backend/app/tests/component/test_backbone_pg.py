@@ -79,6 +79,7 @@ def test_edge_change_flows_through_kafka_into_the_projection(rt_url: str, owner_
             region=region,
             cell_id=CELL,
             stop_after=1,
+            idle_timeout_s=10,  # the evidence consumer has nothing to read here
         )
         assert handled == 1
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
@@ -117,6 +118,7 @@ def test_edge_change_flows_through_kafka_into_the_projection(rt_url: str, owner_
             region=region,
             cell_id=CELL,
             stop_after=1,
+            idle_timeout_s=10,  # the evidence consumer has nothing to read here
         )
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             rows = (
