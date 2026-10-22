@@ -5,3 +5,5 @@ Alembic stream owned by the **onboarding** module (zoiko-id-platform, DEC-D6). V
 May create or alter **only** these tables (enforced by CI against `backend/database/table-ownership.yaml`):
 
 - `platform.onboarding_plan`
+- `platform.onboarding_stage`
+- `platform.shadow_observation`

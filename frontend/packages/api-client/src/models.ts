@@ -743,3 +743,50 @@ export type BreakGlassReview = {
   created_at: Iso;
   reviewed_at: Iso | null;
 };
+
+/* Phase G: tenant lifecycle, team and invitations (ZID-OVERLAY-001 §2-4). */
+export type TenantStatus =
+  | "DRAFT"
+  | "ORGANIZATION_VERIFYING"
+  | "CONFIGURING"
+  | "BLOCKED"
+  | "INTEGRATING"
+  | "SHADOW"
+  | "PILOT"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "OFFBOARDING"
+  | "CLOSED";
+export type TenantRoleName = "OWNER" | "ADMIN" | "MEMBER";
+export type TenantRoleStatus = "PENDING_VERIFICATION" | "INVITED" | "ACTIVE" | "REVOKED";
+export type TenantRole = {
+  assignment_id: string;
+  principal_id: string;
+  role: TenantRoleName;
+  status: TenantRoleStatus;
+  origin: "BOOTSTRAP" | "INVITATION" | "OWNER_CHANGE" | "PROVISIONING";
+  granted_by: string | null;
+  approved_by: string | null;
+  created_at: Iso;
+  activated_at: Iso | null;
+};
+/** Where an invitee is: link sent -> passkey created -> signed in -> accepted (ACTIVE). */
+export type MemberProgress = "INVITED" | "PASSKEY_CREATED" | "SIGNED_IN" | "ACTIVE" | "PENDING_VERIFICATION" | "REVOKED";
+export type TenantMember = TenantRole & {
+  passkeys: number;
+  passkey_registered_at: Iso | null;
+  last_sign_in_at: Iso | null;
+  progress: MemberProgress;
+};
+export type Invitation = TenantRole & { enrollment_ticket: string; enrollment_ticket_expires_at: Iso };
+export type TenantView = {
+  tenant_id: string;
+  display_name: string;
+  tenant_slug: string;
+  status: TenantStatus;
+  deployment_mode: string;
+  home_cell_id: string;
+  configuration_revision: number;
+  security_revision: number;
+  my_roles: TenantRole[];
+};

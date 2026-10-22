@@ -1,7 +1,9 @@
 """FastAPI service shell shared by every Zoiko iD role and process (DEC-D6).
 
-Provides: typed settings, request-context middleware, canonical error envelopes,
-structured request logging, and health endpoints (`/health/live`, `/health/ready`, `/`).
+Provides: typed settings, request-context and trace-context middleware, canonical error envelopes,
+structured request logging, request metrics and journey SLIs (SRE-001 §4), health endpoints
+(`/health/live`, `/health/ready`, `/health/startup`, `/`) and the cell-internal Prometheus scrape
+endpoint `/internal/metrics` (the ingress never routes `/internal/*` from outside the cell).
 Domain modules plug their routers in; this package holds no domain logic.
 """
 
@@ -13,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -31,8 +33,11 @@ from zid_errors import (
     ZidError,
 )
 from zid_telemetry import configure_logging, get_logger
+from zid_telemetry.metrics import REGISTRY, Counter, Histogram, Registry
+from zid_telemetry.slo import WindowedSli
+from zid_telemetry.tracing import reset_trace, set_trace, start_trace
 
-__all__ = ["ServiceSettings", "ServiceSpec", "create_service_app", "envelope"]
+__all__ = ["Journey", "ServiceSettings", "ServiceSpec", "create_service_app", "envelope"]
 
 _log = get_logger("zid.request")
 
@@ -50,16 +55,73 @@ class ServiceSettings(BaseSettings):
     database_url: str | None = None
 
 
+class Journey:
+    """A critical user journey measured as its own SLI (SRE-001 §4: per journey, not one blended
+    platform percentile): requests whose path starts with `prefix`, good when not a server error
+    and answered within `latency_s`."""
+
+    def __init__(self, name: str, prefix: str, latency_s: float) -> None:
+        self.name = name
+        self.prefix = prefix
+        self.latency_s = latency_s
+
+
 class ServiceSpec:
     """What a deployable unit declares about itself."""
 
     def __init__(
-        self, name: str, plane: str, modules: Sequence[str], required_schemas: Sequence[str]
+        self,
+        name: str,
+        plane: str,
+        modules: Sequence[str],
+        required_schemas: Sequence[str],
+        journeys: Sequence[Journey] = (),
     ) -> None:
         self.name = name
         self.plane = plane
         self.modules = tuple(modules)
         self.required_schemas = tuple(required_schemas)
+        self.journeys = tuple(sorted(journeys, key=lambda j: -len(j.prefix)))  # longest prefix wins
+
+    def journey(self, path: str) -> Journey | None:
+        return next((j for j in self.journeys if path.startswith(j.prefix)), None)
+
+
+class JourneySlis:
+    """Per journey: availability (non-5xx / all: a caller-caused 4xx is a good event for the
+    service, SRE-001 §4) and latency (answered without a server error within threshold / all)."""
+
+    def __init__(self, journeys: Sequence[Journey], registry: Registry = REGISTRY) -> None:
+        self.availability = {j.name: WindowedSli() for j in journeys}
+        self.latency = {j.name: WindowedSli() for j in journeys}
+        # the same good/bad events for Prometheus burn-rate rules (one definition, two consumers)
+        self.events = registry.counter(
+            "zid_sli_events_total",
+            "SLI events by journey, SLI and outcome",
+            ("journey", "sli", "outcome"),
+        )
+
+    def record(self, journey: Journey, status: int, seconds: float) -> None:
+        available = status < 500
+        fast = available and seconds <= journey.latency_s
+        self.availability[journey.name].record(available)
+        self.latency[journey.name].record(fast)
+        self.events.inc(
+            journey=journey.name, sli="availability", outcome="good" if available else "bad"
+        )
+        self.events.inc(journey=journey.name, sli="latency", outcome="good" if fast else "bad")
+
+
+def _instruments(registry: Registry) -> tuple[Counter, Histogram]:
+    requests = registry.counter(
+        "zid_http_requests_total",
+        "HTTP requests by journey, method and status class",
+        ("journey", "method", "status_class"),
+    )
+    duration = registry.histogram(
+        "zid_http_request_duration_seconds", "Server processing time by journey", ("journey",)
+    )
+    return requests, duration
 
 
 def _ctx() -> RequestContext:
@@ -97,6 +159,8 @@ def create_service_app(
     extra_checks: Sequence[Callable[[], Awaitable[CheckResult]]] = (),
 ) -> FastAPI:
     configure_logging(spec.name, settings.cell_id, settings.log_level)
+    requests_total, request_duration = _instruments(REGISTRY)
+    slis = JourneySlis(spec.journeys)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -104,6 +168,7 @@ def create_service_app(
             create_engine(settings.database_url) if settings.database_url else None
         )
         app.state.engine = engine
+        app.state.started = True
         get_logger("zid.lifecycle").info("service started", extra={"component": "lifecycle"})
         yield
         if engine is not None:
@@ -112,6 +177,9 @@ def create_service_app(
     app = FastAPI(
         title=f"Zoiko iD — {spec.name}", version=settings.service_version, lifespan=lifespan
     )
+    app.state.started = False
+    app.state.journey_slis = slis
+    app.state.service_spec = spec
 
     # ---------------- middleware: request context + request log ----------------
     @app.middleware("http")
@@ -131,11 +199,24 @@ def create_service_app(
                 cell_id=settings.cell_id,
             )
         )
+        trace = start_trace(request.headers.get("traceparent"))
+        trace_token = set_trace(trace)
         started = time.perf_counter()
         try:
             response = await call_next(request)
             response.headers["X-Request-Id"] = request_id  # type: ignore[attr-defined]
             response.headers["X-Correlation-Id"] = correlation_id  # type: ignore[attr-defined]
+            response.headers["traceparent"] = trace.traceparent()  # type: ignore[attr-defined]
+            elapsed = time.perf_counter() - started
+            status = int(response.status_code)  # type: ignore[attr-defined]
+            journey = spec.journey(request.url.path)
+            name = journey.name if journey else "other"
+            requests_total.inc(
+                journey=name, method=request.method, status_class=f"{status // 100}xx"
+            )
+            request_duration.observe(elapsed, journey=name)
+            if journey is not None:
+                slis.record(journey, status, elapsed)
             _log.info(
                 "request",
                 extra={
@@ -147,6 +228,7 @@ def create_service_app(
             )
             return response
         finally:
+            reset_trace(trace_token)
             reset_context(token)
 
     # ---------------- error handlers: always the canonical envelope ----------------
@@ -201,6 +283,19 @@ def create_service_app(
             "checks": [{"name": r.name, "ok": r.ok, "detail": r.detail} for r in results],
         }
         return JSONResponse(envelope(data), status_code=200 if ok else 503)
+
+    @app.get("/health/startup", tags=["health"], summary="Startup completed (lifespan ran)")
+    async def startup(request: Request) -> JSONResponse:
+        ok = bool(request.app.state.started)
+        return JSONResponse(
+            envelope({"status": "started" if ok else "starting"}), status_code=200 if ok else 503
+        )
+
+    @app.get("/internal/metrics", tags=["health"], summary="Prometheus scrape (cell-internal)")
+    async def metrics() -> PlainTextResponse:
+        return PlainTextResponse(
+            REGISTRY.exposition(), media_type="text/plain; version=0.0.4; charset=utf-8"
+        )
 
     @app.get("/", tags=["health"], summary="Service identity")
     async def info() -> dict[str, object]:

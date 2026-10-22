@@ -54,7 +54,10 @@ const API_PATH_PREFIXES = [
   "/v1/lockbox-requests",
   "/v1/operator-access-policy$",
   "/v1/cells$",
+  "/v1/tenant$",
   "/v1/tenant/",
+  "/v1/onboarding/",
+  "/v1/integration/",
   "/v1/machine/",
 ];
 
@@ -88,7 +91,8 @@ function sessionStore(): SessionStore {
 /** One BFF per server process (kept on globalThis so dev hot-reload does not drop sessions). */
 export function server(): { bff: Bff; env: RuntimeEnv } {
   const g = globalThis as Globals;
-  if (g.__zidBff) return g.__zidBff;
+  // Dev hot-reload keeps globalThis: rebuild when the cached BFF predates the current code.
+  if (g.__zidBff && typeof g.__zidBff.bff.clientFor === "function") return g.__zidBff;
   const env = readRuntimeEnv();
   const secure = env.publicOrigin.startsWith("https://") || env.publicOrigin.startsWith("http://localhost");
   const bff = createBff({
@@ -96,6 +100,7 @@ export function server(): { bff: Bff; env: RuntimeEnv } {
     cellApiUrl: env.cellApiUrl,
     issuer: env.issuer,
     clientId: env.clientId,
+    workspaceCookie: "zid_workspace",
     publicOrigin: env.publicOrigin,
     callbackPath: "/auth/callback",
     redirectUri: env.redirectUri,

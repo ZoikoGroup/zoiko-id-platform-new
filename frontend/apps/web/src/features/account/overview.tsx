@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 import { ApiErrorView, QueryView, useCellQuery } from "@/lib/cell";
+import { PendingInvitation } from "@/features/account/invitation";
 import { useRuntime } from "@/lib/runtime";
 
 /** Count from a list query; each card shows its own loading/error state so one failing source
@@ -16,7 +17,7 @@ function countOf<T>(q: UseQueryResult<{ items: T[] }>, filter?: (t: T) => boolea
   return filter ? q.data.items.filter(filter).length : q.data.items.length;
 }
 
-export function AccountOverview() {
+export function AccountOverview({ welcome = false }: { welcome?: boolean }) {
   const { session } = useRuntime();
   const sub = session?.authenticated ? session.subject.sub : undefined;
 
@@ -31,6 +32,9 @@ export function AccountOverview() {
   return (
     <>
       <PageHeader title="My account" description="Your identity, sign-in methods and the apps you have connected." />
+      <div className="mb-4 empty:hidden">
+        <PendingInvitation autoJoin={welcome} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard

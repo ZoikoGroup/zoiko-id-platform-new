@@ -48,6 +48,21 @@
       "EvaluationContext": {
         "description": "Zoiko extensions: optional and namespaced by meaning; unknown keys are ignored (API \u00a74).",
         "properties": {
+          "incumbent_decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ALLOW",
+                  "DENY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incumbent Decision"
+          },
           "mandate_id": {
             "anyOf": [
               {

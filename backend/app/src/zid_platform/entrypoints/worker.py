@@ -4,7 +4,14 @@ Same image as the API, separate process. Each pass, in its own transaction per s
 - evidence: sequence receipts/audit records into the ledger, seal due checkpoints (E3 sooner),
   anchor them at the TSA when configured, dispose supporting evidence past retention (F-W1/F-W2);
 - operator access: expire elapsed JIT grants and never-completed requests (F-W4);
-- privacy: retention sweep of governed objects, rights-request deadline warnings (F-W3).
+- privacy: retention sweep of governed objects, rights-request deadline warnings (F-W3);
+- registry: re-check registry authority roots before they lapse; officer cessation or dissolution
+  revokes the root and cascades to its grants (G-W1);
+- domains / connector_credentials: re-prove verified domains (lost control -> STALE) and raise
+  30/14/7/1-day connector credential expiry alerts (G-W2);
+- stale_connectors / offboarding: connectors past their freshness drop to DEGRADED; OFFBOARDING
+  tenants are drained (integrations, sessions) and CLOSED (G-W5);
+- directory: changed tenant records are signed and published to the global locator (G-W6).
 A failing step is logged and retried on the next pass; it never stops the others.
 
     ZID_WORKER_DATABASE_URL  the worker role: BYPASSRLS, SELECT/INSERT/UPDATE on the evidence,
@@ -47,7 +54,82 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
     async def privacy(conn: AsyncConnection, now: datetime) -> object:
         return await privacy_pass(conn, now=now)
 
-    return [("evidence", evidence), ("operator_access", operator), ("privacy", privacy)]
+    async def registry(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.authority.ports import on_root_changed
+        from zid_platform.modules.organization.ports import adapter_for, refresh_registry_roots
+
+        broker = _secret_broker(settings)
+
+        def key() -> str | None:
+            try:
+                return str(broker.get("companies-house-api-key")) if broker else None  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001 - the source then reports unavailable
+                return None
+
+        return await refresh_registry_roots(
+            conn,
+            adapter_for=lambda ns: adapter_for(ns, transport=None, companies_house_key=key),
+            now=now,
+            on_root_changed=on_root_changed,
+        )
+
+    async def domains(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.modules.tenant.application.domains import default_checks, reverify_due
+
+        return await reverify_due(conn, checks=default_checks(), now=now)
+
+    async def credentials(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.modules.integration.application.service import expiry_alerts
+
+        return await expiry_alerts(conn, now)
+
+    async def stale_connectors(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.modules.integration.application.service import stale_sweep
+
+        return await stale_sweep(conn, now)
+
+    async def offboarding(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.modules.onboarding.ports import offboarding_pass
+
+        return await offboarding_pass(conn, now)
+
+    async def directory(conn: AsyncConnection, now: datetime) -> object:
+        """DEC-G3: publish changed tenant records to the global locator (skipped when unset)."""
+        from zid_crypto import KeyRing
+
+        from zid_platform.crypto_runtime import placement_signer
+        from zid_platform.modules.tenant.application.directory import http_sender, publish_pass
+
+        if not settings.global_locator_url:
+            return "NOT_CONFIGURED"
+        signer = placement_signer(
+            settings,
+            dev_purpose="federation",
+            kid=f"directory-{settings.cell_id}",
+            kms_key_id=settings.directory_kms_key_id,
+        )
+        if signer is None:
+            return "NO_SIGNING_KEY"
+        return await publish_pass(
+            conn,
+            cell_id=settings.cell_id,
+            ring=KeyRing(signer),
+            send=http_sender(settings.global_locator_url),
+            now=now,
+        )
+
+    return [
+        ("evidence", evidence),
+        ("operator_access", operator),
+        ("privacy", privacy),
+        ("registry", registry),
+        ("domains", domains),
+        ("connector_credentials", credentials),
+        ("stale_connectors", stale_connectors),
+        ("offboarding", offboarding),
+        ("directory", directory),
+    ]
 
 
 async def run_pass(

@@ -5,8 +5,10 @@ Module routers are mounted here as each module's api/ layer is implemented; modu
 each other only through their `ports.py` interfaces.
 """
 
+from typing import Any
+
 from fastapi import FastAPI
-from zid_app import ServiceSpec, create_service_app
+from zid_app import Journey, ServiceSpec, create_service_app
 from zid_crypto import KeyRing
 
 from .keys import KeyRings
@@ -27,20 +29,45 @@ def create_app(
     other environment refuses to start without real keys rather than minting its own."""
     settings = settings or Settings()
     role = Role(settings.role)
+    from .modules.operations.ports import catalogue_journeys, service_catalogue
+
+    ops_catalogue = service_catalogue(settings.ops_catalogue_path)
     spec = ServiceSpec(
         name=f"zoiko-id-{role.value}",
         plane="global" if role is Role.GLOBAL else "cell",
         modules=modules_for(role),
         required_schemas=schemas_for(role),
+        journeys=[
+            Journey(n, prefix, latency) for n, prefix, latency in catalogue_journeys(ops_catalogue)
+        ],
     )
     app = create_service_app(spec, settings)
+    app.state.ops_catalogue = ops_catalogue
     app.state.cell_uuid = settings.cell_uuid
     app.state.public_base_url = settings.public_base_url
     app.state.mtls_cert_header = settings.mtls_client_cert_header
     app.state.home_cell = settings.cell_id
+    app.state.tenant_bootstrap_tenant_id = settings.tenant_bootstrap_tenant_id
+    app.state.tenant_console = (
+        (
+            tuple(settings.tenant_console_redirect_uris),
+            (settings.token_audience,),
+            tuple(settings.tenant_console_scopes),
+        )
+        if settings.tenant_console_redirect_uris
+        else None
+    )
+    if settings.tenant_signup_dev_verify and settings.environment not in ("local", "test"):
+        raise RuntimeError("ZID_TENANT_SIGNUP_DEV_VERIFY is for local/test only")
+    app.state.tenant_signup = settings.tenant_signup_enabled
+    app.state.tenant_signup_dev_verify = settings.tenant_signup_dev_verify
+    app.state.environment = settings.environment
     app.state.federation_authority_hints = settings.federation_authority_hints
     app.state.verification_transport = None  # real network; tests inject a provider simulator
     app.state.credential_transport = None  # status-list / federation fetches (simulated in tests)
+    app.state.registry_transport = None  # Companies House / GLEIF (simulated in tests)
+    app.state.domain_checks = None  # DNS TXT / HTTPS well-known (real network; tests inject)
+    app.state.secret_broker = _secret_broker(settings)
     app.state.token_settings = None
     app.state.oauth_settings = None
     app.state.webauthn_settings = None
@@ -98,6 +125,9 @@ def create_app(
             if settings.environment in ("local", "test")
             else env_secrets("ZID_UNAVAILABLE__"),
         )
+    app.state.cell_endpoints = dict(settings.cell_endpoints)
+    if role is Role.GLOBAL:
+        _configure_global_plane(app, settings)
     if role is Role.CELL:
         _configure_phase_f(app, settings)
         from .modules.authentication.api.recovery import router as recovery_router
@@ -108,17 +138,24 @@ def create_app(
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.federation.api.federation import router as federation_router
+        from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
+        from .modules.onboarding.api.onboarding import router as onboarding_router
+        from .modules.onboarding.api.signup import router as signup_router
+        from .modules.operations.api.ops import router as operations_router
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
         from .modules.provisioning.api.scim import router as scim_router
+        from .modules.resilience.api.platform import router as resilience_router
         from .modules.session.api.oauth import router as oauth_router
         from .modules.session.api.sessions import router as sessions_router
         from .modules.signals.api.signals import router as signals_router
+        from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.residency import router as residency_router
+        from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.verification import router as verification_router
 
         for router in (
@@ -141,10 +178,56 @@ def create_app(
             lockbox_router,
             privacy_router,
             residency_router,
+            tenants_router,
+            onboarding_router,
+            signup_router,
+            domains_router,
+            integration_router,
+            resilience_router,
+            operations_router,
             workloads_router,
         ):
             app.include_router(router)
     return app
+
+
+def _configure_global_plane(app: FastAPI, settings: Settings) -> None:
+    """Locator + discovery (DEC-G3): pinned cell publication keys, the discovery signing key."""
+    from zid_crypto import LocalSigner
+
+    from .crypto_runtime import placement_signer
+    from .modules.discovery.api.discovery import router as discovery_router
+
+    keys: dict[str, list[dict[str, Any]]] = {
+        k: list(v) for k, v in settings.locator_cell_keys.items()
+    }
+    pem = settings.dev_signing_keys.get("federation")
+    if not keys and settings.environment in ("local", "test") and pem:
+        # one machine: every local cell process shares the development federation key
+        keys = {"*": [LocalSigner.from_pem("dev-federation-local", pem).public_jwk()]}
+        for cell in settings.cell_endpoints:
+            keys["*"].append(LocalSigner.from_pem(f"dev-federation-{cell}", pem).public_jwk())
+    app.state.locator_cell_keys = keys
+    signer = placement_signer(
+        settings,
+        dev_purpose="discovery",
+        kid="discovery-global",
+        kms_key_id=settings.discovery_kms_key_id,
+    )
+    app.state.discovery_ring = KeyRing(signer) if signer else None
+    app.state.discovery_ttl_s = settings.discovery_ttl_s
+    app.include_router(discovery_router)
+
+
+def _secret_broker(settings: Settings) -> object | None:
+    """The cell's secrets broker (DEC-F5), or None where none is configured (adapters then report
+    their source unavailable rather than falling back to anything)."""
+    from .crypto_runtime import secret_broker_from_settings
+
+    try:
+        return secret_broker_from_settings(settings)
+    except Exception:  # noqa: BLE001 - misconfiguration surfaces as an unavailable dependency
+        return None
 
 
 def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
@@ -173,6 +256,16 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         break_glass_max=settings.operator_break_glass_max,
         environment=settings.environment,
         cell_id=settings.cell_id,
+    )
+    from .modules.resilience.application.service import ResilienceSettings
+
+    uuids = dict(settings.cell_uuids)
+    if settings.cell_uuid:
+        uuids.setdefault(settings.cell_id, settings.cell_uuid)
+    app.state.resilience_settings = ResilienceSettings(
+        operator_tenant_id=settings.operator_tenant_id or "",
+        cell_id=settings.cell_id,
+        cell_uuids=uuids,
     )
 
 

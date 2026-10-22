@@ -69,21 +69,6 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "QuarantineBody": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "QuarantineBody",
-        "type": "object"
-      },
       "RevokeBody": {
         "additionalProperties": false,
         "properties": {
@@ -173,6 +158,21 @@
         ],
         "title": "WorkloadTokenBody",
         "type": "object"
+      },
+      "zid_platform__modules__machine__api__workloads__QuarantineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "QuarantineBody",
+        "type": "object"
       }
     }
   },
@@ -200,7 +200,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QuarantineBody"
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__workloads__QuarantineBody"
               }
             }
           },

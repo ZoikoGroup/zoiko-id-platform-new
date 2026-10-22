@@ -47,6 +47,14 @@ from zid_platform.modules.mandate.domain.ledger import (
 from zid_platform.modules.mandate.domain.subagent import MandateTerms
 
 DEFAULT_LEASE = timedelta(minutes=5)
+from zid_telemetry.metrics import REGISTRY
+
+WRITER_FENCED = REGISTRY.counter(
+    "zid_writer_epoch_fenced_total", "Ledger writes refused because the writer epoch is stale"
+)
+LEDGER_CORRUPTION = REGISTRY.counter(
+    "zid_mandate_ledger_corruption_total", "Ledger operations refused as LEDGER_CORRUPTION"
+)
 
 
 def digest(value: str) -> str:
@@ -158,6 +166,7 @@ async def check_writer(
         )
     ).first()
     if row is None or row.cell_id != cell_id or row.epoch != epoch:
+        WRITER_FENCED.inc()  # a fenced (old) writer is still trying to write: split-brain risk
         raise LedgerError("WRITER_EPOCH_STALE")
 
 
@@ -348,7 +357,12 @@ async def _settle(
         )
     ).first()
     res = _reservation(row)
-    new_balance, new_res = transition(locked.balance, res)
+    try:
+        new_balance, new_res = transition(locked.balance, res)
+    except LedgerError as e:
+        if e.code == "LEDGER_CORRUPTION":
+            LEDGER_CORRUPTION.inc()  # a zero-budget safety invariant (SRE-001 §5)
+        raise
     if new_res == res and new_balance == locked.balance:
         return new_res  # idempotent replay: terminal state returned, nothing written
     await conn.execute(

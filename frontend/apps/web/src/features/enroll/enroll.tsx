@@ -16,7 +16,7 @@ import {
 const noSubscribe = () => () => {};
 
 /** First passkey for an account, from a one-time enrollment ticket; then signs straight in. */
-export function Enroll({ ticket }: { ticket?: string }) {
+export function Enroll({ ticket, label, company }: { ticket?: string; label?: string; company?: string }) {
   const { flow } = useRuntime();
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export function Enroll({ ticket }: { ticket?: string }) {
     const options = await flow.passkeyOptions();
     await flow.passkeyVerify(await getPasskey(options));
     await completeAppSession();
-    window.location.assign("/account");
+    window.location.assign("/account?welcome=1");
   }
 
   async function enroll() {
@@ -36,7 +36,7 @@ export function Enroll({ ticket }: { ticket?: string }) {
     try {
       if (!registered) {
         const options = await flow.registrationOptions({ enrollment_ticket: ticket ?? null });
-        await flow.registrationVerify(await createPasskey(options));
+        await flow.registrationVerify(await createPasskey(options), label ? `${label.slice(0, 50)}'s passkey` : undefined);
         setRegistered(true);
       }
       await signIn();
@@ -62,6 +62,7 @@ export function Enroll({ ticket }: { ticket?: string }) {
     <div className="space-y-5">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Set up your passkey</h1>
+        {company ? <p className="mt-1 text-sm font-medium text-ink">{company}</p> : null}
         <p className="mt-1 text-sm text-ink-muted">Create a passkey on this device or a security key. You&apos;ll use it to sign in.</p>
       </div>
 

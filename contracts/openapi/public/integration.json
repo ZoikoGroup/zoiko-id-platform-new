@@ -1,0 +1,1247 @@
+{
+  "components": {
+    "schemas": {
+      "AppBody": {
+        "additionalProperties": false,
+        "properties": {
+          "credential_justification": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Justification"
+          },
+          "credential_profile": {
+            "$ref": "#/components/schemas/CredentialProfile",
+            "default": "private_key_jwt"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/Environment"
+          },
+          "evidence_floor": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Evidence Floor",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_principal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Principal Id"
+          },
+          "pep_client_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pep Client Id"
+          },
+          "pep_context_fields": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Pep Context Fields",
+            "type": "array"
+          },
+          "pep_obligations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Pep Obligations",
+            "type": "array"
+          },
+          "protocols": {
+            "items": {
+              "$ref": "#/components/schemas/Protocol"
+            },
+            "minItems": 1,
+            "title": "Protocols",
+            "type": "array"
+          },
+          "redirect_uris": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Redirect Uris",
+            "type": "array"
+          },
+          "resource_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Resource Ids",
+            "type": "array"
+          },
+          "risk_floor": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Risk Floor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "environment",
+          "protocols"
+        ],
+        "title": "AppBody",
+        "type": "object"
+      },
+      "AppStatus": {
+        "enum": [
+          "DRAFT",
+          "TESTING",
+          "ACTIVE",
+          "SUSPENDED",
+          "RETIRED"
+        ],
+        "title": "AppStatus",
+        "type": "string"
+      },
+      "AuthProfile": {
+        "enum": [
+          "OAUTH_CLIENT",
+          "MTLS",
+          "WORKLOAD_IDENTITY",
+          "SECRET"
+        ],
+        "title": "AuthProfile",
+        "type": "string"
+      },
+      "Capability": {
+        "enum": [
+          "AUTHN",
+          "PROVISIONING",
+          "GROUPS",
+          "HR_LIFECYCLE",
+          "SIGNALS",
+          "WEBHOOK",
+          "DIRECTORY_LOOKUP"
+        ],
+        "title": "Capability",
+        "type": "string"
+      },
+      "ConnectorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_profile": {
+            "$ref": "#/components/schemas/AuthProfile",
+            "default": "OAUTH_CLIENT"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "connector_type": {
+            "$ref": "#/components/schemas/ConnectorType"
+          },
+          "disable_behavior": {
+            "$ref": "#/components/schemas/DisableBehavior",
+            "default": "FAIL_CLOSED_HIGH_RISK"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "freshness_minutes": {
+            "anyOf": [
+              {
+                "maximum": 10080.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Minutes"
+          },
+          "owner_principal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Principal Id"
+          },
+          "source_of_truth_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Source Of Truth Scope",
+            "type": "array"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          }
+        },
+        "required": [
+          "connector_type",
+          "display_name",
+          "capabilities"
+        ],
+        "title": "ConnectorBody",
+        "type": "object"
+      },
+      "ConnectorType": {
+        "enum": [
+          "OIDC_IDP",
+          "SAML_IDP",
+          "SCIM",
+          "HRIS",
+          "SIGNALS",
+          "WEBHOOK",
+          "DIRECTORY"
+        ],
+        "title": "ConnectorType",
+        "type": "string"
+      },
+      "CredentialBody": {
+        "additionalProperties": false,
+        "properties": {
+          "not_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not After"
+          },
+          "overlap_hours": {
+            "default": 24,
+            "maximum": 168.0,
+            "minimum": 0.0,
+            "title": "Overlap Hours",
+            "type": "integer"
+          },
+          "secret": {
+            "maxLength": 8192,
+            "minLength": 16,
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "CredentialBody",
+        "type": "object"
+      },
+      "CredentialProfile": {
+        "enum": [
+          "private_key_jwt",
+          "mtls",
+          "workload_identity",
+          "secret_exception"
+        ],
+        "title": "CredentialProfile",
+        "type": "string"
+      },
+      "DisableBehavior": {
+        "enum": [
+          "FAIL_CLOSED_HIGH_RISK",
+          "SUSPEND_DEPENDENTS"
+        ],
+        "title": "DisableBehavior",
+        "type": "string"
+      },
+      "Environment": {
+        "enum": [
+          "DEV",
+          "TEST",
+          "STAGE",
+          "PROD"
+        ],
+        "title": "Environment",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "MappingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "title": "MappingBody",
+        "type": "object"
+      },
+      "Protocol": {
+        "enum": [
+          "OIDC",
+          "SAML",
+          "SCIM",
+          "AUTHZEN",
+          "WEBHOOK",
+          "API",
+          "MCP",
+          "OTHER"
+        ],
+        "title": "Protocol",
+        "type": "string"
+      },
+      "RouteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_ref": {
+            "maxLength": 120,
+            "minLength": 10,
+            "title": "Connection Ref",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RouteKind"
+          },
+          "match": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Match",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "match",
+          "connection_ref"
+        ],
+        "title": "RouteBody",
+        "type": "object"
+      },
+      "RouteKind": {
+        "enum": [
+          "APPLICATION",
+          "DOMAIN"
+        ],
+        "title": "RouteKind",
+        "type": "string"
+      },
+      "SimulateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "title": "SimulateBody",
+        "type": "object"
+      },
+      "Transition": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AppStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Transition",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__integration__api__integration__QuarantineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "QuarantineBody",
+        "type": "object"
+      },
+      "zid_platform__modules__integration__api__integration__ReleaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Approval Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_request_id"
+        ],
+        "title": "ReleaseBody",
+        "type": "object"
+      },
+      "zid_platform__modules__integration__api__integration__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "login_domain": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Login Domain"
+          }
+        },
+        "title": "ResolveBody",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Integration API (application registry, connectors, mapping releases)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/integration/applications": {
+      "get": {
+        "operationId": "list_applications_v1_integration_applications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Applications V1 Integration Applications Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Applications",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "register_application_v1_integration_applications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Application V1 Integration Applications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Application",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/applications/{application_id}:transition": {
+      "post": {
+        "operationId": "transition_application_v1_integration_applications__application_id__transition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Transition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Transition Application V1 Integration Applications  Application Id  Transition Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transition Application",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors": {
+      "get": {
+        "operationId": "list_connectors_v1_integration_connectors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Connectors V1 Integration Connectors Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Connectors",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "register_connector_v1_integration_connectors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Connector V1 Integration Connectors Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Connector",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors/{connector_id}": {
+      "get": {
+        "operationId": "read_connector_v1_integration_connectors__connector_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Connector V1 Integration Connectors  Connector Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Connector",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors/{connector_id}/credential": {
+      "put": {
+        "operationId": "put_credential_v1_integration_connectors__connector_id__credential_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Credential V1 Integration Connectors  Connector Id  Credential Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Credential",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors/{connector_id}/mapping-releases": {
+      "get": {
+        "operationId": "list_releases_v1_integration_connectors__connector_id__mapping_releases_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Releases V1 Integration Connectors  Connector Id  Mapping Releases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Releases",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "create_release_v1_integration_connectors__connector_id__mapping_releases_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Release V1 Integration Connectors  Connector Id  Mapping Releases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Release",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors/{connector_id}:quarantine": {
+      "post": {
+        "operationId": "quarantine_v1_integration_connectors__connector_id__quarantine_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__integration__api__integration__QuarantineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quarantine V1 Integration Connectors  Connector Id  Quarantine Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quarantine",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/connectors/{connector_id}:release": {
+      "post": {
+        "operationId": "release_v1_integration_connectors__connector_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__integration__api__integration__ReleaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release V1 Integration Connectors  Connector Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/mapping-releases/{release_id}:activate": {
+      "post": {
+        "description": "Activation and rollback alike: an approval bound to this exact release content.",
+        "operationId": "activate_v1_integration_mapping_releases__release_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__integration__api__integration__ReleaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate V1 Integration Mapping Releases  Release Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/mapping-releases/{release_id}:simulate": {
+      "post": {
+        "operationId": "simulate_v1_integration_mapping_releases__release_id__simulate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Simulate V1 Integration Mapping Releases  Release Id  Simulate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/routes": {
+      "get": {
+        "operationId": "list_routes_v1_integration_routes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Routes V1 Integration Routes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Routes",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "add_route_v1_integration_routes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Route V1 Integration Routes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Route",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/routes:resolve": {
+      "post": {
+        "operationId": "resolve_route_v1_integration_routes_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__integration__api__integration__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Route V1 Integration Routes Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Route",
+        "tags": [
+          "integration"
+        ]
+      }
+    }
+  }
+}

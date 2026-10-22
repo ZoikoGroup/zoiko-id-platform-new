@@ -14,6 +14,48 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LifecycleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "event": {
+            "$ref": "#/components/schemas/LifecycleEvent"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "event"
+        ],
+        "title": "LifecycleBody",
+        "type": "object"
+      },
+      "LifecycleEvent": {
+        "enum": [
+          "JOINER",
+          "MOVER",
+          "LEAVER",
+          "LEAVE_START",
+          "LEAVE_END"
+        ],
+        "title": "LifecycleEvent",
+        "type": "string"
+      },
       "SourceIn": {
         "additionalProperties": false,
         "properties": {
@@ -96,6 +138,50 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/provisioning/lifecycle-events": {
+      "post": {
+        "description": "OVERLAY \u00a722: joiner / mover / leaver / leave from the HRIS (same source auth as SCIM).",
+        "operationId": "lifecycle_event_provisioning_lifecycle_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecycleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lifecycle Event Provisioning Lifecycle Events Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lifecycle Event",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
     "/provisioning/sources": {
       "get": {
         "operationId": "list_sources_provisioning_sources_get",

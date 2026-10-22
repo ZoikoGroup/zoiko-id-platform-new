@@ -215,6 +215,15 @@ export function createCellApi(t: Transport) {
       mapSubject: (id: string, body: SubjectIn) => post<Record<string, unknown>>(`/ssf/streams/${seg(id)}/subjects`, body),
     },
 
+    tenant: {
+      me: () => get<M.TenantView>("/v1/tenant"),
+      members: () => get<M.Items<M.TenantMember>>("/v1/tenant/members"),
+      invite: (role: "MEMBER" | "ADMIN") => post<M.Invitation>("/v1/tenant/members", { role }),
+      reissue: (assignmentId: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:reissue`),
+      revoke: (assignmentId: string) => post<M.TenantRole>(`/v1/tenant/members/${seg(assignmentId)}:revoke`),
+      accept: () => post<M.TenantRole>("/v1/tenant/members/me:accept"),
+    },
+
     provisioning: {
       sources: () => get<M.Items<M.ProvisioningSourceItem>>("/provisioning/sources"),
       createSource: (body: SourceIn) => post<M.ProvisioningSource>("/provisioning/sources", body),

@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_context import RequestContext
 from zid_crypto import CryptoError, verify_external_jws
@@ -639,3 +640,37 @@ async def record_presentation(
         now,
     )
     return decision.outcome, ids
+
+
+async def claim_matches(
+    conn: AsyncConnection,
+    principal_id: str,
+    *,
+    claims: tuple[str, ...],
+    candidates: tuple[str, ...],
+    now: datetime,
+    min_level: str = "IAL-Z2",
+) -> bool:
+    """Does a VALID, unexpired assertion (>= min_level) of one of `claims` equal one candidate?
+
+    Equality against the stored commitment only (no value is ever read back): the caller supplies a
+    finite list of exact renderings, e.g. a registered officer name (ROOT-001 §6.1 holder binding)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT assertion_id, claim_type, claim_value_commitment, assurance_level "
+                "FROM verify.verification_assertion WHERE subject_principal_id = :s "
+                "AND status = 'VALID' AND (valid_until IS NULL OR valid_until > :now) "
+                "AND claim_type = ANY(:claims)"
+            ),
+            {"s": uuid.UUID(principal_id), "now": now, "claims": list(claims)},
+        )
+    ).all()
+    for r in rows:
+        if IAL_RANK.get(r.assurance_level, 0) < IAL_RANK[min_level]:
+            continue
+        stored = bytes(r.claim_value_commitment)
+        for value in candidates:
+            if store.commitment(str(r.assertion_id), r.claim_type, value) == stored:
+                return True
+    return False

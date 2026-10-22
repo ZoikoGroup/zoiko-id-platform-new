@@ -72,6 +72,43 @@ class Settings(ServiceSettings):
     # ZID_OPERATOR_MAX_MINUTES (JSON capability -> minutes): may only lower the catalog ceilings
     operator_max_minutes: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
     operator_break_glass_max: timedelta = timedelta(minutes=60)
+    # --- Tenant onboarding (G-W0; ZID-OVERLAY-001 §4) -------------------------------------------
+    # ZID_TENANT_BOOTSTRAP_TENANT_ID: the signup tenant whose principals may create new tenants;
+    # unset = tenant self-service creation is disabled in this cell.
+    tenant_bootstrap_tenant_id: str | None = None
+    # ZID_TENANT_CONSOLE_REDIRECT_URIS (JSON list): exact redirect URIs of the tenant console; when
+    # set, bootstrap registers each new tenant's first-party console OAuth client with them.
+    tenant_console_redirect_uris: tuple[str, ...] = ()
+    # ZID_TENANT_CONSOLE_SCOPES (JSON list): scopes the console client may request
+    tenant_console_scopes: tuple[str, ...] = (
+        "openid",
+        "verification:read",
+        "verification:execute",
+        "presentation:request",
+    )
+    # ZID_TENANT_SIGNUP_ENABLED: public company sign-up (POST /v1/signup); needs the console
+    # redirect URIs above. Off by default.
+    tenant_signup_enabled: bool = False
+    # ZID_TENANT_SIGNUP_DEV_VERIFY (local/test only): a signed-up company skips the registry gate
+    # with a synthetic, self-labelled development root so it can be administered at once.
+    tenant_signup_dev_verify: bool = False
+    # --- Global locator and discovery (G-W6; DEC-G3) ---------------------------------------------
+    # ZID_CELL_ENDPOINTS (JSON cell -> base URL): where each cell's API is (discovery answers and
+    # the CELL_ROUTING_STALE / CELL_NOT_AUTHORITATIVE location hint)
+    cell_endpoints: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
+    # ZID_CELL_UUIDS: cell id -> its agent.writer_fence uuid (default: derived from the cell id)
+    cell_uuids: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
+    # ZID_OPS_CATALOGUE_PATH: the service catalogue (default: backend/config/operations; ZID_PLATFORM_CONFIG moves the root)
+    ops_catalogue_path: str | None = None
+    # Global role. ZID_LOCATOR_CELL_KEYS (JSON cell -> [public JWK]): each cell's pinned publication
+    # keys; local/test without it trust this machine's development "federation" key for any cell.
+    locator_cell_keys: dict[str, list[dict[str, Any]]] = {}  # noqa: RUF012 - pydantic copies defaults
+    discovery_ttl_s: int = 300  # ZID_DISCOVERY_TTL_S: how long a client may cache an answer
+    discovery_kms_key_id: str | None = None  # ZID_DISCOVERY_KMS_KEY_ID: deployed signing key
+    # Cell role. ZID_GLOBAL_LOCATOR_URL: the global plane the worker publishes records to;
+    # ZID_DIRECTORY_KMS_KEY_ID: the cell's deployed record-signing key (local/test: dev "federation").
+    global_locator_url: str | None = None
+    directory_kms_key_id: str | None = None
     # --- Workload identity (DEC-F7; zid_context.spiffe) ------------------------------------------
     # ZID_SPIFFE_TRUST_DOMAIN: this cell+environment's governed trust domain (default
     # <cell>.<environment>.id.zoiko); ZID_SPIFFE_BUNDLE_FILES (JSON): trust domain -> PEM bundle

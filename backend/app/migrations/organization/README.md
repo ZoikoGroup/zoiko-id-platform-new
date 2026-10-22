@@ -8,3 +8,4 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `org.org_unit`
 - `org.authority_root_assertion`
 - `org.source_event`
+- `org.registry_observation`

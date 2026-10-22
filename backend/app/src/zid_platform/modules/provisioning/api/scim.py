@@ -27,9 +27,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from scim2_models import Group, User
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import tenant_transaction
+from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
+from zid_platform.modules.integration.ports import record_interaction
 from zid_platform.modules.provisioning.application import scim
+from zid_platform.modules.provisioning.application.lifecycle import LifecycleEvent
+from zid_platform.modules.provisioning.application.lifecycle import apply_event as apply_lifecycle
 from zid_platform.modules.provisioning.infrastructure import scim_store as store
 from zid_platform.modules.provisioning.infrastructure.scim_store import ScimError, Source
 from zid_platform.protected import protected_action
@@ -71,6 +75,8 @@ async def _source(conn: AsyncConnection, caller: Caller) -> Source:
     src = await store.source_for_client(conn, caller.client_id)
     if src is None or src.status != "ACTIVE":
         raise ScimError(403, None, "no active provisioning source for this client")
+    # The connector framework tracks the source's health and freshness (OVERLAY-001 §15, §24).
+    await record_interaction(conn, f"provisioning_source:{src.source_id}", ok=True)
     return src
 
 
@@ -371,3 +377,38 @@ async def suspend_source(
     if s is None:
         raise http_error("PROVISIONING_SOURCE_NOT_FOUND")
     return {"source_id": s.source_id, "status": s.status}
+
+
+# ---------------------------------------------------------------- HR lifecycle events (G-W5)
+
+
+class LifecycleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: uuid.UUID  # the SCIM User resource id this source provisioned
+    event: LifecycleEvent
+    effective_at: datetime | None = None
+
+
+@router.post("/provisioning/lifecycle-events")
+async def lifecycle_event(
+    body: LifecycleBody, request: Request, caller: CallerDep
+) -> dict[str, object]:
+    """OVERLAY §22: joiner / mover / leaver / leave from the HRIS (same source auth as SCIM)."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            src = await _source(conn, caller)
+            return await apply_lifecycle(
+                conn,
+                src,
+                user_id=str(body.user_id),
+                event=body.event,
+                effective_at=body.effective_at or now,
+                now=now,
+            )
+        except ScimError as e:
+            raise ZidError(
+                "SCIM_RESOURCE_NOT_FOUND" if e.status == 404 else "SCIM_SOURCE_FORBIDDEN",
+                e.detail or "Lifecycle event refused.",
+                http_status=e.status,
+            ) from e
