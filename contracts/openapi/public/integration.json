@@ -342,6 +342,61 @@
         "title": "MappingBody",
         "type": "object"
       },
+      "OAuthClientBody": {
+        "additionalProperties": false,
+        "properties": {
+          "client_type": {
+            "enum": [
+              "PUBLIC",
+              "CONFIDENTIAL"
+            ],
+            "title": "Client Type",
+            "type": "string"
+          },
+          "jwks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jwks"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "redirect_uris": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Redirect Uris",
+            "type": "array"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "client_type",
+          "redirect_uris"
+        ],
+        "title": "OAuthClientBody",
+        "type": "object"
+      },
       "Protocol": {
         "enum": [
           "OIDC",
@@ -355,33 +410,6 @@
         ],
         "title": "Protocol",
         "type": "string"
-      },
-      "RouteBody": {
-        "additionalProperties": false,
-        "properties": {
-          "connection_ref": {
-            "maxLength": 120,
-            "minLength": 10,
-            "title": "Connection Ref",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/RouteKind"
-          },
-          "match": {
-            "maxLength": 253,
-            "minLength": 1,
-            "title": "Match",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "match",
-          "connection_ref"
-        ],
-        "title": "RouteBody",
-        "type": "object"
       },
       "RouteKind": {
         "enum": [
@@ -524,6 +552,33 @@
           }
         },
         "title": "ResolveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__integration__api__integration__RouteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_ref": {
+            "maxLength": 120,
+            "minLength": 10,
+            "title": "Connection Ref",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RouteKind"
+          },
+          "match": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Match",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "match",
+          "connection_ref"
+        ],
+        "title": "RouteBody",
         "type": "object"
       }
     }
@@ -1136,6 +1191,114 @@
         ]
       }
     },
+    "/v1/integration/oauth-clients": {
+      "get": {
+        "operationId": "list_oauth_clients_v1_integration_oauth_clients_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Oauth Clients V1 Integration Oauth Clients Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Oauth Clients",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "register_oauth_client_v1_integration_oauth_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthClientBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Oauth Client V1 Integration Oauth Clients Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Oauth Client",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/oauth-clients/{client_id}:retire": {
+      "post": {
+        "operationId": "retire_oauth_client_v1_integration_oauth_clients__client_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "title": "Client Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Oauth Client V1 Integration Oauth Clients  Client Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Oauth Client",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
     "/v1/integration/routes": {
       "get": {
         "operationId": "list_routes_v1_integration_routes_get",
@@ -1164,7 +1327,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RouteBody"
+                "$ref": "#/components/schemas/zid_platform__modules__integration__api__integration__RouteBody"
               }
             }
           },

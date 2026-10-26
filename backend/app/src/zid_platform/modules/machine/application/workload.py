@@ -196,7 +196,7 @@ async def quarantine_environment(
             name=name,
             tenant_id=tenant_id,
             aggregate_type="workload_environment",
-            aggregate_id=f"{environment_id}:{name.rsplit('.', 1)[-1]}",
+            aggregate_id=f"{tenant_id}:{environment_id}:{name.rsplit('.', 1)[-1]}",
             aggregate_version=rev,
             data={
                 "environment_id": environment_id,

@@ -218,10 +218,17 @@ async def list_grants(
     status: GrantStatus | None = None,
     grantee_principal_id: str | None = None,
     limit: int = 100,
+    after: tuple[datetime, str] | None = None,
 ) -> list[Grant]:
-    """The tenant's grants, newest first (RLS scopes the read to the caller's tenant)."""
+    """The tenant's grants, newest first (RLS scopes the read to the caller's tenant).
+
+    `after`: the `(issued_at, grant id)` of the last row of the previous page; the next page is every row after it
+    in that total order, so paging is stable while rows are inserted (API-17)."""
     where: list[str] = ["TRUE"]
     params: dict[str, Any] = {"lim": limit}
+    if after is not None:
+        where.append("(g.issued_at, g.authority_grant_id) < (:after_at, :after_id)")
+        params["after_at"], params["after_id"] = after[0], uuid.UUID(after[1])
     if status is not None:
         where.append("g.status = CAST(:st AS authz.grant_status)")
         params["st"] = status.value

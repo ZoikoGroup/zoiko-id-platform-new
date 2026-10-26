@@ -68,6 +68,9 @@ def registry_adapter(request: Request, namespace: str) -> RegistryAdapter:
     broker = getattr(request.app.state, "secret_broker", None)
 
     def key() -> str | None:
+        override = getattr(request.app.state, "registry_credential_override", None)
+        if override:
+            return str(override)  # the local/test register simulator (ZID_DEV_SIMULATORS)
         try:
             return str(broker.get("companies-house-api-key")) if broker else None
         except Exception:  # noqa: BLE001 - SECRET_UNAVAILABLE: the adapter reports REGISTRY_UNAVAILABLE
@@ -88,6 +91,33 @@ class OrganizationBody(BaseModel):
     namespace: str = Field(pattern=r"^(GB-COH)$")  # the national register the root comes from
     identifier: str = Field(min_length=6, max_length=20)
     lei: str | None = Field(default=None, min_length=20, max_length=20)  # optional corroboration
+
+
+@router.get("/organization")
+async def declared_organization(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What the company declared at registration, to prefill company verification."""
+    from zid_platform.modules.tenant.ports import declared_registration
+
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        roles = await live_roles(conn, _me(caller))
+        if not any(a.role in (Role.OWNER, Role.ADMIN) for a in roles):
+            raise ZidError(
+                "TENANT_ROLE_REQUIRED", "An OWNER or ADMIN role is required.", http_status=403
+            )
+        r = await declared_registration(conn, caller.ctx.tenant_id or "")
+    if r is None:
+        return {"declared": None}
+    return {
+        "declared": {
+            "namespace": r.register_namespace,
+            "identifier": r.register_identifier,
+            "lei": r.lei,
+            "notice_version": r.notice_version,
+            "notice_accepted_at": r.notice_accepted_at.isoformat(),
+            "home_cell_id": r.home_cell_id,
+            "declared_at": r.declared_at.isoformat(),
+        }
+    }
 
 
 @router.post("/organization")

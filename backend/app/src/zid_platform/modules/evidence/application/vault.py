@@ -23,7 +23,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
+import time
 from collections.abc import Iterable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -33,9 +35,15 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_crypto import CryptoError
-from zid_crypto.envelope import Aad, Envelope, open_envelope, seal
+from zid_crypto.envelope import Aad, Envelope, open_envelope, rewrap_envelope, seal
 from zid_crypto.handles import handle
-from zid_crypto.providers import KeyDestroyedError, KeyRef, zeroize
+from zid_crypto.providers import (
+    KeyDestroyedError,
+    KeyMetadata,
+    KeyRef,
+    LocalKeyProvider,
+    zeroize,
+)
 from zid_evidence import Digest, hash_bytes, hash_json
 from zid_outbox import emit
 
@@ -96,8 +104,12 @@ async def _subject_key(
     kek = KeyRef(rt.subject_kek.purpose, row.kek_id, row.kek_version)
     try:
         key = await rt.provider.unwrap_data_key(kek, row.wrapped_key, _context(tenant_id, ref))
-    except KeyDestroyedError:
-        return None
+    except KeyDestroyedError as e:
+        # The subject key row is still ACTIVE, so this is not an erasure: the KEK that wraps it is gone or
+        # disabled (a customer-held key switched off, HYOK). Refuse, and say why; never fall back to another key.
+        raise LedgerError(
+            "EVIDENCE_KEY_UNAVAILABLE", "the tenant key is disabled or destroyed"
+        ) from e
     return key, row.key_id
 
 
@@ -352,6 +364,12 @@ async def create_hold(
     return hold
 
 
+async def hold_status(conn: AsyncConnection, hold_id: str) -> str | None:
+    """ACTIVE / RELEASED / EXPIRED, or None when the hold is not on record (after a restore: it was lost)."""
+    hold = await store.load_hold(conn, hold_id)
+    return hold.status if hold else None
+
+
 async def release_hold(
     conn: AsyncConnection,
     tenant_id: str,
@@ -432,6 +450,62 @@ class ErasureResult:
     details: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class TenantErasure:
+    subjects: int
+    erased: int  # subjects fully crypto-erased
+    partial: int  # subjects with something held back by a legal hold
+    nothing: int
+    objects_erased: int
+    objects_retained: int
+    dedicated_key_scheduled: bool  # the company's own KEK was scheduled for destruction
+
+
+async def erase_tenant(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    request_ref: str,
+    now: datetime | None = None,
+    rt: EvidenceRuntime | None = None,
+) -> TenantErasure:
+    """TEN-25: crypto-erase every subject the company's evidence vault holds, through the same legal-hold evaluation
+    as a single person's erasure; a held subject is kept and reported, never destroyed. Only when nothing is held back
+    is the company's own dedicated KEK scheduled for destruction (a shared platform KEK is never touched). Receipts,
+    hashes and checkpoints stay valid: the ledger is retained per policy. Idempotent."""
+    rt, now = rt or current_runtime(), now or _now()
+    seen: set[str] = set()
+    erased = partial = nothing = objs = kept = 0
+    while True:
+        fresh = [
+            r
+            for r in await store.active_subject_keys(conn, 500, tenant_id)
+            if str(r.subject_ref) not in seen
+        ]
+        if not fresh:
+            break
+        for row in fresh:
+            ref = str(row.subject_ref)
+            seen.add(ref)
+            res = await erase_subject_ref(
+                conn, tenant_id, ref, request_ref=request_ref, now=now, rt=rt
+            )
+            objs += len(res.erased_objects)
+            kept += len(res.retained_objects)
+            if res.outcome == "ERASED":
+                erased += 1
+            elif res.outcome == "PARTIAL":
+                partial += 1
+            else:
+                nothing += 1
+    scheduled = False
+    own_kek = rt.tenant_keks.get(tenant_id)
+    if own_kek is not None and partial == 0:
+        await rt.provider.destroy_key(own_kek)
+        scheduled = True
+    return TenantErasure(len(seen), erased, partial, nothing, objs, kept, scheduled)
+
+
 async def erase_subject(
     conn: AsyncConnection,
     tenant_id: str,
@@ -449,6 +523,19 @@ async def erase_subject(
     the key are kept (PARTIAL, PRIV-17: retained items are restricted and reasoned). Idempotent."""
     rt, now = rt or current_runtime(), now or _now()
     ref = await make_handle(rt, tenant_id, SUBJECT_DOMAIN, principal_id)
+    return await erase_subject_ref(conn, tenant_id, ref, request_ref=request_ref, now=now, rt=rt)
+
+
+async def erase_subject_ref(
+    conn: AsyncConnection,
+    tenant_id: str,
+    ref: str,
+    *,
+    request_ref: str,
+    now: datetime,
+    rt: EvidenceRuntime,
+) -> ErasureResult:
+    """`erase_subject` for a subject already named by its handle (tenant deletion walks the handles it holds)."""
     await store.load_subject_key(conn, tenant_id, ref, lock=True)  # serialize erasure per subject
     objects = await store.subject_objects(conn, tenant_id, ref)
     holds_now = await store.active_holds(conn, tenant_id, now)
@@ -607,10 +694,11 @@ async def rewrap_subject_keys(
         try:
             key = await rt.provider.unwrap_data_key(old, bytes(row.wrapped_key), context)
         except CryptoError:
-            log.warning(
-                "subject key rewrap skipped (KEK unavailable)",
-                extra={"tenant_id": tenant, "kek_id": row.kek_id},
-            )
+            with suppress(Exception):  # a failing log sink never aborts the pass (EVID-29)
+                log.warning(
+                    "subject key rewrap skipped (KEK unavailable)",
+                    extra={"tenant_id": tenant, "kek_id": row.kek_id},
+                )
             continue
         try:
             wrapped, exact = await rt.provider.wrap_data_key(target.at(version), key, context)
@@ -623,19 +711,184 @@ async def rewrap_subject_keys(
     return done
 
 
+async def rewrap_object_envelopes(
+    conn: AsyncConnection,
+    *,
+    rt: EvidenceRuntime | None = None,
+    limit: int = 500,
+    tenant_id: str | None = None,
+) -> int:
+    """Background rewrap of objects enveloped under the cell DATA_KEK (DEC-F5 §7): the wrapped DEK
+    moves to the current KEK version; ciphertext, nonce and content hash are untouched, so nothing
+    is decrypted in bulk or rewritten. An envelope that cannot be opened is skipped and retried."""
+    rt = rt or current_runtime()
+    target = rt.data_kek
+    version = (await rt.provider.metadata(target)).version
+    current_ref = f"kek:{target.key_id}:{version}"
+    done = 0
+    for row in await store.kek_wrapped_objects(conn, current_ref, limit, tenant_id):
+        envelope = Envelope.from_bytes(bytes(row.ciphertext))
+        aad = _object_aad(str(row.tenant_id), str(row.evidence_object_id), row.object_type)
+        try:
+            moved = await rewrap_envelope(envelope, aad, rt.provider, target.at(version))
+        except CryptoError:
+            with suppress(Exception):  # a failing log sink never aborts the pass (EVID-29)
+                log.warning(
+                    "object rewrap skipped (KEK unavailable)",
+                    extra={"tenant_id": str(row.tenant_id), "kek_id": envelope.kek.key_id},
+                )
+            continue
+        await store.update_object_envelope(
+            conn,
+            str(row.evidence_object_id),
+            moved.to_bytes(),
+            f"kek:{moved.kek.key_id}:{moved.kek.version}",
+        )
+        done += 1
+    return done
+
+
+async def kek_dependents(conn: AsyncConnection, kek: KeyRef) -> int:
+    """How many live artifacts still depend on this exact KEK version (dependency inventory)."""
+    if kek.version is None:
+        raise CryptoError("CRYPTO_KEY_UNKNOWN", "dependency check needs the exact key version")
+    return await store.count_kek_dependents(conn, kek.key_id, kek.version)
+
+
+async def retire_kek_version(
+    conn: AsyncConnection, kek: KeyRef, *, rt: EvidenceRuntime | None = None
+) -> KeyMetadata:
+    """Destroy a superseded KEK version, but only once nothing depends on it (CRYPTO-001 §8:
+    "retirement occurs only after dependency inventory confirms no active artifact depends on
+    the key"). Refuses with CRYPTO_KEK_HAS_DEPENDENTS otherwise.
+
+    Local/test providers hold versions themselves and destroy the version here; KMS rotates key
+    material transparently and a version label is not a KMS key, so a deployed cell retires old
+    key material through the key policy (IaC) after this same check."""
+    rt = rt or current_runtime()
+    remaining = await kek_dependents(conn, kek)
+    if remaining:
+        raise CryptoError(
+            "CRYPTO_KEK_HAS_DEPENDENTS", f"{remaining} artifacts still wrapped under {kek.key_id}"
+        )
+    if not isinstance(rt.provider, LocalKeyProvider):
+        raise CryptoError("CRYPTO_RETIRE_UNSUPPORTED", "retire KMS key material through its policy")
+    return await rt.provider.destroy_key(kek)
+
+
+@dataclass(frozen=True, slots=True)
+class CompromiseReport:
+    kek: KeyRef
+    dependents_before: int
+    rewrapped: int
+    dependents_after: int
+    retired: bool
+    seconds: float
+
+
+async def respond_to_kek_compromise(
+    conn: AsyncConnection, kek: KeyRef, *, rt: EvidenceRuntime | None = None
+) -> CompromiseReport:
+    """Incident response for a compromised KEK version (CRYPTO-001 §8.1, §26): identify what depends
+    on it, rotate so no new artifact can be wrapped under it, rewrap every dependent to the
+    successor and retire the compromised version once the dependency count is zero. Local/test
+    providers only (a deployed KMS key is rotated by the key policy); the counts and timing are
+    returned for the incident record. `kek` must name the exact version that is compromised."""
+    rt = rt or current_runtime()
+    started = time.monotonic()
+    if not isinstance(rt.provider, LocalKeyProvider):
+        raise CryptoError("CRYPTO_RETIRE_UNSUPPORTED", "rotate KMS key material through its policy")
+    if kek.version is None:
+        raise CryptoError("CRYPTO_KEY_UNKNOWN", "name the exact compromised key version")
+    before = await kek_dependents(conn, kek)
+    if (await rt.provider.metadata(kek)).state.value == "ACTIVE":
+        rt.provider.rotate_key(kek)  # the old version is RETIRED: nothing new can be wrapped
+    rewrapped = 0
+    while moved := await rewrap_subject_keys(conn, rt=rt) + await rewrap_object_envelopes(
+        conn, rt=rt
+    ):
+        rewrapped += moved
+    after = await kek_dependents(conn, kek)
+    retired = False
+    if after == 0:
+        await retire_kek_version(conn, kek, rt=rt)
+        retired = True
+    return CompromiseReport(kek, before, rewrapped, after, retired, time.monotonic() - started)
+
+
+@dataclass(frozen=True, slots=True)
+class RekeyReport:
+    subject_ref: str
+    objects_reencrypted: int
+    old_key_id: str
+    new_key_id: str
+
+
+async def rekey_subject(
+    conn: AsyncConnection, tenant_id: str, subject_ref_: str, *, rt: EvidenceRuntime | None = None
+) -> RekeyReport | None:
+    """Recover from a compromised data key (CRYPTO-001 §8.1, §26; CRYP-11): the one subject's objects are
+    decrypted under the old key and re-encrypted under a fresh key wrapped by the tenant's KEK, in the
+    caller's transaction, then the old key is discarded. Other subjects, other tenants and the KEKs are not
+    touched, so the blast radius is that subject's objects and nothing else. None when the subject has no
+    active key (never stored, or already erased). Worker role: it rewrites ciphertext."""
+    rt = rt or current_runtime()
+    got = await _subject_key(conn, rt, tenant_id, subject_ref_, create=False)
+    if got is None:
+        return None
+    old, old_key_id = got
+    new = bytearray(secrets.token_bytes(32))
+    new_key_id = str(uuid7())
+    moved = 0
+    try:
+        for row in await store.subject_object_blobs(conn, tenant_id, subject_ref_):
+            aad = _object_aad(tenant_id, str(row.evidence_object_id), row.object_type).encode()
+            plaintext = _decrypt(old, aad, bytes(row.ciphertext))
+            await store.update_object_ciphertext(
+                conn,
+                str(row.evidence_object_id),
+                _encrypt(new, aad, plaintext),
+                f"subject:{new_key_id}",
+            )
+            moved += 1
+        wrapped, exact = await rt.provider.wrap_data_key(
+            rt.kek_for(tenant_id), new, _context(tenant_id, subject_ref_)
+        )
+        await store.replace_subject_key(
+            conn,
+            tenant_id,
+            subject_ref_,
+            key_id=new_key_id,
+            wrapped=wrapped,
+            kek_id=exact.key_id,
+            kek_version=exact.version or 1,
+        )
+    finally:
+        zeroize(old)
+        zeroize(new)
+    return RekeyReport(subject_ref_, moved, old_key_id, new_key_id)
+
+
 __all__ = [
+    "CompromiseReport",
     "ErasureResult",
+    "RekeyReport",
     "actor_handle",
     "create_hold",
     "dispose_due_objects",
     "erase_subject",
     "holding",
     "is_held",
+    "kek_dependents",
     "make_handle",
     "read_object",
     "reapply_tombstones",
+    "rekey_subject",
     "release_hold",
     "resolve_handle",
+    "respond_to_kek_compromise",
+    "retire_kek_version",
+    "rewrap_object_envelopes",
     "rewrap_subject_keys",
     "store_object",
     "subject_ref",

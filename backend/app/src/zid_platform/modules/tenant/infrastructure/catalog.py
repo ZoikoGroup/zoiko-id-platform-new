@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from zid_platform.modules.tenant.domain.residency import Catalog, Cell
+from zid_platform.modules.tenant.domain.residency import Catalog, Cell, Placement
 
 CONFIG = Path(
     os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
@@ -27,9 +27,18 @@ def catalog() -> Catalog:
     cells_doc = _yaml(CONFIG / "cells" / "cells.yaml")
     profiles_doc = _yaml(CONFIG / "residency-profiles" / "residency-profiles.yaml")
     cells: dict[str, Cell] = {}
+    placements: dict[str, dict[str, Placement]] = {}
     for cell_id, body in (cells_doc.get("cells") or {}).items():
         juris = body.get("jurisdiction") or {}
         recovery = body.get("recovery") or {}
+        placements[cell_id] = {
+            name: Placement(
+                region=loc.get("region"),
+                country=loc.get("country"),
+                dedicated=bool(loc.get("dedicated", False)),
+            )
+            for name, loc in (body.get("subsystem_placements") or {}).items()
+        }
         cells[cell_id] = Cell(
             cell_id=cell_id,
             region=body.get("region"),
@@ -43,6 +52,7 @@ def catalog() -> Catalog:
         cells=cells,
         profiles=profiles_doc.get("profiles") or {},
         coverage_subsystems=tuple(profiles_doc.get("coverage_matrix_subsystems") or ()),
+        placements=placements,
         extra={"cross_border_default": profiles_doc.get("cross_border_default", "DENY")},
     )
 

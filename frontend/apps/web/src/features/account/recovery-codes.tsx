@@ -1,10 +1,10 @@
 "use client";
 
-import { Banner, Button, Card, Checkbox, Dialog, PageHeader } from "@zoiko/ui";
+import { Banner, Button, Card, Checkbox, Dialog, PageHeader, TextField } from "@zoiko/ui";
 import { AlertTriangle, Check, Copy, Download, KeyRound, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
-import { ApiErrorView } from "@/lib/cell";
+import { ApiErrorView, useCellMutation } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
 /** Download as a plain-text file, built in memory; nothing is written to web storage. */
@@ -26,6 +26,44 @@ function downloadCodes(codes: string[]) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** Stops an account recovery the person did not start. The id comes from the notification they were sent. */
+function CancelRecoveryCard() {
+  const [id, setId] = useState("");
+  const cancel = useCellMutation((api, recoveryId: string) => api.me.cancelRecovery(recoveryId), {
+    success: "That recovery attempt was stopped. It cannot be used to sign in.",
+    onSuccess: () => setId(""),
+  });
+  const value = id.trim();
+  return (
+    <Card
+      title="A recovery attempt you do not recognise"
+      description="If you were told that someone started recovering your account and it was not you, stop it here."
+    >
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (value) cancel.mutate(value);
+        }}
+      >
+        <TextField
+          label="Recovery attempt ID"
+          mono
+          value={id}
+          onChange={setId}
+          placeholder="from the notification"
+          className="min-w-64 flex-1"
+          description="Stopping it is final: whoever started it has to start again."
+        />
+        <Button type="submit" variant="danger" isDisabled={!value} isPending={cancel.isPending} className="mb-5">
+          Stop this recovery
+        </Button>
+      </form>
+      {cancel.isError ? <ApiErrorView error={cancel.error} /> : null}
+    </Card>
+  );
 }
 
 export function RecoveryCodesPage() {
@@ -138,6 +176,8 @@ export function RecoveryCodesPage() {
           </div>
         </Card>
       )}
+
+      {codes ? null : <CancelRecoveryCard />}
 
       <Dialog
         isOpen={confirming}

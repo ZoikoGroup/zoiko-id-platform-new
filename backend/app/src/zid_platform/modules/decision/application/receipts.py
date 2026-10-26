@@ -179,6 +179,8 @@ async def emit_receipt(
         actor_principal_id=executor_id,
         represented_principal_id=req.represented_principal_id,
         resource_ref=req.resource_id,
+        workload_ref=req.workload_ref,
+        tool_ref=req.tool_id,
         purpose_id=req.purpose,
         policy_release_id=decision.policy_release_id or None,
         policy_engine_version=ENGINE_VERSION,

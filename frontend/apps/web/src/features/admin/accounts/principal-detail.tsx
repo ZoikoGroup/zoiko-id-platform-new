@@ -5,6 +5,7 @@ import { Button, CopyId, StatusBadge, humanize } from "@zoiko/ui";
 import { UserRound, X } from "lucide-react";
 
 import { AssuranceCard } from "./assurance-card";
+import { AuthorityCard, CredentialsCard } from "./authority-card";
 import { LockboxCard } from "./lockbox-card";
 import { RecoveryCard } from "./recovery-card";
 import { SessionsCard } from "./sessions-card";
@@ -35,6 +36,8 @@ export function PrincipalDetail({ principal, onClose }: { principal: PrincipalIt
         <SessionsCard principal={principal} />
         <RecoveryCard principal={principal} />
       </div>
+      <AuthorityCard principal={principal} />
+      <CredentialsCard principal={principal} />
       <LockboxCard principal={principal} />
       <AssuranceCard principal={principal} />
     </section>

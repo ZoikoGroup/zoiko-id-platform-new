@@ -78,6 +78,16 @@ async def _tenant(request: Request, client_id: str) -> str:
     return tenant
 
 
+@router.get("/authn/recovery-codes/status")
+async def codes_status(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Whether the signed-in person holds usable recovery codes (never the codes themselves)."""
+    from zid_platform.modules.authentication.infrastructure.recovery_store import code_status
+
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        left, issued = await code_status(conn, caller.ctx.principal_id or "")
+    return {"codes_remaining": left, "issued_at": issued.isoformat() if issued else None}
+
+
 @router.post("/authn/recovery-codes", status_code=201)
 async def issue_codes(request: Request, caller: CallerDep) -> dict[str, Any]:
     now = datetime.now(UTC)

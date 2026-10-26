@@ -16,10 +16,12 @@ import base64
 import hashlib
 import ipaddress
 import random
-from collections.abc import Callable, Iterable
+import re
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Any
 from urllib.parse import urlsplit
 
 ALLOWED_PORTS = frozenset({None, 443, 8443})
@@ -65,6 +67,14 @@ def validate_url(url: str, *, allow_http: bool = False) -> str:
         raise WebhookError("WEBHOOK_URL_INVALID", "unsupported port")
     if _is_ip_literal(parts.hostname):
         raise WebhookError("WEBHOOK_URL_INVALID", "use a DNS name, not a literal IP")
+    host = parts.hostname.lower()
+    if (
+        host.rsplit(".", 1)[-1].isdigit()
+        or host.startswith("0x")
+        or host.endswith((".local", ".internal"))
+    ):
+        # decimal/hex IP spellings and internal-only names (SEC-19); resolution is still checked
+        raise WebhookError("WEBHOOK_URL_INVALID", "numeric or internal host name")
     return parts._replace(netloc=parts.netloc.lower()).geturl()
 
 
@@ -153,6 +163,104 @@ def sign_request(
     return SignedRequest(headers, base)
 
 
+# ---------------------------------------------------------------- signing keys and rotation (EVT-24)
+
+MAX_KEY_OVERLAP = timedelta(days=30)
+MAX_SIGNATURE_AGE = (
+    300  # seconds a receiver accepts a signature's `created` for (stale or replayed copies fail)
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SigningKeys:
+    """The public keys a receiver may verify with: the key that signs now, and retiring keys that are still
+    published until their retire time, so a receiver mid-rotation keeps working. A retired key is gone: a
+    delivery naming it is refused, never accepted on a fallback."""
+
+    current: Mapping[str, Any]
+    retiring: tuple[tuple[Mapping[str, Any], datetime], ...] = ()
+
+    def published(self, now: datetime) -> list[Mapping[str, Any]]:
+        return [self.current, *(jwk for jwk, retire_at in self.retiring if retire_at > now)]
+
+
+def build_signing_keys(
+    current: Mapping[str, Any],
+    retiring: Iterable[Mapping[str, Any]],
+    *,
+    now: datetime,
+) -> SigningKeys:
+    """`retiring`: `{"jwk": {...}, "retire_at": ISO-8601}`. The overlap is bounded and a key never overlaps itself."""
+    out: list[tuple[Mapping[str, Any], datetime]] = []
+    for entry in retiring:
+        jwk, raw = entry.get("jwk"), entry.get("retire_at")
+        try:
+            retire_at = datetime.fromisoformat(str(raw))
+        except ValueError as e:
+            raise WebhookError("WEBHOOK_KEY_INVALID", "retire_at must be an ISO-8601 time") from e
+        if (
+            not isinstance(jwk, Mapping)
+            or not jwk.get("kid")
+            or jwk.get("kid") == current.get("kid")
+        ):
+            raise WebhookError("WEBHOOK_KEY_INVALID", "a retiring key needs its own kid")
+        if retire_at.tzinfo is None or retire_at - now > MAX_KEY_OVERLAP:
+            raise WebhookError("WEBHOOK_KEY_INVALID", "the overlap is at most 30 days")
+        out.append((jwk, retire_at))
+    return SigningKeys(current, tuple(out))
+
+
+def verify_request(
+    *,
+    url: str,
+    body: bytes,
+    headers: Mapping[str, str],
+    keys: Sequence[Mapping[str, Any]],
+    now: int,
+    verify: Callable[[Mapping[str, Any], bytes, bytes], None],
+    max_age: int = MAX_SIGNATURE_AGE,
+) -> str:
+    """The receiver's check of a delivery: returns the event id when the signature verifies.
+
+    Refuses an unsigned delivery, a stale `created`, a body that is not the signed digest, a `keyid` that is not in
+    the published set (a retired key included), and a signature that does not verify. There is no unsigned path.
+
+    `verify(jwk, data, signature)` raises when the signature is wrong (`zid_crypto.verify_signature`); it is passed
+    in so the domain stays free of I/O and of the crypto library."""
+    h = {k.lower(): v for k, v in headers.items()}
+    signature_input, signature = h.get("signature-input"), h.get("signature")
+    if not signature_input or not signature:
+        raise WebhookError("WEBHOOK_SIGNATURE_MISSING")
+    match = re.fullmatch(r'zid=(\(.*\));created=(\d+);keyid="([^"]+)"', signature_input)
+    if match is None or not signature.startswith("zid=:") or not signature.endswith(":"):
+        raise WebhookError("WEBHOOK_SIGNATURE_MALFORMED")
+    components, created, key_id = match.group(1), int(match.group(2)), match.group(3)
+    if abs(now - created) > max_age:
+        raise WebhookError("WEBHOOK_SIGNATURE_STALE")
+    if h.get("content-digest") != content_digest(body):
+        raise WebhookError("WEBHOOK_DIGEST_MISMATCH")
+    jwk = next((k for k in keys if k.get("kid") == key_id), None)
+    if jwk is None:
+        raise WebhookError("WEBHOOK_KEY_UNKNOWN")
+    values = {
+        "@method": "POST",
+        "@authority": urlsplit(url).netloc.lower(),
+        "@target-uri": url,
+        "content-type": h.get("content-type", ""),
+        "content-digest": h["content-digest"],
+        "x-zoiko-event-id": h.get("x-zoiko-event-id", ""),
+    }
+    base = (
+        "\n".join(f'"{c}": {values[c]}' for c in SIGNED_COMPONENTS)
+        + f'\n"@signature-params": {components};created={created};keyid="{key_id}"'
+    )
+    try:
+        verify(jwk, base.encode(), base64.b64decode(signature[len("zid=:") : -1]))
+    except Exception as e:
+        raise WebhookError("WEBHOOK_SIGNATURE_INVALID") from e
+    return values["x-zoiko-event-id"]
+
+
 # ---------------------------------------------------------------- delivery state machine (§18-19)
 
 
@@ -227,3 +335,37 @@ def next_step(
     if retry_after is not None:
         delay = max(delay, min(retry_after, MAX_RETRY_AFTER))
     return NextStep(DeliveryStatus.RETRY_SCHEDULED, now + delay)
+
+
+# ---------------------------------------------------------------- subscribable event types (§17)
+
+# Event types an endpoint may subscribe to (API-001 §17, EVENTS-001 §17 "exact allowlisted event
+# types"): integration-facing facts only. Internal/evidence/operator events are never delivered.
+SUBSCRIBABLE = {
+    "com.zoiko.id.principal.security_revision.changed.v1": "Security-critical principal state",
+    "com.zoiko.id.organization.status_changed.v1": "Organization status change",
+    "com.zoiko.id.authority_root.activated.v1": "Authority root activated",
+    "com.zoiko.id.authority_root.stale.v1": "Authority root became stale",
+    "com.zoiko.id.authority_root.revoked.v1": "Authority root revoked",
+    "com.zoiko.id.relationship.edge.changed.v1": "Relationship added, ended or superseded",
+    "com.zoiko.id.authority.grant.activated.v1": "Authority grant active",
+    "com.zoiko.id.authority.grant.revoked.v1": "Authority grant revoked",
+    "com.zoiko.id.mandate.created.v1": "Mandate created",
+    "com.zoiko.id.mandate.reservation.created.v1": "Consumable reservation",
+    "com.zoiko.id.mandate.reservation.committed.v1": "Reservation committed",
+    "com.zoiko.id.mandate.revoked.v1": "Mandate revoked",
+    "com.zoiko.id.verification.completed.v1": "Verification final",
+    "com.zoiko.id.credential.status.changed.v1": "Credential status update",
+    "com.zoiko.id.privacy.consent.withdrawn.v1": "Consent withdrawn",
+    "com.zoiko.id.policy.release.changed.v1": "Policy release drafted, reviewed or published",
+}
+
+
+def check_event_types(types: Iterable[str]) -> list[str]:
+    chosen = sorted(set(types))
+    if not chosen:
+        raise WebhookError("WEBHOOK_EVENT_NOT_ALLOWED", "subscribe to at least one event type")
+    unknown = [t for t in chosen if t not in SUBSCRIBABLE]
+    if unknown:
+        raise WebhookError("WEBHOOK_EVENT_NOT_ALLOWED", ", ".join(unknown))
+    return chosen

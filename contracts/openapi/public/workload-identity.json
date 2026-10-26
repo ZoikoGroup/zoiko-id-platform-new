@@ -1,6 +1,109 @@
 {
   "components": {
     "schemas": {
+      "AgentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "allowed_tools": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Allowed Tools",
+            "type": "array"
+          },
+          "blueprint_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$",
+            "title": "Blueprint Id",
+            "type": "string"
+          },
+          "blueprint_version": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Blueprint Version",
+            "type": "string"
+          },
+          "max_subagent_depth": {
+            "default": 0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Max Subagent Depth",
+            "type": "integer"
+          },
+          "model_provider": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Model Provider",
+            "type": "string"
+          },
+          "operator_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Operator Principal Id",
+            "type": "string"
+          },
+          "owning_organization_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owning Organization Id"
+          },
+          "sponsor_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Sponsor Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_name",
+          "blueprint_id",
+          "blueprint_version",
+          "operator_principal_id",
+          "sponsor_principal_id"
+        ],
+        "title": "AgentBody",
+        "type": "object"
+      },
+      "AttestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "gate": {
+            "enum": [
+              "SECURITY_REVIEW",
+              "KILL_PATH_TESTED",
+              "SHORT_LIVED_CREDENTIALS",
+              "OBSERVABILITY"
+            ],
+            "title": "Gate",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate"
+        ],
+        "title": "AttestBody",
+        "type": "object"
+      },
       "BindingBody": {
         "additionalProperties": false,
         "properties": {
@@ -56,6 +159,91 @@
         "title": "BindingBody",
         "type": "object"
       },
+      "BlueprintBody": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "pattern": "^sha-?256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "blueprint_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$",
+            "title": "Blueprint Id",
+            "type": "string"
+          },
+          "publisher_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Publisher Principal Id",
+            "type": "string"
+          },
+          "tool_manifest_digest": {
+            "pattern": "^sha-?256:[0-9a-f]{64}$",
+            "title": "Tool Manifest Digest",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blueprint_id",
+          "version",
+          "artifact_digest",
+          "tool_manifest_digest",
+          "publisher_principal_id"
+        ],
+        "title": "BlueprintBody",
+        "type": "object"
+      },
+      "ChildBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "allowed_tools": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Allowed Tools",
+            "type": "array"
+          },
+          "max_subagent_depth": {
+            "default": 0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Max Subagent Depth",
+            "type": "integer"
+          },
+          "operator_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Operator Principal Id",
+            "type": "string"
+          },
+          "sponsor_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Sponsor Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_name",
+          "operator_principal_id",
+          "sponsor_principal_id"
+        ],
+        "title": "ChildBody",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -89,6 +277,70 @@
           "reason"
         ],
         "title": "RevokeBody",
+        "type": "object"
+      },
+      "ToolBody": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_action": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Canonical Action",
+            "type": "string"
+          },
+          "default_risk_class": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Default Risk Class",
+            "type": "integer"
+          },
+          "requires_human_approval": {
+            "default": false,
+            "title": "Requires Human Approval",
+            "type": "boolean"
+          },
+          "requires_mandate": {
+            "default": false,
+            "title": "Requires Mandate",
+            "type": "boolean"
+          },
+          "server_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Server Principal Id",
+            "type": "string"
+          },
+          "side_effect": {
+            "enum": [
+              "NONE",
+              "REVERSIBLE",
+              "IRREVERSIBLE",
+              "EXTERNAL_TRANSACTION"
+            ],
+            "title": "Side Effect",
+            "type": "string"
+          },
+          "tool_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$",
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_id",
+          "version",
+          "server_principal_id",
+          "canonical_action",
+          "default_risk_class",
+          "side_effect"
+        ],
+        "title": "ToolBody",
         "type": "object"
       },
       "ValidationError": {
@@ -159,6 +411,19 @@
         "title": "WorkloadTokenBody",
         "type": "object"
       },
+      "zid_platform__modules__machine__api__agents__ReasonBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "default": "OPERATOR_DECISION",
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "title": "ReasonBody",
+        "type": "object"
+      },
       "zid_platform__modules__machine__api__workloads__QuarantineBody": {
         "additionalProperties": false,
         "properties": {
@@ -177,11 +442,683 @@
     }
   },
   "info": {
-    "title": "Zoiko iD Workload Identity API (SPIFFE bindings, environment quarantine)",
+    "title": "Zoiko iD Machine Identity API (agents, blueprints, tools, SPIFFE bindings, environment quarantine)",
     "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/machine/agents": {
+      "get": {
+        "operationId": "list_agents_v1_machine_agents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DRAFT",
+                    "PENDING_APPROVAL",
+                    "ACTIVE",
+                    "SUSPENDED",
+                    "REVOKED",
+                    "RETIRED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Agents V1 Machine Agents Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Agents",
+        "tags": [
+          "agent-registry"
+        ]
+      },
+      "post": {
+        "operationId": "register_agent_v1_machine_agents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Agent V1 Machine Agents Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}": {
+      "get": {
+        "operationId": "read_agent_v1_machine_agents__agent_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Agent V1 Machine Agents  Agent Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/children": {
+      "post": {
+        "operationId": "register_child_v1_machine_agents__agent_id__children_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Child V1 Machine Agents  Agent Id  Children Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Child",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:activate": {
+      "post": {
+        "operationId": "activate_agent_v1_machine_agents__agent_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Agent V1 Machine Agents  Agent Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:attest": {
+      "post": {
+        "operationId": "attest_v1_machine_agents__agent_id__attest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Attest V1 Machine Agents  Agent Id  Attest Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attest",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:retire": {
+      "post": {
+        "operationId": "retire_agent_v1_machine_agents__agent_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Agent V1 Machine Agents  Agent Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:revoke": {
+      "post": {
+        "operationId": "revoke_agent_v1_machine_agents__agent_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Agent V1 Machine Agents  Agent Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:submit": {
+      "post": {
+        "operationId": "submit_agent_v1_machine_agents__agent_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Agent V1 Machine Agents  Agent Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}:suspend": {
+      "post": {
+        "operationId": "suspend_agent_v1_machine_agents__agent_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Agent V1 Machine Agents  Agent Id  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/blueprints": {
+      "get": {
+        "operationId": "list_blueprints_v1_machine_blueprints_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Blueprints V1 Machine Blueprints Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Blueprints",
+        "tags": [
+          "agent-registry"
+        ]
+      },
+      "post": {
+        "operationId": "create_blueprint_v1_machine_blueprints_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlueprintBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Blueprint V1 Machine Blueprints Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Blueprint",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/blueprints/{blueprint_id}/versions/{version}:approve": {
+      "post": {
+        "operationId": "approve_blueprint_v1_machine_blueprints__blueprint_id__versions__version__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blueprint_id",
+            "required": true,
+            "schema": {
+              "title": "Blueprint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Blueprint V1 Machine Blueprints  Blueprint Id  Versions  Version  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Blueprint",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/blueprints/{blueprint_id}/versions/{version}:revoke": {
+      "post": {
+        "operationId": "revoke_blueprint_v1_machine_blueprints__blueprint_id__versions__version__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blueprint_id",
+            "required": true,
+            "schema": {
+              "title": "Blueprint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Blueprint V1 Machine Blueprints  Blueprint Id  Versions  Version  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Blueprint",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
     "/v1/machine/environments/{environment_id}:quarantine": {
       "post": {
         "operationId": "quarantine_v1_machine_environments__environment_id__quarantine_post",
@@ -277,6 +1214,212 @@
         "summary": "Release",
         "tags": [
           "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/tools": {
+      "get": {
+        "operationId": "list_tools_v1_machine_tools_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Tools V1 Machine Tools Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tools",
+        "tags": [
+          "agent-registry"
+        ]
+      },
+      "post": {
+        "operationId": "register_tool_v1_machine_tools_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Tool V1 Machine Tools Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Tool",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/tools/{tool_id}:activate": {
+      "post": {
+        "operationId": "activate_tool_v1_machine_tools__tool_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tool_id",
+            "required": true,
+            "schema": {
+              "title": "Tool Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Tool V1 Machine Tools  Tool Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Tool",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/tools/{tool_id}:retire": {
+      "post": {
+        "operationId": "retire_tool_v1_machine_tools__tool_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tool_id",
+            "required": true,
+            "schema": {
+              "title": "Tool Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Tool V1 Machine Tools  Tool Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Tool",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/tools/{tool_id}:suspend": {
+      "post": {
+        "operationId": "suspend_tool_v1_machine_tools__tool_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tool_id",
+            "required": true,
+            "schema": {
+              "title": "Tool Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Tool V1 Machine Tools  Tool Id  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Tool",
+        "tags": [
+          "agent-registry"
         ]
       }
     },

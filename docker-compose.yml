@@ -8,6 +8,13 @@
 # The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
 # Production gets short-lived credentials from the secrets broker instead (DEC-F5).
 # Postgres is published on 127.0.0.1 only, never on a public interface.
+#
+# Only backend services run in Docker. The frontends (frontend/apps/web, frontend/apps/operator)
+# run on the host with `npm run dev`.
+#   --profile events   Redpanda (Kafka API) + outbox relay + event consumer
+#   --profile idp      Keycloak as a stand-in external enterprise IdP (overlay demo)
+#   --profile spire    SPIFFE/SPIRE development profile
+#   --profile backbone-tests   SpiceDB + a host-reachable Kafka broker for the backbone tests
 
 name: zoiko-id
 
@@ -30,6 +37,31 @@ services:
       timeout: 3s
       retries: 20
 
+  # One-shot schema migration (DEC-D1): runs every module's Alembic stream against the cell database and the
+  # global plane's database, then exits. The API and worker start only after it succeeds. Production runs
+  # the same step as the migration owner role (db_owner_migration), never a runtime role.
+  migrate:
+    image: zid/platform:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -c
+      - |
+        import os
+        from zid_platform.migrations import upgrade
+        upgrade(os.environ["ZID_CELL_DATABASE_URL"])
+        upgrade(os.environ["ZID_GLOBAL_DATABASE_URL"], role="global")
+        print("migrations applied")
+    environment:
+      ZID_ENVIRONMENT: local
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
+    restart: "no"
+    healthcheck:
+      disable: true
+
   backend:
     build:
       context: ./backend
@@ -37,8 +69,8 @@ services:
     image: zid/platform:local
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     # Sign-in, passkey and token settings (copy backend/.env.example). The `environment` entries
     # below win over the file, so the database URLs always point at the compose Postgres.
     env_file:
@@ -47,13 +79,16 @@ services:
     environment:
       ZID_ROLES: cell,global
       ZID_ENVIRONMENT: local
+      # Authenticated requests per tenant per minute (0 = off). Turn it off for single-tenant load tests.
+      ZID_API_RATE_LIMIT_PER_MINUTE: ${ZID_API_RATE_LIMIT_PER_MINUTE:-600}
       ZID_CELL_ID: local-1
-      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD:-zid_runtime_local_only}@postgres:5432/zid_cell   # runtime role: row-level security applies (see local/postgres/runtime_role.sql)
       ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
       # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
       ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
     volumes:
       - ./contracts:/app/contracts:ro
+      - ./backend/config:/app/config:ro   # cells, residency profiles: edit and restart, no rebuild
     ports:
       - "8000:8000"   # cell role
       - "8100:8100"   # global role
@@ -83,6 +118,100 @@ services:
     healthcheck:
       disable: true
 
+  # Session store for the frontends (DEC-H1). The frontends run on the host and reach it here.
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    ports: ["127.0.0.1:6380:6379"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Event platform (DEC-D2), Kafka API served by Redpanda (one container, no ZooKeeper):
+  #   docker compose --profile events up -d
+  redpanda:
+    profiles: ["events"]
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.7
+    command: >
+      redpanda start --overprovisioned --smp 1 --memory 512M --reserve-memory 0M --node-id 0
+      --check=false --kafka-addr internal://0.0.0.0:9092 --advertise-kafka-addr internal://redpanda:9092
+    volumes: [redpanda:/var/lib/redpanda/data]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  outbox-relay:
+    profiles: ["events"]
+    image: zid/platform:local
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      redpanda: {condition: service_healthy}
+    environment:
+      ZID_ENVIRONMENT: local
+      ZID_CELL_ID: local-1
+      ZID_RELAY_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_KAFKA_BOOTSTRAP: redpanda:9092
+    command: ["python", "-m", "zid_platform.entrypoints.outbox_relay"]
+    healthcheck:
+      disable: true
+  consumer:
+    profiles: ["events"]
+    image: zid/platform:local
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      redpanda: {condition: service_healthy}
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      ZID_ENVIRONMENT: local
+      ZID_CELL_ID: local-1
+      ZID_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
+      ZID_KAFKA_BOOTSTRAP: redpanda:9092
+      ZID_KAFKA_CREATE_TOPICS: "true"
+      ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    volumes:
+      - ./contracts:/app/contracts:ro
+    command: ["python", "-m", "zid_platform.entrypoints.consumer"]
+    healthcheck:
+      disable: true
+
+  # Disposable dependencies for the backbone tests (P0-04 stale-projection proof, event flow): SpiceDB with an
+  # in-memory datastore, and a Kafka-API broker reachable from the host. Test use only.
+  #   docker compose --profile backbone-tests up -d spicedb-test redpanda-test
+  #   ZID_TEST_SPICEDB_URL=http://localhost:8443 ZID_TEST_KAFKA=localhost:19092 pytest app/tests/component
+  spicedb-test:
+    profiles: ["backbone-tests"]
+    image: authzed/spicedb:v1.39.1
+    command: ["serve", "--grpc-preshared-key", "test-key", "--http-enabled", "--datastore-engine", "memory"]
+    ports: ["127.0.0.1:8443:8443", "127.0.0.1:50051:50051"]
+  redpanda-test:
+    profiles: ["backbone-tests"]
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.7
+    command: >
+      redpanda start --overprovisioned --smp 1 --memory 512M --reserve-memory 0M --node-id 0 --check=false
+      --kafka-addr external://0.0.0.0:19092 --advertise-kafka-addr external://localhost:19092
+    ports: ["127.0.0.1:19092:19092"]
+
+  # Stand-in external enterprise IdP for the overlay demo (replaces Entra ID / Okta / ADFS locally):
+  #   docker compose --profile idp up -d      -> http://localhost:8180 (admin / admin, LOCAL ONLY)
+  keycloak:
+    profiles: ["idp"]
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: "8180"
+    volumes:
+      - ./local/keycloak/realm-acme.json:/opt/keycloak/data/import/realm-acme.json:ro
+    ports: ["127.0.0.1:8180:8180"]
+
   # SPIFFE/SPIRE development profile (DEC-F7): `docker compose --profile spire up -d`, then
   # `sh local/spire/bootstrap.sh`. Not started by default.
   spire-server:
@@ -103,5 +232,6 @@ services:
 
 volumes:
   pgdata:
+  redpanda:
   spire-server:
   spire-sockets:

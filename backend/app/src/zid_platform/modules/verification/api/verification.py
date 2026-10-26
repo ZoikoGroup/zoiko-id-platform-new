@@ -5,6 +5,7 @@ GET  /verifications/{id}                              read            (verificat
 POST /verifications/{id}:cancel | :reverify           (verification:execute)
 GET  /principals/{id}/verification-assertions         (verification:read, or self)
 GET  /principals/{id}/assurance                       facts only      (verification:read, or self)
+POST /verified-claims                                  OpenID IDA verified_claims projection (VERIFY-25)
 POST /verification-reliance-decisions                 explicit reuse  (verification:execute)
 POST /verification-review-cases/{id}/decisions        protected reviewer (verification.review.decide)
 POST /verification-provider-callbacks/{tenant}.{adapter}   signed by the provider
@@ -53,6 +54,7 @@ _STATUS = {
     "PROVIDER_UNTRUSTED": 401,
     "CALLBACK_SIGNATURE_INVALID": 401,
     "CALLBACK_SCHEMA_INVALID": 400,
+    "CALLBACK_STALE": 400,
 }
 
 
@@ -216,6 +218,31 @@ async def assurance(principal_id: uuid.UUID, request: Request, caller: CallerDep
     _self_or(caller, principal_id, "verification:read")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         return await service.assurance(conn, str(principal_id), datetime.now(UTC))
+
+
+class VerifiedClaimsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    subject_principal_id: uuid.UUID
+    purpose: str = Field(min_length=1, max_length=128)
+    claims: list[str] = Field(min_length=1, max_length=20)
+    minimum_level: Literal["IAL-Z1", "IAL-Z2", "IAL-Z3"] = "IAL-Z1"
+
+
+@router.post("/verified-claims")
+async def verified_claims(
+    body: VerifiedClaimsIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """OpenID IDA `verified_claims` projection (VERIFY-25): attested claims only, for the stated purpose."""
+    _self_or(caller, body.subject_principal_id, "verification:read")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return await service.verified_claims(
+            conn,
+            str(body.subject_principal_id),
+            purpose=body.purpose,
+            requested=body.claims,
+            now=datetime.now(UTC),
+            min_level=body.minimum_level,
+        )
 
 
 class RelianceIn(BaseModel):

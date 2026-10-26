@@ -7,8 +7,8 @@
 # Other processes use the same image:  python -m zid_platform.entrypoints.<consumer|worker|outbox_relay>
 # Versions are pinned; dependencies come only from uv.lock (--frozen) for reproducible builds (DEC-G4).
 
-ARG PYTHON_IMAGE=python:3.13-slim-bookworm
-ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.0
+ARG PYTHON_IMAGE=python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168
 
 FROM ${UV_IMAGE} AS uv
 

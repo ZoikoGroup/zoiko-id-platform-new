@@ -13,20 +13,31 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.organization.application.identity import (
+    identifiers_of,
+    legal_name_history,
+    link_identifier,
+    quarantine_source,
+    release_source,
+    resolve_organization,
+    source_is_quarantined,
+)
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
     NameMatcher,
     establish_development_root,
     establish_registry_root,
     refresh_registry_roots,
+    request_registry_refresh,
 )
-from zid_platform.modules.organization.domain.registry import RegistryError
+from zid_platform.modules.organization.domain.registry import RegistryError, check_identifier
 from zid_platform.modules.organization.infrastructure.registry_adapters import (
     CompaniesHouse,
     Gleif,
     RegistryAdapter,
     adapter_for,
 )
+from zid_platform.modules.organization.infrastructure.root_store import organization_exists
 
 __all__ = [
     "CompaniesHouse",
@@ -38,11 +49,21 @@ __all__ = [
     "RootReader",
     "RootView",
     "adapter_for",
+    "check_identifier",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",
+    "identifiers_of",
+    "legal_name_history",
+    "link_identifier",
+    "organization_exists",
+    "quarantine_source",
     "read_root",
     "refresh_registry_roots",
+    "release_source",
+    "request_registry_refresh",
+    "resolve_organization",
+    "source_is_quarantined",
 ]
 
 

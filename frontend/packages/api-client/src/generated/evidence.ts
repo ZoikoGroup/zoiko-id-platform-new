@@ -1,5 +1,22 @@
 // GENERATED from contracts/openapi/public/evidence.json by packages/api-client/openapi/codegen.mjs. Do not edit.
 export interface paths {
+    "/v1/evidence/artifacts/{artifact_type}/{artifact_ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Artifact */
+        get: operations["get_artifact_v1_evidence_artifacts__artifact_type___artifact_ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/evidence/audit-events": {
         parameters: {
             query?: never;
@@ -11,6 +28,117 @@ export interface paths {
         get: operations["audit_events_v1_evidence_audit_events_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/bulk-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bulk Exports */
+        get: operations["bulk_exports_v1_evidence_bulk_exports_get"];
+        put?: never;
+        /**
+         * Bulk Export
+         * @description Several receipts in one signed package that stops being downloadable at `expires_at` (API-13). The same R3
+         *     `evidence.export` gate as a single export; every receipt also leaves its own custody record.
+         */
+        post: operations["bulk_export_v1_evidence_bulk_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/bulk-exports/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bulk Export Download
+         * @description The package while it is available. Past its expiry it is erased and this answers 410.
+         */
+        get: operations["bulk_export_download_v1_evidence_bulk_exports__export_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cases */
+        get: operations["list_cases_v1_evidence_cases_get"];
+        put?: never;
+        /** Open Case */
+        post: operations["open_case_v1_evidence_cases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Case */
+        get: operations["get_case_v1_evidence_cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/cases/{case_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Case Item */
+        post: operations["add_case_item_v1_evidence_cases__case_id__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/cases/{case_id}:close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Case */
+        post: operations["close_case_v1_evidence_cases__case_id__close_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -126,6 +254,23 @@ export interface paths {
          * @description Recompute the tenant's whole hash chain and every checkpoint; a failure is an incident.
          */
         post: operations["verify_partition_v1_evidence_partition_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evidence/provenance/{entity_type}/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Provenance */
+        get: operations["get_provenance_v1_evidence_provenance__entity_type___entity_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -249,6 +394,42 @@ export interface components {
             /** Superseded By */
             superseded_by?: string | null;
         };
+        /** BulkBody */
+        BulkBody: {
+            /** Case Ref */
+            case_ref: string;
+            /** Mode */
+            mode: string;
+            /** Purpose */
+            purpose: string;
+            /** Receipt Ids */
+            receipt_ids: string[];
+            /** Ttl Minutes */
+            ttl_minutes?: number | null;
+        };
+        /** CaseBody */
+        CaseBody: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Kind */
+            kind: string;
+            /** Legal Basis */
+            legal_basis?: string | null;
+            /** Purpose */
+            purpose: string;
+            /** Reference */
+            reference: string;
+        };
+        /** CaseItemBody */
+        CaseItemBody: {
+            /** Evidence Item Id */
+            evidence_item_id: string;
+            /** Purpose */
+            purpose: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -279,6 +460,8 @@ export interface components {
         };
         /** PackageBody */
         PackageBody: {
+            /** Case Id */
+            case_id?: string | null;
             /** Case Ref */
             case_ref: string;
             /** Mode */
@@ -290,20 +473,8 @@ export interface components {
              * Format: uuid
              */
             receipt_id: string;
-        };
-        /** ReleaseBody */
-        ReleaseBody: {
-            /** Reason */
-            reason: string;
-        };
-        /** ResolveBody */
-        ResolveBody: {
-            /** Case Ref */
-            case_ref: string;
-            /** Handle */
-            handle: string;
-            /** Purpose */
-            purpose: string;
+            /** Redact */
+            redact?: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -318,6 +489,20 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** ReleaseBody */
+        zid_platform__modules__evidence__api__evidence__ReleaseBody: {
+            /** Reason */
+            reason: string;
+        };
+        /** ResolveBody */
+        zid_platform__modules__evidence__api__evidence__ResolveBody: {
+            /** Case Ref */
+            case_ref: string;
+            /** Handle */
+            handle: string;
+            /** Purpose */
+            purpose: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -327,6 +512,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_artifact_v1_evidence_artifacts__artifact_type___artifact_ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_type: string;
+                artifact_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     audit_events_v1_evidence_audit_events_get: {
         parameters: {
             query?: {
@@ -362,6 +581,278 @@ export interface operations {
             };
         };
     };
+    bulk_exports_v1_evidence_bulk_exports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_export_v1_evidence_bulk_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_export_download_v1_evidence_bulk_exports__export_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cases_v1_evidence_cases_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_case_v1_evidence_cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_case_v1_evidence_cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_case_item_v1_evidence_cases__case_id__items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseItemBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_case_v1_evidence_cases__case_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     resolve_v1_evidence_handles_resolve_post: {
         parameters: {
             query?: never;
@@ -371,7 +862,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ResolveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__evidence__api__evidence__ResolveBody"];
             };
         };
         responses: {
@@ -498,7 +989,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReleaseBody"];
+                "application/json": components["schemas"]["zid_platform__modules__evidence__api__evidence__ReleaseBody"];
             };
         };
         responses: {
@@ -577,6 +1068,42 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_provenance_v1_evidence_provenance__entity_type___entity_id__get: {
+        parameters: {
+            query?: {
+                depth?: number;
+            };
+            header?: never;
+            path: {
+                entity_type: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

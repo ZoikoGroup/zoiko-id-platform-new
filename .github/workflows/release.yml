@@ -1,0 +1,71 @@
+# Release pipeline (DEC-G4 §2-4): isolated build (reusable build-image.yml) -> push by digest -> image scan + CycloneDX SBOM -> SLSA provenance
+# attestation -> SBOM attestation -> keyless cosign signature by digest. Production promotion never rebuilds: the
+# `promote` job verifies the SAME digest (signature, provenance, SBOM) and runs tools/scripts/release_gate.py with
+# the digest that passed PREPROD before an environment approval releases it. Deployment is GitOps (Argo CD pulls
+# the digest), so this workflow holds NO cloud credentials at all; the only identity it uses is the short-lived
+# GitHub OIDC token (registry login, sigstore, attestations).
+#
+# Triggers: push to main and manual promotion only. Never pull_request / pull_request_target, so fork and
+# untrusted PRs cannot reach signing or deploy credentials. Actions are pinned by commit SHA.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: "sha256 digest to promote (as built by this workflow)"
+        required: true
+      preprod_digest:
+        description: "sha256 digest that passed PREPROD (must be identical)"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/zoikogroup/zoiko-id-platform
+  TRIVY_IMAGE: aquasec/trivy:0.58.1@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7
+
+jobs:
+  build:
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/Zoiko-ID-Platform'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/build-image.yml
+
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production   # required reviewers (not the author) are configured on this environment
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Verify signature, provenance and SBOM of the exact digest, then run the promotion gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST: ${{ inputs.image_digest }}
+          PREPROD_DIGEST: ${{ inputs.preprod_digest }}
+        run: |
+          set -euo pipefail
+          ref="${IMAGE}@${DIGEST}"
+          identity="https://github.com/${{ github.repository }}/.github/workflows/build-image.yml@refs/heads/main"
+          cosign verify "$ref" --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com > sig.json
+          gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --signer-workflow "${{ github.repository }}/.github/workflows/build-image.yml" --format json > prov.json
+          gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --predicate-type https://cyclonedx.org/bom --format json > sbom-att.json
+          docker run --rm -v "$PWD:/out" "$TRIVY_IMAGE" image --format json --output /out/findings.json "$ref"
+          curl --fail --silent --show-error --location --max-time 60 https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json --output kev.json
+          python3 tools/scripts/build_candidate.py "$ref" "$PREPROD_DIGEST" > candidate.json
+          python3 tools/scripts/release_gate.py candidate.json --target prod --kev kev.json

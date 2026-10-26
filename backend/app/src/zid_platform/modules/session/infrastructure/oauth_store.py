@@ -45,16 +45,7 @@ async def client_tenant(engine: AsyncEngine, client_id: str) -> str | None:
     return str(row.tenant_id) if row else None
 
 
-async def load_client(conn: AsyncConnection, client_id: str) -> OAuthClient | None:
-    row = (
-        await conn.execute(
-            text(f"SELECT {_CLIENT_COLS} FROM authn.oauth_client WHERE client_id = :c"),
-            {"c": client_id},
-        )
-    ).first()
-    if row is None:
-        return None
-    m = row._mapping
+def _client(m: Any) -> OAuthClient:
     return OAuthClient(
         client_id=m["client_id"],
         tenant_id=str(m["tenant_id"]),
@@ -75,6 +66,38 @@ async def load_client(conn: AsyncConnection, client_id: str) -> OAuthClient | No
         service_principal_id=str(m["service_principal_id"]) if m["service_principal_id"] else None,
         require_par=m["require_par"],
     )
+
+
+async def load_client(conn: AsyncConnection, client_id: str) -> OAuthClient | None:
+    row = (
+        await conn.execute(
+            text(f"SELECT {_CLIENT_COLS} FROM authn.oauth_client WHERE client_id = :c"),
+            {"c": client_id},
+        )
+    ).first()
+    if row is None:
+        return None
+    return _client(row._mapping)
+
+
+async def list_clients(conn: AsyncConnection) -> list[OAuthClient]:
+    """The caller's tenant's clients, newest first (RLS scopes the read)."""
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_CLIENT_COLS} FROM authn.oauth_client ORDER BY created_at DESC, client_id"
+            )
+        )
+    ).all()
+    return [_client(r._mapping) for r in rows]
+
+
+async def set_client_status(conn: AsyncConnection, client_id: str, status: str) -> bool:
+    res = await conn.execute(
+        text("UPDATE authn.oauth_client SET status = :s WHERE client_id = :c AND status <> :s"),
+        {"s": status, "c": client_id},
+    )
+    return bool(res.rowcount)
 
 
 async def create_client(conn: AsyncConnection, c: OAuthClient) -> None:

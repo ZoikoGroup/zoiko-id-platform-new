@@ -1,6 +1,6 @@
 "use client";
 
-import type { IssuerTrustItem, TrustIn, TrustStatusIn } from "@zoiko/api-client";
+import type { IssuerTrustItem, TrustIn, TrustKeysIn, TrustStatusIn } from "@zoiko/api-client";
 import { Button, Card, CopyId, DataTable, DateTime, Dialog, EmptyState, RadioCards, RevisionChip, Select, StatusBadge, TextField, humanize, type Column } from "@zoiko/ui";
 import { Plus, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -215,10 +215,82 @@ function StatusChangeDialog({ row, onClose }: { row: IssuerTrustItem; onClose: (
   );
 }
 
+function RotateKeysDialog({ row, onClose }: { row: IssuerTrustItem; onClose: () => void }) {
+  const [jwks, setJwks] = useState("");
+  const [parsed, setParsed] = useState<Record<string, unknown> | null>(null);
+  const [localError, setLocalError] = useState<unknown>(null);
+  const rotate = useCellMutation((api, body: TrustKeysIn) => api.credentials.rotateIssuerKeys(body), {
+    invalidate: [TRUST_KEY],
+    success: `Keys replaced for ${row.issuer_identifier}`,
+  });
+
+  function review() {
+    setLocalError(null);
+    try {
+      const keys = jsonInput(jwks, "JWKS");
+      const list = keys && (keys as { keys?: unknown }).keys;
+      if (!keys || !Array.isArray(list) || list.length === 0) throw new Error("Paste the new JWKS of the issuer, as {\"keys\": [ … ]} with at least one key.");
+      setParsed(keys as Record<string, unknown>);
+    } catch (e) {
+      setLocalError(e);
+    }
+  }
+
+  if (!parsed) {
+    return (
+      <FormDialog
+        isOpen
+        onClose={onClose}
+        title="Replace pinned keys"
+        description={<span className="break-all font-mono text-xs">{row.issuer_identifier}</span>}
+        submitLabel="Review change"
+        pending={false}
+        error={localError}
+        onSubmit={review}
+        risk="R3"
+      >
+        <TextField
+          label="New JWKS"
+          isRequired
+          multiline
+          rows={7}
+          mono
+          value={jwks}
+          onChange={setJwks}
+          placeholder='{"keys": [ … ]}'
+          description="This replaces every key currently pinned for this issuer. Include the issuer's current signing key if it is still in use."
+        />
+      </FormDialog>
+    );
+  }
+
+  return (
+    <R3ActionDialog
+      isOpen
+      onClose={onClose}
+      title="Replace this issuer's pinned keys"
+      intent={<p>The keys pinned for this issuer are replaced with the ones you entered. Credentials signed with a key that is not in the new set stop verifying at once.</p>}
+      scope={[
+        ["Issuer", <span key="i" className="break-all font-mono text-xs">{row.issuer_identifier}</span>],
+        ["Keys in the new set", String(((parsed as { keys: unknown[] }).keys ?? []).length)],
+        ["Credential types", row.credential_types.join(", ")],
+      ]}
+      reversibility="reversible-with-effort"
+      dependents={[{ label: "Presentations signed with a key that is no longer pinned", effect: "Refused" }]}
+      commitLabel="Replace keys"
+      run={async () => {
+        await rotate.mutateAsync({ issuer_identifier: row.issuer_identifier, jwks: parsed });
+        return { outcome: "KEYS_REPLACED", objectId: row.trust_id };
+      }}
+    />
+  );
+}
+
 export function IssuerTrustSection() {
   const trust = useCellQuery(TRUST_KEY, (api) => api.credentials.issuerTrust());
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState<IssuerTrustItem | null>(null);
+  const [rotating, setRotating] = useState<IssuerTrustItem | null>(null);
 
   const columns: Column<IssuerTrustItem>[] = [
     {
@@ -247,9 +319,16 @@ export function IssuerTrustSection() {
       header: "Actions",
       align: "end",
       render: (t) => (
-        <Button size="xs" variant="secondary" onPress={() => setTarget(t)}>
-          Change status
-        </Button>
+        <span className="flex justify-end gap-2">
+          {t.trust_source === "PINNED" ? (
+            <Button size="xs" variant="secondary" onPress={() => setRotating(t)}>
+              Rotate keys
+            </Button>
+          ) : null}
+          <Button size="xs" variant="secondary" onPress={() => setTarget(t)}>
+            Change status
+          </Button>
+        </span>
       ),
     },
   ];
@@ -285,6 +364,7 @@ export function IssuerTrustSection() {
 
       {adding ? <AddTrustDialog onClose={() => setAdding(false)} /> : null}
       {target ? <StatusChangeDialog row={target} onClose={() => setTarget(null)} /> : null}
+      {rotating ? <RotateKeysDialog row={rotating} onClose={() => setRotating(null)} /> : null}
     </>
   );
 }

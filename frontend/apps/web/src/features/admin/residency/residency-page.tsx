@@ -22,6 +22,8 @@ import {
 import { Globe2, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { GuidedApproval } from "@/features/approvals/guided-approval";
+import { useTenant } from "@/features/onboarding/shared";
 import { ApiErrorView, listInput, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 const RES_KEY = ["admin", "residency"];
@@ -105,45 +107,84 @@ function ProfileSection() {
   );
 }
 
+const PROFILE_LABELS: Record<string, string> = {
+  "SRP-0": "SRP-0 Shared global",
+  "SRP-1": "SRP-1 Regional resident",
+  "SRP-2": "SRP-2 Sovereign controlled",
+  "SRP-3": "SRP-3 Dedicated sovereign",
+};
+const PACKS = [
+  { id: "uk-gdpr", label: "UK GDPR" },
+  { id: "eu-gdpr", label: "EU GDPR" },
+  { id: "us-ca-ccpa", label: "California CCPA" },
+];
+
+/** The legal pack that normally goes with a cell's legal zone, so the form starts on a sensible choice. */
+function packFor(zone: string | null | undefined): string {
+  return zone === "EU" ? "eu-gdpr" : zone === "US" ? "us-ca-ccpa" : "uk-gdpr";
+}
+
 function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [profile, setProfile] = useState("SRP-1");
-  const [home, setHome] = useState("uk-1");
+  const tenant = useTenant();
+  const cells = useCellQuery([...RES_KEY, "cells"], (api) => api.residency.cells());
+  // A company's profile is placed on the cell that serves it. Moving to another cell is a migration, not a profile
+  // change, so only the company's own cell is offered.
+  const ownCell = tenant.data?.home_cell_id;
+  const usable = (cells.data?.items ?? []).filter(
+    (c) => !c.recovery_only && c.supported_profiles.length > 0 && (!ownCell || c.cell_id === ownCell),
+  );
+  // Start from the company's own home cell: the onboarding gate needs the profile placed there.
+  const [homeChoice, setHomeChoice] = useState<string | null>(null);
+  const home = homeChoice ?? tenant.data?.home_cell_id ?? usable[0]?.cell_id ?? "";
+  const cell = usable.find((c) => c.cell_id === home);
+  const profiles = cell?.supported_profiles ?? [];
+  const [profileChoice, setProfileChoice] = useState<string | null>(null);
+  const profile = profileChoice && profiles.includes(profileChoice) ? profileChoice : (profiles.includes("SRP-1") ? "SRP-1" : (profiles[0] ?? "SRP-1"));
   const [recovery, setRecovery] = useState("");
   const [operators, setOperators] = useState("");
-  const [pack, setPack] = useState("uk-gdpr");
+  const [packChoice, setPackChoice] = useState<string | null>(null);
+  const pack = packChoice ?? packFor(cell?.legal_zone);
   const [legal, setLegal] = useState("");
-  const [approval, setApproval] = useState("");
+
+  const recoveryCells = listInput(recovery);
+  const operatorList = listInput(operators).map((j) => j.toUpperCase());
+  // The exact change the approver is shown and approves; it must match what the server binds to.
+  const change = [
+    profile,
+    home,
+    [...recoveryCells].sort().join(","),
+    [...operatorList].sort().join(","),
+    pack.trim(),
+  ].join("|");
+  const summary = `Set the company's residency to ${PROFILE_LABELS[profile] ?? profile}, home cell ${home}, ${PACKS.find((p) => p.id === pack)?.label ?? pack}${recoveryCells.length ? `, recovery in ${recoveryCells.join(", ")}` : ""}.`;
+
   const save = useCellMutation(
-    (api) =>
+    (api, approvalRequestId: string) =>
       api.residency.set({
-        residency_profile_id: profile,
+        residency_profile_id: profile as "SRP-0" | "SRP-1" | "SRP-2" | "SRP-3",
         home_cell_id: home.trim(),
-        permitted_recovery_cells: listInput(recovery),
+        permitted_recovery_cells: recoveryCells,
         prohibited_cells: [],
-        operator_jurisdictions: listInput(operators).map((j) => j.toUpperCase()),
+        operator_jurisdictions: operatorList,
         key_profile: "PLATFORM_MANAGED",
         jurisdiction_pack_id: pack.trim(),
         approval_ref: legal.trim(),
-        approval_request_id: approval.trim(),
+        approval_request_id: approvalRequestId,
       }),
     { invalidate: [RES_KEY], success: "Residency profile updated", onSuccess: onClose },
   );
+  const ready = legal.trim().length >= 3 && home.length > 0;
   return (
     <Dialog
       isOpen={isOpen}
       onOpenChange={(o) => !o && onClose()}
       title="Change the residency profile"
-      description="A contractual capability, not a self-service label: the cell must support it, Legal must have mapped it, and a second administrator approves this exact change."
+      description="Where your company's data is kept. A second administrator has to approve this exact change."
       size="lg"
       footer={
-        <>
-          <Button variant="secondary" onPress={onClose}>
-            Cancel
-          </Button>
-          <Button pending={save.isPending} isDisabled={legal.trim().length < 3 || !approval.trim()} onPress={() => save.mutate(undefined)}>
-            Apply profile
-          </Button>
-        </>
+        <Button variant="secondary" onPress={onClose}>
+          Close
+        </Button>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
@@ -151,22 +192,50 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
           <RiskBadge risk="R3" />
         </div>
         <Select
-          label="Profile"
-          value={profile}
-          onChange={setProfile}
-          options={[
-            { id: "SRP-0", label: "SRP-0 Shared global" },
-            { id: "SRP-1", label: "SRP-1 Regional resident" },
-            { id: "SRP-2", label: "SRP-2 Sovereign controlled" },
-            { id: "SRP-3", label: "SRP-3 Dedicated sovereign" },
-          ]}
+          label="Home cell"
+          description="Where your data lives. Your company's own cell is chosen for you."
+          value={home}
+          onChange={(v) => {
+            setHomeChoice(v);
+            setProfileChoice(null);
+            setPackChoice(null);
+          }}
+          options={usable.map((c) => ({ id: c.cell_id, label: `${c.cell_id} · ${c.legal_zone ?? c.jurisdiction ?? ""}` }))}
         />
-        <TextField label="Home cell" value={home} onChange={setHome} mono />
-        <TextField label="Permitted recovery cells" value={recovery} onChange={setRecovery} mono />
-        <TextField label="Operator jurisdictions" value={operators} onChange={setOperators} mono description="Required for SRP-2/3." />
-        <TextField label="Jurisdiction pack" value={pack} onChange={setPack} mono />
-        <TextField label="Legal mapping approval reference" value={legal} onChange={setLegal} isRequired mono />
-        <TextField label="Approval request ID" value={approval} onChange={setApproval} isRequired mono className="sm:col-span-2" />
+        <Select
+          label="Profile"
+          description="Only profiles this cell supports are offered."
+          value={profile}
+          onChange={setProfileChoice}
+          options={profiles.map((p) => ({ id: p, label: PROFILE_LABELS[p] ?? p }))}
+        />
+        <Select label="Legal pack" value={pack} onChange={setPackChoice} options={PACKS} />
+        <TextField label="Recovery cells (optional)" value={recovery} onChange={setRecovery} mono description="Leave empty unless your cell lists approved recovery cells." />
+        {profile === "SRP-2" || profile === "SRP-3" ? (
+          <TextField label="Operator jurisdictions" value={operators} onChange={setOperators} mono description="Country codes, e.g. GB. Required for this profile." />
+        ) : null}
+        <TextField
+          label="Legal mapping reference"
+          value={legal}
+          onChange={setLegal}
+          isRequired
+          mono
+          className="sm:col-span-2"
+          description="Your legal team's reference for this choice, for the record (at least 3 characters)."
+        />
+      </div>
+      <div className="mt-5">
+        {ready ? (
+          <GuidedApproval action="tenant.residency.manage" resource="tenant_residency" change={change} summary={summary} label="Apply profile">
+            {(id) => (
+              <Button pending={save.isPending} onPress={() => save.mutate(id)}>
+                Apply profile
+              </Button>
+            )}
+          </GuidedApproval>
+        ) : (
+          <p className="text-sm text-ink-muted">Fill in the legal mapping reference to ask for approval.</p>
+        )}
       </div>
       {save.error ? <ApiErrorView error={save.error} /> : null}
     </Dialog>

@@ -474,7 +474,15 @@ RESERVATION_EVENTS = {
 async def _ledger_event(
     conn: AsyncConnection, tenant_id: str, mandate_id: str, version: int, res: Reservation
 ) -> None:
-    """Ledger events carry amounts and versions only; ordered per mandate by ledger_version."""
+    """Ledger events carry amounts and versions only; ordered per mandate by ledger_version. Each also names the
+    authority grant and the transaction context it ran under, so grant -> mandate -> reservation -> commit
+    resolve to one chain by opaque id, with no personal data (MAND-25)."""
+    grant = (
+        await conn.execute(
+            text("SELECT authority_grant_id FROM agent.mandate WHERE mandate_id = :m"),
+            {"m": uuid.UUID(mandate_id)},
+        )
+    ).scalar_one_or_none()
     await emit(
         conn,
         name=RESERVATION_EVENTS[res.status],
@@ -485,6 +493,8 @@ async def _ledger_event(
         data={
             "mandate_id": mandate_id,
             "reservation_id": res.reservation_id,
+            "authority_grant_id": str(grant) if grant else None,
+            "transaction_context_hash": res.transaction_context_hash,
             "status": res.status.value,
             "value": str(res.amounts.value),
             "count": res.amounts.count,

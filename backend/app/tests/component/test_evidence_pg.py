@@ -306,7 +306,8 @@ def test_replay_match_mismatch_and_lawful_erasure(rt_url: str, owner_url: str) -
 
 
 def test_legal_hold_scopes_erasure_and_retention(rt_url: str, owner_url: str) -> None:
-    """EVID-14/15, PRIV-07/08/17: a scoped hold keeps exactly what it names; release resumes."""
+    """EVID-14/15, PRIV-07/08/17, CRYP-13: a scoped hold keeps exactly what it names (a held subject's key is not
+    destroyed); release resumes."""
     tenant, subject, other, legal, approver = uid(), uid(), uid(), uid(), uid()
 
     async def run() -> None:

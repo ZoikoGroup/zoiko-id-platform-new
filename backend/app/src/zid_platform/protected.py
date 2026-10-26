@@ -119,6 +119,7 @@ async def protected_action(
             purpose=None,
             tool_id=None,
             at=now,
+            workload_ref=caller.certificate_thumbprint,
             approval_state=approval_state,
         ),
         executor_id=caller.ctx.principal_id or "",

@@ -29,6 +29,11 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "TENANCY-001 §13.1 (CR-014)"
+  platform.tenant_deletion:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "TENANCY-001 §23 (TEN-25)"
   platform.residency_transfer_rule:
     role: cell
     module: tenant
@@ -124,6 +129,266 @@ tables:
     module: metering
     tenant_scoped: true
     source: "ZID-DATA-001 §11.1"
+  commercial.sku:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.capability:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.plan:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.plan_capability:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.price_book:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.price_book_line:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.entitlement:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.entitlement_override:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.billable_event:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §26 (CR-025)"
+  commercial.billable_adjustment:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §26 (CR-025)"
+  commercial.meter_window:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §26 (CR-025)"
+  commercial.mah_activity:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §26 (CR-025)"
+  commercial.mah_merge:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §31 (CR-025)"
+  commercial.payment_customer:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11 (CR-027)"
+  commercial.rating_run:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §13 (CR-026)"
+  commercial.rated_usage:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7, §13 (CR-026)"
+  commercial.invoice_sequence:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.invoice_chain:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.invoice:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.invoice_line:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.credit_note:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.payment_attempt:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.billing_account_state:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.billing_state_history:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.dunning_policy:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §30 (CR-027)"
+  commercial.account:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.account_tenant:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.region_release:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.price_floor:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.commercial_role_holder:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.discount_policy:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.quote:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.quote_line:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.quote_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.sales_order:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.sales_order_line:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §10, §12, §14 (CR-028)"
+  commercial.budget:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7 (CR-029)"
+  commercial.budget_alert:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §7 (CR-029)"
+  commercial.vendor:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.vendor_rate:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.vendor_route:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.vendor_cost_event:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.vendor_invoice_line:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.vendor_dispute:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §8, §23 (CR-029)"
+  commercial.change_log_head:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §24 (CR-030)"
+  commercial.change_log:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §24 (CR-030)"
+  commercial.assurance_exception:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-001 §11, §24 (CR-030)"
+  commercial.close_run:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-001 §11, §24 (CR-030)"
+  platform.email_message:
+    role: cell
+    module: communication
+    tenant_scoped: true
+    source: "Communication Estate §03, §05 (CR-031)"
+  platform.email_suppression:
+    role: cell
+    module: communication
+    tenant_scoped: false
+    source: "Communication Estate §03 (CR-031)"
+  platform.email_consent:
+    role: cell
+    module: communication
+    tenant_scoped: false
+    source: "Communication Estate §03 (CR-031)"
+  platform.email_contact:
+    role: cell
+    module: communication
+    tenant_scoped: true
+    source: "Communication Estate §03 (CR-031)"
   platform.notification_request:
     role: cell
     module: notification
@@ -314,6 +579,11 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (MACHINE spec §16)"
+  agent.agent_gate_attestation:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (MACHINE spec §12.1; CR-021)"
   agent.environment_quarantine:
     role: cell
     module: machine
@@ -339,11 +609,31 @@ tables:
     module: organization
     tenant_scoped: true
     source: "proposed (ZID-ROOT-001 §18, ROOT-24 idempotent source events; CR-007)"
+  org.organization_identifier:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "proposed (ZID-ROOT-001 §4-6, ROOT-01 and ROOT-02: one organization per identifier, a conflict is never a silent merge)"
+  org.organization_name:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "proposed (ZID-ROOT-001 §4-6, ROOT-03: legal-name history, a rename keeps the organization id)"
+  org.source_quarantine:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "proposed (ZID-ROOT-001 §22, ROOT-25: a compromised registry or credential source is quarantined)"
   org.registry_observation:
     role: cell
     module: organization
     tenant_scoped: true
     source: "ROOT-001 §4, §6 (registry provenance and root bindings; CR-015)"
+  org.registry_refresh_request:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-PRIV-001 rectification (PRIV-16)"
   verify.verification_assertion:
     role: cell
     module: verification
@@ -739,3 +1029,18 @@ tables:
     module: operations
     tenant_scoped: false
     source: "SRE-001 §5.1, §23 change freeze (CR-017)"
+  platform.tenant_registration:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "OVERLAY-001 §4, ORG-001 §19 declared registration, notice acknowledgement, placement (CR-015)"
+  evidence.bulk_export:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "API-001 API-13"
+  commercial.plan_request:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "COM-001 §10 (CR-032)"

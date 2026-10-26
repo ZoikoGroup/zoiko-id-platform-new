@@ -47,6 +47,7 @@ RESOURCES = (
     "onboarding_stage:*",
     "mapping_release:*",
     "federation_connection:*",
+    "policy_release:*",
 )
 
 
@@ -101,7 +102,13 @@ async def _session(c: Any, tenant: str, p: str) -> str:
     return sid
 
 
-def onboard(rt_url: str, *, extra_actions: Sequence[str] = ()) -> Onboarded:
+def onboard(
+    rt_url: str,
+    *,
+    extra_actions: Sequence[str] = (),
+    extra_resources: Sequence[str] = (),
+    delegable: bool = False,
+) -> Onboarded:
     async def run() -> Onboarded:
         signup, creator, second = uid(), uid(), uid()
         async with engine(rt_url) as eng:
@@ -138,7 +145,8 @@ def onboard(rt_url: str, *, extra_actions: Sequence[str] = ()) -> Onboarded:
                     t,
                     [owner, second],
                     [*TENANT_ADMIN_ACTIONS, "authority.grant.read", *extra_actions],
-                    list(RESOURCES),
+                    [*RESOURCES, *extra_resources],
+                    delegable=delegable,
                 )
         return o
 

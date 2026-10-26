@@ -159,7 +159,9 @@ def evaluate(
     errors = list(result.diagnostics.errors)
     if errors:
         return Outcome(False, (), ("POLICY_EVALUATION_ERROR",))
-    names = tuple(bundle.names.get(r, r) for r in result.diagnostics.reasons)
+    # Cedar reports the determining policies as a set, so their order differs between evaluations. A decision
+    # receipt must replay to the identical outcome (MPR-11), so the order is made stable here.
+    names = tuple(sorted(bundle.names.get(r, r) for r in result.diagnostics.reasons))
     if result.allowed:
         return Outcome(True, names, ("POLICY_PERMIT",))
     forbid = any(r in bundle.forbids for r in result.diagnostics.reasons)

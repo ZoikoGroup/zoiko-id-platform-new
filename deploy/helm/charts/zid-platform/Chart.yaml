@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zid-platform
+description: Zoiko iD backend cell (one image, roles per Deployment; DEC-D6). Secure baseline for DEVSECOPS-001 §25.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

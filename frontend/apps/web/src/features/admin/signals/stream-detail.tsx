@@ -16,7 +16,7 @@ function Ms({ value }: { value: number | null }) {
   return <span className="tabular">{value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`}</span>;
 }
 
-function Propagation({ streamId }: { streamId: string }) {
+export function Propagation({ streamId }: { streamId: string }) {
   const q = useCellQuery(["admin", "signals", "streams", streamId, "propagation"], (api) => api.signals.propagation(streamId), {
     refetchInterval: REFRESH_MS,
   });
@@ -37,6 +37,12 @@ function Propagation({ streamId }: { streamId: string }) {
                   ["Oldest pending", <Ms key="old" value={p.oldest_pending_ms} />],
                 ]}
               />
+              {p.remote_fail_closed === true ? (
+                <Banner tone="danger" title="The remote side is told to fail closed">
+                  {Number(p.overdue_restricting ?? 0)} restricting event{Number(p.overdue_restricting ?? 0) === 1 ? "" : "s"} not acknowledged within the
+                  target. Until the receiver acknowledges, it must treat the affected subjects as restricted.
+                </Banner>
+              ) : null}
               {breaches > 0 ? (
                 <Banner tone="warn" title={`${breaches} SLO breach${breaches === 1 ? "" : "es"}`}>
                   Acknowledged events that exceeded their risk-class propagation target.

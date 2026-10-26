@@ -1,9 +1,11 @@
 """AI agent, workload and tool identity (ZID-MACHINE-001 MACH-01..21; FR-MND-001)."""
 
+import inspect
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from zid_platform import api_auth
 from zid_platform.modules.machine.domain.agents import (
     ActivationEvidence,
     AgentProfile,
@@ -28,6 +30,7 @@ from zid_platform.modules.machine.domain.agents import (
     tool_invocation_blockers,
     tool_requires_mandate,
 )
+from zid_platform.settings import Settings
 
 NOW = datetime(2026, 10, 12, tzinfo=UTC)
 BP = BlueprintRelease(
@@ -284,3 +287,57 @@ def test_parent_cannot_mint_its_own_trusted_child() -> None:
     assert "GRANT_DEPTH_EXCEEDED" in register_child_agent(
         AGENT, deep, issued_by_identity_service=True
     )
+
+
+@pytest.mark.parametrize("risk", [2, 3])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"workload_identity_id": "spiffe://uk-1.prod.id.zoiko/unknown"},
+        {"observed_attestation": Attestation.NONE},
+        {"presented_artifact_digest": "sha256:tampered"},
+        {"environment_id": "dev-laptop"},
+        {"at": NOW + timedelta(days=31)},
+    ],
+)
+def test_a_trust_failure_gives_no_credential_and_names_no_fallback(
+    risk: int, change: dict[str, object]
+) -> None:
+    """MACH-25: at R2 and R3 an identity, attestation or trust failure ends in refusal codes, never in a lesser credential."""
+    blockers = credential_blockers(creq(risk_level=risk, **change), BINDING, AGENT, MachineState())
+    assert blockers and all(b.isupper() for b in blockers)
+    assert credential_blockers(
+        creq(risk_level=risk), None, AGENT, MachineState()
+    )  # no binding at all
+
+
+def test_no_static_bearer_or_api_key_exists_to_fall_back_to() -> None:
+    """MACH-25: the API accepts a verified access token and nothing else, and no setting holds a static credential."""
+    assert not [f for f in Settings.model_fields if "api_key" in f or "static" in f]
+    source = inspect.getsource(api_auth).lower()
+    assert "x-api-key" not in source and "api_key" not in source
+
+
+def test_a_rotated_workload_binding_overlaps_and_the_old_one_stops_after_the_overlap() -> None:
+    """MACH-08: both identities issue during the overlap (no downtime) and only the new one after it."""
+    overlap_end = NOW + timedelta(hours=1)
+    old = replace(BINDING, valid_to=overlap_end)
+    new = replace(
+        BINDING,
+        binding_id="bnd_2",
+        workload_identity_id="spiffe://uk-1.prod.id.zoiko/agents/ap/replica-b",
+        valid_from=NOW,
+    )
+    state = MachineState()
+
+    def issues(binding: WorkloadBinding, at: datetime) -> bool:
+        request = creq(workload_identity_id=binding.workload_identity_id, at=at)
+        return not credential_blockers(request, binding, AGENT, state)
+
+    for at in (NOW, NOW + timedelta(minutes=30), overlap_end - timedelta(seconds=1)):
+        assert issues(old, at) and issues(new, at)
+    after = overlap_end + timedelta(seconds=1)
+    assert not issues(old, after) and issues(new, after)
+    assert "WORKLOAD_BINDING_INACTIVE" in credential_blockers(
+        creq(at=after), old, AGENT, state
+    )  # the reason is the expired binding, not a silent fallback

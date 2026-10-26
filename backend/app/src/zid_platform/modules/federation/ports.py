@@ -47,3 +47,16 @@ __all__ = [
     "set_connection_status",
     "trust_anchor",
 ]
+
+
+async def count_active_connections(conn: AsyncConnection) -> int:
+    """Active federation connections of this tenant (RLS scopes it), for plan-limit checks (CR-024)."""
+    from sqlalchemy import text
+
+    return int(
+        (
+            await conn.execute(
+                text("SELECT count(*) FROM authn.federation_connection WHERE status = 'ACTIVE'")
+            )
+        ).scalar_one()
+    )

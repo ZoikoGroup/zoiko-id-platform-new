@@ -129,6 +129,55 @@ async def rewrap_subject_key(
     )
 
 
+async def kek_wrapped_objects(
+    conn: AsyncConnection, current_ref: str, limit: int, tenant_id: str | None = None
+) -> list[Row[Any]]:
+    """Stored objects enveloped under a KEK other than `current_ref` ("kek:<id>:<version>")."""
+    return list(
+        (
+            await conn.execute(
+                text(
+                    "SELECT evidence_object_id, tenant_id, object_type, ciphertext "
+                    "FROM evidence.evidence_object WHERE status = 'STORED' "
+                    "AND encryption_key_ref LIKE 'kek:%' AND encryption_key_ref <> :cur "
+                    "AND (CAST(:t AS uuid) IS NULL OR tenant_id = CAST(:t AS uuid)) "
+                    "ORDER BY created_at LIMIT :n"
+                ),
+                {"cur": current_ref, "n": limit, "t": tenant_id},
+            )
+        ).all()
+    )
+
+
+async def update_object_envelope(
+    conn: AsyncConnection, object_id: str, ciphertext: bytes, key_ref: str
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE evidence.evidence_object SET ciphertext = :c, encryption_key_ref = :k "
+            "WHERE evidence_object_id = :id AND status = 'STORED'"
+        ),
+        {"c": ciphertext, "k": key_ref, "id": _u(object_id)},
+    )
+
+
+async def count_kek_dependents(conn: AsyncConnection, kek_id: str, kek_version: int) -> int:
+    """Live artifacts that still need this exact KEK version to be decrypted (all tenants; the
+    worker role): ACTIVE subject keys wrapped under it plus STORED objects enveloped under it."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT (SELECT count(*) FROM evidence.subject_key WHERE state = 'ACTIVE' "
+                "AND kek_id = :k AND kek_version = :v) + "
+                "(SELECT count(*) FROM evidence.evidence_object WHERE status = 'STORED' "
+                "AND encryption_key_ref = :ref)"
+            ),
+            {"k": kek_id, "v": kek_version, "ref": f"kek:{kek_id}:{kek_version}"},
+        )
+    ).scalar_one()
+    return int(row)
+
+
 async def destroy_subject_key(conn: AsyncConnection, tenant_id: str, subject_ref: str) -> bool:
     result = await conn.execute(
         text("""
@@ -234,6 +283,63 @@ async def subject_objects(
                 {"t": _u(tenant_id), "s": subject_ref},
             )
         ).all()
+    )
+
+
+async def subject_object_blobs(
+    conn: AsyncConnection, tenant_id: str, subject_ref: str
+) -> list[Row[Any]]:
+    """The stored (not erased, not expired) objects encrypted under one subject's key."""
+    return list(
+        (
+            await conn.execute(
+                text(
+                    "SELECT evidence_object_id, object_type, ciphertext FROM evidence.evidence_object "
+                    "WHERE tenant_id = :t AND subject_ref = :s AND status = 'STORED' "
+                    "ORDER BY created_at FOR UPDATE"
+                ),
+                {"t": _u(tenant_id), "s": subject_ref},
+            )
+        ).all()
+    )
+
+
+async def update_object_ciphertext(
+    conn: AsyncConnection, object_id: str, ciphertext: bytes, key_ref: str
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE evidence.evidence_object SET ciphertext = :c, encryption_key_ref = :k "
+            "WHERE evidence_object_id = :id AND status = 'STORED'"
+        ),
+        {"c": ciphertext, "k": key_ref, "id": _u(object_id)},
+    )
+
+
+async def replace_subject_key(
+    conn: AsyncConnection,
+    tenant_id: str,
+    subject_ref: str,
+    *,
+    key_id: str,
+    wrapped: bytes,
+    kek_id: str,
+    kek_version: int,
+) -> None:
+    await conn.execute(
+        text("""
+            UPDATE evidence.subject_key
+            SET key_id = :kid, wrapped_key = :w, kek_id = :k, kek_version = :v
+            WHERE tenant_id = :t AND subject_ref = :s AND state = 'ACTIVE'
+        """),
+        {
+            "kid": key_id,
+            "w": wrapped,
+            "k": kek_id,
+            "v": kek_version,
+            "t": _u(tenant_id),
+            "s": subject_ref,
+        },
     )
 
 

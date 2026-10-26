@@ -23,9 +23,11 @@ from admin_fixture import make_admin
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from softcred import Mdoc, SdJwtIssuer, present
+from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner, sign_jws, verify_jws
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
+from zid_platform.modules.credential.domain.reliance import RELIANCE
 from zid_platform.modules.principal.domain.principal import (
     Principal,
     PrincipalStatus,
@@ -53,12 +55,20 @@ def uid() -> str:
 
 
 def test_verifier_and_issuer(rt_url: str) -> None:
+    """VC-08 audience binding, VC-11 expiry / not-yet-valid, VC-18 and VC-21 (a verified credential is not authority)."""
     tenant, admin, alice = uid(), uid(), uid()
     ring = KeyRing(LocalSigner("issuer-1"))
     gov = SdJwtIssuer("https://issuer.gov.example")
     rogue = SdJwtIssuer("https://issuer.gov.example", LocalSigner("rogue"))
     unknown = SdJwtIssuer("https://unknown.example")
     mdl = Mdoc()
+
+    async def grants() -> int:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            return int(
+                (await c.execute(text("SELECT count(*) FROM authz.authority_grant"))).scalar_one()
+            )
+
     holder = LocalSigner("wallet-holder")
     routes: dict[str, httpx.Response] = {}
 
@@ -266,6 +276,7 @@ def test_verifier_and_issuer(rt_url: str) -> None:
             *,
             idx: int = 0,
             nonce: str | None = None,
+            aud: str = CLIENT_ID,
             disclose: tuple[str, ...] = ("given_name", "family_name"),
             **extra: Any,
         ) -> str:
@@ -277,8 +288,10 @@ def test_verifier_and_issuer(rt_url: str) -> None:
                 **extra,
             )
             return present(
-                jwt, [ds[n] for n in disclose], holder, aud=CLIENT_ID, nonce=nonce or req["nonce"]
+                jwt, [ds[n] for n in disclose], holder, aud=aud, nonce=nonce or req["nonce"]
             )
+
+        grants_before = asyncio.run(grants())
 
         # minimization and registration (FR-VC-007)
         r = http.post(
@@ -348,6 +361,16 @@ def test_verifier_and_issuer(rt_url: str) -> None:
             )
 
         rejected(lambda q: sd_presentation(q, nonce="replayed-nonce"), "HOLDER_BINDING_INVALID")
+        # VC-08: a presentation made for another relying party is refused here
+        rejected(
+            lambda q: sd_presentation(q, aud="https://other-rp.example/verifier"),
+            "HOLDER_BINDING_INVALID",
+        )
+        # VC-11: an expired credential and one that is not valid yet are refused
+        rejected(lambda q: sd_presentation(q, exp=int(time.time()) - 86400), "CREDENTIAL_EXPIRED")
+        rejected(
+            lambda q: sd_presentation(q, nbf=int(time.time()) + 86400), "CREDENTIAL_NOT_YET_VALID"
+        )
         rejected(lambda q: sd_presentation(q, rogue), "CREDENTIAL_PROOF_INVALID")
         rejected(lambda q: sd_presentation(q, unknown), "ISSUER_UNTRUSTED")
         rejected(lambda q: sd_presentation(q, disclose=("given_name",)), "CLAIMS_MISSING")
@@ -357,8 +380,12 @@ def test_verifier_and_issuer(rt_url: str) -> None:
         )
         rejected(lambda q: sd_presentation(q, vct="urn:other"), "CREDENTIAL_TYPE_MISMATCH")
         gov.set(5, 1)
+        RELIANCE.invalidate_containing(
+            "/"
+        )  # an external list is trusted until the reliance SLO; let it pass
         rejected(lambda q: sd_presentation(q, idx=5), "CREDENTIAL_REVOKED")
         gov.set(6, 2)
+        RELIANCE.invalidate_containing("/")
         rejected(lambda q: sd_presentation(q, idx=6), "CREDENTIAL_SUSPENDED")
         rejected(
             lambda q: sd_presentation(
@@ -441,6 +468,7 @@ def test_verifier_and_issuer(rt_url: str) -> None:
         r0 = photo_present()
         assert r0.status_code == 200, r0.text
         photo.set(3, 1)
+        RELIANCE.invalidate_containing("/")
         r = photo_present()
         assert r.status_code == 400 and r.json()["error_description"] == "CREDENTIAL_REVOKED"
         assert photo_present(idx=4).status_code == 200  # only that credential
@@ -591,3 +619,31 @@ def test_verifier_and_issuer(rt_url: str) -> None:
             http.post(f"/credentials/{credential_id}:reinstate", headers=adm).status_code == 409
         )  # terminal
         assert parse_qs(urlsplit(first["authorization_request"]).query)["client_id"] == [CLIENT_ID]
+
+    # billing (CR-025): each credential issued and each presentation checked is exactly one billable event
+    async def billed() -> tuple[int, int, int, int]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+
+            async def n(sql: str) -> int:
+                return int((await c.execute(text(sql))).scalar_one())
+
+            return (
+                await n(
+                    "SELECT count(*) FROM commercial.billable_event WHERE meter_id = 'VC_ISSUED'"
+                ),
+                await n("SELECT count(*) FROM cred.credential_record"),
+                await n(
+                    "SELECT count(*) FROM commercial.billable_event WHERE meter_id = 'VC_PRESENTED'"
+                ),
+                await n(
+                    "SELECT count(*) FROM cred.presentation_record WHERE status IN ('VERIFIED', 'REJECTED')"
+                ),
+            )
+
+    issued, issued_rows, presented, presented_rows = asyncio.run(billed())
+    assert issued >= 1 and issued == issued_rows
+    assert presented >= 10 and presented == presented_rows
+
+    # VC-18 / VC-21: verifying a PID, an attestation and an employee-style credential raised assurance and
+    # nothing else; the tenant holds exactly the grants it held before any credential flow ran
+    assert asyncio.run(grants()) == grants_before

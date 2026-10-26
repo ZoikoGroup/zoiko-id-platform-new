@@ -1,0 +1,30 @@
+# Default deny in both directions, then the explicit flows the platform needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zid-platform-default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zid-platform-allow
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zid-platform
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.ingressFromNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+  egress:
+    - ports:
+        {{- range .Values.networkPolicy.egressPorts }}
+        - port: {{ . }}
+        {{- end }}

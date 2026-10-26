@@ -3,6 +3,7 @@ relationship projector into SpiceDB). Same image as the API, separate process (D
 
     ZID_DATABASE_URL       runtime role (RLS on: each event is handled inside its own tenant)
     ZID_KAFKA_BOOTSTRAP    MSK / Redpanda
+    ZID_KAFKA_CREATE_TOPICS  "true" creates missing topics at start (development and single-node brokers)
     ZID_SPICEDB_URL, ZID_SPICEDB_KEY   relationship projection target (DEC-C4)
 
 The evidence ingest (EVIDENCE-001 §2.1, §7.1) runs here too: every event whose payload names an
@@ -20,6 +21,7 @@ import asyncio
 import json
 import os
 from collections.abc import Mapping
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from zid_context import RequestContext, new_id
@@ -38,6 +40,9 @@ from zid_platform.modules.signals.application.ssf import (
 )
 
 PROJECTOR = "relationship.projector.v1"
+WEBHOOK_ROUTER = "webhook.router.v1"
+ALERTS = "notification.alerts.v1"
+EMAIL = "communication.email.v1"
 EVIDENCE_INGEST = "evidence.ingest.v1"
 # Domains whose events may carry evidence (both lanes: state changes take the priority lane).
 EVIDENCE_DOMAINS = (
@@ -96,6 +101,70 @@ def evidence_ingest_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[
     return handle
 
 
+def webhook_topics(env: str, region: str) -> list[str]:
+    """Topics carrying the integration events an endpoint may subscribe to (EVENTS §17)."""
+    from zid_platform.modules.webhook.ports import SUBSCRIBABLE
+
+    domains = sorted({t.removeprefix("com.zoiko.id.").split(".")[0] for t in SUBSCRIBABLE})
+    lanes = ("priority", "domain", "integration")
+    return [f"zid.{env}.{region}.{d}.{lane}" for d in domains for lane in lanes]
+
+
+def webhook_router_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[no-untyped-def]
+    """One delivery snapshot per subscribed ACTIVE endpoint, once per event (inbox-deduplicated)."""
+    from zid_platform.modules.webhook.ports import SUBSCRIBABLE, route
+
+    async def apply(conn: AsyncConnection, event: CloudEvent) -> None:
+        await route(conn, event)
+
+    async def handle(event: CloudEvent) -> None:
+        if event.type not in SUBSCRIBABLE:
+            return
+        ctx = RequestContext(
+            new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid
+        )
+        async with tenant_transaction(engine, ctx) as conn:
+            await consume(conn, WEBHOOK_ROUTER, event, apply)
+
+    return handle
+
+
+def alert_topics(env: str, region: str) -> list[str]:
+    from zid_platform.modules.notification.ports import DOMAINS
+
+    return [
+        f"zid.{env}.{region}.{d}.{lane}"
+        for d in DOMAINS
+        for lane in ("priority", "domain", "integration")
+    ]
+
+
+def alert_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[no-untyped-def]
+    """Catalogued platform events become the tenant's alerts and tasks (UX §20), once per event."""
+    from datetime import UTC, datetime
+
+    from zid_platform.modules.configuration.ports import muted_alert_kinds
+    from zid_platform.modules.notification.domain.alerts import event_name
+    from zid_platform.modules.notification.ports import TEMPLATES, alert_from_event
+
+    async def apply(conn: AsyncConnection, event: CloudEvent) -> None:
+        muted = await muted_alert_kinds(
+            conn
+        )  # the tenant's choice; mandatory notices are never muted
+        await alert_from_event(conn, event, now=datetime.now(UTC), muted=muted)
+
+    async def handle(event: CloudEvent) -> None:
+        if event_name(event.type) not in TEMPLATES or not event.tenantid:
+            return
+        ctx = RequestContext(
+            new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid
+        )
+        async with tenant_transaction(engine, ctx) as conn:
+            await consume(conn, ALERTS, event, apply)
+
+    return handle
+
+
 async def run(
     *,
     database_url: str,
@@ -106,7 +175,9 @@ async def run(
     cell_id: str,
     stop_after: int | None = None,
     idle_timeout_s: float | None = None,
+    create_topics: bool = False,
     transmitter: tuple[KeyRing, str] | None = None,
+    email: tuple[Any, Any] | None = None,
 ) -> int:
     """`transmitter`: (issuer keyring, issuer) to also run the SSF transmitter consumer.
 
@@ -122,6 +193,7 @@ async def run(
                 projector_handler(engine, spicedb, cell_id),
                 stop_after=stop_after,
                 idle_timeout_s=idle_timeout_s,
+                create_topics=create_topics,
             ),
             run_consumer(
                 bootstrap,
@@ -134,8 +206,46 @@ async def run(
                 evidence_ingest_handler(engine, cell_id),
                 stop_after=stop_after,
                 idle_timeout_s=idle_timeout_s,
+                create_topics=create_topics,
             ),
         ]
+        consumers.append(
+            run_consumer(
+                bootstrap,
+                webhook_topics(env, region),
+                WEBHOOK_ROUTER,
+                webhook_router_handler(engine, cell_id),
+                stop_after=stop_after,
+                idle_timeout_s=idle_timeout_s,
+                create_topics=create_topics,
+            )
+        )
+        consumers.append(
+            run_consumer(
+                bootstrap,
+                alert_topics(env, region),
+                ALERTS,
+                alert_handler(engine, cell_id),
+                stop_after=stop_after,
+                idle_timeout_s=idle_timeout_s,
+                create_topics=create_topics,
+            )
+        )
+        if email is not None:
+            from zid_platform.modules.communication.ports import email_handler, email_topics
+
+            email_config, email_sender = email
+            consumers.append(
+                run_consumer(
+                    bootstrap,
+                    email_topics(env, region),
+                    EMAIL,
+                    email_handler(engine, cell_id, email_config, email_sender),
+                    stop_after=stop_after,
+                    idle_timeout_s=idle_timeout_s,
+                    create_topics=create_topics,
+                )
+            )
         if transmitter is not None:
             keyring, issuer = transmitter
             consumers.append(
@@ -146,6 +256,7 @@ async def run(
                     transmitter_handler(engine, keyring, issuer, cell_id),
                     stop_after=stop_after,
                     idle_timeout_s=idle_timeout_s,
+                    create_topics=create_topics,
                 )
             )
         return sum(await asyncio.gather(*consumers))
@@ -159,7 +270,15 @@ def main() -> None:
     from zid_platform.modules.evidence.ports import configure_runtime, runtime_from_settings
     from zid_platform.settings import Settings
 
-    configure_runtime(runtime_from_settings(Settings()))  # pseudonymous handles for audit records
+    settings = Settings()
+    configure_runtime(runtime_from_settings(settings))  # pseudonymous handles for audit records
+    from zid_platform.modules.communication.ports import EmailConfig, build_sender
+
+    # Email is off unless ZID_EMAIL_ENABLED is set; when on, a missing SMTP setting stops the process here.
+    email_sender = build_sender(settings)
+    email = (
+        (EmailConfig.from_settings(settings), email_sender) if email_sender is not None else None
+    )
     asyncio.run(
         run(
             database_url=os.environ["ZID_DATABASE_URL"],
@@ -168,7 +287,9 @@ def main() -> None:
             env=os.environ.get("ZID_ENVIRONMENT", "local"),
             region=os.environ.get("ZID_REGION", cell),
             cell_id=cell,
+            create_topics=os.environ.get("ZID_KAFKA_CREATE_TOPICS", "").lower() == "true",
             transmitter=transmitter_keys(os.environ, cell),
+            email=email,
         )
     )
 

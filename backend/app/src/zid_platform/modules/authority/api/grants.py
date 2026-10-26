@@ -19,8 +19,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
+from zid_app.pagination import InvalidCursor, decode_cursor, page_of
 from zid_context import uuid7
 from zid_db import tenant_transaction
+from zid_errors import ZidError
 from zid_idempotency import Scope, begin, complete
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
@@ -180,7 +182,19 @@ async def list_all(
     status: GrantStatus | None = None,
     grantee_principal_id: uuid.UUID | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    cursor: Annotated[str | None, Query(max_length=512)] = None,
 ) -> dict[str, Any]:
+    """Newest first. `next_cursor` (when present) continues the list after the last row of this page."""
+    scope = f"grants|{status.value if status else '*'}|{grantee_principal_id or '*'}"
+    try:
+        after = decode_cursor(cursor, scope) if cursor else None
+        after_key = (datetime.fromisoformat(after[0]), after[1]) if after else None
+        if after_key:
+            uuid.UUID(after_key[1])
+    except (InvalidCursor, ValueError) as e:
+        raise ZidError(
+            "INVALID_CURSOR", "The cursor is not valid for this list.", http_status=400
+        ) from e
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="authority.grant.read", resource="authority_grant:*"
@@ -189,9 +203,13 @@ async def list_all(
             conn,
             status=status,
             grantee_principal_id=str(grantee_principal_id) if grantee_principal_id else None,
-            limit=limit,
+            limit=limit + 1,
+            after=after_key,
         )
-    return {"items": [_view(g) for g in grants]}
+    items, next_cursor = page_of(
+        grants, limit, lambda g: (g.issued_at.isoformat(), g.grant_id), scope
+    )
+    return {"items": [_view(g) for g in items], "next_cursor": next_cursor}
 
 
 @router.get("/{grant_id}")

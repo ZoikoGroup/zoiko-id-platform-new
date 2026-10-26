@@ -40,6 +40,8 @@ RUNTIME_SCHEMAS = (
     "cred",
     "evidence",
     "privacy",
+    "metering",
+    "commercial",
 )
 CELL = "00000000-0000-7000-8000-0000000000c1"
 

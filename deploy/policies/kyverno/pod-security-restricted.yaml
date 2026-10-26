@@ -1,0 +1,59 @@
+# Admission: Pod Security Standards "restricted" for every protected namespace, plus resource limits, a
+# read-only root filesystem and no hostPath volumes (DEVSEC-17).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zid-pod-security-restricted
+spec:
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  background: true
+  rules:
+    - name: restricted-profile
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaceSelector:
+                matchLabels:
+                  zid.zoiko.id/protected: "true"
+      validate:
+        podSecurity:
+          level: restricted
+          version: latest
+    - name: no-host-path
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaceSelector:
+                matchLabels:
+                  zid.zoiko.id/protected: "true"
+      validate:
+        message: "hostPath volumes are not allowed."
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+    - name: read-only-root-and-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaceSelector:
+                matchLabels:
+                  zid.zoiko.id/protected: "true"
+      validate:
+        message: "Containers need readOnlyRootFilesystem, resource limits and a non-default service account."
+        pattern:
+          spec:
+            serviceAccountName: "?*"
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"

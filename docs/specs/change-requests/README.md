@@ -18,3 +18,22 @@ Raised by engineering when a decision ([docs/phases/](../../phases/README.md)) o
 | [CR-012](CR-012-operator-access.md) | SEC-001 §11-13; TENANCY-001 §19 | Operator access tables, actions and events | Phase F W4 | Open |
 | [CR-013](CR-013-privacy-control-plane.md) | ZID-DATA-001 §7.2, §9.1; PRIV-001 | Privacy control plane tables and actions | Phase F W3 | Open |
 | [CR-014](CR-014-residency-workload-identity.md) | TENANCY-001 §11-19; MACHINE §16; CRYPTO-MI-001 §29 | Residency enforcement and workload identity | Phase F W5/W6 | Open |
+| [CR-015](CR-015-overlay-onboarding-integration.md) | OVERLAY-001 §2-5, §11, §14-21; ROOT-001 §6, §19 | Tenant lifecycle, onboarding, domains, sign-up registration and the integration registry | Phase G W0-W5 | Open |
+| [CR-016](CR-016-locator-resilience.md) | TENANCY-001 §14-16; RESILIENCE-001 §15-30; DEC-G1/G3 | Global locator, signed discovery and governed recovery operations | Phase G W6-W7 | Open |
+| [CR-017](CR-017-sre-operations.md) | SRE-001 §1, §4-6, §15-17, §22-24, §29-30 | Service catalogue, SLOs, incidents, readiness reviews and change freezes | Phase G W8 | Open |
+| [CR-018](CR-018-webhook-management.md) | EVENTS-001 §14-20; API-001 §17; UX-001 §18 | Webhook management API, actions and delivery runtime | Phase H H-1 | Open |
+| [CR-019](CR-019-alerts-tasks.md) | UX-001 §3, §20, §27 | Alerts and tasks (notification centre) | Phase H H-2 | Open |
+| [CR-020](CR-020-global-search.md) | UX-001 §3.1, §25 | Global search (authorization-aware, tenant-scoped) | Phase H H-2 | Open |
+| [CR-021](CR-021-agent-registry.md) | MACHINE-001 §2-3, §12-15, §18, §21; UX-001 §13 | Agent, blueprint and tool registry API; activation-gate attestations | Phase H H-5 | Open |
+| [CR-022](CR-022-tenant-settings.md) | UX-001 §19, §20, §28; DATA-001 §1.1 | Versioned tenant settings, enforced session limits, cryptography overview | Phase H H-6 | Open |
+| [CR-023](CR-023-usage-and-rate-limits.md) | UX-001 §18; DATA-001 §11.1; API-001 | API usage metering and the per-tenant rate limit | Phase H H-7 | Open |
+| [CR-024](CR-024-commercial-catalogue-entitlements.md) | ZID-COM-001 §2, §5, §6, §12, §29; DATA-001 §1.1 | Commercial catalogue, plans and entitlements | Phase J J-1 | Open (built) |
+| [CR-025](CR-025-billable-metering.md) | ZID-COM-001 §7, §11, §26, §31 | Billable metering ledger (idempotent, insert-only, replayable) | Phase J J-2 | Open (built) |
+| [CR-026](CR-026-rating.md) | ZID-COM-001 §6, §7, §11, §13, §30 | Rating: included quota, overage, proration, credits | Phase J J-3 | Open (built) |
+| [CR-027](CR-027-invoicing-billing-state.md) | ZID-COM-001 §11, §13, §30, §31 | Invoices, credit notes and the billing state machine | Phase J J-4 | Open (built) |
+| [CR-028](CR-028-quotes-orders-contracts.md) | ZID-COM-001 §9, §10, §12, §14, §17 | Accounts, quotes, orders, contracts and discount authority | Phase J J-5 | Open (built) |
+| [CR-029](CR-029-budgets-and-vendor-costs.md) | ZID-COM-001 §7, §8, §23 | Budget warnings and the vendor-cost ledger | Phase J J-6, J-7 | Open (built) |
+| [CR-031](CR-031-communication-estate.md) | Email Communication Estate §02-§07 | The email estate: 160 templates, renderer, SMTP delivery, suppression, consent, contacts, wired events | Phase K | Open (engine and ten wired templates built; 150 wait for producer events) |
+| [CR-030](CR-030-revenue-assurance-and-commercial-ux.md) | ZID-COM-001 §19, §22, §24, §31 | Revenue assurance, commercial console and pricing page, acceptance suite | Phase J J-8 to J-10 | Open (J-9, J-10 built; J-8 not built) |
+| [CR-032](CR-032-plan-requests.md) | ZID-COM-001 §10, §12, §19 | A company asks for a different plan; the commercial team answers (no entitlement changes) | Console wiring | Open (built) |
+| [CR-033](CR-033-deletion-rectification-shared-identity-clients.md) | ZID-TENANCY-001 §10, §23; ZID-PRIV-001; ZID-AUTH-001 §6-7 | Tenant data deletion, rectification at the source, shared-identity disclosure, self-service OAuth clients | Acceptance linking | Open (built) |

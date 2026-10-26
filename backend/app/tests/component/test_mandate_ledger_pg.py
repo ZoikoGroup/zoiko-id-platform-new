@@ -375,3 +375,44 @@ def test_unknown_high_risk_outcome_stays_blocked_until_reconciled(rt_url: str) -
                 assert (await read_balance(c, mid)).reserved == Amounts()
 
     asyncio.run(run())
+
+
+def test_ledger_events_resolve_to_one_authority_chain_without_personal_data(rt_url: str) -> None:
+    """MAND-25: the mandate, its reservation and its commit all name the same authority grant, the reservation
+    and commit name the same transaction context, and none of them carries a personal-data field."""
+    from zid_outbox import prohibited_content
+
+    async def run() -> None:
+        async with engine(rt_url) as eng:
+            mid = await new_mandate(eng, Budget(currency="GBP", value_limit=Decimal(100)))
+            assert await try_reserve(eng, mid, "chain", Amounts(Decimal(5), 1, 0)) is None
+            async with tenant_transaction(eng, ctx()) as c:
+                rid = (await reservations(c, mid))[ReservationStatus.RESERVED.value][0]
+                await commit_reservation(
+                    c, tenant_id=TENANT, reservation_id=rid, cell_id=CELL, writer_epoch=3,
+                    now=NOW, recheck_passed=True,
+                )  # fmt: skip
+                rows = (
+                    await c.execute(
+                        text(
+                            "SELECT event_type, payload FROM events.outbox_event "
+                            "WHERE payload::text LIKE :like ORDER BY occurred_at"
+                        ),
+                        {"like": f"%{mid}%"},
+                    )
+                ).all()
+            chain = [r.payload.get("data", r.payload) for r in rows]
+            kinds = {r.event_type for r in rows}
+            assert "com.zoiko.id.mandate.reservation.committed.v1" in kinds, kinds
+            grants = {d["authority_grant_id"] for d in chain if d.get("authority_grant_id")}
+            assert len(grants) == 1, chain  # mandate, reservation and commit: one authority grant
+            contexts = {
+                d["transaction_context_hash"] for d in chain if d.get("transaction_context_hash")
+            }
+            assert (
+                len(contexts) == 1 and "ctx-chain" not in contexts
+            )  # one transaction, stored only as a hash
+            for d in chain:
+                assert not prohibited_content(d), d
+
+    asyncio.run(run())

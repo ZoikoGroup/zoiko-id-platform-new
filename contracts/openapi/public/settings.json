@@ -1,0 +1,267 @@
+{
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "SettingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "description": "The revision this edit was based on (0 = never set).",
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "value": {
+            "additionalProperties": true,
+            "title": "Value",
+            "type": "object"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "value"
+        ],
+        "title": "SettingBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Tenant Settings API (authentication limits, notifications, branding, cryptography overview)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/settings": {
+      "get": {
+        "operationId": "all_settings_v1_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response All Settings V1 Settings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "All Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/v1/settings/cryptography": {
+      "get": {
+        "description": "What protects this tenant's data, with no key material: who holds the keys, how healthy they are, and\nwhich algorithms each purpose may use.",
+        "operationId": "cryptography_v1_settings_cryptography_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cryptography V1 Settings Cryptography Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cryptography",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/v1/settings/notification-kinds": {
+      "get": {
+        "description": "The alert kinds a tenant sees, and which of them are mandatory (cannot be muted).",
+        "operationId": "notification_kinds_v1_settings_notification_kinds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Notification Kinds V1 Settings Notification Kinds Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Notification Kinds",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/v1/settings/{area}": {
+      "put": {
+        "operationId": "put_setting_v1_settings__area__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area",
+            "required": true,
+            "schema": {
+              "enum": [
+                "AUTHENTICATION",
+                "NOTIFICATIONS",
+                "BRANDING"
+              ],
+              "title": "Area",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Setting V1 Settings  Area  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Setting",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/v1/settings/{area}/history": {
+      "get": {
+        "operationId": "area_history_v1_settings__area__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area",
+            "required": true,
+            "schema": {
+              "enum": [
+                "AUTHENTICATION",
+                "NOTIFICATIONS",
+                "BRANDING"
+              ],
+              "title": "Area",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Area History V1 Settings  Area  History Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Area History",
+        "tags": [
+          "settings"
+        ]
+      }
+    }
+  }
+}

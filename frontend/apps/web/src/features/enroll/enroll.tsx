@@ -2,7 +2,7 @@
 
 import { Banner, Button, ButtonLink, Card } from "@zoiko/ui";
 import { Fingerprint } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { useRuntime } from "@/lib/runtime";
 import {
@@ -15,19 +15,65 @@ import {
 
 const noSubscribe = () => () => {};
 
+/** Where to land after the first sign-in: a same-site path only (never `//host` or a URL); the
+ * company details from registration (`carry`, already validated) ride along. */
+function landing(next: string | undefined): string {
+  return next && /^\/[A-Za-z0-9/_-]*$/.test(next) && !next.startsWith("//") ? next : "/account";
+}
+
 /** First passkey for an account, from a one-time enrollment ticket; then signs straight in. */
-export function Enroll({ ticket, label, company }: { ticket?: string; label?: string; company?: string }) {
+export function Enroll({
+  ticket,
+  workspace,
+  selected,
+  label,
+  company,
+  next,
+  carry,
+}: {
+  ticket?: string;
+  workspace?: string;
+  selected?: boolean;
+  label?: string;
+  company?: string;
+  next?: string;
+  carry?: string;
+}) {
   const { flow } = useRuntime();
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [registered, setRegistered] = useState(false);
   const supported = useSyncExternalStore(noSubscribe, browserSupportsWebAuthn, () => true);
 
+  // An invitee's browser has no company selected yet, and the page learns its company when the server renders it.
+  // So choose the company the link names, then load the page again once (`selected`) so every request below
+  // carries the right one. A company that cannot be found stops here with a clear message.
+  const [selectFailed, setSelectFailed] = useState(false);
+  useEffect(() => {
+    if (!workspace || selected) return;
+    void (async () => {
+      try {
+        const res = await fetch("/api/workspace", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ workspace }),
+        });
+        if (!res.ok) throw new Error("not found");
+        const url = new URL(window.location.href);
+        url.searchParams.set("selected", "1");
+        window.location.replace(url.toString());
+      } catch {
+        setSelectFailed(true);
+      }
+    })();
+  }, [workspace, selected]);
+
   async function signIn() {
     const options = await flow.passkeyOptions();
     await flow.passkeyVerify(await getPasskey(options));
     await completeAppSession();
-    window.location.assign("/account?welcome=1");
+    window.location.assign(`${landing(next)}?welcome=1${carry ? `&${carry}` : ""}`);
   }
 
   async function enroll() {
@@ -44,6 +90,17 @@ export function Enroll({ ticket, label, company }: { ticket?: string; label?: st
       setFailure(passkeyErrorMessage(e));
       setPending(false);
     }
+  }
+
+  if (workspace && !selected) {
+    return (
+      <div className="space-y-3 text-center" role="status">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{selectFailed ? "Company not found" : "Preparing your invitation…"}</h1>
+        <p className="text-sm text-ink-muted">
+          {selectFailed ? "The company named in this link could not be found. Ask the person who invited you for a new link." : "Selecting your company."}
+        </p>
+      </div>
+    );
   }
 
   if (!ticket) {

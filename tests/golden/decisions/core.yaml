@@ -1,0 +1,116 @@
+# Golden authorization decisions (ZID-VERIFY-MASTER-001 MPR-05; ZID-AUTHZ-001 §18-20; DEC-B1, DEC-C3).
+#
+# Each case is a request and the decision the platform MUST reach. They are data, not code, so security,
+# product and counsel can read them. The runner (backend/app/tests/unit/test_golden_decisions.py) evaluates
+# every case through the real Cedar engine with the platform floor, and fails if any decision, reason code
+# or determining policy changes. Changing an expectation here is a reviewed, deliberate act.
+#
+# Risk classes: R0 low, R1 moderate, R2 high, R3 critical. R2/R3 fail CLOSED when security state or
+# authority freshness cannot be established; R0/R1 do not.
+#
+# Reason codes: POLICY_NO_PERMIT (nothing permitted it), POLICY_FORBID (a forbid matched, which always
+# beats any permit), POLICY_EVALUATION_ERROR (the engine could not decide: always a deny).
+
+version: 1
+
+suites:
+  - name: accounts-payable approval limits
+    policy: |
+      @id("ap-approve")
+      permit (principal, action == Action::"invoice.approve", resource)
+      when { context.authority_valid && context.purpose == "accounts_payable" && context.value_minor <= 500000 };
+
+      @id("ap-block-large")
+      forbid (principal, action == Action::"invoice.approve", resource)
+      when { context.value_minor > 1000000 };
+    base_context:
+      tenant_match: true
+      authority_valid: true
+      authority_stale: false
+      security_state: NORMAL
+      risk_class: 2
+      authn_level: 2
+      purpose: accounts_payable
+      value_minor: 10000
+    cases:
+      - {name: within limit is allowed, action: invoice.approve, expect: ALLOW, determining: [ap-approve]}
+      - {name: exactly at the limit is allowed, action: invoice.approve, context: {value_minor: 500000}, expect: ALLOW}
+      - {name: one minor unit over the limit is denied, action: invoice.approve, context: {value_minor: 500001}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: between the permit limit and the forbid line is denied, action: invoice.approve, context: {value_minor: 1000000}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: above the forbid line is forbidden, action: invoice.approve, context: {value_minor: 1000001}, expect: DENY, codes: [POLICY_FORBID], determining: [ap-block-large]}
+      - {name: wrong purpose is denied, action: invoice.approve, context: {purpose: marketing}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: empty purpose is denied, action: invoice.approve, context: {purpose: ""}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: no valid authority chain is denied, action: invoice.approve, context: {authority_valid: false}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: an action the policy never mentions is denied by default, action: payment.release, expect: DENY, codes: [POLICY_NO_PERMIT]}
+
+  - name: platform floor cannot be overridden by tenant permits
+    policy: |
+      // the most generous tenant policy imaginable: permit everything the authority chain allows
+      @id("tenant-permit-all")
+      permit (principal, action, resource) when { context.authority_valid };
+    base_context:
+      tenant_match: true
+      authority_valid: true
+      authority_stale: false
+      security_state: NORMAL
+      risk_class: 3
+      authn_level: 2
+      purpose: any
+      value_minor: 0
+    cases:
+      - {name: healthy R3 request is allowed, action: payment.release, expect: ALLOW}
+      - {name: another tenant's data is never reachable, action: payment.release, context: {tenant_match: false}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-tenant-isolation]}
+      - {name: a compromised principal is denied at R0, action: invoice.approve, context: {risk_class: 0, security_state: COMPROMISED}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-security-compromised]}
+      - {name: a compromised principal is denied at R3, action: payment.release, context: {security_state: COMPROMISED}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-security-compromised]}
+      - {name: unknown security state fails closed at R2, action: payment.release, context: {risk_class: 2, security_state: UNKNOWN}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-r2-r3-unknown-security-state]}
+      - {name: unknown security state fails closed at R3, action: payment.release, context: {security_state: UNKNOWN}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-r2-r3-unknown-security-state]}
+      - {name: unknown security state does not block R1, action: invoice.approve, context: {risk_class: 1, security_state: UNKNOWN}, expect: ALLOW}
+      - {name: unknown security state does not block R0, action: invoice.approve, context: {risk_class: 0, security_state: UNKNOWN}, expect: ALLOW}
+      - {name: stale authority fails closed at R2, action: payment.release, context: {risk_class: 2, authority_stale: true}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-authority-stale]}
+      - {name: stale authority fails closed at R3, action: payment.release, context: {authority_stale: true}, expect: DENY, codes: [POLICY_FORBID], determining: [floor-authority-stale]}
+      - {name: stale authority does not block R1, action: invoice.approve, context: {risk_class: 1, authority_stale: true}, expect: ALLOW}
+      - {name: nothing sent at all is denied (deny-safe defaults), action: payment.release, context: {}, replace_context: true, expect: DENY}
+
+  - name: step-up for critical actions
+    policy: |
+      @id("release-needs-strong-authn")
+      permit (principal, action == Action::"payment.release", resource)
+      when { context.authority_valid && context.authn_level >= 2 };
+    base_context:
+      tenant_match: true
+      authority_valid: true
+      authority_stale: false
+      security_state: NORMAL
+      risk_class: 3
+      authn_level: 2
+      purpose: supplier_payment
+      value_minor: 100
+    cases:
+      - {name: strong authentication allows the R3 action, action: payment.release, expect: ALLOW}
+      - {name: weak authentication is denied, action: payment.release, context: {authn_level: 1}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: unauthenticated is denied, action: payment.release, context: {authn_level: 0}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+      - {name: strong authn without authority is still denied, action: payment.release, context: {authority_valid: false}, expect: DENY, codes: [POLICY_NO_PERMIT]}
+
+  - name: forbid dominance and hostile input
+    policy: |
+      @id("broad-permit")
+      permit (principal, action, resource) when { context.authority_valid };
+
+      @id("never-over-two-million")
+      forbid (principal, action, resource) when { context.value_minor > 2000000 };
+    base_context:
+      tenant_match: true
+      authority_valid: true
+      authority_stale: false
+      security_state: NORMAL
+      risk_class: 2
+      authn_level: 2
+      purpose: any
+      value_minor: 100
+    cases:
+      - {name: a broad permit allows a normal request, action: invoice.approve, expect: ALLOW}
+      - {name: a matching forbid beats the broad permit, action: invoice.approve, context: {value_minor: 2000001}, expect: DENY, codes: [POLICY_FORBID], determining: [never-over-two-million]}
+      - {name: a string where a boolean is expected is denied, action: invoice.approve, context: {tenant_match: "true"}, expect: DENY}
+      - {name: a string where a number is expected is denied, action: invoice.approve, context: {value_minor: "100"}, expect: DENY}
+      - {name: an attacker-shaped action name is denied, action: 'invoice.approve" || true || "', expect: DENY}
+      - {name: an unknown action name is denied, action: not.in.the.catalogue, expect: DENY}

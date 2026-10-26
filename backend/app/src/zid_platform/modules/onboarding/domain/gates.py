@@ -70,7 +70,11 @@ def require_pass(gates: Iterable[Gate], code: str) -> list[Gate]:
 
 
 # Tenant administration only - never business authority (OVERLAY §4: OWNER is not signing
-# authority). These are what the verified representative's seeded grant carries.
+# authority). These are what the verified representative's seeded grant carries, and what an Administrator receives
+# from the owner. It covers the company console: read access to the company's plan, billing, usage, settings, alerts,
+# contacts, webhooks, credentials, agents and mandates, and the management of company settings, alerts, contacts,
+# webhooks and budgets. It does not include issuing credentials, creating mandates or registering agents: those
+# commit the company to something and need their own grant.
 TENANT_ADMIN_ACTIONS = (
     "tenant.member.manage",
     "tenant.owner.change",
@@ -97,4 +101,21 @@ TENANT_ADMIN_ACTIONS = (
     "privacy.read",
     "identity.read",
     "organization.read",
+    # company console, read
+    "commercial.read",
+    "communication.read",
+    "configuration.read",
+    "credential.read",
+    "machine.agent.read",
+    "mandate.read",
+    "metering.read",
+    "notification.alert.read",
+    "webhook.endpoint.read",
+    # company administration, change
+    "commercial.budget.manage",
+    "commercial.plan.request",
+    "communication.contact.manage",
+    "configuration.manage",
+    "notification.alert.manage",
+    "webhook.endpoint.manage",
 )

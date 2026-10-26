@@ -46,6 +46,59 @@
         "title": "AnnotateBody",
         "type": "object"
       },
+      "BulkBody": {
+        "additionalProperties": false,
+        "properties": {
+          "case_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "mode": {
+            "pattern": "^(AUDITOR|CUSTOMER_VERIFY|INCIDENT|INTERNAL_REPLAY|REGULATOR_LEGAL)$",
+            "title": "Mode",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "receipt_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Receipt Ids",
+            "type": "array"
+          },
+          "ttl_minutes": {
+            "anyOf": [
+              {
+                "maximum": 10080.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Minutes"
+          }
+        },
+        "required": [
+          "receipt_ids",
+          "mode",
+          "purpose",
+          "case_ref"
+        ],
+        "title": "BulkBody",
+        "type": "object"
+      },
       "CaseBody": {
         "additionalProperties": false,
         "properties": {
@@ -474,6 +527,141 @@
           }
         },
         "summary": "Audit Events",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/bulk-exports": {
+      "get": {
+        "operationId": "bulk_exports_v1_evidence_bulk_exports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Bulk Exports V1 Evidence Bulk Exports Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Exports",
+        "tags": [
+          "evidence"
+        ]
+      },
+      "post": {
+        "description": "Several receipts in one signed package that stops being downloadable at `expires_at` (API-13). The same R3\n`evidence.export` gate as a single export; every receipt also leaves its own custody record.",
+        "operationId": "bulk_export_v1_evidence_bulk_exports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Bulk Export V1 Evidence Bulk Exports Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Export",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/bulk-exports/{export_id}": {
+      "get": {
+        "description": "The package while it is available. Past its expiry it is erased and this answers 410.",
+        "operationId": "bulk_export_download_v1_evidence_bulk_exports__export_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Bulk Export Download V1 Evidence Bulk Exports  Export Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Export Download",
         "tags": [
           "evidence"
         ]

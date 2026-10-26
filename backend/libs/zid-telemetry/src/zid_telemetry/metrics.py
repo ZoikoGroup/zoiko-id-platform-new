@@ -78,6 +78,21 @@ class Counter(_Metric):
 
 
 @dataclass
+class Gauge(_Metric):
+    """A value that goes up and down (queue age, backlog); the last set value per series."""
+
+    values: dict[tuple[str, ...], float] = field(default_factory=dict)
+
+    def set(self, value: float, **labels: str) -> None:
+        with self.registry.lock:
+            key = self._admit(self.values, self._key(labels))  # type: ignore[arg-type]
+            self.values[key] = float(value)
+
+    def value(self, **labels: str) -> float:
+        return self.values.get(self._key(labels), 0.0)
+
+
+@dataclass
 class Histogram(_Metric):
     buckets: tuple[float, ...] = LATENCY_BUCKETS_S
     series: dict[tuple[str, ...], list[float]] = field(
@@ -137,6 +152,13 @@ class Registry:
         assert isinstance(m, Counter)
         return m
 
+    def gauge(
+        self, name: str, help: str, labels: Iterable[str] = (), *, max_series: int = 200
+    ) -> Gauge:
+        m = self._define(Gauge, name, help, labels, max_series=max_series)
+        assert isinstance(m, Gauge)
+        return m
+
     def histogram(
         self,
         name: str,
@@ -168,6 +190,10 @@ class Registry:
                 out.append(f"# HELP {m.name} {m.help}")
                 if isinstance(m, Counter):
                     out.append(f"# TYPE {m.name} counter")
+                    for key, v in sorted(m.values.items()):
+                        out.append(f"{m.name}{fmt(m.labels, key)} {_num(v)}")
+                elif isinstance(m, Gauge):
+                    out.append(f"# TYPE {m.name} gauge")
                     for key, v in sorted(m.values.items()):
                         out.append(f"{m.name}{fmt(m.labels, key)} {_num(v)}")
                 elif isinstance(m, Histogram):

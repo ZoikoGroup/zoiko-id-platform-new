@@ -362,7 +362,7 @@ def test_organization_gate_registry_root_seeding_and_refresh(
                 root = (
                     await c.execute(
                         text(
-                            "SELECT root_type, assurance_class, status, holder_principal_id "
+                            "SELECT root_assertion_id, root_type, assurance_class, status, holder_principal_id "
                             "FROM org.authority_root_assertion WHERE tenant_id = :t"
                         ),
                         {"t": uuid.UUID(tenant)},
@@ -386,7 +386,8 @@ def test_organization_gate_registry_root_seeding_and_refresh(
                     now=datetime.now(UTC) + timedelta(hours=23),
                     on_root_changed=on_root_changed,
                 )
-                assert list(done.values()) == ["OFFICER_CEASED"]
+                # other tests share the database: look only at this tenant's root
+                assert done[str(root.root_assertion_id)] == "OFFICER_CEASED"
             async with eng.begin() as c:
                 status = (
                     await c.execute(

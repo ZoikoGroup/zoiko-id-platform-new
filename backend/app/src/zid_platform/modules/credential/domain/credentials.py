@@ -111,6 +111,95 @@ def trust_decision(
         raise CredentialError("ISSUER_UNTRUSTED", "not trusted for this jurisdiction")
 
 
+def trust_entry(row: Mapping[str, Any]) -> dict[str, Any]:
+    """The pinned facts of one trust entry that a decision relied on (VC §28 receipt)."""
+    return {
+        "trust_id": str(row["trust_id"]),
+        "issuer_identifier": row["issuer_identifier"],
+        "trust_source": row["trust_source"],
+        "revision": row["revision"],
+        "status": row["status"],
+        "valid_to": row["valid_to"].isoformat(),
+        "credential_types": sorted(row["credential_types"]),
+        "jurisdictions": sorted(row["jurisdictions"] or ()),
+    }
+
+
+def build_basis(
+    config: Configuration,
+    trusts: Sequence[Mapping[str, Any]],
+    *,
+    credential_status: str,
+    holder_bound: bool,
+    jurisdiction: str,
+    decided_at: datetime,
+) -> dict[str, Any]:
+    """Everything a verification decision rested on, without any credential or claim value:
+    pinned adapter and profile, the trust entries (id, revision), the status observation and the
+    binding result. `replay_decision` re-derives the outcome from exactly this (VC-27)."""
+    return {
+        "adapter_version": config.adapter_version,
+        "configuration_id": config.configuration_id,
+        "credential_type": config.credential_type,
+        "format": config.format,
+        "risk_class": config.risk_class,
+        "holder_binding_required": config.holder_binding_required,
+        "status_method": config.status_method,
+        "status_mandatory": config.status_mandatory,
+        "trust": [dict(t) for t in trusts],
+        "status": {"result": credential_status, "observed_at": decided_at.isoformat()},
+        "holder_bound": holder_bound,
+        "jurisdiction": jurisdiction,
+        "decided_at": decided_at.isoformat(),
+    }
+
+
+def replay_decision(basis: Mapping[str, Any]) -> str:
+    """Re-run the pure decision rules over a recorded basis: "VERIFIED" or the CredentialError
+    code the original decision would give. No clock, network or database."""
+    at = datetime.fromisoformat(str(basis["decided_at"]))
+    last: CredentialError | None = None
+    for t in basis["trust"]:
+        entry = IssuerTrust(
+            issuer_identifier=t["issuer_identifier"],
+            credential_types=frozenset(t["credential_types"]),
+            jurisdictions=frozenset(t["jurisdictions"]),
+            trust_source=t["trust_source"],
+            status=t["status"],
+            valid_to=datetime.fromisoformat(t["valid_to"]),
+        )
+        try:
+            trust_decision(
+                entry,
+                credential_type=basis["credential_type"],
+                jurisdiction=basis["jurisdiction"],
+                now=at,
+            )
+            last = None
+            break
+        except CredentialError as e:
+            last = e
+    if last is not None or not basis["trust"]:
+        raise last or CredentialError("ISSUER_UNTRUSTED", "no trust entry")
+    if basis["holder_binding_required"] and not basis["holder_bound"]:
+        raise CredentialError("HOLDER_BINDING_MISSING")
+    lite = Configuration(
+        configuration_id=basis["configuration_id"],
+        credential_type=basis["credential_type"],
+        format=basis["format"],
+        adapter_version=basis["adapter_version"],
+        required_claims=(),
+        optional_claims=(),
+        holder_binding_required=basis["holder_binding_required"],
+        status_method=basis["status_method"],
+        status_mandatory=basis["status_mandatory"],
+        risk_class=basis["risk_class"],
+        status="ACTIVE",
+    )
+    status_decision(basis["status"]["result"], lite)
+    return "VERIFIED"
+
+
 # --------------------------------------------------------------------------------------- SD-JWT
 
 

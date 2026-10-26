@@ -68,13 +68,16 @@ function Progress({ member }: { member: TenantMember }) {
   );
 }
 
-function enrollLink(ticket: string): string {
-  return `${window.location.origin}/enroll?ticket=${encodeURIComponent(ticket)}`;
+/** The link names the workspace too: an invitee's browser has no workspace cookie yet, and without it the ticket is
+ * looked up in the wrong company and refused. */
+function enrollLink(ticket: string, workspace?: string): string {
+  const w = workspace ? `&workspace=${encodeURIComponent(workspace)}` : "";
+  return `${window.location.origin}/enroll?ticket=${encodeURIComponent(ticket)}${w}`;
 }
 
 /** The single-use passkey setup link: shown once, copied or handed over by email. */
-function ShareLink({ invitation, onDone }: { invitation: Invitation; onDone: () => void }) {
-  const link = useMemo(() => enrollLink(invitation.enrollment_ticket), [invitation.enrollment_ticket]);
+function ShareLink({ invitation, workspace, onDone }: { invitation: Invitation; workspace?: string; onDone: () => void }) {
+  const link = useMemo(() => enrollLink(invitation.enrollment_ticket, workspace), [invitation.enrollment_ticket, workspace]);
   const [copied, setCopied] = useState(false);
   const [ack, setAck] = useState(false);
   const expires = new Date(invitation.enrollment_ticket_expires_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
@@ -292,7 +295,7 @@ export function TeamPage() {
         }
       >
         {issued ? (
-          <ShareLink invitation={issued} onDone={closeInvite} />
+          <ShareLink invitation={issued} workspace={tenant.data?.tenant_slug} onDone={closeInvite} />
         ) : (
           <div className="space-y-4">
             <RadioCards

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ConsentRecord, RightsRequest } from "@zoiko/api-client";
-import { Banner, Button, Card, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, StatusBadge, Switch, type Column } from "@zoiko/ui";
+import type { ConsentOption, ConsentRecord, RightsRequest } from "@zoiko/api-client";
+import { Badge, Banner, Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, StatusBadge, Switch, type Column } from "@zoiko/ui";
 import { Download, FileText, ShieldOff } from "lucide-react";
 import { useState } from "react";
 
@@ -32,6 +32,7 @@ export function PrivacyCenter() {
       <PageHeader title="Privacy" description="Your choices, consents and data-rights requests. Opt-outs take effect at once and never need identity documents." />
       <div className="space-y-5">
         <PreferencesCard />
+        <ConsentOptionsCard />
         <ConsentsCard />
         <RequestsCard />
       </div>
@@ -62,6 +63,81 @@ function PreferencesCard() {
           );
         }}
       </QueryView>
+    </Card>
+  );
+}
+
+/** What this person can agree to. Consent is captured against the exact notice shown, so the notice is named. */
+function ConsentOptionsCard() {
+  const options = useCellQuery([...KEY, "consent-options"], (api) => api.privacy.consentOptions());
+  const [read, setRead] = useState<Record<string, boolean>>({});
+  const give = useCellMutation(
+    (api, o: ConsentOption) =>
+      api.privacy.giveConsent({
+        activity_code: o.activity_code,
+        purpose_code: o.purpose_code,
+        notice_version: o.notice_version,
+        capture_method: "WEB",
+        affirmative_action: `checkbox:${o.purpose_code.toLowerCase()}`,
+      }),
+    {
+      invalidate: [[...KEY, "consent-options"], [...KEY, "consents"]],
+      success: "Thank you: your consent was recorded. You can withdraw it at any time below.",
+    },
+  );
+  return (
+    <Card
+      title="Optional uses of your data"
+      description="You are asked only for things that need your consent. Saying no never affects the service you use."
+    >
+      <QueryView query={options} loadingRows={2}>
+        {(d) =>
+          d.items.length === 0 ? (
+            <EmptyState icon={FileText} title="Nothing to agree to" compact>
+              Your organization does not ask for consent to any optional processing right now.
+            </EmptyState>
+          ) : (
+            <ul className="space-y-4">
+              {d.items.map((o) => {
+                const key = `${o.activity_code}:${o.purpose_code}`;
+                return (
+                  <li key={key} className="rounded-control border border-border p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-semibold text-ink">{o.activity_name}</h3>
+                        <p className="mt-1 text-sm text-ink-muted">{o.description}</p>
+                        <p className="mt-1 text-xs text-ink-subtle">
+                          Data used: {o.data_categories.join(", ") || "—"} · Notice {o.notice_version}
+                          {o.notice_uri ? (
+                            <>
+                              {" · "}
+                              <a className="underline" href={o.notice_uri} target="_blank" rel="noopener noreferrer">
+                                Read the notice
+                              </a>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
+                      {o.consented ? <Badge tone="ok">Consent given</Badge> : null}
+                    </div>
+                    {o.consented ? null : (
+                      <div className="mt-3 space-y-3">
+                        <Checkbox isSelected={Boolean(read[key])} onChange={(v) => setRead((r) => ({ ...r, [key]: v }))}>
+                          I have read notice {o.notice_version} and I agree.
+                        </Checkbox>
+                        <Button size="sm" isDisabled={!read[key]} pending={give.isPending} onPress={() => give.mutate(o)}>
+                          Give consent
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        }
+      </QueryView>
+      {give.error ? <ApiErrorView error={give.error} /> : null}
     </Card>
   );
 }

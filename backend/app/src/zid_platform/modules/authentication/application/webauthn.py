@@ -51,6 +51,8 @@ from zid_platform.modules.authentication.domain.authenticator import (
     sign_count_anomaly,
 )
 from zid_platform.modules.authentication.infrastructure import authenticator_store as store
+from zid_platform.modules.commercial.ports import key_auth, record_active_human, record_billable
+from zid_platform.modules.configuration.ports import session_expiry
 from zid_platform.modules.principal.ports import PrincipalStatus, load_principal
 from zid_platform.modules.session.ports import (
     Session,
@@ -363,10 +365,11 @@ async def authentication_verify(
         observed_security_revision=principal.security_revision,
         risk_class=risk_class,
         status=SessionStatus.ACTIVE,
-        expires_at=now + settings.session_policy.absolute_ttl,
+        expires_at=await session_expiry(conn, now, settings.session_policy.absolute_ttl),
         last_seen_at=now,
     )
     await create_session(conn, session)
+    await _bill_authentication(conn, tenant_id, session.session_id, authenticator.principal_id, now)
     replaced = None
     if claimed.ceremony == "STEP_UP" and claimed.session_id:
         await set_session_status(conn, claimed.session_id, SessionStatus.REVOKED, reason="rotated")
@@ -412,3 +415,20 @@ async def record_failure(
         aggregate_version=1,
         data={"reason": code, "ceremony": ceremony, "at": now.isoformat()},
     )
+
+
+async def _bill_authentication(
+    conn: AsyncConnection, tenant_id: str, session_id: str, principal_id: str, now: datetime
+) -> None:
+    """One successful authentication completion, and the principal's monthly-active mark (CR-025).
+
+    A step-up on a live session is a new completion too. Never raises: billing cannot block a sign-in."""
+    await record_billable(
+        conn,
+        tenant_id=tenant_id,
+        meter="AUTH_EVENT",
+        key=key_auth(session_id),
+        at=now,
+        principal_class="HUMAN",
+    )
+    await record_active_human(conn, tenant_id=tenant_id, principal_id=principal_id, at=now)

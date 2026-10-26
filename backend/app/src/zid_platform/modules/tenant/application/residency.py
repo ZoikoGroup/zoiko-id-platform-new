@@ -24,9 +24,11 @@ from zid_platform.modules.tenant.domain.residency import (
     TransferRule,
     check_placement,
     check_transfer,
+    dependency_findings,
     operator_jurisdictions,
 )
 from zid_platform.modules.tenant.infrastructure import residency_store as store
+from zid_platform.modules.tenant.infrastructure import tenant_store
 from zid_platform.modules.tenant.infrastructure.catalog import catalog
 
 
@@ -86,6 +88,18 @@ async def set_residency(
     """Assign or change the tenant's residency profile (a stricter profile only moves forward
     through approval; the capability check runs against the cell catalog, TENANCY §13)."""
     check_placement(catalog(), profile, home_cell_id, recovery_cells)
+    tenant_row = await tenant_store.load_tenant(conn, tenant_id)
+    if (
+        tenant_row is not None
+        and tenant_row.home_cell_id
+        and tenant_row.home_cell_id != home_cell_id
+    ):
+        # Moving a company to another cell is a migration, not a profile edit: pointing the profile at a cell that
+        # does not serve the company would make every request for it fail with CELL_NOT_AUTHORITATIVE.
+        raise ResidencyError(
+            "PLACEMENT_MOVE_NOT_ALLOWED",
+            f"{tenant_row.home_cell_id} is this company's home cell; moving to {home_cell_id} is a migration",
+        )
     ops = tuple(sorted({j.strip().upper() for j in operator_juris}))
     if any(len(j) != 2 or not j.isalpha() for j in ops):
         raise ResidencyError(
@@ -320,6 +334,63 @@ async def check_category_transfer(
     )
 
 
+async def check_dependency_locations(
+    conn: AsyncConnection, tenant_id: str, locations: Sequence[str]
+) -> None:
+    """TEN-20: refuse a dependency (a subprocessor behind a feature) whose locations cannot satisfy the tenant's
+    residency profile. `conn` is scoped to `tenant_id`."""
+    problems = dependency_findings(catalog(), await store.load(conn, tenant_id), locations)
+    if problems:
+        raise ResidencyError("DEPENDENCY_RESIDENCY_UNMET", "; ".join(problems))
+
+
+REMOTE_SUPPORT = "REMOTE_SUPPORT"  # the purpose code a transfer rule names for support staff reading data from abroad
+
+
+async def authorize_remote_access(
+    conn: AsyncConnection, tenant_id: str, operator_jurisdiction: str, *, actor: str | None = None
+) -> None:
+    """PRIV-25: support staff reading a company's data from outside its region need an approved transfer for that.
+
+    Reading customer data from a country is a cross-border transfer into it. Inside the company's region (its home
+    country for SRP-2/3, its legal zone for SRP-1) nothing more is needed; from anywhere else there must be an
+    ACTIVE, independently approved transfer rule for restricted data to a cell in that country for REMOTE_SUPPORT, or
+    the access is refused. No profile, or SRP-0, makes no regional promise. `conn` is scoped to `tenant_id`."""
+    r = await store.load(conn, tenant_id)
+    if r is None or r.level < 1:
+        return
+    cat = catalog()
+    home = cat.cell(r.home_cell_id)
+    j = operator_jurisdiction.upper()
+    zone = {
+        c.country.upper()
+        for c in cat.cells.values()
+        if c.country and c.legal_zone == home.legal_zone
+    }
+    if j in ({home.country.upper()} if r.level >= 2 and home.country else zone):
+        return
+    destination = next(
+        (c.cell_id for c in cat.cells.values() if c.country and c.country.upper() == j), None
+    )
+    if destination is None:
+        raise ResidencyError(
+            "REMOTE_ACCESS_TRANSFER_REQUIRED", f"no approved route for support access from {j}"
+        )
+    decision = await authorize_transfer(
+        conn,
+        tenant_id,
+        data_class="DC2",
+        destination_cell_id=destination,
+        purpose_code=REMOTE_SUPPORT,
+        actor=actor,
+    )
+    if not decision.allowed:
+        raise ResidencyError(
+            "REMOTE_ACCESS_TRANSFER_REQUIRED",
+            f"support access from {j} needs an approved transfer rule for {REMOTE_SUPPORT}",
+        )
+
+
 async def effective_operator_jurisdictions(
     conn: AsyncConnection, tenant_id: str, configured: Sequence[str]
 ) -> tuple[str, ...]:
@@ -330,8 +401,10 @@ async def effective_operator_jurisdictions(
 
 __all__ = [
     "add_rule",
+    "authorize_remote_access",
     "authorize_transfer",
     "check_category_transfer",
+    "check_dependency_locations",
     "effective_operator_jurisdictions",
     "set_residency",
     "suspend_rule",

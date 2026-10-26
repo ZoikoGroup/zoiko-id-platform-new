@@ -248,7 +248,8 @@ async def governed_contract(c: Any, tenant: str, author: str, reviewer: str) -> 
 
 
 def test_rights_requests_verification_access_and_opt_out(rt_url: str) -> None:
-    """PRIV-13/14/15/18, deadlines never guessed (COUNSEL_PENDING)."""
+    """PRIV-13/14/15/18, PRIV-19 (a portable export without internal security material), deadlines never
+    guessed (COUNSEL_PENDING)."""
     tenant, author, reviewer, subject, agent = uid(), uid(), uid(), uid(), uid()
 
     async def run() -> None:
@@ -313,6 +314,28 @@ def test_rights_requests_verification_access_and_opt_out(rt_url: str) -> None:
             assert pkg["manifest"]["format"] == "zid-privacy-export/1"
             assert pkg["records"]["test.records"] == [{"kind": "profile", "ref": "rec-1"}]
             assert pkg["preferences"][0]["preference_type"] == "OPT_OUT_SALE_SHARING"
+
+            # PRIV-19: structured and machine-readable (it parsed as JSON above), and it carries nothing of the
+            # platform's own security machinery: no keys, secrets, tokens, hashes or ciphertext
+            def keys(node: Any) -> list[str]:
+                if isinstance(node, dict):
+                    return [str(k) for k in node] + [x for v in node.values() for x in keys(v)]
+                if isinstance(node, list):
+                    return [x for v in node for x in keys(v)]
+                return []
+
+            internal = (
+                "secret",
+                "token",
+                "password",
+                "hmac",
+                "kek",
+                "wrapped",
+                "ciphertext",
+                "salt",
+                "signature",
+            )
+            assert not [k for k in keys(pkg) if any(w in k.lower() for w in internal)], keys(pkg)
             with pytest.raises(PrivacyError, match="NOT_FOUND"):  # nobody else downloads it
                 await privacy.read_package(
                     c, tenant, str(weak.request_id), subject_principal_id=agent
@@ -346,7 +369,7 @@ def test_rights_requests_verification_access_and_opt_out(rt_url: str) -> None:
 
 
 def test_erasure_holds_processors_and_retention(rt_url: str, owner_url: str) -> None:
-    """PRIV-06/07/08/09/12/17/20."""
+    """PRIV-06/07/08/09/10/12/17/20."""
     tenant, author, reviewer, subject, legal, approver = uid(), uid(), uid(), uid(), uid(), uid()
     DISPOSED.clear()
 
@@ -484,8 +507,20 @@ def test_erasure_holds_processors_and_retention(rt_url: str, owner_url: str) -> 
                 authn_level=2,
                 auth_age=timedelta(minutes=1),
             )
+            from zid_platform.modules.privacy.ports import register_erasure_hook
+            from zid_platform.modules.signals.ports import CACHE, forget_subject
+
+            register_erasure_hook(
+                "security-state-cache", forget_subject
+            )  # what main.py wires at start-up
+            CACHE.put(
+                tenant, subject, None, datetime.now(UTC)
+            )  # PRIV-10: a cached view of the subject
+            assert CACHE.get(tenant, subject, risk_class=0, now=datetime.now(UTC)) is not None
             r = await privacy.fulfil_request(c, tenant, str(req.request_id), actor=reviewer)
             items = {i["item_id"]: i for i in r.fulfilment_items}
+            assert items["caches"]["state"] == "DONE"
+            assert CACHE.get(tenant, subject, risk_class=0, now=datetime.now(UTC)) is None
             assert items["test.records:inv-1"]["state"] == "RETAINED_RESTRICTED"
             assert items["test.records:inv-1"]["reason"] == "LEGAL_OBLIGATION"
             assert items["test.records:crm-1"]["state"] == "PENDING_PROCESSOR_ACK"
@@ -622,3 +657,208 @@ def test_residency_transfer_gateway(rt_url: str) -> None:
             assert ("cross_cell_transfer.authorized", "SUCCESS") in audits
 
     asyncio.run(run())
+
+
+def test_a_person_is_offered_only_consent_they_can_give_with_the_notice_to_cite(
+    rt_url: str,
+) -> None:
+    """PRIV-26 (discovery half): consent options list a consent-based, active activity only once a notice naming it
+    is published; they carry the exact `CODE@version` to cite and whether consent is already held. Activities on
+    another lawful basis are never offered as a consent choice."""
+    tenant, author, reviewer, subject, other = uid(), uid(), uid(), uid(), uid()
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            aid = await governed_activity(c, tenant, author, reviewer)
+            await privacy.assign_role(
+                c,
+                tenant,
+                aid,
+                data_controller_principal_id=tenant,
+                zoiko_role="PROCESSOR",
+                jurisdiction_pack_id="uk-gdpr",
+                approval_ref="COUNSEL-1",
+                created_by=author,
+                approved_by=reviewer,
+                contract_or_dpa_ref="DPA-7",
+            )
+            await privacy.activate_activity(c, tenant, aid, actor=author)
+            assert (
+                await privacy.consent_options(c, subject) == []
+            )  # no published notice: nothing to cite, nothing offered
+            await registry.publish_notice(
+                c,
+                tenant,
+                code="NEWS_NOTICE",
+                audience="end_user",
+                content="We send product news monthly.",
+                created_by=author,
+                approved_by=reviewer,
+                processing_activity_codes=["MARKETING_EMAIL"],
+            )
+            options = await privacy.consent_options(c, subject)
+            assert len(options) == 1
+            offer = options[0]
+            assert (offer["activity_code"], offer["purpose_code"]) == (
+                "MARKETING_EMAIL",
+                "NEWSLETTER",
+            )
+            assert offer["notice_version"] == "NEWS_NOTICE@1" and offer["consented"] is False
+            # the offer is exactly what give_consent needs: using it as given succeeds
+            await privacy.give_consent(
+                c,
+                tenant,
+                subject_principal_id=subject,
+                activity_code=offer["activity_code"],
+                purpose_code=offer["purpose_code"],
+                notice_version=offer["notice_version"],
+                capture_method="WEB",
+                affirmative_action="checkbox:newsletter",
+            )
+            assert (await privacy.consent_options(c, subject))[0]["consented"] is True
+            assert (await privacy.consent_options(c, other))[0][
+                "consented"
+            ] is False  # consent is personal
+            await privacy.withdraw_consent(
+                c,
+                tenant,
+                str((await privacy.store.consents_of(c, subject))[0].consent_id),
+                subject_principal_id=subject,
+                reason="no",
+            )
+            assert (await privacy.consent_options(c, subject))[0]["consented"] is False
+
+    asyncio.run(run())
+
+
+def test_a_processor_that_cannot_satisfy_the_residency_profile_is_not_approved(rt_url: str) -> None:
+    """TEN-20: for an SRP-1 UK tenant, a processor operating in the US cannot be approved (so no feature that
+    needs it can be enabled), while one operating in the UK can."""
+    tenant, admin, author, reviewer = uid(), uid(), uid(), uid()
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await residency.set_residency(
+                c,
+                tenant,
+                profile="SRP-1",
+                home_cell_id="uk-1",
+                recovery_cells=[],
+                prohibited_cells=[],
+                operator_juris=[],
+                key_profile="PLATFORM_MANAGED",
+                jurisdiction_pack_id="uk-gdpr",
+                approval_ref="LEGAL-1",
+                actor=admin,
+            )
+            for pid, where in (("us-sms", ["US"]), ("uk-sms", ["GB"])):
+                await registry.register_processor(
+                    c,
+                    tenant,
+                    processor_id=pid,
+                    name=pid,
+                    role="SUBPROCESSOR",
+                    data_categories=["D1"],
+                    locations=where,
+                    created_by=author,
+                    deletion_sla_days=30,
+                    contract_ref="DPA-1",
+                )
+            with pytest.raises(PrivacyError, match="PRIVACY_PROCESSOR_RESIDENCY"):
+                await registry.set_processor_status(c, tenant, "us-sms", "APPROVED", actor=reviewer)
+            await registry.set_processor_status(c, tenant, "uk-sms", "APPROVED", actor=reviewer)
+            with pytest.raises(PrivacyError, match="PRIVACY_PROCESSOR_NOT_APPROVED"):
+                await registry.require_processor(c, "us-sms", "D1")
+
+    asyncio.run(run())
+
+
+def test_rectifying_an_externally_sourced_fact_asks_the_source_instead_of_overwriting(
+    rt_url: str,
+) -> None:
+    """PRIV-16: a person disputing a fact the company register supplied cannot have it edited by hand. The register is
+    asked again (a refresh request, whose answer is appended as the superseding observation) and what the person says
+    is kept as a statement. A self-asserted fact still goes to privacy operations."""
+    from zid_platform.modules.organization.ports import (
+        organization_exists,
+        request_registry_refresh,
+    )
+
+    tenant, author, reviewer, subject, agent, org = uid(), uid(), uid(), uid(), uid(), uid()
+
+    async def recheck(
+        conn: Any, tenant_id: str, fact: Any, *, reason_ref: str, now: datetime
+    ) -> str:
+        assert await organization_exists(conn, fact["organization_id"])
+        return await request_registry_refresh(
+            conn, tenant_id, fact["organization_id"], reason_ref=reason_ref, now=now
+        )
+
+    async def open_verified(c: Any, scope: dict[str, Any]) -> Any:
+        r = await privacy.open_request(
+            c,
+            tenant,
+            request_type="RECTIFICATION",
+            subject_principal_id=subject,
+            requester_principal_id=subject,
+            jurisdiction_pack_id="uk-gdpr",
+            authn_level=1,
+            auth_age=timedelta(minutes=1),
+            scope=scope,
+        )
+        await privacy.verify_request(
+            c, tenant, str(r.request_id), verified=True, level=2, method="step-up", actor=agent
+        )
+        return r
+
+    async def run() -> None:
+        privacy.register_rectification_source("REGISTRY", recheck)
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await governed_contract(c, tenant, author, reviewer)
+            await c.execute(
+                text(
+                    "INSERT INTO org.organization (organization_id, tenant_id, legal_name, valid_from) "
+                    "VALUES (:o, :t, 'Acme Ltd', now())"
+                ),
+                {"o": uuid.UUID(org), "t": uuid.UUID(tenant)},
+            )
+            fact = {"kind": "REGISTRY", "organization_id": org, "field": "legal_name"}
+
+            # a replacement value for a register fact is refused, not applied
+            r = await open_verified(c, {"fact": {**fact, "new_value": "Acme Group Ltd"}})
+            with pytest.raises(PrivacyError, match="PRIVACY_SOURCE_AUTHORITATIVE"):
+                await privacy.fulfil_request(c, tenant, str(r.request_id), actor=agent)
+            name = (await c.execute(text("SELECT legal_name FROM org.organization"))).scalar_one()
+            assert name == "Acme Ltd"  # untouched
+
+            # the dispute asks the register again, and is idempotent while a re-check is open
+            r = await open_verified(c, {"fact": fact})
+            out = await privacy.fulfil_request(c, tenant, str(r.request_id), actor=agent)
+            kinds = {i["item_id"]: i for i in out.fulfilment_items}
+            assert kinds["source-refresh"]["manual_overwrite"] is False
+            assert kinds["statement-of-disagreement"]["state"] == "DONE"
+            r2 = await open_verified(c, {"fact": fact})
+            out2 = await privacy.fulfil_request(c, tenant, str(r2.request_id), actor=agent)
+            first = kinds["source-refresh"]["refresh_request_id"]
+            second = {i["item_id"]: i for i in out2.fulfilment_items}["source-refresh"][
+                "refresh_request_id"
+            ]
+            assert first == second
+            open_count = (
+                await c.execute(
+                    text("SELECT count(*) FROM org.registry_refresh_request WHERE status = 'OPEN'")
+                )
+            ).scalar_one()
+            assert open_count == 1
+
+            # a self-asserted fact goes to people
+            r3 = await open_verified(
+                c, {"fact": {"kind": "SELF_ASSERTED", "field": "display_name"}}
+            )
+            out3 = await privacy.fulfil_request(c, tenant, str(r3.request_id), actor=agent)
+            assert out3.fulfilment_items[0]["route"] == "privacy-ops"
+
+    try:
+        asyncio.run(run())
+    finally:
+        privacy._RECTIFICATION_SOURCES.pop("REGISTRY", None)

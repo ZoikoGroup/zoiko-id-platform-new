@@ -55,8 +55,8 @@ export function AccountsPage() {
   return (
     <>
       <PageHeader
-        title="Sessions & recovery"
-        description="Find a principal to end its sessions, run assisted or lockbox recovery, and review its identity assurance."
+        title="People & principals"
+        description="Find a principal to see the authority it holds, its credentials and identity assurance, end its sessions, or run assisted or lockbox recovery."
       />
       <div className="space-y-5">
         <Card padded={false}>

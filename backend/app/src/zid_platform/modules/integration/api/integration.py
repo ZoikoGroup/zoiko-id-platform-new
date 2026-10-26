@@ -3,6 +3,9 @@
 GET  /v1/integration/applications                      list            (OWNER/ADMIN)
 POST /v1/integration/applications                      register        integration.application.manage
 POST /v1/integration/applications/{id}:transition      DRAFT/TESTING/ACTIVE/SUSPENDED/RETIRED
+GET  /v1/integration/oauth-clients                     the company's OAuth clients (OWNER/ADMIN)
+POST /v1/integration/oauth-clients                     register one; no secret exists  integration.application.manage
+POST /v1/integration/oauth-clients/{id}:retire         stop an application signing in
 GET  /v1/integration/connectors                        list + health   (OWNER/ADMIN)
 GET  /v1/integration/connectors/{id}                   one, with credential fingerprints only
 POST /v1/integration/connectors                        register        integration.connector.manage
@@ -15,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -49,6 +52,12 @@ _STATUS = {
     "VALIDATION_FAILED": 422,
     "PEP_OBLIGATION_UNSUPPORTED": 422,
     "MAPPING_TARGET_FORBIDDEN": 422,
+    "REDIRECT_URI_INVALID": 422,
+    "JWKS_INVALID": 422,
+    "JWKS_PRIVATE_KEY": 422,
+    "JWKS_NOT_ALLOWED": 422,
+    "SCOPE_NOT_AVAILABLE": 422,
+    "CLIENT_TYPE_INVALID": 422,
 }
 
 
@@ -225,6 +234,64 @@ async def transition_application(
         except IntegrationError as e:
             raise http(e) from e
     return app_view(a)
+
+
+class OAuthClientBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=80)
+    client_type: Literal["PUBLIC", "CONFIDENTIAL"]
+    redirect_uris: list[str] = Field(min_length=1, max_length=10)
+    scopes: list[str] = Field(default_factory=lambda: ["openid"], max_length=10)
+    jwks: dict[str, Any] | None = None
+
+
+@router.get("/oauth-clients")
+async def list_oauth_clients(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _admin_read(conn, caller)
+        return {"items": await service.client_gateway().listing(conn)}
+
+
+@router.post("/oauth-clients", status_code=201)
+async def register_oauth_client(
+    body: OAuthClientBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action=APP_ACTION, resource="integration_application:*"
+        )
+        try:
+            c = await service.register_oauth_client(
+                conn,
+                tenant,
+                name=body.name,
+                client_type=body.client_type,
+                redirect_uris=body.redirect_uris,
+                jwks=body.jwks,
+                scopes=body.scopes,
+                audience=request.app.state.token_audience,
+                actor=_me(caller),
+            )
+        except IntegrationError as e:
+            raise http(e) from e
+    return c
+
+
+@router.post("/oauth-clients/{client_id}:retire")
+async def retire_oauth_client(
+    client_id: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action=APP_ACTION, resource=f"integration_application:{client_id}"
+        )
+        try:
+            await service.retire_oauth_client(conn, tenant, client_id, actor=_me(caller))
+        except IntegrationError as e:
+            raise http(e) from e
+    return {"client_id": client_id, "status": "RETIRED"}
 
 
 @router.get("/connectors")

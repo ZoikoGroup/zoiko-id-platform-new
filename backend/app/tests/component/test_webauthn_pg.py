@@ -348,3 +348,43 @@ def test_passkey_registration_login_step_up_and_lifecycle(rt_url: str, owner_url
     assert events[t("authentication.succeeded")] >= 8
     assert events[t("principal.security_revision.changed")] == 1
     assert rev == 1 and leaked == 0
+
+    # billing (CR-025): each session is exactly one AUTH_EVENT keyed by its session id (failures are none),
+    # and a person counts once as a monthly active human however often they sign in
+    async def billing() -> tuple[set[str], list[str], int]:
+        async with engine(owner_url) as eng, eng.begin() as c:
+            sessions = {
+                f"auth:{r[0]}"
+                for r in (
+                    await c.execute(
+                        text("SELECT session_id FROM authn.session WHERE tenant_id = :t"),
+                        {"t": uuid.UUID(tenant)},
+                    )
+                ).all()
+            }
+            keys = [
+                r[0]
+                for r in (
+                    await c.execute(
+                        text(
+                            "SELECT deduplication_key FROM commercial.billable_event "
+                            "WHERE tenant_id = :t AND meter_id = 'AUTH_EVENT'"
+                        ),
+                        {"t": uuid.UUID(tenant)},
+                    )
+                ).all()
+            ]
+            mah = (
+                await c.execute(
+                    text(
+                        "SELECT count(*) FROM commercial.billable_event "
+                        "WHERE tenant_id = :t AND meter_id = 'MAH'"
+                    ),
+                    {"t": uuid.UUID(tenant)},
+                )
+            ).scalar_one()
+        return sessions, keys, int(mah)
+
+    sessions, keys, mah = asyncio.run(billing())
+    assert keys and set(keys) == sessions and len(keys) == len(set(keys))
+    assert mah == 2  # alice and mallory, once each this month

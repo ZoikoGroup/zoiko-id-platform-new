@@ -18,17 +18,73 @@ cells:
     jurisdiction: {country: GB, legal_zone: UK}
     availability_zones: 3
     supported_profiles: [SRP-0, SRP-1]
+    # Deployment inventory (TENANCY §6, TEN-32): where each in-scope subsystem keeps this cell's data.
+    # Declared by SRE; a subsystem that is not listed is reported as NOT_DECLARED, never assumed fine.
+    subsystem_placements:
+      authoritative_db: {region: eu-west-2, country: GB, dedicated: false}
+      object_evidence_store: {region: eu-west-2, country: GB, dedicated: false}
+      cache: {region: eu-west-2, country: GB, dedicated: false}
+      search_index: {region: eu-west-2, country: GB, dedicated: false}
+      relationship_projection: {region: eu-west-2, country: GB, dedicated: false}
+      message_broker: {region: eu-west-2, country: GB, dedicated: false}
+      logs_traces: {region: eu-west-2, country: GB, dedicated: false}
+      security_events: {region: eu-west-2, country: GB, dedicated: false}
+      backups_snapshots: {region: eu-west-2, country: GB, dedicated: false}
+      kms_hsm: {region: eu-west-2, country: GB, dedicated: false}
+      support_tooling: {region: eu-west-2, country: GB, dedicated: false}
+      subprocessors: {region: eu-west-2, country: GB, dedicated: false}
+      analytics: {region: eu-west-2, country: GB, dedicated: false}
     recovery:
       approved_recovery_cells: []        # doc default: cross-border transfer is DENY until approved (TENANCY §0.1)
       in_region_posture: "Multi-AZ quorum + PITR/backups inside eu-west-2"
       cross_jurisdiction_candidate: eu-1  # allowed ONLY per tenant contract + Legal approval (open question Q1)
       if_no_cross_region_recovery: "Tenant explicitly accepts a different RTO/RPO for regional disaster (ARCH §15.3)"
+  # Local development cell (docker compose sets ZID_CELL_ID=local-1). It is in the catalogue so a local company can
+  # be placed and the residency gate can pass end to end; it is not a production cell and carries no regional promise.
+  local-1:
+    provider: local
+    region: local-dev
+    jurisdiction: {country: GB, legal_zone: UK}
+    availability_zones: 1
+    supported_profiles: [SRP-0, SRP-1]
+    subsystem_placements:
+      authoritative_db: {region: local-dev, country: GB, dedicated: false}
+      object_evidence_store: {region: local-dev, country: GB, dedicated: false}
+      cache: {region: local-dev, country: GB, dedicated: false}
+      search_index: {region: local-dev, country: GB, dedicated: false}
+      relationship_projection: {region: local-dev, country: GB, dedicated: false}
+      message_broker: {region: local-dev, country: GB, dedicated: false}
+      logs_traces: {region: local-dev, country: GB, dedicated: false}
+      security_events: {region: local-dev, country: GB, dedicated: false}
+      backups_snapshots: {region: local-dev, country: GB, dedicated: false}
+      kms_hsm: {region: local-dev, country: GB, dedicated: false}
+      support_tooling: {region: local-dev, country: GB, dedicated: false}
+      subprocessors: {region: local-dev, country: GB, dedicated: false}
+      analytics: {region: local-dev, country: GB, dedicated: false}
+    recovery:
+      approved_recovery_cells: []
   eu-1:
     provider: aws
     region: eu-central-1         # Frankfurt
     jurisdiction: {country: DE, legal_zone: EU}
     availability_zones: 3
     supported_profiles: [SRP-0, SRP-1]
+    # Deployment inventory (TENANCY §6, TEN-32): where each in-scope subsystem keeps this cell's data.
+    # Declared by SRE; a subsystem that is not listed is reported as NOT_DECLARED, never assumed fine.
+    subsystem_placements:
+      authoritative_db: {region: eu-central-1, country: DE, dedicated: false}
+      object_evidence_store: {region: eu-central-1, country: DE, dedicated: false}
+      cache: {region: eu-central-1, country: DE, dedicated: false}
+      search_index: {region: eu-central-1, country: DE, dedicated: false}
+      relationship_projection: {region: eu-central-1, country: DE, dedicated: false}
+      message_broker: {region: eu-central-1, country: DE, dedicated: false}
+      logs_traces: {region: eu-central-1, country: DE, dedicated: false}
+      security_events: {region: eu-central-1, country: DE, dedicated: false}
+      backups_snapshots: {region: eu-central-1, country: DE, dedicated: false}
+      kms_hsm: {region: eu-central-1, country: DE, dedicated: false}
+      support_tooling: {region: eu-central-1, country: DE, dedicated: false}
+      subprocessors: {region: eu-central-1, country: DE, dedicated: false}
+      analytics: {region: eu-central-1, country: DE, dedicated: false}
     recovery:
       approved_recovery_cells: [eu-1-dr]
       in_region_posture: "Multi-AZ quorum + PITR/backups inside eu-central-1"

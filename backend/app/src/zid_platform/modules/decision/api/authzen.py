@@ -18,8 +18,10 @@ with 401 rather than evaluated without a trusted caller.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -37,11 +39,14 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller
 from zid_platform.modules.authority.ports import Request as AuthorityRequest
 from zid_platform.modules.authority.ports import ValueLimit
+from zid_platform.modules.commercial.ports import key_decision, record_billable
 from zid_platform.modules.decision.application.pdp_service import action_spec, evaluate_request
-from zid_platform.modules.decision.domain.pdp import DecisionRequest
+from zid_platform.modules.decision.domain.pdp import DecisionRequest, MandateFact
 from zid_platform.modules.decision.domain.risk import RiskClass
+from zid_platform.modules.mandate.ports import check_for_decision
 from zid_platform.modules.onboarding.ports import apply_overlay
 
+log = logging.getLogger("zid.authzen")
 router = APIRouter(tags=["authzen"])
 
 CATALOG_FILE = Path(
@@ -146,13 +151,45 @@ async def evaluation(
         purpose=c.purpose,
         tool_id=c.tool_id,
         at=now,
+        workload_ref=caller.certificate_thumbprint,
         requested_risk=RiskClass[c.risk_class] if c.risk_class else None,
     )
     async with tenant_transaction(engine, ctx) as conn:
+        # A named mandate is checked here (read only: nothing is reserved or spent by asking). An unknown
+        # mandate id is treated as no mandate at all, so a caller learns nothing about other mandates.
+        mandate_fact: MandateFact | None = None
+        if c.mandate_id:
+            try:
+                mandate_ref = str(uuid.UUID(c.mandate_id))
+            except ValueError:
+                mandate_ref = ""
+            check = (
+                await check_for_decision(
+                    conn,
+                    mandate_ref,
+                    executor_id=body.subject.id,
+                    represented_id=c.represented_principal_id,
+                    action=body.action.name,
+                    resource=resource_ref,
+                    tool=c.tool_id,
+                    now=now,
+                )
+                if mandate_ref
+                else None
+            )
+            if check is not None:
+                mandate_fact = MandateFact(
+                    check.mandate_id,
+                    check.active,
+                    check.in_scope,
+                    check.tool_allowed,
+                    check.valid_until,
+                )
         d = await evaluate_request(
             conn,
             req=req,
             executor_id=body.subject.id,
+            mandate=mandate_fact,
             authority_request=AuthorityRequest(
                 body.action.name,
                 resource_ref,
@@ -193,6 +230,22 @@ async def evaluation(
             incumbent=c.incumbent_decision,
             latency_ms=(time.perf_counter() - started) * 1000,
         )
+        # One final PDP result is one billable decision: allow or deny, never a retry (CR-025). Metering is not on the
+        # trust path (SVC-14): a failure to record it is logged and left for the meter reconciliation to find, and
+        # never changes or blocks the answer. The savepoint keeps the decision and its receipt in the transaction.
+        try:
+            async with conn.begin_nested():
+                await record_billable(
+                    conn,
+                    tenant_id=ctx.tenant_id,
+                    meter="POLICY_DECISION",
+                    key=key_decision(d.decision_id),
+                    at=now,
+                    source_request_id=ctx.request_id,
+                    principal_class=None,
+                )
+        except Exception:
+            log.exception("billable decision not recorded for %s", d.decision_id)
     return {
         "decision": verdict.allow,
         "context": {

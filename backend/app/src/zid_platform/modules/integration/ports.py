@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_platform.modules.integration.application.mapping import map_record, route_login
 from zid_platform.modules.integration.application.service import (
     offboard_integrations,
+    purge_connector_secrets,
     record_interaction,
 )
 from zid_platform.modules.integration.domain.model import Health, fresh
@@ -48,6 +49,26 @@ __all__ = [
     "map_record",
     "offboard_integrations",
     "pep_application",
+    "purge_connector_secrets",
     "record_interaction",
     "route_login",
 ]
+
+
+async def searchable_applications(conn: AsyncConnection) -> list[tuple[str, str, str]]:
+    """(id, name, hint) of the tenant's registered applications, for authorization-aware search."""
+    from zid_platform.modules.integration.infrastructure.store import list_applications
+
+    return [
+        (a.application_id, a.name, f"{a.environment} · {a.status}")
+        for a in await list_applications(conn)
+    ]
+
+
+async def searchable_connectors(conn: AsyncConnection) -> list[tuple[str, str, str]]:
+    from zid_platform.modules.integration.infrastructure.store import list_connectors
+
+    return [
+        (c.connector_id, c.display_name, f"{c.connector_type} connector")
+        for c in await list_connectors(conn)
+    ]

@@ -48,6 +48,15 @@ class Cell:
 
 
 @dataclass(frozen=True, slots=True)
+class Placement:
+    """One subsystem's declared location for a cell (the deployment inventory, not an assumption)."""
+
+    region: str | None
+    country: str | None
+    dedicated: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class Catalog:
     """The cell catalog and residency profiles this release runs with (loaded by infrastructure)."""
 
@@ -55,6 +64,8 @@ class Catalog:
     profiles: Mapping[str, Any]
     coverage_subsystems: tuple[str, ...] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
+    # cell id -> subsystem -> where that subsystem actually keeps data, as declared in the deployment inventory
+    placements: Mapping[str, Mapping[str, Placement]] = field(default_factory=dict)
 
     def cell(self, cell_id: str) -> Cell:
         try:
@@ -241,23 +252,93 @@ def operator_jurisdictions(
     return tuple(j for j in sovereign if not policy or j in policy) or ("--",)
 
 
-def coverage_matrix(cat: Catalog, r: Residency) -> list[dict[str, Any]]:
-    """TENANCY §6 / TEN-32: where each in-scope subsystem keeps this tenant's data."""
+def dependency_findings(cat: Catalog, r: Residency | None, locations: Sequence[str]) -> list[str]:
+    """TEN-20: can a subprocessor operating in `locations` serve this tenant's profile? SRP-1+ needs every location
+    inside the home legal zone, SRP-2+ inside the home country. A tenant with no residency record has no
+    commitment to breach. Tokens are countries, legal zones or region names, compared upper-case."""
+    if r is None or r.level < 1:
+        return []
     home = cat.cell(r.home_cell_id)
-    subsystems = cat.coverage_subsystems
+    allowed = (
+        {home.country.upper()}
+        if r.level >= 2 and home.country
+        else {x.upper() for x in (home.country, home.legal_zone, home.region) if x}
+        | {
+            c.country.upper()
+            for c in cat.cells.values()
+            if c.country and c.legal_zone == home.legal_zone
+        }
+    )
+    return [
+        f"{loc.upper()} is outside {'/'.join(sorted(allowed))}"
+        for loc in locations
+        if loc.upper() not in allowed
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageFinding:
+    subsystem: str
+    code: str  # NOT_DECLARED | OUTSIDE_REGION | OUTSIDE_JURISDICTION | SHARED_INFRASTRUCTURE
+    detail: str
+
+
+def _declared(cat: Catalog, r: Residency, subsystem: str) -> Placement | None:
+    return cat.placements.get(r.home_cell_id, {}).get(subsystem)
+
+
+def coverage_findings(cat: Catalog, r: Residency) -> list[CoverageFinding]:
+    """TENANCY §6, TEN-18/29/32: every in-scope subsystem must have a declared location and that location must
+    satisfy the tenant's profile. SRP-1+ keeps every subsystem (logs, traces and security events included) in the
+    home region, SRP-2+ in the home jurisdiction, SRP-3 on dedicated infrastructure with no shared fallback.
+    An undeclared subsystem is a finding, never an assumption that it is fine."""
+    home = cat.cell(r.home_cell_id)
+    found: list[CoverageFinding] = []
+    for s in cat.coverage_subsystems:
+        p = _declared(cat, r, s)
+        if p is None:
+            found.append(
+                CoverageFinding(s, "NOT_DECLARED", "no location is declared for this subsystem")
+            )
+            continue
+        if r.level >= 1 and p.region != home.region:
+            found.append(CoverageFinding(s, "OUTSIDE_REGION", f"{p.region} is not {home.region}"))
+        if r.level >= 2 and p.country != home.country:
+            found.append(
+                CoverageFinding(s, "OUTSIDE_JURISDICTION", f"{p.country} is not {home.country}")
+            )
+        if r.level >= 3 and not p.dedicated:
+            found.append(
+                CoverageFinding(s, "SHARED_INFRASTRUCTURE", "SRP-3 needs a dedicated deployment")
+            )
+    return found
+
+
+def coverage_matrix(cat: Catalog, r: Residency) -> list[dict[str, Any]]:
+    """TENANCY §6 / TEN-32: where each in-scope subsystem keeps this tenant's data, and whether that satisfies
+    the profile. `proven` is true only when no subsystem has a finding."""
+    home = cat.cell(r.home_cell_id)
+    bad: dict[str, list[CoverageFinding]] = {}
+    for f in coverage_findings(cat, r):
+        bad.setdefault(f.subsystem, []).append(f)
     out = []
-    for s in subsystems:
+    for s in cat.coverage_subsystems:
+        p = _declared(cat, r, s)
         out.append(
             {
                 "subsystem": s,
                 "cell_id": r.home_cell_id,
-                "region": home.region,
-                "jurisdiction": home.country,
+                "region": p.region if p else home.region,
+                "jurisdiction": p.country if p else home.country,
                 "legal_zone": home.legal_zone,
                 "recovery_cells": list(r.permitted_recovery_cells),
                 "evidence": "configuration"
                 if s not in ("authoritative_db", "kms_hsm")
                 else "deployment",
+                "declared": p is not None,
+                "dedicated": bool(p and p.dedicated),
+                "compliant": s not in bad,
+                "findings": [{"code": f.code, "detail": f.detail} for f in bad.get(s, [])],
             }
         )
     return out
@@ -269,6 +350,8 @@ __all__ = [
     "PROFILES",
     "Catalog",
     "Cell",
+    "CoverageFinding",
+    "Placement",
     "Residency",
     "ResidencyError",
     "TransferDecision",
@@ -278,7 +361,9 @@ __all__ = [
     "check_recovery",
     "check_storage",
     "check_transfer",
+    "coverage_findings",
     "coverage_matrix",
+    "dependency_findings",
     "minimize",
     "operator_jurisdictions",
 ]

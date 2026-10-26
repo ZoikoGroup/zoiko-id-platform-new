@@ -30,7 +30,7 @@ export function MandatesPage() {
   const selected = rows.find((m) => m.mandate_id === picked?.mandate_id) ?? picked;
 
   const columns: Column<Mandate>[] = [
-    { key: "id", header: "Mandate", pinned: true, render: (m) => <CopyId value={m.mandate_id} label="mandate" /> },
+    { key: "id", header: "Mandate", pinned: true, render: (m) => <span className="font-mono text-xs" title={m.mandate_id}>{m.mandate_id.slice(0, 8)}…{m.mandate_id.slice(-4)}</span> }, // plain text: the first column is already a row button, and a copy button inside it is invalid HTML,
     { key: "status", header: "Status", render: (m) => <StatusBadge state={m.status} kind="Mandate" />, sortValue: (m) => m.status },
     { key: "executor", header: "Executor", render: (m) => <CopyId value={m.executor_principal_id} label="executor" /> },
     { key: "represented", header: "On behalf of", render: (m) => <CopyId value={m.represented_principal_id} label="represented principal" />, defaultHidden: true },

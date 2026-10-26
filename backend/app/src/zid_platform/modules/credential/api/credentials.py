@@ -17,7 +17,8 @@ Trust and configuration (protected administration)
                                                                   list (credential.read, R1)
     POST /credential-configurations | /{id}:activate             (credential.trust.manage, R3;
                                                                    + credential.issue to enable issuance)
-    POST /credential-issuer-trust | /credential-issuer-trust:suspend   (credential.trust.manage)
+    POST /credential-issuer-trust | /credential-issuer-trust:status | :rotate-keys
+                                                                  (credential.trust.manage)
     POST /relying-party-registrations                             (credential.trust.manage)
 """
 
@@ -487,6 +488,34 @@ async def trust_status(body: TrustStatusIn, request: Request, caller: CallerDep)
         if not await store.set_trust_status(conn, body.issuer_identifier, body.status):
             raise ZidError("ISSUER_NOT_FOUND", "Not found.", http_status=404)
     return {"issuer_identifier": body.issuer_identifier, "status": body.status}
+
+
+class TrustKeysIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    issuer_identifier: str
+    jwks: dict[str, Any]
+
+
+@router.post("/credential-issuer-trust:rotate-keys")
+async def rotate_trust_keys(
+    body: TrustKeysIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Issuer key rollover for a pinned issuer: the new key set replaces the old one. A key that
+    carries `not_after` (epoch seconds) stays valid only until then (bounded overlap)."""
+    keys = body.jwks.get("keys")
+    if not isinstance(keys, list) or not keys or not all(isinstance(k, dict) for k in keys):
+        raise ZidError("VALIDATION_FAILED", "jwks must hold at least one key.", http_status=422)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action="credential.trust.manage",
+            resource=f"credential_issuer:{body.issuer_identifier}",
+            change="rotate-keys",
+        )
+        if not await store.rotate_trust_keys(conn, body.issuer_identifier, body.jwks):
+            raise ZidError("ISSUER_NOT_FOUND", "Not found.", http_status=404)
+    return {"issuer_identifier": body.issuer_identifier, "keys": len(keys)}
 
 
 class RegistrationIn(BaseModel):
