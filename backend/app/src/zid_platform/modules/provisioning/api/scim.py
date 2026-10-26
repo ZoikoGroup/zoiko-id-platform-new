@@ -30,12 +30,14 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
+from zid_platform.modules.commercial.ports import require_entitlement
 from zid_platform.modules.integration.ports import record_interaction
 from zid_platform.modules.provisioning.application import scim
 from zid_platform.modules.provisioning.application.lifecycle import LifecycleEvent
 from zid_platform.modules.provisioning.application.lifecycle import apply_event as apply_lifecycle
 from zid_platform.modules.provisioning.infrastructure import scim_store as store
 from zid_platform.modules.provisioning.infrastructure.scim_store import ScimError, Source
+from zid_platform.modules.provisioning.ports import count_active_sources
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["scim"])
@@ -353,6 +355,13 @@ async def create_source(body: SourceIn, request: Request, caller: CallerDep) -> 
             resource=f"provisioning_source:{source_id}",
             change=f"create:{body.client_id}",
             approval_request_id=body.approval_request_id,
+        )
+        # A paid extra: a directory connection beyond the plan (CR-024). Never on a SCIM request path.
+        await require_entitlement(
+            conn,
+            "scim",
+            used=await count_active_sources(conn),
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
         s = Source(
             source_id, caller.ctx.tenant_id or "", body.client_id, body.display_name, "ACTIVE"

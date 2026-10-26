@@ -1,0 +1,2886 @@
+{
+  "source": "ZID-EM copybook v2.0 (23 Oct 2026)",
+  "templates": [
+    {
+      "id": "ZID-EM-001",
+      "title": "Verify your email address",
+      "event": "identity.enrollment.verification_requested",
+      "to": "Individual / invited user",
+      "class_label": "Security / required",
+      "subject": "Verify your email for Zoiko iD",
+      "preheader": "Finish confirming that this email address belongs to you.",
+      "paragraphs": [
+        "We received a request to use this email address with Zoiko iD.",
+        "To confirm it, select the button below before {{expires_at_local}}. The link is single-use. If you did not request this, you can ignore this message; no verification will be completed."
+      ],
+      "action": {
+        "label": "Verify email",
+        "url_field": "single_use_verification_url"
+      },
+      "control": "Do not expose account existence at public request endpoint."
+    },
+    {
+      "id": "ZID-EM-002",
+      "title": "Email verified; account ready",
+      "event": "identity.email.verified",
+      "to": "Individual user",
+      "class_label": "Transactional",
+      "subject": "Your Zoiko iD email is verified",
+      "preheader": "Your email verification is complete.",
+      "paragraphs": [
+        "Your email address has been confirmed for your Zoiko iD profile.",
+        "You can now open your account to review available identity, credential, consent and security settings. Additional verification may be required before certain services become available."
+      ],
+      "action": {
+        "label": "Open your account",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-003",
+      "title": "Welcome to Zoiko iD",
+      "event": "identity.account.activated",
+      "to": "Activated user",
+      "class_label": "Transactional",
+      "subject": "Welcome to Zoiko iD",
+      "preheader": "A secure place to manage identity and authority.",
+      "paragraphs": [
+        "Welcome to Zoiko iD, the trust layer between identity and action.",
+        "From your account, you can manage permitted sign-in methods, review verification status, see credentials issued to you, and understand where you have granted or received authority. Availability depends on your organization and enabled services."
+      ],
+      "action": {
+        "label": "Explore Zoiko iD",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-004",
+      "title": "Invitation to join an organization",
+      "event": "tenant.member.invited",
+      "to": "Prospective member",
+      "class_label": "Security / required",
+      "subject": "{{inviter_name}} invited you to {{organization_name}}",
+      "preheader": "Review an invitation to join an organization on Zoiko iD.",
+      "paragraphs": [
+        "{{inviter_name}} has invited you to join {{organization_name}} using Zoiko iD as {{invited_role_label}}.",
+        "To accept, review the organization and the access being offered before {{expires_at_local}}. Accepting does not give you more permissions than those approved by the organization. If this invitation is unexpected, do not accept it."
+      ],
+      "action": {
+        "label": "Review invitation",
+        "url_field": "single_use_invitation_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-005",
+      "title": "Pending invitation reminder",
+      "event": "tenant.member.invitation_reminder",
+      "to": "Prospective member",
+      "class_label": "Transactional",
+      "subject": "Your invitation to {{organization_name}} is still open",
+      "preheader": "You can review or decline the invitation.",
+      "paragraphs": [
+        "Your invitation to join {{organization_name}} on Zoiko iD is awaiting your decision.",
+        "The invitation expires at {{expires_at_local}}. You can review the proposed role before choosing whether to join. If you were not expecting an invitation, no action is needed."
+      ],
+      "action": {
+        "label": "Review invitation",
+        "url_field": "single_use_invitation_url"
+      },
+      "control": "Send only when reminders are permitted and the invitation remains valid."
+    },
+    {
+      "id": "ZID-EM-006",
+      "title": "Invitation expired",
+      "event": "tenant.member.invitation_expired",
+      "to": "Prospective member",
+      "class_label": "Transactional",
+      "subject": "Your invitation to {{organization_name}} expired",
+      "preheader": "The invitation link can no longer be used.",
+      "paragraphs": [
+        "The invitation to join {{organization_name}} on Zoiko iD expired at {{expired_at_local}}.",
+        "If you still need access, contact the person who invited you or your organization administrator. For your security, the previous invitation link is no longer active."
+      ],
+      "action": {
+        "label": "Go to sign-in",
+        "url_field": "trusted_signin_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-007",
+      "title": "Invitation accepted – organizer",
+      "event": "tenant.member.invitation_accepted",
+      "to": "Inviting administrator",
+      "class_label": "Admin / audit",
+      "subject": "{{member_display_name}} joined {{organization_name}}",
+      "preheader": "The invitation was accepted.",
+      "paragraphs": [
+        "{{member_display_name}} accepted the invitation to join {{organization_name}} at {{event_at_local}}.",
+        "Their effective permissions are governed by the approved role and current policies. You can review the membership record and audit history in the organization console."
+      ],
+      "action": {
+        "label": "Review membership",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-008",
+      "title": "Invitation declined – organizer",
+      "event": "tenant.member.invitation_declined",
+      "to": "Inviting administrator",
+      "class_label": "Admin / audit",
+      "subject": "Invitation declined for {{organization_name}}",
+      "preheader": "The invited person chose not to join.",
+      "paragraphs": [
+        "The invitation sent to {{invitee_masked_email}} for {{organization_name}} was declined at {{event_at_local}}.",
+        "No membership was activated from this invitation. You can close the request or issue a new invitation if the recipient later agrees."
+      ],
+      "action": {
+        "label": "Review invitations",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-009",
+      "title": "One-time sign-in code",
+      "event": "auth.email_code.issued",
+      "to": "Authenticating user",
+      "class_label": "Security / required",
+      "subject": "Your Zoiko iD sign-in code",
+      "preheader": "Use this code only in the sign-in flow you started.",
+      "paragraphs": [
+        "Your one-time sign-in code is: {{one_time_code}}",
+        "Enter it only on the Zoiko iD sign-in screen you opened. The code expires at {{expires_at_local}} and can be used once.",
+        "If you did not try to sign in, do not share the code. Review account activity using a saved bookmark or a trusted sign-in path."
+      ],
+      "action": null,
+      "control": "Email codes are not phishing-resistant MFA; gate by policy and risk."
+    },
+    {
+      "id": "ZID-EM-010",
+      "title": "Single-use sign-in link",
+      "event": "auth.magic_link.issued",
+      "to": "Authenticating user",
+      "class_label": "Security / required",
+      "subject": "Your secure Zoiko iD sign-in link",
+      "preheader": "Use this link to complete the sign-in you started.",
+      "paragraphs": [
+        "We received a request for a single-use sign-in link.",
+        "Select the button below before {{expires_at_local}} to continue. If you did not request the link, ignore this email. Never forward the message or share the link with anyone."
+      ],
+      "action": {
+        "label": "Continue sign-in",
+        "url_field": "single_use_signin_url"
+      },
+      "control": "Use only where the authentication policy permits link-based sign-in."
+    },
+    {
+      "id": "ZID-EM-011",
+      "title": "Password reset link",
+      "event": "auth.password.reset_requested",
+      "to": "Password-enabled user",
+      "class_label": "Security / required",
+      "subject": "Reset your Zoiko iD password",
+      "preheader": "A single-use link is available if you made this request.",
+      "paragraphs": [
+        "A password-reset request was received for a Zoiko iD account associated with this address.",
+        "If you initiated the request, select the button below before {{expires_at_local}}. The link is single-use. If you did not request a reset, you do not need to use the link and should review your account security."
+      ],
+      "action": {
+        "label": "Reset password",
+        "url_field": "single_use_reset_url"
+      },
+      "control": "Never confirm account existence on request endpoint; not sent for federated-only identities without password."
+    },
+    {
+      "id": "ZID-EM-012",
+      "title": "Password changed",
+      "event": "auth.password.changed",
+      "to": "Password-enabled user",
+      "class_label": "Security / required",
+      "subject": "Your Zoiko iD password was changed",
+      "preheader": "Review the change if it was not yours.",
+      "paragraphs": [
+        "The password for your Zoiko iD account was changed at {{event_at_local}}.",
+        "If you made this change, no further action is needed. If you did not, open Zoiko iD from a trusted bookmark and start the account recovery process immediately. Any active-session handling follows your account security policy."
+      ],
+      "action": {
+        "label": "Review account security",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-013",
+      "title": "Recovery request submitted",
+      "event": "auth.recovery.started",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Zoiko iD account recovery started",
+      "preheader": "We have received an account recovery request.",
+      "paragraphs": [
+        "An account recovery process was initiated at {{event_at_local}}.",
+        "The request is under the applicable verification and risk checks. Starting recovery does not restore access or change your authenticators. If this was not you, contact support through the official Zoiko iD site."
+      ],
+      "action": {
+        "label": "Review recovery request",
+        "url_field": "trusted_recovery_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-014",
+      "title": "Recovery needs additional proof",
+      "event": "auth.recovery.more_proof_required",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Additional verification needed for recovery",
+      "preheader": "Complete the next required identity check.",
+      "paragraphs": [
+        "We need an additional verification step before your Zoiko iD recovery request can proceed.",
+        "Sign in to the secure recovery flow to see the permitted proof options and the deadline, if any. Do not send identity documents, codes, or recovery details in reply to this email."
+      ],
+      "action": {
+        "label": "Continue secure recovery",
+        "url_field": "trusted_recovery_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-015",
+      "title": "Recovery completed",
+      "event": "auth.recovery.completed",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Zoiko iD account recovery completed",
+      "preheader": "Access has been restored under the recovery policy.",
+      "paragraphs": [
+        "Your Zoiko iD recovery was completed at {{event_at_local}}.",
+        "Review your authenticators, recovery options, recent activity and active sessions when you next sign in. If you did not initiate this process, report it immediately through the official support route."
+      ],
+      "action": {
+        "label": "Review security settings",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-016",
+      "title": "Recovery not approved",
+      "event": "auth.recovery.declined",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Update on your Zoiko iD recovery request",
+      "preheader": "The request could not be completed.",
+      "paragraphs": [
+        "We could not approve your account recovery request under the current verification requirements.",
+        "For your protection, this email does not describe the specific risk signals. You can review the permitted next steps in the recovery center or contact support using the reference {{case_reference}}."
+      ],
+      "action": {
+        "label": "View next steps",
+        "url_field": "trusted_recovery_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-017",
+      "title": "Verify new email address",
+      "event": "identity.email.change_new_verification",
+      "to": "Account owner / proposed new address",
+      "class_label": "Security / required",
+      "subject": "Confirm your new Zoiko iD email address",
+      "preheader": "Verify this address to continue the change.",
+      "paragraphs": [
+        "A request was made to update the email address on a Zoiko iD profile.",
+        "If you requested this change, confirm the new address using the single-use link below before {{expires_at_local}}. The account will not use the new address until all required checks succeed."
+      ],
+      "action": {
+        "label": "Confirm new email",
+        "url_field": "single_use_email_change_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-018",
+      "title": "Email change requested – existing address",
+      "event": "identity.email.change_requested_old",
+      "to": "Account owner / existing address",
+      "class_label": "Security / required",
+      "subject": "A change to your Zoiko iD email was requested",
+      "preheader": "Protect your account if this was unexpected.",
+      "paragraphs": [
+        "A request to change the email address associated with your Zoiko iD account was initiated at {{event_at_local}}.",
+        "If you did not initiate it, open your account from a trusted sign-in path or contact support immediately. This message is a warning; do not approve a change from an unexpected message."
+      ],
+      "action": {
+        "label": "Review account security",
+        "url_field": "trusted_security_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-019",
+      "title": "Email address changed",
+      "event": "identity.email.changed",
+      "to": "Account owner / old and new address",
+      "class_label": "Security / required",
+      "subject": "Your Zoiko iD email address was changed",
+      "preheader": "The email update is complete.",
+      "paragraphs": [
+        "The email address associated with your Zoiko iD account was changed at {{event_at_local}}.",
+        "If you approved the change, no action is necessary. If you did not, start the secure recovery process immediately. For privacy, this message does not display the full previous or new address."
+      ],
+      "action": {
+        "label": "Review your account",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-020",
+      "title": "New sign-in detected",
+      "event": "auth.session.new_device",
+      "to": "Account owner",
+      "class_label": "Security / risk",
+      "subject": "New sign-in to your Zoiko iD account",
+      "preheader": "Review a sign-in from a new device or context.",
+      "paragraphs": [
+        "A sign-in to your Zoiko iD account was completed at {{event_at_local}} from {{device_summary}}.",
+        "If this was you, no action is needed. If it was not, use your trusted sign-in path to revoke sessions and secure your authenticators. Location information, when shown, is approximate."
+      ],
+      "action": {
+        "label": "Review sessions",
+        "url_field": "trusted_sessions_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-021",
+      "title": "Unusual sign-in blocked",
+      "event": "auth.signin.risk_blocked",
+      "to": "Account owner",
+      "class_label": "Security / risk",
+      "subject": "We blocked an unusual Zoiko iD sign-in attempt",
+      "preheader": "Your account was protected by a security check.",
+      "paragraphs": [
+        "A sign-in attempt at {{event_at_local}} was blocked by Zoiko iD security controls.",
+        "No access was granted through that attempt. If it was you, open Zoiko iD directly and follow the safe sign-in guidance. If you do not recognize the activity, review your security settings."
+      ],
+      "action": {
+        "label": "Review security",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-022",
+      "title": "Sessions signed out",
+      "event": "auth.sessions.revoked",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Zoiko iD sessions were signed out",
+      "preheader": "A security-related sign-out was completed.",
+      "paragraphs": [
+        "One or more active sessions were ended at {{event_at_local}} because {{reason_public_label}}.",
+        "If you initiated this, you may sign in again through your usual method. If not, review the account recovery and security options through the official Zoiko iD site."
+      ],
+      "action": {
+        "label": "Review sessions",
+        "url_field": "trusted_sessions_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-023",
+      "title": "Authenticator enrolled",
+      "event": "auth.factor.enrolled",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "A new sign-in method was added to Zoiko iD",
+      "preheader": "Review the new authenticator.",
+      "paragraphs": [
+        "A {{authenticator_type_public}} sign-in method was added to your Zoiko iD account at {{event_at_local}}.",
+        "If you added it, no action is needed. If you did not, report the change immediately and secure your account through a trusted channel."
+      ],
+      "action": {
+        "label": "Review sign-in methods",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-024",
+      "title": "Authenticator removed",
+      "event": "auth.factor.removed",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "A Zoiko iD sign-in method was removed",
+      "preheader": "A change to your account protection was made.",
+      "paragraphs": [
+        "A {{authenticator_type_public}} sign-in method was removed from your Zoiko iD account at {{event_at_local}}.",
+        "If you did not make this change, use the recovery or security process immediately. We never ask you to send authenticator secrets or recovery codes by email."
+      ],
+      "action": {
+        "label": "Review sign-in methods",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-025",
+      "title": "Account access temporarily restricted",
+      "event": "auth.account.restricted",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Zoiko iD account access is temporarily restricted",
+      "preheader": "A security check is required before access continues.",
+      "paragraphs": [
+        "Access to your Zoiko iD account is temporarily restricted from {{event_at_local}}.",
+        "To protect your privacy and security, the specific detection logic is not included in this message. Open the secure account center for available verification or appeal options."
+      ],
+      "action": {
+        "label": "Review account status",
+        "url_field": "trusted_account_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-026",
+      "title": "Identity verification initiated",
+      "event": "proofing.individual.started",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "Identity verification started",
+      "preheader": "Your verification process is underway.",
+      "paragraphs": [
+        "Your Zoiko iD identity verification process was started at {{event_at_local}}.",
+        "You can review the current status and outstanding steps in the secure verification center. Starting the process does not mean your identity has been verified."
+      ],
+      "action": {
+        "label": "View verification status",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-027",
+      "title": "Identity information required",
+      "event": "proofing.individual.evidence_required",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "More information is needed for verification",
+      "preheader": "Complete the request inside Zoiko iD.",
+      "paragraphs": [
+        "Additional information is needed to continue the verification request with reference {{case_reference}}.",
+        "Please open the secure verification center to see the exact requirements and submission deadline. Do not reply with identity documents, selfies, government numbers or other sensitive materials."
+      ],
+      "action": {
+        "label": "Continue verification",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-028",
+      "title": "Verification submission received",
+      "event": "proofing.individual.submitted",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "We received your verification submission",
+      "preheader": "The review is awaiting a decision.",
+      "paragraphs": [
+        "Your requested verification information was received at {{event_at_local}}.",
+        "The review is not yet complete. We will notify you if further steps are required or when the decision is available in your secure account."
+      ],
+      "action": {
+        "label": "View status",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-029",
+      "title": "Verification approved",
+      "event": "proofing.individual.approved",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "Your Zoiko iD verification review is complete",
+      "preheader": "The outcome is available in your secure profile.",
+      "paragraphs": [
+        "The verification review for reference {{case_reference}} was completed with an approved outcome at {{event_at_local}}.",
+        "Open Zoiko iD to review the specific verified attributes, assurance level, validity period and any permitted next steps. Approval is not a blanket guarantee for every relying party."
+      ],
+      "action": {
+        "label": "View verified profile",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-030",
+      "title": "Verification not approved",
+      "event": "proofing.individual.not_approved",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "An update on your identity verification",
+      "preheader": "Review the decision and available next steps.",
+      "paragraphs": [
+        "Your identity verification request {{case_reference}} could not be approved under the applicable requirements.",
+        "For privacy and security, the full decision explanation is available only in your protected verification center, together with any correction or review options."
+      ],
+      "action": {
+        "label": "View decision",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-031",
+      "title": "Reverification required",
+      "event": "proofing.individual.reverification_due",
+      "to": "Verified identity holder",
+      "class_label": "Transactional / private",
+      "subject": "Action required: review your identity verification",
+      "preheader": "Your current verification needs renewal.",
+      "paragraphs": [
+        "Your current verification status needs review by {{due_at_local}} because {{reason_public_label}}.",
+        "Use the secure verification center to complete the permitted checks. Access to some actions may change if the review is not completed by the deadline."
+      ],
+      "action": {
+        "label": "Start reverification",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-032",
+      "title": "Verification review requested",
+      "event": "proofing.individual.appeal_received",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "Your verification review request was received",
+      "preheader": "We have recorded your request to reconsider the outcome.",
+      "paragraphs": [
+        "Your request to review verification decision {{case_reference}} was received at {{event_at_local}}.",
+        "You can follow the case in the secure verification center. A review request does not automatically reverse a decision or restore restricted access."
+      ],
+      "action": {
+        "label": "Track review",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-033",
+      "title": "Verification review outcome available",
+      "event": "proofing.individual.appeal_decided",
+      "to": "Applicant",
+      "class_label": "Transactional / private",
+      "subject": "Your verification review decision is available",
+      "preheader": "Sign in to view the outcome securely.",
+      "paragraphs": [
+        "The review of verification decision {{case_reference}} is complete.",
+        "To protect your information, the decision details and next steps are available in the secure verification center rather than in this email."
+      ],
+      "action": {
+        "label": "View review outcome",
+        "url_field": "trusted_proofing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-034",
+      "title": "Organization verification started",
+      "event": "proofing.organization.started",
+      "to": "Organization admin",
+      "class_label": "Admin / private",
+      "subject": "Organization verification started for {{organization_name}}",
+      "preheader": "Track the status in your organization console.",
+      "paragraphs": [
+        "The organization verification process for {{organization_name}} began at {{event_at_local}}.",
+        "You can review verification stages and outstanding requirements in the secured organization console. The organization is not represented as approved until the process is complete."
+      ],
+      "action": {
+        "label": "View organization verification",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-035",
+      "title": "Organization documents or controllers required",
+      "event": "proofing.organization.evidence_required",
+      "to": "Organization admin",
+      "class_label": "Admin / private",
+      "subject": "Additional organization details required",
+      "preheader": "Complete the checklist securely.",
+      "paragraphs": [
+        "We need additional organizational information to continue verification reference {{case_reference}} for {{organization_name}}.",
+        "A permitted administrator should open the secure console for the required documents, ownership information or authorized representative details. Do not send personal or corporate verification records as email attachments."
+      ],
+      "action": {
+        "label": "Review requirements",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-036",
+      "title": "Organization verification approved",
+      "event": "proofing.organization.approved",
+      "to": "Organization admin",
+      "class_label": "Admin / private",
+      "subject": "Verification completed for {{organization_name}}",
+      "preheader": "Approved attributes are available in the console.",
+      "paragraphs": [
+        "The organization verification review for {{organization_name}} has been approved at {{event_at_local}}.",
+        "Review the verified details, scope, validity period and any outstanding operational controls in the organization console. This outcome does not confer permissions outside the approved scope."
+      ],
+      "action": {
+        "label": "Review organization status",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-037",
+      "title": "Organization verification not approved",
+      "event": "proofing.organization.not_approved",
+      "to": "Organization admin",
+      "class_label": "Admin / private",
+      "subject": "Organization verification decision available",
+      "preheader": "Sign in to review the decision.",
+      "paragraphs": [
+        "The verification review for {{organization_name}} is complete, but approval was not granted under the applicable requirements.",
+        "An authorized administrator can securely view the decision, permissible corrections and any review pathway using case {{case_reference}}."
+      ],
+      "action": {
+        "label": "View organization decision",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-038",
+      "title": "Periodic organization review due",
+      "event": "proofing.organization.periodic_review_due",
+      "to": "Organization admin",
+      "class_label": "Admin / private",
+      "subject": "Periodic review due for {{organization_name}}",
+      "preheader": "Refresh required records before the due date.",
+      "paragraphs": [
+        "A scheduled verification review is due for {{organization_name}} by {{due_at_local}}.",
+        "A permitted administrator should review the verification profile and submit any requested updates in the secure console.",
+        "Outstanding review requirements may affect access to selected regulated or high-trust workflows."
+      ],
+      "action": {
+        "label": "Start organization review",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-039",
+      "title": "Credential issued",
+      "event": "credential.issued",
+      "to": "Credential holder",
+      "class_label": "Transactional / private",
+      "subject": "A new credential is available in Zoiko iD",
+      "preheader": "Review the credential and its issuer.",
+      "paragraphs": [
+        "A credential titled {{credential_public_label}} was issued to your Zoiko iD wallet by {{issuer_display_name}} at {{event_at_local}}.",
+        "Open the secure wallet to review its issuer, permitted claims, status, validity and sharing settings. This email does not include the credential or its sensitive contents."
+      ],
+      "action": {
+        "label": "View credential",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-040",
+      "title": "Credential issuance needs acceptance",
+      "event": "credential.offer_pending",
+      "to": "Credential holder",
+      "class_label": "Transactional / private",
+      "subject": "Review a credential offered to you",
+      "preheader": "Accept or decline the credential in your wallet.",
+      "paragraphs": [
+        "{{issuer_display_name}} has offered a credential labeled {{credential_public_label}} to your Zoiko iD wallet.",
+        "You can review the issuing organization, the proposed information and any acceptance requirements before {{expires_at_local}}. No acceptance is recorded until you confirm in the secure experience."
+      ],
+      "action": {
+        "label": "Review credential offer",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-041",
+      "title": "Credential nearing expiry",
+      "event": "credential.expiry_approaching",
+      "to": "Credential holder",
+      "class_label": "Transactional / private",
+      "subject": "Credential renewal may be needed",
+      "preheader": "A credential is approaching the end of its validity.",
+      "paragraphs": [
+        "Your {{credential_public_label}} credential is scheduled to expire at {{expires_at_local}}.",
+        "Review the credential and any renewal options in your wallet. A replacement is not automatic unless the issuer and the applicable policy explicitly support it."
+      ],
+      "action": {
+        "label": "Review renewal options",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-042",
+      "title": "Credential expired",
+      "event": "credential.expired",
+      "to": "Credential holder",
+      "class_label": "Transactional / private",
+      "subject": "A Zoiko iD credential has expired",
+      "preheader": "Review available renewal steps.",
+      "paragraphs": [
+        "Your {{credential_public_label}} credential expired at {{event_at_local}}.",
+        "It may no longer be accepted for transactions that require a currently valid credential. Open your wallet to review the status and issuer-supported renewal route."
+      ],
+      "action": {
+        "label": "Open credential wallet",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-043",
+      "title": "Credential suspended",
+      "event": "credential.suspended",
+      "to": "Credential holder",
+      "class_label": "Security / private",
+      "subject": "A credential has been suspended",
+      "preheader": "A change to credential status requires your attention.",
+      "paragraphs": [
+        "The issuer has suspended your {{credential_public_label}} credential effective {{event_at_local}}.",
+        "Its acceptance may be restricted while this status applies. View the secure credential record for approved next steps and issuer contact options."
+      ],
+      "action": {
+        "label": "Review credential status",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-044",
+      "title": "Credential revoked",
+      "event": "credential.revoked",
+      "to": "Credential holder",
+      "class_label": "Security / private",
+      "subject": "A credential has been revoked",
+      "preheader": "The credential is no longer valid for new presentations.",
+      "paragraphs": [
+        "The issuer revoked the {{credential_public_label}} credential effective {{event_at_local}}.",
+        "Please review the secure record and any permitted reissuance or dispute options. Previously completed transactions are not automatically undone by this status change."
+      ],
+      "action": {
+        "label": "Review credential status",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-045",
+      "title": "Credential reinstated",
+      "event": "credential.reinstated",
+      "to": "Credential holder",
+      "class_label": "Transactional / private",
+      "subject": "Your credential status has changed",
+      "preheader": "A credential is active again under issuer policy.",
+      "paragraphs": [
+        "The issuer has reinstated the {{credential_public_label}} credential as of {{event_at_local}}.",
+        "Review current validity, permitted claims and any conditions in your wallet before presenting it again."
+      ],
+      "action": {
+        "label": "View credential",
+        "url_field": "trusted_wallet_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-046",
+      "title": "Credential presentation approval requested",
+      "event": "credential.presentation.approval_requested",
+      "to": "Credential holder",
+      "class_label": "Security / consent",
+      "subject": "Approve a credential presentation request",
+      "preheader": "Decide what information to share.",
+      "paragraphs": [
+        "{{relying_party_display_name}} requested permission to receive selected credential information for {{purpose_public_label}}.",
+        "Open the protected request to review the specific attributes, recipient, expiry and reuse conditions. No information should be shared unless the required consent and authorization checks pass."
+      ],
+      "action": {
+        "label": "Review sharing request",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-047",
+      "title": "Credential presentation receipt",
+      "event": "credential.presentation.completed",
+      "to": "Credential holder",
+      "class_label": "Transactional / audit",
+      "subject": "Credential information was shared",
+      "preheader": "A receipt is available in your Zoiko iD history.",
+      "paragraphs": [
+        "A credential presentation involving {{relying_party_display_name}} was completed at {{event_at_local}} under authorization reference {{receipt_reference}}.",
+        "Review the secure receipt to see which claims were disclosed, the purpose and the recorded authorization. Sensitive attributes are not repeated in this email."
+      ],
+      "action": {
+        "label": "View presentation receipt",
+        "url_field": "trusted_activity_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-048",
+      "title": "Verification request completed – relying party",
+      "event": "credential.verification.completed",
+      "to": "Authorized verifier",
+      "class_label": "Admin / audit",
+      "subject": "Credential verification result available",
+      "preheader": "Open the secured record for the result.",
+      "paragraphs": [
+        "The credential verification request {{case_reference}} for {{relying_party_display_name}} completed at {{event_at_local}}.",
+        "An authorized user may review the result, validation rules and supporting evidence reference in the console. No raw identity attributes or evidence attachments are included in this email."
+      ],
+      "action": {
+        "label": "View verification result",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-049",
+      "title": "Credential status check needs attention",
+      "event": "credential.status_check.failed",
+      "to": "Credential issuer admin",
+      "class_label": "Operational / risk",
+      "subject": "Action needed: credential status validation",
+      "preheader": "A status check did not complete as expected.",
+      "paragraphs": [
+        "A credential status validation for issuer {{issuer_display_name}} encountered an issue at {{event_at_local}}.",
+        "Review the affected integration and applicable fail-safe behavior in the console. Do not assume that a missing status response means a credential is valid."
+      ],
+      "action": {
+        "label": "Review status event",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-050",
+      "title": "Consent decision requested",
+      "event": "consent.requested",
+      "to": "Identity subject",
+      "class_label": "Security / consent",
+      "subject": "{{requester_name}} requests your permission",
+      "preheader": "Review the intended use before deciding.",
+      "paragraphs": [
+        "{{requester_name}} has requested permission to use specified information for {{purpose_public_label}}.",
+        "Review the exact data categories, duration, recipient and withdrawal method in your Zoiko iD consent center. You may decline unless a separate lawful or contractual requirement applies."
+      ],
+      "action": {
+        "label": "Review request",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-051",
+      "title": "Consent granted – receipt",
+      "event": "consent.granted",
+      "to": "Identity subject",
+      "class_label": "Transactional / audit",
+      "subject": "Your permission choice was saved",
+      "preheader": "You can review or change eligible permissions.",
+      "paragraphs": [
+        "Your permission to {{requester_name}} for {{purpose_public_label}} was recorded at {{event_at_local}}.",
+        "Receipt reference: {{receipt_reference}}. Your secure consent record contains the authorized scope, expiry or review date, and applicable withdrawal options."
+      ],
+      "action": {
+        "label": "View consent receipt",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-052",
+      "title": "Consent declined – requester notice",
+      "event": "consent.declined",
+      "to": "Authorized requester",
+      "class_label": "Transactional / private",
+      "subject": "Permission request was not approved",
+      "preheader": "No access was authorized through the request.",
+      "paragraphs": [
+        "Your request {{case_reference}} for permission relating to {{purpose_public_label}} was not approved.",
+        "Do not proceed with the proposed access on the basis of this request. Review permitted alternative lawful and operational routes in your organization console."
+      ],
+      "action": {
+        "label": "Review request status",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-053",
+      "title": "Consent renewal required",
+      "event": "consent.renewal_due",
+      "to": "Identity subject",
+      "class_label": "Security / consent",
+      "subject": "Review a permission before it expires",
+      "preheader": "Your current authorization needs a new decision.",
+      "paragraphs": [
+        "An authorization for {{requester_name}} relating to {{purpose_public_label}} requires review by {{due_at_local}}.",
+        "Open the consent center to check the requested scope and decide whether to continue it. An expired authorization must not be treated as renewed automatically."
+      ],
+      "action": {
+        "label": "Review permission",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-054",
+      "title": "Consent withdrawn – receipt",
+      "event": "consent.withdrawn",
+      "to": "Identity subject",
+      "class_label": "Transactional / audit",
+      "subject": "Your permission withdrawal was recorded",
+      "preheader": "A receipt is ready in your consent history.",
+      "paragraphs": [
+        "Your withdrawal of permission for {{requester_name}} and {{purpose_public_label}} was recorded at {{event_at_local}}.",
+        "Receipt reference: {{receipt_reference}}. Future processing that relies on this consent must follow the recorded revocation and propagation policy; any independent lawful basis or retention requirement will be explained in the secure center."
+      ],
+      "action": {
+        "label": "View withdrawal receipt",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-055",
+      "title": "Consent withdrawn – relying party",
+      "event": "consent.withdrawal_notified",
+      "to": "Authorized requester",
+      "class_label": "Security / operational",
+      "subject": "An authorization you rely on was withdrawn",
+      "preheader": "Review the affected access without delay.",
+      "paragraphs": [
+        "Authorization {{authorization_reference}} for {{purpose_public_label}} was withdrawn effective {{event_at_local}}.",
+        "Stop new consent-dependent processing within the applicable policy window and review any downstream revocation obligations. The secure console contains the affected scope without exposing unnecessary personal information."
+      ],
+      "action": {
+        "label": "Review authorization",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-056",
+      "title": "Permission expired",
+      "event": "consent.expired",
+      "to": "Identity subject / authorized requester",
+      "class_label": "Transactional / audit",
+      "subject": "An authorization has expired",
+      "preheader": "Access based on that authorization is no longer active.",
+      "paragraphs": [
+        "Authorization {{authorization_reference}} for {{purpose_public_label}} expired at {{event_at_local}}.",
+        "A new authorization is required before further activity that depends on that permission. Review the historical receipt and any renewal process in Zoiko iD."
+      ],
+      "action": {
+        "label": "Review authorization",
+        "url_field": "trusted_consent_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-057",
+      "title": "Data export request acknowledged",
+      "event": "privacy.access_request.received",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Your Zoiko iD data request was received",
+      "preheader": "Track the request securely.",
+      "paragraphs": [
+        "We received your personal data access or export request at {{event_at_local}} and recorded reference {{case_reference}}.",
+        "We may need to verify your identity before releasing information. You can follow progress and see applicable timelines in the secure privacy center."
+      ],
+      "action": {
+        "label": "Track privacy request",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-058",
+      "title": "Data export ready",
+      "event": "privacy.export.ready",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Your Zoiko iD data export is ready",
+      "preheader": "Retrieve the export through a secure, time-limited flow.",
+      "paragraphs": [
+        "Your data export for request {{case_reference}} is ready for secure retrieval.",
+        "Open the privacy center before {{expires_at_local}} and complete any required verification. The export is not attached to this email. If the retrieval window expires, request a new secure delivery."
+      ],
+      "action": {
+        "label": "Access export",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-059",
+      "title": "Correction request acknowledged",
+      "event": "privacy.rectification.received",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Your information correction request was received",
+      "preheader": "You can follow the review online.",
+      "paragraphs": [
+        "We have received your request to correct information associated with Zoiko iD, reference {{case_reference}}.",
+        "Some information may depend on an external issuer or organization; your secure privacy center will show what Zoiko iD can change and what requires third-party review."
+      ],
+      "action": {
+        "label": "Track correction",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-060",
+      "title": "Correction decision available",
+      "event": "privacy.rectification.completed",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Update on your information correction request",
+      "preheader": "View the outcome and any remaining action.",
+      "paragraphs": [
+        "The review of correction request {{case_reference}} is complete.",
+        "Open the privacy center to see the outcome, any changes made, information we cannot amend directly, and the available escalation route."
+      ],
+      "action": {
+        "label": "View correction outcome",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-061",
+      "title": "Deletion request acknowledged",
+      "event": "privacy.erasure.received",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Your Zoiko iD deletion request was received",
+      "preheader": "Review what happens next.",
+      "paragraphs": [
+        "Your deletion request was received at {{event_at_local}}, reference {{case_reference}}.",
+        "We will review applicable verification, retention, security, legal and third-party obligations before confirming which information can be deleted. Submitting a request does not immediately erase audit evidence or externally issued records."
+      ],
+      "action": {
+        "label": "Track deletion request",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-062",
+      "title": "Deletion request outcome",
+      "event": "privacy.erasure.decided",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "Your Zoiko iD deletion request has an outcome",
+      "preheader": "View the completed actions and any exceptions.",
+      "paragraphs": [
+        "The review of deletion request {{case_reference}} is complete.",
+        "Your privacy center provides an itemized outcome, including information removed, retained under applicable obligations, or controlled by other organizations, together with review options."
+      ],
+      "action": {
+        "label": "View deletion outcome",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-063",
+      "title": "Privacy inquiry case update",
+      "event": "privacy.inquiry.updated",
+      "to": "Data subject",
+      "class_label": "Privacy / required",
+      "subject": "An update on privacy case {{case_reference}}",
+      "preheader": "A response or action is available.",
+      "paragraphs": [
+        "There is an update on your Zoiko iD privacy inquiry {{case_reference}}.",
+        "For confidentiality, the details and any response requirements are available only in your secure privacy center."
+      ],
+      "action": {
+        "label": "View case update",
+        "url_field": "trusted_privacy_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-064",
+      "title": "Authority request sent to principal",
+      "event": "mandate.proposed",
+      "to": "Principal",
+      "class_label": "Security / authority",
+      "subject": "Review a delegated authority request",
+      "preheader": "A person or organization has requested defined authority.",
+      "paragraphs": [
+        "{{delegate_display_name}} has requested authority to act for {{principal_public_label}} within {{mandate_scope_public}}.",
+        "Review the permitted actions, effective period, limits, evidence requirements and revocation terms before approving. No authority is active merely because the request was sent."
+      ],
+      "action": {
+        "label": "Review authority request",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-065",
+      "title": "Authority accepted by principal",
+      "event": "mandate.accepted",
+      "to": "Delegate",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority approved",
+      "preheader": "Review the exact scope before acting.",
+      "paragraphs": [
+        "{{principal_public_label}} approved mandate {{mandate_reference}} at {{event_at_local}}.",
+        "The permitted actions, limits, validity and any step-up checks are recorded in Zoiko iD. Do not act outside the approved authority or assume it applies to other organizations."
+      ],
+      "action": {
+        "label": "Review mandate",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-066",
+      "title": "Authority rejected",
+      "event": "mandate.rejected",
+      "to": "Requesting delegate",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority request not approved",
+      "preheader": "No authority was created by this request.",
+      "paragraphs": [
+        "Mandate request {{mandate_reference}} was not approved.",
+        "You must not perform actions on behalf of {{principal_public_label}} under this request. If appropriate, submit a new request that reflects the actual authorization required."
+      ],
+      "action": {
+        "label": "View request",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-067",
+      "title": "Mandate activated – principal",
+      "event": "mandate.activated",
+      "to": "Principal",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority is now active",
+      "preheader": "Review who can act and within which limits.",
+      "paragraphs": [
+        "Mandate {{mandate_reference}} became active at {{event_at_local}} for {{delegate_display_name}}.",
+        "Scope: {{mandate_scope_public}}. Review the authority record, expiry and revocation controls at any time. The delegate is still subject to policy checks on each protected action."
+      ],
+      "action": {
+        "label": "Review active mandates",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-068",
+      "title": "Mandate nearing expiry",
+      "event": "mandate.expiry_approaching",
+      "to": "Principal and delegate",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority is nearing expiry",
+      "preheader": "Renewal requires a new decision where applicable.",
+      "paragraphs": [
+        "Mandate {{mandate_reference}} is scheduled to expire at {{expires_at_local}}.",
+        "Review outstanding work and any permissible renewal route. Expiry ends the authority; it does not silently extend because a related task remains open."
+      ],
+      "action": {
+        "label": "Review mandate",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-069",
+      "title": "Mandate expired",
+      "event": "mandate.expired",
+      "to": "Principal and delegate",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority has expired",
+      "preheader": "New actions require valid authority.",
+      "paragraphs": [
+        "Mandate {{mandate_reference}} expired at {{event_at_local}}.",
+        "New actions cannot rely on this mandate. Existing actions and their historical evidence remain subject to the applicable record policies."
+      ],
+      "action": {
+        "label": "View mandate history",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-070",
+      "title": "Mandate revoked – principal receipt",
+      "event": "mandate.revoked.principal",
+      "to": "Principal",
+      "class_label": "Security / audit",
+      "subject": "Delegated authority revoked",
+      "preheader": "Your revocation was recorded.",
+      "paragraphs": [
+        "You revoked mandate {{mandate_reference}} at {{event_at_local}}.",
+        "The revocation record is available under receipt {{receipt_reference}}. New actions requiring that mandate are blocked according to the revocation propagation policy."
+      ],
+      "action": {
+        "label": "View revocation receipt",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-071",
+      "title": "Mandate revoked – delegate notice",
+      "event": "mandate.revoked.delegate",
+      "to": "Delegate",
+      "class_label": "Security / authority",
+      "subject": "Your delegated authority has been revoked",
+      "preheader": "Stop acting under this mandate.",
+      "paragraphs": [
+        "Mandate {{mandate_reference}} was revoked effective {{event_at_local}}.",
+        "Do not initiate new actions that rely on this authority. Review the mandate record for affected permissions and any handoff instructions."
+      ],
+      "action": {
+        "label": "Review mandate",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-072",
+      "title": "Change of authority scope requested",
+      "event": "mandate.scope_change.requested",
+      "to": "Principal",
+      "class_label": "Security / authority",
+      "subject": "A change to delegated authority needs approval",
+      "preheader": "Review new privileges and limits.",
+      "paragraphs": [
+        "A change has been proposed to mandate {{mandate_reference}}.",
+        "Proposed change: {{scope_change_public_summary}}. Existing permissions are unchanged until the revised scope is explicitly approved and activated under policy."
+      ],
+      "action": {
+        "label": "Review scope change",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-073",
+      "title": "Authority scope changed",
+      "event": "mandate.scope_changed",
+      "to": "Principal and delegate",
+      "class_label": "Security / authority",
+      "subject": "Delegated authority permissions changed",
+      "preheader": "Review the current mandate limits.",
+      "paragraphs": [
+        "The approved scope of mandate {{mandate_reference}} changed at {{event_at_local}}.",
+        "Current scope: {{mandate_scope_public}}. Actions after the effective time will be evaluated against this revised authorization and all relevant policies."
+      ],
+      "action": {
+        "label": "Review mandate",
+        "url_field": "trusted_mandates_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-074",
+      "title": "High-risk action approval requested",
+      "event": "mandate.stepup.approval_requested",
+      "to": "Authorized approver",
+      "class_label": "Security / step-up",
+      "subject": "Approval requested for a protected action",
+      "preheader": "Verify the context before authorizing.",
+      "paragraphs": [
+        "A protected action requiring your decision was requested for {{organization_name}}.",
+        "Action: {{action_public_label}}. Reference: {{action_reference}}. Review its initiator, scoped authority, policy checks and expiry in the secure approval center. Do not approve from email alone."
+      ],
+      "action": {
+        "label": "Review protected action",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-075",
+      "title": "Protected action approved – requester",
+      "event": "mandate.stepup.approved",
+      "to": "Authorized initiator",
+      "class_label": "Security / audit",
+      "subject": "Your protected action was approved",
+      "preheader": "Approval is recorded but execution may still require checks.",
+      "paragraphs": [
+        "Approval for action {{action_reference}} was granted at {{event_at_local}}.",
+        "The action will proceed only if the required authority, policy and execution checks remain valid. Review the secure record for the final execution state and audit receipt."
+      ],
+      "action": {
+        "label": "View action status",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-076",
+      "title": "Protected action denied or timed out",
+      "event": "mandate.stepup.denied_or_expired",
+      "to": "Authorized initiator",
+      "class_label": "Security / audit",
+      "subject": "Protected action was not approved",
+      "preheader": "No authorized execution followed this request.",
+      "paragraphs": [
+        "The approval request for action {{action_reference}} was {{decision_public_label}} at {{event_at_local}}.",
+        "The requested action cannot proceed under that approval. You can view the permitted resubmission steps in the secure console."
+      ],
+      "action": {
+        "label": "Review action",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-077",
+      "title": "Machine identity created",
+      "event": "machine.identity.created",
+      "to": "Organization owner / admin",
+      "class_label": "Security / admin",
+      "subject": "A new machine identity was created",
+      "preheader": "Review the service identity and owner.",
+      "paragraphs": [
+        "A non-human identity called {{agent_display_name}} was created for {{organization_name}} at {{event_at_local}}.",
+        "Review its owning team, approved purpose, environment and initial privilege boundaries. Credentials and secrets are never included in this email."
+      ],
+      "action": {
+        "label": "Review identity",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-078",
+      "title": "AI-agent identity registered",
+      "event": "agent.identity.registered",
+      "to": "Organization owner / admin",
+      "class_label": "Security / admin",
+      "subject": "AI-agent identity registered in Zoiko iD",
+      "preheader": "Review accountable ownership and intended authority.",
+      "paragraphs": [
+        "AI-agent identity {{agent_display_name}} was registered for {{organization_name}} at {{event_at_local}}.",
+        "Review its designated owner, purpose, risk tier and permitted integrations. Registration alone does not authorize the agent to act or grant production privileges."
+      ],
+      "action": {
+        "label": "Review agent identity",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-079",
+      "title": "Agent authority requested",
+      "event": "agent.authority.requested",
+      "to": "Agent owner / approver",
+      "class_label": "Security / authority",
+      "subject": "Approval needed for AI-agent authority",
+      "preheader": "Check the proposed capabilities and constraints.",
+      "paragraphs": [
+        "A new authority grant has been requested for AI agent {{agent_display_name}}.",
+        "Requested scope: {{mandate_scope_public}}. Review the intended actions, data boundaries, human approvals, expiry and revocation conditions before deciding."
+      ],
+      "action": {
+        "label": "Review agent request",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-080",
+      "title": "Agent authority granted",
+      "event": "agent.authority.granted",
+      "to": "Agent owner / admin",
+      "class_label": "Security / authority",
+      "subject": "AI-agent permissions have been granted",
+      "preheader": "Review which actions are now permitted.",
+      "paragraphs": [
+        "Authority for AI agent {{agent_display_name}} was activated at {{event_at_local}}.",
+        "Approved scope: {{mandate_scope_public}}. The grant remains subject to policy evaluation, trust checks, quotas and revocation."
+      ],
+      "action": {
+        "label": "Review agent permissions",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-081",
+      "title": "Agent authority changed",
+      "event": "agent.authority.modified",
+      "to": "Agent owner / admin",
+      "class_label": "Security / authority",
+      "subject": "AI-agent permissions changed",
+      "preheader": "Review the updated boundaries.",
+      "paragraphs": [
+        "The authority of AI agent {{agent_display_name}} changed at {{event_at_local}}.",
+        "Change: {{scope_change_public_summary}}. Review the current allowed actions and audit record. Sensitive policies and credentials are not included in this message."
+      ],
+      "action": {
+        "label": "Review agent permissions",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-082",
+      "title": "Agent access suspended",
+      "event": "agent.identity.suspended",
+      "to": "Agent owner / admin",
+      "class_label": "Security / risk",
+      "subject": "An AI-agent identity has been suspended",
+      "preheader": "The agent cannot rely on suspended authority.",
+      "paragraphs": [
+        "Access for AI-agent identity {{agent_display_name}} was suspended at {{event_at_local}}.",
+        "The applicable policy now blocks relevant agent-initiated actions. A permitted administrator should review the reason and any outstanding work in the secure console."
+      ],
+      "action": {
+        "label": "Review suspension",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-083",
+      "title": "Agent access restored",
+      "event": "agent.identity.restored",
+      "to": "Agent owner / admin",
+      "class_label": "Security / audit",
+      "subject": "AI-agent identity access was restored",
+      "preheader": "Review the active authority before resuming operations.",
+      "paragraphs": [
+        "Access for AI-agent identity {{agent_display_name}} was restored at {{event_at_local}}.",
+        "Only currently approved credentials, policies and mandates are effective. Review the secure audit trail and permitted actions before resuming automated workloads."
+      ],
+      "action": {
+        "label": "Review agent status",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-084",
+      "title": "Workload secret or certificate expiring",
+      "event": "machine.credential.expiry_approaching",
+      "to": "Machine owner / platform admin",
+      "class_label": "Security / operational",
+      "subject": "A machine credential is nearing expiry",
+      "preheader": "Rotate or renew before connectivity is affected.",
+      "paragraphs": [
+        "A credential associated with {{agent_display_name}} is scheduled to expire at {{expires_at_local}}.",
+        "Review the credential inventory and controlled rotation steps in the console. Do not send secrets or private keys by email."
+      ],
+      "action": {
+        "label": "Review machine credential",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-085",
+      "title": "Workload credential rotated",
+      "event": "machine.credential.rotated",
+      "to": "Machine owner / platform admin",
+      "class_label": "Security / audit",
+      "subject": "Machine credential rotation completed",
+      "preheader": "Review the rotation and affected integrations.",
+      "paragraphs": [
+        "A credential associated with {{agent_display_name}} was rotated at {{event_at_local}}.",
+        "Confirm affected systems use the current credential and that superseded material has been retired according to policy. No credential value is included in this notification."
+      ],
+      "action": {
+        "label": "Review rotation record",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-086",
+      "title": "Agent action blocked by policy",
+      "event": "agent.action.blocked",
+      "to": "Agent owner / risk team",
+      "class_label": "Security / risk",
+      "subject": "AI-agent action blocked by policy",
+      "preheader": "Review a blocked action and its evidence.",
+      "paragraphs": [
+        "Action {{action_reference}} attempted by {{agent_display_name}} was blocked at {{event_at_local}}.",
+        "Open the secure event to review the relevant policy decision, authority state and allowed remediation path. A blocked action must not be retried using a different identity to bypass controls."
+      ],
+      "action": {
+        "label": "Review blocked action",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-087",
+      "title": "Agent action review required",
+      "event": "agent.action.human_review_required",
+      "to": "Accountable human approver",
+      "class_label": "Security / approval",
+      "subject": "Human review required for an AI-agent action",
+      "preheader": "A controlled decision is waiting for your review.",
+      "paragraphs": [
+        "AI agent {{agent_display_name}} requested a protected action requiring human review.",
+        "Action reference: {{action_reference}}. Review the proposed outcome, confidence and provenance evidence, approved scope and expiry in Zoiko iD. The action has not been authorized by this email."
+      ],
+      "action": {
+        "label": "Review agent action",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-088",
+      "title": "Organization workspace provisioned",
+      "event": "tenant.created",
+      "to": "Organization owner",
+      "class_label": "Admin / transactional",
+      "subject": "Your Zoiko iD organization workspace is ready",
+      "preheader": "Review setup requirements and controls.",
+      "paragraphs": [
+        "The Zoiko iD workspace for {{organization_name}} was provisioned at {{event_at_local}}.",
+        "Before production use, review administrator access, domain ownership, sign-in policy, identity verification requirements, audit retention and allowed integrations."
+      ],
+      "action": {
+        "label": "Open organization console",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-089",
+      "title": "Verify your organization domain",
+      "event": "tenant.domain.verification_requested",
+      "to": "Domain administrator",
+      "class_label": "Security / admin",
+      "subject": "Verify {{domain_name}} for {{organization_name}}",
+      "preheader": "Complete the secure domain verification steps.",
+      "paragraphs": [
+        "A request to verify domain {{domain_name}} was opened for {{organization_name}}.",
+        "An authorized administrator should open Zoiko iD for the required domain-ownership instructions. Do not use untrusted DNS records or copy verification tokens from an unsolicited email."
+      ],
+      "action": {
+        "label": "View domain verification",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-090",
+      "title": "Domain ownership verified",
+      "event": "tenant.domain.verified",
+      "to": "Organization admin",
+      "class_label": "Security / admin",
+      "subject": "Domain verification complete: {{domain_name}}",
+      "preheader": "Your domain ownership check is complete.",
+      "paragraphs": [
+        "Domain {{domain_name}} was verified for {{organization_name}} at {{event_at_local}}.",
+        "Review any permitted domain-based enrollment, federation or discovery settings before enabling them. Domain verification alone is not proof of organizational authority for every workflow."
+      ],
+      "action": {
+        "label": "Review domain settings",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-091",
+      "title": "Administrator role elevation requested",
+      "event": "tenant.role.elevation_requested",
+      "to": "Owner / privileged approver",
+      "class_label": "Security / admin",
+      "subject": "Privileged role change needs approval",
+      "preheader": "Review the requested access elevation.",
+      "paragraphs": [
+        "An elevated role has been requested for {{member_display_name}} in {{organization_name}}.",
+        "Requested role: {{requested_role_public}}. Review necessity, permitted duration, separation-of-duties and any step-up requirements before approving."
+      ],
+      "action": {
+        "label": "Review role request",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-092",
+      "title": "Privileged role granted",
+      "event": "tenant.role.elevated",
+      "to": "Organization owner and affected member",
+      "class_label": "Security / admin",
+      "subject": "Privileged access granted in {{organization_name}}",
+      "preheader": "A permission change has taken effect.",
+      "paragraphs": [
+        "{{member_display_name}} was assigned {{requested_role_public}} access in {{organization_name}} at {{event_at_local}}.",
+        "Review the effective permissions and audit reference {{receipt_reference}}. If the change was unauthorized, use the secure incident route immediately."
+      ],
+      "action": {
+        "label": "Review role assignment",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-093",
+      "title": "Privileged role revoked",
+      "event": "tenant.role.revoked",
+      "to": "Organization owner and affected member",
+      "class_label": "Security / admin",
+      "subject": "Privileged access removed in {{organization_name}}",
+      "preheader": "Your organization access has changed.",
+      "paragraphs": [
+        "Privileged access for {{member_display_name}} in {{organization_name}} was removed at {{event_at_local}}.",
+        "This notice records the change; previously issued credentials or delegated mandates are governed by their separate revocation policies and should be reviewed where applicable."
+      ],
+      "action": {
+        "label": "Review permissions",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-094",
+      "title": "Administrative ownership transfer requested",
+      "event": "tenant.owner.transfer_requested",
+      "to": "Current and proposed organization owners",
+      "class_label": "Security / admin",
+      "subject": "Organization ownership transfer requested",
+      "preheader": "Complete required approvals securely.",
+      "paragraphs": [
+        "An ownership transfer for {{organization_name}} was requested at {{event_at_local}}.",
+        "Current and proposed owners must complete the configured verification and approval steps. No ownership change occurs merely by opening this message."
+      ],
+      "action": {
+        "label": "Review transfer",
+        "url_field": "trusted_approval_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-095",
+      "title": "Administrative ownership transfer complete",
+      "event": "tenant.owner.transfer_completed",
+      "to": "Previous and new owners",
+      "class_label": "Security / admin",
+      "subject": "Organization ownership was transferred",
+      "preheader": "Review the new administrative authority.",
+      "paragraphs": [
+        "The approved owner transfer for {{organization_name}} took effect at {{event_at_local}}.",
+        "The new owner should review admins, permissions, recovery contacts, financial permissions and evidence history. If unexpected, raise a security case immediately."
+      ],
+      "action": {
+        "label": "Review organization owners",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-096",
+      "title": "Sign-in policy updated",
+      "event": "tenant.auth_policy.changed",
+      "to": "Organization owner / security admins",
+      "class_label": "Security / admin",
+      "subject": "Sign-in policy changed for {{organization_name}}",
+      "preheader": "Review the updated access requirements.",
+      "paragraphs": [
+        "The sign-in policy for {{organization_name}} changed at {{event_at_local}}.",
+        "Change summary: {{policy_public_summary}}. Review the authenticated change log for the policy owner, approval evidence, affected users and rollout conditions."
+      ],
+      "action": {
+        "label": "Review sign-in policy",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-097",
+      "title": "Federation connection awaiting approval",
+      "event": "federation.connection.requested",
+      "to": "Organization owner / identity admin",
+      "class_label": "Security / admin",
+      "subject": "Review a federation trust connection",
+      "preheader": "A new identity integration needs authorization.",
+      "paragraphs": [
+        "A connection between {{organization_name}} and {{partner_display_name}} has been proposed.",
+        "Review its protocol, claims, sign-in routing, trust anchors, tenant separation and change owner before approval. No trust relationship is activated until the configured checks pass."
+      ],
+      "action": {
+        "label": "Review federation connection",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-098",
+      "title": "Federation connection activated",
+      "event": "federation.connection.activated",
+      "to": "Organization identity admin",
+      "class_label": "Security / admin",
+      "subject": "Federation connection is active",
+      "preheader": "Review effective trust and claims mappings.",
+      "paragraphs": [
+        "The federation connection with {{partner_display_name}} for {{organization_name}} was activated at {{event_at_local}}.",
+        "Please confirm the trust configuration, permitted claims, assurance mapping, sign-out behavior and operational ownership in the console."
+      ],
+      "action": {
+        "label": "Review federation settings",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-099",
+      "title": "Federation signing key rotation required",
+      "event": "federation.key_rotation_due",
+      "to": "Organization identity admin",
+      "class_label": "Security / operational",
+      "subject": "Federation signing key rotation due",
+      "preheader": "Protect authentication continuity.",
+      "paragraphs": [
+        "A federation signing or trust key associated with {{partner_display_name}} requires rotation by {{due_at_local}}.",
+        "Review the verified metadata and rollover procedure in the secure console. Do not distribute private keys through email."
+      ],
+      "action": {
+        "label": "Review rotation plan",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-100",
+      "title": "Federation connection disabled",
+      "event": "federation.connection.disabled",
+      "to": "Organization owner / identity admin",
+      "class_label": "Security / admin",
+      "subject": "Federation connection disabled",
+      "preheader": "Review affected login or integration paths.",
+      "paragraphs": [
+        "Federated trust with {{partner_display_name}} for {{organization_name}} was disabled at {{event_at_local}}.",
+        "Affected sign-in or data-sharing flows may no longer be available. Review the change record and approved restoration process in the console."
+      ],
+      "action": {
+        "label": "Review federation status",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-101",
+      "title": "Directory provisioning sync failed",
+      "event": "provisioning.scim.sync_failed",
+      "to": "Identity operations team",
+      "class_label": "Operational",
+      "subject": "Directory provisioning needs attention",
+      "preheader": "An identity synchronization error was detected.",
+      "paragraphs": [
+        "Directory provisioning for {{organization_name}} did not complete as expected at {{event_at_local}}.",
+        "Open the connector health view to see the affected direction, safe retry status and scope. Avoid manual privilege grants until reconciliation is complete."
+      ],
+      "action": {
+        "label": "Review connector health",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-102",
+      "title": "Directory provisioning restored",
+      "event": "provisioning.scim.restored",
+      "to": "Identity operations team",
+      "class_label": "Operational",
+      "subject": "Directory provisioning restored",
+      "preheader": "Review remaining reconciliation items.",
+      "paragraphs": [
+        "Directory provisioning for {{organization_name}} returned to healthy operation at {{event_at_local}}.",
+        "Confirm queued changes have been reconciled and no permission drift remains. The health record includes any items requiring manual review."
+      ],
+      "action": {
+        "label": "Review reconciliation",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-103",
+      "title": "API key created",
+      "event": "developer.api_key.created",
+      "to": "Developer / owner",
+      "class_label": "Security / developer",
+      "subject": "A Zoiko iD API key was created",
+      "preheader": "Confirm the key is owned and scoped correctly.",
+      "paragraphs": [
+        "A new API key labeled {{api_key_public_label}} was created in {{environment_label}} for {{organization_name}} at {{event_at_local}}.",
+        "For security, the secret is not included here and cannot be retrieved from this message. Review owner, scope, expiration and rotation policy in the developer console."
+      ],
+      "action": {
+        "label": "Review API keys",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-104",
+      "title": "API key nearing expiry",
+      "event": "developer.api_key.expiring",
+      "to": "Developer / owner",
+      "class_label": "Security / developer",
+      "subject": "A Zoiko iD API key is nearing expiry",
+      "preheader": "Rotate this key before integrations are affected.",
+      "paragraphs": [
+        "API key {{api_key_public_label}} in {{environment_label}} is scheduled to expire at {{expires_at_local}}.",
+        "Rotate it using the authorized developer console and confirm dependent integrations are updated. Never share the secret by email."
+      ],
+      "action": {
+        "label": "Review API key",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-105",
+      "title": "API key revoked",
+      "event": "developer.api_key.revoked",
+      "to": "Developer / owner",
+      "class_label": "Security / developer",
+      "subject": "A Zoiko iD API key was revoked",
+      "preheader": "Check dependent services for impact.",
+      "paragraphs": [
+        "API key {{api_key_public_label}} in {{environment_label}} was revoked effective {{event_at_local}}.",
+        "Requests using the revoked key should no longer be authorized. Review the audit record and affected integrations for safe recovery steps."
+      ],
+      "action": {
+        "label": "Review API key record",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-106",
+      "title": "Webhook delivery repeatedly failed",
+      "event": "developer.webhook.delivery_failed",
+      "to": "Developer / integration owner",
+      "class_label": "Operational",
+      "subject": "Webhook deliveries need attention",
+      "preheader": "Review a stalled event subscription.",
+      "paragraphs": [
+        "Deliveries to webhook endpoint {{endpoint_public_label}} for {{organization_name}} repeatedly failed.",
+        "Open the developer console to view event IDs, safe retry state, endpoint response details and any dead-letter handling. This message does not include event payloads or secrets."
+      ],
+      "action": {
+        "label": "Review webhook delivery",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-107",
+      "title": "Webhook deliveries resumed",
+      "event": "developer.webhook.delivery_recovered",
+      "to": "Developer / integration owner",
+      "class_label": "Operational",
+      "subject": "Webhook delivery has recovered",
+      "preheader": "Confirm downstream event processing.",
+      "paragraphs": [
+        "Webhook delivery to {{endpoint_public_label}} resumed at {{event_at_local}}.",
+        "Please verify retries, ordering or idempotency handling and downstream reconciliation for any earlier failed messages."
+      ],
+      "action": {
+        "label": "Review event deliveries",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-108",
+      "title": "Webhook signing secret rotated",
+      "event": "developer.webhook.secret_rotated",
+      "to": "Developer / integration owner",
+      "class_label": "Security / developer",
+      "subject": "Webhook signing secret rotated",
+      "preheader": "Update and verify integration configuration.",
+      "paragraphs": [
+        "The signing secret for webhook subscription {{endpoint_public_label}} was rotated at {{event_at_local}}.",
+        "Review the overlap period, valid signing identifiers and integration health in the secured console. The secret itself is never sent over email."
+      ],
+      "action": {
+        "label": "Review webhook settings",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-109",
+      "title": "Risk alert for administrators",
+      "event": "risk.alert.created",
+      "to": "Organization security admin",
+      "class_label": "Security / incident",
+      "subject": "Security review needed in {{organization_name}}",
+      "preheader": "A new trust-related event requires attention.",
+      "paragraphs": [
+        "A security or identity risk event was recorded for {{organization_name}} at {{event_at_local}}.",
+        "Reference: {{event_reference}}. An authorized reviewer should use the secure console to assess severity, affected scope and recommended containment actions. The email does not include confidential risk signals."
+      ],
+      "action": {
+        "label": "Review risk event",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-110",
+      "title": "Account compromise concern",
+      "event": "risk.account.compromise_suspected",
+      "to": "Affected account holder",
+      "class_label": "Security / incident",
+      "subject": "Protect your Zoiko iD account",
+      "preheader": "A security review is recommended.",
+      "paragraphs": [
+        "Zoiko iD detected activity that may require additional account protection at {{event_at_local}}.",
+        "Open Zoiko iD directly through a trusted path to review sessions, authenticators and recovery options. Do not share passwords, passkeys or one-time codes with anyone claiming to investigate this alert."
+      ],
+      "action": {
+        "label": "Review account protection",
+        "url_field": "trusted_security_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-111",
+      "title": "Suspicious API traffic detected",
+      "event": "risk.api_activity.detected",
+      "to": "Tenant security admin",
+      "class_label": "Security / incident",
+      "subject": "Unusual API activity detected",
+      "preheader": "Review affected credentials and requests.",
+      "paragraphs": [
+        "Anomalous API activity associated with {{organization_name}} was detected at {{event_at_local}}.",
+        "Review event {{event_reference}} to assess affected keys, request categories, policy decisions and permitted containment options. Raw payloads and secrets remain in secured logs."
+      ],
+      "action": {
+        "label": "Review API security event",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-112",
+      "title": "Emergency access initiated",
+      "event": "security.break_glass.activated",
+      "to": "Organization owner / security responder",
+      "class_label": "Security / incident",
+      "subject": "Emergency privileged access activated",
+      "preheader": "A high-impact administrative access event occurred.",
+      "paragraphs": [
+        "Emergency access was activated for {{organization_name}} at {{event_at_local}} under reference {{event_reference}}.",
+        "Review who invoked it, justification, scope, expiration and any required independent oversight in the secure audit record. This event must receive prompt review under your incident policy."
+      ],
+      "action": {
+        "label": "Review emergency access",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-113",
+      "title": "Emergency access ended",
+      "event": "security.break_glass.ended",
+      "to": "Organization owner / security responder",
+      "class_label": "Security / incident",
+      "subject": "Emergency privileged access ended",
+      "preheader": "Post-event review may be required.",
+      "paragraphs": [
+        "Emergency access under {{event_reference}} ended at {{event_at_local}}.",
+        "Confirm all temporary privileges and sessions were withdrawn, collect associated evidence, and complete the required post- event review."
+      ],
+      "action": {
+        "label": "Review emergency access",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-114",
+      "title": "Emergency access review overdue",
+      "event": "security.break_glass.review_overdue",
+      "to": "Independent risk reviewer",
+      "class_label": "Security / incident",
+      "subject": "Action required: emergency-access review",
+      "preheader": "An oversight requirement is overdue.",
+      "paragraphs": [
+        "The review of emergency access {{event_reference}} for {{organization_name}} has not been completed by {{due_at_local}}.",
+        "Please review the scope, justification, actions taken and evidence record in Zoiko iD. Overdue review does not extend emergency authority."
+      ],
+      "action": {
+        "label": "Complete review",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-115",
+      "title": "Audit evidence package available",
+      "event": "evidence.export.ready",
+      "to": "Authorized auditor / admin",
+      "class_label": "Audit / confidential",
+      "subject": "Your Zoiko iD evidence package is ready",
+      "preheader": "Retrieve the package through secure access.",
+      "paragraphs": [
+        "The requested evidence package {{package_reference}} for {{organization_name}} is ready at {{event_at_local}}.",
+        "Access it through the secure audit console after required authorization checks. For confidentiality, the evidence package is not attached to this message and any download link is time-limited."
+      ],
+      "action": {
+        "label": "Open evidence package",
+        "url_field": "trusted_audit_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-116",
+      "title": "Evidence integrity alert",
+      "event": "evidence.integrity.alert",
+      "to": "Security and audit owner",
+      "class_label": "Security / critical",
+      "subject": "Evidence integrity check requires review",
+      "preheader": "An evidence validation step did not pass.",
+      "paragraphs": [
+        "An integrity validation for evidence reference {{event_reference}} requires attention as of {{event_at_local}}.",
+        "Quarantine affected downstream assertions and review the chain, signature or timestamp validation results in the secured audit console. Do not treat the record as verified until resolved."
+      ],
+      "action": {
+        "label": "Review integrity alert",
+        "url_field": "trusted_audit_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-117",
+      "title": "Material security incident notice – initial",
+      "event": "incident.material.initial_notice",
+      "to": "Authorized tenant incident contacts",
+      "class_label": "Security / incident",
+      "subject": "Security incident notice for {{organization_name}}",
+      "preheader": "Review the confirmed facts and next steps.",
+      "paragraphs": [
+        "We are notifying your designated security contacts of a confirmed incident relevant to {{organization_name}}.",
+        "Incident reference: {{incident_reference}}. Confirmed as of {{event_at_local}}: {{approved_incident_summary}}.",
+        "Current actions and required customer steps, if any, are available in the secure incident center. We will provide further factual updates as the investigation progresses."
+      ],
+      "action": {
+        "label": "View incident updates",
+        "url_field": "trusted_incident_url"
+      },
+      "control": "Legal/security-approved disclosure only; avoid speculative affected-user claims."
+    },
+    {
+      "id": "ZID-EM-118",
+      "title": "Material security incident – progress update",
+      "event": "incident.material.progress",
+      "to": "Authorized tenant incident contacts",
+      "class_label": "Security / incident",
+      "subject": "Update on incident {{incident_reference}}",
+      "preheader": "New verified information is available.",
+      "paragraphs": [
+        "There is an update concerning incident {{incident_reference}} affecting {{organization_name}}.",
+        "Verified update at {{event_at_local}}: {{approved_incident_update}}.",
+        "Please review the secure incident center for the present scope, mitigation status and any changed actions required of your organization."
+      ],
+      "action": {
+        "label": "Review incident details",
+        "url_field": "trusted_incident_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-119",
+      "title": "Material security incident – resolution",
+      "event": "incident.material.resolved",
+      "to": "Authorized tenant incident contacts",
+      "class_label": "Security / incident",
+      "subject": "Resolution update: incident {{incident_reference}}",
+      "preheader": "Review the closure record and follow-up actions.",
+      "paragraphs": [
+        "Incident {{incident_reference}} has reached the status {{incident_status_public}} as of {{event_at_local}}.",
+        "The incident center contains the verified resolution summary, outstanding remediation, customer actions and any required follow-up notices. Closure does not remove applicable evidence preservation obligations."
+      ],
+      "action": {
+        "label": "Review incident outcome",
+        "url_field": "trusted_incident_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-120",
+      "title": "Critical integration outage",
+      "event": "operations.integration.incident",
+      "to": "Organization owner / technical contact",
+      "class_label": "Operational / incident",
+      "subject": "A Zoiko iD integration requires attention",
+      "preheader": "Service impact may affect your identity workflows.",
+      "paragraphs": [
+        "An integration relevant to {{organization_name}} is experiencing {{impact_public_summary}} as of {{event_at_local}}.",
+        "Review the secure status record for affected functions, available mitigations and the next update milestone. Do not bypass identity or authorization controls to restore workflow throughput."
+      ],
+      "action": {
+        "label": "View service status",
+        "url_field": "trusted_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-121",
+      "title": "Critical integration restored",
+      "event": "operations.integration.restored",
+      "to": "Organization owner / technical contact",
+      "class_label": "Operational",
+      "subject": "A Zoiko iD integration has recovered",
+      "preheader": "Review any pending reconciliation work.",
+      "paragraphs": [
+        "The affected integration for {{organization_name}} returned to the reported operating state at {{event_at_local}}.",
+        "Please review any queued events, missed provisioning changes and required reconciliations. A restored connection does not by itself prove that every deferred event was processed."
+      ],
+      "action": {
+        "label": "Review recovery status",
+        "url_field": "trusted_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-122",
+      "title": "Demo request acknowledged",
+      "event": "sales.demo.request_received",
+      "to": "Business prospect",
+      "class_label": "Commercial / transactional",
+      "subject": "We received your Zoiko iD demo request",
+      "preheader": "We will follow up using the details you provided.",
+      "paragraphs": [
+        "Thank you for your interest in Zoiko iD.",
+        "We received your request to discuss {{interest_public_label}} for {{organization_name}}. Our team will review the requirements you shared and contact you through the agreed channel. Please do not send identity documents or production secrets in reply."
+      ],
+      "action": {
+        "label": "Explore solutions",
+        "url_field": "trusted_public_solutions_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-123",
+      "title": "Demo meeting confirmed",
+      "event": "sales.demo.confirmed",
+      "to": "Business prospect",
+      "class_label": "Commercial / transactional",
+      "subject": "Zoiko iD demo confirmed for {{meeting_at_local}}",
+      "preheader": "Your meeting details are ready.",
+      "paragraphs": [
+        "Your Zoiko iD discussion is confirmed for {{meeting_at_local}}.",
+        "Topic: {{interest_public_label}}. Meeting details: {{trusted_meeting_details_url}}. You can reply to your designated contact to update accessibility needs or technical priorities."
+      ],
+      "action": {
+        "label": "View meeting details",
+        "url_field": "trusted_meeting_details_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-124",
+      "title": "Sandbox access activated",
+      "event": "commercial.sandbox.activated",
+      "to": "Developer / trial owner",
+      "class_label": "Commercial / transactional",
+      "subject": "Your Zoiko iD sandbox is ready",
+      "preheader": "Build and test without production credentials.",
+      "paragraphs": [
+        "Your Zoiko iD sandbox for {{organization_name}} was activated at {{event_at_local}}.",
+        "You can review documentation, environments, API access controls, sample flows and usage limits. Sandbox-issued identities and tokens are not valid for production transactions."
+      ],
+      "action": {
+        "label": "Open developer sandbox",
+        "url_field": "trusted_developer_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-125",
+      "title": "Trial period nearing end",
+      "event": "commercial.trial.expiring",
+      "to": "Trial owner",
+      "class_label": "Commercial / transactional",
+      "subject": "Your Zoiko iD trial ends on {{expires_at_local}}",
+      "preheader": "Review next steps and applicable data handling.",
+      "paragraphs": [
+        "The Zoiko iD trial for {{organization_name}} is scheduled to end at {{expires_at_local}}.",
+        "Review enabled capabilities, any approved transition path, usage data and export options in the account console. Upgrading or extending a trial requires the appropriate commercial approval."
+      ],
+      "action": {
+        "label": "Review trial options",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-126",
+      "title": "Trial ended",
+      "event": "commercial.trial.ended",
+      "to": "Trial owner",
+      "class_label": "Commercial / transactional",
+      "subject": "Your Zoiko iD trial has ended",
+      "preheader": "Review permitted next steps.",
+      "paragraphs": [
+        "The Zoiko iD trial for {{organization_name}} ended at {{event_at_local}}.",
+        "Access is now subject to the trial terms and current account status. Review eligible upgrade or data-export actions in the secure console; data handling follows your governing agreement and retention policy."
+      ],
+      "action": {
+        "label": "View account options",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-127",
+      "title": "Subscription activated",
+      "event": "billing.subscription.activated",
+      "to": "Billing contact / owner",
+      "class_label": "Billing / transactional",
+      "subject": "Zoiko iD subscription activated for {{organization_name}}",
+      "preheader": "Your contracted plan is now active.",
+      "paragraphs": [
+        "Your Zoiko iD subscription for {{organization_name}} was activated at {{event_at_local}}.",
+        "Plan: {{plan_public_name}}. The secure billing console shows the applicable agreement, renewal date, included entitlements, usage limits and billing contacts."
+      ],
+      "action": {
+        "label": "Review subscription",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-128",
+      "title": "Plan or entitlement changed",
+      "event": "billing.subscription.changed",
+      "to": "Billing contact / owner",
+      "class_label": "Billing / transactional",
+      "subject": "Your Zoiko iD subscription was updated",
+      "preheader": "Review the effective plan and terms.",
+      "paragraphs": [
+        "A subscription change for {{organization_name}} became effective at {{event_at_local}}.",
+        "Updated plan or entitlement: {{plan_public_name}}. See the billing console for the approved order, prorations, service limits and renewal terms where applicable."
+      ],
+      "action": {
+        "label": "Review changes",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-129",
+      "title": "Usage threshold approaching",
+      "event": "billing.usage.threshold",
+      "to": "Billing owner / technical contact",
+      "class_label": "Billing / operational",
+      "subject": "Zoiko iD usage is approaching a threshold",
+      "preheader": "Review consumption and alert settings.",
+      "paragraphs": [
+        "Usage for {{organization_name}} has reached {{usage_public_percentage}} of the configured {{usage_metric_public}} threshold for {{billing_period_public}}.",
+        "Review your plan, alerts and available safeguards in the console. This alert does not itself change your contracted spending or service rights."
+      ],
+      "action": {
+        "label": "Review usage",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-130",
+      "title": "Invoice available",
+      "event": "billing.invoice.issued",
+      "to": "Billing contact",
+      "class_label": "Billing / transactional",
+      "subject": "Zoiko iD invoice {{invoice_reference}} is available",
+      "preheader": "View and download the invoice securely.",
+      "paragraphs": [
+        "A new Zoiko iD invoice has been issued for {{organization_name}}.",
+        "Invoice reference: {{invoice_reference}}. Total: {{invoice_total_formatted}}. Payment due: {{due_at_local}}. Open the billing console to view the full invoice, taxes, payment terms and billing entity."
+      ],
+      "action": {
+        "label": "View invoice",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-131",
+      "title": "Payment received",
+      "event": "billing.payment.succeeded",
+      "to": "Billing contact",
+      "class_label": "Billing / transactional",
+      "subject": "Payment received for invoice {{invoice_reference}}",
+      "preheader": "Your payment is recorded.",
+      "paragraphs": [
+        "We have recorded payment of {{payment_amount_formatted}} for Zoiko iD invoice {{invoice_reference}} at {{event_at_local}}.",
+        "The receipt and current account balance are available in your secure billing console. If the amount differs from your records, open a billing support case."
+      ],
+      "action": {
+        "label": "View payment receipt",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-132",
+      "title": "Payment unsuccessful",
+      "event": "billing.payment.failed",
+      "to": "Billing contact",
+      "class_label": "Billing / transactional",
+      "subject": "Action needed: Zoiko iD payment not completed",
+      "preheader": "Review your payment method securely.",
+      "paragraphs": [
+        "A payment attempt for invoice {{invoice_reference}} was not completed at {{event_at_local}}.",
+        "Please open the secure billing console to review the permitted next steps. We will never request full payment card details by email. Any service impact is governed by the applicable contract and account status."
+      ],
+      "action": {
+        "label": "Review payment",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-133",
+      "title": "Renewal review approaching",
+      "event": "billing.subscription.renewal_approaching",
+      "to": "Billing owner",
+      "class_label": "Billing / transactional",
+      "subject": "Review your Zoiko iD subscription renewal",
+      "preheader": "Review the renewal terms and notice dates.",
+      "paragraphs": [
+        "Your Zoiko iD subscription for {{organization_name}} has a renewal milestone on {{renewal_at_local}}.",
+        "Please review the governing agreement, renewal mechanics, pricing, notice deadline and approved billing contacts in the secure billing console. No renewal terms are created by this reminder."
+      ],
+      "action": {
+        "label": "Review renewal terms",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-134",
+      "title": "Cancellation request received",
+      "event": "billing.subscription.cancellation_requested",
+      "to": "Billing owner",
+      "class_label": "Billing / transactional",
+      "subject": "Zoiko iD cancellation request received",
+      "preheader": "Review the effective date and transition steps.",
+      "paragraphs": [
+        "We received a request to cancel the Zoiko iD subscription for {{organization_name}} at {{event_at_local}}.",
+        "An authorized billing owner should review the requested effective date, contractual obligations and export or transition needs in the secure console. The request is not necessarily the final termination event."
+      ],
+      "action": {
+        "label": "Review cancellation",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-135",
+      "title": "Subscription cancellation effective",
+      "event": "billing.subscription.cancelled",
+      "to": "Billing owner",
+      "class_label": "Billing / transactional",
+      "subject": "Zoiko iD subscription cancellation is effective",
+      "preheader": "Review final access and retention dates.",
+      "paragraphs": [
+        "The Zoiko iD subscription for {{organization_name}} ended effective {{event_at_local}} under the recorded contract terms.",
+        "Review remaining export windows, final invoicing, identity dependencies, audit preservation and data-handling requirements in the secure billing console."
+      ],
+      "action": {
+        "label": "Review closure steps",
+        "url_field": "trusted_billing_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-136",
+      "title": "Support request acknowledged",
+      "event": "support.case.opened",
+      "to": "Requester",
+      "class_label": "Support / transactional",
+      "subject": "Zoiko iD support request {{case_reference}} received",
+      "preheader": "Your support case has been opened.",
+      "paragraphs": [
+        "We received your Zoiko iD support request at {{event_at_local}}.",
+        "Case reference: {{case_reference}}. You can track the case and add safe supporting information in the support center. Do not attach passwords, authentication codes, private keys or unrequested identity documents."
+      ],
+      "action": {
+        "label": "View support case",
+        "url_field": "trusted_support_case_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-137",
+      "title": "Support reply available",
+      "event": "support.case.replied",
+      "to": "Requester",
+      "class_label": "Support / transactional",
+      "subject": "New reply on Zoiko iD case {{case_reference}}",
+      "preheader": "Read the secure support response.",
+      "paragraphs": [
+        "A Zoiko iD support specialist has posted an update to case {{case_reference}}.",
+        "Sign in to review the reply and any requested steps. Sensitive case details are not copied into this email."
+      ],
+      "action": {
+        "label": "Read support reply",
+        "url_field": "trusted_support_case_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-138",
+      "title": "Support case escalated",
+      "event": "support.case.escalated",
+      "to": "Requester",
+      "class_label": "Support / transactional",
+      "subject": "Your Zoiko iD support case has been escalated",
+      "preheader": "The case is receiving additional review.",
+      "paragraphs": [
+        "Support case {{case_reference}} was escalated at {{event_at_local}} for specialist review.",
+        "Please continue using the secure case thread for updates and requested information. Escalation does not change the contractual response commitment."
+      ],
+      "action": {
+        "label": "Track escalation",
+        "url_field": "trusted_support_case_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-139",
+      "title": "Support case resolved",
+      "event": "support.case.resolved",
+      "to": "Requester",
+      "class_label": "Support / transactional",
+      "subject": "Zoiko iD case {{case_reference}} has been resolved",
+      "preheader": "Review the recorded resolution.",
+      "paragraphs": [
+        "Support case {{case_reference}} was marked resolved at {{event_at_local}}.",
+        "The resolution details and any permitted reopening option are available in your support center. If the issue persists, reply in the secure case thread or open a new case as appropriate."
+      ],
+      "action": {
+        "label": "View resolution",
+        "url_field": "trusted_support_case_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-140",
+      "title": "Planned service maintenance",
+      "event": "operations.maintenance.announced",
+      "to": "Tenant technical contact",
+      "class_label": "Operational",
+      "subject": "Planned Zoiko iD maintenance on {{maintenance_start_local}}",
+      "preheader": "Review the affected features and window.",
+      "paragraphs": [
+        "Planned maintenance may affect {{impact_public_summary}} for {{organization_name}}.",
+        "Window: {{maintenance_start_local}} to {{maintenance_end_local}}. Review the official status center for the defined impact and any recommended preparation. Security controls remain mandatory during maintenance."
+      ],
+      "action": {
+        "label": "View maintenance details",
+        "url_field": "trusted_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-141",
+      "title": "Maintenance completed",
+      "event": "operations.maintenance.completed",
+      "to": "Tenant technical contact",
+      "class_label": "Operational",
+      "subject": "Zoiko iD maintenance completed",
+      "preheader": "Review any follow-up action.",
+      "paragraphs": [
+        "The scheduled maintenance window for {{organization_name}} was completed at {{event_at_local}}.",
+        "See the official status record for completed changes, remaining exceptions and any action required to restore normal integration behavior."
+      ],
+      "action": {
+        "label": "View maintenance report",
+        "url_field": "trusted_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-142",
+      "title": "Requested product updates – opt-in",
+      "event": "marketing.product_update.opted_in",
+      "to": "Subscribed contact",
+      "class_label": "Marketing / consented",
+      "subject": "What’s new in Zoiko iD: {{release_public_name}}",
+      "preheader": "An update about the features you follow.",
+      "paragraphs": [
+        "You asked to receive Zoiko iD product updates.",
+        "This edition covers {{release_public_summary}}. Review the release information, rollout eligibility and documentation before enabling new functionality. Product availability may vary by environment and agreement."
+      ],
+      "action": {
+        "label": "Read release notes",
+        "url_field": "trusted_release_notes_url"
+      },
+      "control": "Must carry subscribed audience, legal footer, and RFC 8058 headers."
+    },
+    {
+      "id": "ZID-EM-143",
+      "title": "Event registration confirmation",
+      "event": "marketing.event.registration_confirmed",
+      "to": "Registered prospect",
+      "class_label": "Marketing / event",
+      "subject": "You’re registered: {{event_public_title}}",
+      "preheader": "Your event details are confirmed.",
+      "paragraphs": [
+        "Your registration for {{event_public_title}} is confirmed.",
+        "Time: {{meeting_at_local}}. Your registration details and any joining instructions are available through the approved event page.",
+        "Please use the official event contact route if you need accessibility accommodations."
+      ],
+      "action": {
+        "label": "View event details",
+        "url_field": "trusted_event_url"
+      },
+      "control": "Registration confirmation is transactional; unrelated promotions are separate."
+    },
+    {
+      "id": "ZID-EM-144",
+      "title": "Communication preferences changed",
+      "event": "marketing.preferences.updated",
+      "to": "Contact",
+      "class_label": "Marketing / consent",
+      "subject": "Your Zoiko iD email preferences were updated",
+      "preheader": "Your choices are now recorded.",
+      "paragraphs": [
+        "Your Zoiko iD communication preferences were updated at {{event_at_local}}.",
+        "You can review marketing categories and opt-in status in the preference center. Essential account, security, privacy and contract notices may continue where required and are not controlled by marketing unsubscribe."
+      ],
+      "action": {
+        "label": "Review email preferences",
+        "url_field": "trusted_preferences_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-145",
+      "title": "Unsubscribe confirmation",
+      "event": "marketing.unsubscribed",
+      "to": "Contact",
+      "class_label": "Marketing / consent",
+      "subject": "You have been unsubscribed from Zoiko iD updates",
+      "preheader": "Your marketing preference change was recorded.",
+      "paragraphs": [
+        "Your request to stop receiving {{marketing_list_public_name}} messages was recorded at {{event_at_local}}.",
+        "This change affects the indicated optional communications. Important service, security, privacy and contractual notices may still be delivered when necessary."
+      ],
+      "action": {
+        "label": "View preferences",
+        "url_field": "trusted_preferences_url"
+      },
+      "control": "Send only when confirmation permitted; obey List-Unsubscribe / RFC 8058 for marketing."
+    },
+    {
+      "id": "ZID-EM-146",
+      "title": "Recovery codes regenerated",
+      "event": "auth.recovery_codes.regenerated",
+      "to": "Account owner",
+      "class_label": "Security / required",
+      "subject": "Zoiko iD recovery codes were regenerated",
+      "preheader": "Earlier recovery codes may no longer work.",
+      "paragraphs": [
+        "Recovery codes associated with your Zoiko iD account were regenerated at {{event_at_local}}.",
+        "If you made this change, store the new codes in a protected location outside email. If you did not, secure your account immediately. Recovery codes are never sent by email."
+      ],
+      "action": {
+        "label": "Review account security",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-147",
+      "title": "Account closure requested",
+      "event": "identity.account.closure_requested",
+      "to": "Account owner",
+      "class_label": "Security / privacy",
+      "subject": "Your Zoiko iD account closure request was received",
+      "preheader": "Review the verification and dependency checks.",
+      "paragraphs": [
+        "We received a request to close your Zoiko iD account at {{event_at_local}}, reference {{case_reference}}.",
+        "We will validate authority and review organization memberships, active mandates, credential obligations and legally required records before any closure is completed."
+      ],
+      "action": {
+        "label": "Track closure request",
+        "url_field": "trusted_account_status_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-148",
+      "title": "Account closure completed",
+      "event": "identity.account.closed",
+      "to": "Account owner",
+      "class_label": "Security / privacy",
+      "subject": "Zoiko iD account closure completed",
+      "preheader": "Review the closure record and retention information.",
+      "paragraphs": [
+        "Your Zoiko iD account closure process completed effective {{event_at_local}}.",
+        "The closure record and applicable retention or third-party obligations are available through the approved request-response channel under reference {{case_reference}}. If you did not authorize this action, contact official support immediately."
+      ],
+      "action": null,
+      "control": null
+    },
+    {
+      "id": "ZID-EM-149",
+      "title": "Account linked to another application",
+      "event": "identity.connection.linked",
+      "to": "Account owner",
+      "class_label": "Security / consent",
+      "subject": "A connected application was linked to Zoiko iD",
+      "preheader": "Review the connection and its permissions.",
+      "paragraphs": [
+        "{{connected_app_public_name}} was linked to your Zoiko iD profile at {{event_at_local}}.",
+        "Open the connections center to review identity mapping, authorized data categories and revocation options. Connecting an app does not give it unrestricted access to your identity or other organizations."
+      ],
+      "action": {
+        "label": "Review connected applications",
+        "url_field": "trusted_connections_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-150",
+      "title": "Application access request",
+      "event": "identity.connection.authorization_requested",
+      "to": "Account owner",
+      "class_label": "Security / consent",
+      "subject": "An application requests access through Zoiko iD",
+      "preheader": "Review the exact permissions requested.",
+      "paragraphs": [
+        "{{connected_app_public_name}} requested access for {{purpose_public_label}}.",
+        "Review the requested claims, relying party, sharing duration and authorization conditions in the protected connections center.",
+        "No access should be granted until required controls pass."
+      ],
+      "action": {
+        "label": "Review application request",
+        "url_field": "trusted_connections_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-151",
+      "title": "Connected application removed",
+      "event": "identity.connection.unlinked",
+      "to": "Account owner",
+      "class_label": "Security / consent",
+      "subject": "An application was disconnected from Zoiko iD",
+      "preheader": "Future access under that connection has changed.",
+      "paragraphs": [
+        "The connection with {{connected_app_public_name}} was removed at {{event_at_local}}.",
+        "Future access through this connection is no longer authorized under the removed grant. Review the secure history for any independent data retention or existing records held by the other service."
+      ],
+      "action": {
+        "label": "Review connection history",
+        "url_field": "trusted_connections_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-152",
+      "title": "Membership deactivated",
+      "event": "tenant.member.deactivated",
+      "to": "Affected member",
+      "class_label": "Security / admin",
+      "subject": "Your access to {{organization_name}} was deactivated",
+      "preheader": "Organization access has changed.",
+      "paragraphs": [
+        "Your membership in {{organization_name}} was deactivated effective {{event_at_local}}.",
+        "This does not necessarily close your underlying Zoiko iD account. Contact the organization administrator through an established channel if you believe this is an error."
+      ],
+      "action": {
+        "label": "Review memberships",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-153",
+      "title": "Membership reactivated",
+      "event": "tenant.member.reactivated",
+      "to": "Affected member",
+      "class_label": "Security / admin",
+      "subject": "Your access to {{organization_name}} was restored",
+      "preheader": "Review your current role and sign-in requirements.",
+      "paragraphs": [
+        "Your membership in {{organization_name}} was restored effective {{event_at_local}}.",
+        "Review your role, current policies and required authentication steps before accessing organization systems. Historic delegation or credentials are not automatically reactivated."
+      ],
+      "action": {
+        "label": "Review memberships",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-154",
+      "title": "Membership removed",
+      "event": "tenant.member.removed",
+      "to": "Affected member",
+      "class_label": "Security / admin",
+      "subject": "You were removed from {{organization_name}}",
+      "preheader": "The organization membership has ended.",
+      "paragraphs": [
+        "Your membership in {{organization_name}} was removed effective {{event_at_local}}.",
+        "Your Zoiko iD account may still be available for other permitted relationships. If this change is unexpected, contact the organization administrator through a trusted route."
+      ],
+      "action": {
+        "label": "Review account memberships",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-155",
+      "title": "Temporary privileged access approved",
+      "event": "tenant.jit_privilege.activated",
+      "to": "Privileged administrator",
+      "class_label": "Security / privileged",
+      "subject": "Temporary privileged access activated",
+      "preheader": "Access is limited to the approved task and window.",
+      "paragraphs": [
+        "Temporary privileged access for {{organization_name}} became active at {{event_at_local}}.",
+        "Scope: {{mandate_scope_public}}. The access ends at {{expires_at_local}} and remains subject to monitoring and policy checks."
+      ],
+      "action": {
+        "label": "Review temporary access",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-156",
+      "title": "Temporary privileged access expired",
+      "event": "tenant.jit_privilege.expired",
+      "to": "Privileged administrator / owner",
+      "class_label": "Security / privileged",
+      "subject": "Temporary privileged access has expired",
+      "preheader": "Privileged actions require a new approval.",
+      "paragraphs": [
+        "The approved privileged-access window {{authorization_reference}} ended at {{event_at_local}}.",
+        "Any new elevated action requires a fresh authorization. Review the completed activity and any mandatory access review in the organization console."
+      ],
+      "action": {
+        "label": "View access record",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-157",
+      "title": "Production integration approved",
+      "event": "developer.production_access.approved",
+      "to": "Developer / technical owner",
+      "class_label": "Security / developer",
+      "subject": "Production access approved for {{organization_name}}",
+      "preheader": "Review production policies before use.",
+      "paragraphs": [
+        "Production integration access for {{organization_name}} was approved at {{event_at_local}}.",
+        "Use only the approved environment, scopes and documented controls. Production credentials are provisioned through the protected developer console; none are included in this email."
+      ],
+      "action": {
+        "label": "Open developer console",
+        "url_field": "trusted_developer_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-158",
+      "title": "Audit export completed",
+      "event": "evidence.scheduled_export.complete",
+      "to": "Audit requester",
+      "class_label": "Audit / confidential",
+      "subject": "Scheduled Zoiko iD audit export completed",
+      "preheader": "Retrieve the export securely.",
+      "paragraphs": [
+        "Scheduled audit export {{package_reference}} for {{organization_name}} completed at {{event_at_local}}.",
+        "Review its scope, evidence integrity state and access-expiry information in the secured audit console. No evidence bundle is attached."
+      ],
+      "action": {
+        "label": "View audit export",
+        "url_field": "trusted_audit_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-159",
+      "title": "Policy-risk exception created",
+      "event": "risk.policy_exception.requested",
+      "to": "Organization security owner",
+      "class_label": "Security / governance",
+      "subject": "A policy exception awaits review",
+      "preheader": "A documented exception requires a decision.",
+      "paragraphs": [
+        "A policy exception request {{event_reference}} was submitted for {{organization_name}} at {{event_at_local}}.",
+        "Review the business justification, affected identities, compensating controls, expiration and accountable owner before approving any exception."
+      ],
+      "action": {
+        "label": "Review exception",
+        "url_field": "secure_console_url"
+      },
+      "control": null
+    },
+    {
+      "id": "ZID-EM-160",
+      "title": "Affected individual incident notice",
+      "event": "incident.individual.required_notice",
+      "to": "Affected individual",
+      "class_label": "Security / legal",
+      "subject": "Important security notice from Zoiko iD",
+      "preheader": "Review a confirmed incident and protective steps.",
+      "paragraphs": [
+        "We are contacting you about a confirmed security incident that may relate to your Zoiko iD information.",
+        "Reference: {{incident_reference}}. Verified summary: {{approved_individual_notice_summary}}.",
+        "Please review the secure incident notice for confirmed impact, protective actions, support options and any updates. We will not ask you to disclose passwords or authentication codes by email."
+      ],
+      "action": {
+        "label": "Review security notice",
+        "url_field": "trusted_incident_url"
+      },
+      "control": "Send only after incident legal approvals and recipient scoping."
+    }
+  ]
+}

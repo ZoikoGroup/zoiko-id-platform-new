@@ -18,6 +18,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/approval-requests/awaiting-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Awaiting Me
+         * @description Pending requests the caller did not open, has not decided, and holds authority to decide.
+         */
+        get: operations["awaiting_me_v1_approval_requests_awaiting_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/approval-requests/for-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * For Change
+         * @description The caller's own most recent unexpired request for exactly this change, or null.
+         */
+        get: operations["for_change_v1_approval_requests_for_change_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/approval-requests/{request_id}": {
         parameters: {
             query?: never;
@@ -59,7 +99,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List All */
+        /**
+         * List All
+         * @description Newest first. `next_cursor` (when present) continues the list after the last row of this page.
+         */
         get: operations["list_all_v1_authority_grants_get"];
         put?: never;
         /** Create Grant */
@@ -285,20 +328,22 @@ export interface components {
          * @enum {string}
          */
         ContinuityMode: "PERSON_BOUND" | "ROLE_CONTINUOUS" | "ORGANIZATION_CONTINUOUS" | "CONTRACT_BOUND";
-        /** DecisionCreate */
+        /**
+         * DecisionCreate
+         * @description `authority_grant_id` and `transaction_context` may be left out for a request that records its action,
+         *     resource and change: the grant is then the caller's own qualifying one and the context is rebuilt from the
+         *     request, so approving is one click on a readable summary.
+         */
         DecisionCreate: {
-            /**
-             * Authority Grant Id
-             * Format: uuid
-             */
-            authority_grant_id: string;
+            /** Authority Grant Id */
+            authority_grant_id?: string | null;
             /**
              * Risk Class
              * @default 3
              */
             risk_class: number;
             /** Transaction Context */
-            transaction_context: string;
+            transaction_context?: string | null;
             verdict: components["schemas"]["Verdict"];
         };
         /** Delegation */
@@ -442,8 +487,19 @@ export interface components {
             /** Currency */
             currency: string;
         };
-        /** RequestCreate */
+        /**
+         * RequestCreate
+         * @description Either the exact `transaction_context`, or the `action`, `resource` and `change` it is made of (the app
+         *     builds the context itself, so nobody pastes a string). `summary` says in words what the request is for.
+         */
         RequestCreate: {
+            /** Action */
+            action?: string | null;
+            /**
+             * Change
+             * @default
+             */
+            change: string;
             /**
              * K
              * @default 1
@@ -451,12 +507,16 @@ export interface components {
             k: number;
             /** @default SINGLE */
             mode: components["schemas"]["CompositeMode"];
+            /** Resource */
+            resource?: string | null;
             /** Roles */
             roles: string[];
             /** Subject Ref */
             subject_ref: string;
+            /** Summary */
+            summary?: string | null;
             /** Transaction Context */
-            transaction_context: string;
+            transaction_context?: string | null;
             /**
              * Ttl Seconds
              * @default 3600
@@ -586,6 +646,63 @@ export interface operations {
             };
         };
     };
+    awaiting_me_v1_approval_requests_awaiting_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    for_change_v1_approval_requests_for_change_get: {
+        parameters: {
+            query: {
+                action: string;
+                resource: string;
+                change?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_v1_approval_requests__request_id__get: {
         parameters: {
             query: {
@@ -664,6 +781,7 @@ export interface operations {
                 status?: components["schemas"]["GrantStatus"] | null;
                 grantee_principal_id?: string | null;
                 limit?: number;
+                cursor?: string | null;
             };
             header?: never;
             path?: never;

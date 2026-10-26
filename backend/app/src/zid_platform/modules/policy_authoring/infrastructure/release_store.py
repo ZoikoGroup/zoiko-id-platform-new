@@ -149,3 +149,74 @@ async def move(
         {"s": target.value, "now": now, "id": uuid.UUID(release_id)},
     )
     return new
+
+
+async def next_version(conn: AsyncConnection, tenant_id: str, policy_name: str) -> int:
+    v = (
+        await conn.execute(
+            text(
+                "SELECT coalesce(max(r.version), 0) + 1 FROM authz.policy_release r "
+                "JOIN authz.policy_definition d USING (policy_id) WHERE d.tenant_id = :t AND d.policy_name = :n"
+            ),
+            {"t": uuid.UUID(tenant_id), "n": policy_name},
+        )
+    ).scalar_one()
+    return int(v)
+
+
+async def update_draft(
+    conn: AsyncConnection, release_id: str, *, policies: str, cases: tuple[PolicyCase, ...]
+) -> PolicyRelease:
+    """A DRAFT's source and cases change in place (the trigger refuses this once it leaves DRAFT)."""
+    rel = await load_release(conn, release_id)
+    new = PolicyRelease(
+        rel.release_id,
+        rel.tenant_id,
+        policies,
+        rel.schema_version,
+        rel.status,
+        cases,
+        rel.reviewers,
+        rel.author,
+    )
+    await conn.execute(
+        text(
+            "UPDATE authz.policy_release SET source_text = :src, source_hash = :h, cases = CAST(:cases AS jsonb) "
+            "WHERE release_id = :id AND status = 'DRAFT'"
+        ),
+        {
+            "src": policies,
+            "h": new.content_hash,
+            "cases": json.dumps([_case(c) for c in cases]),
+            "id": uuid.UUID(release_id),
+        },
+    )
+    return new
+
+
+async def list_releases(conn: AsyncConnection, limit: int = 200) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text("""
+                SELECT r.release_id, d.policy_name, r.version, r.status, r.source_hash, r.author_principal_id,
+                       r.reviewers, r.released_at, jsonb_array_length(r.cases) AS case_count
+                FROM authz.policy_release r JOIN authz.policy_definition d USING (policy_id)
+                ORDER BY d.policy_name, r.version DESC LIMIT :n
+            """),
+            {"n": limit},
+        )
+    ).all()
+    return [
+        {
+            "release_id": str(r.release_id),
+            "policy_name": r.policy_name,
+            "version": int(r.version),
+            "status": r.status,
+            "content_hash": r.source_hash,
+            "author_principal_id": str(r.author_principal_id),
+            "reviewers": [str(x) for x in r.reviewers],
+            "released_at": r.released_at.isoformat() if r.released_at else None,
+            "case_count": int(r.case_count or 0),
+        }
+        for r in rows
+    ]

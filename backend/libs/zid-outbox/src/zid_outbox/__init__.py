@@ -24,14 +24,21 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import current_context, uuid7
 
+from zid_outbox.scope import BridgeLoop, ConsumerScope, bridge_forward
+
 __all__ = [
+    "BridgeLoop",
     "CloudEvent",
+    "ConsumerScope",
     "OutOfOrder",
     "Publisher",
     "consume",
     "emit",
     "event_type",
+    "next_version",
+    "prohibited_content",
     "relay_once",
+    "bridge_forward",
 ]
 
 TYPE_PATTERN = re.compile(r"^com\.zoiko\.id\.[a-z0-9_.]+\.v[0-9]+$")
@@ -90,6 +97,53 @@ class CloudEvent:
         return {**d, **self.extensions}
 
 
+async def next_version(conn: AsyncConnection, aggregate_type: str, aggregate_id: str) -> int:
+    """The next contiguous `aggregate_version` for an aggregate that emits several events over its life
+    (ordered consumers detect gaps). Call it in the same transaction as `emit`, after the row it describes
+    is locked, so two writers cannot pick the same number."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT coalesce(max(aggregate_version), 0) + 1 FROM events.outbox_event "
+                "WHERE aggregate_type = :t AND aggregate_id = :i"
+            ),
+            {"t": aggregate_type, "i": aggregate_id},
+        )
+    ).scalar_one()
+    return int(row)
+
+
+# Field names an event payload may never carry (EVENTS-001 §11-12, EVT-12): secrets, credentials, key material,
+# biometrics and government or payment identifiers. Events carry opaque ids and revisions; anything sensitive travels
+# by encrypted reference, never inline. Matched on the whole key, case-insensitively, at any depth.
+FORBIDDEN_KEYS = re.compile(
+    r"^(pass(word|wd)|secret|client_?secret|api_?key|private_?key|access_?token|refresh_?token|id_?token|"
+    r"bearer|biometric\w*|face_?template|fingerprint\w*|otp|totp_?secret|recovery_?codes?|ssn|national_?id|"
+    r"card_?number|cvv)$",
+    re.IGNORECASE,
+)
+PRIVATE_KEY_MARKER = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+
+
+def prohibited_content(value: Any, path: str = "data") -> str | None:
+    """The first prohibited field name or key-material value in `value`, or None."""
+    if isinstance(value, Mapping):
+        for k, v in value.items():
+            if isinstance(k, str) and FORBIDDEN_KEYS.match(k):
+                return f"{path}.{k}"
+            found = prohibited_content(v, f"{path}.{k}")
+            if found:
+                return found
+    elif isinstance(value, (list, tuple)):
+        for i, v in enumerate(value):
+            found = prohibited_content(v, f"{path}[{i}]")
+            if found:
+                return found
+    elif isinstance(value, str) and PRIVATE_KEY_MARKER.search(value):
+        return f"{path} (private key material)"
+    return None
+
+
 async def emit(
     conn: AsyncConnection,
     *,
@@ -111,6 +165,9 @@ async def emit(
     etype = event_type(name)
     if not TYPE_PATTERN.match(etype):
         raise ValueError(f"invalid event type {etype}")
+    bad = prohibited_content(data)
+    if bad:
+        raise ValueError(f"event payload carries a prohibited field: {bad}")
     payload = json.dumps(data, separators=(",", ":"), sort_keys=True, default=str)
     if len(payload.encode()) > MAX_PAYLOAD_BYTES:
         raise ValueError("event payload exceeds 256 KiB; use an encrypted object reference")
@@ -245,12 +302,17 @@ async def consume(
     handler: Callable[[AsyncConnection, CloudEvent], Awaitable[None]],
     *,
     ordered: bool = False,
+    scope: ConsumerScope | None = None,
 ) -> str:
-    """Apply `handler` at most once per (consumer, event id). Returns PROCESSED, DUPLICATE or QUARANTINED.
+    """Apply `handler` at most once per (consumer, event id). Returns PROCESSED, DUPLICATE, QUARANTINED or REFUSED.
+
+    REFUSED: the event is outside the consumer's tenant/cell scope; nothing is recorded and the handler never runs.
 
     The inbox row and the handler's effect commit in the caller's transaction, so the broker offset is
     acknowledged only after a durable local effect (EVENTS §8).
     """
+    if scope is not None and not scope.permits(event.tenantid, event.cellid):
+        return "REFUSED"
     if ordered:
         last = (
             await conn.execute(

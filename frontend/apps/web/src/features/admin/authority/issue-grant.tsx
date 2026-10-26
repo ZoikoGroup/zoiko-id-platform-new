@@ -1,11 +1,13 @@
 "use client";
 
 import type { AuthorityGrant, ContinuityMode, GrantCreate, GrantType } from "@zoiko/api-client";
-import { Banner, Button, Dialog, FieldGroup, Select, Switch, TextField, humanize, type Option } from "@zoiko/ui";
+import { Banner, Button, Checkbox, Dialog, FieldGroup, Select, Switch, TextField, humanize, type Option } from "@zoiko/ui";
 import { Info } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { ApiErrorView, listInput, newIdempotencyKey, useCellMutation } from "@/lib/cell";
+
+import { reviewRequired, scopeBreadth } from "./scope-review";
 
 import {
   CURRENCY_RE,
@@ -66,6 +68,16 @@ export function IssueGrantDialog({ onClose, onIssued }: { onClose: () => void; o
   });
   const set = <K extends keyof typeof f>(k: K) => (v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
   const [problem, setProblem] = useState<string | null>(null);
+  const [reviewed, setReviewed] = useState(false);
+  // How wide the grant is, as typed so far: a wide grant needs an explicit review before it can be issued (UX-07).
+  const breadth = scopeBreadth({
+    actions: listInput(f.actions),
+    resources: listInput(f.resources),
+    hasValueLimit: f.amount.trim() !== "",
+    hasCountLimit: f.count.trim() !== "",
+    delegate: f.delegate,
+    depth: Number(f.depth) || 0,
+  });
   const keyFor = useIdempotency(newIdempotencyKey);
 
   const create = useCellMutation((api, v: { body: GrantCreate; key: string }) => api.authority.createGrant(v.body, v.key), {
@@ -98,6 +110,8 @@ export function IssueGrantDialog({ onClose, onIssued }: { onClose: () => void; o
     if (Number.isNaN(data_limit_bytes)) return "The data limit must be a whole number of bytes.";
     const depth = intInput(f.depth) ?? 0;
     if (f.delegate && (Number.isNaN(depth) || depth < 1 || depth > 16)) return "Delegation depth must be between 1 and 16.";
+    const needsReview = reviewRequired(breadth, reviewed);
+    if (needsReview) return needsReview;
     return {
       grantee_principal_id: f.grantee,
       represented_principal_id: f.represented,
@@ -261,6 +275,21 @@ export function IssueGrantDialog({ onClose, onIssued }: { onClose: () => void; o
             />
           </div>
         </FieldGroup>
+
+        {breadth.length ? (
+          <Banner tone="warn" title="Review before issuing">
+            <ul className="mt-1 list-disc space-y-0.5 ps-5 text-sm">
+              {breadth.map((b) => (
+                <li key={b.code}>{b.message}</li>
+              ))}
+            </ul>
+            <div className="mt-3">
+              <Checkbox isSelected={reviewed} onChange={setReviewed}>
+                I have reviewed this scope and it is as wide as it needs to be
+              </Checkbox>
+            </div>
+          </Banner>
+        ) : null}
 
         <FormProblem>{problem}</FormProblem>
         {create.error ? <ApiErrorView error={create.error} title="The grant was not issued" /> : null}

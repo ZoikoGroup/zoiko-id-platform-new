@@ -27,7 +27,11 @@ from zid_platform.modules.authority.domain.grants import Decision as AuthorityDe
 from zid_platform.modules.authority.infrastructure.approval_store import (
     evaluate as evaluate_approval,
 )
-from zid_platform.modules.authority.infrastructure.grant_store import holds_any_action, load_grant
+from zid_platform.modules.authority.infrastructure.grant_store import (
+    holds_any_action,
+    load_grant,
+    load_grants_for_grantee,
+)
 
 __all__ = [
     "ANY",
@@ -45,6 +49,7 @@ __all__ = [
     "holds_any_action",
     "issue_grant",
     "load_grant",
+    "load_grants_for_grantee",
     "on_person_authority_ended",
     "on_root_changed",
     "resolve",

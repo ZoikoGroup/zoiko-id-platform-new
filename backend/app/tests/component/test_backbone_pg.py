@@ -80,8 +80,10 @@ def test_edge_change_flows_through_kafka_into_the_projection(rt_url: str, owner_
             cell_id=CELL,
             stop_after=1,
             idle_timeout_s=10,  # the evidence consumer has nothing to read here
+            create_topics=True,
         )
-        assert handled == 1
+        # the projector, plus the webhook router reading the same topic: relationship.edge.changed is subscribable
+        assert handled >= 1
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             r = await check_relation(
                 c,
@@ -119,6 +121,7 @@ def test_edge_change_flows_through_kafka_into_the_projection(rt_url: str, owner_
             cell_id=CELL,
             stop_after=1,
             idle_timeout_s=10,  # the evidence consumer has nothing to read here
+            create_topics=True,
         )
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             rows = (

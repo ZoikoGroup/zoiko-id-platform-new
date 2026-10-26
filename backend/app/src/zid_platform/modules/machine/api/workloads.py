@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -32,6 +33,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import key_m2m, record_billable
 from zid_platform.modules.machine.application import workload as service
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.infrastructure import workload_store as store
@@ -242,6 +244,14 @@ async def workload_token(
             )
             await service.record_credential_issued(
                 conn, tenant, principal, expires_at=now + WORKLOAD_TOKEN_LIFETIME
+            )
+            await record_billable(
+                conn,
+                tenant_id=tenant,
+                meter="M2M_GRANT",
+                key=key_m2m(f"workload:{uuid.uuid4()}"),
+                at=now,
+                principal_class="NON_HUMAN",
             )
     except MachineError as e:
         raise ZidError(e.code, "This workload may not act right now.", http_status=403) from e

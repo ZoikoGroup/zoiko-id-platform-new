@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_crypto import CryptoError, KeyRing, jwk_thumbprint, peek_header, verify_jws
 from zid_outbox import emit
 
+from zid_platform.modules.commercial.ports import key_vc_issued, record_billable
 from zid_platform.modules.credential.domain.credentials import (
     STATUS_LIST_TYP,
     CredentialError,
@@ -30,6 +31,7 @@ from zid_platform.modules.credential.domain.credentials import (
     require_role,
     set_status,
 )
+from zid_platform.modules.credential.domain.reliance import RELIANCE
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.modules.verification.ports import assurance
 
@@ -165,6 +167,14 @@ async def issue(
     )
     if not fresh:  # the same proof again: the logical issuance already happened
         raise CredentialError("ISSUANCE_ALREADY_COMPLETED")
+    await record_billable(
+        conn,
+        tenant_id=tenant_id,
+        meter="VC_ISSUED",
+        key=key_vc_issued(credential_id),
+        at=now,
+        principal_class="HUMAN",
+    )
     await emit(
         conn,
         name="credential.issued",
@@ -217,6 +227,9 @@ async def change_status(
     set_status(statuses, row["bits"], record["status_index"], STATUS_CODES[status])
     revision = await store.write_status(conn, str(record["status_list_id"]), bytes(statuses))
     await store.set_issued_status(conn, credential_id, status)
+    RELIANCE.invalidate_containing(
+        str(record["status_list_id"])
+    )  # SIG-21: our own change is seen at once
     await emit(
         conn,
         name="credential.revoked" if status == "REVOKED" else "credential.status.changed",

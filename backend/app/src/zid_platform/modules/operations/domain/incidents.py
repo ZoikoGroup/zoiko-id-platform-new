@@ -90,6 +90,57 @@ def check_resolve(
         )
 
 
+# What an incident must keep before mitigation is declared done (OPS-20). A security or major incident cannot move to
+# recovery validation or resolve until the decision receipts, and the chain-of-custody record that covers them, are
+# recorded as preserved: mitigating must never destroy the evidence of what happened.
+EVIDENCE_ARTIFACTS = (
+    "DECISION_RECEIPTS",
+    "AUDIT_RECORDS",
+    "LOGS",
+    "FORENSIC_IMAGE",
+    "CUSTODY_RECORD",
+)
+REQUIRED_EVIDENCE = frozenset({"DECISION_RECEIPTS", "CUSTODY_RECORD"})
+
+
+def needs_evidence(severity: Severity, security: bool) -> bool:
+    return security or severity.major
+
+
+def check_evidence_entry(artifacts: Iterable[str], custody_ref: str) -> frozenset[str]:
+    """The artifact set of a preservation record, or why it does not count."""
+    kept = frozenset(artifacts)
+    unknown = kept - frozenset(EVIDENCE_ARTIFACTS)
+    if unknown:
+        raise OperationsError("INCIDENT_EVIDENCE_INVALID", f"unknown artifact: {min(unknown)}")
+    missing = REQUIRED_EVIDENCE - kept
+    if missing:
+        raise OperationsError(
+            "INCIDENT_EVIDENCE_INVALID", f"also preserve: {', '.join(sorted(missing))}"
+        )
+    if len(custody_ref.strip()) < 8:
+        raise OperationsError(
+            "INCIDENT_EVIDENCE_INVALID", "name the chain-of-custody record that covers them"
+        )
+    return kept
+
+
+def check_evidence_preserved(
+    severity: Severity, security: bool, preserved: Sequence[Mapping[str, Any]]
+) -> None:
+    """Refuse to leave mitigation without a preservation record, where the incident needs one."""
+    if not needs_evidence(severity, security):
+        return
+    if not any(
+        REQUIRED_EVIDENCE <= frozenset(e.get("artifacts", ())) and e.get("custody_ref")
+        for e in preserved
+    ):
+        raise OperationsError(
+            "INCIDENT_EVIDENCE_NOT_PRESERVED",
+            "Record that the decision receipts and their chain of custody are preserved before mitigation is declared done.",
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ActionItem:
     title: str

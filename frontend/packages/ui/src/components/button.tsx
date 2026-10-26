@@ -12,7 +12,7 @@ import {
 import { cn } from "../utils/cn";
 
 const base =
-  "inline-flex select-none items-center justify-center rounded-[var(--radius-control)] font-medium whitespace-nowrap transition-colors " +
+  "inline-flex select-none items-center justify-center rounded-[var(--radius-control)] font-medium whitespace-normal text-center transition-colors " +
   "outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface " +
   "disabled:cursor-not-allowed disabled:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50";
 
@@ -26,10 +26,11 @@ const variants = {
 } as const;
 
 const sizes = {
-  xs: "h-7 px-2 text-xs gap-1",
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-9 px-4 text-sm gap-2",
-  lg: "h-11 px-5 text-base gap-2",
+  // min-height, not height: a long translated label wraps onto a second line instead of spilling or being cut
+  xs: "min-h-7 px-2 py-0.5 text-xs gap-1",
+  sm: "min-h-8 px-3 py-1 text-sm gap-1.5",
+  md: "min-h-9 px-4 py-1.5 text-sm gap-2",
+  lg: "min-h-11 px-5 py-2 text-base gap-2",
 } as const;
 
 export type ButtonVariant = keyof typeof variants;

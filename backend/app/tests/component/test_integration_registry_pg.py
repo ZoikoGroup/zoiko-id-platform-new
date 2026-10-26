@@ -37,6 +37,7 @@ from zid_platform.settings import Settings
 
 
 def test_domains_applications_connectors(rt_url: str, owner_url: str) -> None:
+    """OVL-22/23, CRYP-26: connector credentials rotate with a bounded overlap and consumers converge on the new one."""
     a = onboard(rt_url)
     b = onboard(rt_url)
     published: dict[str, list[str]] = {}
@@ -226,6 +227,13 @@ def test_domains_applications_connectors(rt_url: str, owner_url: str) -> None:
                 return await integration.credential_values(conn, a.tenant, cid)
 
         assert asyncio.run(values()) == [secret2, secret1]  # the old one only during the overlap
+
+        async def values_after_overlap() -> list[str]:  # CRYP-26: 3h on, the 2h overlap has ended
+            later = datetime.now(UTC) + timedelta(hours=3)
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(a.tenant)) as conn:
+                return await integration.credential_values(conn, a.tenant, cid, now=later)
+
+        assert asyncio.run(values_after_overlap()) == [secret2]  # consumers converge on the new one
 
         # --- quarantine: the source stops writing at once, its facts are no longer fresh --------
         r = api.post(

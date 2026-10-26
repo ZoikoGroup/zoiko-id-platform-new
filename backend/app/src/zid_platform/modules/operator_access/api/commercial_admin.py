@@ -1,0 +1,1491 @@
+"""Commercial operator surface (ZID-COM-001 §6, §12; CR-024, CR-025).
+
+Lives with the operator plane because every route here is an operator action: the operator gate (operator
+client, operator tenant, AAL-Z3) plus a live JIT grant. Keeping it here, not in the commercial module, keeps
+the module dependency graph acyclic: commercial imports no other module.
+
+    GET  /v1/commercial/price-books                       all versions, newest first
+    GET  /v1/commercial/price-books/{id}                  one book with its lines
+    POST /v1/commercial/price-books                       a new DRAFT, optionally a copy       (commercial.catalog.manage)
+    PUT  /v1/commercial/price-books/{id}/lines            set one line of a DRAFT              (commercial.catalog.manage)
+    POST /v1/commercial/price-books/{id}:approve          a different operator approves        (commercial.catalog.manage)
+    GET  /v1/commercial/plan-requests                     every company's open plan requests
+    POST /v1/commercial/plan-requests/{id}:answer         accept (we will raise the order) or decline, with a reason
+    PUT  /v1/commercial/tenants/{tenant_id}/entitlement   move a tenant to a plan from now     (tenant.config.change)
+    POST /v1/commercial/tenants/{tenant_id}/overrides     a contracted addition, second approver
+    POST /v1/commercial/tenants/{tenant_id}/data-deletion  delete a closed tenant's data (tenant.data.delete)
+    GET  /v1/commercial/tenants/{tenant_id}/data-deletion  what was deleted, what is held, what is still owed
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import re
+import uuid
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from typing import Annotated, Any, Literal
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from zid_db import in_tenant, tenant_transaction
+from zid_errors import ZidError
+
+from zid_platform.api_auth import request_engine
+from zid_platform.modules.commercial.ports import (
+    PLAN_CODES,
+    BillableError,
+    CommercialError,
+    Credit,
+    InvoicingError,
+    OrderError,
+    PlanRequestError,
+    QuoteLine,
+    RatingError,
+    VendorError,
+    assurance,
+    billable_event_adjusted,
+    billable_store,
+    entitlement_changed,
+    freeze_month,
+    invoicing,
+    ledger_summary,
+    log_change,
+    meter_window_frozen,
+    next_month,
+    operator_scope,
+    orders,
+    plan_requests,
+    reconcile,
+    run_rating,
+    vendors,
+    verify_chain,
+    verify_change_log,
+)
+from zid_platform.modules.commercial.ports import (
+    catalogue_store as store,
+)
+from zid_platform.modules.evidence.ports import current_runtime
+from zid_platform.modules.operator_access.ports import (
+    has_capability,
+    is_active_operator,
+    require_operator,
+)
+
+router = APIRouter(tags=["commercial"])
+OperatorDep = Annotated[Any, Depends(require_operator)]
+PlanCode = Literal["DEVELOPER", "LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"]
+
+_STATUS = {
+    "PRICE_BOOK_NOT_FOUND": 404,
+    "PRICE_BOOK_NOT_DRAFT": 409,
+    "PRICE_BOOK_SELF_APPROVAL": 403,
+    "PRICE_BOOK_EMPTY": 422,
+    "ENTITLEMENT_EFFECTIVE_DATE": 409,
+    "OPERATOR_CAPABILITY_REQUIRED": 403,
+}
+
+
+def _fail(e: CommercialError) -> ZidError:
+    return ZidError(
+        e.code,
+        e.detail or e.code.replace("_", " ").capitalize() + ".",
+        http_status=_STATUS.get(e.code, 422),
+    )
+
+
+def _iso(d: datetime | None) -> str | None:
+    return d.isoformat() if d else None
+
+
+def _book_view(b: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "price_book_id": str(b["price_book_id"]),
+        "version": b["version"],
+        "currency": b["currency"],
+        "status": b["status"],
+        "effective_from": _iso(b["effective_from"]),
+        "approved_at": _iso(b["approved_at"]),
+        "note": b["note"],
+    }
+
+
+# ------------------------------------------------------------------------------- operator
+
+
+class DraftBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    copy_of: uuid.UUID | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class LineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(pattern=r"^ZID-[A-Z0-9]{2,8}$")
+    plan: PlanCode
+    unit_rate: Decimal = Field(ge=0, max_digits=18, decimal_places=6)
+    unit_divisor: int = Field(default=1, ge=1, le=1_000_000)
+    included_quantity: int | None = Field(default=None, ge=0)
+    minimum_amount: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=6)
+
+
+class ApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    effective_from: datetime | None = None
+
+
+class PlanBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    plan: PlanCode
+
+
+class OverrideBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    capability: str = Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")
+    grant_mode: Literal["INCLUDED", "ADD_ON", "METERED", "CONTRACT", "QUALIFIED"] | None = None
+    extra_count: int | None = Field(default=None, ge=0, le=10_000)
+    reason: str = Field(min_length=3, max_length=500)
+    approver_id: uuid.UUID
+    expires_at: datetime | None = None
+
+
+async def _require(conn: Any, op: Any, capability: str, tenant: str | None, resource: str) -> None:
+    ok = await has_capability(
+        conn, op.principal_id, capability, tenant, resource, datetime.now(UTC)
+    )
+    if not ok:
+        raise ZidError(
+            "OPERATOR_CAPABILITY_REQUIRED",
+            f"This needs an approved, unexpired {capability} grant.",
+            http_status=403,
+        )
+
+
+@router.get("/v1/commercial/price-books")
+async def list_books(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return {"items": [_book_view(b) for b in await store.price_books(conn)]}
+
+
+@router.get("/v1/commercial/price-books/{price_book_id}")
+async def get_book(price_book_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        b = await store.price_book(conn, str(price_book_id))
+        if b is None:
+            raise _fail(CommercialError("PRICE_BOOK_NOT_FOUND"))
+        lines = await store.lines(conn, str(price_book_id))
+    return {
+        **_book_view(b),
+        "lines": [
+            {
+                "sku": ln["sku_id"],
+                "plan": ln["plan_code"],
+                "unit_rate": format(ln["unit_rate"].normalize(), "f"),
+                "unit_divisor": ln["unit_divisor"],
+                "included_quantity": ln["included_quantity"],
+            }
+            for ln in lines
+        ],
+    }
+
+
+@router.post("/v1/commercial/price-books", status_code=201)
+async def create_book(body: DraftBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await store.create_draft(
+                conn,
+                copy_of=str(body.copy_of) if body.copy_of else None,
+                created_by=op.principal_id,
+                note=body.note,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.put("/v1/commercial/price-books/{price_book_id}/lines")
+async def put_line(
+    price_book_id: uuid.UUID, body: LineBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        b = await store.price_book(conn, str(price_book_id))
+        if b is None:
+            raise _fail(CommercialError("PRICE_BOOK_NOT_FOUND"))
+        if b["status"] != "DRAFT":
+            raise _fail(
+                CommercialError("PRICE_BOOK_NOT_DRAFT", "an approved price book is immutable")
+            )
+        await store.put_line(
+            conn,
+            str(price_book_id),
+            sku_id=body.sku,
+            plan_code=body.plan,
+            unit_rate=body.unit_rate,
+            unit_divisor=body.unit_divisor,
+            included_quantity=body.included_quantity,
+            minimum_amount=body.minimum_amount,
+        )
+    return {"price_book_id": str(price_book_id), "sku": body.sku, "plan": body.plan}
+
+
+@router.post("/v1/commercial/price-books/{price_book_id}:approve")
+async def approve_book(
+    price_book_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await store.approve(
+                conn,
+                str(price_book_id),
+                approver=op.principal_id,
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="PRICE_BOOK_APPROVED",
+                ref=str(price_book_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"effective_from": (body.effective_from or now).isoformat()},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+        b = await store.price_book(conn, str(price_book_id))
+    assert b is not None
+    return _book_view(b)
+
+
+class PlanRequestAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["ACCEPTED", "DECLINED"]
+    note: str | None = Field(default=None, max_length=1000)
+
+
+_PLAN_REQUEST_STATUS = {"NOT_FOUND": 404, "PLAN_REQUEST_CLOSED": 409, "VALIDATION_FAILED": 422}
+
+
+@router.get("/v1/commercial/plan-requests")
+async def open_plan_requests(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Every company's open requests for a different plan, oldest first (CR-032)."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        return {"items": await plan_requests.open_requests(conn)}
+
+
+@router.post("/v1/commercial/plan-requests/{request_id}:answer")
+async def answer_plan_request(
+    request_id: uuid.UUID, body: PlanRequestAnswer, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """ACCEPTED: the team will raise the order (the plan itself still moves only by a signed order or the plan change
+    below). DECLINED: the company is told why. The company's own entitlement is untouched either way."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        try:
+            return await plan_requests.answer(
+                conn,
+                str(request_id),
+                decision=body.decision,
+                operator_id=op.principal_id,
+                note=body.note,
+            )
+        except PlanRequestError as e:
+            raise ZidError(
+                e.code, e.detail or e.code, http_status=_PLAN_REQUEST_STATUS.get(e.code, 422)
+            ) from e
+
+
+class DeletionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason_ref: str = Field(
+        min_length=4, max_length=128
+    )  # the case or legal reference that asks for the deletion
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/data-deletion", status_code=202)
+async def request_data_deletion(
+    tenant_id: uuid.UUID, body: DeletionBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Ask for a CLOSED tenant's data to be deleted. The worker erases what no legal hold protects and reports what it
+    kept; the tenant must already be closed (offboarding drains it first). TEN-25."""
+    deletion = request.app.state.tenant_deletion
+
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "tenant.data.delete", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                await deletion.request(
+                    conn,
+                    tenant,
+                    requested_by=f"{op.principal_id}:{body.reason_ref}",
+                    now=datetime.now(UTC),
+                )
+            except deletion.error as e:
+                raise ZidError(
+                    e.code, str(e), http_status=404 if e.code == "TENANT_NOT_FOUND" else 409
+                ) from e
+    return {"tenant_id": tenant, "status": "REQUESTED"}
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/data-deletion")
+async def data_deletion_status(
+    tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "tenant.data.delete", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            row = await request.app.state.tenant_deletion.status(conn, tenant)
+    if row is None:
+        raise ZidError(
+            "DELETION_NOT_REQUESTED",
+            "No deletion has been requested for this tenant.",
+            http_status=404,
+        )
+    return dict(row)
+
+
+@router.put("/v1/commercial/tenants/{tenant_id}/entitlement")
+async def set_plan(
+    tenant_id: uuid.UUID, body: PlanBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    now = datetime.now(UTC)
+    if (
+        body.plan not in PLAN_CODES
+    ):  # the Literal already refuses; kept as the single source of truth
+        raise ZidError("VALIDATION_FAILED", "Unknown plan.", http_status=422)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
+        book = await store.approved_price_book(conn, now)
+        async with in_tenant(conn, tenant):
+            try:
+                result = await store.set_entitlement(
+                    conn,
+                    tenant_id=tenant,
+                    plan_code=body.plan,
+                    price_book_id=str(book["price_book_id"]) if book else None,
+                    actor=op.principal_id,
+                    now=now,
+                )
+            except CommercialError as e:
+                raise _fail(e) from e
+            await entitlement_changed(
+                conn,
+                tenant_id=tenant,
+                entitlement_id=result["entitlement_id"],
+                version=int(result["version"]),
+                plan=body.plan,
+                previous_plan=result["previous_plan"],
+                price_book_version=book["version"] if book else None,
+                effective_from=now,
+            )
+            await log_change(
+                conn,
+                kind="ENTITLEMENT_CHANGED",
+                ref=result["entitlement_id"],
+                tenant_id=tenant,
+                actor=op.principal_id,
+                reason="OPERATOR_PLAN_CHANGE",
+                detail={"plan": body.plan, "previous_plan": result["previous_plan"]},
+            )
+    return {**result, "effective_from": now.isoformat()}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/overrides", status_code=201)
+async def add_override(
+    tenant_id: uuid.UUID, body: OverrideBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    if body.grant_mode is None and body.extra_count is None:
+        raise ZidError(
+            "VALIDATION_FAILED", "A grant mode or an extra count is required.", http_status=422
+        )
+    if str(body.approver_id) == op.principal_id:
+        raise ZidError("SELF_APPROVAL", "An override needs a different approver.", http_status=403)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
+        if not await is_active_operator(conn, op.tenant_id, str(body.approver_id)):
+            raise ZidError(
+                "APPROVER_INVALID", "The approver must be an active operator.", http_status=403
+            )
+        async with in_tenant(conn, tenant):
+            oid = await store.add_override(
+                conn,
+                tenant_id=tenant,
+                capability_key=body.capability,
+                grant_mode=body.grant_mode,
+                extra_count=body.extra_count,
+                reason=body.reason,
+                approved_by=str(body.approver_id),
+                created_by=op.principal_id,
+                expires_at=body.expires_at,
+            )
+            await log_change(
+                conn,
+                kind="ENTITLEMENT_OVERRIDE",
+                ref=oid,
+                tenant_id=tenant,
+                actor=op.principal_id,
+                reason=body.reason,
+                detail={
+                    "capability": body.capability,
+                    "extra_count": body.extra_count,
+                    "approver": str(body.approver_id),
+                },
+            )
+    return {"override_id": oid, "capability": body.capability}
+
+
+# ------------------------------------------------------------------------------- billing operations
+
+
+class AdjustmentBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    event_id: uuid.UUID
+    quantity_delta: Decimal = Field(max_digits=18, decimal_places=6)
+    reason_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,40}$")
+
+    @field_validator("quantity_delta")
+    @classmethod
+    def _non_zero(cls, v: Decimal) -> Decimal:
+        if v == 0:
+            raise ValueError("an adjustment changes the quantity")
+        return v
+
+
+def _month(value: str) -> date:
+    try:
+        y, m = value.split("-")
+        return date(int(y), int(m), 1)
+    except ValueError as e:
+        raise ZidError("VALIDATION_FAILED", "month must be YYYY-MM.", http_status=422) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/meter-windows/{month}:freeze")
+async def freeze_window(
+    tenant_id: uuid.UUID, month: str, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Close every meter of one tenant for a finished UTC month; the database then refuses new events there."""
+    tenant, m = str(tenant_id), _month(month)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                frozen = await freeze_month(conn, tenant, m)
+            except BillableError as e:
+                raise ZidError(e.code, e.detail or e.code, http_status=409) from e
+            if frozen:
+                await meter_window_frozen(
+                    conn, tenant_id=tenant, month=m.isoformat(), meters=len(frozen)
+                )
+            summary = await ledger_summary(conn, m)
+    return {"frozen_now": [f["meter"] for f in frozen], "summary": summary}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/adjustments", status_code=201)
+async def request_adjustment(
+    tenant_id: uuid.UUID, body: AdjustmentBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Ask to correct a billable event. The original is never edited: an approved adjustment is a signed
+    delta in the window that is still open."""
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            event = await billable_store.load_event(conn, str(body.event_id))
+            if event is None:
+                raise ZidError(
+                    "BILLABLE_EVENT_NOT_FOUND", "No such billable event.", http_status=404
+                )
+            month = event["window_month"]
+            if event["meter_id"] in await billable_store.frozen_windows(conn, month):
+                month = next_month(
+                    month
+                )  # a closed window is never reopened: the correction lands in the next
+            aid = await billable_store.request_adjustment(
+                conn,
+                tenant_id=tenant,
+                event_id=str(body.event_id),
+                meter_id=event["meter_id"],
+                window_month=month,
+                quantity_delta=body.quantity_delta,
+                reason_code=body.reason_code,
+                requested_by=op.principal_id,
+            )
+    return {"adjustment_id": aid, "state": "REQUESTED", "window_month": month.isoformat()}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/adjustments/{adjustment_id}:decide")
+async def decide_adjustment(
+    tenant_id: uuid.UUID,
+    adjustment_id: uuid.UUID,
+    approve: bool,
+    request: Request,
+    op: OperatorDep,
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            adj = await billable_store.load_adjustment(conn, str(adjustment_id))
+            if adj is None:
+                raise ZidError("ADJUSTMENT_NOT_FOUND", "No such adjustment.", http_status=404)
+            if adj["state"] != "REQUESTED":
+                raise ZidError(
+                    "ADJUSTMENT_FINAL", "A decided adjustment is final.", http_status=409
+                )
+            if str(adj["requested_by"]) == op.principal_id:
+                raise ZidError(
+                    "SELF_APPROVAL", "An adjustment needs a different approver.", http_status=403
+                )
+            await billable_store.decide_adjustment(
+                conn, str(adjustment_id), approver=op.principal_id, approve=approve, now=now
+            )
+            await billable_event_adjusted(
+                conn,
+                tenant_id=tenant,
+                adjustment_id=str(adjustment_id),
+                meter=adj["meter_id"],
+                month=adj["window_month"].isoformat(),
+                state="APPROVED" if approve else "REJECTED",
+            )
+            await log_change(
+                conn,
+                kind="USAGE_ADJUSTMENT_DECIDED",
+                ref=str(adjustment_id),
+                tenant_id=tenant,
+                actor=op.principal_id,
+                reason=adj["reason_code"],
+                detail={
+                    "state": "APPROVED" if approve else "REJECTED",
+                    "delta": str(adj["quantity_delta"]),
+                },
+            )
+    return {"adjustment_id": str(adjustment_id), "state": "APPROVED" if approve else "REJECTED"}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/reconcile/{month}")
+async def reconcile_ledger(
+    tenant_id: uuid.UUID, month: str, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Compare the ledger with the authoritative rows (sessions, credentials) for one month and record what
+    is missing, marked `recovered`. Nothing is invented without a source row and nothing existing is touched.
+    A frozen window refuses new events, so the recovered ones land in the next open window, flagged late."""
+    tenant, m = str(tenant_id), _month(month)
+    start = datetime(m.year, m.month, 1, tzinfo=UTC)
+    end = datetime.combine(next_month(m), datetime.min.time(), tzinfo=UTC)
+    sources = getattr(request.app.state, "commercial_sources", {})
+    recovered: dict[str, int] = {}
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            for meter, (fetch, make_key, pclass) in sources.items():
+                rows = await fetch(conn, start, end)
+                recovered[meter] = await reconcile(
+                    conn,
+                    tenant_id=tenant,
+                    meter=meter,
+                    sources=[(make_key(rid), at, pclass) for rid, at in rows],
+                )
+    return {"month": m.isoformat(), "recovered": recovered}
+
+
+# ------------------------------------------------------------------------------- rating
+
+
+class CreditBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    reason_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,40}$")
+    reverses: str | None = Field(default=None, max_length=64)
+
+
+class RatingBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+    credits: list[CreditBody] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/rating-runs")
+async def create_rating_run(
+    tenant_id: uuid.UUID, body: RatingBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Rate one tenant's frozen month. The same inputs return the same run (the replay proof); new inputs
+    supersede the previous run and keep its lines. Connections are counted now, at the cut-off."""
+    tenant, m = str(tenant_id), _month(body.month)
+    counters = getattr(request.app.state, "commercial_counters", {})
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            connections = {key: await count(conn) for key, count in counters.items()}
+            try:
+                return await run_rating(
+                    conn,
+                    tenant_id=tenant,
+                    month=m,
+                    connections=connections,
+                    credits=[Credit(c.amount, c.reason_code, c.reverses) for c in body.credits],
+                    actor=op.principal_id,
+                )
+            except RatingError as e:
+                status = (
+                    409
+                    if e.code in ("WINDOW_NOT_FROZEN", "NO_PRICE_BOOK", "CURRENCY_MIXED")
+                    else 500
+                )
+                raise ZidError(e.code, e.detail or e.code, http_status=status) from e
+
+
+# ------------------------------------------------------------------------------- invoicing
+
+
+class DraftInvoiceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+
+
+class IssueBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payment_terms_days: int = Field(ge=0, le=365)
+    allow_zero_tax: bool = False
+
+
+class CreditNoteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    reason_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,40}$")
+    reverses_line: int | None = Field(default=None, ge=1)
+
+
+class CollectBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
+class StateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    to: str = Field(pattern=r"^[A-Z_]{4,20}$")
+    reason_code: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,40}$")
+
+
+class SafetyHoldBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    on: bool
+    reason: str | None = Field(default=None, min_length=3, max_length=500)
+
+
+def _inv_fail(e: InvoicingError) -> ZidError:
+    status = {
+        "INVOICE_NOT_FOUND": 404,
+        "RATING_NOT_FOUND": 409,
+        "INVOICE_SELF_ISSUE": 403,
+        "TAX_NOT_CONFIGURED": 409,
+        "BILLING_TRANSITION_INVALID": 409,
+        "BILLING_REASON_INVALID": 422,
+        "BILLING_STATE_UNKNOWN": 422,
+        "CREDIT_NOTE_EXCEEDS_INVOICE": 409,
+        "SAFETY_REASON_REQUIRED": 422,
+    }.get(e.code, 409)
+    return ZidError(e.code, e.detail or e.code, http_status=status)
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/invoices", status_code=201)
+async def draft_invoice(
+    tenant_id: uuid.UUID, body: DraftInvoiceBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                return await invoicing.create_draft(
+                    conn,
+                    tenant_id=tenant,
+                    month=_month(body.month),
+                    issuing_entity=request.app.state.commercial_issuing_entity,
+                    actor=op.principal_id,
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:issue")
+async def issue_invoice(
+    tenant_id: uuid.UUID, invoice_id: uuid.UUID, body: IssueBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                return await invoicing.issue(
+                    conn,
+                    str(invoice_id),
+                    issuer=op.principal_id,
+                    tax=request.app.state.tax_port,
+                    payment_terms_days=body.payment_terms_days,
+                    allow_zero_tax=body.allow_zero_tax,
+                    region=request.app.state.commercial_region,
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:void")
+async def void_invoice(
+    tenant_id: uuid.UUID, invoice_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                await invoicing.void(conn, str(invoice_id))
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+    return {"invoice_id": str(invoice_id), "status": "VOID"}
+
+
+@router.post(
+    "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}/credit-notes", status_code=201
+)
+async def issue_credit_note(
+    tenant_id: uuid.UUID,
+    invoice_id: uuid.UUID,
+    body: CreditNoteBody,
+    request: Request,
+    op: OperatorDep,
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                return await invoicing.credit_note(
+                    conn,
+                    str(invoice_id),
+                    amount=body.amount,
+                    reason_code=body.reason_code,
+                    reverses_line=body.reverses_line,
+                    issuer=op.principal_id,
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:collect")
+async def collect_invoice(
+    tenant_id: uuid.UUID,
+    invoice_id: uuid.UUID,
+    body: CollectBody,
+    request: Request,
+    op: OperatorDep,
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    payments = getattr(request.app.state, "payment_port", None)
+    if payments is None:
+        raise ZidError(
+            "PAYMENT_NOT_CONFIGURED",
+            "No payment processor is configured in this cell.",
+            http_status=503,
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                return await invoicing.collect(
+                    conn, str(invoice_id), payments=payments, idempotency_key=body.idempotency_key
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/billing-state")
+async def move_billing_state(
+    tenant_id: uuid.UUID, body: StateBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                return await invoicing.transition(
+                    conn, tenant, body.to, body.reason_code, actor=op.principal_id
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/safety-hold")
+async def safety_hold(
+    tenant_id: uuid.UUID, body: SafetyHoldBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """An abuse or acceptable-use hold: separate from billing, never cleared by paying (CR-027)."""
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                await invoicing.set_safety_hold(conn, tenant, on=body.on, reason=body.reason)
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+            return await invoicing.billing_state(conn)
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/dunning:run")
+async def dunning(tenant_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            moves = await invoicing.run_dunning(conn, tenant)
+            return {"moves": moves, "state": await invoicing.billing_state(conn)}
+
+
+@router.get("/v1/commercial/invoice-chain:verify")
+async def verify_invoice_chain(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Walk this cell's issuing entity's chain: digests only, no tenant data. Reports the first broken link."""
+    entity = request.app.state.commercial_issuing_entity
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        entries = await invoicing.chain_entries(conn, entity)
+    broken = verify_chain(entries)
+    return {
+        "issuing_entity": entity,
+        "entries": len(entries),
+        "intact": broken is None,
+        "first_broken": broken,
+    }
+
+
+# ------------------------------------------------------------------------------- accounts, quotes, orders
+
+
+class AccountBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    legal_name: str = Field(min_length=1, max_length=300)
+    kind: Literal["DIRECT", "PARTNER", "INTERNAL"] = "DIRECT"
+    country: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
+    reseller_of: uuid.UUID | None = None
+
+
+class RegionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sre_gate_passed: bool
+    evidence_ref: str = Field(min_length=3, max_length=300)
+
+
+class RoleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    principal_id: uuid.UUID
+    role: Literal["AE", "CCO", "CFO", "FOUNDER", "GROUP_CFO"]
+
+
+class QuoteLineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(pattern=r"^ZID-[A-Z0-9]{2,8}$")
+    plan: PlanCode
+    quantity: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    discount_pct: Decimal = Field(default=Decimal(0), ge=0, lt=1, max_digits=6, decimal_places=4)
+
+
+class QuoteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_id: uuid.UUID
+    price_book_id: uuid.UUID
+    region: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
+    term_months: int = Field(ge=1, le=60)
+    lines: list[QuoteLineBody] = Field(min_length=1, max_length=50)
+    prepaid: bool = False
+    prepaid_discount: Decimal = Field(
+        default=Decimal(0), ge=0, lt=1, max_digits=6, decimal_places=4
+    )
+    liability_capped: bool = True
+    residency_commitment: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,40}$")
+    pilot: bool = False
+
+
+class ApproveQuoteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["AE", "CCO", "CFO", "FOUNDER", "GROUP_CFO"]
+
+
+class AcceptBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    quote_id: uuid.UUID
+    signer_ref: str = Field(min_length=3, max_length=200)
+    signed_document_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    effective_from: datetime
+    amends_order_id: uuid.UUID | None = None
+
+
+def _order_fail(e: OrderError) -> ZidError:
+    status = {
+        "QUOTE_NOT_FOUND": 404,
+        "ORDER_NOT_FOUND": 404,
+        "ACCOUNT_NOT_FOUND": 404,
+        "PRICE_BOOK_NOT_FOUND": 404,
+        "QUOTE_SELF_APPROVAL": 403,
+        "APPROVER_ROLE_MISSING": 403,
+        "ORDER_SELF_ACTIVATION": 403,
+    }.get(e.code, 409)
+    return ZidError(e.code, e.detail or e.code, http_status=status)
+
+
+async def _sales(conn: Any, op: Any) -> None:
+    await _require(conn, op, "commercial.sales.manage", None, "commercial:sales")
+
+
+@router.post("/v1/commercial/accounts", status_code=201)
+async def create_account(body: AccountBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        aid = await orders.create_account(
+            conn,
+            legal_name=body.legal_name,
+            kind=body.kind,
+            country=body.country,
+            currency=body.currency,
+            reseller_of=str(body.reseller_of) if body.reseller_of else None,
+            actor=op.principal_id,
+        )
+    return {"account_id": aid}
+
+
+class PaymentCustomerBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: Literal["stripe"] = "stripe"
+    customer_ref: str = Field(pattern=r"^cus_[A-Za-z0-9]{6,64}$")
+
+
+@router.put("/v1/commercial/accounts/{account_id}/payment-customer")
+async def set_payment_customer(
+    account_id: uuid.UUID, body: PaymentCustomerBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Link an account to its customer id at the payment processor: a reference, never card data."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            await invoicing.set_payment_customer(
+                conn,
+                str(account_id),
+                provider=body.provider,
+                customer_ref=body.customer_ref,
+                actor=op.principal_id,
+            )
+        except IntegrityError as e:
+            raise ZidError("ACCOUNT_NOT_FOUND", "No such account.", http_status=404) from e
+        await log_change(
+            conn,
+            kind="PAYMENT_CUSTOMER_SET",
+            ref=str(account_id),
+            tenant_id=None,
+            actor=op.principal_id,
+            detail={"provider": body.provider},
+        )
+    return {"account_id": str(account_id), "provider": body.provider}
+
+
+@router.post("/v1/commercial/accounts/{account_id}/tenants/{tenant_id}")
+async def link_account_tenant(
+    account_id: uuid.UUID, tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        await orders.link_tenant(conn, str(account_id), str(tenant_id))
+    return {"account_id": str(account_id), "tenant_id": str(tenant_id)}
+
+
+@router.put("/v1/commercial/regions/{region}")
+async def record_region_release(
+    region: str, body: RegionBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Record whether a cell's SRE release gate has passed; only released regions can be quoted."""
+    if not re.fullmatch(r"[a-z0-9-]{1,40}", region):
+        raise ZidError("VALIDATION_FAILED", "Bad region.", http_status=422)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        await conn.execute(
+            text(
+                "INSERT INTO commercial.region_release (region, sre_gate_passed, evidence_ref, recorded_by) "
+                "VALUES (:r, :g, :e, :b) ON CONFLICT (region) DO UPDATE SET sre_gate_passed = EXCLUDED.sre_gate_passed, "
+                "evidence_ref = EXCLUDED.evidence_ref, recorded_by = EXCLUDED.recorded_by, recorded_at = now()"
+            ),
+            {
+                "r": region,
+                "g": body.sre_gate_passed,
+                "e": body.evidence_ref,
+                "b": uuid.UUID(op.principal_id),
+            },
+        )
+    return {"region": region, "sre_gate_passed": body.sre_gate_passed}
+
+
+@router.post("/v1/commercial/role-holders", status_code=201)
+async def grant_commercial_role(
+    body: RoleBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Who may approve discounts in which band. Never granted to oneself."""
+    if str(body.principal_id) == op.principal_id:
+        raise ZidError(
+            "SELF_GRANT", "A commercial role is granted by someone else.", http_status=403
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        await conn.execute(
+            text(
+                "INSERT INTO commercial.commercial_role_holder (principal_id, role, granted_by) VALUES (:p, :r, :g) "
+                "ON CONFLICT DO NOTHING"
+            ),
+            {"p": body.principal_id, "r": body.role, "g": uuid.UUID(op.principal_id)},
+        )
+    return {"principal_id": str(body.principal_id), "role": body.role}
+
+
+@router.post("/v1/commercial/quotes", status_code=201)
+async def create_quote(body: QuoteBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            return await orders.create_quote(
+                conn,
+                account_id=str(body.account_id),
+                price_book_id=str(body.price_book_id),
+                region=body.region,
+                term_months=body.term_months,
+                lines=[
+                    QuoteLine(i, ln.sku, ln.plan, ln.quantity, ln.discount_pct)
+                    for i, ln in enumerate(body.lines, start=1)
+                ],
+                prepaid=body.prepaid,
+                prepaid_discount=body.prepaid_discount,
+                liability_capped=body.liability_capped,
+                residency_commitment=body.residency_commitment,
+                pilot=body.pilot,
+                actor=op.principal_id,
+            )
+        except OrderError as e:
+            raise _order_fail(e) from e
+
+
+@router.get("/v1/commercial/quotes/{quote_id}")
+async def get_quote(quote_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            return await orders.quote_view(conn, str(quote_id))
+        except OrderError as e:
+            raise _order_fail(e) from e
+
+
+@router.post("/v1/commercial/quotes/{quote_id}:approve")
+async def approve_quote(
+    quote_id: uuid.UUID, body: ApproveQuoteBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            return await orders.approve_quote(
+                conn, str(quote_id), role=body.role, approver=op.principal_id
+            )
+        except OrderError as e:
+            raise _order_fail(e) from e
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/orders", status_code=201)
+async def accept_quote(
+    tenant_id: uuid.UUID, body: AcceptBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Record the buyer's signature on a quote: it becomes an order for this tenant of the quoted account."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            return await orders.accept(
+                conn,
+                str(body.quote_id),
+                tenant_id=str(tenant_id),
+                signer_ref=body.signer_ref,
+                signed_document_digest=body.signed_document_digest,
+                effective_from=body.effective_from,
+                amends_order_id=str(body.amends_order_id) if body.amends_order_id else None,
+                actor=op.principal_id,
+            )
+        except OrderError as e:
+            raise _order_fail(e) from e
+
+
+@router.post("/v1/commercial/orders/{order_id}:activate")
+async def activate_order(order_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The only route from a signed order to a tenant's entitlement. Idempotent; a second person activates."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            return await orders.activate(conn, str(order_id), actor=op.principal_id)
+        except OrderError as e:
+            raise _order_fail(e) from e
+
+
+# ------------------------------------------------------------------------------- vendor costs
+
+
+class VendorBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    vendor_id: str = Field(pattern=r"^[a-z0-9-]{2,40}$")
+    display_name: str = Field(min_length=1, max_length=200)
+    legal_role: Literal["SUBPROCESSOR", "INDEPENDENT_CONTROLLER"]
+    adapter_id: str | None = Field(default=None, max_length=200)
+    sku: Literal["ZID-IDV", "ZID-KYB", "ZID-RISK", "ZID-MSG"]
+    spike_threshold_pct: Decimal | None = Field(default=None, gt=0, max_digits=6, decimal_places=2)
+
+
+class RecognitionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    basis: Literal["PRINCIPAL", "AGENT", "UNDECIDED"]
+
+
+class VendorRateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    check_type: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,40}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    base_price: Decimal = Field(ge=0, max_digits=18, decimal_places=6)
+    retry_price: Decimal = Field(ge=0, max_digits=18, decimal_places=6)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    confidence: Literal["SIGNED_TARIFF", "QUOTED", "ESTIMATE"]
+    source_ref: str = Field(min_length=3, max_length=300)
+
+
+class RouteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["ACTIVE", "BLOCKED", "NEEDS_APPROVAL"]
+    reason: str = Field(min_length=3, max_length=200)
+
+
+class VendorInvoiceLineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    supplier_ref: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(max_digits=18, decimal_places=6)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
+class VendorInvoiceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lines: list[VendorInvoiceLineBody] = Field(min_length=1, max_length=10_000)
+
+
+class ReconcileBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    period_start: datetime
+    period_end: datetime
+
+
+def _vendor_fail(e: VendorError) -> ZidError:
+    return ZidError(
+        e.code, e.detail or e.code, http_status=404 if e.code == "VENDOR_NOT_FOUND" else 422
+    )
+
+
+async def _catalog_grant(conn: Any, op: Any) -> None:
+    await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+
+
+@router.post("/v1/commercial/vendors", status_code=201)
+async def register_vendor(body: VendorBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        await vendors.register(
+            conn,
+            vendor_id=body.vendor_id,
+            display_name=body.display_name,
+            legal_role=body.legal_role,
+            adapter_id=body.adapter_id,
+            sku_id=body.sku,
+            spike_threshold_pct=body.spike_threshold_pct,
+            actor=op.principal_id,
+        )
+    return {"vendor_id": body.vendor_id}
+
+
+@router.put("/v1/commercial/vendors/{vendor_id}/recognition")
+async def vendor_recognition(
+    vendor_id: str, body: RecognitionBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        try:
+            await vendors.set_recognition(conn, vendor_id, body.basis)
+        except VendorError as e:
+            raise _vendor_fail(e) from e
+    return {"vendor_id": vendor_id, "recognition_basis": body.basis}
+
+
+@router.post("/v1/commercial/vendors/{vendor_id}/rates", status_code=201)
+async def vendor_rate(
+    vendor_id: str, body: VendorRateBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        try:
+            return await vendors.record_rate(
+                conn,
+                vendor_id=vendor_id,
+                check_type=body.check_type,
+                country=body.country,
+                base_price=body.base_price,
+                retry_price=body.retry_price,
+                currency=body.currency,
+                confidence=body.confidence,
+                source_ref=body.source_ref,
+                actor=op.principal_id,
+            )
+        except VendorError as e:
+            raise _vendor_fail(e) from e
+
+
+@router.put("/v1/commercial/vendors/{vendor_id}/routes/{check_type}/{country}")
+async def vendor_route(
+    vendor_id: str,
+    check_type: str,
+    country: str,
+    body: RouteBody,
+    request: Request,
+    op: OperatorDep,
+) -> dict[str, Any]:
+    if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,40}", check_type) or not re.fullmatch(
+        r"[A-Z]{2}", country
+    ):
+        raise ZidError("VALIDATION_FAILED", "Bad check type or country.", http_status=422)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        await vendors.set_route(
+            conn,
+            vendor_id,
+            check_type,
+            country,
+            status=body.status,
+            reason=body.reason,
+            actor=op.principal_id,
+        )
+    return {
+        "vendor_id": vendor_id,
+        "check_type": check_type,
+        "country": country,
+        "status": body.status,
+    }
+
+
+@router.post("/v1/commercial/vendors/{vendor_id}/invoices/{invoice_ref}", status_code=201)
+async def import_vendor_invoice(
+    vendor_id: str, invoice_ref: str, body: VendorInvoiceBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        n = await vendors.import_invoice(
+            conn,
+            vendor_id=vendor_id,
+            invoice_ref=invoice_ref[:200],
+            lines=[(ln.supplier_ref, ln.amount, ln.currency) for ln in body.lines],
+            actor=op.principal_id,
+        )
+    return {"vendor_id": vendor_id, "invoice_ref": invoice_ref, "lines": n}
+
+
+@router.post("/v1/commercial/vendors/{vendor_id}/invoices/{invoice_ref}:reconcile")
+async def reconcile_vendor_invoice(
+    vendor_id: str, invoice_ref: str, body: ReconcileBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return await vendors.reconcile_invoice(
+            conn,
+            vendor_id=vendor_id,
+            invoice_ref=invoice_ref[:200],
+            period_start=body.period_start,
+            period_end=body.period_end,
+        )
+
+
+@router.get("/v1/commercial/vendor-costs")
+async def vendor_costs(
+    request: Request,
+    op: OperatorDep,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return {"items": await vendors.cost_report(conn, start, end)}
+
+
+# ------------------------------------------------------------------------------- revenue assurance
+
+
+class ResolveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolution: str = Field(min_length=3, max_length=500)
+
+
+class PeriodQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+
+
+@router.get("/v1/commercial/change-log:verify")
+async def verify_commercial_change_log(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Recompute every entry's digest and the hash chain; report the first broken entry."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return await verify_change_log(conn)
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/assurance:run")
+async def run_tenant_assurance(
+    tenant_id: uuid.UUID, body: PeriodQuery, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    sources = getattr(request.app.state, "commercial_sources", {})
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            found = await assurance.detect_tenant(
+                conn, tenant, sources=sources, month=_month(body.month)
+            )
+    return {"raised": found}
+
+
+@router.post("/v1/commercial/assurance:run")
+async def run_platform_assurance(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return {"raised": await assurance.detect_platform(conn)}
+
+
+@router.get("/v1/commercial/exceptions")
+async def list_exceptions(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return {"items": await assurance.exceptions(conn)}
+
+
+@router.post("/v1/commercial/exceptions/{exception_id}:resolve")
+async def resolve_exception(
+    exception_id: uuid.UUID, body: ResolveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        if not await assurance.resolve(
+            conn, str(exception_id), owner=op.principal_id, resolution=body.resolution
+        ):
+            raise ZidError("EXCEPTION_NOT_OPEN", "No open exception with that id.", http_status=404)
+    return {"exception_id": str(exception_id), "status": "RESOLVED"}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/close")
+async def close_month(
+    tenant_id: uuid.UUID, body: PeriodQuery, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Freeze, rate and draft one tenant-month; resumable. Issuing stays a second person's step."""
+    tenant = str(tenant_id)
+    counters = getattr(request.app.state, "commercial_counters", {})
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            connections = {k: await f(conn) for k, f in counters.items()}
+            try:
+                return await assurance.close_month(
+                    conn,
+                    tenant_id=tenant,
+                    month=_month(body.month),
+                    connections=connections,
+                    issuing_entity=request.app.state.commercial_issuing_entity,
+                    actor=op.principal_id,
+                )
+            except (BillableError, RatingError, InvoicingError) as e:
+                raise ZidError(e.code, e.detail or e.code, http_status=409) from e
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/audit-pack")
+async def audit_pack(
+    tenant_id: uuid.UUID,
+    request: Request,
+    op: OperatorDep,
+    month: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")],
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            pack = await assurance.audit_pack(conn, tenant, _month(month))
+    # Signed with the evidence signing key, outside the database transaction: a signature failure
+    # leaves nothing half-done, and the pack is verifiable offline against the evidence public keys.
+    runtime = current_runtime()
+    return assurance.sign_audit_pack(runtime.signer, pack, issuer=runtime.cell_id)
+
+
+class VerifyPackBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pack: dict[str, Any]
+
+
+@router.post("/v1/commercial/audit-pack:verify")
+async def verify_audit_pack(body: VerifyPackBody, op: OperatorDep) -> dict[str, Any]:
+    """Check a signed audit pack against the trusted evidence keys: signature, unaltered body, bundle digest."""
+    try:
+        payload = assurance.verify_audit_pack(body.pack, keys=current_runtime().trusted_keys())
+    except ValueError as e:
+        return {"valid": False, "reason": str(e).split(":")[0]}
+    return {"valid": True, "kid": body.pack["signature"]["kid"], "issuer": payload.get("iss")}
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/journal")
+async def journal(
+    tenant_id: uuid.UUID,
+    request: Request,
+    op: OperatorDep,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    fmt: Annotated[Literal["json", "csv"], Query(alias="format")] = "json",
+) -> Any:
+    """Balanced journal lines for the period. `format=csv` is the file the finance team imports into the
+    general ledger: this platform exports journals and never posts them."""
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            out = await assurance.journal(conn, start, end)
+    if fmt == "json":
+        return out
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(["account", "debit", "credit", "reference"])
+    for ln in out["lines"]:
+        w.writerow([ln["account"], ln["debit"] or "0", ln["credit"] or "0", ln["reference"]])
+    return Response(
+        buf.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="journal-{start:%Y%m%d}-{end:%Y%m%d}.csv"',
+            "X-Journal-Balanced": str(out["balanced"]).lower(),
+        },
+    )
+
+
+@router.get("/v1/commercial/kpis")
+async def commercial_kpis(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return await assurance.kpis(conn)

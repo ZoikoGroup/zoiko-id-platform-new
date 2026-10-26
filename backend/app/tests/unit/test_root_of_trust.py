@@ -15,8 +15,12 @@ from zid_platform.modules.organization.domain.roots import (
     RootStatus,
     RootType,
     SourceEvent,
+    activate_matrix,
     apply_event,
+    check_matrix,
+    matrix_revision,
     resolve_root,
+    screen_matrix_roots,
     transition,
 )
 
@@ -253,3 +257,105 @@ def test_conflict_state_machine() -> None:
     for terminal in (RootStatus.REVOKED, RootStatus.SUPERSEDED, RootStatus.EXPIRED):
         with pytest.raises(RootError):
             transition(terminal, RootStatus.ACTIVE)
+
+
+def test_official_name_change_updates_history_not_the_principal_or_its_roots() -> None:
+    """ROOT-03: a name change is entity metadata; the organization, its holders and every root are untouched."""
+    out = apply_event(
+        SourceEvent("ev7", "org_acme", OrgEvent.NAME_CHANGE),
+        by_id(*ROOTS),
+        processed_event_ids=frozenset(),
+        organization_active=True,
+    )
+    assert out.applied and out.roots == by_id(*ROOTS) and out.organization_can_originate_authority
+    assert resolve_root(req(), out.roots.values()).valid  # the same principal still resolves
+
+
+def test_a_revoked_vlei_credential_makes_the_dependent_root_unusable_and_leaves_the_registry() -> (
+    None
+):
+    """ROOT-10: the holder's credential-backed roots are revoked; the registry fact stands and the holder alone fails."""
+    vlei = root(
+        "r3_vlei",
+        RootType.VLEI_OOR,
+        {Fact.ENTITY_EXISTENCE, Fact.OFFICIAL_ROLE},
+        holder_principal_id="prn_cfo",
+    )
+    other = root(
+        "r4_other", RootType.REGISTRY, {Fact.ENTITY_EXISTENCE}, holder_principal_id="prn_x"
+    )
+    roots = by_id(vlei, other, MATRIX)
+    only_vlei_for_role = by_id(
+        replace(REGISTRY, facts=frozenset({Fact.ENTITY_EXISTENCE})), vlei, MATRIX
+    )
+    assert resolve_root(req(), only_vlei_for_role.values()).valid
+    out = apply_event(
+        SourceEvent("ev8", "org_acme", OrgEvent.CREDENTIAL_REVOKED, "prn_cfo"),
+        {**roots, **only_vlei_for_role},
+        processed_event_ids=frozenset(),
+        organization_active=True,
+    )
+    assert out.roots["r3_vlei"].status is RootStatus.REVOKED
+    assert (
+        out.roots["r4_other"].status is RootStatus.ACTIVE
+    )  # another holder's root is not affected
+    assert not resolve_root(
+        req(), [out.roots[k] for k in only_vlei_for_role]
+    ).valid  # the role was backed only by the credential
+
+
+def test_a_new_resolution_supersedes_the_prior_root_without_reopening_it() -> None:
+    """ROOT-12: SUPERSEDED is terminal, the replacement resolves, and the old root can never be revived."""
+    old = replace(MATRIX, status=transition(RootStatus.ACTIVE, RootStatus.SUPERSEDED))
+    new = replace(MATRIX, root_id="r2_matrix_v2", source_revision="2")
+    assert not resolve_root(req(), [REGISTRY, old]).valid
+    assert resolve_root(req(), [REGISTRY, old, new]).root_ids == ("r1_registry", "r2_matrix_v2")
+    with pytest.raises(RootError):
+        transition(old.status, RootStatus.ACTIVE)
+
+
+MATRIX_DOC = {"payment.release": {"limit": "250000", "currency": "GBP", "approvers": 2}}
+
+
+def _matrix(
+    version: str = "3", doc: dict[str, object] | None = None, **kw: object
+) -> RootAssertion:
+    return replace(
+        MATRIX,
+        root_id="r5_matrix",
+        status=RootStatus.PENDING,
+        source_revision=matrix_revision(doc or MATRIX_DOC, version=version),
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+def test_a_matrix_whose_hash_or_version_does_not_match_never_activates() -> None:
+    """ROOT-14: activation needs the recorded document hash and version; any difference refuses it."""
+    root = _matrix()
+    assert activate_matrix(root, MATRIX_DOC, version="3").status is RootStatus.ACTIVE
+    tampered = {"payment.release": {"limit": "2500000", "currency": "GBP", "approvers": 1}}
+    for document, version in ((tampered, "3"), (MATRIX_DOC, "4"), ({}, "3")):
+        with pytest.raises(RootError) as e:
+            activate_matrix(root, document, version=version)
+        assert e.value.code == "ROOT_MATRIX_TAMPERED"
+    with pytest.raises(RootError):
+        check_matrix(REGISTRY, MATRIX_DOC, version="3")  # only a SIGNING_MATRIX root has a matrix
+    assert matrix_revision(MATRIX_DOC, version="3") == matrix_revision(
+        dict(reversed(MATRIX_DOC.items())), version="3"
+    )
+
+
+def test_a_matrix_changed_after_activation_stops_the_root_being_used_at_r2_and_r3() -> None:
+    """ROOT-14: before use the stored document is re-checked; a mismatch or a missing document conflicts the root,
+    so a payment that the matrix would have allowed is refused until it is resolved."""
+    active = replace(_matrix(), status=RootStatus.ACTIVE)
+    ok = screen_matrix_roots([REGISTRY, active], {"r5_matrix": (MATRIX_DOC, "3")})
+    assert resolve_root(req(), ok).valid
+    changed = {"payment.release": {"limit": "9999999", "currency": "GBP", "approvers": 0}}
+    for held in ({"r5_matrix": (changed, "3")}, {"r5_matrix": (MATRIX_DOC, "9")}, {}):
+        screened = screen_matrix_roots([REGISTRY, active], held)
+        assert [r.status for r in screened if r.root_id == "r5_matrix"] == [RootStatus.CONFLICTED]
+        assert not resolve_root(req(), screened).valid
+    assert (
+        resolve_root(req(risk=R1), screen_matrix_roots([REGISTRY, active], {})).codes == ()
+    )  # R1 is not blocked

@@ -56,7 +56,10 @@ _STATUS = {
     "NOT_FOUND": 404,
     "PRIVACY_VERIFICATION_REQUIRED": 403,
     "PRIVACY_APPROVAL_REQUIRED": 403,
+    "PRIVACY_PROCESSOR_RESIDENCY": 409,
     "PRIVACY_INVALID_STATE": 409,
+    "PRIVACY_SOURCE_AUTHORITATIVE": 409,
+    "PRIVACY_RATE_LIMITED": 429,
     "PRIVACY_CONSENT_TERMINAL": 409,
     "PRIVACY_ROLE_ASSIGNMENT_MISSING": 409,
     "PRIVACY_DPIA_REQUIRED": 409,
@@ -147,6 +150,17 @@ async def purposes(request: Request, caller: CallerDep) -> dict[str, Any]:
                 for r in rows
             ]
         }
+
+    return await _run(request, caller, go)
+
+
+@router.get("/consent-options")
+async def consent_options(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What the signed-in person can consent to, each with the exact notice to cite when giving consent."""
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return {"items": await service.consent_options(conn, me)}
 
     return await _run(request, caller, go)
 

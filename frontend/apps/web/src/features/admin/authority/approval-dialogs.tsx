@@ -45,7 +45,7 @@ export function CreateApprovalDialog({ onClose }: { onClose: () => void }) {
   const create = useCellMutation((api, body: ApprovalRequestCreate) => api.authority.createApproval(body), {
     invalidate: [APPROVALS_KEY],
     success: "Approval request opened",
-    onSuccess: (r, body) => setCreated({ result: r, tc: body.transaction_context }),
+    onSuccess: (r, body) => setCreated({ result: r, tc: body.transaction_context ?? "" }),
   });
 
   function submit(e?: FormEvent) {
@@ -57,7 +57,7 @@ export function CreateApprovalDialog({ onClose }: { onClose: () => void }) {
     if (!r.length) return setProblem("List at least one approving role.");
     if (mode === "K_OF_N" && (!Number.isInteger(kn) || kn < 1 || kn > 16)) return setProblem("k must be between 1 and 16.");
     setProblem(null);
-    create.mutate({ subject_ref: subject.trim(), transaction_context: tc, mode, roles: r, k: mode === "K_OF_N" ? kn : 1, ttl_seconds: Number(ttl) });
+    create.mutate({ subject_ref: subject.trim(), transaction_context: tc, change: "", mode, roles: r, k: mode === "K_OF_N" ? kn : 1, ttl_seconds: Number(ttl) });
   }
 
   return (

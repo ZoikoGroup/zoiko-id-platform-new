@@ -1,0 +1,41 @@
+# Detection coverage (ZID-SEC-001 §28 SEC-26): MITRE ATT&CK techniques the platform and its pipeline detect today.
+#
+# Each entry names the technique, the tactic family, the control that raises the detection, and the test that feeds
+# it a representative attack and asserts the detection fires. `test_detection_coverage.py` checks that every proof
+# exists and that the four required families (credential, privilege, supply-chain, cloud) are covered.
+#
+# What this is not: a SIEM. There is no log pipeline here, so detection means the control refuses or flags the
+# input and leaves a record (a finding, a refusal code, a DENY receipt, an integrity-failure event). Routing those
+# to an on-call tool and tuning false positives belongs to the deployed environment (ZID-SRE-001).
+version: 1
+techniques:
+  - technique: T1552.001   # Unsecured Credentials: credentials in files
+    family: credential
+    control: secret scanner over tracked source, with a CI step that opens a revoke-and-rotate incident
+    detects: a planted private key, cloud key, token or connection-string password
+    proof: backend/app/tests/unit/test_devsecops_controls.py::test_secret_scanner_detects_planted_credentials_and_honours_the_fixture_marker
+  - technique: T1548          # Abuse Elevation Control Mechanism
+    family: privilege
+    control: the decision point denies an agent that claims scope or authority in free text, and the denial leaves an E3 receipt
+    detects: an attempt to widen scope, tools or authority by instruction
+    proof: backend/app/tests/component/test_authzen_api_pg.py::test_authzen_evaluation_over_http
+  - technique: T1195.002      # Supply Chain Compromise: compromise software supply chain
+    family: supply-chain
+    control: promotion gate refuses an unsigned, mis-built, wrong-source or wrong-digest artifact
+    detects: a tampered or unapproved release candidate
+    proof: backend/app/tests/unit/test_devsecops_controls.py::test_gate_refuses_every_broken_supply_chain_link
+  - technique: T1195.001      # Supply Chain Compromise: compromise software dependencies
+    family: supply-chain
+    control: promotion gate checks the SBOM components against the dependency deny-list and refuses a missing inventory
+    detects: a known-malicious package in the image
+    proof: backend/app/tests/unit/test_devsecops_controls.py::test_a_blocked_dependency_in_the_sbom_blocks_promotion_and_a_missing_inventory_does_too
+  - technique: T1078.004      # Valid Accounts: cloud accounts (and T1098.003 additional cloud roles)
+    family: cloud
+    control: infrastructure-plan policy flags wildcard IAM, public ingress, unencrypted storage and out-of-region resources
+    detects: a plan that grants broad cloud privilege or exposes a service
+    proof: backend/app/tests/unit/test_devsecops_controls.py::test_iac_policy_blocks_forbidden_plan_changes
+  - technique: T1565.001      # Data Manipulation: stored data manipulation
+    family: data
+    control: evidence ledger verification recomputes the hash chain and raises an integrity-failure event
+    detects: a privileged edit of a committed evidence entry
+    proof: backend/app/tests/component/test_evidence_pg.py::test_ledger_tamper_is_detected

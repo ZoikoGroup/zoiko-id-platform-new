@@ -38,7 +38,7 @@ from zid_platform.protected import approved_by_second_admin, protected_action
 router = APIRouter(tags=["residency"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 ACTION = "tenant.residency.manage"
-_STATUS = {"NOT_FOUND": 404, "SOVEREIGN_OPERATOR_DENIED": 403}
+_STATUS = {"NOT_FOUND": 404, "SOVEREIGN_OPERATOR_DENIED": 403, "PLACEMENT_MOVE_NOT_ALLOWED": 409}
 
 
 def http(e: ResidencyError) -> ZidError:
@@ -175,7 +175,12 @@ async def residency_matrix(request: Request, caller: CallerDep) -> dict[str, Any
         r = await store.load(conn, caller.ctx.tenant_id or "")
         if r is None:
             raise ResidencyError("NOT_FOUND", "no residency profile assigned")
-        return {"residency_profile_id": r.profile, "items": coverage_matrix(catalog(), r)}
+        items = coverage_matrix(catalog(), r)
+        return {
+            "residency_profile_id": r.profile,
+            "items": items,
+            "proven": all(i["compliant"] for i in items),
+        }
 
     return await _session(request, caller, go)  # type: ignore[no-any-return]
 

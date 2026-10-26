@@ -73,6 +73,10 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         ("/v1/privacy/",),
         "Zoiko iD Privacy, Consent and Data Rights API",
     ),
+    OPENAPI / "public" / "policy.json": (
+        ("/v1/policy-releases",),
+        "Zoiko iD Policy Administration API (releases, validation, simulation, review, publication)",
+    ),
     OPENAPI / "public" / "operator-access.json": (
         ("/operator/", "/platform/", "/ops/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
         "Zoiko iD Operator Access API (JIT, customer lockbox, break-glass review)",
@@ -109,7 +113,40 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
     ),
     OPENAPI / "public" / "workload-identity.json": (
         ("/v1/machine/",),
-        "Zoiko iD Workload Identity API (SPIFFE bindings, environment quarantine)",
+        "Zoiko iD Machine Identity API (agents, blueprints, tools, SPIFFE bindings, environment quarantine)",
+    ),
+    OPENAPI / "public" / "webhooks.json": (
+        ("/v1/webhooks/",),
+        "Zoiko iD Webhook API (endpoints, verification, deliveries, replay)",
+    ),
+    OPENAPI / "public" / "notification.json": (
+        ("/v1/alerts",),
+        "Zoiko iD Alerts and Tasks API (inbox, acknowledge, resolve)",
+    ),
+    OPENAPI / "public" / "search.json": (
+        ("/v1/search",),
+        "Zoiko iD Global Search API (authorization-aware, tenant-scoped)",
+    ),
+    OPENAPI / "public" / "settings.json": (
+        ("/v1/settings",),
+        "Zoiko iD Tenant Settings API (authentication limits, notifications, branding, cryptography overview)",
+    ),
+    OPENAPI / "public" / "commercial.json": (
+        (
+            "/v1/catalog",
+            "/v1/billing/estimate",
+            "/v1/commercial/",
+            "/v1/tenants/{tenant_id}/entitlements",
+        ),
+        "Zoiko iD Commercial API (catalogue, plans, entitlements, price books)",
+    ),
+    OPENAPI / "public" / "communication.json": (
+        ("/v1/tenant/contacts", "/v1/account/contact", "/email/"),
+        "Zoiko iD Communication API (email contacts and the one-click unsubscribe)",
+    ),
+    OPENAPI / "public" / "usage.json": (
+        ("/v1/usage",),
+        "Zoiko iD API Usage and Rate Limit API",
     ),
 }
 AUTHZEN_FILE = OPENAPI / "authzen" / "evaluation.json"

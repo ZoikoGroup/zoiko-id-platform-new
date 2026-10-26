@@ -134,6 +134,14 @@ async def record_decision_receipt(
             else None
         ),
         material_object_id=material_object_id,
+        workload_commitment=(
+            commitment(facts.workload_ref, tenant_id=tenant_id, kind="workload")
+            if facts.workload_ref
+            else None
+        ),
+        tool_commitment=(
+            commitment(facts.tool_ref, tenant_id=tenant_id, kind="tool") if facts.tool_ref else None
+        ),
     )
     receipt_hash = hash_json(body, alg=HASH_ALG)
     await store.insert_receipt(

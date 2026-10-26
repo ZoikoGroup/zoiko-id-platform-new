@@ -1,11 +1,13 @@
 "use client";
 
+import { ApprovalsWaiting } from "@/features/approvals/guided-approval";
 import type { ApprovalListItem, ApprovalState } from "@zoiko/api-client";
 import { Button, Card, Code, CopyId, DataTable, DateTime, EmptyState, FilterBar, RelativeTime, StatusBadge, TextField, humanize, type Column } from "@zoiko/ui";
 import { Plus, Search, Stamp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { QueryView, useCellQuery } from "@/lib/cell";
+import { QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { useRuntime } from "@/lib/runtime";
 
 import { APPROVALS_KEY, ApprovalOutcome, CreateApprovalDialog, DecideApprovalDialog } from "./approval-dialogs";
 import { UUID_RE } from "./shared";
@@ -19,10 +21,22 @@ export function ApprovalsPanel() {
   const approvals = useCellQuery([...APPROVALS_KEY, q], (api) => api.authority.approvals(q));
   const [creating, setCreating] = useState(false);
   const [deciding, setDeciding] = useState<ApprovalListItem | "byId" | null>(null);
+  const { session } = useRuntime();
+  const me = session?.authenticated ? session.subject.sub : null;
+  // A request that says what it is for is decided in one click; the server picks the grant and rebuilds the binding.
+  const decide = useCellMutation(
+    (api, v: { id: string; verdict: "APPROVE" | "DENY" }) => api.authority.decideApproval(v.id, { verdict: v.verdict, risk_class: 3 }),
+    { success: (r) => (r.state === "APPROVED" ? "Approved" : "Your decision was recorded"), invalidate: [APPROVALS_KEY, ["approvals"]] },
+  );
 
   const columns: Column<ApprovalListItem>[] = [
     { key: "id", header: "Request", pinned: true, render: (a) => <CopyId value={a.approval_request_id} label="approval request" /> },
-    { key: "subject", header: "Subject", render: (a) => <Code>{a.subject_ref}</Code>, sortValue: (a) => a.subject_ref },
+    {
+      key: "subject",
+      header: "What it is for",
+      render: (a) => (a.summary ? <span className="text-sm text-ink">{a.summary}</span> : <Code>{a.subject_ref}</Code>),
+      sortValue: (a) => a.summary ?? a.subject_ref,
+    },
     { key: "state", header: "State", render: (a) => <StatusBadge state={a.state} kind="Approval" />, sortValue: (a) => a.state },
     { key: "mode", header: "Mode", render: (a) => humanize(a.mode), sortValue: (a) => a.mode },
     { key: "roles", header: "Roles", render: (a) => <span className="font-mono text-xs">{a.roles.join(", ")}</span> },
@@ -49,27 +63,43 @@ export function ApprovalsPanel() {
       key: "row-actions",
       header: "Row actions",
       align: "end",
-      render: (a) =>
-        a.state === "PENDING" ? (
+      render: (a) => {
+        if (a.state !== "PENDING") return null;
+        if (a.summary && a.action) {
+          if (a.requester_principal_id === me) return <span className="text-xs text-ink-muted">Waiting for someone else</span>;
+          return (
+            <span className="flex justify-end gap-2">
+              <Button size="xs" variant="secondary" isDisabled={decide.isPending} onPress={() => decide.mutate({ id: a.approval_request_id, verdict: "DENY" })}>
+                Decline
+              </Button>
+              <Button size="xs" isDisabled={decide.isPending} onPress={() => decide.mutate({ id: a.approval_request_id, verdict: "APPROVE" })}>
+                Approve
+              </Button>
+            </span>
+          );
+        }
+        return (
           <Button size="xs" variant="secondary" onPress={() => setDeciding(a)}>
-            Decide
+            Decide (advanced)
           </Button>
-        ) : null,
+        );
+      },
     },
   ];
 
   return (
     <div className="space-y-5">
+      <ApprovalsWaiting />
       <Card
         title="Approval requests"
-        description="Second-administrator approvals, each bound to one exact transaction. Only the subject is listed; the transaction itself is never shown."
+        description="Changes that need a second administrator. Ask from the page that makes the change, and approve here or in the box above. The buttons marked advanced are for requests opened with an exact transaction context."
         actions={
           <>
             <Button variant="secondary" onPress={() => setDeciding("byId")}>
-              Decide by ID
+              Decide by ID (advanced)
             </Button>
             <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
-              New request
+              New request (advanced)
             </Button>
           </>
         }

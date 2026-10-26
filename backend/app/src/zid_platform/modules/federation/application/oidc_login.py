@@ -28,11 +28,13 @@ from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from zid_app.resilience import budget_timeout
 from zid_context import RequestContext
 from zid_crypto import CryptoError, KeyRing, verify_external_jws
 from zid_db import tenant_transaction
 from zid_outbox import emit
 
+from zid_platform import egress
 from zid_platform.modules.authentication.ports import (
     AAL,
     MappingProfile,
@@ -41,6 +43,8 @@ from zid_platform.modules.authentication.ports import (
     map_assurance,
     touch_external_link,
 )
+from zid_platform.modules.commercial.ports import key_auth, record_active_human, record_billable
+from zid_platform.modules.configuration.ports import session_expiry
 from zid_platform.modules.federation.application.trust_chain import Anchor, resolve
 from zid_platform.modules.federation.domain.connection import (
     LOGIN_TTL,
@@ -208,8 +212,14 @@ async def _exchange(
         raw = f"{c.client_id}:{secret}".encode()
         headers["Authorization"] = "Basic " + base64.b64encode(raw).decode()
     try:
+        # SEC-19: the token endpoint is tenant-configured or comes from remote metadata; never POST
+        # (with a client secret) to a private, loopback or metadata address.
+        await egress.guard(c.token_endpoint or "", resolve=settings.transport is None)
+    except egress.EgressError as e:
+        raise FederationError("FEDERATION_ENDPOINT_BLOCKED", e.code) from e
+    try:
         async with httpx.AsyncClient(
-            transport=settings.transport, timeout=5.0, follow_redirects=False
+            transport=settings.transport, timeout=budget_timeout(5.0), follow_redirects=False
         ) as client:
             response = await client.post(c.token_endpoint or "", data=form, headers=headers)
     except httpx.HTTPError as e:  # upstream outage: no fail-open, no weaker fallback (AUTH-16)
@@ -308,10 +318,19 @@ async def establish(
             observed_security_revision=principal.security_revision,
             risk_class=1,
             status=SessionStatus.ACTIVE,
-            expires_at=now + settings.session_policy.absolute_ttl,
+            expires_at=await session_expiry(conn, now, settings.session_policy.absolute_ttl),
             last_seen_at=now,
         )
         await create_session(conn, session)
+        await record_billable(
+            conn,
+            tenant_id=c.tenant_id,
+            meter="AUTH_EVENT",
+            key=key_auth(session.session_id),
+            at=now,
+            principal_class="HUMAN",
+        )
+        await record_active_human(conn, tenant_id=c.tenant_id, principal_id=principal_id, at=now)
         await emit(
             conn,
             name="authentication.succeeded",

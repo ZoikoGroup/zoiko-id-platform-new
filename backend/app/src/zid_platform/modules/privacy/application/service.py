@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -35,6 +36,7 @@ from zid_platform.modules.evidence.ports import (
     receipt_summary,
     record_audit,
     store_object,
+    subject_ref,
 )
 from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.domain.model import (
@@ -480,6 +482,10 @@ async def check_processing(
     destination_cell_id: str | None = None,
 ) -> ProcessingDecision:
     """May this processing happen now? (PRIV-01/02/05/18/24). Default deny, typed reason."""
+    if RESTORE.pending:
+        return ProcessingDecision(
+            False, "PRIVACY_RECONCILIATION_PENDING", activity_code, purpose_code
+        )
     activity = await store.active_activity(conn, activity_code)
     purpose = await store.active_purpose(conn, purpose_code)
     consent_id, restricted = None, []
@@ -815,7 +821,11 @@ async def register_personal_data(
 
 
 async def retention_sweep(
-    conn: AsyncConnection, now: datetime | None = None, *, limit: int = 500
+    conn: AsyncConnection,
+    now: datetime | None = None,
+    *,
+    limit: int = 500,
+    entries: Sequence[Row[Any]] | None = None,
 ) -> dict[str, int]:
     """Worker pass (BYPASSRLS role): dispose every due entry no hold covers (PRIV-06/07); held
     entries are marked HELD and re-evaluated on every pass; an entry with no registered disposer
@@ -827,7 +837,7 @@ async def retention_sweep(
         "no_disposer": 0,
         "scheduled": await store.schedule_open_entries(conn),
     }
-    for e in await store.due_entries(conn, now, limit):
+    for e in entries if entries is not None else await store.due_entries(conn, now, limit):
         tenant = str(e.tenant_id)
         policy = (
             await store.active_retention_policy(conn, e.retention_policy_code)
@@ -872,6 +882,39 @@ async def retention_sweep(
     return counts
 
 
+@dataclass(frozen=True, slots=True)
+class DrainReport:
+    batches: int
+    disposed: int
+    held: int
+    no_disposer: int
+    complete: bool  # the due backlog was walked to the end within the batch budget
+
+
+async def drain_retention(
+    conn: AsyncConnection, now: datetime | None = None, *, batch: int = 500, max_batches: int = 40
+) -> DrainReport:
+    """PRIV-31: work through a retention backlog in bounded batches, oldest first, so a day with twice the expected
+    volume still completes (batch x max_batches per pass) with every entry either disposed, held or counted as
+    having no disposer: none is skipped or left half-done. Each batch is one `retention_sweep`."""
+    now = now or _now()
+    total = {"disposed": 0, "held": 0, "no_disposer": 0}
+    after: tuple[datetime, Any] | None = None
+    batches = 0
+    complete = False
+    while batches < max_batches:
+        page = await store.due_entries(conn, now, batch, after)
+        if not page:
+            complete = True
+            break
+        counts = await retention_sweep(conn, now, limit=batch, entries=page)
+        for k in total:
+            total[k] += counts[k]
+        after = (page[-1].due_at, page[-1].entry_id)
+        batches += 1
+    return DrainReport(batches, total["disposed"], total["held"], total["no_disposer"], complete)
+
+
 # ------------------------------------------------------------------------------ rights requests
 
 
@@ -905,6 +948,27 @@ def request_view(r: Row[Any], now: datetime | None = None) -> dict[str, Any]:
     }
 
 
+@dataclass(slots=True)
+class RestoreState:
+    """PRIV-32: after a restore, nothing is processed until privacy state has been reconciled with the durable event
+    journal (erasures, holds, preferences). Process-wide, set by the restore procedure, cleared by `reconcile`."""
+
+    pending: bool = False
+
+
+RESTORE = RestoreState()
+
+
+# PRIV-30: a rights request is never refused for a configuration gap, but one person (or one agent acting for many)
+# cannot flood the queue: bounded per hour per subject and per requester. Opt-outs take effect at once and are exempt.
+RIGHTS_WINDOW = timedelta(hours=1)
+MAX_REQUESTS_ABOUT_SUBJECT = 10
+MAX_REQUESTS_BY_REQUESTER = 25
+NOT_RATE_LIMITED = frozenset(
+    {"OPT_OUT_SALE_SHARING", "OPT_OUT_TARGETED_ADVERTISING", "LIMIT_SENSITIVE_USE"}
+)
+
+
 async def open_request(
     conn: AsyncConnection,
     tenant_id: str,
@@ -926,6 +990,21 @@ async def open_request(
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "unknown request type") from e
     jp = pack(jurisdiction_pack_id)
     now = _now()
+    if rtype.value not in NOT_RATE_LIMITED:
+        about, by = await store.recent_request_count(
+            conn,
+            subject=subject_principal_id,
+            requester=requester_principal_id,
+            since=now - RIGHTS_WINDOW,
+        )
+        if about >= MAX_REQUESTS_ABOUT_SUBJECT or (
+            requester_principal_id and by >= MAX_REQUESTS_BY_REQUESTER
+        ):
+            raise PrivacyError(
+                "PRIVACY_RATE_LIMITED",
+                "Too many rights requests were received in the last hour. Existing requests are being handled; "
+                "try again later.",
+            )
     deadline, source = jp.deadline(rtype, now)
     self_request = requester_principal_id == subject_principal_id and authorized_agent_ref is None
     verification, level = initial_verification(
@@ -1109,6 +1188,62 @@ async def _access_package(
     return object_id, items
 
 
+# Modules holding derived copies of a subject (caches) register a hook at start-up (main.py), so privacy never
+# imports them. Keyed by name so registering twice is harmless.
+_ERASURE_HOOKS: dict[str, Callable[[str, str], object]] = {}
+
+
+def register_erasure_hook(name: str, hook: Callable[[str, str], object]) -> None:
+    _ERASURE_HOOKS[name] = hook
+
+
+# PRIV-16: a fact an external authority supplied is corrected at the source, not by hand. The module that holds such a
+# fact registers a re-check for its kind at start-up (main.py); privacy never imports it.
+_RECTIFICATION_SOURCES: dict[str, Callable[..., Awaitable[str]]] = {}
+
+
+def register_rectification_source(kind: str, recheck: Callable[..., Awaitable[str]]) -> None:
+    _RECTIFICATION_SOURCES[kind] = recheck
+
+
+async def _rectification_items(
+    conn: AsyncConnection, tenant_id: str, r: Row[Any]
+) -> list[dict[str, Any]]:
+    """An externally sourced fact is never overwritten on request: the source is asked again and the new reading
+    supersedes the old one with its provenance. What the person says is kept beside it as a statement of disagreement
+    until the source answers. A self-asserted fact goes to privacy operations, which can correct it directly."""
+    fact = (r.scope or {}).get("fact") or {}
+    kind = str(fact.get("kind") or "SELF_ASSERTED")
+    if kind == "SELF_ASSERTED":
+        return [_item("review", "PENDING", route="privacy-ops")]
+    recheck = _RECTIFICATION_SOURCES.get(kind)
+    if recheck is None:
+        raise PrivacyError("PRIVACY_SCHEMA_INVALID", f"unknown source of the disputed fact: {kind}")
+    if fact.get("overwrite") or "new_value" in fact:
+        raise PrivacyError(
+            "PRIVACY_SOURCE_AUTHORITATIVE",
+            f"This fact comes from {kind}. It is corrected there and then refreshed here; "
+            "send the correction as a statement instead of a new value.",
+        )
+    refresh_id = await recheck(conn, tenant_id, fact, reason_ref=str(r.request_id), now=_now())
+    return [
+        _item(
+            "source-refresh",
+            "PENDING",
+            route="refresh-from-source",
+            source=kind,
+            refresh_request_id=refresh_id,
+            manual_overwrite=False,
+        ),
+        _item(
+            "statement-of-disagreement",
+            "DONE",
+            field=str(fact.get("field") or ""),
+            kept_with_request=str(r.request_id),
+        ),
+    ]
+
+
 async def _erase(
     conn: AsyncConnection, tenant_id: str, r: Row[Any], actor: str | None
 ) -> list[dict[str, Any]]:
@@ -1190,6 +1325,12 @@ async def _erase(
             tombstone_id=erasure.tombstone_id,
         )
     )
+    # PRIV-10: nothing cached about the subject outlives the request. Search is a live, authorization-aware query
+    # over operational records (no stored person index), so nothing there to purge; another process's security
+    # state cache is bounded by its R0 TTL, which is the stated propagation window.
+    for hook in _ERASURE_HOOKS.values():
+        hook(tenant_id, subject)
+    items.append(_item("caches", "DONE", propagation_window_seconds=30))
     window = max(backup_days) if backup_days else None
     items.append(
         _item(
@@ -1243,7 +1384,10 @@ async def fulfil_request(
             conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items
         )
     else:  # RECTIFICATION, COMPLAINT: privacy operations decide
-        items = [_item("review", "PENDING", route="privacy-ops")]
+        if rtype is RightsType.RECTIFICATION:
+            items = await _rectification_items(conn, tenant_id, r)
+        else:
+            items = [_item("review", "PENDING", route="privacy-ops")]
         return await store.update_request(
             conn, r, status=RightsStatus.REVIEW.value, fulfilment_items=items
         )
@@ -1306,7 +1450,12 @@ async def _after_fulfil(
             tenant_id,
             "privacy.deletion.completed",
             ("rights_request", str(r.request_id)),
-            {"request_id": str(r.request_id), "status": status.value},
+            {
+                "request_id": str(r.request_id),
+                "status": status.value,
+                # the pseudonymous handle, so a durable event journal can replay this erasure after a restore
+                "subject_ref": await subject_ref(tenant_id, str(r.subject_principal_id)),
+            },
             actor=actor,
             version=int(r.version) + 1,
             evidence_class=EvidenceClass.E3,
@@ -1413,10 +1562,62 @@ async def read_package(
     return await read_object(conn, tenant_id, str(r.response_package_ref))
 
 
+async def consent_options(
+    conn: AsyncConnection, subject_principal_id: str, *, now: datetime | None = None
+) -> list[dict[str, Any]]:
+    """What this person can be asked to consent to, with the exact notice to cite (PRIV-26).
+
+    Only an ACTIVE consent-based activity that has a published, active notice naming it appears: consent cannot be
+    captured without the notice the person was shown. `consented` says whether an active consent already exists."""
+    now = now or _now()
+    notices = await registry.notices(conn)
+    purposes = {p.purpose_code: p for p in await store.list_purposes(conn, status="ACTIVE")}
+    out: list[dict[str, Any]] = []
+    for activity in await store.list_activities(conn):
+        if activity.status != "ACTIVE" or activity.lawful_basis != LawfulBasis.CONSENT.value:
+            continue
+        notice = next(
+            (
+                n
+                for n in notices
+                if n.status == "ACTIVE"
+                and activity.activity_code in (n.processing_activity_codes or [])
+            ),
+            None,
+        )
+        if notice is None:
+            continue
+        for code in activity.purpose_codes:
+            purpose = purposes.get(code)
+            if purpose is None:
+                continue
+            held = await store.active_consent(conn, subject_principal_id, code, now)
+            out.append(
+                {
+                    "activity_code": activity.activity_code,
+                    "activity_name": activity.name,
+                    "purpose_code": code,
+                    "description": purpose.description,
+                    "data_categories": list(activity.data_categories),
+                    "notice_version": f"{notice.notice_code}@{notice.version}",
+                    "notice_uri": notice.content_uri,
+                    "consented": held is not None,
+                }
+            )
+    return out
+
+
 async def privacy_pass(conn: AsyncConnection, *, now: datetime | None = None) -> dict[str, Any]:
     """Worker: the retention sweep plus open-request deadline consumption (alerts at 50/75/90%)."""
     now = now or _now()
-    counts = await retention_sweep(conn, now)
+    drained = await drain_retention(conn, now)
+    counts = {
+        "disposed": drained.disposed,
+        "held": drained.held,
+        "no_disposer": drained.no_disposer,
+        "batches": drained.batches,
+        "backlog_cleared": int(drained.complete),
+    }
     warnings = {"50": 0, "75": 0, "90": 0, "counsel_pending": 0}
     for r in await store.open_requests(conn):
         if r.deadline_at is None:
@@ -1438,10 +1639,12 @@ __all__ = [
     "assign_role",
     "check_processing",
     "close_request",
+    "consent_options",
     "create_activity",
     "create_purpose",
     "create_retention_policy",
     "discover_subject",
+    "drain_retention",
     "fulfil_request",
     "give_consent",
     "lift_restriction",

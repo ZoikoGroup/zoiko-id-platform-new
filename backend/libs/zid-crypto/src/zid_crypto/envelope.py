@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
@@ -178,4 +178,51 @@ async def open_envelope(
         zeroize(dek)
 
 
-__all__ = ["ALGORITHM", "ENVELOPE_VERSION", "Aad", "Envelope", "open_envelope", "seal"]
+async def rewrap_envelope(
+    envelope: Envelope,
+    aad: Aad,
+    provider: KeyProvider,
+    target: KeyRef,
+    *,
+    registry: CryptoPolicyRegistry | None = None,
+) -> Envelope:
+    """KEK rotation (DEC-F5 §7, CRYPTO-001 §8): move the wrapped DEK under `target` without ever
+    touching the data. Nonce and ciphertext are returned unchanged, so no plaintext is decrypted or
+    rewritten; the same AAD context is bound to the new wrapping."""
+    if envelope.version != ENVELOPE_VERSION:
+        raise CryptoError("CRYPTO_ENVELOPE_VERSION_UNSUPPORTED", str(envelope.version))
+    _check_alg(envelope.alg, registry or default_registry())
+    require_purpose(envelope.kek.purpose, *WRAPPING_PURPOSES)
+    require_purpose(target.purpose, *WRAPPING_PURPOSES)
+    dek = await provider.unwrap_data_key(envelope.kek, envelope.wrapped_dek, aad.context())
+    try:
+        wrapped, exact = await provider.wrap_data_key(target, dek, aad.context())
+    finally:
+        zeroize(dek)
+    return replace(envelope, kek=exact, wrapped_dek=wrapped)
+
+
+async def reencrypt_envelope(
+    envelope: Envelope,
+    aad: Aad,
+    provider: KeyProvider,
+    target: KeyRef,
+    *,
+    registry: CryptoPolicyRegistry | None = None,
+) -> Envelope:
+    """DEK compromise (CRYPTO-001 §8.1): decrypt one object and seal it again under a fresh DEK and
+    nonce. Every envelope has its own DEK, so the blast radius of a leaked DEK is this one object."""
+    plaintext = await open_envelope(envelope, aad, provider, registry=registry)
+    return await seal(plaintext, aad, provider, target, registry=registry)
+
+
+__all__ = [
+    "ALGORITHM",
+    "ENVELOPE_VERSION",
+    "Aad",
+    "Envelope",
+    "open_envelope",
+    "reencrypt_envelope",
+    "rewrap_envelope",
+    "seal",
+]

@@ -200,6 +200,39 @@ def _import(jwk: Mapping[str, Any]) -> ECKey | OKPKey:
     raise CryptoError("JWK_UNSUPPORTED", "only EC P-256 and OKP Ed25519 public keys")
 
 
+def verify_signature(jwk: Mapping[str, Any], data: bytes, signature: bytes) -> None:
+    """Verify a raw signature over `data` with a public JWK: ES256 as the 64-byte r||s form, or Ed25519.
+
+    For signatures that are not JWS (for example an RFC 9421 HTTP message signature). Raises SIGNATURE_INVALID."""
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec as _ec
+    from cryptography.hazmat.primitives.asymmetric import ed25519 as _ed
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+
+    _import(jwk)  # refuses private members and unsupported key types
+    try:
+        if jwk["kty"] == "EC":
+            if len(signature) != 64:
+                raise CryptoError("SIGNATURE_INVALID")
+            numbers = _ec.EllipticCurvePublicNumbers(
+                int.from_bytes(b64url_decode(jwk["x"])),
+                int.from_bytes(b64url_decode(jwk["y"])),
+                _ec.SECP256R1(),
+            )
+            numbers.public_key().verify(
+                encode_dss_signature(
+                    int.from_bytes(signature[:32]), int.from_bytes(signature[32:])
+                ),
+                data,
+                _ec.ECDSA(hashes.SHA256()),
+            )
+        else:
+            _ed.Ed25519PublicKey.from_public_bytes(b64url_decode(jwk["x"])).verify(signature, data)
+    except InvalidSignature as e:
+        raise CryptoError("SIGNATURE_INVALID") from e
+
+
 def peek_header(token: str) -> dict[str, Any]:
     try:
         header = json.loads(b64url_decode(token.split(".")[0]))
@@ -336,4 +369,5 @@ __all__ = [
     "sign_jws",
     "verify_external_jws",
     "verify_jws",
+    "verify_signature",
 ]

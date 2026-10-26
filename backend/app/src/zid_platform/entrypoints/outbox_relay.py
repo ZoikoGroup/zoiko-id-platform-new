@@ -17,6 +17,32 @@ from zid_outbox.kafka import KafkaPublisher
 from zid_telemetry import configure_logging, get_logger
 
 log = get_logger("zid.outbox_relay")
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_telemetry.metrics import REGISTRY
+
+LANE_AGE = REGISTRY.gauge(
+    "zid_outbox_oldest_unpublished_seconds",
+    "Age of the oldest unpublished, unquarantined outbox event per lane",
+    ("lane",),
+)
+LANES = ("priority", "domain", "evidence", "integration")
+
+
+async def record_lane_age(conn: AsyncConnection) -> None:
+    """The relay's own backlog view (R3 budget: the priority lane under 2 s)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT lane, extract(epoch FROM now() - min(created_at)) AS age "
+                "FROM events.outbox_event WHERE published_at IS NULL AND quarantined_reason IS NULL "
+                "GROUP BY lane"
+            )
+        )
+    ).all()
+    ages = {r.lane: float(r.age or 0.0) for r in rows}
+    for lane in LANES:
+        LANE_AGE.set(ages.get(lane, 0.0), lane=lane)
 
 
 async def run(
@@ -37,6 +63,7 @@ async def run(
         while max_batches is None or batches < max_batches:
             async with engine.begin() as conn:
                 n = await relay_once(conn, publisher, env=env, region=region)
+                await record_lane_age(conn)
             total += n
             batches += 1
             if n == 0:

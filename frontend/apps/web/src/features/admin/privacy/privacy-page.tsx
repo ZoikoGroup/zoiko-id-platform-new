@@ -2,6 +2,7 @@
 
 import { PageHeader, Tabs } from "@zoiko/ui";
 
+import { AdmSection, NoticesSection, ProcessorsSection } from "./governance";
 import { RegistrySection } from "./registry";
 import { RequestsSection } from "./requests";
 import { RetentionSection } from "./retention";
@@ -19,6 +20,9 @@ export function PrivacyPage() {
           { id: "requests", label: "Rights requests", content: <RequestsSection /> },
           { id: "registry", label: "Purposes & role map", content: <RegistrySection /> },
           { id: "retention", label: "Retention & data map", content: <RetentionSection /> },
+          { id: "processors", label: "Processors", content: <ProcessorsSection /> },
+          { id: "notices", label: "Notices", content: <NoticesSection /> },
+          { id: "adm", label: "Automated decisions", content: <AdmSection /> },
         ]}
       />
     </>

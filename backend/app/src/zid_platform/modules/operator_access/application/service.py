@@ -47,7 +47,11 @@ from zid_platform.modules.operator_access.infrastructure.store import (
     in_tenant,
 )
 from zid_platform.modules.signals.ports import security_view
-from zid_platform.modules.tenant.ports import effective_operator_jurisdictions
+from zid_platform.modules.tenant.ports import (
+    ResidencyError,
+    authorize_remote_access,
+    effective_operator_jurisdictions,
+)
 
 OPERATOR_RISK_CLASS = 3  # operator-plane actions never act on a cached security state
 
@@ -326,6 +330,15 @@ async def request_access(
     policy = await _target_policy(conn, inp.target_tenant_id)
     if policy is not None:
         check_jurisdiction(profile.jurisdiction, policy.allowed_operator_jurisdictions)
+    if cap.customer_data and inp.target_tenant_id:
+        # PRIV-25: reading a company's data from outside its region is a transfer; it needs an approved rule
+        try:
+            async with in_tenant(conn, inp.target_tenant_id):
+                await authorize_remote_access(
+                    conn, inp.target_tenant_id, profile.jurisdiction, actor=op.principal_id
+                )
+        except ResidencyError as e:
+            raise OperatorAccessError(e.code, e.detail or e.code) from e
     lockbox_required = bool(cap.customer_data and policy is not None and policy.lockbox_required)
     grant_id = str(uuid7())
     lockbox_id = str(uuid7()) if lockbox_required else None

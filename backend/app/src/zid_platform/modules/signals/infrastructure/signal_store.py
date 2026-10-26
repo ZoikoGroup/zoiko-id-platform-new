@@ -365,11 +365,14 @@ async def enqueue_set(
     set_jwt: str,
     committed_at: datetime | None = None,
     risk_floor: int = 1,
+    repair_of: str | None = None,
+    repaired_at: datetime | None = None,
 ) -> None:
     await conn.execute(
         text(
             "INSERT INTO signals.ssf_outbound_set (stream_id, jti, tenant_id, set_jwt, "
-            "event_committed_at, risk_floor) VALUES (:s, :j, :t, :jwt, :c, :r) ON CONFLICT DO NOTHING"
+            "event_committed_at, risk_floor, repair_of, repaired_at) VALUES (:s, :j, :t, :jwt, :c, :r, :o, :ra) "
+            "ON CONFLICT DO NOTHING"
         ),
         {
             "s": uuid.UUID(stream_id),
@@ -378,7 +381,37 @@ async def enqueue_set(
             "jwt": set_jwt,
             "c": committed_at,
             "r": risk_floor,
+            "o": repair_of,
+            "ra": repaired_at,
         },
+    )
+
+
+async def stalled_sets(
+    conn: AsyncConnection, stream_id: str, now: datetime
+) -> list[dict[str, Any]]:
+    """Unacknowledged SETs whose commit -> now age is past their risk class's propagation SLO."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT jti, set_jwt, event_committed_at, risk_floor FROM signals.ssf_outbound_set "
+                "WHERE stream_id = :s AND acked_at IS NULL AND superseded_at IS NULL "
+                "AND extract(epoch FROM CAST(:now AS timestamptz) - coalesce(repaired_at, event_committed_at, created_at)) "
+                "* 1000 > CASE risk_floor WHEN 3 THEN 5000 WHEN 2 THEN 10000 WHEN 1 THEN 60000 "
+                "ELSE 900000 END ORDER BY created_at"
+            ),
+            {"s": uuid.UUID(stream_id), "now": now},
+        )
+    ).all()
+    return [dict(r._mapping) for r in rows]
+
+
+async def supersede_set(conn: AsyncConnection, stream_id: str, jti: str, now: datetime) -> None:
+    await conn.execute(
+        text(
+            "UPDATE signals.ssf_outbound_set SET superseded_at = :now WHERE stream_id = :s AND jti = :j"
+        ),
+        {"s": uuid.UUID(stream_id), "j": jti, "now": now},
     )
 
 
@@ -393,16 +426,21 @@ async def propagation(conn: AsyncConnection, stream_id: str, now: datetime) -> d
         await conn.execute(
             text(
                 "SELECT count(*) FILTER (WHERE acked_at IS NOT NULL) AS acked, "
-                "count(*) FILTER (WHERE acked_at IS NULL) AS pending, "
+                "count(*) FILTER (WHERE acked_at IS NULL AND superseded_at IS NULL) AS pending, "
                 f"percentile_cont(0.5) WITHIN GROUP (ORDER BY {_LAG}) AS p50, "
                 f"percentile_cont(0.99) WITHIN GROUP (ORDER BY {_LAG}) AS p99, "
                 f"max({_LAG}) AS max_ms, "
                 "max(extract(epoch FROM CAST(:now AS timestamptz) - "
                 "coalesce(event_committed_at, created_at)) * 1000) "
-                "FILTER (WHERE acked_at IS NULL) AS oldest_pending_ms, "
+                "FILTER (WHERE acked_at IS NULL AND superseded_at IS NULL) AS oldest_pending_ms, "
                 f"count(*) FILTER (WHERE acked_at IS NOT NULL AND {_LAG} > CASE risk_floor "
                 "WHEN 3 THEN 5000 WHEN 2 THEN 10000 WHEN 1 THEN 60000 ELSE 900000 END) "
-                "AS slo_breaches FROM signals.ssf_outbound_set WHERE stream_id = :s"
+                "AS slo_breaches, "
+                "count(*) FILTER (WHERE acked_at IS NULL AND superseded_at IS NULL AND risk_floor >= 2 "
+                "AND extract(epoch FROM CAST(:now AS timestamptz) - "
+                "coalesce(repaired_at, event_committed_at, created_at)) * 1000 > CASE risk_floor "
+                "WHEN 3 THEN 5000 ELSE 10000 END) AS overdue_restricting "
+                "FROM signals.ssf_outbound_set WHERE stream_id = :s"
             ),
             {"s": uuid.UUID(stream_id), "now": now},
         )
@@ -420,6 +458,10 @@ async def propagation(conn: AsyncConnection, stream_id: str, now: datetime) -> d
         "max_ms": ms("max_ms"),
         "oldest_pending_ms": ms("oldest_pending_ms"),
         "slo_breaches": int(m.get("slo_breaches") or 0),
+        # SIG-22: an R2/R3 revocation the remote has not acknowledged inside its target. The remote must treat
+        # the affected subjects as restricted, which is to fail closed, until it acknowledges; Zoiko reports it and never hides it.
+        "overdue_restricting": int(m.get("overdue_restricting") or 0),
+        "remote_fail_closed": int(m.get("overdue_restricting") or 0) > 0,
         "slo_ms_by_risk": PROPAGATION_SLO_MS,
     }
 
@@ -440,7 +482,7 @@ async def poll(
         await conn.execute(
             text(
                 "SELECT jti, set_jwt FROM signals.ssf_outbound_set WHERE stream_id = :s "
-                "AND acked_at IS NULL ORDER BY created_at LIMIT :n"
+                "AND acked_at IS NULL AND superseded_at IS NULL ORDER BY created_at LIMIT :n"
             ),
             {"s": uuid.UUID(stream_id), "n": max_events},
         )

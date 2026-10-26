@@ -181,3 +181,53 @@ def test_decisions_are_deterministic() -> None:
     """AUTHZ §4.1: same release and same fact revisions -> same decision (E3 replay)."""
     assert run() == run()
     assert run().inputs["context"] == run().inputs["context"]
+
+
+def test_a_third_party_agent_identity_alone_never_represents_zoiko_authority() -> None:
+    """MACH-19: an authenticated external agent that holds no authority chain and no mandate is denied, whatever
+    else is true of it (strong fresh authentication, a permitting policy, a current relationship)."""
+    external = PrincipalFact("ext_1", "EXTERNAL_PRINCIPAL", True, "NORMAL", 1)
+    no_authority = AuthorityFact(False, ("AUTHORITY_SCOPE_EXCEEDED",), "", None)
+    for risk_action in (APPROVE, PAY):
+        d = run(req(risk_action), principal=external, authority=no_authority, mandate=None)
+        assert d.outcome is Outcome.DENY and "AUTHORITY_SCOPE_EXCEEDED" in d.reason_codes
+        assert d.authority_chain_commitment == "" and d.mandate_id is None
+        # a mandate it was never issued does not change that, and neither does a permitting policy
+        forged = replace(MANDATE, mandate_id="m_not_issued_to_it", active=False)
+        assert (
+            run(
+                req(risk_action), principal=external, authority=no_authority, mandate=forged
+            ).outcome
+            is Outcome.DENY
+        )
+
+
+def test_authentication_strength_and_identity_assurance_never_stand_in_for_each_other() -> None:
+    """VERIFY-03: the two are separate inputs. The strongest identity proofing does not excuse a weak sign-in,
+    and the strongest sign-in does not make a weakly proofed identity reusable."""
+    import inspect
+
+    from zid_platform.modules.verification.domain.verification import HeldAssertion, reliance
+
+    assert not [
+        p for p in inspect.signature(reliance).parameters if p in {"authn", "aal", "auth_level"}
+    ]
+    assert not [p for p in inspect.signature(decide).parameters if "ial" in p or "proof" in p]
+
+    def rely(level: str, required: str) -> str:
+        held = [HeldAssertion("a1", "legal_name", level, "VALID", None, None, frozenset({"kyc"}))]
+        return reliance(
+            held,
+            required_level=required,
+            claims=["legal_name"],
+            purpose="kyc",
+            jurisdiction=None,
+            now=NOW,
+        )[0]
+
+    assert rely("IAL-Z3", "IAL-Z3") == "REUSE_ALLOWED"  # a strongly proofed identity...
+    assert (
+        run(authn=AuthnFact(1, NOW)).outcome is Outcome.STEP_UP
+    )  # ...still has to sign in strongly
+    assert run(authn=AuthnFact(3, NOW)).outcome is Outcome.ALLOW  # a strong sign-in is allowed
+    assert rely("IAL-Z1", "IAL-Z2") == "REVERIFY_REQUIRED"  # ...and does not raise a weak proofing

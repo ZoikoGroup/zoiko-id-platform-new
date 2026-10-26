@@ -60,10 +60,17 @@ async def make_admin(
     admin: str | list[str],
     actions: list[str],
     resources: list[str],
+    *,
+    now: datetime | None = None,
+    release: bool = True,
+    delegable: bool = False,
 ) -> str:
-    """Returns the (first) grant id. Each admin must already exist as an ACTIVE principal."""
+    """Returns the (first) grant id. Each admin must already exist as an ACTIVE principal.
+
+    `now` shifts the grants' issue time (tests of ordering); `release=False` skips the policy release when one is
+    already active for the tenant."""
     admins = [admin] if isinstance(admin, str) else admin
-    now = datetime.now(UTC)
+    now = now or datetime.now(UTC)
     org, root, holder = uid(), uid(), uid()
     await create_organization(
         c,
@@ -92,8 +99,11 @@ async def make_admin(
     )
     grant_ids = [uid() for _ in admins]
     for grant_id, grantee in zip(grant_ids, admins, strict=True):
-        await _grant(c, tenant, grant_id, holder, grantee, org, root, actions, resources, now)
-    await _release(c, tenant, actions, now)
+        await _grant(
+            c, tenant, grant_id, holder, grantee, org, root, actions, resources, now, delegable
+        )
+    if release:
+        await _release(c, tenant, actions, now)
     return grant_ids[0]
 
 
@@ -108,6 +118,7 @@ async def _grant(
     actions: list[str],
     resources: list[str],
     now: datetime,
+    delegable: bool = False,
 ) -> None:
     await issue_grant(
         c,
@@ -127,6 +138,8 @@ async def _grant(
             GrantStatus.ACTIVE,
             now - timedelta(hours=1),
             root_id=root,
+            delegation_allowed=delegable,
+            max_delegation_depth=1 if delegable else 0,
         ),
         risk_level=3,
         now=now,

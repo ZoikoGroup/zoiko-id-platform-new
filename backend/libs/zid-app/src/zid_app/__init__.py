@@ -37,9 +37,26 @@ from zid_telemetry.metrics import REGISTRY, Counter, Histogram, Registry
 from zid_telemetry.slo import WindowedSli
 from zid_telemetry.tracing import reset_trace, set_trace, start_trace
 
+from .resilience import (
+    DEADLINE_HEADER,
+    DeadlineExceeded,
+    reset_deadline,
+    set_deadline_from_header,
+)
+
 __all__ = ["Journey", "ServiceSettings", "ServiceSpec", "create_service_app", "envelope"]
 
 _log = get_logger("zid.request")
+
+# ZID-SEC-001 §15 "Headers": HSTS and modern security headers on every response. Set with
+# `setdefault`, so a route that needs a different value (a cache header, say) keeps its own.
+SECURITY_HEADERS: dict[str, str] = {
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
 
 
 class ServiceSettings(BaseSettings):
@@ -112,6 +129,16 @@ class JourneySlis:
         self.events.inc(journey=journey.name, sli="latency", outcome="good" if fast else "bad")
 
 
+def _rls_refusal(exc: BaseException) -> bool:
+    """PostgreSQL's row-level-security refusal, anywhere in the exception chain."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        if "row-level security policy" in str(seen):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
 def _instruments(registry: Registry) -> tuple[Counter, Histogram]:
     requests = registry.counter(
         "zid_http_requests_total",
@@ -141,6 +168,24 @@ def envelope(data: object) -> dict[str, object]:
     ).model_dump()
 
 
+# RFC 8470: a TLS terminator that accepts 0-RTT early data marks such requests `Early-Data: 1`.
+# Early data can be replayed by an attacker, so only plain reads of non-sensitive resources may run
+# under it (ZID-CRYPTO-001 §11: 0-RTT disabled for state-changing, authorization, key-management
+# and recovery endpoints). Everything else gets 425 Too Early and the client retries after the
+# handshake completes.
+EARLY_DATA_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+EARLY_DATA_SENSITIVE_PREFIXES = ("/authn", "/admin", "/oauth", "/token", "/authorize", "/keys")
+
+
+def early_data_refused(method: str, path: str, early_data_header: str | None) -> bool:
+    """True when a request that arrived as TLS 1.3 early data must not be executed."""
+    if (early_data_header or "").strip() != "1":
+        return False
+    if method.upper() not in EARLY_DATA_SAFE_METHODS:
+        return True
+    return path.startswith(EARLY_DATA_SENSITIVE_PREFIXES)
+
+
 def _error_response(
     status: int, body: ErrorBody, headers: dict[str, str] | None = None
 ) -> JSONResponse:
@@ -160,6 +205,10 @@ def create_service_app(
 ) -> FastAPI:
     configure_logging(spec.name, settings.cell_id, settings.log_level)
     requests_total, request_duration = _instruments(REGISTRY)
+    isolation_violations = REGISTRY.counter(
+        "zid_tenant_isolation_violations_total",
+        "Statements refused by a tenant row-level-security policy (a cross-tenant attempt)",
+    )
     slis = JourneySlis(spec.journeys)
 
     @asynccontextmanager
@@ -180,6 +229,32 @@ def create_service_app(
     app.state.started = False
     app.state.journey_slis = slis
     app.state.service_spec = spec
+
+    # ---------------- middleware: no replayable 0-RTT for sensitive requests ----------------
+    @app.middleware("http")
+    async def early_data_guard(
+        request: Request, call_next: Callable[[Request], Awaitable[object]]
+    ) -> object:
+        if early_data_refused(request.method, request.url.path, request.headers.get("early-data")):
+            return _error_response(
+                425,
+                ErrorBody(
+                    code="HTTP_425",
+                    message="Too Early: repeat this request after the TLS handshake completes.",
+                ),
+            )
+        return await call_next(request)
+
+    # ---------------- middleware: the caller's deadline becomes this request's budget (SVC-17) ----------------
+    @app.middleware("http")
+    async def deadline_budget(
+        request: Request, call_next: Callable[[Request], Awaitable[object]]
+    ) -> object:
+        token = set_deadline_from_header(request.headers.get(DEADLINE_HEADER))
+        try:
+            return await call_next(request)
+        finally:
+            reset_deadline(token)
 
     # ---------------- middleware: request context + request log ----------------
     @app.middleware("http")
@@ -207,6 +282,8 @@ def create_service_app(
             response.headers["X-Request-Id"] = request_id  # type: ignore[attr-defined]
             response.headers["X-Correlation-Id"] = correlation_id  # type: ignore[attr-defined]
             response.headers["traceparent"] = trace.traceparent()  # type: ignore[attr-defined]
+            for name, value in SECURITY_HEADERS.items():  # SEC-001 §15; a route may override
+                response.headers.setdefault(name, value)  # type: ignore[attr-defined]
             elapsed = time.perf_counter() - started
             status = int(response.status_code)  # type: ignore[attr-defined]
             journey = spec.journey(request.url.path)
@@ -239,6 +316,16 @@ def create_service_app(
             headers["Retry-After"] = str(max(1, (exc.retry_after_ms or 0) // 1000))
         return _error_response(exc.http_status, exc.body(), headers or None)
 
+    @app.exception_handler(DeadlineExceeded)
+    async def deadline_exceeded(_: Request, exc: DeadlineExceeded) -> JSONResponse:
+        return _error_response(
+            504,
+            ErrorBody(
+                code="DEADLINE_EXCEEDED",
+                message="The caller's time budget ran out before this request could finish.",
+            ),
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         details = [
@@ -261,6 +348,8 @@ def create_service_app(
 
     @app.exception_handler(Exception)
     async def unhandled(_: Request, exc: Exception) -> JSONResponse:
+        if _rls_refusal(exc):
+            isolation_violations.inc()  # SEV0 invariant: a write crossed the tenant boundary
         get_logger("zid.error").error("unhandled error", exc_info=exc, extra={"outcome": "error"})
         return _error_response(
             500, ErrorBody(code=INTERNAL_ERROR, message="An internal error occurred.")
@@ -299,16 +388,20 @@ def create_service_app(
 
     @app.get("/", tags=["health"], summary="Service identity")
     async def info() -> dict[str, object]:
-        return envelope(
-            {
-                "service": spec.name,
-                "plane": spec.plane,
-                "version": settings.service_version,
+        identity: dict[str, object] = {
+            "service": spec.name,
+            "plane": spec.plane,
+            "version": settings.service_version,
+        }
+        if settings.environment in ("local", "test"):
+            # Anywhere else this unauthenticated banner stays minimal: the module list, schema names, cell
+            # and environment are reconnaissance for an attacker and no use to a caller.
+            identity |= {
                 "environment": settings.environment,
                 "cell_id": settings.cell_id,
                 "modules": list(spec.modules),
                 "owned_schemas": list(spec.required_schemas),
             }
-        )
+        return envelope(identity)
 
     return app

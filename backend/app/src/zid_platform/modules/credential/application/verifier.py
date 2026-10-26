@@ -30,6 +30,7 @@ from joserfc import jwe
 from joserfc.errors import JoseError
 from joserfc.jwk import ECKey
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from zid_app.resilience import budget_timeout
 from zid_context import RequestContext
 from zid_crypto import (
     CryptoError,
@@ -42,14 +43,19 @@ from zid_crypto import (
 from zid_db import tenant_transaction
 from zid_outbox import emit
 
+from zid_platform import egress
+from zid_platform.modules.commercial.ports import key_vc_presented, record_billable
 from zid_platform.modules.credential.domain import vcdm
 from zid_platform.modules.credential.domain.credentials import (
     KB_TYP,
+    MDOC_ADAPTER,
+    SD_JWT_ADAPTER,
     SD_JWT_TYPS,
     STATUS_LIST_TYP,
     Configuration,
     CredentialError,
     b64d,
+    build_basis,
     disclose,
     minimize,
     require_role,
@@ -59,7 +65,9 @@ from zid_platform.modules.credential.domain.credentials import (
     status_at_raw,
     status_decision,
     trust_decision,
+    trust_entry,
 )
+from zid_platform.modules.credential.domain.reliance import RELIANCE
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.modules.credential.infrastructure.mdoc import (
     STATUS_LIST_CWT_TYP,
@@ -76,6 +84,20 @@ REQUEST_TTL = timedelta(minutes=10)
 KB_MAX_AGE = timedelta(minutes=5)
 SKEW = timedelta(seconds=60)
 REQUEST_TYP = "oauth-authz-req+jwt"
+
+
+PINNED_ADAPTERS = {
+    "SD_JWT_VC": SD_JWT_ADAPTER,
+    "MDOC": MDOC_ADAPTER,
+    "VC_JWT": vcdm.VCDM_ADAPTER,
+}
+
+
+def require_pinned_adapter(config: Configuration) -> None:
+    """VC §29: a configuration written for another draft is rejected, never parsed with whatever
+    this build understands (the SD-JWT VC, status list and mdoc drafts are pinned)."""
+    if PINNED_ADAPTERS.get(config.format) != config.adapter_version:
+        raise CredentialError("PROFILE_VERSION_MISMATCH", config.adapter_version)
 
 
 RESPONSE_ENC_VALUES = ("A128GCM", "A256GCM")
@@ -161,6 +183,7 @@ async def create(
     config = await store.load_configuration(conn, configuration_id)
     if config.status != "ACTIVE":
         raise CredentialError("CONFIGURATION_NOT_ACTIVE")
+    require_pinned_adapter(config)
     allowed = await store.registration(conn, client_id, purpose, now)
     if allowed is None:
         raise CredentialError("RP_NOT_REGISTERED_FOR_PURPOSE")
@@ -266,13 +289,28 @@ class Verified:
     claims: dict[str, Any]
     credential_status: str
     holder_bound: bool
+    basis: dict[str, Any]  # what the decision rested on (VC §28); no credential or claim values
+
+
+def live_keys(jwks: Mapping[str, Any], now: datetime) -> dict[str, Any]:
+    """Bounded rollover overlap (VC §25): a pinned key may carry `not_after` (epoch seconds); once
+    it has passed, the key no longer verifies anything, whether or not an administrator removed it."""
+    keep = []
+    for key in jwks.get("keys", []):
+        cutoff = key.get("not_after")
+        if cutoff is not None and (
+            not isinstance(cutoff, int | float) or now.timestamp() >= cutoff
+        ):
+            continue
+        keep.append({k: v for k, v in key.items() if k != "not_after"})
+    return {"keys": keep}
 
 
 async def _issuer_keys(
     conn: AsyncConnection, settings: VerifierSettings, row: dict[str, Any], now: datetime
 ) -> dict[str, Any]:
     if row["trust_source"] == "PINNED":
-        return dict(row["jwks"] or {"keys": []})
+        return live_keys(dict(row["jwks"] or {"keys": []}), now)
     anchor = await trust_anchor(conn, str(row["trust_anchor_id"]))
     if anchor is None:
         raise CredentialError("ISSUER_UNTRUSTED", "anchor missing")
@@ -303,20 +341,32 @@ async def _status(
     if not uri.startswith("https://") or urlsplit(uri).hostname != issuer_host:
         return "UNKNOWN"  # status only from the issuer's own domain
     try:
-        async with httpx.AsyncClient(
-            transport=settings.transport, timeout=5.0, follow_redirects=False
-        ) as c:
-            r = await c.get(uri, headers={"Accept": "application/statuslist+jwt"})
-        if r.status_code != 200 or len(r.content) > 256 * 1024:
+        await egress.guard(uri, resolve=settings.transport is None)  # SEC-19
+    except egress.EgressError:
+        return "UNKNOWN"
+    cached = RELIANCE.get(uri, now)
+    if cached is not None:
+        claims = cached
+    else:
+        try:
+            async with httpx.AsyncClient(
+                transport=settings.transport, timeout=budget_timeout(5.0), follow_redirects=False
+            ) as c:
+                r = await c.get(uri, headers={"Accept": "application/statuslist+jwt"})
+            if r.status_code != 200 or len(r.content) > 256 * 1024:
+                return "UNKNOWN"
+            _, claims = verify_external_jws(
+                r.text.strip(),
+                keys=keys.get("keys", []),
+                algorithms=algorithms,
+                typ=STATUS_LIST_TYP,
+            )
+        except (httpx.HTTPError, CryptoError):
             return "UNKNOWN"
-        _, claims = verify_external_jws(
-            r.text.strip(), keys=keys.get("keys", []), algorithms=algorithms, typ=STATUS_LIST_TYP
-        )
-    except (httpx.HTTPError, CryptoError):
-        return "UNKNOWN"
-    exp = claims.get("exp")
-    if claims.get("sub") != uri or (isinstance(exp, int | float) and now.timestamp() >= exp):
-        return "UNKNOWN"
+        exp = claims.get("exp")
+        if claims.get("sub") != uri or (isinstance(exp, int | float) and now.timestamp() >= exp):
+            return "UNKNOWN"
+        RELIANCE.put(uri, claims, now, claims.get("ttl"))
     sl = claims.get("status_list") or {}
     try:
         return status_at(str(sl.get("lst", "")), int(sl.get("bits", 0)), idx)
@@ -332,6 +382,7 @@ async def _sd_jwt(
     *,
     nonce: str,
     requested: list[str],
+    jurisdiction: str,
     now: datetime,
 ) -> Verified:
     parts = split_presentation(presentation)
@@ -347,7 +398,7 @@ async def _sd_jwt(
     trust_decision(
         found[0] if found else None,
         credential_type=config.credential_type,
-        jurisdiction=None,
+        jurisdiction=jurisdiction,
         now=now,
     )
     assert found is not None
@@ -401,7 +452,15 @@ async def _sd_jwt(
     missing = [c for c in requested if c in config.required_claims and c not in claims]
     if missing:
         raise CredentialError("CLAIMS_MISSING", ",".join(missing))
-    return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound)
+    basis = build_basis(
+        config,
+        [trust_entry(row)],
+        credential_status=status,
+        holder_bound=bound,
+        jurisdiction=jurisdiction,
+        decided_at=now,
+    )
+    return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound, basis)
 
 
 def _jwt_payload(token: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -423,6 +482,7 @@ async def _vc_jwt(
     *,
     nonce: str,
     requested: list[str],
+    jurisdiction: str,
     now: datetime,
 ) -> Verified:
     """W3C VCDM 2.0: holder-signed vp+jwt enveloping one issuer-signed vc+jwt."""
@@ -438,7 +498,7 @@ async def _vc_jwt(
     trust_decision(
         found[0] if found else None,
         credential_type=config.credential_type,
-        jurisdiction=None,
+        jurisdiction=jurisdiction,
         now=now,
     )
     assert found is not None
@@ -484,7 +544,15 @@ async def _vc_jwt(
     missing = [c for c in requested if c in config.required_claims and c not in claims]
     if missing:
         raise CredentialError("CLAIMS_MISSING", ",".join(missing))
-    return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound)
+    basis = build_basis(
+        config,
+        [trust_entry(row)],
+        credential_status=status,
+        holder_bound=bound,
+        jurisdiction=jurisdiction,
+        decided_at=now,
+    )
+    return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound, basis)
 
 
 async def _bitstring_status(
@@ -505,13 +573,17 @@ async def _bitstring_status(
     issuer_host = urlsplit(issuer).hostname
     result = "VALID"
     async with httpx.AsyncClient(
-        transport=settings.transport, timeout=5.0, follow_redirects=False
+        transport=settings.transport, timeout=budget_timeout(5.0), follow_redirects=False
     ) as c:
         for e in entries:
             if not e.list_credential.startswith("https://") or (
                 urlsplit(e.list_credential).hostname != issuer_host
             ):
                 return "UNKNOWN"  # status only from the issuer's own domain
+            try:
+                await egress.guard(e.list_credential, resolve=settings.transport is None)
+            except egress.EgressError:
+                return "UNKNOWN"
             try:
                 r = await c.get(e.list_credential, headers={"Accept": "application/vc+jwt"})
                 if r.status_code != 200 or len(r.content) > 256 * 1024:
@@ -543,9 +615,14 @@ async def _mdoc(
     tenant_id: str,
     nonce: str,
     requested: list[str],
+    jurisdiction: str,
     now: datetime,
 ) -> Verified:
-    rows = await store.trust_for_type(conn, config.credential_type)
+    rows = [
+        r
+        for r in await store.trust_for_type(conn, config.credential_type)
+        if not r["jurisdictions"] or jurisdiction in r["jurisdictions"]  # typed trust (§4.1)
+    ]
     roots = [pem for r in rows if r["valid_to"] > now for pem in (r["iaca_certificates"] or [])]
     if not roots:
         raise CredentialError("ISSUER_UNTRUSTED", "no IACA trusted for this document type")
@@ -570,7 +647,17 @@ async def _mdoc(
     missing = [c for c in requested if c in config.required_claims and c not in claims]
     if missing:
         raise CredentialError("CLAIMS_MISSING", ",".join(missing))
-    return Verified(rows[0]["issuer_identifier"], claims, status, config.holder_binding_required)
+    basis = build_basis(
+        config,
+        [trust_entry(r) for r in rows],
+        credential_status=status,
+        holder_bound=config.holder_binding_required,
+        jurisdiction=jurisdiction,
+        decided_at=now,
+    )
+    return Verified(
+        rows[0]["issuer_identifier"], claims, status, config.holder_binding_required, basis
+    )
 
 
 async def _mdoc_status(
@@ -581,11 +668,13 @@ async def _mdoc_status(
     if ref is None:
         return "UNKNOWN"
     idx, uri = ref
-    if not uri.startswith("https://"):
+    try:
+        await egress.guard(uri, resolve=settings.transport is None)  # SEC-19: wallet-supplied URL
+    except egress.EgressError:
         return "UNKNOWN"
     try:
         async with httpx.AsyncClient(
-            transport=settings.transport, timeout=5.0, follow_redirects=False
+            transport=settings.transport, timeout=budget_timeout(5.0), follow_redirects=False
         ) as c:
             r = await c.get(uri, headers={"Accept": STATUS_LIST_CWT_TYP})
         if r.status_code != 200 or len(r.content) > 256 * 1024:
@@ -667,6 +756,7 @@ async def respond(
         config = await store.load_configuration(conn, str(p["configuration_id"]))
     requested = list(p["requested_claims"])
     try:
+        require_pinned_adapter(config)
         if "error" in form:
             raise CredentialError("WALLET_ERROR", form["error"][:64])
         vp = json.loads(form.get("vp_token", "null"))
@@ -676,11 +766,25 @@ async def respond(
         async with tenant_transaction(engine, ctx) as conn:
             if config.format == "SD_JWT_VC":
                 verified = await _sd_jwt(
-                    conn, settings, config, items[0], nonce=p["nonce"], requested=requested, now=now
+                    conn,
+                    settings,
+                    config,
+                    items[0],
+                    nonce=p["nonce"],
+                    requested=requested,
+                    jurisdiction=str(p["jurisdiction"]),
+                    now=now,
                 )
             elif config.format == "VC_JWT":
                 verified = await _vc_jwt(
-                    conn, settings, config, items[0], nonce=p["nonce"], requested=requested, now=now
+                    conn,
+                    settings,
+                    config,
+                    items[0],
+                    nonce=p["nonce"],
+                    requested=requested,
+                    jurisdiction=str(p["jurisdiction"]),
+                    now=now,
                 )
             else:
                 verified = await _mdoc(
@@ -691,6 +795,7 @@ async def respond(
                     tenant_id=tenant_id,
                     nonce=p["nonce"],
                     requested=requested,
+                    jurisdiction=str(p["jurisdiction"]),
                     now=now,
                 )
     except (CredentialError, ValueError) as e:
@@ -706,6 +811,13 @@ async def respond(
                 commitments=None,
                 disclosed=None,
                 now=now,
+            )
+            await record_billable(
+                conn,
+                tenant_id=tenant_id,
+                meter="VC_PRESENTED",
+                key=key_vc_presented(str(p["presentation_id"])),
+                at=now,
             )
             await emit(
                 conn,
@@ -747,6 +859,14 @@ async def respond(
             commitments=commitments,
             disclosed=verified.claims,
             now=now,
+            basis=verified.basis,
+        )
+        await record_billable(
+            conn,
+            tenant_id=tenant_id,
+            meter="VC_PRESENTED",
+            key=key_vc_presented(str(p["presentation_id"])),
+            at=now,
         )
         await emit(
             conn,

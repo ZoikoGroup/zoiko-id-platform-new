@@ -16,4 +16,17 @@ async def set_source_status(conn: AsyncConnection, source_id: str, status: str) 
     return await _set(conn, source_id, status) is not None
 
 
-__all__ = ["set_source_status"]
+async def count_active_sources(conn: AsyncConnection) -> int:
+    """Active SCIM sources of this tenant (RLS scopes it), for plan-limit checks (CR-024)."""
+    from sqlalchemy import text
+
+    return int(
+        (
+            await conn.execute(
+                text("SELECT count(*) FROM platform.provisioning_source WHERE status = 'ACTIVE'")
+            )
+        ).scalar_one()
+    )
+
+
+__all__ = ["count_active_sources", "set_source_status"]

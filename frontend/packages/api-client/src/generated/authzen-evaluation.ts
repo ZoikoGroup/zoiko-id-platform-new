@@ -42,6 +42,8 @@ export interface components {
          * @description Zoiko extensions: optional and namespaced by meaning; unknown keys are ignored (API §4).
          */
         EvaluationContext: {
+            /** Incumbent Decision */
+            incumbent_decision?: ("ALLOW" | "DENY") | null;
             /** Mandate Id */
             mandate_id?: string | null;
             /** Purpose */

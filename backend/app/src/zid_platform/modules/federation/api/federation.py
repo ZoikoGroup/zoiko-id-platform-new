@@ -32,8 +32,10 @@ from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
+from zid_platform import egress
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
 from zid_platform.modules.authentication.ports import AAL, effective_level
+from zid_platform.modules.commercial.ports import require_entitlement
 from zid_platform.modules.federation.application.oidc_login import (
     FederationSettings,
     LoggedIn,
@@ -50,6 +52,7 @@ from zid_platform.modules.federation.application.saml_login import (
 from zid_platform.modules.federation.application.trust_chain import entity_configuration
 from zid_platform.modules.federation.domain.connection import Connection, FederationError
 from zid_platform.modules.federation.infrastructure import connection_store as store
+from zid_platform.modules.federation.ports import count_active_connections
 from zid_platform.modules.session.ports import (
     SessionStatus,
     client_tenant,
@@ -484,6 +487,17 @@ def _validity(expires: datetime) -> None:
         raise http_error("VALIDATION_FAILED", "metadata validity must be in the future and bounded")
 
 
+def _endpoints_safe(*urls: str | None) -> None:
+    """SEC-19: a provider URL the platform will call must be a public https DNS name."""
+    for url in urls:
+        if url is None:
+            continue
+        try:
+            egress.check_url(url)
+        except egress.EgressError as e:
+            raise http_error("VALIDATION_FAILED", f"provider endpoint refused: {e.detail}") from e
+
+
 @router.get("/federation/integrations")
 async def list_integrations(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as c:
@@ -496,6 +510,7 @@ async def create_integration(
     body: IntegrationIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _validity(body.metadata_expires_at)
+    _endpoints_safe(body.authorization_endpoint, body.token_endpoint)
     if body.allow_idp_initiated:
         raise http_error(
             "VALIDATION_FAILED", "IdP-initiated SAML is enabled only by a separate R3 change"
@@ -537,6 +552,13 @@ async def create_integration(
             resource=f"federation_connection:{cid}",
             change=f"create:{body.issuer}",
             approval_request_id=body.approval_request_id,
+        )
+        # A paid extra: an enterprise SSO connection beyond the plan (CR-024). Never on a login path.
+        await require_entitlement(
+            conn,
+            "saml_sso",
+            used=await count_active_connections(conn),
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
         try:
             async with conn.begin_nested():

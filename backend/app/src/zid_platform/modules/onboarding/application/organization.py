@@ -17,7 +17,7 @@ Any gate failure leaves the tenant in ORGANIZATION_VERIFYING with the failing re
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -32,6 +32,7 @@ from zid_platform.modules.authority.ports import (
     GrantType,
     Window,
     issue_grant,
+    load_grants_for_grantee,
 )
 from zid_platform.modules.onboarding.domain.gates import (
     TENANT_ADMIN_ACTIONS,
@@ -148,6 +149,73 @@ async def submit_organization(
     )
 
 
+def _earlier(a: datetime, b: datetime | None) -> datetime:
+    return a if b is None else min(a, b)
+
+
+async def seed_administrator_grant(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    admin_principal_id: str,
+    inviter_principal_id: str,
+    catalog: Mapping[str, Mapping[str, Any]],
+    now: datetime | None = None,
+) -> str | None:
+    """An invited Administrator accepts: the inviting owner delegates tenant administration to them.
+
+    The grant is a child of the owner's own grant, so it can carry nothing the owner does not hold, is
+    PERSON_BOUND (it ends with the person), cannot be delegated further, and is never business authority. It is what
+    lets a second person approve the owner's protected steps. Returns the grant id, or None when the inviter holds no
+    delegable administration grant (an owner seeded before delegation existed): the role then confers nothing."""
+    now = now or datetime.now(UTC)
+    parent = next(
+        (
+            g
+            for g in await load_grants_for_grantee(conn, inviter_principal_id)
+            if g.status is GrantStatus.ACTIVE
+            and g.delegation_allowed
+            and g.max_delegation_depth >= 1
+            and g.authority.window.valid_to is not None
+            and g.authority.window.valid_to > now
+        ),
+        None,
+    )
+    held = parent.authority.actions if parent is not None else None
+    if parent is None or not isinstance(held, frozenset):
+        return None
+    actions = tuple(a for a in TENANT_ADMIN_ACTIONS if a in catalog and a in held)
+    if not actions:
+        return None
+    grant_id = str(uuid7())
+    await issue_grant(
+        conn,
+        Grant(
+            grant_id,
+            tenant_id,
+            GrantType.ROLE_ISSUED,
+            inviter_principal_id,
+            admin_principal_id,
+            parent.represented_principal_id,
+            replace(  # everything else the owner's grant limits stays limited
+                parent.authority,
+                actions=frozenset(actions),
+                window=Window(
+                    now - timedelta(seconds=1),
+                    _earlier(now + ADMIN_GRANT_TERM, parent.authority.window.valid_to),
+                ),
+            ),
+            ContinuityMode.PERSON_BOUND,
+            GrantStatus.ACTIVE,
+            now,
+            parent_grant_id=parent.grant_id,
+        ),
+        risk_level=3,
+        now=now,
+    )
+    return grant_id
+
+
 async def _seed_and_advance(
     conn: AsyncConnection,
     tenant_id: str,
@@ -183,6 +251,10 @@ async def _seed_and_advance(
             GrantStatus.ACTIVE,
             now,
             root_id=root.root_id,
+            # The owner may hand tenant administration to an Administrator one level down (never further), so a
+            # company can get its second approver without a platform operator (OVERLAY §4).
+            delegation_allowed=True,
+            max_delegation_depth=1,
         ),
         risk_level=3,
         now=now,

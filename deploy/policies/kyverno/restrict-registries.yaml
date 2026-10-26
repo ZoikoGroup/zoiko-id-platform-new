@@ -1,0 +1,47 @@
+# Admission: containers (including init and ephemeral) may only come from the approved registry, and only by
+# digest, so a look-alike image name or a re-pointed tag cannot run (DEVSEC-07, DEVSEC-19).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zid-restrict-registries
+spec:
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  background: true
+  rules:
+    - name: approved-registry-only
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaceSelector:
+                matchLabels:
+                  zid.zoiko.id/protected: "true"
+      validate:
+        message: "Images must come from ghcr.io/zoikogroup/."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: AnyNotIn
+                    value: ["ghcr.io/zoikogroup/*"]
+    - name: pinned-by-digest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaceSelector:
+                matchLabels:
+                  zid.zoiko.id/protected: "true"
+      validate:
+        message: "Images must be referenced by sha256 digest, not by tag."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*@sha256:*"

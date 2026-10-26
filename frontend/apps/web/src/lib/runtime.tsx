@@ -45,7 +45,7 @@ export function useApi(): CellApi {
   return useRuntime().api;
 }
 
-function makeQueryClient(onLoginRequired: () => void) {
+export function makeQueryClient(onLoginRequired: () => void) {
   const handle = (e: unknown) => {
     if (e instanceof ApiError && e.isLoginRequired) onLoginRequired();
   };

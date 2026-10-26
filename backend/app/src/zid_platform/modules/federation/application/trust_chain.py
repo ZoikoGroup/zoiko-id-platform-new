@@ -23,6 +23,7 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 import httpx
+from zid_app.resilience import budget_timeout
 from zid_crypto import CryptoError, KeyRing, peek_header, verify_external_jws
 
 from zid_platform.modules.federation.domain.openid_federation import (
@@ -123,7 +124,7 @@ async def resolve(
         raise TrustChainError("TRUST_ANCHOR_QUARANTINED")
     check_dns = transport is None
     async with httpx.AsyncClient(
-        transport=transport, timeout=5.0, follow_redirects=False
+        transport=transport, timeout=budget_timeout(5.0), follow_redirects=False
     ) as client:
 
         async def ec(entity: str) -> tuple[str, Statement]:

@@ -219,7 +219,10 @@ def _svid(ca: tuple[x509.Certificate, ec.EllipticCurvePrivateKey], uri: str) -> 
 
 def test_mesh_verified_workload_gets_a_bound_token(rt_url: str, tmp_path: Path) -> None:
     """DEC-F7 acceptance: a pod without a valid SVID gets nothing; with one it acts as its
-    registered principal only, through a token bound to that SVID."""
+    registered principal only, through a token bound to that SVID.
+
+    SEC-18: a token stolen from workload A is refused when presented from workload B or from nowhere.
+    SEC-03: a request that arrives from inside the mesh without a verified workload identity is refused."""
     tenant, agent_id, admin = uid(), uid(), uid()
     sid = f"spiffe://{DOMAIN}/t/{tenant}/ns/payments/sa/agent"
     ca = _ca()

@@ -70,6 +70,7 @@ def client(cid: str, tenant: str) -> OAuthClient:
 
 
 def test_tenant_bootstrap_roles_lifecycle_and_guards(rt_url: str, owner_url: str) -> None:
+    """SEC-27 (owner changes): a member cannot self-promote, and adding or removing an owner needs an independent approver."""
     signup, creator, outsider_tenant, outsider = uid(), uid(), uid(), uid()
     signup_client, outsider_client = f"signup-{uid()[:8]}", f"other-{uid()[:8]}"
     ring = KeyRing(LocalSigner("issuer-tenant"))

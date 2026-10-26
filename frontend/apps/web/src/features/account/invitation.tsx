@@ -6,6 +6,7 @@ import { PartyPopper, UserPlus } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { useRuntime } from "@/lib/runtime";
 
 /** A pending tenant invitation for the signed-in person (OVERLAY-001 §4).
  *
@@ -26,13 +27,17 @@ export function PendingInvitation({ autoJoin }: { autoJoin: boolean }) {
   });
   const invited = tenant.data?.my_roles.find((r) => r.status === "INVITED");
   const tried = useRef(false);
+  // A state-changing call carries the session's CSRF token, which arrives with the session: joining before it is
+  // known is refused ("could not be verified"), so wait for it.
+  const { session } = useRuntime();
+  const ready = session?.authenticated === true;
 
   useEffect(() => {
-    if (autoJoin && invited && !tried.current) {
+    if (autoJoin && invited && ready && !tried.current) {
       tried.current = true;
       join.mutate();
     }
-  }, [autoJoin, invited, join]);
+  }, [autoJoin, invited, ready, join]);
 
   if (join.isSuccess) {
     return (

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  * goes back to this page once and is not stored here. */
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return errorJson(403, "CSRF_REJECTED", "The request could not be verified.");
-  let body: { company_name?: unknown; workspace?: unknown };
+  let body: { company_name?: unknown; workspace?: unknown; registration?: unknown; notice_version?: unknown; home_cell_id?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -20,7 +20,14 @@ export async function POST(req: Request) {
     res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/v1/signup`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ company_name: body.company_name, workspace: body.workspace }),
+      // Only the fields sign-up takes; the cell validates every one of them again.
+      body: JSON.stringify({
+        company_name: body.company_name,
+        workspace: body.workspace,
+        registration: body.registration ?? null,
+        notice_version: body.notice_version ?? null,
+        home_cell_id: body.home_cell_id ?? null,
+      }),
       cache: "no-store",
     });
   } catch {

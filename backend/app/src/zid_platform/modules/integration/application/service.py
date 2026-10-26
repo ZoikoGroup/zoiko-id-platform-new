@@ -18,6 +18,7 @@ import hashlib
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from typing import Protocol as StructuralType
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
@@ -167,6 +168,109 @@ async def register_application(
         data=app_data(app),
     )
     return app
+
+
+class ClientGateway(StructuralType):
+    """What the OAuth client registry offers the application registry. The session module implements it and main.py
+    hands it over at start-up, so integration never imports session (no dependency cycle)."""
+
+    async def register(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        name: str,
+        client_type: str,
+        redirect_uris: Sequence[str],
+        jwks: dict[str, Any] | None,
+        scopes: Sequence[str],
+        audience: str,
+    ) -> dict[str, Any]: ...
+
+    async def get(self, conn: AsyncConnection, client_id: str) -> dict[str, Any] | None: ...
+
+    async def retire(self, conn: AsyncConnection, client_id: str) -> bool: ...
+
+    async def listing(self, conn: AsyncConnection) -> list[dict[str, Any]]: ...
+
+
+_CLIENTS: ClientGateway | None = None
+
+
+def configure_client_gateway(gateway: ClientGateway | None) -> None:
+    global _CLIENTS
+    _CLIENTS = gateway
+
+
+def client_gateway() -> ClientGateway:
+    if _CLIENTS is None:
+        raise IntegrationError(
+            "OAUTH_CLIENTS_UNAVAILABLE", "The client registry is not configured."
+        )
+    return _CLIENTS
+
+
+async def register_oauth_client(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    name: str,
+    client_type: str,
+    redirect_uris: Sequence[str],
+    jwks: dict[str, Any] | None,
+    scopes: Sequence[str],
+    audience: str,
+    actor: str,
+) -> dict[str, Any]:
+    """Register an application's OAuth client (ZID-AUTH-001 §6-7). No secret exists to hand out: a public client uses
+    PKCE and a confidential one proves itself with a key pair whose public half is registered here."""
+    try:
+        client = await client_gateway().register(
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            client_type=client_type,
+            redirect_uris=redirect_uris,
+            jwks=jwks,
+            scopes=scopes,
+            audience=audience,
+        )
+    except ValueError as e:  # the registry's own refusal, with a stable code
+        raise IntegrationError(
+            getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))
+        ) from e
+    await _record(
+        conn,
+        tenant_id,
+        "integration.application.changed",
+        target=("oauth_client", client["client_id"]),
+        version=1,
+        actor=actor,
+        evidence=EvidenceClass.E2,
+        data={"client_id": client["client_id"], "client_type": client_type, "status": "ACTIVE"},
+    )
+    return client
+
+
+async def retire_oauth_client(
+    conn: AsyncConnection, tenant_id: str, client_id: str, *, actor: str
+) -> None:
+    """Stop an application signing people in. The client's status is re-read on every token request, so its refresh
+    tokens stop working too; the id stays reserved, so it can never be reissued to someone else."""
+    client = await client_gateway().get(conn, client_id)
+    if client is None or client["first_party"]:
+        raise IntegrationError("OAUTH_CLIENT_NOT_FOUND")
+    if await client_gateway().retire(conn, client_id):
+        await _record(
+            conn,
+            tenant_id,
+            "integration.application.changed",
+            target=("oauth_client", client_id),
+            version=2,
+            actor=actor,
+            evidence=EvidenceClass.E2,
+            data={"client_id": client_id, "status": "RETIRED"},
+        )
 
 
 def app_data(a: Application) -> dict[str, Any]:
@@ -530,6 +634,21 @@ async def offboard_integrations(
             )
             retired += 1
     return {"connectors_quarantined": quarantined, "applications_retired": retired}
+
+
+async def purge_connector_secrets(conn: AsyncConnection, tenant_id: str) -> int:
+    """TEN-25: destroy the encrypted credentials a company's connectors held. The fingerprint stays so history can
+    say which credential was in use; the secret itself cannot be recovered. Idempotent."""
+    from sqlalchemy import text
+
+    res = await conn.execute(
+        text(
+            "UPDATE platform.connector_credential SET envelope = ''::bytea, status = 'REVOKED' "
+            "WHERE tenant_id = :t AND (envelope <> ''::bytea OR status <> 'REVOKED')"
+        ),
+        {"t": tenant_id},
+    )
+    return int(res.rowcount or 0)
 
 
 async def stale_sweep(conn: AsyncConnection, now: datetime) -> list[str]:

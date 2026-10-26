@@ -11,6 +11,7 @@ from zid_platform.modules.policy_runtime.infrastructure.cedar_engine import Outc
 from zid_platform.modules.policy_runtime.infrastructure.cedar_engine import (
     build_schema,
     evaluate,
+    prepublication_problems,
     require_publishable,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "advance",
     "build_schema",
     "evaluate",
+    "prepublication_problems",
     "require_publishable",
 ]

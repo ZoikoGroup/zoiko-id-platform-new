@@ -738,19 +738,49 @@ async def schedule_open_entries(conn: AsyncConnection) -> int:
     return int(result.rowcount or 0)
 
 
-async def due_entries(conn: AsyncConnection, now: datetime, limit: int) -> list[Row[Any]]:
+async def due_entries(
+    conn: AsyncConnection,
+    now: datetime,
+    limit: int,
+    after: tuple[datetime, Any] | None = None,
+) -> list[Row[Any]]:
+    """Due entries oldest first. `after` is the (due_at, entry_id) of the last entry of the previous page, so a
+    drain moves forward through the backlog and entries that stay HELD cannot fill every page."""
     return list(
         (
             await conn.execute(
                 text("""
                     SELECT * FROM privacy.data_map_entry
                     WHERE status IN ('ACTIVE', 'HELD') AND due_at IS NOT NULL AND due_at <= :now
-                    ORDER BY due_at LIMIT :n
+                      AND (CAST(:after_due AS timestamptz) IS NULL OR (due_at, entry_id) > (:after_due, :after_id))
+                    ORDER BY due_at, entry_id LIMIT :n
                 """),
-                {"now": now, "n": limit},
+                {
+                    "now": now,
+                    "n": limit,
+                    "after_due": after[0] if after else None,
+                    "after_id": after[1] if after else None,
+                },
             )
         ).all()
     )
+
+
+async def recent_request_count(
+    conn: AsyncConnection, *, subject: str, requester: str | None, since: datetime
+) -> tuple[int, int]:
+    """(requests about this subject, requests made by this requester) received since `since`."""
+    row = (
+        await conn.execute(
+            text("""
+                SELECT count(*) FILTER (WHERE subject_principal_id = :s) AS about_subject,
+                       count(*) FILTER (WHERE requester_principal_id = :r) AS by_requester
+                FROM privacy.rights_request WHERE received_at >= :since
+            """),
+            {"s": _u(subject), "r": _u(requester), "since": since},
+        )
+    ).one()
+    return int(row.about_subject), int(row.by_requester)
 
 
 async def set_entry_status(

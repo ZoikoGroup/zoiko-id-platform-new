@@ -66,7 +66,10 @@ actions:
   tenant.onboarding.manage:         {min_risk_class: R2, min_evidence_class: E2, category: "onboarding plan versions, validation, shadow start (OVERLAY §17-18)", name_source: proposed, owner: onboarding, note: "CR-015"}
   tenant.domain.manage:             {min_risk_class: R2, min_evidence_class: E2, category: "domain verification challenges (OVERLAY §5)", name_source: proposed, owner: tenant, note: "CR-015"}
   integration.application.manage:   {min_risk_class: R2, min_evidence_class: E2, category: "application / PEP registry (OVERLAY §14)", name_source: proposed, owner: integration, note: "CR-015"}
+  policy.release.publish:           {min_risk_class: R2, min_evidence_class: E2, category: "review and publish a tenant policy release (AUTHZ §19: separate reviewer; two for an R3 release)", name_source: proposed, owner: policy_authoring, note: "CR-018"}
   # ---- R1 Standard: "normal workforce access, ordinary business writes" ----
+  policy.release.draft:             {min_risk_class: R1, min_evidence_class: E1, category: "create, edit and validate a policy release draft (AUTHZ §18-19)", name_source: proposed, owner: policy_authoring, note: "CR-018"}
+  policy.release.read:              {min_risk_class: R1, min_evidence_class: E1, category: "read policy releases and simulate a request (AUTHZ §18)", name_source: proposed, owner: policy_authoring, note: "CR-018"}
   application.access:               {min_risk_class: R1, min_evidence_class: E1, category: "normal workforce access", name_source: proposed, owner: customer-application (PEP)}
   resource.write:                   {min_risk_class: R1, min_evidence_class: E1, category: "ordinary business write", name_source: proposed, owner: customer-application (PEP)}
   identity.read:                    {min_risk_class: R1, min_evidence_class: E1, category: "identity lookup", name_source: spec, owner: principal}
@@ -80,6 +83,25 @@ actions:
   evidence.read:                    {min_risk_class: R1, min_evidence_class: E1, category: "read receipts, audit records, checkpoints and proofs (EVIDENCE §21, §23)", name_source: spec, owner: evidence, note: "CR-011"}
   evidence.verify:                  {min_risk_class: R1, min_evidence_class: E1, category: "verify receipt hash/signature/checkpoint (EVIDENCE §11.1, §23)", name_source: spec, owner: evidence, note: "CR-011"}
   privacy.read:                     {min_risk_class: R1, min_evidence_class: E1, category: "read the privacy registry, role map, requests, holds (PRIV §27)", name_source: proposed, owner: privacy, note: "CR-013"}
+  webhook.endpoint.manage:          {min_risk_class: R2, min_evidence_class: E2, category: "register, verify, pause, retire and replay webhook endpoints (EVENTS §14-20)", name_source: proposed, owner: webhook, note: "CR-018"}
+  webhook.endpoint.read:            {min_risk_class: R1, min_evidence_class: E1, category: "administrative read of webhook endpoints and deliveries (EVENTS §14-20)", name_source: proposed, owner: webhook, note: "CR-018"}
+  notification.alert.manage:        {min_risk_class: R1, min_evidence_class: E1, category: "acknowledge and resolve alerts and tasks (UX §20)", name_source: proposed, owner: notification, note: "CR-019"}
+  notification.alert.read:          {min_risk_class: R1, min_evidence_class: E1, category: "administrative read of alerts and tasks (UX §20)", name_source: proposed, owner: notification, note: "CR-019"}
+  integration.read:                 {min_risk_class: R1, min_evidence_class: E1, category: "read registered applications and connectors for search and lists (OVERLAY §14-16)", name_source: proposed, owner: integration, note: "CR-020"}
+  tenant.domain.read:               {min_risk_class: R1, min_evidence_class: E1, category: "read the tenant's domains for search and lists (OVERLAY §5)", name_source: proposed, owner: tenant, note: "CR-020"}
+  machine.agent.read:               {min_risk_class: R1, min_evidence_class: E1, category: "read agents, blueprints and tools (MACHINE §21)", name_source: proposed, owner: machine, note: "CR-021"}
+  machine.agent.manage:             {min_risk_class: R2, min_evidence_class: E2, category: "register agents and sub-agents, attest activation gates, suspend (MACHINE §12, §13, §18)", name_source: proposed, owner: machine, note: "CR-021"}
+  machine.agent.activate:           {min_risk_class: R3, min_evidence_class: E3, category: "activate, revoke or retire an AI agent identity (MACHINE §12)", name_source: proposed, owner: machine, note: "CR-021"}
+  machine.blueprint.manage:         {min_risk_class: R3, min_evidence_class: E3, category: "draft, approve or revoke an agent blueprint release (MACHINE §3)", name_source: proposed, owner: machine, note: "CR-021"}
+  machine.tool.manage:              {min_risk_class: R2, min_evidence_class: E2, category: "register, activate, suspend or retire a tool capability (MACHINE §14-15)", name_source: proposed, owner: machine, note: "CR-021"}
+  configuration.read:               {min_risk_class: R1, min_evidence_class: E1, category: "read tenant settings and the cryptography overview (UX §19)", name_source: proposed, owner: configuration, note: "CR-022"}
+  configuration.manage:             {min_risk_class: R2, min_evidence_class: E2, category: "change tenant authentication, notification and branding settings (UX §19)", name_source: proposed, owner: configuration, note: "CR-022"}
+  metering.read:                    {min_risk_class: R1, min_evidence_class: E1, category: "read API usage counters and the tenant request limit (UX §18)", name_source: proposed, owner: metering, note: "CR-023"}
+  commercial.read:                  {min_risk_class: R1, min_evidence_class: E1, category: "read the tenant plan, entitlements and the public catalogue view (COM-001 §6, §29)", name_source: proposed, owner: commercial, note: "CR-024"}
+  commercial.budget.manage:         {min_risk_class: R2, min_evidence_class: E2, category: "set the tenant's usage budgets and run their evaluation; notification only (COM-001 §7)", name_source: proposed, owner: commercial, note: "CR-029"}
+  commercial.plan.request:          {min_risk_class: R2, min_evidence_class: E2, category: "ask for a different plan; changes no entitlement (COM-001 §10)", name_source: proposed, owner: commercial, note: "CR-032"}
+  communication.read:               {min_risk_class: R1, min_evidence_class: E1, category: "read the organization's email contacts, addresses masked (Communication Estate §03)", name_source: proposed, owner: communication, note: "CR-031"}
+  communication.contact.manage:     {min_risk_class: R2, min_evidence_class: E2, category: "set where an organization's or a person's email notices go (Communication Estate §03)", name_source: proposed, owner: communication, note: "CR-031"}
   # ---- R0 Low: "public/low-sensitivity reads, non-privileged preferences" ----
   preferences.update:               {min_risk_class: R0, min_evidence_class: E0, category: "non-privileged preference", name_source: proposed, owner: principal}
   public_metadata.read:             {min_risk_class: R0, min_evidence_class: E0, category: "public read", name_source: proposed, owner: configuration}

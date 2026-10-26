@@ -1,0 +1,26 @@
+{{- if .Values.tls.enabled }}
+# Server certificate issued and renewed by cert-manager (CRYPTO-001 §11.2; CRYP-27). The private key is replaced at
+# every renewal (rotationPolicy: Always), so the old key retires with the old certificate. Renewal starts
+# `renewBefore` ahead of expiry, and the PodDisruptionBudget keeps a replica serving while pods pick up the new
+# secret, so a renewal never takes the service down.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: zid-platform-{{ .Values.role }}-tls
+  labels:
+    app.kubernetes.io/name: zid-platform
+spec:
+  secretName: zid-platform-{{ .Values.role }}-tls
+  duration: {{ .Values.tls.duration }}
+  renewBefore: {{ .Values.tls.renewBefore }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages: [server auth, client auth]
+  dnsNames:
+    {{- toYaml (required "tls.dnsNames is required when tls.enabled" .Values.tls.dnsNames) | nindent 4 }}
+  issuerRef:
+    name: {{ required "tls.issuerRef.name is required when tls.enabled" .Values.tls.issuerRef.name }}
+    kind: {{ .Values.tls.issuerRef.kind }}
+{{- end }}

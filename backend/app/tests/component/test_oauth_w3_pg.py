@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner, sign_jws, verify_jws
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
@@ -98,6 +99,7 @@ def base_client(cid: str, tenant: str, **kw: object) -> OAuthClient:
 
 
 def test_confidential_clients_mtls_par_fapi_exchange_and_introspection(rt_url: str) -> None:
+    """MACH-23: an exchanged token never has a wider audience, scope, life or actor authority than its subject token."""
     tenant, alice, svc, svc2 = uid(), uid(), uid(), uid()
     conf, fapi, mtls, spa = (f"{n}-{uid()}" for n in ("conf", "fapi", "mtls", "spa"))
     conf_key, fapi_key, rogue = LocalSigner("conf-1"), LocalSigner("fapi-1"), LocalSigner("x")
@@ -424,3 +426,19 @@ def test_confidential_clients_mtls_par_fapi_exchange_and_introspection(rt_url: s
         assert meta["pushed_authorization_request_endpoint"] == ISS + "/oauth2/par"
         assert "tls_client_auth" in meta["token_endpoint_auth_methods_supported"]
         assert "client_secret_basic" not in meta["token_endpoint_auth_methods_supported"]
+
+    # billing (CR-025): only the three token grants that succeeded (two private_key_jwt, one mTLS) are M2M events; the replayed assertion, the
+    # bad assertions and the public client's refusal bill nothing; the key is the token's own id
+    async def billed() -> list[str]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            rows = (
+                await c.execute(
+                    text(
+                        "SELECT deduplication_key FROM commercial.billable_event WHERE meter_id = 'M2M_GRANT'"
+                    )
+                )
+            ).all()
+        return [r[0] for r in rows]
+
+    keys = asyncio.run(billed())
+    assert len(keys) == 3 and len(set(keys)) == 3 and all(k.startswith("m2m:") for k in keys)

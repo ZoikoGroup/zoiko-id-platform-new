@@ -8,3 +8,4 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `agent.workload_binding`
 - `agent.blueprint_release`
 - `agent.tool_capability`
+- `agent.agent_gate_attestation`

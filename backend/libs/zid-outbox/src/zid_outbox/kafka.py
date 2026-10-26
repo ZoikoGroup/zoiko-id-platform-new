@@ -18,7 +18,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from zid_outbox import CloudEvent
 
-__all__ = ["KafkaPublisher", "decode", "encode", "run_consumer"]
+__all__ = ["KafkaPublisher", "decode", "encode", "ensure_topics", "run_consumer"]
 
 
 def encode(event: CloudEvent) -> bytes:
@@ -73,6 +73,29 @@ class KafkaPublisher:
         )
 
 
+async def ensure_topics(
+    bootstrap_servers: str, topics: list[str], *, partitions: int = 1, replication: int = 1
+) -> None:
+    """Create any of `topics` that do not exist yet (idempotent). Deployed clusters provision topics with their
+    own partition and replication plan; this is for fresh development and single-node brokers, where a consumer
+    started before the first event would otherwise fail on an unknown topic."""
+    from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+    from aiokafka.errors import TopicAlreadyExistsError
+
+    admin = AIOKafkaAdminClient(bootstrap_servers=bootstrap_servers)
+    await admin.start()
+    try:
+        for name in topics:
+            try:
+                await admin.create_topics(
+                    [NewTopic(name=name, num_partitions=partitions, replication_factor=replication)]
+                )
+            except TopicAlreadyExistsError:
+                continue
+    finally:
+        await admin.close()
+
+
 async def run_consumer(
     bootstrap_servers: str,
     topics: list[str],
@@ -81,10 +104,15 @@ async def run_consumer(
     *,
     stop_after: int | None = None,
     idle_timeout_s: float | None = None,
+    create_topics: bool = False,
 ) -> int:
-    """Consume until `stop_after` messages, until no message arrived for `idle_timeout_s` (tests
+    """`create_topics`: make sure the topics exist first (see `ensure_topics`).
+
+    Consume until `stop_after` messages, until no message arrived for `idle_timeout_s` (tests
     and one-shot drains), or forever. `handle` must be idempotent (use zid_outbox.consume inside a
     transaction); the offset is committed only after it returns."""
+    if create_topics:
+        await ensure_topics(bootstrap_servers, topics)
     consumer = AIOKafkaConsumer(
         *topics,
         bootstrap_servers=bootstrap_servers,

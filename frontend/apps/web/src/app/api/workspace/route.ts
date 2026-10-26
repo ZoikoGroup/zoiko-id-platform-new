@@ -26,6 +26,24 @@ export async function POST(req: Request) {
   return new Response(JSON.stringify({ workspace: w.workspace, display_name: w.display_name }), { status: 200, headers });
 }
 
+/** Is a workspace name free? (registration) Answers only taken/free, sets no cookie. */
+export async function GET(req: Request) {
+  const name = (new URL(req.url).searchParams.get("name") ?? "").trim().toLowerCase();
+  if (!NAME.test(name)) return errorJson(422, "VALIDATION_FAILED", "Lower-case letters, digits and inner hyphens.");
+  const { env } = server();
+  let res: Response;
+  try {
+    res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/v1/workspaces/${encodeURIComponent(name)}`, { cache: "no-store" });
+  } catch {
+    return errorJson(503, "SERVICE_UNAVAILABLE", "The service is temporarily unavailable.");
+  }
+  if (res.status !== 404 && !res.ok) return errorJson(res.status, "WORKSPACE_LOOKUP_FAILED", "The name could not be checked.");
+  return new Response(JSON.stringify({ workspace: name, available: res.status === 404 }), {
+    status: 200,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
+}
+
 /** Back to this app's default workspace. */
 export function DELETE(req: Request) {
   if (!sameOrigin(req)) return errorJson(403, "CSRF_REJECTED", "The request could not be verified.");

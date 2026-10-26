@@ -1,5 +1,5 @@
 """Operational control over the API (G-W8; ZID-SRE-001 §5, §16-17, §23-24, §26, §29; OPS-02/06/18/
-23/26/28; SRE-25/32).
+23/26/28; OPS-20 (evidence is preserved before mitigation is declared done); SRE-25/32).
 
 Any active operator declares an incident at once and the timeline records every change; resolving
 needs validation, closing a SEV1 needs its PIR with independently verified action items. A freeze
@@ -154,11 +154,35 @@ def test_incidents_freeze_prr_and_slis(rt_url: str, owner_url: str) -> None:
             f"/ops/incidents/{inc}:resolve", json={"validation": "ok"}, headers=o.bearer(alice)
         )
         assert r.status_code == 422
+        resolve_body = {
+            "validation": "reservations succeed; synthetic mandate probe green for 30 min"
+        }
+        # OPS-20: a major incident does not resolve until the evidence it touched is recorded as preserved
+        r = api.post(f"/ops/incidents/{inc}:resolve", headers=o.bearer(alice), json=resolve_body)
+        assert r.status_code == 409 and code(r) == "INCIDENT_EVIDENCE_NOT_PRESERVED", r.text
         r = api.post(
-            f"/ops/incidents/{inc}:resolve",
+            f"/ops/incidents/{inc}/evidence",
             headers=o.bearer(alice),
-            json={"validation": "reservations succeed; synthetic mandate probe green for 30 min"},
+            json={
+                "artifacts": ["AUDIT_RECORDS"],
+                "custody_ref": "custody-9999",
+                "note": "kept the audit trail",
+            },
         )
+        assert (
+            r.status_code == 409 and code(r) == "INCIDENT_EVIDENCE_INVALID"
+        )  # receipts and custody are required
+        r = api.post(
+            f"/ops/incidents/{inc}/evidence",
+            headers=o.bearer(alice),
+            json={
+                "artifacts": ["DECISION_RECEIPTS", "AUDIT_RECORDS", "CUSTODY_RECORD"],
+                "custody_ref": "custody-2026-10-26-0001",
+                "note": "receipts for the affected window exported and held; custody record opened",
+            },
+        )
+        assert r.status_code == 201, r.text
+        r = api.post(f"/ops/incidents/{inc}:resolve", headers=o.bearer(alice), json=resolve_body)
         assert r.status_code == 200 and r.json()["status"] == "RESOLVED", r.text
         r = api.post(f"/ops/incidents/{inc}:close", json={}, headers=o.bearer(alice))
         assert r.status_code == 409 and code(r) == "PIR_REQUIRED"
@@ -195,6 +219,7 @@ def test_incidents_freeze_prr_and_slis(rt_url: str, owner_url: str) -> None:
             "STATUS",
             "ROLE",
             "DECISION",
+            "EVIDENCE",
             "RESOLVED",
             "CLOSED",
         ]

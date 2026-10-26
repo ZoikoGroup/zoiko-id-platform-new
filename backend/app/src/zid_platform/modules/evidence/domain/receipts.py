@@ -113,6 +113,10 @@ class ReceiptFacts:
     actor_principal_id: str
     represented_principal_id: str | None = None
     resource_ref: str | None = None
+    workload_ref: str | None = (
+        None  # certificate thumbprint the caller's token is bound to (MACH-24)
+    )
+    tool_ref: str | None = None  # the tool the agent asked to use (MACH-24)
     purpose_id: str | None = None
     policy_release_id: str | None = None
     policy_engine_version: str | None = None
@@ -174,6 +178,8 @@ def receipt_body(
     represented_handle: str | None,
     resource_commitment: str | None,
     material_object_id: str | None,
+    workload_commitment: str | None = None,
+    tool_commitment: str | None = None,
 ) -> dict[str, Any]:
     """The canonical receipt (§3): handles and commitments only. This exact object is hashed."""
     body: dict[str, Any] = {
@@ -190,6 +196,8 @@ def receipt_body(
         "action_id": facts.action,
         "resource_class": facts.resource_class,
         "resource_commitment": resource_commitment,
+        "workload_commitment": workload_commitment,
+        "tool_commitment": tool_commitment,
         "purpose_id": facts.purpose_id,
         "transaction_context_hash": facts.transaction_context_hash,
         "policy_release_id": facts.policy_release_id,

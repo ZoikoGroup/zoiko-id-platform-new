@@ -1,0 +1,50 @@
+# Secure baseline (Pod Security "restricted"). Overrides per environment live in deploy/argocd/cells/*.
+# The image is ALWAYS a digest: the same digest is promoted DEV -> PROD (DEC-G4 §4). `digest` has no default so
+# the chart fails to render without one.
+image:
+  repository: ghcr.io/zoikogroup/zoiko-id-platform
+  digest: ""
+
+role: cell
+replicas: 2
+environment: ""          # required: dev | int-qa | sec | perf | preprod | prod | recovery
+
+serviceAccount:
+  name: zid-platform
+  automount: false       # workload identity is projected explicitly, never the default token
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  privileged: false
+  capabilities:
+    drop: [ALL]
+
+resources:
+  requests: {cpu: 500m, memory: 512Mi}
+  limits: {cpu: "2", memory: 1Gi}
+
+pdb:
+  minAvailable: 1        # a node drain or certificate rollout always leaves a replica serving
+
+tls:
+  # Off until an issuer exists in the cluster. When on, cert-manager issues and renews the server certificate and
+  # replaces its private key at every renewal; renewal starts `renewBefore` ahead of expiry.
+  enabled: false
+  issuerRef: {name: "", kind: ClusterIssuer}
+  duration: 2160h        # 90 days
+  renewBefore: 720h      # 30 days: a failed renewal has a month of retries before anything expires
+  dnsNames: []
+
+networkPolicy:
+  # Default deny both ways; only these flows are opened.
+  ingressFromNamespaces: [zid-ingress]
+  egressPorts: [5432, 443]

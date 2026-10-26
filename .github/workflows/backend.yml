@@ -67,6 +67,18 @@ jobs:
         working-directory: .
         run: python3 tools/scripts/check_repo.py
 
+      - name: Contract compatibility against the base branch
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BASE_REF"
+          mkdir -p "$RUNNER_TEMP/base"
+          git archive FETCH_HEAD contracts | tar -x -C "$RUNNER_TEMP/base"
+          python3 tools/scripts/contract_compat.py "$RUNNER_TEMP/base/contracts" contracts
+
       - name: Install (locked)
         run: uv sync --frozen --all-packages
 

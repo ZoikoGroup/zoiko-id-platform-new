@@ -3,6 +3,7 @@
 from datetime import timedelta
 from typing import Any, Literal
 
+from pydantic import Field
 from zid_app import ServiceSettings
 
 from .roles import Role
@@ -23,6 +24,11 @@ class Settings(ServiceSettings):
     # ZID_MTLS_CLIENT_CERT_HEADER: header carrying the URL-encoded PEM client certificate from the
     # TLS terminator (e.g. x-client-cert). Set only when the edge strips it from inbound requests.
     mtls_client_cert_header: str | None = None
+    # ZID_TLS_GROUP_HEADER: header the TLS terminator sets to the key-exchange group it negotiated (and strips
+    # from inbound requests). ZID_TLS_HYBRID_REQUIRED_PREFIXES (JSON list): path prefixes that are refused
+    # unless a hybrid post-quantum group was negotiated (CRYPTO-001 §12.1 HYBRID_REQUIRED).
+    tls_group_header: str = "x-tls-group"
+    tls_hybrid_required_prefixes: tuple[str, ...] = ()
     # ZID_FEDERATION_AUTHORITY_HINTS: superiors listed in our OpenID Federation entity configuration
     federation_authority_hints: tuple[str, ...] = ()
     # ZID_DEV_SIGNING_KEYS (local/test only): purpose -> PEM, so local API and consumer processes
@@ -92,6 +98,10 @@ class Settings(ServiceSettings):
     # ZID_TENANT_SIGNUP_DEV_VERIFY (local/test only): a signed-up company skips the registry gate
     # with a synthetic, self-labelled development root so it can be administered at once.
     tenant_signup_dev_verify: bool = False
+    # ZID_DEV_SIMULATORS: development identity-provider and register simulators (local/test only)
+    dev_simulators: bool = False
+    # ZID_TENANT_SIGNUP_NOTICE_VERSION: the privacy notice a registrant must acknowledge (PRIV-001)
+    tenant_signup_notice_version: str = "2026-10-22"
     # --- Global locator and discovery (G-W6; DEC-G3) ---------------------------------------------
     # ZID_CELL_ENDPOINTS (JSON cell -> base URL): where each cell's API is (discovery answers and
     # the CELL_ROUTING_STALE / CELL_NOT_AUTHORITATIVE location hint)
@@ -105,6 +115,45 @@ class Settings(ServiceSettings):
     locator_cell_keys: dict[str, list[dict[str, Any]]] = {}  # noqa: RUF012 - pydantic copies defaults
     discovery_ttl_s: int = 300  # ZID_DISCOVERY_TTL_S: how long a client may cache an answer
     discovery_kms_key_id: str | None = None  # ZID_DISCOVERY_KMS_KEY_ID: deployed signing key
+    # Webhooks (EVENTS-001 §14-20). ZID_WEBHOOK_KMS_KEY_ID: the deployed RFC 9421 signing key (local/test
+    # use the development key). ZID_WEBHOOK_ALLOW_HTTP: accept http:// endpoints, local/test only.
+    webhook_kms_key_id: str | None = None
+    # ZID_WEBHOOK_RETIRING_KEYS (JSON): keys still published during a signing-key rotation, as
+    # [{"jwk": {...public key with its kid...}, "retire_at": "2026-11-30T00:00:00+00:00"}]; at most 30 days of overlap
+    webhook_retiring_keys: list[dict[str, Any]] = []  # noqa: RUF012 - pydantic copies defaults
+    # ZID_API_RATE_LIMIT_PER_MINUTE: authenticated requests per tenant per minute (0 = off). The edge limiter
+    # (DEC-G1) is the production control for abuse; this one keeps one tenant from starving the others.
+    api_rate_limit_per_minute: int = 600
+    webhook_allow_http: bool = False
+    # ZID_COMMERCIAL_ENFORCEMENT (CR-024): off | shadow | enforce. `shadow` (default) reports what the plan
+    # would refuse without blocking; turn on `enforce` only once a price book is approved.
+    commercial_enforcement: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_COMMERCIAL_ISSUING_ENTITY (CR-027): the seller of record's invoice series prefix.
+    commercial_issuing_entity: str = "ZID"
+    # ZID_STRIPE_SECRET_KEY_FILE: path of a file holding the Stripe secret (or restricted) key. A file, never an
+    # inline value (DEC-F5). Set, the cell collects payments and calculates tax through Stripe; unset, tax
+    # answers "not configured" and a deployed cell refuses to collect. ZID_STRIPE_API_BASE: test doubles only.
+    stripe_secret_key_file: str | None = None
+    stripe_api_base: str = "https://api.stripe.com"
+    # --- Email (Communication Estate; CR-031). Off by default: nothing is sent until a person turns it on.
+    # ZID_EMAIL_ENABLED: master switch. ZID_EMAIL_ENABLED_TEMPLATES: JSON list of template ids, or ["*"] for
+    # every template whose event is wired and whose links have a route. ZID_EMAIL_FROM: "Name <address>" of a
+    # sender whose domain has SPF, DKIM and DMARC (release decision register). ZID_SMTP_PASSWORD_FILE: a file,
+    # never an inline value (DEC-F5). ZID_EMAIL_ROUTES: JSON object of extra link-field -> path routes.
+    email_enabled: bool = False
+    email_enabled_templates: list[str] = Field(default_factory=list)
+    email_from: str | None = None
+    email_reply_to: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password_file: str | None = None
+    email_public_base_url: str | None = None
+    email_routes: dict[str, str] = Field(default_factory=dict)
+    email_flood_per_template_hour: int = 5
+    email_flood_per_recipient_hour: int = 20
+    email_legal_entity: str | None = None
+    email_mailing_address: str | None = None
     # Cell role. ZID_GLOBAL_LOCATOR_URL: the global plane the worker publishes records to;
     # ZID_DIRECTORY_KMS_KEY_ID: the cell's deployed record-signing key (local/test: dev "federation").
     global_locator_url: str | None = None

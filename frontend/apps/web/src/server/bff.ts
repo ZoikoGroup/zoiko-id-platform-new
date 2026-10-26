@@ -13,6 +13,9 @@ import Valkey from "iovalkey";
 
 /** Cell paths the browser may reach with the session's bearer token (via /api/bff). */
 const API_PATH_PREFIXES = [
+  "/v1/policy-releases$",
+  "/v1/policy-releases/",
+  "/dev/verification-simulator/",
   "/oauth2/userinfo",
   "/oauth2/consents",
   "/sessions",
@@ -59,6 +62,18 @@ const API_PATH_PREFIXES = [
   "/v1/onboarding/",
   "/v1/integration/",
   "/v1/machine/",
+  "/v1/webhooks/",
+  "/v1/alerts",
+  "/v1/search",
+  "/v1/settings",
+  "/v1/usage",
+  // Billing (ZID-COM-001): the tenant's own plan, ledger, invoices and budgets. The public catalogue and
+  // calculator do not go through here; they are read without a session.
+  "/v1/tenants/",
+  "/v1/billing/",
+  "/v1/account/",
+  "/v1/invoices",
+  "/v1/budgets",
 ];
 
 /** Browser-facing cell flows relayed on this origin (cell session cookie + Origin check). */

@@ -17,6 +17,7 @@ import hmac
 import json
 import secrets
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -333,6 +334,76 @@ async def transmit(
     return queued
 
 
+@dataclass(frozen=True, slots=True)
+class Reconciliation:
+    detected: int  # SETs past their propagation SLO with no acknowledgement
+    repaired: int  # re-issued from authoritative state
+    withdrawn: int  # authoritative state no longer holds the fact: superseded, not resent
+
+
+def _own_claims(set_jwt: str) -> dict[str, Any]:
+    """Claims of a SET this cell signed itself (read for repair only; nothing here is trusted input)."""
+    import base64
+
+    payload = set_jwt.split(".")[1]
+    return dict(json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))))
+
+
+async def reconcile_outbound(
+    conn: AsyncConnection,
+    keyring: KeyRing,
+    issuer: str,
+    stream: store.Stream,
+    now: datetime,
+    still_holds: Callable[[str, str], Awaitable[bool]] | None = None,
+) -> Reconciliation:
+    """SIG-25: a SET the receiver has not acknowledged inside its SLO is treated as dropped.
+
+    It is replaced by a freshly signed SET for the same subject and event, keeping the original commit time so the
+    lateness stays visible in the propagation measures. `still_holds(principal_id, event_uri)` asks the
+    authoritative source whether the fact is still true; when it is not, the stale SET is withdrawn and nothing is
+    sent. The old SET is superseded either way, so a receiver never gets both."""
+    repaired = withdrawn = 0
+    stalled = await store.stalled_sets(conn, stream.stream_id, now)
+    for row in stalled:
+        claims = _own_claims(row["set_jwt"])
+        events = claims.get("events") or {}
+        subject = (claims.get("sub_id") or {}).get("id")
+        if len(events) != 1 or not isinstance(subject, str):
+            continue
+        uri, body = next(iter(events.items()))
+        principal = await store.opaque_principal(conn, stream.stream_id, subject)
+        if principal is None:
+            continue
+        if still_holds is not None and not await still_holds(principal, uri):
+            await store.supersede_set(conn, stream.stream_id, row["jti"], now)
+            withdrawn += 1
+            continue
+        jti, jwt = build_set(
+            keyring,
+            issuer=issuer,
+            audience=stream.audience,
+            event_uri=uri,
+            subject={"format": "opaque", "id": subject},
+            event={k: v for k, v in body.items() if k != "event_timestamp"},
+            now=now,
+        )
+        await store.enqueue_set(
+            conn,
+            stream_id=stream.stream_id,
+            tenant_id=stream.tenant_id,
+            jti=jti,
+            set_jwt=jwt,
+            committed_at=row["event_committed_at"],
+            risk_floor=int(row["risk_floor"]),
+            repair_of=row["jti"],
+            repaired_at=now,
+        )
+        await store.supersede_set(conn, stream.stream_id, row["jti"], now)
+        repaired += 1
+    return Reconciliation(len(stalled), repaired, withdrawn)
+
+
 def ssf_configuration(issuer: str) -> dict[str, Any]:
     base = issuer.rstrip("/")
     return {
@@ -353,6 +424,7 @@ __all__ = [
     "SsfError",
     "build_set",
     "receive_push",
+    "reconcile_outbound",
     "ssf_configuration",
     "transmit",
 ]

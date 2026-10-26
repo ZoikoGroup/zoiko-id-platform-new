@@ -346,6 +346,7 @@ async def update_session(
     attempted: tuple[str, ...] | None = None,
     outcome: str | None = None,
     pending: dict[str, Any] | None = None,
+    basis: dict[str, Any] | None = None,
 ) -> VSession:
     result = await conn.execute(
         text(
@@ -353,6 +354,7 @@ async def update_session(
             "adapter_id = coalesce(:a, adapter_id), provider_transaction_ref = coalesce(:r, "
             "provider_transaction_ref), attempted_adapters = coalesce(:att, attempted_adapters), "
             "outcome_code = coalesce(:o, outcome_code), pending_result = CAST(:pend AS jsonb), "
+            "decision_basis = coalesce(CAST(:basis AS jsonb), decision_basis), "
             "row_version = row_version + 1 WHERE session_id = :id AND row_version = :v"
         ),
         {
@@ -365,11 +367,22 @@ async def update_session(
             "att": list(attempted) if attempted is not None else None,
             "o": outcome,
             "pend": json.dumps(pending) if pending is not None else None,
+            "basis": json.dumps(basis) if basis is not None else None,
         },
     )
     if result.rowcount != 1:
         raise VerificationError("CONCURRENT_MODIFICATION")
     return await load_session(conn, s.session_id)
+
+
+async def decision_basis(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text("SELECT decision_basis FROM verify.verification_session WHERE session_id = :s"),
+            {"s": uuid.UUID(session_id)},
+        )
+    ).first()
+    return dict(row.decision_basis) if row and row.decision_basis else None
 
 
 async def record_callback(
@@ -462,7 +475,7 @@ async def assertions_for(conn: AsyncConnection, principal_id: str) -> list[dict[
             text(
                 "SELECT a.assertion_id, a.claim_type, a.verification_method, a.evidence_types, "
                 "a.assurance_level, a.status, a.performed_at, a.valid_until, a.jurisdiction, "
-                "a.reason_codes, p.requirements_json -> 'reliance_purposes' AS purposes "
+                "a.reason_codes, a.claim_value_commitment, p.requirements_json -> 'reliance_purposes' AS purposes "
                 "FROM verify.verification_assertion a JOIN verify.assurance_profile p "
                 "USING (assurance_profile_id) WHERE a.subject_principal_id = :s "
                 "ORDER BY a.performed_at DESC"

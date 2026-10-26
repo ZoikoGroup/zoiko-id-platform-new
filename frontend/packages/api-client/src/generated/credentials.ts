@@ -53,6 +53,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/credential-issuer-trust:rotate-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Trust Keys
+         * @description Issuer key rollover for a pinned issuer: the new key set replaces the old one. A key that
+         *     carries `not_after` (epoch seconds) stays valid only until then (bounded overlap).
+         */
+        post: operations["rotate_trust_keys_credential_issuer_trust_rotate_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/credential-issuer-trust:status": {
         parameters: {
             query?: never;
@@ -379,6 +400,15 @@ export interface components {
              */
             valid_to: string;
         };
+        /** TrustKeysIn */
+        TrustKeysIn: {
+            /** Issuer Identifier */
+            issuer_identifier: string;
+            /** Jwks */
+            jwks: {
+                [key: string]: unknown;
+            };
+        };
         /** TrustStatusIn */
         TrustStatusIn: {
             /** Issuer Identifier */
@@ -550,6 +580,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_trust_keys_credential_issuer_trust_rotate_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrustKeysIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

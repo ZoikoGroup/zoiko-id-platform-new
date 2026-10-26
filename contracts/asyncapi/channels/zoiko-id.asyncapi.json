@@ -400,6 +400,46 @@
         }
       }
     },
+    "commercial.domain": {
+      "address": "zid.{env}.{region}.commercial.domain",
+      "messages": {
+        "commercial_billable_event_adjusted": {
+          "$ref": "#/components/messages/commercial_billable_event_adjusted"
+        },
+        "commercial_billing_state_changed": {
+          "$ref": "#/components/messages/commercial_billing_state_changed"
+        },
+        "commercial_budget_threshold_crossed": {
+          "$ref": "#/components/messages/commercial_budget_threshold_crossed"
+        },
+        "commercial_credit_note_issued": {
+          "$ref": "#/components/messages/commercial_credit_note_issued"
+        },
+        "commercial_entitlement_changed": {
+          "$ref": "#/components/messages/commercial_entitlement_changed"
+        },
+        "commercial_invoice_issued": {
+          "$ref": "#/components/messages/commercial_invoice_issued"
+        },
+        "commercial_meter_window_frozen": {
+          "$ref": "#/components/messages/commercial_meter_window_frozen"
+        },
+        "commercial_payment_recorded": {
+          "$ref": "#/components/messages/commercial_payment_recorded"
+        },
+        "commercial_price_book_approved": {
+          "$ref": "#/components/messages/commercial_price_book_approved"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "connector.priority": {
       "address": "zid.{env}.{region}.connector.priority",
       "messages": {
@@ -1251,6 +1291,9 @@
       "messages": {
         "policy_admission_denied": {
           "$ref": "#/components/messages/policy_admission_denied"
+        },
+        "policy_release_changed": {
+          "$ref": "#/components/messages/policy_release_changed"
         }
       },
       "parameters": {
@@ -2461,6 +2504,105 @@
         "title": "client.credential.rotated",
         "x-zid-source": "ZID-AUTH-001",
         "x-zid-status": "catalogued"
+      },
+      "commercial_billable_event_adjusted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.billable_event.adjusted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A billable-usage adjustment was approved or rejected by a second operator (meter, month, state).",
+        "title": "commercial.billable_event.adjusted",
+        "x-zid-source": "ZID-COM-001 \u00a77, \u00a726; CR-025",
+        "x-zid-status": "proposed"
+      },
+      "commercial_billing_state_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.billing_state.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant billing account moved state (from, to, reason).",
+        "title": "commercial.billing_state.changed",
+        "x-zid-source": "ZID-COM-001 \u00a711, \u00a730; CR-027",
+        "x-zid-status": "proposed"
+      },
+      "commercial_budget_threshold_crossed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.budget.threshold_crossed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant budget or included allowance reached a threshold this month (key, month, threshold). Notification only.",
+        "title": "commercial.budget.threshold_crossed",
+        "x-zid-source": "ZID-COM-001 \u00a77; CR-029",
+        "x-zid-status": "proposed"
+      },
+      "commercial_credit_note_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.credit_note.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A credit note was issued against an issued invoice.",
+        "title": "commercial.credit_note.issued",
+        "x-zid-source": "ZID-COM-001 \u00a711, \u00a730; CR-027",
+        "x-zid-status": "proposed"
+      },
+      "commercial_entitlement_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.entitlement.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant's plan entitlement changed: plan, price book version, state and effective date (ids and revisions only).",
+        "title": "commercial.entitlement.changed",
+        "x-zid-source": "ZID-COM-001 \u00a76, \u00a729; CR-024",
+        "x-zid-status": "proposed"
+      },
+      "commercial_invoice_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.invoice.issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An invoice was issued from a computed rating run: number and period (no amounts of other tenants).",
+        "title": "commercial.invoice.issued",
+        "x-zid-source": "ZID-COM-001 \u00a711, \u00a730; CR-027",
+        "x-zid-status": "proposed"
+      },
+      "commercial_meter_window_frozen": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.meter_window.frozen.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant billing window for one UTC month was frozen: meters closed, counts and hash totals recorded.",
+        "title": "commercial.meter_window.frozen",
+        "x-zid-source": "ZID-COM-001 \u00a77, \u00a711; CR-025",
+        "x-zid-status": "proposed"
+      },
+      "commercial_payment_recorded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.payment.recorded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A payment attempt was recorded for an invoice: captured or failed.",
+        "title": "commercial.payment.recorded",
+        "x-zid-source": "ZID-COM-001 \u00a711, \u00a730; CR-027",
+        "x-zid-status": "proposed"
+      },
+      "commercial_price_book_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.price_book.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A price book was approved by a second operator and became effective (version, effective date).",
+        "title": "commercial.price_book.approved",
+        "x-zid-source": "ZID-COM-001 \u00a76, \u00a712; CR-024",
+        "x-zid-status": "proposed"
       },
       "connector_quarantined": {
         "contentType": "application/cloudevents+json",
@@ -4002,6 +4144,17 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "policy_release_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.policy.release.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant policy release changed: drafted, edited, validated, validation failed, reviewed or published (release id, change, content hash).",
+        "title": "policy.release.changed",
+        "x-zid-source": "ZID-AUTHZ-001 \u00a718-19; CR-018",
+        "x-zid-status": "proposed"
+      },
       "power_of_attorney_verified": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.power_of_attorney.verified.v1",
@@ -5503,6 +5656,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/client.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_commercial_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/commercial.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

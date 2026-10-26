@@ -9,3 +9,6 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `org.authority_root_assertion`
 - `org.source_event`
 - `org.registry_observation`
+- `org.organization_identifier`
+- `org.organization_name`
+- `org.source_quarantine`

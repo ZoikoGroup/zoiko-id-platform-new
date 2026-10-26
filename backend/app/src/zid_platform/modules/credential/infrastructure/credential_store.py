@@ -170,6 +170,18 @@ async def set_trust_status(conn: AsyncConnection, issuer: str, status: str) -> b
     return r.rowcount == 1
 
 
+async def rotate_trust_keys(conn: AsyncConnection, issuer: str, jwks: dict[str, Any]) -> bool:
+    """Replace the pinned key set of a PINNED issuer (rollover); the revision moves with it."""
+    r = await conn.execute(
+        text(
+            "UPDATE cred.issuer_trust SET jwks = CAST(:j AS jsonb), revision = revision + 1 "
+            "WHERE issuer_identifier = :i AND trust_source = 'PINNED' AND jwks IS NOT NULL"
+        ),
+        {"i": issuer, "j": json.dumps(jwks)},
+    )
+    return r.rowcount == 1
+
+
 async def create_registration(conn: AsyncConnection, tenant_id: str, r: dict[str, Any]) -> str:
     rid = str(uuid.uuid4())
     await conn.execute(
@@ -287,12 +299,14 @@ async def finish_presentation(
     commitments: dict[str, str] | None,
     disclosed: dict[str, Any] | None,
     now: datetime,
+    basis: dict[str, Any] | None = None,
 ) -> None:
     await conn.execute(
         text(
             "UPDATE cred.presentation_record SET status = :st, reason_codes = :r, "
             "issuer_identifier = :iss, credential_status = :cs, "
             "claim_commitments = CAST(:cc AS jsonb), disclosed_claims = CAST(:dc AS jsonb), "
+            "verification_basis = CAST(:vb AS jsonb), "
             "completed_at = :now, response_key = NULL WHERE presentation_id = :p"
         ),
         {
@@ -303,6 +317,7 @@ async def finish_presentation(
             "cs": credential_status,
             "cc": json.dumps(commitments) if commitments is not None else None,
             "dc": json.dumps(disclosed, default=str) if disclosed is not None else None,
+            "vb": json.dumps(basis) if basis is not None else None,
             "now": now,
         },
     )

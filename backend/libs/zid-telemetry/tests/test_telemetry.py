@@ -28,7 +28,7 @@ from zid_telemetry.slo import (
 )
 from zid_telemetry.tracing import parse_traceparent, start_trace
 
-JWT = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXZhbHVl"
+JWT = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXZhbHVl"  # zid-secret-scan: allow (synthetic fixture)
 
 
 # ------------------------------------------------------------------- redaction (OPS-07, SRE-05)
@@ -39,7 +39,7 @@ JWT = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXZhbHVl"
     [
         f"token={JWT}",
         "Authorization: Bearer abcdefghijklmnop123456",
-        "-----BEGIN PRIVATE KEY----- MIIE...",
+        "-----BEGIN PRIVATE KEY----- MIIE...",  # zid-secret-scan: allow (synthetic fixture)
         "user alice@example.com failed",
         "card 4111 1111 1111 1111 declined",
         "password=hunter2-correct-horse",
@@ -252,3 +252,14 @@ def test_valid_traceparent_is_continued_and_invalid_is_replaced() -> None:
     ):
         assert parse_traceparent(bad) is None
         assert start_trace(bad).parent_span_id is None
+
+
+def test_gauge_holds_the_last_value_and_is_exposed() -> None:
+    r = Registry()
+    g = r.gauge("zid_outbox_oldest_unpublished_seconds", "x", ("lane",))
+    g.set(3.5, lane="priority")
+    g.set(1.25, lane="priority")
+    assert g.value(lane="priority") == 1.25
+    text = r.exposition()
+    assert "# TYPE zid_outbox_oldest_unpublished_seconds gauge" in text
+    assert 'zid_outbox_oldest_unpublished_seconds{lane="priority"} 1.25' in text
