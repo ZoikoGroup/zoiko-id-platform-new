@@ -10,6 +10,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from logcapture import capture
 from zid_platform.main import create_app
 from zid_platform.settings import Settings
 from zid_platform.tls_guard import (
@@ -45,15 +46,15 @@ def test_a_required_endpoint_refuses_every_connection_without_a_hybrid_group(
 
 
 def test_a_fallback_on_a_preferred_endpoint_is_served_counted_and_attributed(
-    client: TestClient, caplog: pytest.LogCaptureFixture
+    client: TestClient,
 ) -> None:
     """CRYP-20: HYBRID_PREFERRED serves a classical group and records which endpoint and client used it."""
     before = FALLBACKS.value(endpoint="healthz", client_agent="curl")
-    with caplog.at_level(logging.WARNING, logger="zid.tls"):
+    with capture(logging.WARNING, "zid.tls") as logs:
         r = client.get("/healthz", headers={"x-tls-group": "x25519", "user-agent": "curl/8.5.0"})
     assert r.status_code != 426
     assert FALLBACKS.value(endpoint="healthz", client_agent="curl") == before + 1
-    record = next(r for r in caplog.records if r.name == "zid.tls")
+    record = next(r for r in logs.records if r.name == "zid.tls")
     assert (record.endpoint, record.client_agent, record.tls_group) == ("healthz", "curl", "x25519")  # type: ignore[attr-defined]
     # a hybrid connection, and one that did not report a group, are not fallbacks
     client.get("/healthz", headers={"x-tls-group": "x25519mlkem768", "user-agent": "curl/8.5.0"})
