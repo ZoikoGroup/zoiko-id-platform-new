@@ -147,6 +147,8 @@ class _Key:
 class LocalKeyProvider:
     """Development/test KEKs (AES-256-GCM wrapping). Never used outside local/test."""
 
+    fips_validated = False  # an in-process software key is not a validated cryptographic module
+
     def __init__(
         self,
         *,

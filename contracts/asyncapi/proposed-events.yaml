@@ -70,6 +70,12 @@ events:
     source: ZID-SEC-001 §11-13; DEC-F4; CR-012
     lane: domain
     source_status: "proposed"
+  operator_access.direct_action:
+    cloudevents_type: com.zoiko.id.operator_access.direct_action.v1
+    meaning: "An operator used a capability in direct mode (no access request, no second approver); Security can alert on it. CR-035."
+    source: DEC-F4; CR-035
+    lane: priority
+    source_status: "proposed"
   operator_access.break_glass.activated:
     cloudevents_type: com.zoiko.id.operator_access.break_glass.activated.v1
     meaning: "Emergency break-glass access activated; Security alerted; post-review pending."
@@ -296,5 +302,65 @@ events:
     cloudevents_type: com.zoiko.id.ops.change_freeze.lifted.v1
     meaning: "A service change freeze was lifted under an approved platform.change.manage grant."
     source: ZID-SRE-001 §15-17, §23-24, §26; CR-017
+    lane: domain
+    source_status: "proposed"
+  policy.release.changed:
+    cloudevents_type: com.zoiko.id.policy.release.changed.v1
+    meaning: "A tenant policy release changed: drafted, edited, validated, validation failed, reviewed or published (release id, change, content hash)."
+    source: ZID-AUTHZ-001 §18-19; CR-018
+    lane: domain
+    source_status: "proposed"
+  commercial.entitlement.changed:
+    cloudevents_type: com.zoiko.id.commercial.entitlement.changed.v1
+    meaning: "A tenant's plan entitlement changed: plan, price book version, state and effective date (ids and revisions only)."
+    source: ZID-COM-001 §6, §29; CR-024
+    lane: domain
+    source_status: "proposed"
+  commercial.price_book.approved:
+    cloudevents_type: com.zoiko.id.commercial.price_book.approved.v1
+    meaning: "A price book was approved by a second operator and became effective (version, effective date)."
+    source: ZID-COM-001 §6, §12; CR-024
+    lane: domain
+    source_status: "proposed"
+  commercial.meter_window.frozen:
+    cloudevents_type: com.zoiko.id.commercial.meter_window.frozen.v1
+    meaning: "A tenant billing window for one UTC month was frozen: meters closed, counts and hash totals recorded."
+    source: ZID-COM-001 §7, §11; CR-025
+    lane: domain
+    source_status: "proposed"
+  commercial.billable_event.adjusted:
+    cloudevents_type: com.zoiko.id.commercial.billable_event.adjusted.v1
+    meaning: "A billable-usage adjustment was approved or rejected by a second operator (meter, month, state)."
+    source: ZID-COM-001 §7, §26; CR-025
+    lane: domain
+    source_status: "proposed"
+  commercial.invoice.issued:
+    cloudevents_type: com.zoiko.id.commercial.invoice.issued.v1
+    meaning: "An invoice was issued from a computed rating run: number and period (no amounts of other tenants)."
+    source: ZID-COM-001 §11, §30; CR-027
+    lane: domain
+    source_status: "proposed"
+  commercial.credit_note.issued:
+    cloudevents_type: com.zoiko.id.commercial.credit_note.issued.v1
+    meaning: "A credit note was issued against an issued invoice."
+    source: ZID-COM-001 §11, §30; CR-027
+    lane: domain
+    source_status: "proposed"
+  commercial.payment.recorded:
+    cloudevents_type: com.zoiko.id.commercial.payment.recorded.v1
+    meaning: "A payment attempt was recorded for an invoice: captured or failed."
+    source: ZID-COM-001 §11, §30; CR-027
+    lane: domain
+    source_status: "proposed"
+  commercial.billing_state.changed:
+    cloudevents_type: com.zoiko.id.commercial.billing_state.changed.v1
+    meaning: "A tenant billing account moved state (from, to, reason)."
+    source: ZID-COM-001 §11, §30; CR-027
+    lane: domain
+    source_status: "proposed"
+  commercial.budget.threshold_crossed:
+    cloudevents_type: com.zoiko.id.commercial.budget.threshold_crossed.v1
+    meaning: "A tenant budget or included allowance reached a threshold this month (key, month, threshold). Notification only."
+    source: ZID-COM-001 §7; CR-029
     lane: domain
     source_status: "proposed"

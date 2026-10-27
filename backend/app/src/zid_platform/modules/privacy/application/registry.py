@@ -147,7 +147,7 @@ async def publish_notice(
         name="privacy.notice.published",
         tenant_id=tenant_id,
         aggregate_type="privacy_notice",
-        aggregate_id=f"{code}@{version}",
+        aggregate_id=f"{tenant_id}:{code}@{version}",  # tenant-qualified: the outbox key is unique across tenants
         aggregate_version=1,
         data={"notice": f"{code}@{version}", "content_hash": content_hash, "evidence_class": "E2"},
     )
@@ -252,6 +252,18 @@ async def set_processor_status(
         raise PrivacyError("PRIVACY_APPROVAL_REQUIRED", "a processor needs an independent approver")
     if status == "APPROVED" and row.role in ("PROCESSOR", "SUBPROCESSOR") and not row.contract_ref:
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "a processor needs its DPA/contract reference")
+    if status == "APPROVED":
+        # TEN-20: a processor that cannot satisfy the tenant's residency profile is never approved, so no feature
+        # that needs it can be enabled for this tenant.
+        from zid_platform.modules.tenant.ports import (  # avoid import cycle
+            ResidencyError,
+            check_dependency_locations,
+        )
+
+        try:
+            await check_dependency_locations(conn, tenant_id, list(row.locations))
+        except ResidencyError as e:
+            raise PrivacyError("PRIVACY_PROCESSOR_RESIDENCY", e.detail) from e
     out = (
         await conn.execute(
             text("""

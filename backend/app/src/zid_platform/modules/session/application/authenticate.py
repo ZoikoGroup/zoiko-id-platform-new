@@ -12,7 +12,7 @@ Session state changes found here (expiry, re-auth) are persisted even though the
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +22,7 @@ from zid_crypto import CryptoError, KeyRing, jwk_thumbprint, peek_header, verify
 from zid_db import tenant_transaction
 
 from zid_platform.modules.authentication.ports import AAL
+from zid_platform.modules.configuration.ports import session_limits
 from zid_platform.modules.principal.ports import PrincipalStatus, load_principal
 from zid_platform.modules.session.domain.session import SessionPolicy, SessionStatus, check
 from zid_platform.modules.session.domain.tokens import (
@@ -158,12 +159,21 @@ async def authenticate(
                 )
             except ValueError:
                 revision, active = -1, False
+            # The tenant may only shorten the platform's session policy, never lengthen it.
+            limit_absolute, limit_idle = await session_limits(conn)
+            policy = settings.session_policy
+            if limit_idle is not None:
+                policy = SessionPolicy(policy.absolute_ttl, min(policy.idle_timeout, limit_idle))
+            if limit_absolute is not None:
+                session = replace(
+                    session, expires_at=min(session.expires_at, session.auth_time + limit_absolute)
+                )
             result = check(
                 session,
                 principal_revision=revision,
                 principal_active=active,
                 now=now,
-                policy=settings.session_policy,
+                policy=policy,
             )
             if result.next_status is not None:
                 await session_store.set_status(

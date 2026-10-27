@@ -1,0 +1,39 @@
+# Use with the Google load balancer (enable_load_balancer = true in the gcp-platform module): the load balancer
+# terminates TLS and Caddy only routes plain HTTP by host, so automatic HTTPS is off.
+#   docker compose --profile lb up -d
+{
+	auto_https off
+	servers {
+		trusted_proxies static 130.211.0.0/22 35.191.0.0/16
+	}
+}
+
+# Health check target for the load balancer: answered here, so a slow application never drains the VM
+:80 {
+	@lb path /lb-health
+	respond @lb 200
+}
+
+http://id.{$ZID_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+http://api.{$ZID_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy cell:8000
+}
+
+http://global.{$ZID_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy global:8100
+}
+
+http://operator.{$ZID_DOMAIN} {
+	encode zstd gzip
+	@allowed remote_ip {$OPERATOR_ALLOWED_CIDRS:127.0.0.1/32}
+	handle @allowed {
+		reverse_proxy operator:3000
+	}
+	respond 403
+}

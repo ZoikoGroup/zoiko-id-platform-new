@@ -267,7 +267,7 @@ function SideNav({ nav, currentPath, collapsed }: { nav: NavGroup[]; currentPath
                     )}
                   >
                     <Icon aria-hidden className="size-4 shrink-0 opacity-80 group-aria-[current=page]:opacity-100" />
-                    {collapsed ? null : <span className="min-w-0 flex-1 truncate">{it.label}</span>}
+                    {collapsed ? null : <span className="min-w-0 flex-1 break-words leading-tight">{it.label}</span>}
                     {it.badge && !collapsed ? (
                       <span
                         className={cn(

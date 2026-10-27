@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any
 
 from zid_crypto import LocalSigner, Signer
@@ -26,6 +27,7 @@ from zid_crypto.handles import MacKey
 from zid_crypto.providers import KeyProvider, KeyRef, LocalKeyProvider
 from zid_crypto.purposes import KeyPurpose
 
+from zid_platform.modules.evidence.domain.key_compromise import check_replacement
 from zid_platform.modules.evidence.domain.ledger import Cadence
 
 
@@ -43,6 +45,24 @@ class EvidenceRuntime:
     retention_days: Mapping[str, int] = field(default_factory=dict)
     # tenant id -> KeyRef of a DEDICATED_TENANT_KEY / BYOK / HYOK KEK (DEC-F5 §4); absent = platform
     tenant_keks: Mapping[str, KeyRef] = field(default_factory=dict)
+    # kid -> when the key was believed to be in other hands; signatures from then on are not trusted (EVID-22)
+    compromised: Mapping[str, datetime] = field(default_factory=dict)
+
+    def after_compromise(self, new_signer: Signer, *, compromised_at: datetime) -> EvidenceRuntime:
+        """The runtime once the current signer is declared compromised: the new signer takes over, the old public
+        key stays published so earlier history verifies, and signatures it made from `compromised_at` do not."""
+        old = self.signer.public_jwk()
+        check_replacement(
+            str(old["kid"]),
+            str(new_signer.public_jwk()["kid"]),
+            {str(k.get("kid")) for k in self.historic_keys},
+        )
+        return replace(
+            self,
+            signer=new_signer,
+            historic_keys=(*self.historic_keys, old),
+            compromised={**self.compromised, str(old["kid"]): compromised_at},
+        )
 
     def kek_for(self, tenant_id: str) -> KeyRef:
         """The KEK that wraps this tenant's subject keys. A customer-managed key never falls back

@@ -211,6 +211,11 @@ async def _persist_statuses(
         )
 
 
+persist_statuses = (
+    _persist_statuses  # for the identity module: suspend roots of a quarantined source
+)
+
+
 async def root_revision(conn: AsyncConnection, organization_id: str) -> int:
     return int(
         (
@@ -222,3 +227,14 @@ async def root_revision(conn: AsyncConnection, organization_id: str) -> int:
             )
         ).scalar_one()
     )
+
+
+async def organization_exists(conn: AsyncConnection, organization_id: str) -> bool:
+    """Whether this organization is registered in the caller's tenant (RLS scopes the lookup)."""
+    row = (
+        await conn.execute(
+            text("SELECT 1 FROM org.organization WHERE organization_id = :o"),
+            {"o": uuid.UUID(organization_id)},
+        )
+    ).first()
+    return row is not None

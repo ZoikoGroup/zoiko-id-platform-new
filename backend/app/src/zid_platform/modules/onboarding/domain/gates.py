@@ -70,7 +70,35 @@ def require_pass(gates: Iterable[Gate], code: str) -> list[Gate]:
 
 
 # Tenant administration only - never business authority (OVERLAY §4: OWNER is not signing
-# authority). These are what the verified representative's seeded grant carries.
+# authority). These are what the verified representative's seeded grant carries, and what an Administrator receives
+# from the owner. It covers the company console: read access to the company's plan, billing, usage, settings, alerts,
+# contacts, webhooks, credentials, agents and mandates, and the management of company settings, alerts, contacts,
+# webhooks and budgets. It does not include issuing credentials, creating mandates or registering agents: those
+# commit the company to something and need their own grant.
+# Recorded as the second person on an onboarding step the OWNER approved alone (ZID_ONBOARDING_APPROVAL=owner,
+# CR-036): the database refuses an approver equal to the author, and nobody who did not act is named as approver.
+OWNER_APPROVER = "00000000-0000-4000-8000-0000000000d2"
+OWNER_APPROVAL_ACK = "accept-no-second-admin"
+
+
+def require_owner_approval_ack(mode: str, environment: str, ack: str | None) -> None:
+    """A deployed cell runs owner approval only when told so in so many words; local, test and dev need nothing."""
+    if (
+        mode == "owner"
+        and environment not in ("local", "test", "dev")
+        and ack != OWNER_APPROVAL_ACK
+    ):
+        raise RuntimeError(
+            "ZID_ONBOARDING_APPROVAL=owner removes the second-administrator approval from onboarding; outside "
+            f"local/test/dev it needs ZID_ONBOARDING_OWNER_ACK={OWNER_APPROVAL_ACK}"
+        )
+
+
+# Held by the OWNER but never handed down to an Administrator: they commit the company's money or identity. Changing
+# the card invoices are charged to is one of them (CR-034). To let administrators do it too, empty this set and
+# re-issue the administrators' grants (entrypoints/refresh_admin_grants.py).
+OWNER_ONLY_ACTIONS = frozenset({"commercial.payment.manage"})
+
 TENANT_ADMIN_ACTIONS = (
     "tenant.member.manage",
     "tenant.owner.change",
@@ -97,4 +125,23 @@ TENANT_ADMIN_ACTIONS = (
     "privacy.read",
     "identity.read",
     "organization.read",
+    # company console, read
+    "commercial.read",
+    "communication.read",
+    "configuration.read",
+    "credential.read",
+    "machine.agent.read",
+    "mandate.read",
+    "metering.read",
+    "notification.alert.read",
+    "webhook.endpoint.read",
+    # company administration, change
+    "commercial.budget.manage",
+    "commercial.plan.request",
+    "commercial.payment.manage",
+    "mandate.manage",
+    "communication.contact.manage",
+    "configuration.manage",
+    "notification.alert.manage",
+    "webhook.endpoint.manage",
 )

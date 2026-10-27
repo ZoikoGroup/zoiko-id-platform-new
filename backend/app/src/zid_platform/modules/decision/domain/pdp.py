@@ -127,6 +127,9 @@ class DecisionRequest:
         None  # APPROVED | PENDING | DENIED | EXPIRED | STALE (composite.py)
     )
     bounded_cache_approved: bool = False
+    workload_ref: str | None = (
+        None  # certificate the caller's token is bound to (the SVID of a workload)
+    )
 
 
 # Minimum authentication level and maximum age per risk class. Provisional engineering floor until

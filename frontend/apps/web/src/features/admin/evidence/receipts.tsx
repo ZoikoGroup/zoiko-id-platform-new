@@ -3,7 +3,6 @@
 import type { ReceiptSummary, ReplayOutcome, ReceiptVerification } from "@zoiko/api-client";
 import {
   Badge,
-  Banner,
   Button,
   Card,
   CopyId,
@@ -23,16 +22,16 @@ import { FileCheck2, ScrollText } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { ReplayResult, VerificationResult } from "./receipt-results";
 
 export const RECEIPTS_KEY = ["admin", "evidence", "receipts"];
 
-const REPLAY_TONE: Record<string, "ok" | "warn" | "danger" | "info"> = {
-  VERIFIED_MATCH: "ok",
-  VERIFIED_STRUCTURAL_ONLY: "info",
-  INCOMPLETE_BY_LAWFUL_ERASURE: "warn",
-  MISMATCH: "danger",
-  UNVERIFIABLE_INTEGRITY_FAILURE: "danger",
-};
+const ANNOTATION_KINDS = [
+  { id: "ANNOTATION", label: "Annotation", description: "A note that explains the receipt" },
+  { id: "CORRECTION", label: "Correction", description: "States what the receipt got wrong" },
+  { id: "SUPERSESSION", label: "Supersession", description: "Replaced by a later receipt" },
+  { id: "INVALIDATION", label: "Invalidation", description: "The receipt must not be relied on" },
+];
 
 const EXPORT_MODES = [
   { id: "CUSTOMER_VERIFY", label: "Customer verification", description: "Minimized, tenant-scoped" },
@@ -133,7 +132,17 @@ function ReceiptPanel({ receipt, onClose }: { receipt: ReceiptSummary | null; on
   const [exportMode, setExportMode] = useState("CUSTOMER_VERIFY");
   const [purpose, setPurpose] = useState("");
   const [caseRef, setCaseRef] = useState("");
+  const [proof, setProof] = useState<Record<string, unknown> | null>(null);
+  const [kind, setKind] = useState("ANNOTATION");
+  const [reasonCode, setReasonCode] = useState("");
 
+  const loadProof = useCellMutation((api, rid: string) => api.evidence.proof(rid), { onSuccess: setProof });
+  // Append-only: an annotation never edits the receipt, it sits beside it.
+  const annotate = useCellMutation((api, rid: string) => api.evidence.annotate(rid, { kind, reason_code: reasonCode.trim() }), {
+    success: "Annotation added beside the receipt",
+    invalidate: [[...RECEIPTS_KEY, "detail", id]],
+    onSuccess: () => setReasonCode(""),
+  });
   const verify = useCellMutation((api, rid: string) => api.evidence.verify(rid), { onSuccess: setVerification });
   const runReplay = useCellMutation((api, rid: string) => api.evidence.replay(rid), { onSuccess: setReplay });
   const exportPkg = useCellMutation(
@@ -154,7 +163,10 @@ function ReceiptPanel({ receipt, onClose }: { receipt: ReceiptSummary | null; on
   function close() {
     setVerification(null);
     setReplay(null);
+    setProof(null);
     verify.reset();
+    loadProof.reset();
+    annotate.reset();
     runReplay.reset();
     exportPkg.reset();
     onClose();
@@ -185,37 +197,16 @@ function ReceiptPanel({ receipt, onClose }: { receipt: ReceiptSummary | null; on
               <Button size="sm" variant="secondary" pending={runReplay.isPending} onPress={() => runReplay.mutate(id)}>
                 Replay decision
               </Button>
+              <Button size="sm" variant="secondary" pending={loadProof.isPending} onPress={() => loadProof.mutate(id)}>
+                Show inclusion proof
+              </Button>
             </div>
             {verify.error ? <ApiErrorView error={verify.error} /> : null}
-            {verification ? (
-              <Banner
-                tone={verification.ok ? "ok" : verification.ledgered && !verification.sealed ? "info" : "danger"}
-                title={
-                  verification.ok
-                    ? "Verified: receipt, ledger entry, signed checkpoint and inclusion proof"
-                    : !verification.ledgered
-                      ? "Committed, not yet in the ledger"
-                      : !verification.sealed
-                        ? "In the ledger, not yet sealed by a checkpoint"
-                        : "Verification failed"
-                }
-              >
-                <ul className="mt-1 space-y-0.5 text-xs">
-                  {verification.checks.map((c) => (
-                    <li key={c.name}>
-                      {c.ok ? "✓" : "✗"} {c.name}
-                      {c.detail ? ` — ${c.detail}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </Banner>
-            ) : null}
+            {verification ? <VerificationResult verification={verification} /> : null}
+            {loadProof.error ? <ApiErrorView error={loadProof.error} /> : null}
+            {proof ? <JsonView value={proof} label="Inclusion proof (checkable offline with the public keys)" /> : null}
             {runReplay.error ? <ApiErrorView error={runReplay.error} /> : null}
-            {replay ? (
-              <Banner tone={REPLAY_TONE[replay.result] ?? "info"} title={replay.result.replaceAll("_", " ").toLowerCase()}>
-                {replay.detail ?? (replay.differences?.length ? `Differs in: ${replay.differences.join(", ")}` : "Replayed against the historic policy release.")}
-              </Banner>
-            ) : null}
+            {replay ? <ReplayResult replay={replay} /> : null}
           </section>
 
           <section className="space-y-3">
@@ -232,6 +223,32 @@ function ReceiptPanel({ receipt, onClose }: { receipt: ReceiptSummary | null; on
               Export (R3, recorded in chain of custody)
             </Button>
             {exportPkg.error ? <ApiErrorView error={exportPkg.error} /> : null}
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold">Annotate</h3>
+            <p className="text-xs text-ink-muted">Adds a note beside the receipt. The receipt itself is never changed.</p>
+            <Select label="Kind" value={kind} onChange={setKind} options={ANNOTATION_KINDS} />
+            <TextField
+              label="Reason code"
+              mono
+              value={reasonCode}
+              onChange={setReasonCode}
+              isRequired
+              placeholder="DUPLICATE_SUBMISSION"
+              description="Capital letters, digits and underscores."
+              errorMessage={reasonCode.length > 0 && !/^[A-Z][A-Z0-9_]{1,63}$/.test(reasonCode.trim()) ? "Use capital letters, digits and underscores, starting with a letter." : undefined}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              pending={annotate.isPending}
+              isDisabled={!/^[A-Z][A-Z0-9_]{1,63}$/.test(reasonCode.trim())}
+              onPress={() => annotate.mutate(id)}
+            >
+              Add annotation
+            </Button>
+            {annotate.error ? <ApiErrorView error={annotate.error} /> : null}
           </section>
 
           <section className="space-y-2">

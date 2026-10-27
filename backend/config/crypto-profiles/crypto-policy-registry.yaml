@@ -35,6 +35,7 @@ profiles:
   tls.v1:                             # §11, §12.1
     purpose: TLS
     min_version_new_protocols: "TLS1.3"
+    min_version_legacy_compat: "TLS1.2"   # explicit compatibility endpoints only, never the default
     tls12: "compatibility profile only; RFC 9325 controls"
     zero_rtt: disabled_for_state_changing_and_replay_sensitive
     forward_secrecy: required

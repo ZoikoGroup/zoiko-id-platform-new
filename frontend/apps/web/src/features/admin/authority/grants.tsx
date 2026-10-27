@@ -68,7 +68,7 @@ export function GrantsPanel() {
   };
 
   const columns: Column<AuthorityGrant>[] = [
-    { key: "id", header: "Grant", pinned: true, render: (g) => <CopyId value={g.authority_grant_id} label="grant" /> },
+    { key: "id", header: "Grant", pinned: true, render: (g) => <span className="font-mono text-xs" title={g.authority_grant_id}>{g.authority_grant_id.slice(0, 8)}…{g.authority_grant_id.slice(-4)}</span> }, // plain text: the first column is already a row button, and a copy button inside it is invalid HTML,
     { key: "status", header: "Status", render: (g) => <StatusBadge state={g.status} kind="Grant" />, sortValue: (g) => g.status },
     { key: "type", header: "Type", render: (g) => <span className="text-sm">{humanize(g.grant_type)}</span>, sortValue: (g) => g.grant_type },
     { key: "grantee", header: "Grantee", render: (g) => <CopyId value={g.grantee_principal_id} label="grantee" /> },

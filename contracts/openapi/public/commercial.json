@@ -1,0 +1,3991 @@
+{
+  "components": {
+    "schemas": {
+      "AcceptBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amends_order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amends Order Id"
+          },
+          "effective_from": {
+            "format": "date-time",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "quote_id": {
+            "format": "uuid",
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "signed_document_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Signed Document Digest",
+            "type": "string"
+          },
+          "signer_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Signer Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quote_id",
+          "signer_ref",
+          "signed_document_digest",
+          "effective_from"
+        ],
+        "title": "AcceptBody",
+        "type": "object"
+      },
+      "AccountBody": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "currency": {
+            "default": "USD",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "kind": {
+            "default": "DIRECT",
+            "enum": [
+              "DIRECT",
+              "PARTNER",
+              "INTERNAL"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "reseller_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reseller Of"
+          }
+        },
+        "required": [
+          "legal_name"
+        ],
+        "title": "AccountBody",
+        "type": "object"
+      },
+      "AdjustmentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "quantity_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Quantity Delta"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,40}$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "quantity_delta",
+          "reason_code"
+        ],
+        "title": "AdjustmentBody",
+        "type": "object"
+      },
+      "ApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          }
+        },
+        "title": "ApproveBody",
+        "type": "object"
+      },
+      "ApproveQuoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "AE",
+              "CCO",
+              "CFO",
+              "FOUNDER",
+              "GROUP_CFO"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ApproveQuoteBody",
+        "type": "object"
+      },
+      "CollectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "CollectBody",
+        "type": "object"
+      },
+      "CreditBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,40}$",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "reverses": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses"
+          }
+        },
+        "required": [
+          "amount",
+          "reason_code"
+        ],
+        "title": "CreditBody",
+        "type": "object"
+      },
+      "CreditNoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,40}$",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "reverses_line": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses Line"
+          }
+        },
+        "required": [
+          "amount",
+          "reason_code"
+        ],
+        "title": "CreditNoteBody",
+        "type": "object"
+      },
+      "DeletionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_ref": {
+            "maxLength": 128,
+            "minLength": 4,
+            "title": "Reason Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_ref"
+        ],
+        "title": "DeletionBody",
+        "type": "object"
+      },
+      "DraftBody": {
+        "additionalProperties": false,
+        "properties": {
+          "copy_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copy Of"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "DraftBody",
+        "type": "object"
+      },
+      "DraftInvoiceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "month": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month"
+        ],
+        "title": "DraftInvoiceBody",
+        "type": "object"
+      },
+      "EstimateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_events": {
+            "default": 0,
+            "maximum": 100000000000.0,
+            "minimum": 0.0,
+            "title": "Auth Events",
+            "type": "integer"
+          },
+          "m2m_grants": {
+            "default": 0,
+            "maximum": 100000000000.0,
+            "minimum": 0.0,
+            "title": "M2M Grants",
+            "type": "integer"
+          },
+          "mah": {
+            "default": 0,
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Mah",
+            "type": "integer"
+          },
+          "plan": {
+            "pattern": "^[A-Z_]{3,24}$",
+            "title": "Plan",
+            "type": "string"
+          },
+          "policy_decisions": {
+            "default": 0,
+            "maximum": 100000000000.0,
+            "minimum": 0.0,
+            "title": "Policy Decisions",
+            "type": "integer"
+          },
+          "scim_connections": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Scim Connections",
+            "type": "integer"
+          },
+          "sso_connections": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Sso Connections",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "EstimateBody",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IssueBody": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_zero_tax": {
+            "default": false,
+            "title": "Allow Zero Tax",
+            "type": "boolean"
+          },
+          "payment_terms_days": {
+            "maximum": 365.0,
+            "minimum": 0.0,
+            "title": "Payment Terms Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "payment_terms_days"
+        ],
+        "title": "IssueBody",
+        "type": "object"
+      },
+      "LineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "included_quantity": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Included Quantity"
+          },
+          "minimum_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Amount"
+          },
+          "plan": {
+            "enum": [
+              "DEVELOPER",
+              "LAUNCH",
+              "BUSINESS",
+              "SCALE",
+              "ENTERPRISE"
+            ],
+            "title": "Plan",
+            "type": "string"
+          },
+          "sku": {
+            "pattern": "^ZID-[A-Z0-9]{2,8}$",
+            "title": "Sku",
+            "type": "string"
+          },
+          "unit_divisor": {
+            "default": 1,
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Unit Divisor",
+            "type": "integer"
+          },
+          "unit_rate": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Unit Rate"
+          }
+        },
+        "required": [
+          "sku",
+          "plan",
+          "unit_rate"
+        ],
+        "title": "LineBody",
+        "type": "object"
+      },
+      "OverrideBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver Id"
+          },
+          "capability": {
+            "pattern": "^[a-z][a-z0-9_]{1,40}$",
+            "title": "Capability",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "extra_count": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Count"
+          },
+          "grant_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "INCLUDED",
+                  "ADD_ON",
+                  "METERED",
+                  "CONTRACT",
+                  "QUALIFIED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Mode"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "reason"
+        ],
+        "title": "OverrideBody",
+        "type": "object"
+      },
+      "PaymentCustomerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_ref": {
+            "pattern": "^cus_[A-Za-z0-9]{6,64}$",
+            "title": "Customer Ref",
+            "type": "string"
+          },
+          "provider": {
+            "const": "stripe",
+            "default": "stripe",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_ref"
+        ],
+        "title": "PaymentCustomerBody",
+        "type": "object"
+      },
+      "PeriodQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "month": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month"
+        ],
+        "title": "PeriodQuery",
+        "type": "object"
+      },
+      "PlanRequestAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "ACCEPTED",
+              "DECLINED"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "PlanRequestAnswer",
+        "type": "object"
+      },
+      "QuoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "liability_capped": {
+            "default": true,
+            "title": "Liability Capped",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteLineBody"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "pilot": {
+            "default": false,
+            "title": "Pilot",
+            "type": "boolean"
+          },
+          "prepaid": {
+            "default": false,
+            "title": "Prepaid",
+            "type": "boolean"
+          },
+          "prepaid_discount": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Prepaid Discount"
+          },
+          "price_book_id": {
+            "format": "uuid",
+            "title": "Price Book Id",
+            "type": "string"
+          },
+          "region": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "Region",
+            "type": "string"
+          },
+          "residency_commitment": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9-]{1,40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residency Commitment"
+          },
+          "term_months": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Term Months",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_id",
+          "price_book_id",
+          "region",
+          "term_months",
+          "lines"
+        ],
+        "title": "QuoteBody",
+        "type": "object"
+      },
+      "QuoteLineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "discount_pct": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Discount Pct"
+          },
+          "plan": {
+            "enum": [
+              "DEVELOPER",
+              "LAUNCH",
+              "BUSINESS",
+              "SCALE",
+              "ENTERPRISE"
+            ],
+            "title": "Plan",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "sku": {
+            "pattern": "^ZID-[A-Z0-9]{2,8}$",
+            "title": "Sku",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku",
+          "plan",
+          "quantity"
+        ],
+        "title": "QuoteLineBody",
+        "type": "object"
+      },
+      "RatingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/CreditBody"
+            },
+            "maxItems": 20,
+            "title": "Credits",
+            "type": "array"
+          },
+          "month": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month"
+        ],
+        "title": "RatingBody",
+        "type": "object"
+      },
+      "RecognitionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "PRINCIPAL",
+              "AGENT",
+              "UNDECIDED"
+            ],
+            "title": "Basis",
+            "type": "string"
+          }
+        },
+        "required": [
+          "basis"
+        ],
+        "title": "RecognitionBody",
+        "type": "object"
+      },
+      "ReconcileBody": {
+        "additionalProperties": false,
+        "properties": {
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end"
+        ],
+        "title": "ReconcileBody",
+        "type": "object"
+      },
+      "RegionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "sre_gate_passed": {
+            "title": "Sre Gate Passed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sre_gate_passed",
+          "evidence_ref"
+        ],
+        "title": "RegionBody",
+        "type": "object"
+      },
+      "SafetyHoldBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "SafetyHoldBody",
+        "type": "object"
+      },
+      "StateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,40}$",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "to": {
+            "pattern": "^[A-Z_]{4,20}$",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "reason_code"
+        ],
+        "title": "StateBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VendorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter Id"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "legal_role": {
+            "enum": [
+              "SUBPROCESSOR",
+              "INDEPENDENT_CONTROLLER"
+            ],
+            "title": "Legal Role",
+            "type": "string"
+          },
+          "sku": {
+            "enum": [
+              "ZID-IDV",
+              "ZID-KYB",
+              "ZID-RISK",
+              "ZID-MSG"
+            ],
+            "title": "Sku",
+            "type": "string"
+          },
+          "spike_threshold_pct": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spike Threshold Pct"
+          },
+          "vendor_id": {
+            "pattern": "^[a-z0-9-]{2,40}$",
+            "title": "Vendor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor_id",
+          "display_name",
+          "legal_role",
+          "sku"
+        ],
+        "title": "VendorBody",
+        "type": "object"
+      },
+      "VendorInvoiceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/VendorInvoiceLineBody"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "title": "VendorInvoiceBody",
+        "type": "object"
+      },
+      "VendorInvoiceLineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "supplier_ref": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Supplier Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "supplier_ref",
+          "amount",
+          "currency"
+        ],
+        "title": "VendorInvoiceLineBody",
+        "type": "object"
+      },
+      "VendorRateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "base_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Base Price"
+          },
+          "check_type": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,40}$",
+            "title": "Check Type",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "SIGNED_TARIFF",
+              "QUOTED",
+              "ESTIMATE"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "retry_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Retry Price"
+          },
+          "source_ref": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Source Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_type",
+          "country",
+          "base_price",
+          "retry_price",
+          "currency",
+          "confidence",
+          "source_ref"
+        ],
+        "title": "VendorRateBody",
+        "type": "object"
+      },
+      "VerifyPackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "pack": {
+            "additionalProperties": true,
+            "title": "Pack",
+            "type": "object"
+          }
+        },
+        "required": [
+          "pack"
+        ],
+        "title": "VerifyPackBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__PlanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "plan": {
+            "enum": [
+              "DEVELOPER",
+              "LAUNCH",
+              "BUSINESS",
+              "SCALE",
+              "ENTERPRISE"
+            ],
+            "title": "Plan",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "PlanBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "resolution": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Resolution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resolution"
+        ],
+        "title": "ResolveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__RoleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "principal_id": {
+            "format": "uuid",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "AE",
+              "CCO",
+              "CFO",
+              "FOUNDER",
+              "GROUP_CFO"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "role"
+        ],
+        "title": "RoleBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__RouteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "BLOCKED",
+              "NEEDS_APPROVAL"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "RouteBody",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Zoiko iD Commercial API (catalogue, plans, entitlements, price books)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/billing/estimate": {
+      "post": {
+        "description": "Public pricing calculator: the same rating function over the approved price book. Never a quotation.",
+        "operationId": "billing_estimate_v1_billing_estimate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Billing Estimate V1 Billing Estimate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Billing Estimate",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/catalog": {
+      "get": {
+        "description": "Public and cached: only published plans, released capabilities and APPROVED prices. No tenant data.",
+        "operationId": "catalog_v1_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Catalog V1 Catalog Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Catalog",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/accounts": {
+      "post": {
+        "operationId": "create_account_v1_commercial_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Account V1 Commercial Accounts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Account",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/accounts/{account_id}/payment-customer": {
+      "put": {
+        "description": "Link an account to its customer id at the payment processor: a reference, never card data.",
+        "operationId": "set_payment_customer_v1_commercial_accounts__account_id__payment_customer_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCustomerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Payment Customer V1 Commercial Accounts  Account Id  Payment Customer Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Payment Customer",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/accounts/{account_id}/tenants/{tenant_id}": {
+      "post": {
+        "operationId": "link_account_tenant_v1_commercial_accounts__account_id__tenants__tenant_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Link Account Tenant V1 Commercial Accounts  Account Id  Tenants  Tenant Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Account Tenant",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/assurance:run": {
+      "post": {
+        "operationId": "run_platform_assurance_v1_commercial_assurance_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Platform Assurance V1 Commercial Assurance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Platform Assurance",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/audit-pack:verify": {
+      "post": {
+        "description": "Check a signed audit pack against the trusted evidence keys: signature, unaltered body, bundle digest.",
+        "operationId": "verify_audit_pack_v1_commercial_audit_pack_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Audit Pack V1 Commercial Audit Pack Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Audit Pack",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/change-log:verify": {
+      "get": {
+        "description": "Recompute every entry's digest and the hash chain; report the first broken entry.",
+        "operationId": "verify_commercial_change_log_v1_commercial_change_log_verify_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Commercial Change Log V1 Commercial Change Log Verify Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Verify Commercial Change Log",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/exceptions": {
+      "get": {
+        "operationId": "list_exceptions_v1_commercial_exceptions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Exceptions V1 Commercial Exceptions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Exceptions",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/exceptions/{exception_id}:resolve": {
+      "post": {
+        "operationId": "resolve_exception_v1_commercial_exceptions__exception_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Exception V1 Commercial Exceptions  Exception Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Exception",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/invoice-chain:verify": {
+      "get": {
+        "description": "Walk this cell's issuing entity's chain: digests only, no tenant data. Reports the first broken link.",
+        "operationId": "verify_invoice_chain_v1_commercial_invoice_chain_verify_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Invoice Chain V1 Commercial Invoice Chain Verify Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Verify Invoice Chain",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/kpis": {
+      "get": {
+        "operationId": "commercial_kpis_v1_commercial_kpis_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Commercial Kpis V1 Commercial Kpis Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Commercial Kpis",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/orders/{order_id}:activate": {
+      "post": {
+        "description": "The only route from a signed order to a tenant's entitlement. Idempotent; a second person activates.",
+        "operationId": "activate_order_v1_commercial_orders__order_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Order V1 Commercial Orders  Order Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Order",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/plan-requests": {
+      "get": {
+        "description": "Every company's open requests for a different plan, oldest first (CR-032).",
+        "operationId": "open_plan_requests_v1_commercial_plan_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Plan Requests V1 Commercial Plan Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Plan Requests",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/plan-requests/{request_id}:answer": {
+      "post": {
+        "description": "ACCEPTED: the team will raise the order (the plan itself still moves only by a signed order or the plan change\nbelow). DECLINED: the company is told why. The company's own entitlement is untouched either way.",
+        "operationId": "answer_plan_request_v1_commercial_plan_requests__request_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequestAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Answer Plan Request V1 Commercial Plan Requests  Request Id  Answer Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer Plan Request",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/price-books": {
+      "get": {
+        "operationId": "list_books_v1_commercial_price_books_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Books V1 Commercial Price Books Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Books",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "operationId": "create_book_v1_commercial_price_books_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Book V1 Commercial Price Books Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Book",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/price-books/{price_book_id}": {
+      "get": {
+        "operationId": "get_book_v1_commercial_price_books__price_book_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_book_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Book Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Book V1 Commercial Price Books  Price Book Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Book",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/price-books/{price_book_id}/lines": {
+      "put": {
+        "operationId": "put_line_v1_commercial_price_books__price_book_id__lines_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_book_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Book Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Line V1 Commercial Price Books  Price Book Id  Lines Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Line",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/price-books/{price_book_id}:approve": {
+      "post": {
+        "operationId": "approve_book_v1_commercial_price_books__price_book_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_book_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Book Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Book V1 Commercial Price Books  Price Book Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Book",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quotes": {
+      "post": {
+        "operationId": "create_quote_v1_commercial_quotes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Quote V1 Commercial Quotes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quotes/{quote_id}": {
+      "get": {
+        "operationId": "get_quote_v1_commercial_quotes__quote_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Quote V1 Commercial Quotes  Quote Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quotes/{quote_id}:approve": {
+      "post": {
+        "operationId": "approve_quote_v1_commercial_quotes__quote_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveQuoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Quote V1 Commercial Quotes  Quote Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/regions/{region}": {
+      "put": {
+        "description": "Record whether a cell's SRE release gate has passed; only released regions can be quoted.",
+        "operationId": "record_region_release_v1_commercial_regions__region__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "region",
+            "required": true,
+            "schema": {
+              "title": "Region",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Region Release V1 Commercial Regions  Region  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Region Release",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/role-holders": {
+      "post": {
+        "description": "Who may approve discounts in which band. Never granted to oneself.",
+        "operationId": "grant_commercial_role_v1_commercial_role_holders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__RoleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Grant Commercial Role V1 Commercial Role Holders Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Commercial Role",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/adjustments": {
+      "post": {
+        "description": "Ask to correct a billable event. The original is never edited: an approved adjustment is a signed\ndelta in the window that is still open.",
+        "operationId": "request_adjustment_v1_commercial_tenants__tenant_id__adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Adjustment V1 Commercial Tenants  Tenant Id  Adjustments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Adjustment",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/adjustments/{adjustment_id}:decide": {
+      "post": {
+        "operationId": "decide_adjustment_v1_commercial_tenants__tenant_id__adjustments__adjustment_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "adjustment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Adjustment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "approve",
+            "required": true,
+            "schema": {
+              "title": "Approve",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Adjustment V1 Commercial Tenants  Tenant Id  Adjustments  Adjustment Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Adjustment",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/assurance:run": {
+      "post": {
+        "operationId": "run_tenant_assurance_v1_commercial_tenants__tenant_id__assurance_run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Tenant Assurance V1 Commercial Tenants  Tenant Id  Assurance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Tenant Assurance",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/audit-pack": {
+      "get": {
+        "operationId": "audit_pack_v1_commercial_tenants__tenant_id__audit_pack_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Audit Pack V1 Commercial Tenants  Tenant Id  Audit Pack Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Audit Pack",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/billing-state": {
+      "post": {
+        "operationId": "move_billing_state_v1_commercial_tenants__tenant_id__billing_state_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Move Billing State V1 Commercial Tenants  Tenant Id  Billing State Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Billing State",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/close": {
+      "post": {
+        "description": "Freeze, rate and draft one tenant-month; resumable. Issuing stays a second person's step.",
+        "operationId": "close_month_v1_commercial_tenants__tenant_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Month V1 Commercial Tenants  Tenant Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Month",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/data-deletion": {
+      "get": {
+        "operationId": "data_deletion_status_v1_commercial_tenants__tenant_id__data_deletion_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Data Deletion Status V1 Commercial Tenants  Tenant Id  Data Deletion Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data Deletion Status",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Ask for a CLOSED tenant's data to be deleted. The worker erases what no legal hold protects and reports what it\nkept; the tenant must already be closed (offboarding drains it first). TEN-25.",
+        "operationId": "request_data_deletion_v1_commercial_tenants__tenant_id__data_deletion_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Data Deletion V1 Commercial Tenants  Tenant Id  Data Deletion Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Data Deletion",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/dunning:run": {
+      "post": {
+        "operationId": "dunning_v1_commercial_tenants__tenant_id__dunning_run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dunning V1 Commercial Tenants  Tenant Id  Dunning Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dunning",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/entitlement": {
+      "put": {
+        "operationId": "set_plan_v1_commercial_tenants__tenant_id__entitlement_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__PlanBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Plan V1 Commercial Tenants  Tenant Id  Entitlement Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Plan",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/invoices": {
+      "post": {
+        "operationId": "draft_invoice_v1_commercial_tenants__tenant_id__invoices_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftInvoiceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Draft Invoice V1 Commercial Tenants  Tenant Id  Invoices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Draft Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}/credit-notes": {
+      "post": {
+        "operationId": "issue_credit_note_v1_commercial_tenants__tenant_id__invoices__invoice_id__credit_notes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreditNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue Credit Note V1 Commercial Tenants  Tenant Id  Invoices  Invoice Id  Credit Notes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Credit Note",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:collect": {
+      "post": {
+        "operationId": "collect_invoice_v1_commercial_tenants__tenant_id__invoices__invoice_id__collect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Collect Invoice V1 Commercial Tenants  Tenant Id  Invoices  Invoice Id  Collect Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collect Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:issue": {
+      "post": {
+        "operationId": "issue_invoice_v1_commercial_tenants__tenant_id__invoices__invoice_id__issue_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue Invoice V1 Commercial Tenants  Tenant Id  Invoices  Invoice Id  Issue Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:void": {
+      "post": {
+        "operationId": "void_invoice_v1_commercial_tenants__tenant_id__invoices__invoice_id__void_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Void Invoice V1 Commercial Tenants  Tenant Id  Invoices  Invoice Id  Void Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Void Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/journal": {
+      "get": {
+        "description": "Balanced journal lines for the period. `format=csv` is the file the finance team imports into the\ngeneral ledger: this platform exports journals and never posts them.",
+        "operationId": "journal_v1_commercial_tenants__tenant_id__journal_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Journal V1 Commercial Tenants  Tenant Id  Journal Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Journal",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/meter-windows/{month}:freeze": {
+      "post": {
+        "description": "Close every meter of one tenant for a finished UTC month; the database then refuses new events there.",
+        "operationId": "freeze_window_v1_commercial_tenants__tenant_id__meter_windows__month__freeze_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Freeze Window V1 Commercial Tenants  Tenant Id  Meter Windows  Month  Freeze Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Freeze Window",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/orders": {
+      "post": {
+        "description": "Record the buyer's signature on a quote: it becomes an order for this tenant of the quoted account.",
+        "operationId": "accept_quote_v1_commercial_tenants__tenant_id__orders_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Accept Quote V1 Commercial Tenants  Tenant Id  Orders Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/overrides": {
+      "post": {
+        "operationId": "add_override_v1_commercial_tenants__tenant_id__overrides_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Override V1 Commercial Tenants  Tenant Id  Overrides Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Override",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/rating-runs": {
+      "post": {
+        "description": "Rate one tenant's frozen month. The same inputs return the same run (the replay proof); new inputs\nsupersede the previous run and keep its lines. Connections are counted now, at the cut-off.",
+        "operationId": "create_rating_run_v1_commercial_tenants__tenant_id__rating_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Rating Run V1 Commercial Tenants  Tenant Id  Rating Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rating Run",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/reconcile/{month}": {
+      "post": {
+        "description": "Compare the ledger with the authoritative rows (sessions, credentials) for one month and record what\nis missing, marked `recovered`. Nothing is invented without a source row and nothing existing is touched.\nA frozen window refuses new events, so the recovered ones land in the next open window, flagged late.",
+        "operationId": "reconcile_ledger_v1_commercial_tenants__tenant_id__reconcile__month__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reconcile Ledger V1 Commercial Tenants  Tenant Id  Reconcile  Month  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Ledger",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/safety-hold": {
+      "post": {
+        "description": "An abuse or acceptable-use hold: separate from billing, never cleared by paying (CR-027).",
+        "operationId": "safety_hold_v1_commercial_tenants__tenant_id__safety_hold_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SafetyHoldBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Safety Hold V1 Commercial Tenants  Tenant Id  Safety Hold Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Safety Hold",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendor-costs": {
+      "get": {
+        "operationId": "vendor_costs_v1_commercial_vendor_costs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Vendor Costs V1 Commercial Vendor Costs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vendor Costs",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors": {
+      "post": {
+        "operationId": "register_vendor_v1_commercial_vendors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Vendor V1 Commercial Vendors Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Vendor",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors/{vendor_id}/invoices/{invoice_ref}": {
+      "post": {
+        "operationId": "import_vendor_invoice_v1_commercial_vendors__vendor_id__invoices__invoice_ref__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vendor_id",
+            "required": true,
+            "schema": {
+              "title": "Vendor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_ref",
+            "required": true,
+            "schema": {
+              "title": "Invoice Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorInvoiceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Vendor Invoice V1 Commercial Vendors  Vendor Id  Invoices  Invoice Ref  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Vendor Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors/{vendor_id}/invoices/{invoice_ref}:reconcile": {
+      "post": {
+        "operationId": "reconcile_vendor_invoice_v1_commercial_vendors__vendor_id__invoices__invoice_ref__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vendor_id",
+            "required": true,
+            "schema": {
+              "title": "Vendor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invoice_ref",
+            "required": true,
+            "schema": {
+              "title": "Invoice Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reconcile Vendor Invoice V1 Commercial Vendors  Vendor Id  Invoices  Invoice Ref  Reconcile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Vendor Invoice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors/{vendor_id}/rates": {
+      "post": {
+        "operationId": "vendor_rate_v1_commercial_vendors__vendor_id__rates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vendor_id",
+            "required": true,
+            "schema": {
+              "title": "Vendor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Vendor Rate V1 Commercial Vendors  Vendor Id  Rates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vendor Rate",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors/{vendor_id}/recognition": {
+      "put": {
+        "operationId": "vendor_recognition_v1_commercial_vendors__vendor_id__recognition_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vendor_id",
+            "required": true,
+            "schema": {
+              "title": "Vendor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Vendor Recognition V1 Commercial Vendors  Vendor Id  Recognition Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vendor Recognition",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/vendors/{vendor_id}/routes/{check_type}/{country}": {
+      "put": {
+        "operationId": "vendor_route_v1_commercial_vendors__vendor_id__routes__check_type___country__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vendor_id",
+            "required": true,
+            "schema": {
+              "title": "Vendor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "check_type",
+            "required": true,
+            "schema": {
+              "title": "Check Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "country",
+            "required": true,
+            "schema": {
+              "title": "Country",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__RouteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Vendor Route V1 Commercial Vendors  Vendor Id  Routes  Check Type   Country  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vendor Route",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/tenants/{tenant_id}/entitlements": {
+      "get": {
+        "operationId": "tenant_entitlements_v1_tenants__tenant_id__entitlements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Tenant Entitlements V1 Tenants  Tenant Id  Entitlements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Entitlements",
+        "tags": [
+          "commercial"
+        ]
+      }
+    }
+  }
+}

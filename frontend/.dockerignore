@@ -1,0 +1,8 @@
+**/node_modules
+**/.next
+**/.turbo
+test-results
+tests
+**/*.tsbuildinfo
+.env*
+!.env.example

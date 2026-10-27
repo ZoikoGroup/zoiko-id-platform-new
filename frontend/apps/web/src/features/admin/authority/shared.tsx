@@ -1,6 +1,6 @@
 "use client";
 
-import type { PrincipalItem, PrincipalType } from "@zoiko/api-client";
+import type { AuthorityGrant, PrincipalItem, PrincipalType } from "@zoiko/api-client";
 import { Banner, Button, Select, TextField, humanize, type Option } from "@zoiko/ui";
 import { AlertTriangle } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -138,7 +138,9 @@ export function PrincipalField({
     const rank = (p: PrincipalItem) => (preferTypes?.includes(p.principal_type) ? 0 : 1);
     return rank(a) - rank(b) || a.principal_type.localeCompare(b.principal_type);
   });
-  const options = [...extraOptions, ...items.map(principalOption)];
+  // An extra option wins over the same principal in the list (the signed-in person is in both): keys must be unique.
+  const extraIds = new Set(extraOptions.map((o) => o.id));
+  const options = [...extraOptions, ...items.filter((p) => !extraIds.has(p.principal_id)).map(principalOption)];
   const known = options.some((o) => o.id === value);
   const useText = manual || principals.isError || (principals.isSuccess && options.length === 0) || (value !== "" && !known);
 
@@ -205,12 +207,15 @@ export function GrantPicker({
   description,
   isRequired,
   allowNone,
+  filter,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   /** Only grants held by this principal. */
   granteeId?: string;
+  /** Keep only the grants that suit the task (e.g. those a mandate can be built on). */
+  filter?: (g: AuthorityGrant) => boolean;
   description?: ReactNode;
   isRequired?: boolean;
   /** Adds a "None" choice (value ""). */
@@ -219,10 +224,10 @@ export function GrantPicker({
   const q = { status: "ACTIVE" as const, grantee_principal_id: granteeId, limit: 200 };
   const grants = useCellQuery(["authority", "grants", "picker", q], (api) => api.authority.grants(q));
   const [manual, setManual] = useState(false);
-  const options: Option[] = (grants.data?.items ?? []).map((g) => ({
+  const options: Option[] = (grants.data?.items ?? []).filter((g) => !filter || filter(g)).map((g) => ({
     id: g.authority_grant_id,
     label: `${shortId(g.authority_grant_id)} · ${g.actions === null ? "any action" : g.actions.slice(0, 2).join(", ") + (g.actions.length > 2 ? ` +${g.actions.length - 2}` : "")}`,
-    description: `Grantee ${shortId(g.grantee_principal_id)} · for ${shortId(g.represented_principal_id)}${g.valid_to ? ` · until ${new Date(g.valid_to).toLocaleDateString("en-US")}` : ""}`,
+    description: `Grantee ${shortId(g.grantee_principal_id)} · for ${shortId(g.represented_principal_id)}${g.value_limit ? ` · up to ${g.value_limit.amount} ${g.value_limit.currency}` : ""}${g.valid_to ? ` · until ${new Date(g.valid_to).toLocaleDateString("en-US")}` : ""}`,
   }));
   const known = options.some((o) => o.id === value);
   const useText = manual || grants.isError || (value !== "" && !known && grants.isSuccess);

@@ -42,6 +42,8 @@ from zid_platform.modules.operations.domain.incidents import (
     OperationsError,
     Severity,
     check_close,
+    check_evidence_entry,
+    check_evidence_preserved,
     check_gates,
     check_move,
     check_resolve,
@@ -226,6 +228,8 @@ async def update(
         )
     if status is not None and status is not inc.status:
         check_move(inc.status, status)
+        if status is IncidentStatus.RECOVERY_VALIDATION:
+            await _require_evidence(conn, incident_id, inc)
         fields["status"] = status.value
         if status is IncidentStatus.RECOVERY_VALIDATION and inc.mitigated_at is None:
             fields["mitigated_at"] = now
@@ -271,6 +275,58 @@ async def update(
     return new
 
 
+async def _require_evidence(conn: AsyncConnection, incident_id: str, inc: Incident) -> None:
+    """OPS-20: mitigation is not declared done while the evidence it touched is unrecorded as preserved."""
+    preserved = [
+        e["data"] for e in await store.timeline(conn, incident_id) if e["kind"] == "EVIDENCE"
+    ]
+    check_evidence_preserved(inc.severity, inc.security, preserved)
+
+
+async def preserve_evidence(
+    conn: AsyncConnection,
+    actor: Actor,
+    incident_id: str,
+    *,
+    artifacts: Sequence[str],
+    custody_ref: str,
+    note: str,
+    now: datetime,
+) -> int:
+    """Record what was preserved and under which chain-of-custody record (OPS-20). Append-only, like the timeline."""
+    await _responder(conn, actor)
+    await _open(conn, incident_id)
+    kept = check_evidence_entry(artifacts, custody_ref)
+    seq = await store.append_entry(
+        conn,
+        incident_id,
+        kind="EVIDENCE",
+        actor=actor.principal_id,
+        note=note,
+        data={"artifacts": sorted(kept), "custody_ref": custody_ref.strip()},
+    )
+    # An audit record, not an outbox event: nothing downstream reacts to it, and the incident's own version (which the
+    # next lifecycle event uses) is not touched.
+    await record_audit(
+        conn,
+        actor.tenant_id,
+        AuditFacts(
+            event_type="ops.incident.updated",
+            actor_type="OPERATOR",
+            action="evidence_preserved",
+            target_type="incident",
+            target_ref=incident_id,
+            outcome="SUCCESS",
+            evidence_class=EvidenceClass.E2,
+            occurred_at=now,
+            actor_principal_id=actor.principal_id,
+            source_service="operations",
+            details={"artifacts": ",".join(sorted(kept)), "custody_ref": custody_ref.strip()},
+        ),
+    )
+    return seq
+
+
 async def add_entry(
     conn: AsyncConnection,
     actor: Actor,
@@ -296,6 +352,7 @@ async def resolve(
     await _responder(conn, actor)
     inc = await _open(conn, incident_id)
     check_resolve(inc.status, inc.severity, inc.security, inc.roles, validation)
+    await _require_evidence(conn, incident_id, inc)
     await store.append_entry(
         conn, incident_id, kind="RESOLVED", actor=actor.principal_id, note=validation, data={}
     )

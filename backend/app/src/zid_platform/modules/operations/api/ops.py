@@ -467,6 +467,37 @@ async def add_entry(
     return {"incident_id": str(incident_id), "seq": seq}
 
 
+class EvidenceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    artifacts: list[
+        Literal["DECISION_RECEIPTS", "AUDIT_RECORDS", "LOGS", "FORENSIC_IMAGE", "CUSTODY_RECORD"]
+    ] = Field(min_length=1, max_length=5)
+    custody_ref: str = Field(min_length=8, max_length=128)
+    note: str = Field(min_length=4, max_length=2000)
+
+
+@router.post("/incidents/{incident_id}/evidence", status_code=201)
+async def preserve_evidence(
+    incident_id: uuid.UUID, body: EvidenceBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Record the decision receipts and other artifacts kept, and the chain-of-custody record covering them. A
+    security or major incident cannot leave mitigation, or resolve, until this is on its timeline (OPS-20)."""
+    seq = await _run(
+        request,
+        op,
+        lambda conn, a: service.preserve_evidence(
+            conn,
+            a,
+            str(incident_id),
+            artifacts=body.artifacts,
+            custody_ref=body.custody_ref,
+            note=body.note,
+            now=datetime.now(UTC),
+        ),
+    )
+    return {"incident_id": str(incident_id), "seq": seq, "artifacts": sorted(body.artifacts)}
+
+
 @router.post("/incidents/{incident_id}:resolve")
 async def resolve(
     incident_id: uuid.UUID, body: ResolveBody, request: Request, op: OperatorDep

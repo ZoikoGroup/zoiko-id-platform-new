@@ -16,6 +16,7 @@ the error is returned, so an attacker's retry finds the revoked state.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -25,9 +26,10 @@ from urllib.parse import urlencode
 from cryptography import x509
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_context import RequestContext
-from zid_crypto import CryptoError, KeyRing
+from zid_crypto import CryptoError, KeyRing, b64url_decode
 from zid_db import tenant_transaction
 
+from zid_platform.modules.commercial.ports import key_m2m, record_billable
 from zid_platform.modules.principal.ports import PrincipalStatus, load_principal
 from zid_platform.modules.session.application.authenticate import verify_dpop_proof
 from zid_platform.modules.session.application.client_auth import (
@@ -798,7 +800,24 @@ async def _client_credentials(
         sender=sender,
         now=now,
     )
+    await _bill_grant(conn, tenant, body["access_token"], now)
     return TokenResult(body)
+
+
+async def _bill_grant(conn: AsyncConnection, tenant: str, access_token: str, now: datetime) -> None:
+    """One machine token issued is one M2M grant, deduplicated by the token's own id (CR-025)."""
+    try:
+        jti = str(json.loads(b64url_decode(access_token.split(".")[1]))["jti"])
+    except (ValueError, KeyError, IndexError):
+        return
+    await record_billable(
+        conn,
+        tenant_id=tenant,
+        meter="M2M_GRANT",
+        key=key_m2m(jti),
+        at=now,
+        principal_class="NON_HUMAN",
+    )
 
 
 def _verify_own_token(

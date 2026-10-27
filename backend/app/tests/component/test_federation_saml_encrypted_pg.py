@@ -129,6 +129,7 @@ def encode(el: etree._Element) -> str:
 def test_encrypted_assertions_and_governed_idp_initiated_sso(
     rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """SEC-27 (federation changes): enabling an IdP-initiated path is refused without a second administrator's approval."""
     tenant, alice, admin, approver = uid(), uid(), uid(), uid()
     web = f"web-{uid()}"
     key, cert = keypair()

@@ -1,5 +1,25 @@
 // GENERATED from contracts/openapi/public/scim.json by packages/api-client/openapi/codegen.mjs. Do not edit.
 export interface paths {
+    "/provisioning/lifecycle-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lifecycle Event
+         * @description OVERLAY §22: joiner / mover / leaver / leave from the HRIS (same source auth as SCIM).
+         */
+        post: operations["lifecycle_event_provisioning_lifecycle_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/provisioning/sources": {
         parameters: {
             query?: never;
@@ -170,6 +190,22 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LifecycleBody */
+        LifecycleBody: {
+            /** Effective At */
+            effective_at?: string | null;
+            event: components["schemas"]["LifecycleEvent"];
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * LifecycleEvent
+         * @enum {string}
+         */
+        LifecycleEvent: "JOINER" | "MOVER" | "LEAVER" | "LEAVE_START" | "LEAVE_END";
         /** SourceIn */
         SourceIn: {
             /** Approval Request Id */
@@ -201,6 +237,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    lifecycle_event_provisioning_lifecycle_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sources_provisioning_sources_get: {
         parameters: {
             query?: never;

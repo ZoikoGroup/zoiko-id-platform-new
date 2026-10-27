@@ -48,6 +48,23 @@ class KmsClient(Protocol):
     def describe_key(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
+# KMS says "slow down" in several ways. The provider retries a few times with a short, growing pause, then fails closed
+# with CRYPTO_THROTTLED (retryable): the caller is asked to try again later and never receives an unsigned or
+# unencrypted result in its place (OPS-17).
+THROTTLE_CODES = frozenset(
+    {
+        "ThrottlingException",
+        "LimitExceededException",
+        "RequestLimitExceeded",
+        "TooManyRequestsException",
+    }
+)
+THROTTLE_RETRY_DELAYS = (
+    0.05,
+    0.15,
+)  # three attempts in all; bounded so a throttled KMS cannot hold requests open
+
+
 def _error_code(exc: Exception) -> str | None:
     response = getattr(exc, "response", None)
     if isinstance(response, dict):
@@ -63,7 +80,11 @@ class AwsKmsKeyProvider:
         key_ids: Mapping[KeyPurpose, str | tuple[str, ...]],
         *,
         pending_window_days: int = 30,
+        fips_endpoint: bool = False,
     ) -> None:
+        # True only when the client talks to a FIPS-validated KMS endpoint (kms-fips.<region>...), set by the
+        # deployment that built the client; the provider cannot see that from the client object itself.
+        self.fips_validated = fips_endpoint
         if not 7 <= pending_window_days <= 30:
             raise ValueError("KMS pending window is 7-30 days")
         self._client = client
@@ -90,29 +111,37 @@ class AwsKmsKeyProvider:
 
     async def _call(self, method: str, **kwargs: Any) -> dict[str, Any]:
         fn = getattr(self._client, method)
-        try:
-            result: dict[str, Any] = await asyncio.to_thread(fn, **kwargs)
-        except CryptoError:
-            raise
-        except Exception as e:
-            code = _error_code(e)
-            if code == "InvalidCiphertextException":
-                raise CryptoError("CRYPTO_KEY_CONTEXT_MISMATCH") from e
-            if code == "KMSInvalidStateException":
-                key_id = str(kwargs.get("KeyId"))
-                if await self._gone(key_id):
-                    raise KeyDestroyedError(key_id) from e
-                raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", key_id) from e
-            if code == "DisabledException":
-                raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", str(kwargs.get("KeyId"))) from e
-            if code == "NotFoundException":
-                raise CryptoError("CRYPTO_KEY_UNKNOWN", str(kwargs.get("KeyId"))) from e
-            if code == "AccessDeniedException":
-                raise CryptoError("CRYPTO_ACCESS_DENIED", method) from e
-            raise CryptoError(
-                "CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}"
-            ) from e
-        return result
+        delays = iter(THROTTLE_RETRY_DELAYS)
+        while True:
+            try:
+                result: dict[str, Any] = await asyncio.to_thread(fn, **kwargs)
+                return result
+            except CryptoError:
+                raise
+            except Exception as e:
+                code = _error_code(e)
+                if code in THROTTLE_CODES:
+                    pause = next(delays, None)
+                    if pause is not None:
+                        await asyncio.sleep(pause)
+                        continue
+                    raise CryptoError("CRYPTO_THROTTLED", method) from e
+                if code == "InvalidCiphertextException":
+                    raise CryptoError("CRYPTO_KEY_CONTEXT_MISMATCH") from e
+                if code == "KMSInvalidStateException":
+                    key_id = str(kwargs.get("KeyId"))
+                    if await self._gone(key_id):
+                        raise KeyDestroyedError(key_id) from e
+                    raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", key_id) from e
+                if code == "DisabledException":
+                    raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", str(kwargs.get("KeyId"))) from e
+                if code == "NotFoundException":
+                    raise CryptoError("CRYPTO_KEY_UNKNOWN", str(kwargs.get("KeyId"))) from e
+                if code == "AccessDeniedException":
+                    raise CryptoError("CRYPTO_ACCESS_DENIED", method) from e
+                raise CryptoError(
+                    "CRYPTO_MODULE_UNAVAILABLE", f"{method}: {code or type(e).__name__}"
+                ) from e
 
     async def _gone(self, key_id: str) -> bool:
         try:
@@ -196,6 +225,10 @@ def _sync_call(client: Any, method: str, **kwargs: Any) -> dict[str, Any]:
     except Exception as e:
         code = _error_code(e)
         key_id = str(kwargs.get("KeyId"))
+        if code in THROTTLE_CODES:
+            raise CryptoError(
+                "CRYPTO_THROTTLED", method
+            ) from e  # no result, signed or not; the caller retries later
         if code in ("KMSInvalidStateException", "DisabledException"):
             raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", key_id) from e
         if code == "NotFoundException":

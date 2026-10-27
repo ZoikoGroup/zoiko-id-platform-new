@@ -13,6 +13,22 @@ Back to the [phase index](README.md).
 | 19a | ZID-RESILIENCE-001 | Deployment Topology, Cells, HA & DR (supplementary to 19; [CR-005](../specs/change-requests/CR-005-master-sequence-reconciliation.md)) |
 | 23 | ZID-SRE-001 | Observability, SRE, Resilience & DR |
 
+## Deliverables and status
+
+| ID | Deliverable | Implements | Where | Status |
+|---|---|---|---|---|
+| G-W0 | **Tenant lifecycle.** DRAFT → ORGANIZATION_VERIFYING → CONFIGURING → INTEGRATING → SHADOW → PILOT → ACTIVE, plus BLOCKED, SUSPENDED, OFFBOARDING, CLOSED; every move with its gate report; OWNER/ADMIN/MEMBER roles, invitations with progress, owner changes under a second administrator | OVERLAY-001 §2–4 | `modules/tenant` | Built — `test_tenant_lifecycle_pg.py`, `test_team_invitations_pg.py` |
+| G-W1 | **Organization gate and sign-up.** Registry roots from Companies House / GLEIF with holder binding to a verified legal-name commitment; public company sign-up storing the declared registration, notice acknowledgement and home cell; workspace discovery | OVERLAY-001 §4; ROOT-001 §6, §19 | `modules/organization`, `modules/onboarding/api/signup.py` | Built — `test_onboarding_organization_pg.py`, `test_signup_pg.py` |
+| G-W2 | **Domain verification.** DNS TXT and HTTPS challenges, one verified claimant per domain, consumer domains refused, periodic re-verification | OVERLAY-001 §5 | `modules/tenant` (domains) | Built — `test_tenant_lifecycle_pg.py` |
+| G-W3 | **Integration registry.** Applications and PEP profiles, connectors with health, freshness, write-only credentials and quarantine, immutable mapping releases with simulation, multi-IdP routing | OVERLAY-001 §8–11, §14–16 | `modules/integration` | Built — `test_integration_registry_pg.py`, `test_mapping_routing_pg.py` |
+| G-W4 | **Onboarding plan, shadow and pilot.** Plan object, readiness gates, shadow observations with exit criteria, pilot stages, activation and rollback; overlay verdicts on the AuthZEN path | OVERLAY-001 §12, §17–20 | `modules/onboarding`, `modules/decision/api/authzen.py` | Built — `test_onboarding_plan_pg.py`, `test_overlay_rules.py` |
+| G-W5 | **HR lifecycle and offboarding.** Joiner/mover/leaver/leave events; company offboarding drains integrations and revokes sessions | OVERLAY-001 §2, §22 | `modules/provisioning`, `modules/onboarding/application/offboarding.py` | Built — `test_hr_lifecycle_offboarding_pg.py` |
+| G-W6 | **Global locator and signed discovery.** Signed directory records verified against pinned cell keys, signed discovery documents, placement-epoch fencing (`CELL_ROUTING_STALE`) | DEC-G3; TENANCY-001 §14 | `modules/locator`, `modules/discovery`, `modules/tenant/application/directory.py` | Built — `test_locator_discovery_pg.py` |
+| G-W7 | **Governed recovery.** Failover, migration, failback and restore runbooks as enforced step sequences; residency, replica, key and capacity gates; epoch advance and writer fencing; reservation reconciliation; cell quarantine; DR exercises | DEC-G1; RESILIENCE-001 §11–20, §25–30 | `modules/resilience` | Built — `test_resilience_operations_pg.py` |
+| G-W8 | **SRE and observability.** Telemetry redaction, governed metrics, W3C trace context, journey SLIs; service catalogue with generated burn-rate and invariant alerts; runbooks RB-01–RB-18; incidents with PIR, readiness reviews, change freezes and change policy | DEC-G5; SRE-001 §1–6, §15–30 | `libs/zid-telemetry`, `modules/operations`, `backend/config/operations`, `deploy/observability`, `docs/runbooks` | Built — `test_telemetry.py`, `test_operations_catalogue.py`, `test_operations_pg.py` |
+| G-W9 | **Supply chain, environments and deployment.** CI security scans, signing, SBOM, provenance, admission policy, infrastructure as code | DEC-G2, DEC-G4; DEVSECOPS-001 | `.github/workflows`, `deploy/` | Partly — CI pinned by SHA with step timeouts. Deployment is being done separately on **GCP**; DEC-G2 (AWS) needs a superseding decision |
+| G-W10 | **Product surfaces.** Company sign-up, company verification, onboarding wizard, domains, applications, integrations, company settings, overview; Operator Console cells, recovery operations, DR exercises, services and SLOs, incidents | UX-001 §5, §15, §19, §21 | `frontend/apps/web`, `frontend/apps/operator` | Built — typecheck, lint and `next build` of both apps |
+
 ## Decisions
 
 | ID | Decision | Owner | Status |

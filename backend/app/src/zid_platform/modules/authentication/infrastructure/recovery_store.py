@@ -272,3 +272,17 @@ async def open_cases_for(conn: AsyncConnection, principal_id: str) -> list[Case]
         )
     ).all()
     return [_case(r) for r in rows]
+
+
+async def code_status(conn: AsyncConnection, principal_id: str) -> tuple[int, datetime | None]:
+    """(unused, unrevoked codes, when the current batch was issued)."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE used_at IS NULL) AS left, max(created_at) AS issued "
+                "FROM authn.recovery_code WHERE principal_id = :p AND revoked_at IS NULL"
+            ),
+            {"p": uuid.UUID(principal_id)},
+        )
+    ).one()
+    return int(row.left or 0), row.issued

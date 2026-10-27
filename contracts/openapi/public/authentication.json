@@ -875,6 +875,30 @@
         ]
       }
     },
+    "/authn/recovery-codes/status": {
+      "get": {
+        "description": "Whether the signed-in person holds usable recovery codes (never the codes themselves).",
+        "operationId": "codes_status_authn_recovery_codes_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Codes Status Authn Recovery Codes Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Codes Status",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
     "/authn/recovery/{recovery_id}:cancel": {
       "post": {
         "description": "The account owner, still signed in somewhere, stops a recovery they did not start.",

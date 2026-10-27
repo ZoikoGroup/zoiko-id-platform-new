@@ -723,86 +723,6 @@
         "title": "RightsBody",
         "type": "object"
       },
-      "RoleBody": {
-        "additionalProperties": false,
-        "properties": {
-          "approval_ref": {
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Approval Ref",
-            "type": "string"
-          },
-          "approval_request_id": {
-            "format": "uuid",
-            "title": "Approval Request Id",
-            "type": "string"
-          },
-          "contract_or_dpa_ref": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contract Or Dpa Ref"
-          },
-          "data_controller_principal_id": {
-            "format": "uuid",
-            "title": "Data Controller Principal Id",
-            "type": "string"
-          },
-          "jurisdiction_pack_id": {
-            "title": "Jurisdiction Pack Id",
-            "type": "string"
-          },
-          "processor_principal_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "maxItems": 50,
-            "title": "Processor Principal Ids",
-            "type": "array"
-          },
-          "recipient_classes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 20,
-            "title": "Recipient Classes",
-            "type": "array"
-          },
-          "valid_to": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid To"
-          },
-          "zoiko_role": {
-            "pattern": "^(CONTROLLER|PROCESSOR|JOINT_CONTROLLER|INDEPENDENT_CONTROLLER)$",
-            "title": "Zoiko Role",
-            "type": "string"
-          }
-        },
-        "required": [
-          "data_controller_principal_id",
-          "zoiko_role",
-          "jurisdiction_pack_id",
-          "approval_ref",
-          "approval_request_id"
-        ],
-        "title": "RoleBody",
-        "type": "object"
-      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -914,6 +834,86 @@
           "reason_code"
         ],
         "title": "CloseBody",
+        "type": "object"
+      },
+      "zid_platform__modules__privacy__api__privacy__RoleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "contract_or_dpa_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Or Dpa Ref"
+          },
+          "data_controller_principal_id": {
+            "format": "uuid",
+            "title": "Data Controller Principal Id",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "processor_principal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processor Principal Ids",
+            "type": "array"
+          },
+          "recipient_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Recipient Classes",
+            "type": "array"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "zoiko_role": {
+            "pattern": "^(CONTROLLER|PROCESSOR|JOINT_CONTROLLER|INDEPENDENT_CONTROLLER)$",
+            "title": "Zoiko Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_controller_principal_id",
+          "zoiko_role",
+          "jurisdiction_pack_id",
+          "approval_ref",
+          "approval_request_id"
+        ],
+        "title": "RoleBody",
         "type": "object"
       }
     }
@@ -1180,7 +1180,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RoleBody"
+                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__privacy__RoleBody"
               }
             }
           },
@@ -1997,6 +1997,30 @@
           }
         },
         "summary": "Role Map",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/v1/privacy/consent-options": {
+      "get": {
+        "description": "What the signed-in person can consent to, each with the exact notice to cite when giving consent.",
+        "operationId": "consent_options_v1_privacy_consent_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Consent Options V1 Privacy Consent Options Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Consent Options",
         "tags": [
           "privacy"
         ]

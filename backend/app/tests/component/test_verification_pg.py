@@ -47,6 +47,10 @@ def uid() -> str:
 
 
 def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url: str) -> None:
+    """VERIFY-07 (a repeated provider callback is deduplicated), API-11 (invalid, stale, replayed and
+    wrong-source or wrong-tenant callbacks are refused), VERIFY-10 (a manual review needs two named
+    reviewers and is audited; nothing sets VERIFIED directly), VERIFY-19 VERIFY-20 (verification, including a
+    biometric match, creates no authority) and VERIFY-17 (a re-verification supersedes and keeps history)."""
     tenant, alice, admin, admin2 = uid(), uid(), uid(), uid()
     ring = KeyRing(LocalSigner("issuer-1"))
     provider_key = LocalSigner("beta-cb-1")
@@ -147,6 +151,7 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
         event_id: str | None = None,
         key: LocalSigner = provider_key,
         mapping_version: str = "v3",
+        iat: int | None = None,
         **overrides: Any,
     ) -> bytes:
         body = {
@@ -177,7 +182,7 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
             "mapping_version": mapping_version,
             "event_id": event_id or uid(),
             "transaction_ref": ref,
-            "iat": int(time.time()),
+            "iat": int(time.time()) if iat is None else iat,
             "result": {**body, **overrides},
         }
         return sign_jws(key, claims, typ="verification-result+jwt").encode()
@@ -296,6 +301,21 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
         )
         r = http.post(cb + "beta", content=result(ref, mapping_version="v2"))
         assert r.status_code == 400
+        # API-11: a stale or future-dated signed result, a result for another source, and one sent to another
+        # tenant's callback are all refused
+        stale = http.post(cb + "beta", content=result(ref, iat=int(time.time()) - 1200))
+        assert stale.status_code == 400 and "CALLBACK_STALE" in stale.text
+        assert (
+            http.post(cb + "beta", content=result(ref, iat=int(time.time()) + 1200)).status_code
+            == 400
+        )
+        assert (
+            http.post(cb + "acme", content=result(ref)).status_code != 202
+        )  # signed by beta's key, sent as acme
+        elsewhere = f"/verification-provider-callbacks/{uid()}.beta"
+        assert (
+            http.post(elsewhere, content=result(ref)).status_code != 202
+        )  # another tenant has no such provider
         first = result(ref, event_id="evt-1")
         r = http.post(cb + "beta", content=first)
         assert r.status_code == 202 and r.json()["outcome"] == "VERIFIED", r.text
@@ -320,6 +340,13 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
         assert http.get(f"/verifications/{r.json()['verification_id']}", headers=app_client).json()[
             "outcome"
         ] == ("BIOMETRIC_NOT_PERMITTED")
+
+        # VERIFY-17: a new verification supersedes the old one; the old session and its outcome stay on record
+        again = http.post(f"/verifications/{vid}:reverify", headers=app_client)
+        assert again.status_code == 201 and again.json()["supersedes"] == vid, again.text
+        assert again.json()["verification_id"] != vid
+        old = http.get(f"/verifications/{vid}", headers=app_client).json()
+        assert old["status"] == "VERIFIED" and old["outcome"] == "VERIFIED"
 
         # fraud: never auto-pass; manual review with dual control, and a fraud signal
         r = start()
@@ -416,6 +443,29 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
         r = start()
         assert r.json()["status"] == "FAILED" and r.json()["outcome"] == "PROVIDER_UNAVAILABLE"
 
+    async def authority_created() -> tuple[int, int, int]:
+        async with engine(owner_url) as eng, eng.begin() as c:
+            t = {"t": uuid.UUID(tenant), "p": uuid.UUID(alice)}
+            grants = await c.execute(
+                text("SELECT count(*) FROM authz.authority_grant WHERE grantee_principal_id = :p"),
+                t,
+            )
+            roots = await c.execute(
+                text(
+                    "SELECT count(*) FROM org.authority_root_assertion "
+                    "WHERE tenant_id = :t AND holder_principal_id = :p"
+                ),
+                t,
+            )
+            mandates = await c.execute(
+                text("SELECT count(*) FROM agent.mandate WHERE tenant_id = :t"), t
+            )
+            return (
+                int(grants.scalar_one()),
+                int(roots.scalar_one()),
+                int(mandates.scalar_one()),
+            )
+
     async def evidence() -> tuple[int, str]:
         async with engine(owner_url) as eng, eng.begin() as c:
             dump = (
@@ -437,6 +487,9 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
             ).scalar_one()
         return acme, dump
 
+    # VERIFY-19 / VERIFY-20: a verified identity (document, KYB-style entity checks, a successful face match) made
+    # alice more assured and gave her no authority: no grant to her, no organizational root held by her, no mandate
+    assert asyncio.run(authority_created()) == (0, 0, 0)
     acme_failures, dump = asyncio.run(evidence())
     assert NAME not in dump and DOB not in dump  # claim values exist only as commitments
     assert acme_failures >= 3

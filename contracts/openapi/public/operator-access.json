@@ -273,6 +273,46 @@
         "title": "EntryBody",
         "type": "object"
       },
+      "EvidenceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "enum": [
+                "DECISION_RECEIPTS",
+                "AUDIT_RECORDS",
+                "LOGS",
+                "FORENSIC_IMAGE",
+                "CUSTODY_RECORD"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "custody_ref": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Custody Ref",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 4,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifacts",
+          "custody_ref",
+          "note"
+        ],
+        "title": "EvidenceBody",
+        "type": "object"
+      },
       "ExerciseBody": {
         "additionalProperties": false,
         "properties": {
@@ -1904,6 +1944,62 @@
           }
         },
         "summary": "Add Entry",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/ops/incidents/{incident_id}/evidence": {
+      "post": {
+        "description": "Record the decision receipts and other artifacts kept, and the chain-of-custody record covering them. A\nsecurity or major incident cannot leave mitigation, or resolve, until this is on its timeline (OPS-20).",
+        "operationId": "preserve_evidence_ops_incidents__incident_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preserve Evidence Ops Incidents  Incident Id  Evidence Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preserve Evidence",
         "tags": [
           "operations"
         ]

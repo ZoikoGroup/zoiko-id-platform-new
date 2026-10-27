@@ -50,6 +50,12 @@ OFFICIAL_ROLES = frozenset(
 REGISTRY_FRESHNESS = timedelta(days=1)  # re-checked by the worker before it lapses (§4 freshness)
 CH_NUMBER = re.compile(r"^(?:[0-9]{8}|[A-Z]{2}[0-9]{6})$")
 LEI = re.compile(r"^[A-Z0-9]{18}[0-9]{2}$")
+# EUID (Business Registers Interconnection System): <country><register id>.<national number>
+EUID = re.compile(r"^[A-Z]{2}[A-Z0-9]{1,12}\.[A-Z0-9][A-Z0-9_-]{0,29}$")
+# Namespaces whose identifiers may be linked to one canonical organization (ROOT-01). LEI and EUID
+# are global namespaces; a national number only means something inside its own jurisdiction.
+GLOBAL_NAMESPACES = frozenset({"LEI", "EUID"})
+LINKABLE_NAMESPACES = frozenset({"GB-COH", "LEI", "EUID"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +91,8 @@ def check_identifier(namespace: str, identifier: str) -> str:
     if namespace == "GB-COH" and CH_NUMBER.fullmatch(value):
         return value
     if namespace == "LEI" and LEI.fullmatch(value) and lei_checksum_ok(value):
+        return value
+    if namespace == "EUID" and EUID.fullmatch(value):
         return value
     raise RegistryError("ORGANIZATION_IDENTIFIER_INVALID", f"not a valid {namespace} identifier")
 

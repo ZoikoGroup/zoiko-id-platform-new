@@ -8,6 +8,8 @@
     POST /v1/evidence/receipts/{id}:replay                 evidence.replay (R2/E2)
     POST /v1/evidence/receipts/{id}:annotate               evidence.annotate (R2/E2)
     POST /v1/evidence/packages                             evidence.export (R3/E3)
+    POST /v1/evidence/bulk-exports                         evidence.export (R3/E3), expiring package (API-13)
+    GET  /v1/evidence/bulk-exports[/{id}]                  list; download until expiry, then 410
     GET  /v1/evidence/audit-events?event_type=&before=     evidence.read
     POST /v1/evidence/partition:verify                     evidence.verify
     GET  /v1/evidence/legal-holds?status=                  evidence.legal_hold.manage (R3/E3)
@@ -38,11 +40,18 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.evidence.application import ledger, provenance, receipts, replay, vault
+from zid_platform.modules.evidence.application import (
+    bulk,
+    ledger,
+    provenance,
+    receipts,
+    replay,
+    vault,
+)
 from zid_platform.modules.evidence.application.runtime import current_runtime
 from zid_platform.modules.evidence.domain.ledger import LedgerError, Partition
 from zid_platform.modules.evidence.domain.receipts import ANNOTATION_KINDS, EXPORT_MODES
-from zid_platform.modules.evidence.infrastructure import receipt_store, vault_store
+from zid_platform.modules.evidence.infrastructure import bulk_store, receipt_store, vault_store
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(prefix="/v1/evidence", tags=["evidence"])
@@ -55,6 +64,7 @@ _STATUS = {
     "EVIDENCE_LEGAL_HOLD": 409,
     "EVIDENCE_RAW_OBJECT_ERASED": 410,
     "EVIDENCE_RETENTION_EXPIRED": 410,
+    "EVIDENCE_EXPORT_EXPIRED": 410,
     "EVIDENCE_CHECKPOINT_MISSING": 409,
     "EVIDENCE_KEY_UNAVAILABLE": 503,
     "EVIDENCE_TIME_UNTRUSTED": 503,
@@ -263,6 +273,84 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
         raise http(e) from e
 
 
+class BulkBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    receipt_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    mode: str = Field(pattern="^(" + "|".join(sorted(EXPORT_MODES)) + ")$")
+    purpose: str = Field(min_length=3, max_length=200)
+    case_ref: str = Field(min_length=1, max_length=128)
+    ttl_minutes: int | None = Field(default=None, ge=5, le=10080)
+
+
+@router.post("/bulk-exports", status_code=201)
+async def bulk_export(body: BulkBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Several receipts in one signed package that stops being downloadable at `expires_at` (API-13). The same R3
+    `evidence.export` gate as a single export; every receipt also leaves its own custody record."""
+    try:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await protected_action(
+                conn, caller, action="evidence.export", resource="evidence_export:bulk"
+            )
+            return await bulk.create(
+                conn,
+                _tenant(caller),
+                [str(r) for r in body.receipt_ids],
+                mode=body.mode,
+                purpose=body.purpose,
+                case_ref=body.case_ref,
+                custodian_principal_id=caller.ctx.principal_id or "",
+                ttl_minutes=body.ttl_minutes,
+            )
+    except LedgerError as e:
+        raise http(e) from e
+
+
+@router.get("/bulk-exports")
+async def bulk_exports(
+    request: Request, caller: CallerDep, limit: Annotated[int, Query(ge=1, le=100)] = 25
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.read", resource="evidence_export:*")
+        rows = await bulk_store.list_recent(conn, limit)
+    return {
+        "items": [
+            {
+                "export_id": str(r["export_id"]),
+                "requested_by": r["requested_by_handle"],
+                "purpose": r["purpose"],
+                "mode": r["export_mode"],
+                "receipt_count": r["receipt_count"],
+                "package_hash": r["package_hash"],
+                "status": r["status"],
+                "downloads": r["downloads"],
+                "created_at": _iso(r["created_at"]),
+                "expires_at": _iso(r["expires_at"]),
+                "erased_at": _iso(r["erased_at"]),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/bulk-exports/{export_id}")
+async def bulk_export_download(
+    export_id: Annotated[uuid.UUID, Path()], request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """The package while it is available. Past its expiry it is erased and this answers 410."""
+    try:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await protected_action(
+                conn, caller, action="evidence.export", resource=f"evidence_export:{export_id}"
+            )
+            return await bulk.fetch(conn, str(export_id))
+    except LedgerError as e:
+        if e.code == "EVIDENCE_EXPORT_EXPIRED":
+            # the erase happened inside the failed transaction; do it again where it can commit
+            async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+                await bulk_store.erase(conn, str(export_id), datetime.now(UTC))
+        raise http(e) from e
+
+
 @router.get("/audit-events")
 async def audit_events(
     request: Request,
@@ -310,6 +398,7 @@ async def verify_partition(request: Request, caller: CallerDep) -> dict[str, Any
             conn,
             Partition(tenant, current_runtime().cell_id).id,
             keys=current_runtime().trusted_keys(),
+            compromised=current_runtime().compromised,
         )
     return report.to_dict()
 

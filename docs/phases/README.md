@@ -15,6 +15,8 @@ Workstreams may overlap only where the upstream contract is stable enough that d
 | [G. Enterprise integration and platform operations](phase-g-enterprise-integration-and-operations.md) | 20, 22, 23 (+19a) | Deployable into incumbent estates and operable at Tier-1 standards | DEC-G1 cell topology, DEC-G2 AWS, DEC-G3 cell-direct routing, DEC-G4 supply chain, DEC-G5 observability |
 | [H. Product surfaces](phase-h-product-surfaces.md) | 24 | Engineering/admin surfaces against already-defined back-end contracts | DEC-H1 Next.js + thin BFF |
 | [I. Production proof](phase-i-production-proof.md) | 25 | Executable evidence that the whole system meets architecture and market-entry gates | — (proves A–H) |
+| [J. Commercial estate](phase-j-commercial-estate.md) | ZID-COM-001 | Catalogue, plans, entitlements, billable metering, rating and invoicing (proposal, design stage) | — (commercial layer over A–H) |
+| [K. Communication estate](phase-k-communication-estate.md) | Email Communication Estate v2.0 | The 160-template email estate: renderer, SMTP delivery, suppression, consent, contacts, wired events | none (a delivery layer over A to J) |
 
 **Not placed by the Guideline:** Document 09 (ZID-MACHINE-001, AI Agent, Service & Workload Identity) is missing from the §3 sequence. Its decisions currently sit in DEC-D3 (transaction context) and DEC-F7 (workload identity). The Architecture Chair should assign it a phase.
 

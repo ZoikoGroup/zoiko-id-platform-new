@@ -192,7 +192,7 @@ export function Tabs({
       selectedKey={selectedTab}
       onSelectionChange={(k) => onSelectionChange?.(String(k))}
     >
-      <TabList aria-label={label} className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
+      <TabList aria-label={label} className="mb-5 flex flex-wrap gap-1 border-b border-border">
         {tabs.map((t) => (
           <Tab
             key={t.id}

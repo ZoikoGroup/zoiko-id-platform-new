@@ -221,3 +221,47 @@ def test_operational_state_is_conservative() -> None:  # §30
     assert operational_state(ready=True, **{**base, "frozen": True}) is OpState.CHANGE_FROZEN  # type: ignore[arg-type]
     sec = {**base, "open_incident": (Severity.SEV0, IncidentStatus.MITIGATING, True)}
     assert operational_state(ready=True, **sec) is OpState.SECURITY_CONTAINMENT  # type: ignore[arg-type]
+
+
+# --- OPS-20: evidence preservation before mitigation is done ---------------------------------------------------
+
+
+def test_a_security_or_major_incident_needs_a_preservation_record_to_leave_mitigation() -> None:
+    from zid_platform.modules.operations.domain.incidents import (
+        OperationsError,
+        Severity,
+        check_evidence_entry,
+        check_evidence_preserved,
+    )
+
+    full = {
+        "artifacts": ["DECISION_RECEIPTS", "CUSTODY_RECORD", "LOGS"],
+        "custody_ref": "custody-0001-abcd",
+    }
+    # minor and non-security: nothing is required
+    check_evidence_preserved(Severity.SEV3, False, [])
+    # major or security: a record with the receipts and the custody record is
+    for sev, sec in ((Severity.SEV1, False), (Severity.SEV3, True), (Severity.SEV0, True)):
+        try:
+            check_evidence_preserved(sev, sec, [])
+            raise AssertionError("should have refused")
+        except OperationsError as e:
+            assert e.code == "INCIDENT_EVIDENCE_NOT_PRESERVED"
+        check_evidence_preserved(sev, sec, [full])
+    # a record that leaves out the receipts or the custody reference does not count
+    for partial in (
+        {"artifacts": ["LOGS", "CUSTODY_RECORD"], "custody_ref": "custody-0001-abcd"},
+        {"artifacts": ["DECISION_RECEIPTS", "CUSTODY_RECORD"], "custody_ref": ""},
+    ):
+        try:
+            check_evidence_preserved(Severity.SEV1, False, [partial])
+            raise AssertionError("should have refused")
+        except OperationsError as e:
+            assert e.code == "INCIDENT_EVIDENCE_NOT_PRESERVED"
+    assert check_evidence_entry(["DECISION_RECEIPTS", "CUSTODY_RECORD"], "custody-0001-abcd")
+    for bad in (["DECISION_RECEIPTS"], ["DECISION_RECEIPTS", "CUSTODY_RECORD", "SECRETS"]):
+        try:
+            check_evidence_entry(bad, "custody-0001-abcd")
+            raise AssertionError("should have refused")
+        except OperationsError as e:
+            assert e.code == "INCIDENT_EVIDENCE_INVALID"

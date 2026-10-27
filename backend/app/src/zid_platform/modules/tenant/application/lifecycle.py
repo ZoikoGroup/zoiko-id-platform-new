@@ -15,7 +15,7 @@ commitments only.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -52,6 +52,7 @@ from zid_platform.modules.tenant.domain.lifecycle import (
     check_slug,
     plan_transition,
 )
+from zid_platform.modules.tenant.infrastructure import registration_store
 from zid_platform.modules.tenant.infrastructure import tenant_store as store
 from zid_platform.modules.tenant.infrastructure.tenant_store import RoleAssignment, Tenant
 
@@ -356,11 +357,15 @@ async def self_signup(
     deployment_mode: str,
     home_cell_id: str,
     console: ConsoleClient,
+    registration: Declaration | None = None,
     now: datetime | None = None,
 ) -> BootstrapResult:
     """Public company sign-up: the new company's first principal is its own creator. `conn` is a
     plain transaction; every row is written under the new tenant's own RLS scope. Abuse limits
-    (rate, CAPTCHA, email/domain proof) are the caller's: this only provisions."""
+    (rate, CAPTCHA, email/domain proof) are the caller's: this only provisions.
+
+    `registration`: what the registrant declared (register identifier, acknowledged privacy-notice
+    version) - stored in the same transaction, verified later against the register."""
     now = now or _now()
     name, mode = _check_names(display_name, tenant_slug, deployment_mode)
     if await store.workspace(conn, tenant_slug) is not None:
@@ -374,7 +379,7 @@ async def self_signup(
             new_tenant_id=new_tenant,
             now=now,
         )
-    return await _provision(
+    result = await _provision(
         conn,
         new_tenant=new_tenant,
         owner=owner,
@@ -387,6 +392,36 @@ async def self_signup(
         console=console,
         now=now,
     )
+    if registration is not None:
+        async with in_tenant(conn, new_tenant):
+            await registration_store.insert(
+                conn,
+                tenant_id=new_tenant,
+                namespace=registration.namespace,
+                identifier=registration.identifier,
+                lei=registration.lei,
+                notice_version=registration.notice_version,
+                accepted_at=now,
+                home_cell_id=home_cell_id,
+            )
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class Declaration:
+    """What a registrant declares at sign-up (OVERLAY-001 §4; ORG-001 §19 step 1)."""
+
+    namespace: str
+    identifier: str
+    lei: str | None
+    notice_version: str
+
+
+async def declared_registration(
+    conn: AsyncConnection, tenant_id: str
+) -> registration_store.Registration | None:
+    """`conn` is scoped to the tenant."""
+    return await registration_store.load(conn, tenant_id)
 
 
 # -------------------------------------------------------------------------------- transitions
@@ -591,6 +626,16 @@ async def reissue_invitation(
     return Invitation(a, ticket, expires)
 
 
+# Other modules react to an accepted invitation without this module importing them (module-cycle guard): they
+# register at start-up (main.py). Keyed by name so registering twice is harmless.
+AcceptanceHook = Callable[[AsyncConnection, str, RoleAssignment], Awaitable[None]]
+_ACCEPTANCE_HOOKS: dict[str, AcceptanceHook] = {}
+
+
+def register_acceptance_hook(name: str, hook: AcceptanceHook) -> None:
+    _ACCEPTANCE_HOOKS[name] = hook
+
+
 async def accept_invitation(
     conn: AsyncConnection, tenant_id: str, principal_id: str, now: datetime | None = None
 ) -> RoleAssignment:
@@ -618,6 +663,8 @@ async def accept_invitation(
         )
         if accepted is not None:
             await _member_event(conn, tenant, accepted, actor=principal_id)
+            for hook in _ACCEPTANCE_HOOKS.values():
+                await hook(conn, tenant_id, accepted)
     assert accepted is not None
     return accepted
 
@@ -848,6 +895,7 @@ __all__ = [
     "ensure_member",
     "invite",
     "live_roles",
+    "register_acceptance_hook",
     "reissue_invitation",
     "remove_owner",
     "revoke_member",

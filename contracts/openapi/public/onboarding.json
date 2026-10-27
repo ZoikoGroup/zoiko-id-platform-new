@@ -5,15 +5,19 @@
         "additionalProperties": false,
         "properties": {
           "approval_request_id": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Approval Request Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
           }
         },
-        "required": [
-          "approval_request_id"
-        ],
         "title": "ApprovalBody",
         "type": "object"
       },
@@ -63,64 +67,6 @@
           "identifier"
         ],
         "title": "OrganizationBody",
-        "type": "object"
-      },
-      "PlanBody": {
-        "additionalProperties": false,
-        "properties": {
-          "acceptance_suite": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 100,
-            "title": "Acceptance Suite",
-            "type": "array"
-          },
-          "cutover_windows": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "maxItems": 20,
-            "title": "Cutover Windows",
-            "type": "array"
-          },
-          "data_migration": {
-            "default": "NONE",
-            "maxLength": 500,
-            "title": "Data Migration",
-            "type": "string"
-          },
-          "exit_criteria": {
-            "additionalProperties": true,
-            "title": "Exit Criteria",
-            "type": "object"
-          },
-          "rollback_triggers": {
-            "additionalProperties": true,
-            "title": "Rollback Triggers",
-            "type": "object"
-          },
-          "scope": {
-            "additionalProperties": true,
-            "title": "Scope",
-            "type": "object"
-          },
-          "support": {
-            "additionalProperties": true,
-            "title": "Support",
-            "type": "object"
-          },
-          "target_mode": {
-            "pattern": "^O[0-3]$",
-            "title": "Target Mode",
-            "type": "string"
-          }
-        },
-        "required": [
-          "target_mode"
-        ],
-        "title": "PlanBody",
         "type": "object"
       },
       "RollbackBody": {
@@ -199,6 +145,64 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "zid_platform__modules__onboarding__api__onboarding__PlanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_suite": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Acceptance Suite",
+            "type": "array"
+          },
+          "cutover_windows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 20,
+            "title": "Cutover Windows",
+            "type": "array"
+          },
+          "data_migration": {
+            "default": "NONE",
+            "maxLength": 500,
+            "title": "Data Migration",
+            "type": "string"
+          },
+          "exit_criteria": {
+            "additionalProperties": true,
+            "title": "Exit Criteria",
+            "type": "object"
+          },
+          "rollback_triggers": {
+            "additionalProperties": true,
+            "title": "Rollback Triggers",
+            "type": "object"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "title": "Scope",
+            "type": "object"
+          },
+          "support": {
+            "additionalProperties": true,
+            "title": "Support",
+            "type": "object"
+          },
+          "target_mode": {
+            "pattern": "^O[0-3]$",
+            "title": "Target Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_mode"
+        ],
+        "title": "PlanBody",
+        "type": "object"
       }
     }
   },
@@ -208,6 +212,30 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/onboarding/connection": {
+      "get": {
+        "description": "What a person needs to connect an application, in one read: where to send decisions and how far shadow is.\n\n`shadow` is present while the company is in SHADOW or PILOT: the decisions seen so far against what the plan needs,\neach as a plain ratio, and `ready` when every shadow gate passes. Nothing here is a secret.",
+        "operationId": "connection_progress_v1_onboarding_connection_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Connection Progress V1 Onboarding Connection Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Connection Progress",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
     "/v1/onboarding/gates": {
       "get": {
         "operationId": "gates_v1_onboarding_gates_get",
@@ -231,7 +259,53 @@
         ]
       }
     },
+    "/v1/onboarding/mode": {
+      "get": {
+        "description": "How this company's two-person onboarding steps are approved, and whether the caller may approve them alone.",
+        "operationId": "approval_mode_v1_onboarding_mode_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approval Mode V1 Onboarding Mode Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Approval Mode",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
     "/v1/onboarding/organization": {
+      "get": {
+        "description": "What the company declared at registration, to prefill company verification.",
+        "operationId": "declared_organization_v1_onboarding_organization_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Declared Organization V1 Onboarding Organization Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Declared Organization",
+        "tags": [
+          "onboarding"
+        ]
+      },
       "post": {
         "operationId": "organization_v1_onboarding_organization_post",
         "requestBody": {
@@ -302,7 +376,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanBody"
+                "$ref": "#/components/schemas/zid_platform__modules__onboarding__api__onboarding__PlanBody"
               }
             }
           },

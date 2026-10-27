@@ -20,12 +20,19 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_telemetry import get_logger
+from zid_telemetry.metrics import REGISTRY
 
 from zid_platform.modules.signals.domain.rules import CurrentState, cache_fresh, pdp_state
 from zid_platform.modules.signals.infrastructure import signal_store as store
 
 MAX_ENTRIES = 100_000
 _log = get_logger("zid.signals.propagation")
+PROPAGATION = REGISTRY.histogram(
+    "zid_revocation_propagation_seconds",
+    "Commit of a restricting security state -> first authoritative observation by a PEP",
+    ("state",),
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0),
+)
 
 
 def observed(principal_id: str, current: CurrentState | None, state: str) -> None:
@@ -34,6 +41,7 @@ def observed(principal_id: str, current: CurrentState | None, state: str) -> Non
     if current is None or state == "NORMAL":
         return
     lag_ms = (datetime.now(UTC) - current.committed_at).total_seconds() * 1000
+    PROPAGATION.observe(max(lag_ms, 0.0) / 1000, state=state)  # R3 SLO: p99 <= 2 s in-cell
     _log.info(
         "security state observed by PEP",
         extra={
@@ -97,6 +105,17 @@ class SecurityStateCache:
         if existing is None or existing.revision < revision:
             self._entries[key] = _Entry(None, revision, None)
             self._entries.move_to_end(key)
+
+    def forget(self, tenant_id: str, subject_id: str) -> bool:
+        """Drop everything cached about a subject (erasure, PRIV-10). Returns whether anything was held."""
+        return self._entries.pop((tenant_id, subject_id), None) is not None
+
+    def forget_tenant(self, tenant_id: str) -> int:
+        """Drop everything cached for a tenant (deletion, TEN-25). Returns how many entries were held."""
+        keys = [k for k in self._entries if k[0] == tenant_id]
+        for k in keys:
+            del self._entries[k]
+        return len(keys)
 
     def clear(self) -> None:
         self._entries.clear()

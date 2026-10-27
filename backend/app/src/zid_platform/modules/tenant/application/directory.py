@@ -20,6 +20,7 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_app.resilience import budget_timeout
 from zid_crypto import KeyRing
 
 Send = Callable[[str], Awaitable[tuple[int, str]]]  # signed record -> (HTTP status, error code)
@@ -154,7 +155,7 @@ def http_sender(locator_url: str, transport: Any = None) -> Send:
     async def send(token: str) -> tuple[int, str]:
         try:
             async with httpx.AsyncClient(
-                transport=transport, timeout=5.0, follow_redirects=False
+                transport=transport, timeout=budget_timeout(5.0), follow_redirects=False
             ) as c:
                 r = await c.put(
                     f"{locator_url.rstrip('/')}/internal/v1/directory/records",

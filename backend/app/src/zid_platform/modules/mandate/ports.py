@@ -11,6 +11,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.mandate.application.decision_check import MandateCheck, check_for_decision
 from zid_platform.modules.mandate.domain.subagent import CascadeEffect
 from zid_platform.modules.mandate.infrastructure.mandate_store import pause_or_revoke_for_grants
 
@@ -41,7 +42,9 @@ async def quarantine_open_reservations(conn: AsyncConnection) -> int:
 
 __all__ = [
     "CascadeEffect",
+    "MandateCheck",
     "advance_writer",
+    "check_for_decision",
     "pause_or_revoke_for_grants",
     "quarantine_open_reservations",
 ]

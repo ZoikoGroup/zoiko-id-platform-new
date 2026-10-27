@@ -148,6 +148,56 @@ def agent_transition(
     return replace(agent, status=target, security_revision=agent.security_revision + bump)
 
 
+# ---------------------------------------------------------------- human-attested activation gates (§12.1)
+
+# The §12.1 gates only a person can establish. Each is recorded by name with who attested it; activation
+# reads these records, never a caller's claim.
+ATTESTABLE_GATES: tuple[str, ...] = (
+    "SECURITY_REVIEW",
+    "KILL_PATH_TESTED",
+    "SHORT_LIVED_CREDENTIALS",
+    "OBSERVABILITY",
+)
+
+
+def attestor_blockers(gate: str, attestor: str, agent: AgentProfile) -> list[str]:
+    """Who may attest. The security review must be independent of the agent's own chain of
+    accountability: the sponsor, operator and publisher cannot review their own agent (separation of duties)."""
+    if gate not in ATTESTABLE_GATES:
+        return ["AGENT_GATE_UNKNOWN"]
+    if agent.status in (AgentStatus.REVOKED, AgentStatus.RETIRED):
+        return ["AGENT_INVALID_TRANSITION"]
+    if gate == "SECURITY_REVIEW" and attestor in {
+        agent.sponsor_principal_id,
+        agent.operator_principal_id,
+        agent.publisher_principal_id,
+    }:
+        return ["AGENT_REVIEW_NOT_INDEPENDENT"]
+    return []
+
+
+def evidence_from_attestations(
+    agent: AgentProfile,
+    *,
+    sponsor_verified: bool,
+    blueprint: BlueprintRelease | None,
+    has_active_binding: bool,
+    attested: Iterable[str],
+) -> ActivationEvidence:
+    """Assemble the §12.1 evidence from recorded facts: the blueprint from the stored release, the runtime
+    binding from a live workload binding, and the four human gates from recorded attestations."""
+    done = set(attested)
+    return ActivationEvidence(
+        sponsor_verified=sponsor_verified,
+        blueprint=blueprint,
+        runtime_binding_policy=has_active_binding,
+        security_review_passed="SECURITY_REVIEW" in done,
+        short_lived_credentials_configured="SHORT_LIVED_CREDENTIALS" in done,
+        observability_configured="OBSERVABILITY" in done,
+        kill_path_tested="KILL_PATH_TESTED" in done,
+    )
+
+
 # ---------------------------------------------------------------- runtime binding and credentials (§16)
 
 

@@ -44,12 +44,17 @@ async def create_request(
     transaction_context: str,
     policy: ApprovalPolicy,
     expires_at: datetime,
+    summary: str | None = None,
+    action: str | None = None,
+    resource: str | None = None,
+    change: str | None = None,
 ) -> None:
     await conn.execute(
         text("""
             INSERT INTO authz.approval_request (approval_request_id, tenant_id, requester_principal_id, subject_ref,
-                transaction_context_hash, mode, roles, k, self_approval_forbidden, allow_shared_grant, expires_at)
-            VALUES (:id, :t, :req, :sub, :h, :mode, :roles, :k, :saf, :asg, :exp)
+                transaction_context_hash, mode, roles, k, self_approval_forbidden, allow_shared_grant, expires_at,
+                summary, action, resource, change)
+            VALUES (:id, :t, :req, :sub, :h, :mode, :roles, :k, :saf, :asg, :exp, :sum, :act, :res, :chg)
         """),
         {
             "id": uuid.UUID(request_id),
@@ -63,6 +68,10 @@ async def create_request(
             "saf": policy.self_approval_forbidden,
             "asg": policy.allow_shared_grant,
             "exp": expires_at,
+            "sum": summary,
+            "act": action,
+            "res": resource,
+            "chg": change,
         },
     )
 
@@ -181,6 +190,11 @@ class RequestSummary:
     created_at: datetime
     outcome: ApprovalOutcome
     approvals_received: int  # distinct principals that voted APPROVE (qualified or not)
+    summary: str | None = None  # what the request is for, in words
+    action: str | None = None
+    resource: str | None = None
+    change: str | None = None
+    voters: frozenset[str] = frozenset()  # everyone who has already decided on it
 
 
 async def list_requests(
@@ -226,7 +240,20 @@ async def list_requests(
         if state is not None and outcome.state is not state:
             continue
         approvers = {d.approver_principal_id for d in decisions if d.verdict is Verdict.APPROVE}
-        out.append(RequestSummary(req, r.subject_ref, r.created_at, outcome, len(approvers)))
+        out.append(
+            RequestSummary(
+                req,
+                r.subject_ref,
+                r.created_at,
+                outcome,
+                len(approvers),
+                r.summary,
+                r.action,
+                r.resource,
+                r.change,
+                frozenset(d.approver_principal_id for d in decisions),
+            )
+        )
         if len(out) >= limit:
             break
     return out

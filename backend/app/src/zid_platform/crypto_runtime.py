@@ -5,8 +5,8 @@
     secrets = secret_broker_from_settings(settings)
 
 Local/test: development KEKs (`LocalKeyProvider`, one per symmetric purpose, `dev-<purpose>-<cell>`)
-and ZID_SECRET__<REF> environment secrets. Any other environment must configure aws-kms and
-openbao; the local implementations refuse to start there.
+and ZID_SECRET__<REF> environment secrets. Any other environment must configure aws-kms or gcp-kms
+and openbao; the local implementations refuse to start there.
 
     signer = evidence_signer_from_settings(settings)     # EVIDENCE_SIGNING (checkpoints, exports)
     mac = handle_key_from_settings(settings, provider)   # HMAC_INTERNAL (pseudonymous handles)
@@ -15,15 +15,24 @@ openbao; the local implementations refuse to start there.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import httpx
-from zid_crypto import LocalSigner, Signer
+from zid_crypto import KeyRing, LocalSigner, Signer
 from zid_crypto.aws_kms import AwsKmsKeyProvider, KmsClient, KmsMacKey, KmsSigner
+from zid_crypto.gcp_kms import (
+    GcpKmsClient,
+    GcpKmsKeyProvider,
+    GcpKmsMacKey,
+    GcpKmsSigner,
+    google_kms_client,
+)
 from zid_crypto.handles import MacKey
 from zid_crypto.providers import KeyProvider, KeyRef, LocalKeyProvider
 from zid_crypto.purposes import WRAPPING_PURPOSES, KeyPurpose
 from zid_crypto.secret_broker import EnvSecretBroker, OpenBaoSecretBroker, SecretBroker
 
+from .keys import PURPOSES, KeyRings
 from .settings import Settings
 
 # Symmetric purposes the provider holds (signing keys stay behind keys.KeyRings / KMS signers).
@@ -34,10 +43,26 @@ def kek_ref(settings: Settings, purpose: KeyPurpose) -> KeyRef:
     """The configured key for `purpose` in this cell (current version)."""
     if settings.key_provider == "local":
         return KeyRef(purpose, f"dev-{purpose.value.lower()}-{settings.cell_id}")
-    key_id = settings.kms_key_ids.get(purpose.value) or settings.kms_key_alias_pattern.format(
+    if purpose.value in settings.kms_key_ids:
+        return KeyRef(purpose, settings.kms_key_ids[purpose.value])
+    if settings.key_provider == "gcp-kms":
+        return KeyRef(purpose, _gcp_key_name(settings, purpose.value.lower()))
+    key_id = settings.kms_key_alias_pattern.format(
         cell=settings.cell_id, purpose=purpose.value.lower()
     )
     return KeyRef(purpose, key_id)
+
+
+def _gcp_key_name(settings: Settings, key: str) -> str:
+    if not settings.gcp_kms_project or not settings.gcp_kms_location:
+        raise RuntimeError(
+            "ZID_KEY_PROVIDER=gcp-kms needs ZID_GCP_KMS_PROJECT and ZID_GCP_KMS_LOCATION (DEC-F5)"
+        )
+    ring = settings.gcp_kms_key_ring.format(cell=settings.cell_id)
+    return (
+        f"projects/{settings.gcp_kms_project}/locations/{settings.gcp_kms_location}"
+        f"/keyRings/{ring}/cryptoKeys/{key}"
+    )
 
 
 def key_provider_from_settings(
@@ -49,6 +74,12 @@ def key_provider_from_settings(
             local.ensure_key(purpose, kek_ref(settings, purpose).key_id)
         return local
     key_ids = {p: kek_ref(settings, p).key_id for p in PROVIDER_PURPOSES}
+    if settings.key_provider == "gcp-kms":
+        return GcpKmsKeyProvider(
+            cast("GcpKmsClient", kms_client or google_kms_client()),
+            key_ids,
+            fips_endpoint=settings.gcp_kms_hsm,
+        )
     if kms_client is not None:
         return AwsKmsKeyProvider(
             kms_client, key_ids, pending_window_days=settings.kms_pending_window_days
@@ -57,11 +88,56 @@ def key_provider_from_settings(
 
 
 def _kms_client(settings: Settings) -> object:
+    if settings.key_provider == "gcp-kms":
+        return google_kms_client()
     try:
         import boto3  # type: ignore[import-not-found]  # optional: deployed images only
     except ImportError as e:
         raise RuntimeError("ZID_KEY_PROVIDER=aws-kms needs boto3 in the image (DEC-F5)") from e
     return boto3.client("kms", region_name=settings.kms_region)
+
+
+def _signer_class(settings: Settings) -> type[KmsSigner | GcpKmsSigner]:
+    return GcpKmsSigner if settings.key_provider == "gcp-kms" else KmsSigner
+
+
+# KeyRings purpose -> the Crypto Policy Registry purpose that governs its algorithm (set and verifier have no purpose
+# of their own, so they take the nearest one; each still gets its own KMS key and published key set).
+_RING_POLICY_PURPOSE = {
+    "token": KeyPurpose.TOKEN_SIGNING,
+    "set": KeyPurpose.TOKEN_SIGNING,
+    "federation": KeyPurpose.FEDERATION_SIGNING,
+    "credential": KeyPurpose.VC_ISSUER_SIGNING,
+    "verifier": KeyPurpose.VC_ISSUER_SIGNING,
+}
+
+
+def kms_keyrings_from_settings(settings: Settings, *, kms_client: object | None = None) -> KeyRings:
+    """Signing key rings for a deployed cell: one KMS key per KeyRings purpose, never a local key (DEC-F5).
+
+    Key ids come from ZID_KMS_KEY_IDS under `SIGNING_<PURPOSE>` (e.g. SIGNING_TOKEN) or are built like the KEKs,
+    from the key ring (gcp-kms) or alias pattern (aws-kms). Keys that were rotated out stay published for the
+    verification window through ZID_SIGNING_RETIRING_KEYS ({"token": [public JWK, ...]})."""
+    if settings.key_provider == "local":
+        raise RuntimeError("signing keys must come from KMS outside local/test (DEC-F5)")
+    client = kms_client or _kms_client(settings)
+    signer_class = _signer_class(settings)
+    rings: dict[str, KeyRing] = {}
+    for ring in PURPOSES:
+        key_id = settings.kms_key_ids.get(f"SIGNING_{ring.upper()}")
+        if not key_id:
+            key_id = (
+                _gcp_key_name(settings, f"signing_{ring}")
+                if settings.key_provider == "gcp-kms"
+                else settings.kms_key_alias_pattern.format(
+                    cell=settings.cell_id, purpose=f"signing_{ring}"
+                )
+            )
+        signer = signer_class(
+            client, key_id, kid=f"{ring}-{settings.cell_id}", purpose=_RING_POLICY_PURPOSE[ring]
+        )
+        rings[ring] = KeyRing(signer, retiring=list(settings.signing_retiring_keys.get(ring, ())))
+    return KeyRings(**rings)
 
 
 def evidence_signer_from_settings(
@@ -82,7 +158,7 @@ def evidence_signer_from_settings(
         if pem:
             return LocalSigner.from_pem(kid, pem, purpose=KeyPurpose.EVIDENCE_SIGNING)
         return LocalSigner(kid, purpose=KeyPurpose.EVIDENCE_SIGNING)
-    return KmsSigner(
+    return _signer_class(settings)(
         kms_client or _kms_client(settings),
         kek_ref(settings, KeyPurpose.EVIDENCE_SIGNING).key_id,
         kid=settings.evidence_signing_kid or kid,
@@ -110,7 +186,7 @@ def placement_signer(
         )
     if not kms_key_id:
         return None
-    return KmsSigner(kms_client or _kms_client(settings), kms_key_id, kid=kid)
+    return _signer_class(settings)(kms_client or _kms_client(settings), kms_key_id, kid=kid)
 
 
 def handle_key_from_settings(
@@ -126,7 +202,8 @@ def handle_key_from_settings(
         )
         assert isinstance(local, LocalKeyProvider)
         return local.hmac_key(ref)
-    return KmsMacKey(kms_client or _kms_client(settings), ref.key_id)
+    mac_class = GcpKmsMacKey if settings.key_provider == "gcp-kms" else KmsMacKey
+    return mac_class(kms_client or _kms_client(settings), ref.key_id)
 
 
 def _file_reader(path: str) -> str:
@@ -164,6 +241,7 @@ __all__ = [
     "handle_key_from_settings",
     "kek_ref",
     "key_provider_from_settings",
+    "kms_keyrings_from_settings",
     "placement_signer",
     "secret_broker_from_settings",
 ]

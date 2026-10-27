@@ -10,6 +10,11 @@
 
 from __future__ import annotations
 
+from zid_platform.modules.privacy.application.restore import (
+    Reconciliation,
+    mark_restored,
+    reconcile_after_restore,
+)
 from zid_platform.modules.privacy.application.service import (
     check_processing,
     configure_enforcement,
@@ -17,7 +22,9 @@ from zid_platform.modules.privacy.application.service import (
     enforce_processing,
     pack_transfer_mechanisms,
     privacy_pass,
+    register_erasure_hook,
     register_personal_data,
+    register_rectification_source,
     register_store,
 )
 from zid_platform.modules.privacy.domain.model import PrivacyError, ProcessingDecision
@@ -25,12 +32,17 @@ from zid_platform.modules.privacy.domain.model import PrivacyError, ProcessingDe
 __all__ = [
     "PrivacyError",
     "ProcessingDecision",
+    "Reconciliation",
     "check_processing",
     "configure_enforcement",
     "discover_subject",
     "enforce_processing",
+    "mark_restored",
     "pack_transfer_mechanisms",
     "privacy_pass",
+    "reconcile_after_restore",
+    "register_erasure_hook",
     "register_personal_data",
+    "register_rectification_source",
     "register_store",
 ]

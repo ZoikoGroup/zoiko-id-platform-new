@@ -71,6 +71,7 @@ _FORBIDDEN = (
     "OPERATOR_SOD_CONFLICT",
     "OPERATOR_NOT_REQUESTER",
     "SOVEREIGN_OPERATOR_DENIED",
+    "REMOTE_ACCESS_TRANSFER_REQUIRED",
     "LOCKBOX_APPROVAL_REQUIRED",
     "BREAK_GLASS_NOT_ALLOWED",
 )
@@ -254,6 +255,7 @@ async def capabilities(request: Request, op: OperatorDep) -> dict[str, Any]:
             for r in CONFLICT_SETS
         ],
         "break_glass_max_minutes": int(s.break_glass_max.total_seconds() // 60),
+        "mode": "direct" if service.direct_mode() else "governed",
     }
 
 

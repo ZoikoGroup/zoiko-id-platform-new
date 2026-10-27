@@ -17,6 +17,8 @@ Pure domain, no I/O.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -57,6 +59,7 @@ COMPETENCE: dict[RootType, frozenset[Fact]] = {
     RootType.OTHER: frozenset(),
 }
 
+VLEI_TYPES = frozenset({RootType.VLEI_OOR, RootType.VLEI_ECR})
 HOLDER_FACTS = frozenset({Fact.OFFICIAL_ROLE, Fact.DELEGATION_BASIS})
 SCOPE_FACTS = frozenset({Fact.SIGNING_POWER, Fact.DELEGATION_BASIS})
 
@@ -252,6 +255,50 @@ def resolve_root(req: RootRequest, roots: Iterable[RootAssertion]) -> RootResolu
     return RootResolution(chosen, (), min(deadlines))
 
 
+# ---------------------------------------------------------------- signing matrix integrity (§13, ROOT-14)
+
+
+def matrix_revision(document: Mapping[str, object], *, version: str) -> str:
+    """`<version>:<sha256 of the canonical document>`: what a SIGNING_MATRIX root records as its source revision."""
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), default=str)
+    return f"{version}:{hashlib.sha256(canonical.encode()).hexdigest()}"
+
+
+def check_matrix(root: RootAssertion, document: Mapping[str, object], *, version: str) -> None:
+    """Refuse to activate or use a matrix root whose document or version is not the one it was recorded with."""
+    if root.root_type is not RootType.SIGNING_MATRIX:
+        raise RootError("ROOT_NOT_A_MATRIX", root.root_id)
+    if root.source_revision != matrix_revision(document, version=version):
+        raise RootError("ROOT_MATRIX_TAMPERED", root.root_id)
+
+
+def activate_matrix(
+    root: RootAssertion, document: Mapping[str, object], *, version: str
+) -> RootAssertion:
+    """PENDING -> ACTIVE only for a matrix whose hash and version match; a mismatch never activates."""
+    check_matrix(root, document, version=version)
+    return replace(root, status=transition(root.status, RootStatus.ACTIVE))
+
+
+def screen_matrix_roots(
+    roots: Iterable[RootAssertion], documents: Mapping[str, tuple[Mapping[str, object], str]]
+) -> list[RootAssertion]:
+    """Before use: a matrix root whose stored document no longer matches (or is missing) becomes CONFLICTED,
+    which blocks R2/R3 at once; other roots pass through unchanged. `documents`: root id -> (document, version)."""
+    out: list[RootAssertion] = []
+    for root in roots:
+        if root.root_type is RootType.SIGNING_MATRIX and root.status is RootStatus.ACTIVE:
+            held = documents.get(root.root_id)
+            try:
+                if held is None:
+                    raise RootError("ROOT_MATRIX_TAMPERED", root.root_id)
+                check_matrix(root, held[0], version=held[1])
+            except RootError:
+                root = replace(root, status=transition(root.status, RootStatus.CONFLICTED))
+        out.append(root)
+    return out
+
+
 # ---------------------------------------------------------------- organization lifecycle (§18)
 
 
@@ -264,6 +311,7 @@ class OrgEvent(StrEnum):
     MERGER = "MERGER"
     OWNERSHIP_CHANGE = "OWNERSHIP_CHANGE"
     REGISTERED_OFFICE_CHANGE = "REGISTERED_OFFICE_CHANGE"
+    CREDENTIAL_REVOKED = "CREDENTIAL_REVOKED"  # a vLEI role credential was revoked or is invalid
 
 
 @dataclass(frozen=True, slots=True)
@@ -315,6 +363,10 @@ def apply_event(
         for r in mine:  # successor/predecessor: everything must be revalidated (ROOT-20)
             if r.status is RootStatus.ACTIVE:
                 out[r.root_id] = replace(r, status=RootStatus.STALE)
+    elif event.kind is OrgEvent.CREDENTIAL_REVOKED:
+        for r in mine:  # the holder's credential-backed roots are unusable; registry roots stand
+            if r.holder_principal_id == event.holder_principal_id and r.root_type in VLEI_TYPES:
+                out[r.root_id] = replace(r, status=RootStatus.REVOKED)
     elif event.kind is OrgEvent.OFFICER_APPOINTMENT:
         return EventOutcome(
             out, active, (event.holder_principal_id,) if event.holder_principal_id else ()

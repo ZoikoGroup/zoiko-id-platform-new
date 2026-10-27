@@ -631,6 +631,8 @@ All apps live in one **pnpm/Turborepo workspace** under `frontend/` (`frontend/a
 
 All infrastructure is defined in **OpenTofu**, with modules for `cell`, `global-plane` and `env-baseline`. One cell is one module instantiation.
 
+> **GCP deployment option (proposed amendment to DEC-G2, not yet ratified).** A cell can run on Google Cloud: `ZID_KEY_PROVIDER=gcp-kms` (HSM-protected Cloud KMS keys through `zid_crypto.gcp_kms`, one key per purpose, including one signing key per token purpose), OpenBao auto-unsealed by Cloud KMS, Cloud SQL for PostgreSQL 17 on a private IP with point-in-time recovery, and the cell containers on a VM behind a TLS terminator. The infrastructure is the OpenTofu module `deploy/tofu/modules/gcp-platform` and the runtime stack is `deploy/gcp/`. One project per cell keeps the blast-radius and residency property of the AWS account-per-cell model. Until DEC-G2 is revised, AWS remains the Stage A production target.
+
 ### 16.2 Environments (from the DevSecOps spec)
 
 LOCAL → EPHEMERAL (per PR) → DEV → INT/QA → SEC → PERF → PREPROD → PROD, plus RECOVERY. Only synthetic data below PREPROD. PREPROD mirrors production's ingress, admission policy, workload identity, secrets delivery, database engine family and deployment mechanism.

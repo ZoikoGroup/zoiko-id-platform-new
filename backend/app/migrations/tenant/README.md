@@ -17,3 +17,4 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 - `platform.tenant_domain`
 - `platform.workspace_directory`
 - `platform.directory_publication`
+- `platform.tenant_registration`

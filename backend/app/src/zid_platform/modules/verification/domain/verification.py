@@ -12,6 +12,7 @@ recorded facts and the profile, claim by claim. Key rules:
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -104,6 +105,7 @@ class Profile:
     accepted_evidence: frozenset[str]
     binding_required: bool
     liveness_required: bool
+    fraud_check_required: bool
     biometric_jurisdictions: frozenset[str]  # empty: biometrics never allowed
     jurisdictions: frozenset[str]
     freshness: timedelta
@@ -132,6 +134,7 @@ class Profile:
             accepted_evidence=frozenset(req["accepted_evidence"]),
             binding_required=bool(req.get("binding_required", False)),
             liveness_required=bool(req.get("liveness_required", False)),
+            fraud_check_required=bool(req.get("fraud_check_required", False)),
             biometric_jurisdictions=frozenset(req.get("biometric_jurisdictions", ())),
             jurisdictions=frozenset(req["jurisdictions"]),
             freshness=timedelta(days=int(req.get("freshness_days", 365))),
@@ -192,6 +195,7 @@ class ProviderResult:
     fraud_signals: tuple[str, ...]
     reason_codes: tuple[str, ...] = ()
     evidence_commitment: str | None = None
+    fraud_check: str | None = None  # PERFORMED | UNAVAILABLE | None (the engine said nothing)
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,11 +206,27 @@ class Decision:
     reasons: tuple[str, ...] = field(default_factory=tuple)
 
 
+def source_conflicts(profile: Profile, result: ProviderResult) -> tuple[str, ...]:
+    """Claims that accepted evidence reports with different outcomes or values (CONFLICTED)."""
+    seen: dict[str, set[tuple[bool, str]]] = {}
+    for c in result.claims:
+        if set(c.evidence) & profile.accepted_evidence:
+            seen.setdefault(c.claim, set()).add((c.verified, c.value))
+    return tuple(sorted(name for name, outcomes in seen.items() if len(outcomes) > 1))
+
+
 def decide(profile: Profile, result: ProviderResult, *, jurisdiction: str) -> Decision:
     if result.status == "PENDING":
         return Decision(SessionStatus.PENDING_EXTERNAL, "PENDING_EXTERNAL")
     if result.status != "COMPLETED":
         return Decision(SessionStatus.FAILED, "EVIDENCE_INVALID", reasons=result.reason_codes)
+    if profile.fraud_check_required and result.fraud_check != "PERFORMED":
+        # §14: a profile that needs the fraud engine never passes without its verdict
+        return Decision(
+            SessionStatus.FAILED,
+            "FRAUD_CHECK_UNAVAILABLE",
+            reasons=("FRAUD_CHECK_UNAVAILABLE",),
+        )
     reasons: list[str] = []
     if result.binding == "BIOMETRIC" and jurisdiction not in profile.biometric_jurisdictions:
         return Decision(
@@ -216,12 +236,22 @@ def decide(profile: Profile, result: ProviderResult, *, jurisdiction: str) -> De
         reasons.append("BINDING_FAILED")
     if profile.liveness_required and result.binding == "BIOMETRIC" and not result.liveness_passed:
         reasons.append("LIVENESS_FAILED")
+    conflicted = source_conflicts(profile, result)
     good = {
         c.claim: c
         for c in result.claims
-        if c.verified and set(c.evidence) & profile.accepted_evidence
+        if c.verified and set(c.evidence) & profile.accepted_evidence and c.claim not in conflicted
     }
     missing = [c for c in profile.required_claims if c not in good]
+    if conflicted:
+        # §15: sources that disagree are never resolved in the applicant's favour automatically
+        status = SessionStatus.MANUAL_REVIEW if profile.manual_review else SessionStatus.FAILED
+        return Decision(
+            status,
+            "SOURCE_CONFLICT",
+            tuple(good.values()),
+            ("SOURCE_CONFLICT", *(f"CONFLICT:{c}" for c in conflicted), *reasons),
+        )
     if missing:
         reasons.append("INSUFFICIENT_EVIDENCE")
     if result.fraud_signals:
@@ -309,3 +339,57 @@ def reliance(
     if usable:
         return "SUPPLEMENT_REQUIRED", tuple(f"MISSING:{c}" for c in missing), ()
     return "REVERIFY_REQUIRED", ("SOURCE_STALE" if stale else "RELIANCE_NOT_ALLOWED",), ()
+
+
+def decision_basis(
+    result: ProviderResult, *, adapter_id: str, mapping_version: str | None, salt: str
+) -> dict[str, Any]:
+    """The normalized facts a decision was derived from (§16): no raw value, only a commitment
+    (salted per session, so equal values give equal commitments and conflicts stay detectable)."""
+    return {
+        "adapter_id": adapter_id,
+        "mapping_version": mapping_version,
+        "status": result.status,
+        "binding": result.binding,
+        "liveness_passed": result.liveness_passed,
+        "fraud_signals": list(result.fraud_signals),
+        "fraud_check": result.fraud_check,
+        "reason_codes": list(result.reason_codes),
+        "evidence_commitment": result.evidence_commitment,
+        "claims": [
+            {
+                "claim": c.claim,
+                "verified": c.verified,
+                "method": c.method,
+                "evidence": list(c.evidence),
+                "value_commitment": hashlib.sha256(
+                    f"{salt}\x1f{c.claim}\x1f{c.value}".encode()
+                ).hexdigest(),
+            }
+            for c in result.claims
+        ],
+    }
+
+
+def reconstruct(profile: Profile, basis: Mapping[str, Any], *, jurisdiction: str) -> Decision:
+    """Re-derive a recorded decision from the pinned profile and the recorded normalized facts."""
+    result = ProviderResult(
+        status=str(basis["status"]),
+        claims=tuple(
+            ClaimResult(
+                c["claim"],
+                bool(c["verified"]),
+                c["value_commitment"],
+                c["method"],
+                tuple(c["evidence"]),
+            )
+            for c in basis["claims"]
+        ),
+        binding=basis["binding"],
+        liveness_passed=basis["liveness_passed"],
+        fraud_signals=tuple(basis["fraud_signals"]),
+        reason_codes=tuple(basis["reason_codes"]),
+        evidence_commitment=basis["evidence_commitment"],
+        fraud_check=basis.get("fraud_check"),
+    )
+    return decide(profile, result, jurisdiction=jurisdiction)

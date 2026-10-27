@@ -20,6 +20,7 @@ from typing import Any, Protocol
 import httpx
 
 from zid_crypto import CryptoError
+from zid_crypto.leases import Lease
 from zid_crypto.providers import require_local_environment
 
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\-/]{0,199}(#[A-Za-z0-9_.\-]{1,64})?$")
@@ -98,6 +99,39 @@ class OpenBaoSecretBroker:
             raise SecretError("SECRET_UNAVAILABLE", ref)
         self._cache[ref] = (value, now + self._cache_seconds)
         return value
+
+    def lease(self, path: str, *, clock: Callable[[], float] | None = None) -> Lease:
+        """A dynamic credential from a secrets engine (`database/creds/<role>`): never cached here, because a
+        lease is the thing being renewed (see `zid_crypto.leases.LeasedCredential`)."""
+        if not _REF.match(path) or ".." in path or "#" in path:
+            raise SecretError("SECRET_REF_INVALID")
+        url = f"{self._base}/v1/{path}"
+        response = self._request("GET", url, token=self._current_token())
+        if response.status_code == 403 and self._jwt_source is not None:
+            self._token = None
+            response = self._request("GET", url, token=self._current_token())
+        if response.status_code == 403:
+            raise SecretError("SECRET_ACCESS_DENIED", path)
+        if response.status_code != 200:
+            raise SecretError("SECRET_UNAVAILABLE", f"{path}: HTTP {response.status_code}")
+        body = response.json()
+        data, lease_id = body.get("data"), body.get("lease_id")
+        ttl = float(body.get("lease_duration") or 0)
+        if not isinstance(data, dict) or not isinstance(lease_id, str) or not lease_id or ttl <= 0:
+            raise SecretError("SECRET_UNAVAILABLE", f"{path}: not a leased credential")
+        values = {str(k): str(v) for k, v in data.items() if isinstance(v, str)}
+        return Lease(lease_id, ttl, (clock or self._clock)(), values)
+
+    def revoke_lease(self, lease_id: str) -> None:
+        """End a lease at the broker now (compromise, shutdown)."""
+        response = self._request(
+            "PUT",
+            f"{self._base}/v1/sys/leases/revoke",
+            token=self._current_token(),
+            json={"lease_id": lease_id},
+        )
+        if response.status_code not in (200, 204):
+            raise SecretError("SECRET_UNAVAILABLE", f"revoke lease: HTTP {response.status_code}")
 
     def _headers(self, token: str | None = None) -> dict[str, str]:
         headers = {"X-Vault-Request": "true"}

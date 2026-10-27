@@ -11,7 +11,8 @@ Same image as the API, separate process. Each pass, in its own transaction per s
   30/14/7/1-day connector credential expiry alerts (G-W2);
 - stale_connectors / offboarding: connectors past their freshness drop to DEGRADED; OFFBOARDING
   tenants are drained (integrations, sessions) and CLOSED (G-W5);
-- directory: changed tenant records are signed and published to the global locator (G-W6).
+- directory: changed tenant records are signed and published to the global locator (G-W6);
+- webhooks: due deliveries are sent, signed and retried (H-1).
 A failing step is logged and retried on the next pass; it never stops the others.
 
     ZID_WORKER_DATABASE_URL  the worker role: BYPASSRLS, SELECT/INSERT/UPDATE on the evidence,
@@ -94,6 +95,11 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await offboarding_pass(conn, now)
 
+    async def deletion(conn: AsyncConnection, now: datetime) -> object:
+        from zid_platform.modules.onboarding.ports import deletion_pass
+
+        return await deletion_pass(conn, now)
+
     async def directory(conn: AsyncConnection, now: datetime) -> object:
         """DEC-G3: publish changed tenant records to the global locator (skipped when unset)."""
         from zid_crypto import KeyRing
@@ -119,6 +125,24 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             now=now,
         )
 
+    async def webhooks(conn: AsyncConnection, now: datetime) -> object:
+        """EVENTS §14-20: deliver due webhook attempts (re-resolves DNS and re-checks every send)."""
+        from zid_platform.crypto_runtime import placement_signer
+        from zid_platform.modules.webhook.ports import deliver_due, http_client, system_resolver
+
+        signer = placement_signer(
+            settings,
+            dev_purpose="set",
+            kid=f"webhook-{settings.cell_id}",
+            kms_key_id=settings.webhook_kms_key_id,
+        )
+        if signer is None:
+            return "NO_SIGNING_KEY"
+        async with http_client() as client:
+            return await deliver_due(
+                conn, client=client, resolve=system_resolver, sign=signer.sign, now=now
+            )
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -128,7 +152,9 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("connector_credentials", credentials),
         ("stale_connectors", stale_connectors),
         ("offboarding", offboarding),
+        ("deletion", deletion),
         ("directory", directory),
+        ("webhooks", webhooks),
     ]
 
 

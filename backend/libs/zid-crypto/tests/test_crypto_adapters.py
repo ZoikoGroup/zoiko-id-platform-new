@@ -113,6 +113,9 @@ def test_kms_envelope_round_trip_passes_aad_as_encryption_context() -> None:
 
 
 def test_kms_context_mismatch_and_purpose_checks() -> None:
+    """CRYP-15: reaching the KMS is not enough. A key opens only for its own purpose and the tenant/object context
+    it was wrapped for, and a key bound to two purposes is refused at configuration. Which workload may call the
+    key at all is the key policy's job in the deployed account (not exercised here)."""
     _, provider = kms()
     envelope = asyncio.run(seal(b"x", AAD, provider, KeyRef(KeyPurpose.DATA_KEK, KEK)))
     other = Aad("tenant-b", "evidence", "ev_1", "subject", "1")
@@ -291,3 +294,64 @@ def test_kms_mac_key_makes_stable_handles() -> None:
     h = handle(key, "tenant-a", "evidence.actor", "p1")
     assert h.startswith("ph1.2.") and h == handle(key, "tenant-a", "evidence.actor", "p1")
     assert h != handle(key, "tenant-b", "evidence.actor", "p1")
+
+
+# --- OPS-17: a throttled or unreachable key service degrades safely --------------------------------
+
+
+def test_throttled_kms_is_retried_briefly_then_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OPS-17: a few throttles are absorbed with a short pause; persistent throttling is a retryable CRYPTO_THROTTLED
+    and never an envelope sealed some other way."""
+    import zid_crypto.aws_kms as kms_module
+
+    pauses: list[float] = []
+
+    async def no_sleep(seconds: float) -> None:
+        pauses.append(seconds)
+
+    monkeypatch.setattr(kms_module.asyncio, "sleep", no_sleep)
+    fake, provider = kms()
+    real = fake.generate_data_key
+    attempts = {"n": 0}
+
+    def flaky(**kw: Any) -> dict[str, Any]:
+        attempts["n"] += 1
+        if attempts["n"] <= 2:
+            raise ClientError("ThrottlingException")
+        return real(**kw)
+
+    fake.generate_data_key = flaky  # type: ignore[method-assign]
+    env = asyncio.run(seal(b"payload", AAD, provider, KeyRef(KeyPurpose.DATA_KEK, KEK)))
+    assert attempts["n"] == 3 and len(pauses) == 2  # two throttles absorbed, then it worked
+    assert asyncio.run(open_envelope(env, AAD, provider)) == b"payload"
+
+    def always(**kw: Any) -> dict[str, Any]:
+        attempts["n"] += 1
+        raise ClientError("LimitExceededException")
+
+    fake.generate_data_key = always  # type: ignore[method-assign]
+    attempts["n"] = 0
+    with pytest.raises(CryptoError, match="CRYPTO_THROTTLED"):
+        asyncio.run(seal(b"x", AAD, provider, KeyRef(KeyPurpose.DATA_KEK, KEK)))
+    assert attempts["n"] == 3  # bounded: it does not hold the request open indefinitely
+
+
+def test_throttled_signing_produces_no_signature_and_no_fallback() -> None:
+    """OPS-17: with the signing key throttled, no token is produced at all: there is no unsigned or locally signed
+    substitute."""
+    from zid_crypto import sign_jws
+    from zid_crypto.aws_kms import KmsSigner
+
+    fake = FakeKmsAsymmetric()
+    signer = KmsSigner(
+        fake, "arn:aws:kms:eu-west-2:111:key/ev", kid="ev-1", purpose=KeyPurpose.EVIDENCE_SIGNING
+    )
+
+    def throttled(**kw: Any) -> dict[str, Any]:
+        raise ClientError("ThrottlingException")
+
+    fake.sign = throttled  # type: ignore[method-assign]
+    with pytest.raises(CryptoError, match="CRYPTO_THROTTLED"):
+        sign_jws(signer, {"a": 1}, typ="test+jws")

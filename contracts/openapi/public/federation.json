@@ -44,6 +44,31 @@
         "title": "AnchorIn",
         "type": "object"
       },
+      "DiscoverIn": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "OIDC",
+              "SAML"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocol",
+          "url"
+        ],
+        "title": "DiscoverIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -841,6 +866,50 @@
           }
         },
         "summary": "Rotate",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
+    "/federation/integrations:discover": {
+      "post": {
+        "description": "Read a provider's published settings so a person types an address, not endpoints, keys and certificates. The\nresult is only returned: it is pinned when the integration is created, exactly as if it had been typed in.",
+        "operationId": "discover_provider_federation_integrations_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Discover Provider Federation Integrations Discover Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discover Provider",
         "tags": [
           "federation"
         ]

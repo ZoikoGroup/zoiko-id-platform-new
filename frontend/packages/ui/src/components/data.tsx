@@ -28,6 +28,7 @@ import { cn } from "../utils/cn";
 import { Checkbox } from "./forms";
 import { EmptyState, LoadingRows } from "./feedback";
 import { Button } from "./button";
+import { useLocale } from "./locale";
 
 /* ------------------------------------------------------------------------------------------------
  * DataTable (§4 "Data table", §23 "Tables", §25)
@@ -168,7 +169,14 @@ export function DataTable<T>({
       ) : rows.length === 0 ? (
         empty ?? <EmptyState title="No results">No objects match the current view.</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
+        // A scrollable region must be reachable and named for keyboard and screen-reader users (WCAG 2.1.1).
+        <div
+          role="region"
+          aria-label={caption}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        >
           <table className="w-full border-collapse text-left text-sm">
             <caption className="sr-only">{caption}</caption>
             <thead className="hidden bg-canvas/60 md:table-header-group">
@@ -574,13 +582,14 @@ export function DateTime({
   utc?: boolean;
   style?: "short" | "medium" | "date";
 }) {
+  const locale = useLocale();
   if (!value) return <span className="text-ink-subtle">—</span>;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return <span>{value}</span>;
   const local =
     style === "date"
-      ? d.toLocaleDateString("en-US", { dateStyle: "medium" })
-      : d.toLocaleString("en-US", { dateStyle: style === "short" ? "short" : "medium", timeStyle: "short" });
+      ? d.toLocaleDateString(locale, { dateStyle: "medium" })
+      : d.toLocaleString(locale, { dateStyle: style === "short" ? "short" : "medium", timeStyle: "short" });
   const iso = d.toISOString();
   return (
     <span className="inline-flex flex-col">
@@ -592,10 +601,11 @@ export function DateTime({
   );
 }
 
-const rtf = typeof Intl !== "undefined" ? new Intl.RelativeTimeFormat("en-US", { numeric: "auto", style: "short" }) : null;
 
 /** "4m ago" with the absolute time on hover. `now` is injectable for deterministic rendering. */
 export function RelativeTime({ value, now }: { value: string | null | undefined; now?: number }) {
+  const locale = useLocale();
+  const rtf = typeof Intl !== "undefined" ? new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "short" }) : null;
   if (!value) return <span className="text-ink-subtle">—</span>;
   const d = new Date(value);
   const diff = (d.getTime() - (now ?? Date.now())) / 1000;
@@ -611,8 +621,9 @@ export function RelativeTime({ value, now }: { value: string | null | undefined;
 
 /** Locale display, explicit currency, canonical minor-unit value retained for copy (§23). */
 export function Money({ minor, currency, compact = false }: { minor: number; currency: string; compact?: boolean }) {
+  const locale = useLocale();
   const major = minor / 100;
-  const text = new Intl.NumberFormat("en-US", {
+  const text = new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     currencyDisplay: "code",
@@ -627,9 +638,10 @@ export function Money({ minor, currency, compact = false }: { minor: number; cur
 }
 
 export function NumberValue({ value, compact = false }: { value: number; compact?: boolean }) {
+  const locale = useLocale();
   return (
     <data value={value} className="tabular">
-      {new Intl.NumberFormat("en-US", { notation: compact ? "compact" : "standard" }).format(value)}
+      {new Intl.NumberFormat(locale, { notation: compact ? "compact" : "standard" }).format(value)}
     </data>
   );
 }

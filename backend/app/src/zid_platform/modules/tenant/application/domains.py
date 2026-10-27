@@ -16,8 +16,10 @@ from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_app.resilience import budget_timeout
 from zid_outbox import emit
 
+from zid_platform import egress
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, commitment, record_audit
 from zid_platform.modules.tenant.domain.domains import (
     CHALLENGE_TTL,
@@ -59,9 +61,16 @@ async def dns_txt(name: str) -> list[str]:
 
 def https_fetcher(transport: httpx.AsyncBaseTransport | None = None) -> HttpsFetch:
     async def fetch(url: str) -> str | None:
+        try:  # SEC-19: a claimed domain may resolve anywhere; refuse non-public destinations
+            await egress.guard(url, resolve=transport is None)
+        except egress.EgressError:
+            return None
         try:
             async with httpx.AsyncClient(
-                transport=transport, timeout=5.0, follow_redirects=False, verify=True
+                transport=transport,
+                timeout=budget_timeout(5.0),
+                follow_redirects=False,
+                verify=True,
             ) as c:
                 r = await c.get(url)
         except httpx.HTTPError:

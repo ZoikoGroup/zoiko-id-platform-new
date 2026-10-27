@@ -15,6 +15,7 @@ Provider payloads end at the adapter boundary: only canonical facts reach the re
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
@@ -22,11 +23,13 @@ from typing import Any
 import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from zid_app.resilience import budget_timeout
 from zid_context import RequestContext
 from zid_crypto import CryptoError, verify_external_jws
 from zid_db import tenant_transaction
 from zid_outbox import emit
 
+from zid_platform.modules.commercial.ports import record_vendor_check
 from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
 from zid_platform.modules.verification.domain.verification import (
@@ -39,7 +42,9 @@ from zid_platform.modules.verification.domain.verification import (
     SessionStatus,
     VerificationError,
     decide,
+    decision_basis,
     failover_candidates,
+    reconstruct,
     reliance,
     select_profile,
     transition,
@@ -47,6 +52,9 @@ from zid_platform.modules.verification.domain.verification import (
 from zid_platform.modules.verification.infrastructure import verification_store as store
 
 CALLBACK_TYP = "verification-result+jwt"
+CALLBACK_MAX_AGE = (
+    600  # seconds: a signed result older than this (or from the future) is not acted on
+)
 
 
 async def _event(
@@ -175,7 +183,9 @@ async def _submit(
 ) -> str | None:
     """Only opaque references leave Zoiko; the provider collects evidence from the applicant."""
     try:
-        async with httpx.AsyncClient(transport=transport, timeout=5.0, follow_redirects=False) as c:
+        async with httpx.AsyncClient(
+            transport=transport, timeout=budget_timeout(5.0), follow_redirects=False
+        ) as c:
             r = await c.post(
                 adapter["submit_endpoint"],
                 json={
@@ -214,6 +224,7 @@ def _result(payload: dict[str, Any]) -> ProviderResult:
             fraud_signals=tuple(str(f) for f in payload.get("fraud_signals", ())),
             reason_codes=tuple(str(r) for r in payload.get("reason_codes", ())),
             evidence_commitment=payload.get("evidence_commitment"),
+            fraud_check=payload.get("fraud_check"),
         )
     except (KeyError, TypeError, ValueError) as e:
         raise VerificationError("CALLBACK_SCHEMA_INVALID") from e
@@ -247,6 +258,13 @@ async def provider_callback(
             or claims.get("mapping_version") != adapter["mapping_version"]
         ):
             raise VerificationError("CALLBACK_SCHEMA_INVALID", "issuer or mapping version")
+        issued = claims.get("iat")
+        if (
+            not isinstance(issued, int | float)
+            or isinstance(issued, bool)
+            or abs(now.timestamp() - issued) > CALLBACK_MAX_AGE
+        ):
+            raise VerificationError("CALLBACK_STALE", "a signed result must be fresh")
         event_id, ref = claims.get("event_id"), claims.get("transaction_ref")
         if not isinstance(event_id, str) or not isinstance(ref, str):
             raise VerificationError("CALLBACK_SCHEMA_INVALID")
@@ -268,7 +286,26 @@ async def provider_callback(
         profile = await store.load_profile(conn, s.profile_id)
         result = _result(claims.get("result") or {})
         decision = decide(profile, result, jurisdiction=s.jurisdiction)
-        await _apply(conn, s, profile, decision, adapter_id, result, now)
+        basis = decision_basis(
+            result,
+            adapter_id=adapter_id,
+            mapping_version=str(adapter["mapping_version"]),
+            salt=s.session_id,
+        )
+        await _apply(conn, s, profile, decision, adapter_id, result, now, basis)
+        # what this provider attempt cost Zoiko, charged to the customer or not (CR-029); never raises
+        await record_vendor_check(
+            conn,
+            tenant_id=tenant_id,
+            adapter_id=adapter_id,
+            supplier_ref=event_id,
+            check_type="IDENTITY_VERIFICATION",
+            country=s.jurisdiction,
+            decision_status=decision.status.value,
+            reasons=list(decision.reasons),
+            subject_ref=s.session_id,
+            at=now,
+        )
         return decision.status.value
 
 
@@ -280,6 +317,7 @@ async def _apply(
     adapter_id: str,
     result: ProviderResult,
     now: datetime,
+    basis: dict[str, Any],
 ) -> None:
     if d.status is SessionStatus.PENDING_EXTERNAL:
         return
@@ -315,6 +353,7 @@ async def _apply(
             now=now,
             outcome=d.outcome,
             pending=pending,
+            basis=basis,
         )
         await store.open_case(conn, moved, approvals=profile.review_approvals, reasons=d.reasons)
         await _event(conn, "verification.manual_review_required", moved, 4, reasons=list(d.reasons))
@@ -330,6 +369,7 @@ async def _apply(
         d.reasons,
         result.evidence_commitment,
         now,
+        basis,
     )
 
 
@@ -344,9 +384,10 @@ async def _finish(
     reasons: tuple[str, ...],
     evidence_commitment: str | None,
     now: datetime,
+    basis: dict[str, Any] | None = None,
 ) -> list[str]:
     done = await store.update_session(
-        conn, s, status=transition(s.status, status), now=now, outcome=outcome
+        conn, s, status=transition(s.status, status), now=now, outcome=outcome, basis=basis
     )
     ids: list[str] = []
     if status is SessionStatus.VERIFIED:
@@ -453,6 +494,32 @@ async def review(
     return "APPROVED"
 
 
+async def reconstruct_decision(conn: AsyncConnection, session_id: str) -> dict[str, Any]:
+    """Audit (VERIFY-29): re-derive a recorded decision from the pinned profile and the recorded
+    normalized facts, and say whether it equals what was recorded. Never reads raw evidence."""
+    s = await store.load_session(conn, session_id)
+    basis = await store.decision_basis(conn, session_id)
+    if basis is None:
+        raise VerificationError("DECISION_BASIS_NOT_RECORDED")
+    profile = await store.load_profile(conn, s.profile_id)
+    again = reconstruct(profile, basis, jurisdiction=s.jurisdiction)
+    return {
+        "session_id": s.session_id,
+        "profile_id": profile.profile_id,
+        "profile_version": profile.version,
+        "adapter_id": basis["adapter_id"],
+        "mapping_version": basis["mapping_version"],
+        "evidence_commitment": basis["evidence_commitment"],
+        "recorded_outcome": s.outcome_code,
+        "reconstructed_outcome": again.outcome,
+        # a reviewer's decision is a human act: facts alone only reconstruct the route into review
+        "manual_review": again.status is SessionStatus.MANUAL_REVIEW,
+        "matches": None
+        if again.status is SessionStatus.MANUAL_REVIEW
+        else again.outcome == s.outcome_code,
+    }
+
+
 async def rely(
     conn: AsyncConnection,
     *,
@@ -528,6 +595,87 @@ async def assurance(conn: AsyncConnection, principal_id: str, now: datetime) -> 
     return {
         "principal_id": principal_id,
         "identity_proofing": {"level": f"IAL-Z{ial}", "claims": claims},
+    }
+
+
+async def verified_claims(
+    conn: AsyncConnection,
+    principal_id: str,
+    *,
+    purpose: str,
+    requested: list[str],
+    now: datetime,
+    min_level: str = "IAL-Z1",
+) -> dict[str, Any]:
+    """VERIFY-25: the OpenID IDA `verified_claims` for exactly what was asked for and may be relied on."""
+    from zid_platform.modules.verification.domain.ida import project
+
+    rows = await store.assertions_for(conn, principal_id)
+    return {
+        "verified_claims": project(
+            rows, purpose=purpose, requested=requested, now=now, min_level=min_level
+        )
+    }
+
+
+SHARED_ASSERTION_CLASS = "DC2"  # a commitment about an identifiable person
+
+# The tenant module's cross-cell transfer gateway (tenant.ports.authorize_transfer), handed over by main.py so the
+# verification module does not import tenant.
+_TRANSFER_GATE: Callable[..., Awaitable[Any]] | None = None
+
+
+def configure_transfer_gate(gate: Callable[..., Awaitable[Any]] | None) -> None:
+    global _TRANSFER_GATE
+    _TRANSFER_GATE = gate
+
+
+async def shared_assertions(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str,
+    home_cell_id: str,
+    relying_cell_id: str,
+    purpose: str,
+    requested: list[str],
+    now: datetime,
+    min_level: str = "IAL-Z1",
+) -> dict[str, Any]:
+    """TEN-24: what a relying tenant in another cell may be told about a reusable identity held here. The transfer
+    gateway decides whether the destination may receive it at all (and which fields an approved rule allows); what is
+    sent is the approved assertion/commitment only, never the source profile."""
+    from zid_platform.modules.verification.domain.shared_identity import (
+        SharedIdentityError,
+        shareable,
+    )
+
+    if _TRANSFER_GATE is None:
+        raise SharedIdentityError(
+            "TRANSFER_GATE_UNAVAILABLE", "the cross-cell transfer gateway is not configured"
+        )
+    decision = await _TRANSFER_GATE(
+        conn,
+        tenant_id,
+        data_class=SHARED_ASSERTION_CLASS,
+        destination_cell_id=relying_cell_id,
+        purpose_code=purpose,
+        now=now,
+    )
+    if not decision.allowed:
+        raise SharedIdentityError(decision.code, f"{relying_cell_id} may not receive this identity")
+    rows = await store.assertions_for(conn, principal_id)
+    return {
+        "home_cell_id": home_cell_id,
+        "assertions": shareable(
+            rows,
+            home_cell_id=home_cell_id,
+            purpose=purpose,
+            requested=requested,
+            now=now,
+            min_level=min_level,
+            allowlist=decision.field_allowlist,
+        ),
     }
 
 
@@ -638,6 +786,7 @@ async def record_presentation(
         decision.reasons,
         None,
         now,
+        decision_basis(result, adapter_id="oid4vp", mapping_version=None, salt=s.session_id),
     )
     return decision.outcome, ids
 

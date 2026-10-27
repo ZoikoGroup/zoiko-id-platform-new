@@ -1,0 +1,28 @@
+# Admission/generate: every new application namespace receives a default-deny NetworkPolicy (ingress and
+# egress). Traffic is then opened only by explicit, reviewed policies (DEVSEC-18).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zid-default-deny-network
+spec:
+  generateExisting: true
+  rules:
+    - name: default-deny
+      match:
+        any:
+          - resources:
+              kinds: [Namespace]
+      exclude:
+        any:
+          - resources:
+              names: [kube-system, kube-public, kube-node-lease, kyverno]
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-all
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        data:
+          spec:
+            podSelector: {}
+            policyTypes: [Ingress, Egress]

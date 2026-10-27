@@ -42,7 +42,9 @@ PLANES: dict[str, tuple[str, ...]] = {
         "policy_authoring",
         "operator_access",
         "metering",
+        "commercial",
         "notification",
+        "communication",
         "search",
     ),
     "global": ("locator", "discovery"),
@@ -62,6 +64,7 @@ CELL_SCHEMAS = (
     "signals",
     "events",
     "metering",
+    "commercial",
     "zid_migrations",
 )
 GLOBAL_SCHEMAS = ("global_directory", "zid_migrations")

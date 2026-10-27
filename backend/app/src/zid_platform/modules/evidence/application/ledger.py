@@ -17,7 +17,7 @@ open the platform scope for their own statements.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -45,6 +45,7 @@ from zid_evidence import (
 )
 from zid_outbox import emit
 
+from zid_platform.modules.evidence.domain.key_compromise import signed_while_compromised
 from zid_platform.modules.evidence.domain.ledger import (
     PLATFORM_TENANT_ID,
     EvidenceClass,
@@ -61,9 +62,19 @@ RecordLoader = Callable[[AsyncConnection, str], Awaitable[Mapping[str, Any] | No
 _LOADERS: dict[str, RecordLoader] = {}
 from zid_telemetry.metrics import REGISTRY
 
+RECORDS = REGISTRY.counter(
+    "zid_evidence_receipts_total", "Records committed to the evidence ledger", ("evidence_class",)
+)
 VERIFY_FAILURES = REGISTRY.counter(
     "zid_evidence_checkpoint_verify_failures_total", "Evidence partitions that failed verification"
 )
+
+
+def _count(metric: Any, **labels: str) -> None:
+    """Telemetry is observational (EVID-29): a metrics failure must never fail or roll back the
+    authoritative evidence write, and evidence integrity never depends on a metric being seen."""
+    with suppress(Exception):  # deliberately swallowed, telemetry only
+        metric.inc(**labels)
 
 
 def _utcnow() -> datetime:
@@ -295,6 +306,7 @@ async def append(
                 "entry_signature": signature,
             },
         )
+    _count(RECORDS, evidence_class=cls.value)
     return LedgerRef(
         partition.id,
         entry.sequence_no,
@@ -357,11 +369,14 @@ async def verify_partition(
     *,
     keys: Sequence[Mapping[str, Any]],
     emit_incident: bool = True,
+    compromised: Mapping[str, datetime] | None = None,
 ) -> PartitionReport:
     """Recompute the hash chain and every checkpoint (root, link, signature) of a partition.
 
-    `keys`: trusted public keys of the evidence signing purpose, historic ones included."""
+    `keys`: trusted public keys of the evidence signing purpose, historic ones included.
+    `compromised`: kid -> compromise time; a signature by that key at or after it is a failure, one before it is not."""
     partition = Partition.parse(partition_id)
+    compromised = compromised or {}
     report = PartitionReport(partition.id)
     async with partition_scope(conn, partition):
         rows = await store.entries(conn, partition.id, 1)
@@ -393,6 +408,12 @@ async def verify_partition(
                 raise SignatureError("entry signature does not cover this entry")
         except SignatureError as e:
             report.problem("entry_signature", entry.sequence_no, str(e))
+        if signed_while_compromised(row.signer_key_id, row.committed_at, compromised):
+            report.problem(
+                "signed_by_compromised_key",
+                entry.sequence_no,
+                f"key {row.signer_key_id} was compromised",
+            )
     expected_first, previous = 1, None
     for row in cps:
         manifest = manifest_from_row(row)
@@ -428,13 +449,47 @@ async def verify_partition(
             report.problem(
                 "checkpoint_signature", first, str(e), checkpoint_id=str(row.checkpoint_id)
             )
+        if signed_while_compromised(row.signer_key_id, row.created_at, compromised):
+            report.problem(
+                "signed_by_compromised_key", first, f"key {row.signer_key_id} was compromised",
+                checkpoint_id=str(row.checkpoint_id),
+            )  # fmt: skip
         expected_first, previous = last + 1, manifest
         report.sealed_through = last
     if not report.ok:
-        VERIFY_FAILURES.inc()
+        _count(VERIFY_FAILURES)
     if not report.ok and emit_incident:
         await report_integrity_failure(conn, partition, report)
     return report
+
+
+async def declare_signing_key_compromise(
+    conn: AsyncConnection,
+    partition: Partition,
+    *,
+    compromised_kid: str,
+    new_kid: str,
+    compromised_at: datetime,
+    reason: str,
+) -> None:
+    """Record the incident for a partition: which key, from when, what replaced it. The caller rotates the runtime
+    (`EvidenceRuntime.after_compromise`) and re-verifies; nothing stored is rewritten (EVID-22)."""
+    await emit_for_partition(
+        conn,
+        partition,
+        name="evidence.key.rotated",
+        aggregate_type="evidence_incident",
+        aggregate_id=str(uuid7()),
+        aggregate_version=1,
+        data={
+            "partition_id": partition.id,
+            "rotation": "COMPROMISE",  # an emergency rotation, not a scheduled one
+            "compromised_kid": compromised_kid,
+            "replacement_kid": new_kid,
+            "compromised_at": compromised_at.isoformat(),
+            "reason_code": reason,
+        },
+    )
 
 
 async def report_integrity_failure(

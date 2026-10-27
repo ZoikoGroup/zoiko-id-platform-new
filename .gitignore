@@ -88,3 +88,10 @@ ehthumbs.db
 
 # ---------- CI / local test reports ----------
 /reports/
+
+# GCP deployment: per-host configuration and secret files
+deploy/gcp/.env
+deploy/gcp/secrets/
+
+# local development key material (shared dev KEKs); never commit
+.zid/

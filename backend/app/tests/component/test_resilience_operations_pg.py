@@ -139,6 +139,12 @@ def test_failover_runbook_gates_epochs_quarantine_and_exercises(
                         roles=frozenset(r),
                         now=now,
                     )
+            async with engine(owner_url) as oeng, oeng.begin() as oc:
+                # the company was migrated to eu-1: its own record moves with it (a profile edit alone cannot)
+                await oc.execute(
+                    text("UPDATE platform.tenant SET home_cell_id = 'eu-1' WHERE tenant_id = :t"),
+                    {"t": uuid.UUID(customer)},
+                )
             async with tenant_transaction(eng, ctx(customer)) as c:
                 await residency.set_residency(
                     c,
@@ -378,6 +384,30 @@ def test_failover_runbook_gates_epochs_quarantine_and_exercises(
             "ROUTE",
             "RECONCILE",
         ]
+
+        # --- OPS-25: repeating the runbook is fenced and leaves one audit trail --------------
+        for name in ("ADVANCE_EPOCHS", "FREEZE_OLD_WRITER", "ROUTE"):
+            r = step(name, evidence_ref="CHG-REPEAT")
+            assert r.status_code == 409 and code(r) == "RECOVERY_OPERATION_CLOSED", name
+        assert asyncio.run(placement()) == ("eu-1-dr", 2, "eu-1-dr")  # no second epoch advance
+        assert asyncio.run(fence())[1] == 2
+
+        async def audited() -> dict[str, int]:
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(customer)) as c:
+                rows = (
+                    await c.execute(
+                        text(
+                            "SELECT event_type, count(*) AS n FROM evidence.audit_record "
+                            "WHERE event_type LIKE 'tenant.%' OR event_type = 'writer.epoch.changed' "
+                            "GROUP BY event_type"
+                        )
+                    )
+                ).all()
+                return {r.event_type: int(r.n) for r in rows}
+
+        trail = asyncio.run(audited())
+        assert trail["tenant.placement.changed"] == 1 and trail["writer.epoch.changed"] == 1
+        assert trail["tenant.failover.completed"] == 1
 
         # --- a quarantined cell takes no new organization -----------------------------------
         r = api.post(

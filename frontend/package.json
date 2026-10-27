@@ -18,9 +18,12 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "codegen": "npm run codegen -w @zoiko/api-client"
+    "codegen": "npm run codegen -w @zoiko/api-client",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.56.1",
     "turbo": "2.10.3",
     "typescript": "5.9.3"
   }

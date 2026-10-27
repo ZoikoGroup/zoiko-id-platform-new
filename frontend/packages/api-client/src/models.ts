@@ -7,6 +7,8 @@
 /* ---------------------------------------------------------------- shared */
 
 export type Items<T> = { items: T[] };
+/** A list that can be continued: `next_cursor` is absent or null on the last page. */
+export type Page<T> = Items<T> & { next_cursor?: string | null };
 export type Iso = string;
 export type RiskClassNumber = 0 | 1 | 2 | 3;
 export type AssuranceLevel = "IAL-Z1" | "IAL-Z2" | "IAL-Z3";
@@ -318,6 +320,9 @@ export type StreamPropagation = {
   max_ms: number | null;
   oldest_pending_ms: number | null;
   slo_breaches: number;
+  /** Restricting (R2/R3) events the receiver has not acknowledged inside the target; the receiver must fail closed. */
+  overdue_restricting?: number;
+  remote_fail_closed?: boolean;
   /** Propagation SLO per risk class (ms). */
   slo_ms_by_risk: Record<string, number>;
   [k: string]: unknown;
@@ -329,6 +334,19 @@ export type ProvisioningSource = { source_id: string; client_id: string; status:
 
 /* ---------------------------------------------------------------- admin lists (CR-010) */
 
+/** A company's ask for a different plan; the commercial team answers it. It never changes the entitlement. */
+export type PlanRequestStatus = "OPEN" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
+export type PlanRequest = {
+  request_id: string;
+  plan: string;
+  current_plan: string;
+  note: string | null;
+  status: PlanRequestStatus;
+  created_at: Iso;
+  decided_at: Iso | null;
+  decision_note: string | null;
+};
+
 export type ApprovalListItem = {
   approval_request_id: string;
   subject_ref: string;
@@ -339,9 +357,16 @@ export type ApprovalListItem = {
   codes: string[];
   required_approvals: number;
   approvals_received: number;
+  /** What the request is for, in words (requests opened the older way have none). */
+  summary: string | null;
+  action: string | null;
+  resource: string | null;
+  change: string | null;
   created_at: Iso;
   expires_at: Iso;
 };
+/** A request the signed-in person may approve now, with the grant the server will act under. */
+export type ApprovalAwaiting = ApprovalListItem & { authority_grant_id: string };
 
 export type Mandate = {
   mandate_id: string;
@@ -365,6 +390,12 @@ export type Mandate = {
   max_delegation_depth: number;
   parent_mandate_id: string | null;
   created_at: Iso;
+};
+
+/** A mandate as its own people see it (`GET /v1/mandates/mine`): what they are to it and what they may do to it now. */
+export type MyMandate = Mandate & {
+  i_am: ("executor" | "creator")[];
+  my_moves: ("pause" | "revoke")[];
 };
 
 export type IssuedCredentialStatus = "VALID" | "SUSPENDED" | "REVOKED" | "EXPIRED" | "UNKNOWN";
@@ -567,6 +598,17 @@ export type ConsentRecord = {
   withdrawn_at: Iso | null;
   capture_method: string;
 };
+export type ConsentOption = {
+  activity_code: string;
+  activity_name: string;
+  purpose_code: string;
+  description: string;
+  data_categories: string[];
+  /** `CODE@version` of the notice to cite when consenting. */
+  notice_version: string;
+  notice_uri: string | null;
+  consented: boolean;
+};
 export type PreferenceRecord = { preference_type: string; value: boolean; source: string; revision: number; updated_at: Iso };
 export type RightsType =
   | "ACCESS"
@@ -703,6 +745,8 @@ export type OperatorCapabilities = {
   items: OperatorCapability[];
   separation_of_duties: { rule: string; capabilities: string[]; rationale: string }[];
   break_glass_max_minutes: number;
+  /** `direct`: a registered operator needs no access request or second approver for non-customer-data work. */
+  mode: "governed" | "direct";
 };
 export type JitGrantState = "REQUESTED" | "APPROVED" | "ACTIVE" | "DENIED" | "CANCELLED" | "REVOKED" | "EXPIRED";
 export type JitGrant = {
@@ -788,5 +832,949 @@ export type TenantView = {
   home_cell_id: string;
   configuration_revision: number;
   security_revision: number;
+  organization_id: string | null;
+  onboarding_plan_id: string | null;
+  created_at: Iso;
+  state_changed_at: Iso | null;
   my_roles: TenantRole[];
 };
+
+/* ---------------------------------------------------------------- onboarding (OVERLAY-001 §2, §17, §25) */
+
+export type GateStatus = "PASS" | "WARN" | "FAIL" | "PENDING";
+/** One machine-readable onboarding requirement and its result. */
+export type OnboardingGate = {
+  gate_id: string;
+  stage: string; // the tenant status whose exit the gate guards
+  status: GateStatus;
+  code: string | null;
+  detail: string;
+  blocking: boolean;
+};
+export type GateReport = { tenant_status: TenantStatus; gates: OnboardingGate[] };
+/** The national register an organization root comes from (GB-COH: UK Companies House). */
+export type RegistryNamespace = "GB-COH";
+export type OrganizationSubmission = { namespace: RegistryNamespace; identifier: string; lei?: string | null };
+export type OrganizationResult = GateReport & {
+  organization_id: string | null;
+  authority_root_assertion_id: string | null;
+  legal_name: string | null;
+  root_fresh_until: Iso | null;
+  admin_grant_id: string | null;
+};
+export type DeploymentMode = "O0" | "O1" | "O2" | "O3";
+export type PlanStatus = "DRAFT" | "APPROVED" | "SUPERSEDED";
+export type OnboardingPlan = {
+  plan_id: string;
+  version: number;
+  supersedes: string | null;
+  status: PlanStatus;
+  target_mode: DeploymentMode;
+  scope: Record<string, unknown>;
+  exit_criteria: Record<string, number>;
+  cutover_windows: Record<string, unknown>[];
+  rollback_triggers: Record<string, unknown>;
+  support: Record<string, unknown>;
+  data_migration: string;
+  author_principal_id: string;
+  approved_by: string | null;
+  shadow_started_at: Iso | null;
+  pilot_started_at: Iso | null;
+  rollback_tested_at: Iso | null;
+};
+export type PlanCreate = {
+  target_mode: DeploymentMode;
+  scope?: Record<string, unknown>;
+  exit_criteria?: Record<string, number>;
+  data_migration?: string;
+};
+
+/* ---------------------------------------------------------------- domains (OVERLAY-001 §5) */
+
+export type DomainMethod = "DNS_TXT" | "HTTPS_WELL_KNOWN";
+export type DomainStatus = "PENDING" | "VERIFIED" | "STALE" | "EXPIRED" | "REVOKED";
+export type TenantDomain = {
+  domain_id: string;
+  domain: string;
+  method: DomainMethod;
+  status: DomainStatus;
+  expires_at: Iso;
+  verified_at: Iso | null;
+  last_checked_at: Iso | null;
+  reverify_due_at: Iso | null;
+  /** What to publish to prove control; present only while the challenge is pending. */
+  publish?: Record<string, string>;
+};
+
+/* ---------------------------------------------------------------- integration registry (OVERLAY-001 §14) */
+
+export type AppEnvironment = "DEV" | "TEST" | "STAGE" | "PROD";
+export type AppProtocol = "OIDC" | "SAML" | "SCIM" | "AUTHZEN" | "WEBHOOK" | "API" | "MCP" | "OTHER";
+export type AppStatus = "DRAFT" | "TESTING" | "ACTIVE" | "SUSPENDED" | "RETIRED";
+/** Obligations a policy enforcement point (PEP) may declare it enforces. */
+export type PepObligation = "COMMIT_RECHECK" | "MANDATE_RESERVE" | "TOOL_ALLOWLIST" | "HUMAN_APPROVAL" | "STEP_UP";
+export type PepContextField = "purpose" | "represented_principal_id" | "mandate_id" | "transaction_context_id" | "tool_id" | "value";
+export type IntegrationApplication = {
+  application_id: string;
+  name: string;
+  environment: AppEnvironment;
+  protocols: AppProtocol[];
+  redirect_uris: string[];
+  resource_ids: string[];
+  credential_profile: string;
+  pep_profile: { obligations: PepObligation[]; context_fields: PepContextField[] };
+  risk_floor: string;
+  evidence_floor: string;
+  owner_principal_id: string | null;
+  status: AppStatus;
+  configuration_revision: number;
+  pep_client_id: string | null;
+};
+export type ApplicationCreate = {
+  name: string;
+  environment: AppEnvironment;
+  protocols: AppProtocol[];
+  pep_client_id?: string | null;
+  pep_obligations?: PepObligation[];
+  pep_context_fields?: PepContextField[];
+};
+
+export type OAuthClientType = "PUBLIC" | "CONFIDENTIAL";
+export type OAuthClientRecord = {
+  client_id: string;
+  client_type: OAuthClientType;
+  redirect_uris: string[];
+  scopes: string[];
+  token_auth_method: "none" | "private_key_jwt";
+  key_ids: string[];
+  status: "ACTIVE" | "SUSPENDED" | "RETIRED";
+  first_party: boolean;
+};
+export type OAuthClientCreate = {
+  name: string;
+  client_type: OAuthClientType;
+  redirect_uris: string[];
+  scopes?: string[];
+  jwks?: { keys: Record<string, unknown>[] } | null;
+};
+
+export type ConnectorType = "OIDC_IDP" | "SAML_IDP" | "SCIM" | "HRIS" | "SIGNALS" | "WEBHOOK" | "DIRECTORY";
+export type ConnectorCapability = "AUTHN" | "PROVISIONING" | "GROUPS" | "HR_LIFECYCLE" | "SIGNALS" | "WEBHOOK" | "DIRECTORY_LOOKUP";
+export type ConnectorAuthProfile = "OAUTH_CLIENT" | "MTLS" | "WORKLOAD_IDENTITY" | "SECRET";
+export type ConnectorHealth = "HEALTHY" | "DEGRADED" | "FAILED" | "QUARANTINED";
+export type DisableBehavior = "FAIL_CLOSED_HIGH_RISK" | "SUSPEND_DEPENDENTS";
+export type Connector = {
+  connector_id: string;
+  connector_type: ConnectorType;
+  display_name: string;
+  source_ref: string | null;
+  capabilities: ConnectorCapability[];
+  source_of_truth_scope: string[];
+  auth_profile: ConnectorAuthProfile;
+  health: ConnectorHealth;
+  consecutive_failures: number;
+  last_success_at: Iso | null;
+  fresh_until: Iso | null;
+  owner_principal_id: string | null;
+  disable_behavior: DisableBehavior;
+  quarantine_reason: string | null;
+  revision: number;
+};
+export type ConnectorCreate = {
+  connector_type: ConnectorType;
+  display_name: string;
+  source_ref?: string | null;
+  capabilities: ConnectorCapability[];
+  auth_profile?: ConnectorAuthProfile;
+  freshness_minutes?: number | null;
+  disable_behavior?: DisableBehavior;
+};
+export type MappingRule = {
+  source: string;
+  target: string;
+  transform?: { op: string; table?: Record<string, string>; [k: string]: unknown }[];
+  missing?: "IGNORE" | "CLEAR" | "ERROR";
+  multi?: "FIRST" | "ALL" | "ERROR";
+};
+export type SimulationReport = {
+  records: number;
+  mapped: number;
+  quarantined: number;
+  conflicts: number;
+  errors: number;
+  unknown_sources: string[];
+  samples: { record: string; facts: Record<string, unknown>; conflicts: unknown[]; errors: unknown[] }[];
+};
+export type MappingRelease = {
+  release_id: string;
+  connector_id: string;
+  version: number;
+  status: "DRAFT" | "REVIEW" | "ACTIVE" | "RETIRED";
+  rules: MappingRule[];
+  content_hash: string;
+  author_principal_id: string;
+  approved_by: string | null;
+  simulation_report: SimulationReport | null;
+  activated_at: Iso | null;
+};
+export type RouteKind = "APPLICATION" | "DOMAIN";
+export type LoginRoute = { rule_id: string; kind: RouteKind; match: string; connection_ref: string };
+
+/** A pilot stage: the slice of applications, actions, risk and people that is enforced (OVERLAY-001 §19). */
+export type StageScope = { applications: string[]; actions: string[]; max_risk: number; principals: string[] };
+export type PilotStage = {
+  stage_id: string;
+  plan_id: string;
+  name: string;
+  scope: StageScope;
+  status: "PLANNED" | "ACTIVE" | "COMPLETED" | "ROLLED_BACK";
+  approved_by: string | null;
+  activated_at: Iso | null;
+};
+
+export type TenantTransition = {
+  transition_id: string;
+  from_status: TenantStatus | null;
+  to_status: TenantStatus;
+  move: string;
+  reason_code: string;
+  actor_type: string;
+  actor_principal_id: string | null;
+  gate_report: unknown;
+  occurred_at: Iso;
+};
+export type ConfigurationRevision = {
+  revision: number;
+  change_kind: string;
+  change_commitment: string;
+  actor_principal_id: string | null;
+  created_at: Iso;
+};
+
+/* ---------------------------------------------------------------- operator: cells and recovery (RESILIENCE-001) */
+
+export type CellReadiness = {
+  cell_id: string;
+  status: string; // ACTIVE | DEGRADED | DRAINING | QUARANTINED
+  replica_lag_s?: number | null;
+  backup_age_s?: number | null;
+  recovery_keys_ready?: boolean;
+  one_az_loss_headroom?: number | null;
+  reported?: boolean;
+};
+export type ReadinessReport = {
+  replica_lag_s?: number | null;
+  backup_age_s?: number | null;
+  recovery_keys_ready: boolean;
+  one_az_loss_headroom?: number | null;
+};
+export type RecoveryKind = "FAILOVER" | "MIGRATION" | "FAILBACK" | "RESTORE";
+export type RecoveryOperationStatus = "OPEN" | "BLOCKED" | "COMPLETED" | "ABORTED";
+export type RunbookStep = { name: string; type: "CONFIRM" | "AUTO"; detail: string; done?: boolean };
+export type GateCheck = { gate_id: string; status: "PASS" | "FAIL"; code: string | null; detail: string };
+export type RecoveryStepLog = {
+  seq: number;
+  step: string;
+  outcome: "DONE" | "BLOCKED" | "ABORTED";
+  actor: string | null;
+  evidence_ref: string | null;
+  report: GateCheck[];
+  at: Iso;
+};
+export type RecoveryOperation = {
+  operation_id: string;
+  tenant_id: string | null;
+  kind: RecoveryKind;
+  source_cell_id: string;
+  target_cell_id: string;
+  status: RecoveryOperationStatus;
+  blocked_code: string | null;
+  steps_done: number;
+  next_step: RunbookStep | null;
+  runbook: RunbookStep[];
+  epoch_before: number | null;
+  epoch_after: number | null;
+  declared_by: string;
+  declared_at: Iso;
+  completed_at: Iso | null;
+  observed_rto_s: number | null;
+  steps?: RecoveryStepLog[];
+  report?: GateCheck[];
+};
+export type DrExercise = {
+  exercise_id: string;
+  kind: string;
+  cell_id: string;
+  scenario: string;
+  operation_id: string | null;
+  observed_rto_s: number | null;
+  observed_rpo_s: number | null;
+  target_rto_s: number | null;
+  target_rpo_s: number | null;
+  passed: boolean;
+  findings: string[];
+  started_at: Iso;
+  completed_at: Iso;
+};
+export type DrExerciseCreate = {
+  kind: string;
+  exercised_cell_id: string;
+  scenario: string;
+  operation_id?: string | null;
+  observed_rto_s?: number | null;
+  observed_rpo_s?: number | null;
+  findings?: string[];
+  started_at: Iso;
+  completed_at: Iso;
+};
+
+/* ---------------------------------------------------------------- operator: SRE operations (SRE-001 section 29) */
+
+export type ServiceTier = "T0" | "T1" | "T2" | "T3";
+export type CatalogueService = {
+  service_id: string;
+  name: string;
+  tier: ServiceTier;
+  owner: string;
+  oncall: string;
+  dashboard: string;
+  journeys: { prefix: string; latency_s: number }[];
+  slos: { slo_id: string; sli: string; target: number }[];
+  runbooks: string[];
+};
+export type SloWindow = { window: string; long_burn: number; short_burn: number; factor: number; class: "PAGE" | "TICKET"; firing: boolean };
+export type SloState = {
+  slo_id: string;
+  sli: string;
+  target: number;
+  state?: "UNKNOWN";
+  events?: number;
+  good_ratio?: number | null;
+  budget_remaining?: number;
+  budget_state?: string;
+  alert?: "PAGE" | "TICKET" | "NONE";
+  windows?: SloWindow[];
+};
+export type ServiceHealth = { service_id: string; tier: ServiceTier; state: string; frozen: boolean; open_incidents: string[]; slos: SloState[] };
+export type ChangeClass = "STANDARD" | "RISKY" | "FIX" | "SECURITY";
+export type ChangePolicy = {
+  service_id: string;
+  change_class: ChangeClass;
+  budget_state: string;
+  frozen: boolean;
+  allowed: boolean;
+  requires: string | null;
+  reason: string;
+};
+export type IncidentSeverity = "SEV0" | "SEV1" | "SEV2" | "SEV3" | "SEV4";
+export type IncidentStatus = "DECLARED" | "MITIGATING" | "RECOVERY_VALIDATION" | "RESOLVED" | "CLOSED";
+export type IncidentRole = "INCIDENT_COMMANDER" | "OPERATIONS_LEAD" | "COMMUNICATIONS_LEAD" | "SCRIBE" | "SECURITY_LEAD";
+export type IncidentEntry = { seq: number; kind: string; actor: string; note: string; data: Record<string, unknown>; at: Iso };
+export type IncidentActionItem = { item_id: string; title: string; owner: string | null; due: string | null; verified_by: string | null };
+export type Incident = {
+  incident_id: string;
+  title: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  security: boolean;
+  services: string[];
+  cells: string[];
+  roles: Partial<Record<IncidentRole, string>>;
+  declared_by: string;
+  declared_at: Iso;
+  mitigated_at: Iso | null;
+  resolved_at: Iso | null;
+  closed_at: Iso | null;
+  pir_ref: string | null;
+  version: number;
+  timeline?: IncidentEntry[];
+  action_items?: IncidentActionItem[];
+};
+export type IncidentCreate = {
+  title: string;
+  severity: IncidentSeverity;
+  security?: boolean;
+  services?: string[];
+  cells?: string[];
+  roles?: Partial<Record<IncidentRole, string>>;
+};
+export type IncidentUpdate = {
+  severity?: IncidentSeverity;
+  status?: "MITIGATING" | "RECOVERY_VALIDATION";
+  roles?: Partial<Record<IncidentRole, string>>;
+  reason: string;
+};
+export type PrrGate = {
+  gate: string;
+  status: "PASS" | "FAIL" | "ACCEPTED";
+  evidence_ref?: string | null;
+  risk_owner?: string | null;
+  risk_expires?: string | null;
+  compensating_control?: string | null;
+};
+export type PrrBlocker = { gate: string; reason: string };
+export type ReadinessVerdict = {
+  service_id: string;
+  review_id: string | null;
+  release_ref?: string;
+  production_ready: boolean;
+  blocking: PrrBlocker[];
+  recorded_at?: Iso;
+};
+
+/** What the company declared at sign-up, stored with the tenant (tenant_registration). */
+export type DeclaredOrganization = {
+  namespace: RegistryNamespace;
+  identifier: string;
+  lei: string | null;
+  notice_version: string;
+  notice_accepted_at: Iso;
+  home_cell_id: string;
+  declared_at: Iso;
+};
+export type RecoveryCodeStatus = { codes_remaining: number; issued_at: Iso | null };
+
+/* ---------------------------------------------------------------- evidence cases and provenance (EVIDENCE-001 §14, §21) */
+
+export type EvidenceCaseKind = "INVESTIGATION" | "AUDIT" | "LEGAL" | "INCIDENT" | "DATA_RIGHTS";
+export type EvidenceCase = {
+  case_id: string;
+  case_kind: EvidenceCaseKind;
+  purpose: string;
+  legal_basis: string | null;
+  status: "OPEN" | "CLOSED" | string;
+  opened_at: Iso;
+  expires_at: Iso;
+  closed_at: Iso | null;
+};
+export type CustodyRecord = {
+  custody_id: string;
+  evidence_item_id: string;
+  custody_action: string;
+  purpose: string;
+  export_mode: string | null;
+  package_hash: string | null;
+  created_at: Iso;
+};
+export type EvidenceCaseDetail = EvidenceCase & { items: CustodyRecord[] };
+export type ProvenanceEdge = {
+  relation: string;
+  subject_kind: string;
+  subject_type: string;
+  subject_ref: string;
+  object_kind: string;
+  object_type: string;
+  object_ref: string;
+  receipt_id: string | null;
+  recorded_at: Iso;
+};
+export type ProvenanceGraph = {
+  root: { type: string; ref: string };
+  nodes: { type: string; ref: string }[];
+  edges: ProvenanceEdge[];
+  truncated: boolean;
+};
+export type EvidenceArtifact = {
+  artifact_id: string;
+  tenant_id: string | null;
+  artifact_type: string;
+  artifact_ref: string;
+  version: string | number;
+  content_hash: string;
+  body: unknown;
+  registered_at: Iso;
+};
+
+/* ---------------------------------------------------------------- privacy governance (PRIV-001 §5, §11, §19) */
+
+export type ProcessorRole = "PROCESSOR" | "SUBPROCESSOR" | "INDEPENDENT_CONTROLLER" | "RECIPIENT";
+export type PrivacyProcessor = {
+  processor_id: string;
+  name: string;
+  role: ProcessorRole;
+  data_categories: string[];
+  locations: string[];
+  processing_activity_codes: string[];
+  purposes: string[];
+  transfer_mechanism: string | null;
+  deletion_sla_days: number | null;
+  security_assurance: string | null;
+  contract_ref: string | null;
+  status: string;
+  revision: number;
+};
+export type ProcessorCreate = {
+  processor_id: string;
+  name: string;
+  role: ProcessorRole;
+  data_categories: string[];
+  locations: string[];
+  purposes?: string[];
+  transfer_mechanism?: string | null;
+  deletion_sla_days?: number | null;
+  contract_ref?: string | null;
+};
+export type PrivacyNotice = {
+  notice_id: string;
+  notice_code: string;
+  version: number;
+  audience: string;
+  jurisdictions: string[];
+  content_hash: string;
+  content_uri: string | null;
+  status: string;
+  effective_at: Iso | null;
+};
+export type AdmSignificance = "NONE" | "MATERIAL" | "LEGAL_OR_SIMILARLY_SIGNIFICANT";
+export type AdmProfile = {
+  profile_id: string;
+  decision_class: string;
+  version: number;
+  purpose_code: string;
+  input_data_categories: string[];
+  model_or_rules_ref: string;
+  solely_automated: boolean;
+  significance_class: AdmSignificance;
+  special_category_use: boolean;
+  explanation_profile: string;
+  human_review_route: string;
+  status: string;
+  created_at: Iso;
+};
+export type AdmCreate = {
+  decision_class: string;
+  purpose_code: string;
+  input_data_categories: string[];
+  model_or_rules_ref: string;
+  solely_automated: boolean;
+  significance_class: AdmSignificance;
+  explanation_profile: string;
+  human_review_route: string;
+  special_category_use?: boolean;
+  risk_assessment_ref?: string | null;
+};
+
+/* ---------------------------------------------------------------- policy administration (AUTHZ-001 §18-19) */
+
+export type PolicyReleaseStatus = "DRAFT" | "VALIDATING" | "REVIEW" | "SCHEDULED" | "ACTIVE" | "RETIRED" | "REVOKED";
+export type PolicyTestCase = {
+  name: string;
+  principal: string;
+  action: string;
+  resource: string;
+  context: Record<string, unknown>;
+  expect_allow: boolean;
+};
+export type PolicyReleaseSummary = {
+  release_id: string;
+  policy_name: string;
+  version: number;
+  status: PolicyReleaseStatus;
+  content_hash: string;
+  author_principal_id: string;
+  reviewers: string[];
+  released_at: Iso | null;
+  case_count: number;
+};
+export type PolicyReleaseView = {
+  release_id: string;
+  status: PolicyReleaseStatus;
+  policies: string;
+  schema_version: string;
+  content_hash: string;
+  cases: PolicyTestCase[];
+  author_principal_id: string;
+  reviewers: string[];
+  released_at: Iso | null;
+  high_risk: boolean;
+};
+export type PolicyValidation = PolicyReleaseView & {
+  problems: string[];
+  privilege_diff: { newly_allowed: string[]; newly_denied: string[] };
+};
+export type PolicyOutcomeView = { allowed: boolean; determining: string[]; codes: string[] };
+export type PolicySimulation = { candidate: PolicyOutcomeView | null; active: PolicyOutcomeView | null };
+
+/* Webhooks (CR-018) */
+export type WebhookEndpointStatus = "PENDING_VERIFICATION" | "ACTIVE" | "PAUSED" | "DISABLED" | "RETIRED";
+export type WebhookEndpoint = {
+  endpoint_id: string;
+  url: string;
+  event_types: string[];
+  status: WebhookEndpointStatus | string;
+  signing_key_id: string;
+  max_inflight: number;
+  created_by: string;
+  created_at: Iso | null;
+  updated_at: Iso | null;
+};
+export type WebhookDeliveryStatus = "QUEUED" | "IN_FLIGHT" | "RETRY_SCHEDULED" | "DELIVERED" | "FAILED" | "EXHAUSTED";
+export type WebhookDelivery = {
+  delivery_id: string;
+  endpoint_id: string;
+  event_id: string;
+  event_type: string;
+  payload_digest: string;
+  status: WebhookDeliveryStatus | string;
+  attempts: number;
+  next_attempt_at: Iso | null;
+  last_status_code: number | null;
+  last_error: string | null;
+  replay_of: string | null;
+  created_at: Iso | null;
+  delivered_at: Iso | null;
+};
+export type WebhookEventType = { type: string; description: string };
+export type WebhookEndpointCreate = { url: string; event_types: string[]; max_inflight?: number };
+
+/* Alerts and tasks (CR-019) */
+export type AlertSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "INFO";
+export type AlertState = "OPEN" | "ACKNOWLEDGED" | "RESOLVED";
+export type PlatformAlert = {
+  alert_id: string;
+  severity: AlertSeverity;
+  kind: string;
+  title: string;
+  body: string;
+  object_type: string;
+  object_ref: string;
+  /** Console path of the affected object. */
+  href: string;
+  recommended_action: string;
+  is_task: boolean;
+  mandatory: boolean;
+  state: AlertState;
+  occurrences: number;
+  first_seen_at: Iso;
+  last_seen_at: Iso;
+  acknowledged_by: string | null;
+  acknowledged_at: Iso | null;
+  resolved_by: string | null;
+  resolved_at: Iso | null;
+};
+export type AlertSummary = {
+  open: number;
+  unacknowledged: number;
+  by_severity: Record<AlertSeverity, number>;
+};
+
+/* Global search (CR-020) */
+export type SearchHit = { type: string; group: string; id: string; label: string; hint: string; href: string };
+
+/* Agent, blueprint and tool registry (CR-021) */
+export type AgentStatus = "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "SUSPENDED" | "REVOKED" | "RETIRED";
+export type AgentItem = {
+  agent_principal_id: string;
+  agent_name: string;
+  blueprint_id: string;
+  blueprint_version: string;
+  /** Publisher, operator, sponsor and owning organization are separate principals (UX-11). */
+  publisher_principal_id: string;
+  operator_principal_id: string;
+  sponsor_principal_id: string | null;
+  owning_organization_id: string | null;
+  parent_agent_id: string | null;
+  model_provider: string;
+  allowed_tools: string[];
+  max_subagent_depth: number;
+  status: AgentStatus;
+  security_revision: number;
+};
+export type AgentGate = "SECURITY_REVIEW" | "KILL_PATH_TESTED" | "SHORT_LIVED_CREDENTIALS" | "OBSERVABILITY";
+export type AgentReadiness = {
+  agent_principal_id: string;
+  status: AgentStatus;
+  /** Codes of the activation gates still blocking, e.g. AGENT_SECURITY_REVIEW_REQUIRED. */
+  blockers: string[];
+  attestations: Partial<Record<AgentGate, { attested_by: string; note: string; attested_at: Iso }>>;
+  attestable_gates: AgentGate[];
+  live_bindings: number;
+};
+export type AgentDetail = AgentItem & { readiness: AgentReadiness; sub_agents: number };
+export type AgentCreate = {
+  agent_name: string;
+  blueprint_id: string;
+  blueprint_version: string;
+  operator_principal_id: string;
+  sponsor_principal_id: string;
+  owning_organization_id?: string | null;
+  model_provider?: string;
+  allowed_tools: string[];
+  max_subagent_depth: number;
+};
+export type BlueprintReview = "DRAFT" | "APPROVED" | "REVOKED";
+export type BlueprintRelease = {
+  blueprint_id: string;
+  version: string;
+  artifact_digest: string;
+  tool_manifest_digest: string;
+  publisher_principal_id: string;
+  review_status: BlueprintReview;
+  effective_at: Iso | null;
+};
+export type BlueprintCreate = {
+  blueprint_id: string;
+  version: string;
+  artifact_digest: string;
+  tool_manifest_digest: string;
+  publisher_principal_id: string;
+};
+export type ToolStatus = "DRAFT" | "ACTIVE" | "SUSPENDED" | "RETIRED";
+export type ToolSideEffect = "NONE" | "REVERSIBLE" | "IRREVERSIBLE" | "EXTERNAL_TRANSACTION";
+export type ToolItem = {
+  tool_id: string;
+  version: string;
+  server_principal_id: string;
+  canonical_action: string;
+  default_risk_class: RiskClassNumber;
+  side_effect: ToolSideEffect;
+  requires_mandate: boolean;
+  requires_human_approval: boolean;
+  status: ToolStatus;
+  /** Only ACTIVE tools can run: appearing in a server's tool list never makes one executable (UX-12). */
+  executable: boolean;
+};
+export type ToolCreate = {
+  tool_id: string;
+  version: string;
+  server_principal_id: string;
+  canonical_action: string;
+  default_risk_class: RiskClassNumber;
+  side_effect: ToolSideEffect;
+  requires_mandate: boolean;
+  requires_human_approval: boolean;
+};
+
+/* Tenant settings (CR-022) */
+export type SettingsArea = "AUTHENTICATION" | "NOTIFICATIONS" | "BRANDING";
+export type SettingSnapshot<T> = {
+  area: SettingsArea;
+  /** 0 = never set (platform defaults). Send this back as `expected_revision`. */
+  revision: number;
+  value: T;
+  commitment: string | null;
+  created_by: string | null;
+  created_at: Iso | null;
+};
+export type AuthenticationSettings = { session_absolute_hours: number | null; session_idle_minutes: number | null };
+export type NotificationSettings = { muted_kinds: string[] };
+export type BrandAccent = "blue" | "teal" | "green" | "violet" | "orange" | "slate";
+export type BrandingSettings = { display_name: string; accent: BrandAccent; support_url: string };
+export type SettingsAll = {
+  areas: {
+    AUTHENTICATION: SettingSnapshot<AuthenticationSettings>;
+    NOTIFICATIONS: SettingSnapshot<NotificationSettings>;
+    BRANDING: SettingSnapshot<BrandingSettings>;
+  };
+};
+export type SettingsHistoryItem = SettingSnapshot<Record<string, unknown>>;
+export type NotificationKind = { kind: string; title: string; severity: AlertSeverity; mandatory: boolean };
+export type CryptoOverview = {
+  key_mode: string;
+  customer_managed_keys: { byok: { available: boolean; state: string }; hyok: { available: boolean; state: string } };
+  key_provider: string;
+  residency_key_profile: string | null;
+  policy_registry_version: string;
+  purposes: { purpose: string; profile: string; algorithms: string[] }[];
+  published_signing_key_ids: Record<string, (string | undefined)[]>;
+  note: string;
+};
+
+/* API usage and rate limits (CR-023) */
+export type UsageRow = { day: string; surface: string; status_class: "2xx" | "3xx" | "4xx" | "5xx"; calls: number };
+export type UsageClient = { client_id: string; calls: number; errors: number };
+export type UsageSummary = { days: number; items: UsageRow[]; clients: UsageClient[] };
+export type RateLimitStatus = {
+  enforced: boolean;
+  scope: "tenant";
+  limit_per_minute: number;
+  used_this_minute: number;
+  resets_in_s: number;
+  on_exceed?: string;
+};
+
+/* Billing and the commercial catalogue (ZID-COM-001; CR-024 to CR-030). Money is a decimal string. */
+export type CatalogPlan = {
+  plan: string;
+  label: string;
+  platform_fee_is_floor: boolean;
+  limits: {
+    mah_included: number | null;
+    auth_events_included: number | null;
+    policy_decisions_included: number | null;
+    m2m_grants_included: number | null;
+    sso_included: number | null;
+    production_environments: number | null;
+    support_level: string;
+  };
+  capabilities: { capability: string; mode: string; tier: string | null }[];
+};
+export type CatalogPriceLine = { sku: string; plan: string | null; unit: string; unit_rate: string | null; unit_divisor: number; released: boolean };
+export type Catalog = {
+  status: "PRICED" | "UNPRICED";
+  plans: CatalogPlan[];
+  pricing: { version: number; currency: string; effective_from: string; lines: CatalogPriceLine[] } | null;
+  note: string;
+};
+export type EstimateIn = {
+  plan: string;
+  mah: number;
+  auth_events: number;
+  policy_decisions: number;
+  m2m_grants: number;
+  sso_connections: number;
+  scim_connections: number;
+};
+export type BillEstimate = {
+  status: "ESTIMATE" | "UNPRICED";
+  plan?: string;
+  price_book_version?: number;
+  currency?: string;
+  monthly_estimate?: string;
+  fee_is_floor?: boolean;
+  lines?: { kind: string; meter: string | null; formula: string; net: string }[];
+  warnings?: string[];
+  assumptions: string[];
+};
+export type EntitlementView = {
+  plan: string;
+  plan_label: string;
+  state: string;
+  source: string;
+  effective_from: string | null;
+  version: number;
+  limits: CatalogPlan["limits"];
+  capabilities: { capability: string; mode: string; tier: string | null; released: boolean; granted_by_exception: boolean; limit: number | null; used: number | null }[];
+  note: string;
+};
+export type BillableMeter = { meter: string; events: number; quantity: string; adjustments: string; net: string; frozen: boolean; hash_total: string | null };
+export type BillableSummary = { month: string; meters: BillableMeter[] };
+export type BillableEvent = { event_id: string; meter: string; quantity: string; occurred_at: Iso; late: boolean; recovered: boolean };
+export type BillableEvents = { items: BillableEvent[]; truncated: boolean };
+export type RatedLine = { kind: string; sku: string | null; meter: string | null; plan: string | null; segment: string | null; formula: string; net: string };
+export type RatedUsage = {
+  run_id: string;
+  attempt: number;
+  period: string;
+  currency: string;
+  subtotal: string;
+  credit_balance: string;
+  warnings: string[];
+  inputs_hash: string;
+  outputs_hash: string;
+  lines: RatedLine[];
+};
+export type IssuerKeysRotated = Record<string, unknown>;
+export type BillPreview = {
+  month: string;
+  status: "ESTIMATE" | "UNPRICED";
+  reason?: string;
+  projection_confidence?: "NONE" | "LOW" | "NORMAL";
+  currency?: string;
+  usage_to_date?: Record<string, string>;
+  bill_to_date?: string;
+  projected_bill?: string | null;
+  lines_to_date?: { kind: string; meter: string | null; formula: string; net: string }[];
+  warnings?: string[];
+  assumptions: string[];
+};
+export type InvoiceLine = { seq: number; kind: string; sku: string | null; meter: string | null; description: string; net: string; tax_code: string | null; tax: string | null; gross: string };
+export type Invoice = {
+  invoice_id: string;
+  number: string | null;
+  status: string;
+  period: string;
+  currency: string;
+  subtotal: string;
+  tax_total: string;
+  gross: string;
+  tax_status: string;
+  issued_at: string | null;
+  due_at: string | null;
+  document_digest: string | null;
+  credited: string;
+  paid: string;
+  outstanding: string | null;
+  lines: InvoiceLine[];
+};
+export type PaymentAttempt = { at: string; amount: string; currency: string; status: "CAPTURED" | "FAILED"; failure_code: string | null; invoice_number: string | null };
+/** The saved card as the company may see it: never the number. */
+export type PaymentMethod = { brand: string; last4: string; exp_month: number; exp_year: number };
+/** What is owed now (open issued invoices, per currency) and the saved card (CR-034). */
+export type BillingPayment = {
+  configured: boolean;
+  account_linked: boolean;
+  /** Whether this person may save or replace the card (the owner). */
+  can_manage: boolean;
+  /** The latest attempts to collect an invoice, newest first. */
+  payments: PaymentAttempt[];
+  method: PaymentMethod | null;
+  method_error: string | null;
+  amount_due: { currency: string; amount: string }[];
+  open_invoices: { invoice_id: string; number: string | null; currency: string; outstanding: string; due_at: string | null }[];
+};
+/** How this company's two-person onboarding steps are approved, and whether the caller may approve them alone (the owner, in owner mode). */
+export type OnboardingApprovalMode = { approval: "second_admin" | "owner"; self_approve: boolean };
+/** Where an application sends its access questions, and how far shadow has got (present in SHADOW and PILOT). */
+export type OnboardingConnection = {
+  api_base: string;
+  evaluation_url: string;
+  token_url: string;
+  stage: string | null;
+  shadow: {
+    observations: number;
+    observations_needed: number;
+    context_coverage: number;
+    context_coverage_needed: number;
+    r3_context_coverage: number;
+    r3_context_coverage_needed: number;
+    agreement: number | null;
+    agreement_needed: number;
+    false_allows: number;
+    ready: boolean;
+  } | null;
+};
+/** What an identity provider publishes about itself, found from its address (CR-038). */
+export type ProviderSettings =
+  | { protocol: "OIDC"; issuer: string; authorization_endpoint: string; token_endpoint: string; jwks: { keys: Record<string, unknown>[] } }
+  | { protocol: "SAML"; entity_id: string; sso_url: string; certificates: string[] };
+export type BillingState = {
+  state: string;
+  reason: string;
+  safety_hold: boolean;
+  since: string | null;
+  version: number;
+  restricted: string[];
+  never_restricted: string[];
+};
+export type BillingOrderLine = { seq: number; sku: string; plan: string | null; quantity: string; net_price: string };
+export type BillingOrder = {
+  order_id: string;
+  account_id: string;
+  tenant_id: string;
+  plan: string;
+  status: string;
+  pilot: boolean;
+  pilot_ends_at: Iso | null;
+  effective_from: Iso;
+  term_months: number;
+  amends_order_id: string | null;
+  activated_at: Iso | null;
+  lines: BillingOrderLine[];
+  [k: string]: unknown;
+};
+export type UsageBudget = { budget_id: string; meter: string | null; monthly_limit: string; currency: string | null; thresholds: number[] };
+export type BudgetIn = { meter: string | null; monthly_limit: string; currency: string | null; thresholds: number[] };
+
+/* Operator commercial surface (ZID-COM-001; CR-024 to CR-030). */
+export type PriceBookSummary = { price_book_id: string; version: number; currency: string; status: string; effective_from: string | null; approved_at: string | null; note: string | null };
+export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null };
+export type PriceBookDetail = PriceBookSummary & { lines: PriceBookLine[] };
+export type AssuranceException = { exception_id: string; kind: string; ref: string; tenant_id: string | null; detail: unknown; status: string; raised_at: string };
+export type VendorCostRow = Record<string, unknown>;
+/** The answer to checking a signed audit pack against the trusted evidence keys. */
+export type AuditPackVerdict = { valid: boolean; reason?: string; kid?: string; issuer?: string };
+
+/* Email contacts (Communication Estate; CR-031). Addresses are returned masked, never in full. */
+export type EmailContactPurpose = "OWNER" | "BILLING" | "SECURITY" | "TECHNICAL";
+export type EmailContact = { contact_id: string; purpose: EmailContactPurpose; address: string };

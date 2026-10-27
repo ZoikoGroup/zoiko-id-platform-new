@@ -62,11 +62,19 @@
       },
       "DecisionCreate": {
         "additionalProperties": false,
+        "description": "`authority_grant_id` and `transaction_context` may be left out for a request that records its action,\nresource and change: the grant is then the caller's own qualifying one and the context is rebuilt from the\nrequest, so approving is one click on a readable summary.",
         "properties": {
           "authority_grant_id": {
-            "format": "uuid",
-            "title": "Authority Grant Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Grant Id"
           },
           "risk_class": {
             "default": 3,
@@ -76,19 +84,24 @@
             "type": "integer"
           },
           "transaction_context": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Transaction Context",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Context"
           },
           "verdict": {
             "$ref": "#/components/schemas/Verdict"
           }
         },
         "required": [
-          "verdict",
-          "authority_grant_id",
-          "transaction_context"
+          "verdict"
         ],
         "title": "DecisionCreate",
         "type": "object"
@@ -501,7 +514,27 @@
       },
       "RequestCreate": {
         "additionalProperties": false,
+        "description": "Either the exact `transaction_context`, or the `action`, `resource` and `change` it is made of (the app\nbuilds the context itself, so nobody pastes a string). `summary` says in words what the request is for.",
         "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "change": {
+            "default": "",
+            "maxLength": 2048,
+            "title": "Change",
+            "type": "string"
+          },
           "k": {
             "default": 1,
             "maximum": 16.0,
@@ -512,6 +545,19 @@
           "mode": {
             "$ref": "#/components/schemas/CompositeMode",
             "default": "SINGLE"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource"
           },
           "roles": {
             "items": {
@@ -527,11 +573,31 @@
             "title": "Subject Ref",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "transaction_context": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Transaction Context",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Context"
           },
           "ttl_seconds": {
             "default": 3600,
@@ -543,7 +609,6 @@
         },
         "required": [
           "subject_ref",
-          "transaction_context",
           "roles"
         ],
         "title": "RequestCreate",
@@ -783,6 +848,99 @@
         ]
       }
     },
+    "/v1/approval-requests/awaiting-me": {
+      "get": {
+        "description": "Pending requests the caller did not open, has not decided, and holds authority to decide.",
+        "operationId": "awaiting_me_v1_approval_requests_awaiting_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Awaiting Me V1 Approval Requests Awaiting Me Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Awaiting Me",
+        "tags": [
+          "authority"
+        ]
+      }
+    },
+    "/v1/approval-requests/for-change": {
+      "get": {
+        "description": "The caller's own most recent unexpired request for exactly this change, or null.",
+        "operationId": "for_change_v1_approval_requests_for_change_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "change",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 2048,
+              "title": "Change",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response For Change V1 Approval Requests For Change Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "For Change",
+        "tags": [
+          "authority"
+        ]
+      }
+    },
     "/v1/approval-requests/{request_id}": {
       "get": {
         "operationId": "read_v1_approval_requests__request_id__get",
@@ -896,6 +1054,7 @@
     },
     "/v1/authority-grants": {
       "get": {
+        "description": "Newest first. `next_cursor` (when present) continues the list after the last row of this page.",
         "operationId": "list_all_v1_authority_grants_get",
         "parameters": [
           {
@@ -941,6 +1100,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
@@ -1402,6 +1578,54 @@
           }
         },
         "summary": "Create",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
+    "/v1/mandates/mine": {
+      "get": {
+        "description": "A person's own spending authority: no company-wide permission is needed to see what is theirs.",
+        "operationId": "list_mine_v1_mandates_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Mine V1 Mandates Mine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Mine",
         "tags": [
           "mandate"
         ]

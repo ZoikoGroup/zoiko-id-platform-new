@@ -24,6 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_outbox import emit
 
+from zid_platform.modules.organization.application.identity import (
+    link_identifier,
+    record_legal_name,
+    resolve_organization,
+    source_is_quarantined,
+)
 from zid_platform.modules.organization.domain.registry import (
     REGISTRY_FRESHNESS,
     RefreshOutcome,
@@ -98,26 +104,60 @@ async def _observe(
 async def _organization(
     conn: AsyncConnection, tenant_id: str, e: RegistryEntity, now: datetime
 ) -> str:
-    """The canonical organization for this registered entity (one per tenant per registration)."""
-    row = (
-        await conn.execute(
-            text(
-                "SELECT organization_id FROM org.organization WHERE jurisdiction = :j "
-                "AND registration_namespace = :ns AND registration_id_hash = :h"
-            ),
-            {"j": e.jurisdiction, "ns": e.namespace, "h": _hash(e.identifier)},
-        )
-    ).first()
-    if row is not None:
-        org = str(row.organization_id)
+    """The canonical organization for this registered entity: found through any identifier it is already
+    known by, else created. The entity's identifier is linked and its legal name recorded (ROOT-01, ROOT-03)."""
+    linked = await resolve_organization(
+        conn, namespace=e.namespace, identifier=e.identifier, jurisdiction=e.jurisdiction
+    )
+    org = await _find_or_create_organization(conn, tenant_id, e, now, linked)
+    await link_identifier(
+        conn,
+        tenant_id,
+        org,
+        namespace=e.namespace,
+        identifier=e.identifier,
+        jurisdiction=e.jurisdiction,
+        source_id=e.source_id,
+        now=now,
+    )
+    await record_legal_name(
+        conn,
+        tenant_id,
+        org,
+        legal_name=e.legal_name or "unknown",
+        source_id=e.source_id,
+        source_revision=e.source_revision,
+        now=now,
+    )
+    return org
+
+
+async def _find_or_create_organization(
+    conn: AsyncConnection, tenant_id: str, e: RegistryEntity, now: datetime, linked: str | None
+) -> str:
+    existing = linked
+    if (
+        existing is None
+    ):  # an organization created before identifier links existed: found by its registration
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT organization_id FROM org.organization WHERE jurisdiction = :j "
+                    "AND registration_namespace = :ns AND registration_id_hash = :h"
+                ),
+                {"j": e.jurisdiction, "ns": e.namespace, "h": _hash(e.identifier)},
+            )
+        ).first()
+        existing = str(row.organization_id) if row is not None else None
+    if existing is not None:
         await conn.execute(
             text(
                 "UPDATE org.organization SET legal_name = :n, verification_status = 'VERIFIED' "
                 "WHERE organization_id = :o"
             ),
-            {"n": e.legal_name or "unknown", "o": uuid.UUID(org)},
+            {"n": e.legal_name or "unknown", "o": uuid.UUID(existing)},
         )
-        return org
+        return existing
     org = str(uuid7())
     await root_store.create_organization(
         conn,
@@ -164,6 +204,11 @@ async def establish_registry_root(
     corroborate: Sequence[tuple[RegistryAdapter, str]] = (),
 ) -> EstablishedRoot:
     entity = await adapter.lookup(identifier, now)
+    if await source_is_quarantined(conn, tenant_id, entity.source_id):
+        raise RegistryError(
+            "ORGANIZATION_SOURCE_QUARANTINED",
+            f"{entity.source_id} is quarantined: no new root is established from it.",
+        )
     check_can_originate(entity)
     officer = None
     for o in representative_officers(entity, now.date()):
@@ -183,6 +228,21 @@ async def establish_registry_root(
                 "ORGANIZATION_SOURCE_CONFLICT",
                 f"{other.source_id} does not corroborate this entity ({other.source_status}).",
             )
+        if await source_is_quarantined(conn, tenant_id, other.source_id):
+            raise RegistryError(
+                "ORGANIZATION_SOURCE_QUARANTINED",
+                f"{other.source_id} is quarantined and cannot corroborate.",
+            )
+        await link_identifier(  # the LEI (or other global id) now reaches the same organization
+            conn,
+            tenant_id,
+            org,
+            namespace=other.namespace,
+            identifier=other.identifier,
+            jurisdiction=other.jurisdiction,
+            source_id=other.source_id,
+            now=now,
+        )
         await _observe(conn, tenant_id, org, other, "CORROBORATED")
     root_id = str(uuid7())
     root = registry_root(
@@ -231,6 +291,39 @@ async def establish_registry_root(
     )
 
 
+async def request_registry_refresh(
+    conn: AsyncConnection, tenant_id: str, organization_id: str, *, reason_ref: str, now: datetime
+) -> str:
+    """PRIV-16: someone disputes a fact the register supplied. The fact is not edited; the register is asked again at
+    the next refresh pass and the new reading is appended as the superseding observation. Idempotent per open request."""
+    existing = (
+        await conn.execute(
+            text(
+                "SELECT request_id FROM org.registry_refresh_request "
+                "WHERE tenant_id = :t AND organization_id = :o AND status = 'OPEN'"
+            ),
+            {"t": uuid.UUID(tenant_id), "o": uuid.UUID(organization_id)},
+        )
+    ).first()
+    if existing is not None:
+        return str(existing.request_id)
+    rid = str(uuid7())
+    await conn.execute(
+        text(
+            "INSERT INTO org.registry_refresh_request (request_id, tenant_id, organization_id, reason_ref, "
+            "requested_at) VALUES (:r, :t, :o, :why, :at)"
+        ),
+        {
+            "r": uuid.UUID(rid),
+            "t": uuid.UUID(tenant_id),
+            "o": uuid.UUID(organization_id),
+            "why": reason_ref,
+            "at": now,
+        },
+    )
+    return rid
+
+
 async def refresh_registry_roots(
     conn: AsyncConnection,
     *,
@@ -251,7 +344,11 @@ async def refresh_registry_roots(
                 FROM org.registry_observation o
                 JOIN org.authority_root_assertion r ON r.root_assertion_id = o.root_assertion_id
                 WHERE o.root_assertion_id IS NOT NULL AND r.status IN ('ACTIVE', 'STALE')
-                  AND r.fresh_until < :due
+                  AND (r.fresh_until < :due OR EXISTS (
+                      SELECT 1 FROM org.registry_refresh_request q WHERE q.tenant_id = o.tenant_id
+                        AND q.organization_id = o.organization_id AND q.status = 'OPEN'))
+                  AND NOT EXISTS (SELECT 1 FROM org.source_quarantine q WHERE q.tenant_id = o.tenant_id
+                                  AND q.source_id = o.source_id AND q.status = 'QUARANTINED')
                 ORDER BY o.root_assertion_id, o.observed_at DESC
             """),
             {"due": now + window},
@@ -264,6 +361,9 @@ async def refresh_registry_roots(
         try:
             entity = await adapter_for(r.namespace).lookup(r.identifier, now)
         except RegistryError as e:
+            await _close_refresh_requests(
+                conn, tenant, str(r.organization_id), e.code, now, failed=True
+            )
             out[root_id] = e.code
             continue
         outcome = refresh_outcome(entity, r.officer_key, now.date())
@@ -315,6 +415,7 @@ async def refresh_registry_roots(
                 ),
             )
             await on_root_changed(conn, root_id)
+        await _close_refresh_requests(conn, tenant, str(r.organization_id), outcome.value, now)
         out[root_id] = outcome.value
     return out
 
@@ -383,3 +484,27 @@ __all__ = [
     "establish_registry_root",
     "refresh_registry_roots",
 ]
+
+
+async def _close_refresh_requests(
+    conn: AsyncConnection,
+    tenant: str,
+    organization_id: str,
+    outcome: str,
+    now: datetime,
+    *,
+    failed: bool = False,
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE org.registry_refresh_request SET status = :s, outcome = :o, completed_at = :c "
+            "WHERE tenant_id = :t AND organization_id = :org AND status = 'OPEN'"
+        ),
+        {
+            "s": "FAILED" if failed else "DONE",
+            "o": outcome,
+            "c": now,
+            "t": uuid.UUID(tenant),
+            "org": uuid.UUID(organization_id),
+        },
+    )

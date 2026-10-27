@@ -14,6 +14,7 @@ CREATE SCHEMA IF NOT EXISTS evidence;
 CREATE SCHEMA IF NOT EXISTS signals;
 CREATE SCHEMA IF NOT EXISTS events;
 CREATE SCHEMA IF NOT EXISTS metering;
+CREATE SCHEMA IF NOT EXISTS commercial;
 
 -- Per-module Alembic version tables live here, never inside a domain schema.
 CREATE SCHEMA IF NOT EXISTS zid_migrations;
