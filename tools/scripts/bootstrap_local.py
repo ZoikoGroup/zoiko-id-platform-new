@@ -382,7 +382,11 @@ async def seed_operator(url: str, args: argparse.Namespace) -> None:
     from zid_db import tenant_transaction
     from zid_platform.modules.operator_access.application.service import register_operator
     from zid_platform.modules.operator_access.domain.model import OperatorRole
-    from zid_platform.modules.principal.domain.principal import Principal, PrincipalStatus, PrincipalType
+    from zid_platform.modules.principal.domain.principal import (
+        Principal,
+        PrincipalStatus,
+        PrincipalType,
+    )
     from zid_platform.modules.principal.infrastructure.principal_store import create_principal
     from zid_platform.modules.session.domain.oauth import OAuthClient
     from zid_platform.modules.session.infrastructure.oauth_store import create_client, load_client
@@ -427,7 +431,9 @@ async def seed_operator(url: str, args: argparse.Namespace) -> None:
                 roles=frozenset({OperatorRole.REQUESTER, OperatorRole.APPROVER, OperatorRole.REVIEWER}),
                 now=datetime.now(UTC),
             )
-            from zid_platform.modules.authentication.infrastructure.authenticator_store import issue_ticket
+            from zid_platform.modules.authentication.infrastructure.authenticator_store import (
+                issue_ticket,
+            )
 
             ticket = await issue_ticket(
                 c,
@@ -442,7 +448,7 @@ async def seed_operator(url: str, args: argparse.Namespace) -> None:
     print(f"operator {principal} registered in operator tenant {OPERATOR_TENANT_ID}")
     print(f"set ZID_OPERATOR_TENANT_ID={OPERATOR_TENANT_ID} in backend/.env and add http://localhost:3100 to ZID_WEBAUTHN_ORIGINS")
     print("Register the operator's passkey (then sign in at http://localhost:3100):")
-    print(f"  {args.web_origin}/enroll?ticket={ticket}")
+    print(f"  http://localhost:3100/enroll?ticket={ticket}")
 
 
 def main() -> int:

@@ -32,6 +32,7 @@ actions:
   credential.status.change:         {min_risk_class: R3, min_evidence_class: E3, category: "suspend/revoke an issued credential (VC §13)", name_source: proposed, owner: credential, note: "CR-009"}
   tenant.owner.change:              {min_risk_class: R3, min_evidence_class: E3, category: "protected administrative action (OVERLAY §4)", name_source: proposed, owner: tenant}
   mandate.create:                   {min_risk_class: R3, min_evidence_class: E3, category: "mandate issuance: a grantee's authority attenuated to an executor (MANDATE §9-10)", name_source: proposed, owner: mandate, note: "CR-010"}
+  mandate.manage:                   {min_risk_class: R2, min_evidence_class: E2, category: "activate, pause or revoke another person's mandate (MANDATE §9-10)", name_source: proposed, owner: mandate, note: "CR-039"}
   operator.lockbox.approve:         {min_risk_class: R3, min_evidence_class: E3, category: "customer lockbox decision for operator access (SEC-001 §12; DEC-F4)", name_source: proposed, owner: operator_access, note: "CR-012"}
   operator.access_policy.manage:    {min_risk_class: R3, min_evidence_class: E3, category: "tenant operator-access policy: lockbox, operator jurisdictions (TENANCY-001 §19)", name_source: proposed, owner: operator_access, note: "CR-012"}
   evidence.identity.resolve:        {min_risk_class: R3, min_evidence_class: E3, category: "resolve a pseudonymous evidence handle to a principal (EVIDENCE §13; DEC-F1)", name_source: proposed, owner: evidence, note: "CR-011"}
@@ -100,6 +101,7 @@ actions:
   commercial.read:                  {min_risk_class: R1, min_evidence_class: E1, category: "read the tenant plan, entitlements and the public catalogue view (COM-001 §6, §29)", name_source: proposed, owner: commercial, note: "CR-024"}
   commercial.budget.manage:         {min_risk_class: R2, min_evidence_class: E2, category: "set the tenant's usage budgets and run their evaluation; notification only (COM-001 §7)", name_source: proposed, owner: commercial, note: "CR-029"}
   commercial.plan.request:          {min_risk_class: R2, min_evidence_class: E2, category: "ask for a different plan; changes no entitlement (COM-001 §10)", name_source: proposed, owner: commercial, note: "CR-032"}
+  commercial.payment.manage:        {min_risk_class: R2, min_evidence_class: E2, category: "save or replace the company payment card on the processor hosted page; the card never reaches the platform (COM-001 §11)", name_source: proposed, owner: commercial, note: "CR-034"}
   communication.read:               {min_risk_class: R1, min_evidence_class: E1, category: "read the organization's email contacts, addresses masked (Communication Estate §03)", name_source: proposed, owner: communication, note: "CR-031"}
   communication.contact.manage:     {min_risk_class: R2, min_evidence_class: E2, category: "set where an organization's or a person's email notices go (Communication Estate §03)", name_source: proposed, owner: communication, note: "CR-031"}
   # ---- R0 Low: "public/low-sensitivity reads, non-privileged preferences" ----

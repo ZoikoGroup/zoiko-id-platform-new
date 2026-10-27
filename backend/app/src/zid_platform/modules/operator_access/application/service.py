@@ -20,6 +20,7 @@ from zid_outbox import emit
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.operator_access.domain.model import (
+    CAPABILITIES,
     Capability,
     GrantState,
     LockboxState,
@@ -54,6 +55,35 @@ from zid_platform.modules.tenant.ports import (
 )
 
 OPERATOR_RISK_CLASS = 3  # operator-plane actions never act on a cached security state
+
+# Direct mode (ZID_OPERATOR_MODE=direct): a registered, ACTIVE, NORMAL operator holds every capability that does not
+# touch customer data, without a JIT request or a second approver, so one operator account can run the platform's
+# commercial and configuration work. What stays: the passkey sign-in and fresh step-up, the operator profile and
+# security-state checks, every action's evidence, and the customer's lockbox for anything that reads customer data.
+# Dual-control steps that need "another person" are recorded as approved by DIRECT_APPROVER, with the real operator
+# named in the change log, so nothing is attributed to someone who did not act.
+DIRECT_APPROVER = "00000000-0000-4000-8000-0000000000d1"
+# What a deployed cell must be told to run in direct mode (ZID_OPERATOR_DIRECT_ACK).
+DIRECT_MODE_ACK = "accept-no-dual-control"
+_direct_mode = False
+
+
+def require_direct_mode_ack(mode: str, environment: str, ack: str | None) -> None:
+    """A deployed cell runs direct mode only when told so in so many words; local, test and dev need nothing."""
+    if mode == "direct" and environment not in ("local", "test", "dev") and ack != DIRECT_MODE_ACK:
+        raise RuntimeError(
+            "ZID_OPERATOR_MODE=direct removes dual control on the operator plane; outside local/test/dev it needs "
+            f"ZID_OPERATOR_DIRECT_ACK={DIRECT_MODE_ACK}"
+        )
+
+
+def configure_direct_mode(enabled: bool) -> None:
+    global _direct_mode
+    _direct_mode = enabled
+
+
+def direct_mode() -> bool:
+    return _direct_mode
 
 
 @dataclass(frozen=True, slots=True)
@@ -662,6 +692,46 @@ async def complete_review(
 # ------------------------------------------------------------------------ capability check
 
 
+async def _record_direct_use(
+    conn: AsyncConnection,
+    operator_tenant: str,
+    operator: str,
+    capability_name: str,
+    target_tenant: str | None,
+    resource: str,
+) -> None:
+    """Direct mode removes the second person, so each use is a priority-lane event and a protected audit record
+    (E3) that Security can alert on and an auditor can verify: who, which capability, on what."""
+    data: dict[str, Any] = {
+        "operator_principal_id": operator,
+        "capability": capability_name,
+        "target_tenant_id": target_tenant,
+        "resource": resource,
+        "evidence_class": "E3",
+    }
+    action_id = str(uuid7())
+    event_id = await emit(
+        conn,
+        name="operator_access.direct_action",
+        tenant_id=operator_tenant,
+        aggregate_type="operator_direct_action",
+        aggregate_id=action_id,
+        aggregate_version=1,
+        data=data,
+        classification="RESTRICTED",
+    )
+    await _audit(
+        conn,
+        event_id,
+        "operator_access.direct_action",
+        None,
+        actor=operator,
+        target_type="operator_capability",
+        target_ref=capability_name,
+        data=data,
+    )
+
+
 async def check_capability(
     conn: AsyncConnection,
     *,
@@ -681,6 +751,13 @@ async def check_capability(
         return CapabilityCheck(False, "OPERATOR_PROFILE_MISSING")
     if not await _security_ok(conn, profile.tenant_id, operator_principal_id):
         return CapabilityCheck(False, "OPERATOR_SECURITY_STATE")
+    if _direct_mode:
+        known = CAPABILITIES.get(capability_name)
+        if known is not None and not known.customer_data:
+            await _record_direct_use(
+                conn, profile.tenant_id, operator_principal_id, capability_name, tenant_id, resource
+            )
+            return CapabilityCheck(True, "DIRECT_MODE")
     reason = "NO_ACTIVE_GRANT"
     for g in await store.active_grants_for(conn, operator_principal_id, capability_name, now):
         if g.target_tenant_id != tenant_id or not resource_matches(g.resource_scope, resource):

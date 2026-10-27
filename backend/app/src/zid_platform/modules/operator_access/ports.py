@@ -19,22 +19,32 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.operator_access.api.operator import operator_caller as require_operator
 from zid_platform.modules.operator_access.application.service import (
+    DIRECT_APPROVER,
+    DIRECT_MODE_ACK,
     CapabilityCheck,
     OperatorSettings,
     check_capability,
+    configure_direct_mode,
+    direct_mode,
     expire_due,
+    require_direct_mode_ack,
 )
 from zid_platform.modules.operator_access.domain.model import CAPABILITIES, CONFLICT_SETS
 
 __all__ = [
     "CAPABILITIES",
     "CONFLICT_SETS",
+    "DIRECT_APPROVER",
+    "DIRECT_MODE_ACK",
     "CapabilityCheck",
     "OperatorSettings",
     "check_capability",
+    "configure_direct_mode",
+    "direct_mode",
     "expire_due",
     "has_capability",
     "is_active_operator",
+    "require_direct_mode_ack",
     "require_operator",
 ]
 

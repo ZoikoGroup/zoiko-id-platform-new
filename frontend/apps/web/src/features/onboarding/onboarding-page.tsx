@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react";
 
 import { ApprovalsWaiting } from "@/features/approvals/guided-approval";
 import { APPS_KEY } from "@/features/onboarding/applications-page";
+import { ConnectGuide, PilotReadiness, ShadowProgress } from "@/features/onboarding/connect-guide";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import {
@@ -323,11 +324,9 @@ function Wizard({ tenant }: { tenant: TenantView }) {
           n={5}
           title="Applications"
           state={state(activeApps > 0, tenant.status === "INTEGRATING" && activeApps === 0)}
-          summary={`${activeApps} active application${activeApps === 1 ? "" : "s"} with an enforcement point.`}
+          summary={`${activeApps} active application${activeApps === 1 ? "" : "s"} connected to Zoiko iD.`}
         >
-          <ButtonLink href="/admin/applications" variant="secondary" size="sm">
-            Applications
-          </ButtonLink>
+          <ConnectGuide apps={apps.data?.items ?? []} />
         </Step>
         <Step
           n={6}
@@ -372,17 +371,15 @@ function Wizard({ tenant }: { tenant: TenantView }) {
                 Start shadow
               </Button>
             ) : null}
-            {tenant.status === "SHADOW" ? (
-              <p className="text-sm text-ink-muted">
-                Shadow is running. Check the exit criteria with Validate; the pilot opens when they pass.
-              </p>
-            ) : null}
+            {tenant.status === "SHADOW" || tenant.status === "PILOT" ? <ShadowProgress /> : null}
             {shadow.error ? <ApiErrorView error={shadow.error} title="Shadow did not start" /> : null}
           </div>
         </Step>
         <Step n={8} title="Pilot" state={state(past("PILOT"), tenant.status === "SHADOW" || tenant.status === "PILOT")} summary="Enforce for an approved, scoped pilot only.">
           {tenant.status === "SHADOW" && plan ? (
-            <ApprovalStep
+            <div className="space-y-3">
+              <PilotReadiness />
+              <ApprovalStep
               action={ACTIVATE}
               resource={resource}
               change="START_PILOT"
@@ -390,7 +387,8 @@ function Wizard({ tenant }: { tenant: TenantView }) {
               onRun={(id) => pilot.mutate(id)}
               pending={pilot.isPending}
               error={pilot.error}
-            />
+              />
+            </div>
           ) : tenant.status === "PILOT" && plan ? (
             <PilotStages plan={plan} />
           ) : (

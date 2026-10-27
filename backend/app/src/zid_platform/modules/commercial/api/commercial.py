@@ -15,6 +15,9 @@ Tenant (commercial.read)
     GET  /v1/budgets, PUT /v1/budgets, POST /v1/budgets:evaluate   usage budgets (commercial.budget.manage)
     GET  /v1/billing/orders                          the signed orders behind this tenant's plan
     GET  /v1/billing/state                           billing state, what it restricts and what it never does
+    GET  /v1/billing/payment                         what is due now and the saved card (brand and last four only)
+    POST /v1/billing/payment/setup, /v1/billing/payment/complete   save or replace the card on Stripe's hosted page
+                                                     (commercial.payment.manage; CR-034)
 
 The operator surface (price books, plans, overrides, freezing windows, adjustments) lives with the operator
 plane in `operator_access/api/commercial_admin.py`. Client-supplied tenant, plan or price values are never
@@ -33,6 +36,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
@@ -48,6 +52,8 @@ from zid_platform.modules.commercial.application import (
 from zid_platform.modules.commercial.application import (
     plan_request_service as plan_requests,
 )
+from zid_platform.modules.commercial.application.adapters import PaymentSetupError, StripeCustomers
+from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
@@ -399,3 +405,244 @@ async def evaluate_budgets(request: Request, caller: CallerDep) -> dict[str, Any
         return await budget_service.evaluate(
             conn, tenant_id=caller.ctx.tenant_id or "", connections=connections
         )
+
+
+# ------------------------------------------------------------------------------- how much is due, and the card (CR-034)
+
+
+class PaymentCompleteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str = Field(min_length=10, max_length=200, pattern=r"^cs_[A-Za-z0-9_]+$")
+
+
+def _payment_setup(request: Request) -> StripeCustomers | None:
+    return getattr(request.app.state, "payment_setup", None)
+
+
+def _need_payment_setup(request: Request) -> StripeCustomers:
+    setup = _payment_setup(request)
+    if setup is None:
+        raise ZidError(
+            "PAYMENTS_NOT_CONFIGURED",
+            "Card payments are not set up on this platform yet.",
+            http_status=501,
+        )
+    return setup
+
+
+def _payment_error(e: PaymentSetupError) -> ZidError:
+    status = 503 if e.code == "PROVIDER_UNAVAILABLE" else 409
+    return ZidError(
+        e.code, "The payment provider could not complete this step.", http_status=status
+    )
+
+
+async def _holds(conn: Any, caller: Caller, action: str) -> bool:
+    """Whether this person's authority covers `action`, so the page can show the control only to people who can use it.
+    A fresh passkey check or a second administrator still lets the action through when the person is asked for it."""
+    try:
+        await protected_action(conn, caller, action=action, resource="billable:*")
+    except ZidError as e:
+        return e.code in ("STEP_UP_REQUIRED", "APPROVAL_REQUIRED")
+    return True
+
+
+def _method_json(m: Any) -> dict[str, Any]:
+    return {"brand": m.brand, "last4": m.last4, "exp_month": m.exp_month, "exp_year": m.exp_year}
+
+
+@router.get("/v1/billing/payment")
+async def billing_payment(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What this company owes now (open issued invoices, per currency) and its saved card, if any. The card is read
+    from the processor after the database transaction closes, and only its brand, last four and expiry come back."""
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="commercial.read", resource="billable:*")
+        open_invoices = [
+            i
+            for i in await invoicing_service.list_invoices(conn)
+            if Decimal(i["outstanding"] or 0) > 0
+        ]
+        account = await invoicing_service.account_of_tenant(conn, tenant)
+        customer = await invoicing_service.payment_customer(conn, tenant)
+        can_manage = await _holds(conn, caller, "commercial.payment.manage")
+        history = (
+            (
+                await conn.execute(
+                    text(
+                        "SELECT p.attempted_at, p.amount, p.currency, p.status, p.failure_code, "
+                        "i.issuing_entity, i.sequence_number FROM commercial.payment_attempt p "
+                        "JOIN commercial.invoice i ON i.invoice_id = p.invoice_id "
+                        "ORDER BY p.attempted_at DESC LIMIT 10"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    due: dict[str, Decimal] = {}
+    for i in open_invoices:
+        due[i["currency"]] = due.get(i["currency"], Decimal(0)) + Decimal(i["outstanding"])
+    setup = _payment_setup(request)
+    method: dict[str, Any] | None = None
+    method_error: str | None = None
+    if setup is not None and customer:
+        try:
+            found = await setup.current_method(customer)
+            method = _method_json(found) if found else None
+        except PaymentSetupError as e:
+            method_error = e.code
+    return {
+        "configured": setup is not None,
+        "account_linked": account is not None,
+        "can_manage": can_manage,
+        "payments": [
+            {
+                "at": h["attempted_at"].isoformat(),
+                "amount": str(h["amount"].quantize(Decimal("0.01"))),
+                "currency": h["currency"],
+                "status": h["status"],
+                "failure_code": h["failure_code"],
+                "invoice_number": f"{h['issuing_entity']}-{int(h['sequence_number']):08d}"
+                if h["sequence_number"]
+                else None,
+            }
+            for h in history
+        ],
+        "method": method,
+        "method_error": method_error,
+        "amount_due": [{"currency": c, "amount": str(a)} for c, a in sorted(due.items())],
+        "open_invoices": [
+            {
+                "invoice_id": i["invoice_id"],
+                "number": i["number"],
+                "currency": i["currency"],
+                "outstanding": i["outstanding"],
+                "due_at": i["due_at"],
+            }
+            for i in open_invoices
+        ],
+    }
+
+
+@router.post("/v1/billing/payment/setup")
+async def billing_payment_setup(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Start saving (or replacing) the company's card: returns the address of Stripe's hosted page. The company's
+    Stripe customer is created on first use and recorded against its commercial account."""
+    setup = _need_payment_setup(request)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        account = await invoicing_service.account_of_tenant(conn, tenant)
+        customer = await invoicing_service.payment_customer(conn, tenant)
+    if account is None:
+        raise ZidError(
+            "NO_BILLING_ACCOUNT",
+            "Your billing account is set up by Zoiko when your plan is agreed. Contact your account manager.",
+            http_status=409,
+        )
+    origin = getattr(request.app.state, "billing_return_origin", None)
+    if not origin:
+        raise ZidError(
+            "PAYMENTS_NOT_CONFIGURED",
+            "The billing return address is not configured.",
+            http_status=501,
+        )
+    try:
+        if customer is None:
+            customer = await setup.create_customer(
+                name=account["legal_name"],
+                tenant_id=tenant,
+                idempotency_key=f"customer-{account['account_id']}",
+            )
+            async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+                await invoicing_service.set_payment_customer(
+                    conn,
+                    account["account_id"],
+                    provider="stripe",
+                    customer_ref=customer,
+                    actor=caller.ctx.principal_id or "",
+                )
+        url = await setup.start_setup(
+            customer_ref=customer,
+            success_url=f"{origin}/admin/billing?payment=saved&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{origin}/admin/billing?payment=cancelled",
+        )
+    except PaymentSetupError as e:
+        raise _payment_error(e) from e
+    return {"url": url}
+
+
+@router.post("/v1/billing/payment/complete")
+async def billing_payment_complete(
+    body: PaymentCompleteBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Finish saving the card after Stripe sends the buyer back: the session is verified at Stripe (it must be this
+    company's customer and completed) before its card becomes the default the platform charges."""
+    setup = _need_payment_setup(request)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        customer = await invoicing_service.payment_customer(conn, tenant)
+    if customer is None:
+        raise ZidError(
+            "NO_PAYMENT_CUSTOMER", "No card setup was started for this company.", http_status=409
+        )
+    try:
+        method = await setup.complete_setup(session_id=body.session_id, customer_ref=customer)
+    except PaymentSetupError as e:
+        raise _payment_error(e) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await log_change(
+            conn,
+            kind="PAYMENT_METHOD_SAVED",
+            ref=customer,
+            tenant_id=tenant,
+            actor=caller.ctx.principal_id,
+            reason=None,
+            detail={"brand": method.brand, "last4": method.last4},
+        )
+    return {"method": _method_json(method)}
+
+
+class PayBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # One per click on "Pay now": the same key never charges twice, so a double click or a retry is safe.
+    idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+@router.post("/v1/invoices/{invoice_id}/pay")
+async def pay_invoice(
+    invoice_id: uuid.UUID, body: PayBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """The owner pays what is outstanding on one issued invoice with the saved card, now instead of at the due date.
+    Same collection as the operator's (CR-027): idempotent, recorded as a payment attempt, and a full payment returns an
+    overdue account to active."""
+    payments = getattr(request.app.state, "payment_port", None)
+    if payments is None:
+        raise ZidError(
+            "PAYMENT_NOT_CONFIGURED",
+            "Card payments are not set up on this platform yet.",
+            http_status=501,
+        )
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        try:
+            shown = await invoicing_service.view(conn, str(invoice_id))
+            if shown["status"] != "ISSUED":
+                raise ZidError("INVOICE_NOT_FOUND", "No such invoice.", http_status=404)
+            out = await invoicing_service.collect(
+                conn,
+                str(invoice_id),
+                payments=payments,
+                idempotency_key=f"owner-{caller.ctx.tenant_id}-{body.idempotency_key}",
+            )
+        except InvoicingError as e:
+            raise _invoice_error(e) from e
+    return {"status": out["status"], "failure_code": out.get("failure_code")}

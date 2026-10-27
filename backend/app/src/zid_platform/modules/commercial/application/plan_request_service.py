@@ -7,9 +7,11 @@ log, so there is a trail from the wish to the order.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 
@@ -31,6 +33,17 @@ def _view(r: dict[str, Any]) -> dict[str, Any]:
         "decided_at": r["decided_at"].isoformat() if r["decided_at"] else None,
         "decision_note": r["decision_note"],
     }
+
+
+async def _own_name(conn: AsyncConnection, tenant_id: str) -> str | None:
+    """The asking company's display name, read under its own tenant context, so the operator list can show it."""
+    row = (
+        await conn.execute(
+            text("SELECT display_name FROM platform.tenant WHERE tenant_id = :t"),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).first()
+    return str(row[0]) if row and row[0] else None
 
 
 async def request_plan(
@@ -55,6 +68,7 @@ async def request_plan(
         current_plan=current_plan,
         note=clean,
         requested_by=principal_id,
+        company_name=await _own_name(conn, tenant_id),
     )
     await log_change(
         conn,
@@ -94,7 +108,8 @@ async def withdraw(
 async def open_requests(conn: AsyncConnection) -> list[dict[str, Any]]:
     """Operator plane: every company's open requests, oldest first. Call inside `store.operator_scope`."""
     return [
-        {**_view(r), "tenant_id": str(r["tenant_id"])} for r in await store.open_for_operator(conn)
+        {**_view(r), "tenant_id": str(r["tenant_id"]), "company": r.get("company_name")}
+        for r in await store.open_for_operator(conn)
     ]
 
 
@@ -123,7 +138,13 @@ async def answer(
         reason=(note or "").strip() or None,
         detail={"plan": row["plan_code"]},
     )
-    return {"request_id": request_id, "status": decision, "tenant_id": str(row["tenant_id"])}
+    return {
+        "request_id": request_id,
+        "status": decision,
+        "tenant_id": str(row["tenant_id"]),
+        "plan": row["plan_code"],
+        "note": (note or "").strip() or None,
+    }
 
 
 PlanRequestError = rules.PlanRequestError

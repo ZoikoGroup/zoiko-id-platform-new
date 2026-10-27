@@ -1,7 +1,7 @@
 "use client";
 
 import type { DecisionOutcome, EvaluationRequest, EvaluationResult } from "@zoiko/api-client";
-import { Badge, Code, CopyId, DateTime, JsonView, KeyValues, RiskBadge, type Tone } from "@zoiko/ui";
+import { Badge, Button, Code, CopyId, DateTime, JsonView, KeyValues, RiskBadge, type Tone } from "@zoiko/ui";
 import { AlertTriangle, CheckCircle2, CloudOff, KeyRound, Stamp, XCircle, type LucideIcon } from "lucide-react";
 
 const OUTCOMES: Record<DecisionOutcome, { tone: Tone; icon: LucideIcon; label: string; meaning: string }> = {
@@ -34,7 +34,16 @@ export function OutcomeBadge({ result }: { result: EvaluationResult }) {
   );
 }
 
-export function DecisionResult({ request, result }: { request: EvaluationRequest; result: EvaluationResult }) {
+export function DecisionResult({
+  request,
+  result,
+  onStepUp,
+}: {
+  request: EvaluationRequest;
+  result: EvaluationResult;
+  /** Confirms the person with a passkey, then asks the same question again. */
+  onStepUp?: () => void;
+}) {
   const c = result.context;
   const def = c.outcome ? OUTCOMES[c.outcome] : undefined;
   const codes = c.reason_codes ?? [];
@@ -47,6 +56,17 @@ export function DecisionResult({ request, result }: { request: EvaluationRequest
         </span>
       </div>
       {def ? <p className="text-sm text-ink-muted">{def.meaning}</p> : null}
+      {c.outcome === "STEP_UP" && onStepUp ? (
+        <div className="rounded-lg border border-warn-fg/20 bg-warn-bg p-3 text-sm text-ink-muted">
+          <p>
+            Releasing a payment is a critical action, so it needs a fresh passkey check first. This is the policy working as designed: confirm it is you and the same
+            question is asked again.
+          </p>
+          <Button className="mt-2" size="sm" onPress={onStepUp}>
+            Confirm with passkey and ask again
+          </Button>
+        </div>
+      ) : null}
 
       <div>
         <h3 className="text-2xs font-semibold uppercase tracking-wider text-ink-subtle">Reason codes</h3>

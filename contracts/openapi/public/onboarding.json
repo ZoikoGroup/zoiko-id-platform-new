@@ -5,15 +5,19 @@
         "additionalProperties": false,
         "properties": {
           "approval_request_id": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Approval Request Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
           }
         },
-        "required": [
-          "approval_request_id"
-        ],
         "title": "ApprovalBody",
         "type": "object"
       },
@@ -208,6 +212,30 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/onboarding/connection": {
+      "get": {
+        "description": "What a person needs to connect an application, in one read: where to send decisions and how far shadow is.\n\n`shadow` is present while the company is in SHADOW or PILOT: the decisions seen so far against what the plan needs,\neach as a plain ratio, and `ready` when every shadow gate passes. Nothing here is a secret.",
+        "operationId": "connection_progress_v1_onboarding_connection_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Connection Progress V1 Onboarding Connection Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Connection Progress",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
     "/v1/onboarding/gates": {
       "get": {
         "operationId": "gates_v1_onboarding_gates_get",
@@ -226,6 +254,30 @@
           }
         },
         "summary": "Gates",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/mode": {
+      "get": {
+        "description": "How this company's two-person onboarding steps are approved, and whether the caller may approve them alone.",
+        "operationId": "approval_mode_v1_onboarding_mode_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approval Mode V1 Onboarding Mode Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Approval Mode",
         "tags": [
           "onboarding"
         ]

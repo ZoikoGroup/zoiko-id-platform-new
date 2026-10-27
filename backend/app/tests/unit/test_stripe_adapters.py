@@ -22,9 +22,25 @@ from zid_platform.modules.commercial.application.adapters import (
 )
 
 
+def customer_with_saved_card(req: httpx.Request) -> httpx.Response | None:
+    """Stripe's answer for the customer lookup that precedes a charge (the saved payment method is named, not implied)."""
+    if req.method == "GET" and req.url.path.startswith("/v1/customers/"):
+        return httpx.Response(
+            200,
+            json={
+                "id": req.url.path.rsplit("/", 1)[-1],
+                "invoice_settings": {"default_payment_method": "pm_card_test"},
+            },
+        )
+    return None
+
+
 def stripe(handler, cls):  # type: ignore[no-untyped-def]
+    def routed(req: httpx.Request) -> httpx.Response:
+        return customer_with_saved_card(req) or handler(req)
+
     return cls(
-        "sk_test_unit", base_url="https://stripe.test", transport=httpx.MockTransport(handler)
+        "sk_test_unit", base_url="https://stripe.test", transport=httpx.MockTransport(routed)
     )
 
 
@@ -224,3 +240,63 @@ def test_the_secret_is_never_in_a_log_line_or_a_result() -> None:
         )
     )
     assert "sk_test_unit" not in json.dumps(out.__dict__ if hasattr(out, "__dict__") else str(out))
+
+
+def test_the_charge_names_the_saved_payment_method_and_never_charges_without_one() -> None:
+    posted: list[dict[str, str]] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        posted.append(form(req))
+        return httpx.Response(200, json={"id": "pi_1", "status": "succeeded"})
+
+    async def run() -> None:
+        ok = await stripe(handler, StripePayments).capture(
+            invoice_id="inv-1",
+            amount=Decimal("5.00"),
+            currency="GBP",
+            idempotency_key="k1",
+            customer_ref="cus_ABC123456",
+        )
+        assert ok.status == "CAPTURED" and posted[0]["payment_method"] == "pm_card_test"
+
+        posted.clear()
+        nothing = StripePayments(
+            "sk_test_unit",
+            base_url="https://stripe.test",
+            transport=httpx.MockTransport(
+                lambda r: (
+                    httpx.Response(
+                        200,
+                        json={"id": "cus_1", "invoice_settings": {"default_payment_method": None}},
+                    )
+                    if r.method == "GET"
+                    else handler(r)
+                )
+            ),
+        )
+        out = await nothing.capture(
+            invoice_id="inv-2",
+            amount=Decimal("5.00"),
+            currency="GBP",
+            idempotency_key="k2",
+            customer_ref="cus_ABC123456",
+        )
+        assert (
+            out.failure_code == "NO_PAYMENT_METHOD" and posted == []
+        )  # no card saved: nothing is charged
+
+        throttled = StripePayments(
+            "sk_test_unit",
+            base_url="https://stripe.test",
+            transport=httpx.MockTransport(lambda r: httpx.Response(429, json={})),
+        )
+        late = await throttled.capture(
+            invoice_id="inv-3",
+            amount=Decimal("5.00"),
+            currency="GBP",
+            idempotency_key="k3",
+            customer_ref="cus_ABC123456",
+        )
+        assert late.failure_code == "PROVIDER_UNAVAILABLE"
+
+    asyncio.run(run())

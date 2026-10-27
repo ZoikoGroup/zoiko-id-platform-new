@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { CapabilityHint } from "../recovery-shared";
+import { useDirectMode } from "./mode";
 
 export const COMMERCIAL_KEY = ["operator", "commercial"];
 
@@ -82,18 +83,38 @@ function BookLines({ id }: { id: string }) {
   );
 }
 
-type OpenPlanRequest = PlanRequest & { tenant_id: string };
+type OpenPlanRequest = PlanRequest & { tenant_id: string; company: string | null };
 
 /** What companies have asked for. Accepting says the team will raise the order; it moves no entitlement. */
 export function PlanRequestsView() {
+  const direct = useDirectMode();
   const list = useCellQuery([...COMMERCIAL_KEY, "plan-requests"], (api) => api.commercial.planRequests());
   const [note, setNote] = useState("");
   const answer = useCellMutation<{ id: string; decision: "ACCEPTED" | "DECLINED" }, unknown>(
     (api, v) => api.commercial.answerPlanRequest(v.id, v.decision, note),
     { invalidate: [COMMERCIAL_KEY], success: "Answer recorded" },
   );
+  // Direct mode: accept the request and put the company on the plan in one step, so the operator never copies an id.
+  const move = useCellMutation<OpenPlanRequest, unknown>(
+    async (api, r) => {
+      await api.commercial.answerPlanRequest(r.request_id, "ACCEPTED", note);
+      return api.commercial.call("PUT", `/v1/commercial/tenants/${r.tenant_id}/entitlement`, { plan: r.plan });
+    },
+    { invalidate: [COMMERCIAL_KEY], success: "Accepted, and the company is now on the new plan" },
+  );
   const columns: Column<OpenPlanRequest>[] = [
-    { key: "t", header: "Company", pinned: true, render: (r) => <span className="font-mono text-2xs">{r.tenant_id}</span> },
+    {
+      key: "t",
+      header: "Company",
+      pinned: true,
+      render: (r) => (
+        <span className="flex flex-col">
+          <span className="font-medium">{r.company ?? "Unnamed company"}</span>
+          <span className="font-mono text-2xs text-ink-subtle">{r.tenant_id}</span>
+        </span>
+      ),
+      sortValue: (r) => r.company ?? r.tenant_id,
+    },
     { key: "p", header: "Wants", render: (r) => <Badge tone="info">{r.plan}</Badge>, sortValue: (r) => r.plan },
     { key: "c", header: "Has", render: (r) => r.current_plan },
     { key: "n", header: "Their note", render: (r) => r.note ?? "—" },
@@ -107,9 +128,15 @@ export function PlanRequestsView() {
           <Button size="xs" variant="secondary" isDisabled={answer.isPending} onPress={() => answer.mutate({ id: r.request_id, decision: "DECLINED" })}>
             Decline
           </Button>
-          <Button size="xs" isDisabled={answer.isPending} onPress={() => answer.mutate({ id: r.request_id, decision: "ACCEPTED" })}>
-            Accept
-          </Button>
+          {direct ? (
+            <Button size="xs" isDisabled={answer.isPending || move.isPending} onPress={() => move.mutate(r)}>
+              Accept and move to {r.plan}
+            </Button>
+          ) : (
+            <Button size="xs" isDisabled={answer.isPending} onPress={() => answer.mutate({ id: r.request_id, decision: "ACCEPTED" })}>
+              Accept
+            </Button>
+          )}
         </span>
       ),
     },
@@ -119,7 +146,11 @@ export function PlanRequestsView() {
       {(d) => (
         <Card
           title="Plan requests"
-          description="Companies asking for a different plan, oldest first. Accepting means we will raise the order; it changes no entitlement. The note below goes to the company."
+          description={
+            direct
+              ? "Companies asking for a different plan, oldest first. Accept and move puts the company on the plan straight away. The note below goes to the company."
+              : "Companies asking for a different plan, oldest first. Accepting means we will raise the order; it changes no entitlement. The note below goes to the company."
+          }
           padded={false}
         >
           <div className="p-4">
@@ -132,6 +163,7 @@ export function PlanRequestsView() {
             rowKey={(r) => r.request_id}
             empty={<EmptyState title="No open requests" icon={Inbox} compact>When a company asks for a plan it appears here.</EmptyState>}
           />
+          {move.isError ? <div className="p-4"><Banner tone="danger">{move.error instanceof Error ? move.error.message : "The company was not moved."}</Banner></div> : null}
           {answer.isError ? <div className="p-4"><Banner tone="danger">{answer.error instanceof Error ? answer.error.message : "The answer was not recorded."}</Banner></div> : null}
         </Card>
       )}

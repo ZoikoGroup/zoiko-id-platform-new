@@ -7,6 +7,7 @@
     POST /federation/saml/acs/{tenant}.{conn}     IdP-initiated SAML, only where an approved change enabled it
     GET  /federation/trust-anchors                list         (tenant.identity_provider.change, R3)
     GET  /federation/integrations                 list         (tenant.identity_provider.change, R3)
+    POST /federation/integrations:discover        read a provider's published settings from its address (R3 to start)
     POST /federation/integrations                 create       (R3)
     POST /federation/integrations/{id}:rotate     new pinned keys/certificates/metadata (R3)
     POST /federation/integrations/{id}:idp-initiated   IdP-initiated SSO on (R3 + approval) / off
@@ -36,6 +37,7 @@ from zid_platform import egress
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
 from zid_platform.modules.authentication.ports import AAL, effective_level
 from zid_platform.modules.commercial.ports import require_entitlement
+from zid_platform.modules.federation.application import discovery
 from zid_platform.modules.federation.application.oidc_login import (
     FederationSettings,
     LoggedIn,
@@ -496,6 +498,37 @@ def _endpoints_safe(*urls: str | None) -> None:
             egress.check_url(url)
         except egress.EgressError as e:
             raise http_error("VALIDATION_FAILED", f"provider endpoint refused: {e.detail}") from e
+
+
+class DiscoverIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: Literal["OIDC", "SAML"]
+    # OIDC: the issuer (https://login.example.com). SAML: the provider's metadata address.
+    url: str = Field(min_length=8, max_length=2048)
+
+
+@router.post("/federation/integrations:discover")
+async def discover_provider(
+    body: DiscoverIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Read a provider's published settings so a person types an address, not endpoints, keys and certificates. The
+    result is only returned: it is pinned when the integration is created, exactly as if it had been typed in."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as c:
+        await protected_action(c, caller, action=ADMIN_ACTION, resource="federation_connection:*")
+    transport = getattr(request.app.state, "federation_transport", None)
+    async with discovery.client(transport) as http:
+        try:
+            if body.protocol == "OIDC":
+                return {
+                    "protocol": "OIDC",
+                    **await discovery.discover_oidc(body.url, http, resolve=transport is None),
+                }
+            return {
+                "protocol": "SAML",
+                **await discovery.discover_saml(body.url, http, resolve=transport is None),
+            }
+        except discovery.DiscoveryError as e:
+            raise ZidError(e.code, e.detail, http_status=422) from e
 
 
 @router.get("/federation/integrations")

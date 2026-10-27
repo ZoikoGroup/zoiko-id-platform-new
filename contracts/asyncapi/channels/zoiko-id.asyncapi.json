@@ -1153,6 +1153,9 @@
         "operator_access_denied": {
           "$ref": "#/components/messages/operator_access_denied"
         },
+        "operator_access_direct_action": {
+          "$ref": "#/components/messages/operator_access_direct_action"
+        },
         "operator_access_expired": {
           "$ref": "#/components/messages/operator_access_expired"
         },
@@ -3823,6 +3826,17 @@
         "summary": "A JIT request was denied by an approver.",
         "title": "operator_access.denied",
         "x-zid-source": "ZID-SEC-001 \u00a711-13; DEC-F4; CR-012",
+        "x-zid-status": "proposed"
+      },
+      "operator_access_direct_action": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.operator_access.direct_action.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An operator used a capability in direct mode (no access request, no second approver); Security can alert on it. CR-035.",
+        "title": "operator_access.direct_action",
+        "x-zid-source": "DEC-F4; CR-035",
         "x-zid-status": "proposed"
       },
       "operator_access_expired": {

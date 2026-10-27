@@ -11,6 +11,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from admin_fixture import make_admin
 from conftest import CELL, ctx, engine
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -49,13 +50,15 @@ def uid() -> str:
 
 def test_grant_mandate_and_approval_apis(rt_url: str, owner_url: str) -> None:
     tenant, cfo, clerk, approver, agent, org, root = uid(), uid(), uid(), uid(), uid(), uid(), uid()
+    adm = uid()
 
     async def seed() -> None:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-            for p in (clerk, approver, agent):
+            for p in (cfo, clerk, approver, agent, adm):
                 await create_principal(
                     c, Principal(p, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
                 )
+            await make_admin(c, tenant, adm, ["mandate.manage"], ["mandate:*"])
             await create_organization(
                 c,
                 organization_id=org,
@@ -284,13 +287,35 @@ def test_grant_mandate_and_approval_apis(rt_url: str, owner_url: str) -> None:
         assert Decimal(bal["committed"]["value"]) == 400 and Decimal(bal["reserved"]["value"]) == 0
         assert Decimal(str(bal["remaining"]["value"])) == 600
 
+        # --- roles (CR-039): a bystander changes nothing, the executor may only pause, and each sees their own
+        act_as(clerk)
+        assert client.post(f"/v1/mandates/{mid}:pause").status_code == 403
+        assert client.get("/v1/mandates/mine").json()["items"] == []
+        act_as(agent)
+        assert client.post(f"/v1/mandates/{mid}:revoke").status_code == 403
+        assert client.post(f"/v1/mandates/{mid}:activate").status_code == 403
+        mine = client.get("/v1/mandates/mine").json()["items"]
+        assert [(m["mandate_id"], m["i_am"], m["my_moves"]) for m in mine] == [
+            (str(mid), ["executor"], ["pause"])
+        ]
+        act_as(cfo)
+        mine = client.get("/v1/mandates/mine").json()["items"]
+        assert [(m["i_am"], m["my_moves"]) for m in mine] == [(["creator"], ["pause", "revoke"])]
+
         # --- lifecycle: pause, then revoking the source grant blocks re-activation (MAND-06)
+        act_as(agent)
         assert client.post(f"/v1/mandates/{mid}:pause").json()["status"] == "PAUSED"
         act_as(cfo)
         assert client.post(f"/v1/authority-grants/{gid}:revoke").json()["status"] == "REVOKED"
         assert client.post(f"/v1/authority-grants/{uid()}:revoke").status_code == 404
         r = client.post(f"/v1/mandates/{mid}:activate", params={"risk_class": 2})
+        assert r.status_code == 403 and r.json()["error"]["code"] != "MANDATE_SOURCE_INVALID"
+        act_as(
+            adm
+        )  # an administrator holds `mandate.manage`, so the grant check is what stops activation
+        r = client.post(f"/v1/mandates/{mid}:activate", params={"risk_class": 2})
         assert r.status_code == 403 and r.json()["error"]["code"] == "MANDATE_SOURCE_INVALID"
+        act_as(cfo)
         assert client.post(f"/v1/mandates/{mid}:revoke").json()["status"] == "REVOKED"
 
     # --- a cell that is not the tenant's writer refuses ledger writes

@@ -124,6 +124,8 @@ export function createCellApi(t: Transport) {
 
     federation: {
       integrations: () => get<M.Items<M.FederationIntegration>>("/federation/integrations"),
+      /** Read a provider's published settings from its address: the OpenID issuer, or the SAML metadata address. */
+      discoverProvider: (protocol: "OIDC" | "SAML", url: string) => post<M.ProviderSettings>("/federation/integrations:discover", { protocol, url }),
       createIntegration: (body: IntegrationIn) => post<M.FederationIntegration>("/federation/integrations", body),
       rotate: (id: string, body: RotateIn) => post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:rotate`, body),
       setIdpInitiated: (id: string, body: IdpInitiatedIn) =>
@@ -216,6 +218,7 @@ export function createCellApi(t: Transport) {
     mandates: {
       list: (q: { status?: M.MandateStatus; executor_principal_id?: string; limit?: number } = {}) =>
         get<M.Items<M.Mandate>>("/v1/mandates", q),
+      mine: (q: { limit?: number } = {}) => get<M.Items<M.MyMandate>>("/v1/mandates/mine", q),
       create: (body: MandateCreate, idempotencyKey: string) => post<M.Mandate>("/v1/mandates", body, { idempotencyKey }),
       balance: (id: string) => get<M.MandateBalance>(`/v1/mandates/${seg(id)}/balance`),
       activate: (id: string, riskClass?: number) =>
@@ -336,24 +339,28 @@ export function createCellApi(t: Transport) {
       gates: () => get<M.GateReport>("/v1/onboarding/gates"),
       declaredOrganization: () => get<{ declared: M.DeclaredOrganization | null }>("/v1/onboarding/organization"),
       submitOrganization: (body: M.OrganizationSubmission) => post<M.OrganizationResult>("/v1/onboarding/organization", body),
+      /** Whether the owner approves onboarding steps alone (no second administrator). */
+      mode: () => get<M.OnboardingApprovalMode>("/v1/onboarding/mode"),
+      /** Where to send decisions and how far shadow has got. */
+      connection: () => get<M.OnboardingConnection>("/v1/onboarding/connection"),
       plans: () => get<M.Items<M.OnboardingPlan>>("/v1/onboarding/plans"),
       createPlan: (body: M.PlanCreate) => post<M.OnboardingPlan>("/v1/onboarding/plans", body),
-      approvePlan: (id: string, approvalRequestId: string) =>
-        post<M.OnboardingPlan>(`/v1/onboarding/plans/${seg(id)}:approve`, { approval_request_id: approvalRequestId }),
+      approvePlan: (id: string, approvalRequestId: string | null) =>
+        post<M.OnboardingPlan>(`/v1/onboarding/plans/${seg(id)}:approve`, { approval_request_id: approvalRequestId || null }),
       validatePlan: (id: string) => post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:validate`),
       startIntegration: (id: string) => post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:start-integration`),
       startShadow: (id: string) => post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:start-shadow`),
-      startPilot: (id: string, approvalRequestId: string) =>
-        post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:start-pilot`, { approval_request_id: approvalRequestId }),
-      activate: (id: string, approvalRequestId: string) =>
-        post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:activate`, { approval_request_id: approvalRequestId }),
+      startPilot: (id: string, approvalRequestId: string | null) =>
+        post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:start-pilot`, { approval_request_id: approvalRequestId || null }),
+      activate: (id: string, approvalRequestId: string | null) =>
+        post<M.GateReport>(`/v1/onboarding/plans/${seg(id)}:activate`, { approval_request_id: approvalRequestId || null }),
       rollback: (id: string, reasonCode: string) =>
         post<{ tenant_status: M.TenantStatus }>(`/v1/onboarding/plans/${seg(id)}:rollback`, { reason_code: reasonCode }),
       stages: (planId: string) => get<M.Items<M.PilotStage>>(`/v1/onboarding/plans/${seg(planId)}/stages`),
       addStage: (planId: string, name: string, scope: Partial<M.StageScope>) =>
         post<M.PilotStage>(`/v1/onboarding/plans/${seg(planId)}/stages`, { name, scope }),
-      activateStage: (stageId: string, approvalRequestId: string) =>
-        post<M.PilotStage>(`/v1/onboarding/stages/${seg(stageId)}:activate`, { approval_request_id: approvalRequestId }),
+      activateStage: (stageId: string, approvalRequestId: string | null) =>
+        post<M.PilotStage>(`/v1/onboarding/stages/${seg(stageId)}:activate`, { approval_request_id: approvalRequestId || null }),
     },
 
     provisioning: {
@@ -497,6 +504,15 @@ export function createCellApi(t: Transport) {
       /** Ask for a different plan. Changes no entitlement: the move is a signed order. */
       requestPlan: (plan: string, note?: string) =>
         post<{ request_id: string; status: M.PlanRequestStatus; plan: string; current_plan: string }>("/v1/billing/plan-requests", { plan, note: note?.trim() || null }),
+      /** What is due now and the saved card (brand and last four only). */
+      payment: () => get<M.BillingPayment>("/v1/billing/payment"),
+      /** Pay what is outstanding on one issued invoice with the saved card, now. One idempotency key per click. */
+      payInvoice: (invoiceId: string, idempotencyKey: string) =>
+        post<{ status: "CAPTURED" | "FAILED"; failure_code: string | null }>(`/v1/invoices/${seg(invoiceId)}/pay`, { idempotency_key: idempotencyKey }),
+      /** Start saving or replacing the card: the address of Stripe's hosted page. The card never reaches this app. */
+      startPaymentSetup: () => post<{ url: string }>("/v1/billing/payment/setup"),
+      /** After Stripe sends the buyer back: the cell verifies the session and makes the card the default. */
+      completePaymentSetup: (sessionId: string) => post<{ method: M.PaymentMethod }>("/v1/billing/payment/complete", { session_id: sessionId }),
       withdrawPlanRequest: (id: string) => post<{ request_id: string; status: M.PlanRequestStatus }>(`/v1/billing/plan-requests/${seg(id)}:withdraw`),
     },
 
@@ -576,7 +592,7 @@ export function createOperatorApi(t: Transport) {
       books: () => get<M.Items<M.PriceBookSummary>>("/v1/commercial/price-books"),
       book: (id: string) => get<M.PriceBookDetail>(`/v1/commercial/price-books/${seg(id)}`),
       /** Every company's open requests for a different plan, oldest first. */
-      planRequests: () => get<M.Items<M.PlanRequest & { tenant_id: string }>>("/v1/commercial/plan-requests"),
+      planRequests: () => get<M.Items<M.PlanRequest & { tenant_id: string; company: string | null }>>("/v1/commercial/plan-requests"),
       /** ACCEPTED: the team will raise the order. DECLINED: the company is told why. The entitlement is untouched. */
       answerPlanRequest: (id: string, decision: "ACCEPTED" | "DECLINED", note?: string) =>
         post<{ request_id: string; status: M.PlanRequestStatus; tenant_id: string }>(`/v1/commercial/plan-requests/${seg(id)}:answer`, { decision, note: note?.trim() || null }),

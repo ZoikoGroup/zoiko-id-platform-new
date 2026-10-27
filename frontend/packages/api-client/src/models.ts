@@ -392,6 +392,12 @@ export type Mandate = {
   created_at: Iso;
 };
 
+/** A mandate as its own people see it (`GET /v1/mandates/mine`): what they are to it and what they may do to it now. */
+export type MyMandate = Mandate & {
+  i_am: ("executor" | "creator")[];
+  my_moves: ("pause" | "revoke")[];
+};
+
 export type IssuedCredentialStatus = "VALID" | "SUSPENDED" | "REVOKED" | "EXPIRED" | "UNKNOWN";
 export type IssuedCredential = {
   credential_id: string;
@@ -739,6 +745,8 @@ export type OperatorCapabilities = {
   items: OperatorCapability[];
   separation_of_duties: { rule: string; capabilities: string[]; rationale: string }[];
   break_glass_max_minutes: number;
+  /** `direct`: a registered operator needs no access request or second approver for non-customer-data work. */
+  mode: "governed" | "direct";
 };
 export type JitGrantState = "REQUESTED" | "APPROVED" | "ACTIVE" | "DENIED" | "CANCELLED" | "REVOKED" | "EXPIRED";
 export type JitGrant = {
@@ -1689,6 +1697,47 @@ export type Invoice = {
   outstanding: string | null;
   lines: InvoiceLine[];
 };
+export type PaymentAttempt = { at: string; amount: string; currency: string; status: "CAPTURED" | "FAILED"; failure_code: string | null; invoice_number: string | null };
+/** The saved card as the company may see it: never the number. */
+export type PaymentMethod = { brand: string; last4: string; exp_month: number; exp_year: number };
+/** What is owed now (open issued invoices, per currency) and the saved card (CR-034). */
+export type BillingPayment = {
+  configured: boolean;
+  account_linked: boolean;
+  /** Whether this person may save or replace the card (the owner). */
+  can_manage: boolean;
+  /** The latest attempts to collect an invoice, newest first. */
+  payments: PaymentAttempt[];
+  method: PaymentMethod | null;
+  method_error: string | null;
+  amount_due: { currency: string; amount: string }[];
+  open_invoices: { invoice_id: string; number: string | null; currency: string; outstanding: string; due_at: string | null }[];
+};
+/** How this company's two-person onboarding steps are approved, and whether the caller may approve them alone (the owner, in owner mode). */
+export type OnboardingApprovalMode = { approval: "second_admin" | "owner"; self_approve: boolean };
+/** Where an application sends its access questions, and how far shadow has got (present in SHADOW and PILOT). */
+export type OnboardingConnection = {
+  api_base: string;
+  evaluation_url: string;
+  token_url: string;
+  stage: string | null;
+  shadow: {
+    observations: number;
+    observations_needed: number;
+    context_coverage: number;
+    context_coverage_needed: number;
+    r3_context_coverage: number;
+    r3_context_coverage_needed: number;
+    agreement: number | null;
+    agreement_needed: number;
+    false_allows: number;
+    ready: boolean;
+  } | null;
+};
+/** What an identity provider publishes about itself, found from its address (CR-038). */
+export type ProviderSettings =
+  | { protocol: "OIDC"; issuer: string; authorization_endpoint: string; token_endpoint: string; jwks: { keys: Record<string, unknown>[] } }
+  | { protocol: "SAML"; entity_id: string; sso_url: string; certificates: string[] };
 export type BillingState = {
   state: string;
   reason: string;

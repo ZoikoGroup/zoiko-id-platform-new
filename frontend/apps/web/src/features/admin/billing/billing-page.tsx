@@ -3,17 +3,21 @@
 import type { BillingState } from "@zoiko/api-client";
 import { Banner, PageHeader, Tabs } from "@zoiko/ui";
 import { Wallet } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { BudgetsSection } from "./budgets";
 import { InvoicesSection } from "./invoices";
+import { PaymentSection } from "./payment";
 import { PreviewSection } from "./preview";
 import { BILLING_KEY, STATE_COPY } from "./shared";
 import { SubscriptionSection } from "./subscription";
 import { UsageSection } from "./usage";
 
 export function BillingPage() {
+  // Stripe sends the buyer back with ?payment=saved|cancelled: open the Payment tab so the return is handled there.
+  const returning = useSearchParams().get("payment") !== null;
   return (
     <>
       <PageHeader
@@ -23,11 +27,13 @@ export function BillingPage() {
       <StateBanner />
       <Tabs
         label="Billing"
+        defaultTab={returning ? "payment" : undefined}
         tabs={[
           { id: "subscription", label: "Subscription", content: <SubscriptionSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
           { id: "preview", label: "Bill preview", content: <PreviewSection /> },
           { id: "invoices", label: "Invoices", content: <InvoicesSection /> },
+          { id: "payment", label: "Payment", content: <PaymentSection /> },
           { id: "budgets", label: "Budgets", content: <BudgetsSection /> },
         ]}
       />

@@ -385,6 +385,28 @@ async def payment_customer(conn: AsyncConnection, tenant_id: str) -> str | None:
     ).scalar_one_or_none()
 
 
+async def account_of_tenant(conn: AsyncConnection, tenant_id: str) -> dict[str, str] | None:
+    """The commercial account that currently owns this tenant (the operator creates and links it with the order)."""
+    row = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT a.account_id, a.legal_name FROM commercial.account a JOIN commercial.account_tenant t "
+                    "ON t.account_id = a.account_id WHERE t.tenant_id = :t AND t.effective_to IS NULL"
+                ),
+                {"t": uuid.UUID(tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return (
+        {"account_id": str(row["account_id"]), "legal_name": str(row["legal_name"])}
+        if row
+        else None
+    )
+
+
 async def set_payment_customer(
     conn: AsyncConnection, account_id: str, *, provider: str, customer_ref: str, actor: str
 ) -> None:

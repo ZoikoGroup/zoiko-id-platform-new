@@ -177,6 +177,12 @@ TEMPLATES: dict[str, Template] = {
         "/billing",
         "Review usage and the projected bill; nothing has been throttled.",
     ),
+    "commercial.plan_request.answered": _t(
+        I,
+        "Your request for a different plan was answered",
+        "/admin/billing",
+        "Open Billing to see your plan.",
+    ),
     "commercial.billing_state.changed": _t(
         H,
         "The account's billing status changed",

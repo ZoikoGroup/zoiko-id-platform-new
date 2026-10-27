@@ -157,6 +157,22 @@ export function ApprovalStep({
   pending: boolean;
   error: unknown;
 }) {
+  // Owner approval (CR-036): the company's owner needs no second administrator, so the step is one button. The cell
+  // decides who may; everyone else sees the usual request-and-wait flow below.
+  const mode = useCellQuery(["onboarding", "mode"], (api) => api.onboarding.mode());
+  if (mode.data?.self_approve) {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" pending={pending} onPress={() => onRun("")}>
+            {label}
+          </Button>
+          <span className="text-xs text-ink-muted">You approve this as the company owner. No second administrator is needed.</span>
+        </div>
+        {error ? <ApiErrorView error={error} /> : null}
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <GuidedApproval

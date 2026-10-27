@@ -11,16 +11,15 @@ export function IdentityProvidersPage() {
     <>
       <PageHeader
         title="Identity providers"
-        description="Enterprise sign-in through external OIDC and SAML providers, and the OpenID Federation anchors they can be resolved through."
+        description="Let people sign in with the account your company already uses, such as Microsoft, Okta or Google. Pick your provider and follow the steps."
       />
       <Banner tone="info" icon={Fingerprint} className="mb-6">
-        Every change on this page is a critical (R3) action: the cell asks for a fresh passkey check before applying it, and your tenant&apos;s
-        policy may also require a second administrator&apos;s approval.
+        Changes here affect how everyone signs in, so we ask you to confirm with your passkey before saving each one.
       </Banner>
       <Tabs
         label="Identity provider configuration"
         tabs={[
-          { id: "integrations", label: "Integrations", content: <IntegrationsSection /> },
+          { id: "integrations", label: "Providers", content: <IntegrationsSection /> },
           { id: "anchors", label: "Trust anchors", content: <TrustAnchorsSection /> },
         ]}
       />

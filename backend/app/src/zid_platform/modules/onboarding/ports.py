@@ -19,6 +19,7 @@ from zid_platform.modules.onboarding.application.organization import (
     seed_administrator_grant,
 )
 from zid_platform.modules.onboarding.application.overlay import apply_overlay
+from zid_platform.modules.onboarding.domain.gates import require_owner_approval_ack
 from zid_platform.modules.onboarding.domain.plan import Enforcement, Verdict
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "development_verification",
     "offboarding_pass",
     "request_deletion",
+    "require_owner_approval_ack",
     "seed_administrator_grant",
 ]

@@ -125,10 +125,15 @@ def test_another_company_never_sees_the_request_and_the_operator_answers_it(
             waiting = await plan_requests.open_requests(c)
             assert open_id in {w["request_id"] for w in waiting}
             assert {w["tenant_id"] for w in waiting} >= {o.tenant}
+            # the operator list names the company, which it cannot read from the tenant table itself
+            assert all(w["company"] for w in waiting if w["tenant_id"] == o.tenant)
             done = await plan_requests.answer(
                 c, open_id, decision="DECLINED", operator_id=operator, note="Pilot first."
             )
             assert done["status"] == "DECLINED"
+            from zid_platform.modules.operator_access.api.commercial_admin import notify_plan_answer
+
+            await notify_plan_answer(c, done)  # the company is told in its own Alerts
             with pytest.raises(PlanRequestError, match="PLAN_REQUEST_CLOSED"):
                 await plan_requests.answer(
                     c, open_id, decision="ACCEPTED", operator_id=operator, note=None
@@ -145,3 +150,15 @@ def test_another_company_never_sees_the_request_and_the_operator_answers_it(
             return len(await plan_requests.my_requests(c))
 
     assert asyncio.run(outside()) == 0
+
+
+def test_the_company_sees_an_alert_when_its_request_is_answered(rt_url: str, company) -> None:  # type: ignore[no-untyped-def]
+    from zid_platform.modules.notification.infrastructure.alert_store import list_alerts
+
+    o, _api = company
+
+    async def read() -> list[str]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
+            return [a["kind"] for a in await list_alerts(c)]
+
+    assert "commercial.plan_request.answered" in asyncio.run(read())

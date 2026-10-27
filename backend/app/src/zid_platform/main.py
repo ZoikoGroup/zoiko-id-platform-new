@@ -72,6 +72,12 @@ def create_app(
     app.state.dev_simulator = None
     app.state.tenant_signup = settings.tenant_signup_enabled
     app.state.tenant_signup_dev_verify = settings.tenant_signup_dev_verify
+    from .modules.onboarding.ports import require_owner_approval_ack
+
+    require_owner_approval_ack(
+        settings.onboarding_approval, settings.environment, settings.onboarding_owner_ack
+    )
+    app.state.onboarding_approval = settings.onboarding_approval
     app.state.tenant_signup_notice_version = settings.tenant_signup_notice_version
     app.state.environment = settings.environment
     app.state.federation_authority_hints = settings.federation_authority_hints
@@ -100,11 +106,15 @@ def create_app(
     if settings.token_issuer:
         if keyrings is None and keyring is not None:
             keyrings = KeyRings.single(keyring)
-        if keyrings is None:
-            if settings.environment not in ("local", "test"):
+        if keyrings is None and settings.environment not in ("local", "test"):
+            if settings.key_provider == "local":
                 raise RuntimeError(
                     "token issuer keys must come from the key broker outside local/test (DEC-F5)"
                 )
+            from .crypto_runtime import kms_keyrings_from_settings
+
+            keyrings = kms_keyrings_from_settings(settings)
+        if keyrings is None:
             keyrings = KeyRings.development(settings.cell_id, settings.dev_signing_keys)
         app.state.keyrings = keyrings
         app.state.verifier_x5c = (
@@ -290,6 +300,17 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
             raise RuntimeError("ZID_STRIPE_SECRET_KEY_FILE is empty")
         app.state.tax_port = StripeTax(stripe_key, base_url=settings.stripe_api_base)
         app.state.payment_port = StripePayments(stripe_key, base_url=settings.stripe_api_base)
+        from urllib.parse import urlparse
+
+        from .modules.commercial.ports import StripeCustomers
+
+        # The saved-card page (CR-034): Stripe's hosted form returns the buyer to the console's own origin, taken from
+        # the configuration and never from the request.
+        app.state.payment_setup = StripeCustomers(stripe_key, base_url=settings.stripe_api_base)
+        parsed = urlparse(settings.billing_return_origin or settings.consent_url or "")
+        app.state.billing_return_origin = (
+            f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
+        )
     from .modules.commercial.ports import key_auth, key_vc_issued
     from .modules.credential.ports import credentials_issued_between
     from .modules.session.ports import sessions_created_between
@@ -410,6 +431,20 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     from .workload_identity import trust_policy_from_settings
 
     app.state.trust_policy = trust_policy_from_settings(settings)
+    import logging
+
+    from .modules.operator_access.ports import configure_direct_mode, require_direct_mode_ack
+
+    require_direct_mode_ack(
+        settings.operator_mode, settings.environment, settings.operator_direct_ack
+    )
+    configure_direct_mode(settings.operator_mode == "direct")
+    if settings.operator_mode == "direct":
+        logging.getLogger("zid.operator").warning(
+            "ZID_OPERATOR_MODE=direct: operators hold every non-customer-data capability without access requests or "
+            "a second approver (environment=%s)",
+            settings.environment,
+        )
     app.state.operator_settings = OperatorSettings(
         tenant_id=settings.operator_tenant_id,
         client_ids=tuple(settings.operator_client_ids),

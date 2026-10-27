@@ -71,6 +71,8 @@ from zid_platform.modules.commercial.ports import (
 )
 from zid_platform.modules.evidence.ports import current_runtime
 from zid_platform.modules.operator_access.ports import (
+    DIRECT_APPROVER,
+    direct_mode,
     has_capability,
     is_active_operator,
     require_operator,
@@ -96,6 +98,12 @@ def _fail(e: CommercialError) -> ZidError:
         e.detail or e.code.replace("_", " ").capitalize() + ".",
         http_status=_STATUS.get(e.code, 422),
     )
+
+
+def _approver(op: Any) -> str:
+    """Who is recorded as the second person: the operator in governed mode, the direct approver in direct mode (the
+    real operator is the actor in the change log either way)."""
+    return DIRECT_APPROVER if direct_mode() else str(op.principal_id)
 
 
 def _iso(d: datetime | None) -> str | None:
@@ -149,7 +157,7 @@ class OverrideBody(BaseModel):
     grant_mode: Literal["INCLUDED", "ADD_ON", "METERED", "CONTRACT", "QUALIFIED"] | None = None
     extra_count: int | None = Field(default=None, ge=0, le=10_000)
     reason: str = Field(min_length=3, max_length=500)
-    approver_id: uuid.UUID
+    approver_id: uuid.UUID | None = None  # required in governed mode; direct mode needs none
     expires_at: datetime | None = None
 
 
@@ -245,7 +253,7 @@ async def approve_book(
             await store.approve(
                 conn,
                 str(price_book_id),
-                approver=op.principal_id,
+                approver=_approver(op),
                 effective_from=body.effective_from or now,
                 now=now,
             )
@@ -283,6 +291,33 @@ async def open_plan_requests(request: Request, op: OperatorDep) -> dict[str, Any
         return {"items": await plan_requests.open_requests(conn)}
 
 
+async def notify_plan_answer(conn: Any, answered: dict[str, Any]) -> None:
+    """Tell the company, in its own Alerts, that its request was answered (the email for a plan change itself follows
+    the entitlement event). Raised in the company's tenant context, never the operator's."""
+    from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
+
+    accepted = answered["status"] == "ACCEPTED"
+    plan = str(answered["plan"]).title()
+    note = answered.get("note") or ""
+    draft = AlertDraft(
+        severity=Severity.INFO,
+        kind="commercial.plan_request.answered",
+        title=f"Your request for the {plan} plan was {'accepted' if accepted else 'declined'}",
+        body=note,
+        object_type="plan_request",
+        object_ref=answered["request_id"],
+        href="/admin/billing",
+        recommended_action="Open Billing to see your plan."
+        if accepted
+        else "You can ask for a different plan from Billing.",
+        is_task=False,
+        mandatory=False,
+        correlation_key=f"plan_request.answered:{answered['request_id']}",
+    )
+    async with in_tenant(conn, answered["tenant_id"]):
+        await raise_alert(conn, answered["tenant_id"], draft, now=datetime.now(UTC))
+
+
 @router.post("/v1/commercial/plan-requests/{request_id}:answer")
 async def answer_plan_request(
     request_id: uuid.UUID, body: PlanRequestAnswer, request: Request, op: OperatorDep
@@ -294,13 +329,15 @@ async def answer_plan_request(
         operator_scope(conn),
     ):
         try:
-            return await plan_requests.answer(
+            answered = await plan_requests.answer(
                 conn,
                 str(request_id),
                 decision=body.decision,
                 operator_id=op.principal_id,
                 note=body.note,
             )
+            await notify_plan_answer(conn, answered)
+            return answered
         except PlanRequestError as e:
             raise ZidError(
                 e.code, e.detail or e.code, http_status=_PLAN_REQUEST_STATUS.get(e.code, 422)
@@ -414,11 +451,19 @@ async def add_override(
         raise ZidError(
             "VALIDATION_FAILED", "A grant mode or an extra count is required.", http_status=422
         )
-    if str(body.approver_id) == op.principal_id:
-        raise ZidError("SELF_APPROVAL", "An override needs a different approver.", http_status=403)
+    if direct_mode():
+        approver_id = DIRECT_APPROVER
+    else:
+        if body.approver_id is None:
+            raise ZidError("VALIDATION_FAILED", "An approver is required.", http_status=422)
+        approver_id = str(body.approver_id)
+        if approver_id == op.principal_id:
+            raise ZidError(
+                "SELF_APPROVAL", "An override needs a different approver.", http_status=403
+            )
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
-        if not await is_active_operator(conn, op.tenant_id, str(body.approver_id)):
+        if not direct_mode() and not await is_active_operator(conn, op.tenant_id, approver_id):
             raise ZidError(
                 "APPROVER_INVALID", "The approver must be an active operator.", http_status=403
             )
@@ -430,7 +475,7 @@ async def add_override(
                 grant_mode=body.grant_mode,
                 extra_count=body.extra_count,
                 reason=body.reason,
-                approved_by=str(body.approver_id),
+                approved_by=approver_id,
                 created_by=op.principal_id,
                 expires_at=body.expires_at,
             )
@@ -444,7 +489,7 @@ async def add_override(
                 detail={
                     "capability": body.capability,
                     "extra_count": body.extra_count,
-                    "approver": str(body.approver_id),
+                    "approver": approver_id,
                 },
             )
     return {"override_id": oid, "capability": body.capability}
@@ -549,12 +594,12 @@ async def decide_adjustment(
                 raise ZidError(
                     "ADJUSTMENT_FINAL", "A decided adjustment is final.", http_status=409
                 )
-            if str(adj["requested_by"]) == op.principal_id:
+            if not direct_mode() and str(adj["requested_by"]) == op.principal_id:
                 raise ZidError(
                     "SELF_APPROVAL", "An adjustment needs a different approver.", http_status=403
                 )
             await billable_store.decide_adjustment(
-                conn, str(adjustment_id), approver=op.principal_id, approve=approve, now=now
+                conn, str(adjustment_id), approver=_approver(op), approve=approve, now=now
             )
             await billable_event_adjusted(
                 conn,
@@ -736,7 +781,7 @@ async def issue_invoice(
                 return await invoicing.issue(
                     conn,
                     str(invoice_id),
-                    issuer=op.principal_id,
+                    issuer=_approver(op),
                     tax=request.app.state.tax_port,
                     payment_terms_days=body.payment_terms_days,
                     allow_zero_tax=body.allow_zero_tax,
@@ -1101,7 +1146,7 @@ async def approve_quote(
         await _sales(conn, op)
         try:
             return await orders.approve_quote(
-                conn, str(quote_id), role=body.role, approver=op.principal_id
+                conn, str(quote_id), role=body.role, approver=_approver(op), direct=direct_mode()
             )
         except OrderError as e:
             raise _order_fail(e) from e
@@ -1135,7 +1180,9 @@ async def activate_order(order_id: uuid.UUID, request: Request, op: OperatorDep)
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _sales(conn, op)
         try:
-            return await orders.activate(conn, str(order_id), actor=op.principal_id)
+            return await orders.activate(
+                conn, str(order_id), actor=op.principal_id, direct=direct_mode()
+            )
         except OrderError as e:
             raise _order_fail(e) from e
 

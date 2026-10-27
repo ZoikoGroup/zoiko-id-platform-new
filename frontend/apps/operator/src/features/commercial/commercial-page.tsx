@@ -5,6 +5,7 @@ import { Banner, PageHeader, Tabs } from "@zoiko/ui";
 
 import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
+import { useDirectMode } from "./mode";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PlanRequestsView, PriceBooksView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
@@ -20,12 +21,23 @@ function Actions({ group }: { group: Action["group"] }) {
 }
 
 export function CommercialPage() {
+  const direct = useDirectMode();
   return (
     <>
       <PageHeader
         title="Commercial"
-        description="Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. Every action needs its own approved, unexpired grant; dual-control steps need a different operator."
+        description={
+          direct
+            ? "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. You can make and approve every change here yourself."
+            : "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. Every action needs its own approved, unexpired grant; dual-control steps need a different operator."
+        }
       />
+      {direct ? (
+        <Banner tone="warn" className="mb-4" title="Direct mode">
+          This account can approve and change commercial settings without access requests or a second approver. Every change is still recorded
+          under your name in the commercial change log.
+        </Banner>
+      ) : null}
       <Banner tone="info" className="mb-4">
         Rates here are draft proposals until Finance approves a price book. Nothing on this page publishes a price, promises a region or SLA, or
         reaches a customer before the approvals the platform enforces.

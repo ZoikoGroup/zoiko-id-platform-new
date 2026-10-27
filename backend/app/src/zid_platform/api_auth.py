@@ -289,12 +289,26 @@ async def cell_writer_epoch(
     cell: str | None = getattr(request.app.state, "cell_uuid", None)
     if not cell:
         raise http_error("DEPENDENCY_UNAVAILABLE", "This cell has no ZID_CELL_UUID configured.")
-    row = (
+    select = text("SELECT cell_id, epoch FROM agent.writer_fence WHERE tenant_id = :t")
+    row = (await conn.execute(select, {"t": uuid.UUID(tenant_id)})).first()
+    if row is None:
+        # A company has no fence until something writes its ledger: nothing else creates one at registration. The cell
+        # the company lives in takes epoch 1 the first time it needs it. The insert is atomic and never replaces a row,
+        # so two cells cannot both claim a company, and a company homed elsewhere is not claimed at all.
         await conn.execute(
-            text("SELECT cell_id, epoch FROM agent.writer_fence WHERE tenant_id = :t"),
-            {"t": uuid.UUID(tenant_id)},
+            text(
+                "INSERT INTO agent.writer_fence (tenant_id, cell_id, epoch) "
+                "SELECT t.tenant_id, :c, 1 FROM platform.tenant t "
+                "WHERE t.tenant_id = :t AND t.home_cell_id = :home "
+                "ON CONFLICT (tenant_id) DO NOTHING"
+            ),
+            {
+                "t": uuid.UUID(tenant_id),
+                "c": uuid.UUID(cell),
+                "home": getattr(request.app.state, "home_cell", None),
+            },
         )
-    ).first()
+        row = (await conn.execute(select, {"t": uuid.UUID(tenant_id)})).first()
     if row is None or str(row.cell_id) != cell:
         raise http_error("WRITER_EPOCH_STALE", "This cell is not the tenant's current writer.")
     return uuid.UUID(cell), int(row.epoch)

@@ -503,9 +503,16 @@
         "additionalProperties": false,
         "properties": {
           "approver_id": {
-            "format": "uuid",
-            "title": "Approver Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver Id"
           },
           "capability": {
             "pattern": "^[a-z][a-z0-9_]{1,40}$",
@@ -564,8 +571,7 @@
         },
         "required": [
           "capability",
-          "reason",
-          "approver_id"
+          "reason"
         ],
         "title": "OverrideBody",
         "type": "object"
