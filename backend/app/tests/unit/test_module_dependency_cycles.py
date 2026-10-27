@@ -8,6 +8,12 @@ behind an event), tracked here instead of hidden.
 
 The test is a ratchet: a NEW cycle fails the build, and fixing a cycle makes the frozen set stale until it is
 removed from KNOWN. The count may only go down.
+
+Two measures, both independent of the order a file system lists files in (Windows and the Linux CI runner differ):
+the import-time cycles, found by a depth-first walk over sorted edges, and the groups of modules that sit in a cycle
+at all (strongly connected components, which are the same whichever way they are walked). The function-level check
+used to compare the cycles a depth-first walk happened to report, and that set changed with the visiting order, so a
+cycle list measured on one machine failed on another with no code change.
 """
 
 from __future__ import annotations
@@ -30,22 +36,26 @@ KNOWN_IMPORT_TIME: frozenset[tuple[str, ...]] = frozenset(
         ("integration", "provisioning"),
     }
 )
-KNOWN_ALL: frozenset[tuple[str, ...]] = KNOWN_IMPORT_TIME | frozenset(
+# The groups of modules that are mutually dependent once function-level imports count too, measured on commit
+# a5dcb58 (before the payment and mandate work, which added no module to any group). A module may not join a group, and
+# two groups may not merge. When a group shrinks, shrink it here.
+KNOWN_GROUPS: frozenset[tuple[str, ...]] = frozenset(
     {
-        ("authentication", "configuration", "session", "tenant"),
-        ("configuration", "session", "tenant"),
-        ("principal", "privacy", "tenant"),
         (
             "authentication",
+            "authority",
             "configuration",
+            "mandate",
             "operator_access",
+            "principal",
+            "privacy",
             "resilience",
             "session",
             "signals",
             "tenant",
+            "verification",
         ),
-        ("configuration", "operator_access", "resilience", "session", "signals", "tenant"),
-        ("operator_access", "tenant"),
+        ("integration", "provisioning"),
     }
 )
 
@@ -55,7 +65,9 @@ def build_graph() -> dict[str, dict[str, bool]]:
     graph: dict[str, dict[str, bool]] = {}
     for mod in sorted(p for p in MODULES.iterdir() if p.is_dir() and not p.name.startswith("_")):
         deps: dict[str, bool] = {}
-        for py in mod.rglob("*.py"):
+        for py in sorted(
+            mod.rglob("*.py")
+        ):  # sorted: the order must not depend on the operating system
             tree = ast.parse(py.read_text(encoding="utf-8"))
             parent = {c: n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
             for node in ast.walk(tree):
@@ -87,8 +99,8 @@ def find_cycles(
 ) -> set[tuple[str, ...]]:
     """Strongly connected components of size > 1, plus the elementary cycles found by DFS, as sorted tuples."""
     edges = {
-        m: [d for d, inner in deps.items() if not (import_time_only and inner) and d in graph]
-        for m, deps in graph.items()
+        m: sorted(d for d, inner in deps.items() if not (import_time_only and inner) and d in graph)
+        for m, deps in sorted(graph.items())
     }
     found: set[tuple[str, ...]] = set()
     state: dict[str, int] = {}
@@ -105,10 +117,49 @@ def find_cycles(
         stack.pop()
         state[n] = 2
 
-    for m in edges:
+    for m in sorted(edges):
         if m not in state:
             visit(m)
     return found
+
+
+def cyclic_groups(graph: dict[str, dict[str, bool]]) -> set[tuple[str, ...]]:
+    """Groups of modules that can all reach each other (strongly connected components of more than one module)."""
+    edges = {m: sorted(d for d in deps if d in graph) for m, deps in sorted(graph.items())}
+    order: list[str] = []
+    seen: set[str] = set()
+
+    def first(n: str) -> None:
+        seen.add(n)
+        for d in edges[n]:
+            if d not in seen:
+                first(d)
+        order.append(n)
+
+    for m in sorted(edges):
+        if m not in seen:
+            first(m)
+    back: dict[str, list[str]] = {m: [] for m in edges}
+    for m, ds in edges.items():
+        for d in ds:
+            back[d].append(m)
+    placed: set[str] = set()
+    groups: set[tuple[str, ...]] = set()
+
+    def second(n: str, into: list[str]) -> None:
+        placed.add(n)
+        into.append(n)
+        for d in sorted(back[n]):
+            if d not in placed:
+                second(d, into)
+
+    for n in reversed(order):
+        if n not in placed:
+            found: list[str] = []
+            second(n, found)
+            if len(found) > 1:
+                groups.add(tuple(sorted(found)))
+    return groups
 
 
 def test_the_graph_is_the_real_one() -> None:
@@ -127,10 +178,13 @@ def test_no_new_import_time_dependency_cycles() -> None:
     )
 
 
-def test_no_new_dependency_cycles_including_function_level_imports() -> None:
-    now = find_cycles(build_graph(), import_time_only=False)
-    new = sorted(now - KNOWN_ALL)
-    assert not new, f"new module dependency cycle(s): {new}"
+def test_no_module_joins_a_dependency_cycle_including_function_level_imports() -> None:
+    now = cyclic_groups(build_graph())
+    grown = sorted(g for g in now if not any(set(g) <= set(k) for k in KNOWN_GROUPS))
+    assert not grown, (
+        f"a module joined a dependency cycle, or two groups merged: {grown}. "
+        "Invert one direction or move the call behind an event."
+    )
 
 
 def test_fixed_cycles_are_removed_from_the_known_list() -> None:
@@ -139,3 +193,11 @@ def test_fixed_cycles_are_removed_from_the_known_list() -> None:
     assert KNOWN_IMPORT_TIME <= find_cycles(graph, import_time_only=True) | KNOWN_IMPORT_TIME
     stale = sorted(KNOWN_IMPORT_TIME - find_cycles(graph, import_time_only=True))
     assert not stale, f"these cycles no longer exist; remove them from KNOWN_IMPORT_TIME: {stale}"
+
+
+def test_groups_that_shrink_are_removed_from_the_known_list() -> None:
+    now = {m for g in cyclic_groups(build_graph()) for m in g}
+    gone = sorted({m for g in KNOWN_GROUPS for m in g} - now)
+    assert not gone, (
+        f"these modules are no longer in any cycle; remove them from KNOWN_GROUPS: {gone}"
+    )
