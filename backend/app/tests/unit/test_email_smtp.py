@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Self
 
 import pytest
+from logcapture import capture
 from zid_platform.modules.communication.domain import catalogue as cat
 from zid_platform.modules.communication.domain.render import LinkPolicy, RenderContext, render
 from zid_platform.modules.communication.infrastructure import smtp as smtp_module
@@ -278,9 +279,9 @@ def test_the_sender_is_off_unless_enabled_and_fails_fast_when_half_configured(
     assert isinstance(sender, SmtpSender)
 
 
-def test_the_module_never_logs_the_password(caplog: pytest.LogCaptureFixture) -> None:
+def test_the_module_never_logs_the_password() -> None:
     FakeSMTP.fail_on = {"send": RuntimeError("boom")}
-    with caplog.at_level("DEBUG"):
+    with capture("DEBUG") as logs:
         send()
-    assert "s3cret-pass" not in caplog.text
+    assert "s3cret-pass" not in logs.text
     assert smtp_module.log.name == "zid.communication.smtp"
