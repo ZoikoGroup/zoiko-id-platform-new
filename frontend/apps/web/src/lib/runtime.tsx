@@ -30,6 +30,8 @@ type Runtime = {
   refreshSession: () => Promise<void>;
   /** Runs a cell call; on STEP_UP_REQUIRED asks for a passkey, refreshes tokens and retries once. */
   protect: <T>(run: () => Promise<T>) => Promise<T>;
+  /** Asks for a fresh passkey check now (for an answer that says "step up first"). Resolves true once confirmed. */
+  confirmIdentity: () => Promise<boolean>;
   signOut: () => Promise<void>;
 };
 
@@ -130,6 +132,13 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
     [],
   );
 
+  const confirmIdentity = useCallback((): Promise<boolean> => {
+    pendingStepUp.current ??= new Promise<boolean>((resolve) => setStepUp({ resolve })).finally(() => {
+      pendingStepUp.current = null;
+    });
+    return pendingStepUp.current;
+  }, []);
+
   const signOut = useCallback(async () => {
     await fetch("/api/auth/logout", {
       method: "POST",
@@ -159,8 +168,8 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
   }
 
   const value = useMemo<Runtime>(
-    () => ({ api, flow, clientId, session: sessionQuery.data, refreshSession, protect, signOut }),
-    [api, flow, clientId, sessionQuery.data, refreshSession, protect, signOut],
+    () => ({ api, flow, clientId, session: sessionQuery.data, refreshSession, protect, confirmIdentity, signOut }),
+    [api, flow, clientId, sessionQuery.data, refreshSession, protect, confirmIdentity, signOut],
   );
 
   return (

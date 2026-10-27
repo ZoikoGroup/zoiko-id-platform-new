@@ -27,3 +27,9 @@ API (operator): `GET /v1/commercial/plan-requests`, `POST /v1/commercial/plan-re
 - No outbox event is emitted: nothing downstream reacts to an ask.
 
 Tests: ask, duplicate refused, same plan refused, withdraw and ask again, another company sees nothing, the operator lists across companies and answers once, a closed request cannot be answered again.
+
+## Follow-up (console wiring)
+
+- The request records the company's display name when it is made (`commercial.plan_request.company_name`, migration `commercial_0012`, filled in for earlier requests), because the operator plane cannot read another company's tenant row; the operator list shows the name with the id underneath.
+- Answering a request raises an INFO alert in the company's own Alerts, `commercial.plan_request.answered` ("Your request for the Launch plan was accepted" or "declined", with the operator's note), in the company's tenant context. A plan change itself still sends the existing billing email (`commercial.entitlement.changed`, templates ZID-EM-127 and ZID-EM-128) when email is on.
+- In direct operator mode (CR-035) the operator can accept and move the company to the plan in one step.

@@ -52,9 +52,17 @@ class KmsClient(Protocol):
 # with CRYPTO_THROTTLED (retryable): the caller is asked to try again later and never receives an unsigned or
 # unencrypted result in its place (OPS-17).
 THROTTLE_CODES = frozenset(
-    {"ThrottlingException", "LimitExceededException", "RequestLimitExceeded", "TooManyRequestsException"}
+    {
+        "ThrottlingException",
+        "LimitExceededException",
+        "RequestLimitExceeded",
+        "TooManyRequestsException",
+    }
 )
-THROTTLE_RETRY_DELAYS = (0.05, 0.15)  # three attempts in all; bounded so a throttled KMS cannot hold requests open
+THROTTLE_RETRY_DELAYS = (
+    0.05,
+    0.15,
+)  # three attempts in all; bounded so a throttled KMS cannot hold requests open
 
 
 def _error_code(exc: Exception) -> str | None:
@@ -218,7 +226,9 @@ def _sync_call(client: Any, method: str, **kwargs: Any) -> dict[str, Any]:
         code = _error_code(e)
         key_id = str(kwargs.get("KeyId"))
         if code in THROTTLE_CODES:
-            raise CryptoError("CRYPTO_THROTTLED", method) from e  # no result, signed or not; the caller retries later
+            raise CryptoError(
+                "CRYPTO_THROTTLED", method
+            ) from e  # no result, signed or not; the caller retries later
         if code in ("KMSInvalidStateException", "DisabledException"):
             raise CryptoError("CRYPTO_KEY_NOT_ACTIVE", key_id) from e
         if code == "NotFoundException":

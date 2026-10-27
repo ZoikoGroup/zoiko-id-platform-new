@@ -200,8 +200,8 @@ export function OAuthClientsCard() {
   return (
     <Card
       padded={false}
-      title="OAuth clients"
-      description="Each application that signs people in has a client. The client ID identifies it; there is no secret to copy."
+      title="Application keys (OAuth clients)"
+      description="Each application has a key that identifies it to Zoiko iD. Adding an application makes one for you; make one here only if you need it separately."
       actions={
         <Button size="sm" icon={<Plus aria-hidden className="size-4" />} onPress={() => setAdding(true)}>
           Create client

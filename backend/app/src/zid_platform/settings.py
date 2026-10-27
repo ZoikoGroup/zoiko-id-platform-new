@@ -40,9 +40,12 @@ class Settings(ServiceSettings):
     verifier_client_id_prefix: Literal["openid_federation", "x509_hash"] = "openid_federation"
     verifier_certificate_chain: tuple[str, ...] = ()
     consent_url: str | None = None  # ZID_CONSENT_URL: consent UI for third-party OAuth clients
+    # ZID_BILLING_RETURN_ORIGIN: the console origin Stripe's hosted card page returns to (default: the origin of
+    # ZID_CONSENT_URL, which is the console); set it when the console and the consent page are on different hosts
+    billing_return_origin: str | None = None
     # --- Keys and secrets (DEC-F5; zid_crypto broker, see crypto_runtime.py) ---------------------
-    # ZID_KEY_PROVIDER: local (development KEKs; local/test only) | aws-kms (deployed cells)
-    key_provider: Literal["local", "aws-kms"] = "local"
+    # ZID_KEY_PROVIDER: local (development KEKs; local/test only) | aws-kms | gcp-kms (deployed cells)
+    key_provider: Literal["local", "aws-kms", "gcp-kms"] = "local"
     # ZID_LOCAL_KEYSTORE (local only): JSON file so local processes share development KEKs;
     # unset = in-memory keys, regenerated on every start.
     local_keystore: str | None = None
@@ -52,6 +55,16 @@ class Settings(ServiceSettings):
     kms_key_ids: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
     kms_key_alias_pattern: str = "alias/zid/{cell}/{purpose}"
     kms_pending_window_days: int = 30  # ZID_KMS_PENDING_WINDOW_DAYS: ScheduleKeyDeletion (7-30)
+    # gcp-kms: ZID_KMS_KEY_IDS values are CryptoKey resource names (projects/P/locations/L/keyRings/R/cryptoKeys/K);
+    # purposes not listed are built from the project, location and key ring below ({cell} = ZID_CELL_ID).
+    gcp_kms_project: str | None = None  # ZID_GCP_KMS_PROJECT
+    gcp_kms_location: str | None = None  # ZID_GCP_KMS_LOCATION, e.g. europe-west2
+    gcp_kms_key_ring: str = "zid-{cell}"  # ZID_GCP_KMS_KEY_RING
+    # ZID_GCP_KMS_HSM: the keys were created with protection level HSM (FIPS 140-2 Level 3)
+    gcp_kms_hsm: bool = False
+    # ZID_SIGNING_RETIRING_KEYS (JSON {"token": [public JWK, ...]}): signing keys rotated out of a KeyRings purpose
+    # but still inside their verification window, published next to the active key
+    signing_retiring_keys: dict[str, tuple[dict[str, Any], ...]] = {}  # noqa: RUF012 - pydantic copies defaults
     # ZID_EVIDENCE_SIGNING_KID: published key id of the cell's KMS evidence key (default
     # evidence-<cell>); historic public keys stay published for the life of the evidence (DEC-F2 §5)
     evidence_signing_kid: str | None = None
@@ -78,6 +91,30 @@ class Settings(ServiceSettings):
     # ZID_OPERATOR_MAX_MINUTES (JSON capability -> minutes): may only lower the catalog ceilings
     operator_max_minutes: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
     operator_break_glass_max: timedelta = timedelta(minutes=60)
+    # ZID_OPERATOR_MODE: governed (default: just-in-time access with approvals, dual control) | direct (a registered
+    # operator holds every capability that does not touch customer data and needs no second approver; see
+    # operator_access/application/service.py). Direct mode is for a small team that runs the platform with one account.
+    operator_mode: Literal["governed", "direct"] = "governed"
+    # ZID_OPERATOR_DIRECT_ACK: a deployed cell (anything but local/test/dev) refuses direct mode unless this holds the
+    # exact sentence below, so removing dual control is a deliberate, reviewed act and never a stray setting.
+    operator_direct_ack: str | None = None
+    # First operator account from configuration (entrypoints/bootstrap_operator.py; one-shot, idempotent):
+    # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID (uuid of the operator's principal), ZID_OPERATOR_ORIGIN (the Operator
+    # Console's public origin; its redirect is <origin>/auth/callback unless ZID_OPERATOR_REDIRECT_URIS lists them),
+    # ZID_OPERATOR_JURISDICTION (ISO country of the operator), ZID_OPERATOR_BOOTSTRAP_ROLES (default all three) and
+    # ZID_OPERATOR_BOOTSTRAP_TICKET_MINUTES (how long the single-use passkey enrollment link lives).
+    operator_bootstrap_principal_id: str | None = None
+    operator_origin: str | None = None
+    operator_redirect_uris: tuple[str, ...] = ()
+    operator_jurisdiction: str = "GB"
+    operator_bootstrap_roles: tuple[str, ...] = ("REQUESTER", "APPROVER", "REVIEWER")
+    operator_bootstrap_ticket_minutes: int = 60
+    # --- Onboarding approvals (CR-036) ---------------------------------------------------------------------------
+    # ZID_ONBOARDING_APPROVAL: second_admin (default: approving a plan, starting a pilot, activating the company and
+    # activating a pilot scope each need an independent second administrator) | owner (the company's OWNER approves
+    # these steps themself, with no second person). A deployed cell also needs ZID_ONBOARDING_OWNER_ACK.
+    onboarding_approval: Literal["second_admin", "owner"] = "second_admin"
+    onboarding_owner_ack: str | None = None
     # --- Tenant onboarding (G-W0; ZID-OVERLAY-001 §4) -------------------------------------------
     # ZID_TENANT_BOOTSTRAP_TENANT_ID: the signup tenant whose principals may create new tenants;
     # unset = tenant self-service creation is disabled in this cell.

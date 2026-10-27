@@ -35,6 +35,7 @@ from zid_platform.modules.authority.ports import (
     load_grants_for_grantee,
 )
 from zid_platform.modules.onboarding.domain.gates import (
+    OWNER_ONLY_ACTIONS,
     TENANT_ADMIN_ACTIONS,
     Gate,
     GateStatus,
@@ -169,22 +170,35 @@ async def seed_administrator_grant(
     lets a second person approve the owner's protected steps. Returns the grant id, or None when the inviter holds no
     delegable administration grant (an owner seeded before delegation existed): the role then confers nothing."""
     now = now or datetime.now(UTC)
-    parent = next(
-        (
-            g
-            for g in await load_grants_for_grantee(conn, inviter_principal_id)
-            if g.status is GrantStatus.ACTIVE
-            and g.delegation_allowed
-            and g.max_delegation_depth >= 1
-            and g.authority.window.valid_to is not None
-            and g.authority.window.valid_to > now
-        ),
-        None,
-    )
+    eligible = [
+        g
+        for g in await load_grants_for_grantee(conn, inviter_principal_id)
+        if g.status is GrantStatus.ACTIVE
+        and g.delegation_allowed
+        and g.max_delegation_depth >= 1
+        and g.authority.window.valid_to is not None
+        and g.authority.window.valid_to > now
+    ]
+
+    def covers(g: Grant) -> int:
+        held = g.authority.actions
+        return (
+            len(TENANT_ADMIN_ACTIONS)
+            if not isinstance(held, frozenset)
+            else len(held & set(TENANT_ADMIN_ACTIONS))
+        )
+
+    # The grant that carries the most current administration actions, newest first: a refreshed owner grant (more
+    # actions) must win over the one issued at registration, or a new action never reaches the administrators.
+    parent = max(eligible, key=lambda g: (covers(g), g.issued_at), default=None)
     held = parent.authority.actions if parent is not None else None
     if parent is None or not isinstance(held, frozenset):
         return None
-    actions = tuple(a for a in TENANT_ADMIN_ACTIONS if a in catalog and a in held)
+    actions = tuple(
+        a
+        for a in TENANT_ADMIN_ACTIONS
+        if a in catalog and a in held and a not in OWNER_ONLY_ACTIONS
+    )
     if not actions:
         return None
     grant_id = str(uuid7())

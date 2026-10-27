@@ -32,13 +32,13 @@ __all__ = [
     "ConsumerScope",
     "OutOfOrder",
     "Publisher",
+    "bridge_forward",
     "consume",
     "emit",
     "event_type",
     "next_version",
     "prohibited_content",
     "relay_once",
-    "bridge_forward",
 ]
 
 TYPE_PATTERN = re.compile(r"^com\.zoiko\.id\.[a-z0-9_.]+\.v[0-9]+$")

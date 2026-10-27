@@ -483,6 +483,14 @@ def test_the_buyers_country_reaches_the_tax_engine_and_its_customer_reaches_the_
     def stripe_handler(req: httpx.Request) -> httpx.Response:
         from urllib.parse import parse_qs
 
+        if req.method == "GET":  # the customer lookup that names the saved payment method
+            return httpx.Response(
+                200,
+                json={
+                    "id": "cus_test",
+                    "invoice_settings": {"default_payment_method": "pm_card_test"},
+                },
+            )
         charged.append({k: v[0] for k, v in parse_qs(req.content.decode()).items()})
         return httpx.Response(200, json={"id": "pi_test_1", "status": "succeeded"})
 

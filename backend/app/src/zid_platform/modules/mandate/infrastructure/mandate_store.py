@@ -81,6 +81,19 @@ async def load_terms(conn: AsyncConnection, mandate_id: str) -> tuple[MandateTer
     return _terms(row), _budget(row), str(row._mapping["authority_grant_id"])
 
 
+async def creator_of(conn: AsyncConnection, mandate_id: str) -> str:
+    """The principal that created the mandate from their grant."""
+    row = (
+        await conn.execute(
+            text("SELECT created_by_principal_id FROM agent.mandate WHERE mandate_id = :id"),
+            {"id": uuid.UUID(mandate_id)},
+        )
+    ).first()
+    if row is None:
+        raise LedgerError("MANDATE_NOT_FOUND")
+    return str(row.created_by_principal_id)
+
+
 def _budget(row: Row[Any]) -> Budget:
     m = row._mapping
     return Budget(
@@ -106,11 +119,17 @@ async def list_mandates(
     status: MandateStatus | None = None,
     executor_principal_id: str | None = None,
     mandate_id: str | None = None,
+    involving_principal_id: str | None = None,
     limit: int = 100,
 ) -> list[MandateListing]:
-    """The tenant's mandates, newest first (RLS scopes the read to the caller's tenant)."""
+    """The tenant's mandates, newest first (RLS scopes the read to the caller's tenant).
+
+    `involving_principal_id` keeps only the mandates that person executes or created."""
     where: list[str] = ["TRUE"]
     params: dict[str, Any] = {"lim": limit}
+    if involving_principal_id is not None:
+        where.append("(executor_principal_id = :who OR created_by_principal_id = :who)")
+        params["who"] = uuid.UUID(involving_principal_id)
     if status is not None:
         where.append("status = CAST(:st AS agent.mandate_status)")
         params["st"] = status.value

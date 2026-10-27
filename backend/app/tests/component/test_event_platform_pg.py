@@ -57,6 +57,9 @@ async def emit_n(eng, tenant: str, n: int) -> list[str]:  # type: ignore[no-unty
         ]
 
 
+_FIXTURE_KEY = "-----BEGIN PRIVATE KEY-----\nMIGH..."  # zid-secret-scan: allow (synthetic fixture)
+
+
 def test_broker_outage_loses_nothing_and_republishes_the_same_events(
     rt_url: str, owner_url: str
 ) -> None:
@@ -212,9 +215,7 @@ def test_oversized_and_prohibited_payloads_are_refused_at_the_source(rt_url: str
             {"nested": {"client_secret": "x"}},
             {"items": [{"Refresh_Token": "x"}]},
             {"face_template": "..."},
-            {
-                "note": "-----BEGIN PRIVATE KEY-----\nMIGH..."
-            },  # zid-secret-scan: allow (synthetic fixture)
+            {"note": _FIXTURE_KEY},
         ):
             with pytest.raises(ValueError, match="prohibited"):
                 await attempt(bad)

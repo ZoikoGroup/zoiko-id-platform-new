@@ -255,6 +255,7 @@ async def capabilities(request: Request, op: OperatorDep) -> dict[str, Any]:
             for r in CONFLICT_SETS
         ],
         "break_glass_max_minutes": int(s.break_glass_max.total_seconds() // 60),
+        "mode": "direct" if service.direct_mode() else "governed",
     }
 
 

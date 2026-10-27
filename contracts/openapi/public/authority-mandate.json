@@ -1583,6 +1583,54 @@
         ]
       }
     },
+    "/v1/mandates/mine": {
+      "get": {
+        "description": "A person's own spending authority: no company-wide permission is needed to see what is theirs.",
+        "operationId": "list_mine_v1_mandates_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Mine V1 Mandates Mine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Mine",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
     "/v1/mandates/{mandate_id}/balance": {
       "get": {
         "operationId": "balance_v1_mandates__mandate_id__balance_get",

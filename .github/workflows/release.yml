@@ -38,6 +38,15 @@ jobs:
       attestations: write
     uses: ./.github/workflows/build-image.yml
 
+  build-frontend:
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/Zoiko-ID-Platform'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/build-frontend-image.yml
+
   promote:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04

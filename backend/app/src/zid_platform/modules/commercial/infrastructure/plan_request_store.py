@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 _COLS = (
     "request_id, tenant_id, plan_code, current_plan, note, requested_by, status, created_at, decided_by, decided_at, "
-    "decision_note"
+    "decision_note, company_name"
 )
 
 
@@ -41,11 +41,12 @@ async def insert(
     current_plan: str,
     note: str | None,
     requested_by: str,
+    company_name: str | None = None,
 ) -> None:
     await conn.execute(
         text(
-            "INSERT INTO commercial.plan_request (request_id, tenant_id, plan_code, current_plan, note, requested_by) "
-            "VALUES (:id, :t, :plan, :cur, :note, :by)"
+            "INSERT INTO commercial.plan_request (request_id, tenant_id, plan_code, current_plan, note, requested_by, "
+            "company_name) VALUES (:id, :t, :plan, :cur, :note, :by, :co)"
         ),
         {
             "id": uuid.UUID(request_id),
@@ -54,6 +55,7 @@ async def insert(
             "cur": current_plan,
             "note": note or None,
             "by": uuid.UUID(requested_by),
+            "co": company_name,
         },
     )
 

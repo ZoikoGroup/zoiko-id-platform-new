@@ -122,3 +122,51 @@ def test_kms_evidence_signer_uses_the_configured_key() -> None:
     signer = evidence_signer_from_settings(settings, kms_client=object())
     assert isinstance(signer, KmsSigner) and signer.kid == "evidence-eu-1"
     assert isinstance(handle_key_from_settings(settings, kms_client=object()), KmsMacKey)
+
+
+def test_gcp_kms_key_names_and_classes_come_from_settings() -> None:
+    from zid_crypto.gcp_kms import GcpKmsMacKey, GcpKmsSigner
+    from zid_platform.crypto_runtime import evidence_signer_from_settings, handle_key_from_settings
+
+    settings = Settings(
+        environment="production",
+        cell_id="eu-1",
+        key_provider="gcp-kms",
+        gcp_kms_project="zoiko-prod",
+        gcp_kms_location="europe-west2",
+        kms_key_ids={"DATA_KEK": "projects/other/locations/l/keyRings/r/cryptoKeys/data"},
+    )
+    assert kek_ref(settings, KeyPurpose.DATA_KEK).key_id.startswith("projects/other/")
+    assert kek_ref(settings, KeyPurpose.BACKUP_KEK).key_id == (
+        "projects/zoiko-prod/locations/europe-west2/keyRings/zid-eu-1/cryptoKeys/backup_kek"
+    )
+    provider = key_provider_from_settings(settings, kms_client=object())  # type: ignore[arg-type]
+    assert type(provider).__name__ == "GcpKmsKeyProvider"
+    signer = evidence_signer_from_settings(settings, kms_client=object())
+    assert isinstance(signer, GcpKmsSigner) and signer.kid == "evidence-eu-1"
+    assert isinstance(handle_key_from_settings(settings, kms_client=object()), GcpKmsMacKey)
+    with pytest.raises(RuntimeError, match="ZID_GCP_KMS_PROJECT"):
+        kek_ref(Settings(environment="production", key_provider="gcp-kms"), KeyPurpose.DATA_KEK)
+
+
+@pytest.mark.parametrize("provider", ["gcp-kms", "aws-kms"])
+def test_deployed_signing_key_rings_are_distinct_kms_keys(provider: str) -> None:
+    """A deployed cell issues tokens only with KMS-backed keys, one per purpose, none of them local."""
+    from zid_platform.crypto_runtime import kms_keyrings_from_settings
+
+    settings = Settings(
+        environment="production",
+        cell_id="eu-1",
+        key_provider=provider,  # type: ignore[arg-type]
+        gcp_kms_project="zoiko-prod",
+        gcp_kms_location="europe-west2",
+        kms_key_ids={"SIGNING_TOKEN": "explicit-token-key"},
+        signing_retiring_keys={"token": ({"kty": "EC", "kid": "old"},)},
+    )
+    rings = kms_keyrings_from_settings(settings, kms_client=object())
+    assert rings.distinct()
+    assert {r.active.kid for r in (rings.token, rings.set)} == {"token-eu-1", "set-eu-1"}
+    assert rings.token.retiring == [{"kty": "EC", "kid": "old"}] and rings.set.retiring == []
+    assert all(type(r.active).__name__ != "LocalSigner" for r in (rings.token, rings.credential))
+    with pytest.raises(RuntimeError, match="outside local/test"):
+        kms_keyrings_from_settings(Settings(environment="production"))

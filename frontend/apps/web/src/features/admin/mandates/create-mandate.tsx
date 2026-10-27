@@ -1,6 +1,6 @@
 "use client";
 
-import type { Mandate, MandateCreate } from "@zoiko/api-client";
+import type { AuthorityGrant, Mandate, MandateCreate } from "@zoiko/api-client";
 import { Banner, Button, DateTime, Dialog, FieldGroup, Select, Switch, TextField } from "@zoiko/ui";
 import { Info } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -22,7 +22,18 @@ import {
   useIdempotency,
   useMe,
 } from "../authority/shared";
+import { ACTION_CHOICES, ChoiceList, RESOURCE_CHOICES } from "../authority/choice-list";
 import { MANDATES_KEY } from "./mandate-status";
+
+/** The purpose is only a label that ties the mandate to why it exists; a fresh one is made for each mandate. */
+const newPurpose = () => globalThis.crypto.randomUUID();
+
+/** A mandate is built on a grant that lets its holder create mandates; the others (administration) cannot carry one. */
+const canCarryMandate = (g: AuthorityGrant) => g.actions === null || g.actions.includes("mandate.create");
+
+/** Does a grant's resource pattern cover this one? `payment:*` covers `payment:abc`; `*` covers everything. */
+const covers = (pattern: string, resource: string) =>
+  pattern === "*" || pattern === resource || (pattern.endsWith(":*") && resource.startsWith(pattern.slice(0, -1)));
 
 export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (m: Mandate) => void }) {
   const me = useMe();
@@ -30,7 +41,7 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
   const [f, setF] = useState({
     grant: "",
     executor: "",
-    purpose: "",
+    purpose: newPurpose(),
     actions: "",
     resources: "",
     tools: "",
@@ -48,6 +59,16 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
   });
   const set = <K extends keyof typeof f>(k: K) => (v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
   const [problem, setProblem] = useState<string | null>(null);
+
+  // The grants this person can build a mandate on. With exactly one, it is chosen for them.
+  const gq = { status: "ACTIVE" as const, grantee_principal_id: me, limit: 200 };
+  const mine = useCellQuery(["authority", "grants", "picker", gq], (api) => api.authority.grants(gq));
+  const usable = (mine.data?.items ?? []).filter(canCarryMandate);
+  const grantId = f.grant || (usable.length === 1 ? (usable[0]?.authority_grant_id ?? "") : "");
+  const chosen = usable.find((g) => g.authority_grant_id === grantId) ?? null;
+  // Offer only what the chosen grant allows, so the mandate can never ask for more than it was given.
+  const actionChoices = ACTION_CHOICES.filter((c) => c.id !== "mandate.create" && (!chosen || chosen.actions === null || chosen.actions.includes(c.id)));
+  const resourceChoices = RESOURCE_CHOICES.filter((c) => !chosen || chosen.resources === null || chosen.resources.some((p) => covers(p, c.id)));
   const keyFor = useIdempotency(newIdempotencyKey);
 
   const create = useCellMutation((api, v: { body: MandateCreate; key: string }) => api.mandates.create(v.body, v.key), {
@@ -57,7 +78,7 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
   });
 
   function build(): MandateCreate | string {
-    if (!UUID_RE.test(f.grant)) return "Choose the source grant.";
+    if (!UUID_RE.test(grantId)) return "Choose the source grant.";
     if (!UUID_RE.test(f.executor)) return "Choose the executor.";
     if (!UUID_RE.test(f.purpose.trim())) return "The purpose ID must be a UUID.";
     const allowed_actions = listInput(f.actions);
@@ -82,7 +103,7 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
     const depth = intInput(f.depth) ?? 0;
     if (f.delegate && (Number.isNaN(depth) || depth < 1 || depth > 16)) return "Delegation depth must be between 1 and 16.";
     return {
-      authority_grant_id: f.grant,
+      authority_grant_id: grantId,
       executor_principal_id: f.executor,
       purpose_id: f.purpose.trim(),
       allowed_actions,
@@ -141,10 +162,11 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
             <GrantPicker
               label="Source grant"
               isRequired
-              value={f.grant}
+              value={grantId}
               onChange={set("grant")}
               granteeId={me}
-              description="Active grants you hold."
+              filter={canCarryMandate}
+              description="Only grants that let you give out spending limits are listed."
             />
             <PrincipalField
               label="Executor"
@@ -161,7 +183,7 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
               onChange={set("purpose")}
               mono
               placeholder="UUID"
-              description="The registered purpose this mandate serves; it must be within the grant's purposes."
+              description="Made for you. Change it only if the grant limits purposes and you were given a specific one."
               errorMessage={f.purpose.trim() && !UUID_RE.test(f.purpose.trim()) ? "Enter a UUID." : undefined}
             />
             <Select
@@ -172,13 +194,29 @@ export function CreateMandateDialog({ onClose, onCreated }: { onClose: () => voi
               description="The risk class the source grant must resolve at."
             />
           </div>
-          {UUID_RE.test(f.grant) ? <GrantBounds grantId={f.grant} onUse={(a, r) => setF((s) => ({ ...s, actions: a.join("\n"), resources: r.join("\n") }))} /> : null}
+          {UUID_RE.test(grantId) ? <GrantBounds grantId={grantId} onUse={(a, r) => setF((s) => ({ ...s, actions: a.filter((x) => x !== "mandate.create").join("\n"), resources: r.join("\n") }))} /> : null}
         </FieldGroup>
 
         <FieldGroup legend="Scope" description="One per line or comma separated. Empty tools or jurisdictions mean no restriction.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label="Allowed actions" isRequired multiline rows={3} mono value={f.actions} onChange={set("actions")} placeholder="purchase.create" />
-            <TextField label="Resource scopes" isRequired multiline rows={3} mono value={f.resources} onChange={set("resources")} placeholder="vendor:*" />
+            <ChoiceList
+              label="Allowed actions"
+              description="Tick what the executor may do."
+              choices={actionChoices}
+              value={f.actions}
+              onChange={set("actions")}
+              otherLabel="Another action name"
+              otherPlaceholder="exact.action.name"
+            />
+            <ChoiceList
+              label="Resource scopes"
+              description="Tick what it applies to."
+              choices={resourceChoices}
+              value={f.resources}
+              onChange={set("resources")}
+              otherLabel="Another resource"
+              otherPlaceholder="type:id"
+            />
             <TextField label="Tools" multiline rows={2} mono value={f.tools} onChange={set("tools")} />
             <TextField label="Jurisdictions" multiline rows={2} mono value={f.jurisdictions} onChange={set("jurisdictions")} placeholder="US" />
           </div>

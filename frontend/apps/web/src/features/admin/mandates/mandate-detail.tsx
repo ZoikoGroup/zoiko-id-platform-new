@@ -83,7 +83,7 @@ function Amount({ value, currency }: { value: string | number | null | undefined
 }
 
 /** Live balance from the ledger, refreshed every 10 s while the panel is open. */
-function BalanceView({ mandateId, mandate }: { mandateId: string; mandate: Mandate }) {
+export function BalanceView({ mandateId, mandate }: { mandateId: string; mandate: Mandate }) {
   const balance = useCellQuery([...MANDATES_KEY, "balance", mandateId], (api) => api.mandates.balance(mandateId), { refetchInterval: 10_000 });
   return (
     <section aria-labelledby="balance-heading" className="space-y-3">

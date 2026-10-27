@@ -22,6 +22,8 @@ export type Action = {
   group: "catalogue" | "plans" | "sales" | "billing" | "vendors" | "assurance";
   title: string;
   description: string;
+  /** Shown instead of `description` when the cell runs the operator plane in direct mode (no second approver). */
+  directDescription?: string;
   method: "POST" | "PUT";
   path: string;
   /** The JIT capability the operator must hold (shown so a refusal is understood, never enforced here). */
@@ -45,6 +47,7 @@ export const ACTIONS: Action[] = [
     group: "catalogue",
     title: "New draft price book",
     description: "Start a DRAFT, optionally as a copy of an existing book. Nothing is visible to customers until a second operator approves it.",
+    directDescription: "Start a DRAFT, optionally as a copy of an existing book. Nothing is visible to customers until the book is approved.",
     method: "POST",
     path: "/v1/commercial/price-books",
     capability: "commercial.catalog.manage",
@@ -76,6 +79,7 @@ export const ACTIONS: Action[] = [
     group: "catalogue",
     title: "Approve a price book",
     description: "Dual control: a different operator from the one who drafted it. Rates then apply to new orders only, never retroactively.",
+    directDescription: "Approves the book yourself. Rates then apply to new orders only, never retroactively, and an approved book can no longer be edited.",
     method: "POST",
     path: "/v1/commercial/price-books/{price_book_id}:approve",
     capability: "commercial.catalog.manage",
@@ -103,6 +107,7 @@ export const ACTIONS: Action[] = [
     group: "plans",
     title: "Contracted override",
     description: "A capability or extra connections beyond the plan, with a second approver and an expiry.",
+    directDescription: "A capability or extra connections beyond the plan, with an expiry.",
     method: "POST",
     path: "/v1/commercial/tenants/{tenant_id}/overrides",
     capability: "tenant.config.change",
@@ -252,6 +257,7 @@ export const ACTIONS: Action[] = [
     group: "sales",
     title: "Activate an order",
     description: "Two-person, idempotent: the order's plan becomes the tenant's entitlement from its effective date.",
+    directDescription: "Idempotent: the order's plan becomes the tenant's entitlement from its effective date.",
     method: "POST",
     path: "/v1/commercial/orders/{order_id}:activate",
     capability: "commercial.sales.manage",
@@ -286,6 +292,7 @@ export const ACTIONS: Action[] = [
     group: "billing",
     title: "Request a usage adjustment",
     description: "Corrects an event without editing it. A different operator must decide it.",
+    directDescription: "Corrects an event without editing it. You decide it yourself.",
     method: "POST",
     path: "/v1/commercial/tenants/{tenant_id}/adjustments",
     capability: "commercial.billing.manage",
@@ -301,6 +308,7 @@ export const ACTIONS: Action[] = [
     group: "billing",
     title: "Decide a usage adjustment",
     description: "Approve or reject another operator's request. You cannot decide your own.",
+    directDescription: "Approve or reject an adjustment request.",
     method: "POST",
     path: "/v1/commercial/tenants/{tenant_id}/adjustments/{adjustment_id}:decide",
     capability: "commercial.billing.manage",
@@ -329,6 +337,7 @@ export const ACTIONS: Action[] = [
     group: "billing",
     title: "Close a month",
     description: "Freeze, rate and draft in one resumable run. Issuing stays a second person's step.",
+    directDescription: "Freeze, rate and draft in one resumable run. Issuing is a separate step.",
     method: "POST",
     path: "/v1/commercial/tenants/{tenant_id}/close",
     capability: "commercial.billing.manage",
@@ -349,6 +358,7 @@ export const ACTIONS: Action[] = [
     group: "billing",
     title: "Issue an invoice",
     description: "A second person issues it. The invoice is then immutable; a correction is a credit note.",
+    directDescription: "Issues the invoice. It is then immutable; a correction is a credit note.",
     method: "POST",
     path: "/v1/commercial/tenants/{tenant_id}/invoices/{invoice_id}:issue",
     capability: "commercial.billing.manage",

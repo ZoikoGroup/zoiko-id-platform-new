@@ -35,6 +35,8 @@ export function useCellMutation<V, T>(
 }
 
 const CODE_HELP: Record<string, string> = {
+  SHADOW_EXIT_CRITERIA_FAILED: "Your application has not sent enough access questions yet. The Shadow step shows the progress and what to do next.",
+  PEP_CONTEXT_INCOMPLETE: "Some questions were missing details your application said it would always send. Add them to each question.",
   PROTECTED_ACTION_DENIED: "Your authority grants do not cover this action in this tenant.",
   APPROVAL_REQUIRED: "A second administrator must approve this exact change first.",
   STEP_UP_REQUIRED: "This action needs a fresh, high-assurance passkey check.",
@@ -44,6 +46,19 @@ const CODE_HELP: Record<string, string> = {
   WRITER_EPOCH_STALE: "The ledger writer for this cell changed. Retry in a moment.",
   CSRF_REJECTED: "The request could not be verified. Reload the page and try again.",
   VALIDATION_FAILED: "Some fields are not valid.",
+  MANDATE_SOURCE_INVALID: "The authority this limit was built on has been withdrawn or has changed, so it cannot be switched on. Create a new one from a current grant.",
+  GRANT_SCOPE_WIDENING: "A limit cannot give more than the grant it comes from. Lower the amount, shorten the dates or remove an action.",
+  GRANT_DELEGATION_NOT_ALLOWED: "The grant behind this limit does not allow it to be passed on.",
+  GRANT_DEPTH_EXCEEDED: "This limit has already been passed on as far as the grant allows.",
+  MANDATE_EXECUTOR_MISMATCH: "Only the person or agent this limit was given to can use it.",
+  MANDATE_SCOPE_EXCEEDED: "This action is outside what the limit allows.",
+  MANDATE_TOOL_NOT_ALLOWED: "This tool is outside what the limit allows.",
+  MANDATE_BUDGET_INVALID: "The amounts do not fit together. A single payment limit cannot be higher than the total.",
+  MANDATE_CURRENCY_MISMATCH: "Use one currency for every amount in the limit.",
+  MANDATE_INVALID_TRANSITION: "That change is not possible from the limit's current state.",
+  CONCURRENT_MODIFICATION: "Someone changed this at the same moment. Reload and try again.",
+  RESERVATION_EXPIRED: "The amount that was held has timed out. Ask for it again.",
+  AUTHORITY_REVOKED_DURING_EXECUTION: "The authority behind this was withdrawn while it was being used, so it was stopped.",
 };
 
 /** Uniform rendering of any cell error. Never shows stacks or raw bodies. */
@@ -74,7 +89,8 @@ export function ApiErrorView({ error, title, onRetry }: { error: unknown; title?
         onRetry={error.retryable || error.isStepUpRequired ? onRetry : undefined}
         error={{
           code: error.code,
-          message: help && error.message.endsWith("failed.") ? help : error.message,
+          // A bare code (the cell sometimes sends only the code as the message) reads as the plain sentence too.
+          message: help && (error.message.endsWith("failed.") || /^[A-Z][A-Z_]+$/.test(error.message)) ? help : error.message,
           correlationId: error.correlationId,
           details: error.details.map((d) => (d.field ? `${d.field}: ${d.issue}` : d.issue)),
         }}

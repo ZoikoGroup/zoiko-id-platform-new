@@ -1,13 +1,13 @@
 "use client";
 
 import type { Mandate, MandateStatus } from "@zoiko/api-client";
-import { Button, Card, CopyId, DataTable, DateTime, EmptyState, FilterBar, ListEmpty, PageHeader, StatusBadge, humanize, type Column } from "@zoiko/ui";
+import { Banner, Button, Card, CopyId, DataTable, DateTime, EmptyState, FilterBar, ListEmpty, PageHeader, StatusBadge, humanize, type Column } from "@zoiko/ui";
 import { Plus, Scale } from "lucide-react";
 import { useState } from "react";
 
 import { QueryView, useCellQuery } from "@/lib/cell";
 
-import { ScopeList, UUID_RE } from "../authority/shared";
+import { ScopeList, UUID_RE, useMe } from "../authority/shared";
 import { CreateMandateDialog } from "./create-mandate";
 import { MandateDetail } from "./mandate-detail";
 import { MANDATES_KEY, StatusChangeDialog, allowedMoves, budgetSummary, type Move } from "./mandate-status";
@@ -20,6 +20,17 @@ export function MandatesPage() {
   const executorId = UUID_RE.test(executor.trim()) ? executor.trim() : undefined;
   const q = { status: (filters.status || undefined) as MandateStatus | undefined, executor_principal_id: executorId };
   const mandates = useCellQuery([...MANDATES_KEY, "list", q], (api) => api.mandates.list(q));
+
+  // Creating a mandate hands out company money, so it needs a grant of its own (`mandate.create`) that administration
+  // does not include. Offer the button only to someone who holds one; the cell refuses everyone else.
+  const me = useMe();
+  const myGrants = useCellQuery(["authority", "grants", "can-create-mandate", me], (api) =>
+    api.authority.grants({ status: "ACTIVE", grantee_principal_id: me, limit: 200 }),
+  );
+  // Shown unless we positively know this person holds no such grant: a slow or failed lookup must never hide it.
+  const known = Boolean(me) && myGrants.isSuccess;
+  const cannotCreate = known && !(myGrants.data?.items ?? []).some((g) => g.actions === null || g.actions.includes("mandate.create"));
+  const canCreate = !cannotCreate;
 
   const [picked, setPicked] = useState<Mandate | null>(null);
   const [creating, setCreating] = useState(false);
@@ -64,13 +75,21 @@ export function MandatesPage() {
       <PageHeader
         icon={Scale}
         title="Mandates"
-        description="Bounded, budgeted authority handed from a grant to an executor such as an AI agent or service."
+        description="Bounded, budgeted authority handed from a grant to an executor such as an AI agent or service. Owners and administrators can switch on, pause or revoke any of them; the person who runs or created one can pause it, and its creator can revoke it."
         actions={
-          <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
-            Create mandate
-          </Button>
+          canCreate ? (
+            <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
+              Create mandate
+            </Button>
+          ) : undefined
         }
       />
+      {cannotCreate ? (
+        <Banner tone="info" title="You can review and switch mandates on or off, but not create them">
+          Creating a mandate needs a spending grant that includes <strong>Give someone a spending limit</strong>. Ask the owner to issue you one under
+          Authority, or ask the person who holds one to create it. You can then activate, pause or revoke it here.
+        </Banner>
+      ) : null}
       <Card padded={false}>
         <div className="border-b border-border px-5 py-3">
           <FilterBar
@@ -104,7 +123,9 @@ export function MandatesPage() {
                   />
                 ) : (
                   <EmptyState icon={Scale} title="No mandates yet">
-                    Create a mandate from a grant you hold to let an agent or service act within a budget.
+                    {canCreate
+                      ? "Press Create mandate to hand part of your spending grant to an agent, a service or a colleague, with a budget and an end date."
+                      : "Nobody has created a mandate yet. Once someone with a spending grant creates one, it appears here for you to switch on."}
                   </EmptyState>
                 )
               }

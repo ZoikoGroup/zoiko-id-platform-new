@@ -26,6 +26,7 @@ CONSOLE_CHANGES = {
     "commercial.plan.request",  # ask for a different plan (billing and subscription pages)
     "configuration.manage",
     "commercial.budget.manage",
+    "mandate.manage",  # activate, pause or revoke a mandate (mandates page)
     "communication.contact.manage",
     "notification.alert.manage",
     "webhook.endpoint.manage",

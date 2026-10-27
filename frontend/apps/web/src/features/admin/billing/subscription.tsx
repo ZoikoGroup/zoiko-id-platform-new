@@ -1,14 +1,14 @@
 "use client";
 
 import type { EntitlementView } from "@zoiko/api-client";
-import { Badge, Card, DataTable, EmptyState, KeyValues, type Column } from "@zoiko/ui";
+import { Badge, Banner, ButtonLink, Card, DataTable, EmptyState, KeyValues, type Column } from "@zoiko/ui";
 import { Layers } from "lucide-react";
 
 import { useTenant } from "@/features/onboarding/shared";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { OrdersCard, PlansCard } from "./orders-plans";
-import { BILLING_KEY, count } from "./shared";
+import { BILLING_KEY, count, money } from "./shared";
 
 export function SubscriptionSection() {
   const tenant = useTenant();
@@ -58,7 +58,16 @@ function Body({ e }: { e: EntitlementView }) {
   const l = e.limits;
   return (
     <div className="space-y-4">
-      <Card title={e.plan_label} description={`Plan ${e.plan}, ${e.source === "DEFAULT" ? "the default plan (no signed order)" : "from a signed order"}.`}>
+      <CardNudge plan={e.plan} />
+      <Card
+        title={e.plan_label}
+        description={`Plan ${e.plan}, ${e.source === "DEFAULT" ? "the default plan (no signed order)" : "from a signed order"}.`}
+        actions={
+          <ButtonLink href="#plans" size="sm" variant="secondary">
+            Change plan
+          </ButtonLink>
+        }
+      >
         <KeyValues
           columns={4}
           items={[
@@ -73,8 +82,13 @@ function Body({ e }: { e: EntitlementView }) {
             ["Enterprise SSO connections", count(l.sso_included)],
           ]}
         />
+        <Estimate />
         <p className="mt-3 text-xs text-ink-muted">{e.note}</p>
       </Card>
+      <div id="plans" className="scroll-mt-20">
+        <PlansCard current={e.plan} />
+      </div>
+      <OrdersCard />
       <Card title="Capabilities" padded={false}>
         <DataTable<Cap>
           caption="Capabilities on your plan"
@@ -84,8 +98,48 @@ function Body({ e }: { e: EntitlementView }) {
           empty={<EmptyState title="No capabilities listed" icon={Layers} />}
         />
       </Card>
-      <OrdersCard />
-      <PlansCard current={e.plan} />
     </div>
+  );
+}
+
+
+/** On a paid plan with no card saved, the owner is told where to add one. Quiet on the free plan, for people who cannot
+ * change the card, and once a card is saved. */
+function CardNudge({ plan }: { plan: string }) {
+  const payment = useCellQuery([...BILLING_KEY, "payment"], (api) => api.billing.payment(), { enabled: plan !== "DEVELOPER" });
+  const p = payment.data;
+  if (plan === "DEVELOPER" || !p || !p.configured || !p.account_linked || !p.can_manage || p.method) return null;
+  return (
+    <Banner
+      tone="warn"
+      title="Add a card to pay for your plan"
+      action={
+        <ButtonLink href="/admin/billing?payment=add" size="sm" variant="secondary">
+          Add a card
+        </ButtonLink>
+      }
+    >
+      You are on a paid plan, and invoices are charged to a saved card. Add one under the Payment tab.
+    </Banner>
+  );
+}
+
+/** What this month is on track to cost, from the same preview as the Bill preview tab. Nothing is shown until there is
+ * a price to project from. */
+function Estimate() {
+  const preview = useCellQuery([...BILLING_KEY, "preview"], (api) => api.billing.preview());
+  const p = preview.data;
+  if (!p || p.status !== "ESTIMATE" || p.bill_to_date === undefined) return null;
+  return (
+    <p className="mt-3 text-sm text-ink-muted">
+      This month so far: <span className="font-medium tabular-nums text-ink">{money(p.bill_to_date, p.currency)}</span>
+      {p.projected_bill ? (
+        <>
+          . On track for <span className="font-medium tabular-nums text-ink">{money(p.projected_bill, p.currency)}</span> by month end (an estimate; see Bill preview).
+        </>
+      ) : (
+        "."
+      )}
+    </p>
   );
 }

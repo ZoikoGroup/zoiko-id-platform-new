@@ -67,8 +67,10 @@ const API_PATH_PREFIXES = [
   "/v1/search",
   "/v1/settings",
   "/v1/usage",
-  // Billing (ZID-COM-001): the tenant's own plan, ledger, invoices and budgets. The public catalogue and
-  // calculator do not go through here; they are read without a session.
+  // Billing (ZID-COM-001): the tenant's own plan, ledger, invoices and budgets. The public pricing page reads the
+  // catalogue server-side without a session; the console's Subscription tab reads the same read-only catalogue here
+  // so a company can see the plans on offer and ask for one.
+  "/v1/catalog$",
   "/v1/tenants/",
   "/v1/billing/",
   "/v1/account/",

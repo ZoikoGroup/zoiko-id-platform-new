@@ -32,7 +32,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.onboarding.application import gates as gate_service
 from zid_platform.modules.onboarding.application import plans as plan_service
 from zid_platform.modules.onboarding.application.organization import submit_organization
-from zid_platform.modules.onboarding.domain.gates import Gate, OnboardingError
+from zid_platform.modules.onboarding.domain.gates import OWNER_APPROVER, Gate, OnboardingError
 from zid_platform.modules.onboarding.infrastructure import store as plan_store
 from zid_platform.modules.onboarding.infrastructure.store import Plan, Stage
 from zid_platform.modules.organization.ports import RegistryAdapter, adapter_for
@@ -229,7 +229,8 @@ class PlanBody(BaseModel):
 
 class ApprovalBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    approval_request_id: str = Field(min_length=1, max_length=64)
+    # Needed unless the company runs owner approval and the caller is its OWNER (CR-036)
+    approval_request_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class RollbackBody(BaseModel):
@@ -241,6 +242,104 @@ class StageBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
     scope: dict[str, Any]
+
+
+async def _owner_self_approves(request: Request, conn: Any, caller: Caller) -> bool:
+    """Owner approval (CR-036): the cell runs it and the caller is this company's active OWNER."""
+    if getattr(request.app.state, "onboarding_approval", "second_admin") != "owner":
+        return False
+    roles = await live_roles(conn, _me(caller))
+    return any(a.role is Role.OWNER and a.status is RoleStatus.ACTIVE for a in roles)
+
+
+async def _second_person(
+    request: Request,
+    conn: Any,
+    caller: Caller,
+    *,
+    action: str,
+    resource: str,
+    change: str,
+    approval_request_id: str | None,
+) -> str:
+    """The approver of a two-person step. Owner approval: the owner's own authority is checked as always and the step is
+    recorded as approved by OWNER_APPROVER (the database refuses an approver equal to the author); otherwise an
+    independent second administrator's approval is required."""
+    if await _owner_self_approves(request, conn, caller):
+        await protected_action(conn, caller, action=action, resource=resource, change=change)
+        return OWNER_APPROVER
+    if not approval_request_id:
+        raise ZidError(
+            "APPROVAL_REQUIRED",
+            "A second administrator must approve this change first.",
+            http_status=403,
+        )
+    return await approved_by_second_admin(
+        conn,
+        caller,
+        action=action,
+        resource=resource,
+        change=change,
+        approval_request_id=approval_request_id,
+    )
+
+
+@router.get("/mode")
+async def approval_mode(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """How this company's two-person onboarding steps are approved, and whether the caller may approve them alone."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _admin_read(conn, caller)
+        return {
+            "approval": getattr(request.app.state, "onboarding_approval", "second_admin"),
+            "self_approve": await _owner_self_approves(request, conn, caller),
+        }
+
+
+@router.get("/connection")
+async def connection_progress(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What a person needs to connect an application, in one read: where to send decisions and how far shadow is.
+
+    `shadow` is present while the company is in SHADOW or PILOT: the decisions seen so far against what the plan needs,
+    each as a plain ratio, and `ready` when every shadow gate passes. Nothing here is a secret."""
+    from zid_platform.modules.onboarding.domain.plan import shadow_gates
+    from zid_platform.modules.tenant.ports import load_tenant
+
+    tenant_id = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _admin_read(conn, caller)
+        tenant = await load_tenant(conn, tenant_id)
+        plan = next(
+            (p for p in await plan_store.plans(conn) if p.status.value != "SUPERSEDED"), None
+        )
+        shadow: dict[str, Any] | None = None
+        if plan is not None and tenant is not None and tenant.status.value in ("SHADOW", "PILOT"):
+            stats = await plan_store.shadow_stats(conn, plan.shadow_started_at or plan.created_at)
+            c = plan.exit_criteria
+            coverage = stats.context_complete / stats.observations if stats.observations else 0.0
+            r3 = stats.r3_context_complete / stats.r3_observations if stats.r3_observations else 1.0
+            agreement = 1 - stats.mismatches / stats.compared if stats.compared else None
+            shadow = {
+                "observations": stats.observations,
+                "observations_needed": c.min_observations,
+                "context_coverage": round(coverage, 4),
+                "context_coverage_needed": c.min_context_coverage,
+                "r3_context_coverage": round(r3, 4),
+                "r3_context_coverage_needed": c.r3_context_coverage,
+                "agreement": None if agreement is None else round(agreement, 4),
+                "agreement_needed": round(1 - c.max_mismatch_rate, 4),
+                "false_allows": stats.false_allows,
+                "ready": all(g.status.value == "PASS" for g in shadow_gates(stats, c)),
+            }
+    token_settings = getattr(request.app.state, "token_settings", None)
+    api_base = str(getattr(request.app.state, "token_audience", "") or "").rstrip("/")
+    issuer = str(token_settings.issuer).rstrip("/") if token_settings is not None else api_base
+    return {
+        "api_base": api_base,
+        "evaluation_url": f"{api_base}/access/v1/evaluation",
+        "token_url": f"{issuer}/oauth2/token",
+        "stage": tenant.status.value if tenant is not None else None,
+        "shadow": shadow,
+    }
 
 
 async def _admin_read(conn: Any, caller: Caller) -> None:
@@ -276,7 +375,8 @@ async def approve_plan(
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        approver = await approved_by_second_admin(
+        approver = await _second_person(
+            request,
             conn,
             caller,
             action=MANAGE,
@@ -337,7 +437,8 @@ async def _approved_move(
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        approver = await approved_by_second_admin(
+        approver = await _second_person(
+            request,
             conn,
             caller,
             action=ACTIVATE,
@@ -415,7 +516,8 @@ async def activate_stage(
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        approver = await approved_by_second_admin(
+        approver = await _second_person(
+            request,
             conn,
             caller,
             action=ACTIVATE,

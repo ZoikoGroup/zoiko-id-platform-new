@@ -1,6 +1,8 @@
 """Mandate API (ZID-API-001 §11; ZID-MANDATE-001 §9-14; MAND-06, MAND-08..12, MAND-21).
 
     GET  /v1/mandates                            list, newest first            (mandate.read, R1)
+    GET  /v1/mandates/mine                       mandates the caller executes or created, with what
+                                                 they may do to each (no permission needed: it is theirs)
     POST /v1/mandates                            grantee attenuates its grant  (mandate.create, R3;
                                                  Idempotency-Key required; created PENDING_APPROVAL)
     POST /v1/mandates/{id}/reservations          reserve capacity (Idempotency-Key required)
@@ -8,6 +10,8 @@
     POST /v1/mandate-reservations/{id}:release   release unused capacity
     GET  /v1/mandates/{id}/balance               committed/reserved/remaining (informational only)
     POST /v1/mandates/{id}:activate|:pause|:revoke
+                                                 the executor or creator may pause, the creator may revoke;
+                                                 anything else is `mandate.manage` (owner, administrators; CR-039)
 
 A mandate never exceeds its source grant, and only the grant's grantee can create one (CR-010).
 Only the mandate's executor may reserve against it, and only for an action and tool inside its terms.
@@ -46,6 +50,7 @@ from zid_platform.modules.mandate.domain.ledger import (
     Reservation,
     remaining,
 )
+from zid_platform.modules.mandate.domain.oversight import Move, own_moves
 from zid_platform.modules.mandate.infrastructure.ledger_store import (
     commit_reservation,
     read_balance,
@@ -54,6 +59,7 @@ from zid_platform.modules.mandate.infrastructure.ledger_store import (
 )
 from zid_platform.modules.mandate.infrastructure.mandate_store import (
     MandateListing,
+    creator_of,
     list_mandates,
     load_terms,
     set_mandate_status,
@@ -211,6 +217,43 @@ async def list_all(
             limit=limit,
         )
     return {"items": [_mandate_view(x) for x in items]}
+
+
+async def _own_view(conn: Any, x: MandateListing, principal_id: str) -> dict[str, Any]:
+    creator = await creator_of(conn, x.terms.mandate_id)
+    moves = own_moves(principal_id, executor=x.terms.executor_principal_id, creator=creator)
+    allowed = [m.value for m in (Move.PAUSE, Move.REVOKE) if m in moves]
+    # the move only makes sense from the state it is in (the same table the console uses)
+    legal = {
+        MandateStatus.ACTIVE: {"pause", "revoke"},
+        MandateStatus.PAUSED: {"revoke"},
+        MandateStatus.PENDING_APPROVAL: {"revoke"},
+        MandateStatus.EXHAUSTED: {"revoke"},
+    }.get(x.terms.status, set())
+    return {
+        **_mandate_view(x),
+        "i_am": [
+            r
+            for r, who in (("executor", x.terms.executor_principal_id), ("creator", creator))
+            if who == principal_id
+        ],
+        "my_moves": [m for m in allowed if m in legal],
+    }
+
+
+@router.get("/v1/mandates/mine")
+async def list_mine(
+    request: Request,
+    caller: CallerDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> dict[str, Any]:
+    """A person's own spending authority: no company-wide permission is needed to see what is theirs."""
+    me = caller.ctx.principal_id
+    if not me:
+        raise http_error("PRINCIPAL_REQUIRED", "Sign in to see your own mandates.")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        items = await list_mandates(conn, involving_principal_id=me, limit=limit)
+        return {"items": [await _own_view(conn, x, me) for x in items]}
 
 
 @router.post("/v1/mandates", status_code=201)
@@ -390,7 +433,30 @@ async def _move(
     target: MandateStatus,
     risk_level: int = 3,
 ) -> dict[str, Any]:
+    move = {
+        MandateStatus.ACTIVE: Move.ACTIVATE,
+        MandateStatus.PAUSED: Move.PAUSE,
+        MandateStatus.REVOKED: Move.REVOKE,
+    }[target]
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            terms, _, _ = await load_terms(conn, str(mandate_id))
+            creator = await creator_of(conn, str(mandate_id))
+        except LedgerError as e:
+            raise _ledger(e) from e
+        if (
+            move
+            not in own_moves(
+                caller.ctx.principal_id, executor=terms.executor_principal_id, creator=creator
+            )
+        ):  # not theirs to stop: that is oversight, which the company grants to owner and administrators
+            await protected_action(
+                conn,
+                caller,
+                action="mandate.manage",
+                resource="mandate:*",
+                change=f"{move.value} {mandate_id}",
+            )
         try:
             if target is MandateStatus.ACTIVE:  # re-resolves the source grant first (MAND-06)
                 status = await activate_mandate(

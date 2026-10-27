@@ -303,10 +303,17 @@ async def quote_view(conn: AsyncConnection, quote_id: str) -> dict[str, Any]:
 
 
 async def approve_quote(
-    conn: AsyncConnection, quote_id: str, *, role: str, approver: str, now: datetime | None = None
+    conn: AsyncConnection,
+    quote_id: str,
+    *,
+    role: str,
+    approver: str,
+    now: datetime | None = None,
+    direct: bool = False,
 ) -> dict[str, Any]:
     """Record one role's approval of this exact quote digest; the quote becomes APPROVED when every required
-    role is held by a different person, none of them its author."""
+    role is held by a different person, none of them its author. Direct mode (one operator runs the platform)
+    approves every required role at once as the direct approver; a hard pricing reason still blocks the quote."""
     now = now or datetime.now(UTC)
     q = (
         (
@@ -326,17 +333,21 @@ async def approve_quote(
         raise rules.OrderError("QUOTE_EXPIRED")
     if role not in q["approvers_required"]:
         raise rules.OrderError("APPROVAL_ROLE_NOT_REQUIRED")
-    if str(q["created_by"]) == approver:
-        raise rules.OrderError("QUOTE_SELF_APPROVAL", "the author never approves their own quote")
-    if not await holds_role(conn, approver, role):
-        raise rules.OrderError("APPROVER_ROLE_MISSING", f"the approver does not hold {role}")
-    await conn.execute(
-        text(
-            "INSERT INTO commercial.quote_approval (quote_id, role, approver, digest) VALUES (:q, :r, :a, :d) "
-            "ON CONFLICT (quote_id, role) DO NOTHING"
-        ),
-        {"q": uuid.UUID(quote_id), "r": role, "a": uuid.UUID(approver), "d": q["digest"]},
-    )
+    if not direct:
+        if str(q["created_by"]) == approver:
+            raise rules.OrderError(
+                "QUOTE_SELF_APPROVAL", "the author never approves their own quote"
+            )
+        if not await holds_role(conn, approver, role):
+            raise rules.OrderError("APPROVER_ROLE_MISSING", f"the approver does not hold {role}")
+    for given_role in sorted(q["approvers_required"]) if direct else [role]:
+        await conn.execute(
+            text(
+                "INSERT INTO commercial.quote_approval (quote_id, role, approver, digest) VALUES (:q, :r, :a, :d) "
+                "ON CONFLICT (quote_id, role) DO NOTHING"
+            ),
+            {"q": uuid.UUID(quote_id), "r": given_role, "a": uuid.UUID(approver), "d": q["digest"]},
+        )
     given = {
         r[0]: str(r[1])
         for r in (
@@ -348,8 +359,12 @@ async def approve_quote(
             )
         ).all()
     }
-    missing = rules.missing_approvals(
-        frozenset(q["approvers_required"]), given, str(q["created_by"])
+    missing = (
+        frozenset()
+        if direct
+        else rules.missing_approvals(
+            frozenset(q["approvers_required"]), given, str(q["created_by"])
+        )
     )
     hard = any(rules.REASONS.get(r) == rules.HARD for r in q["reasons"])
     if not missing and not hard:
@@ -459,7 +474,12 @@ async def accept(
 
 
 async def activate(
-    conn: AsyncConnection, order_id: str, *, actor: str, now: datetime | None = None
+    conn: AsyncConnection,
+    order_id: str,
+    *,
+    actor: str,
+    now: datetime | None = None,
+    direct: bool = False,
 ) -> dict[str, Any]:
     """The one route from a signed order to the tenant's entitlement. Idempotent: a second call changes
     nothing. The activator is never the person who entered the order."""
@@ -480,7 +500,7 @@ async def activate(
         return {**(await order_view(conn, order_id)), "already_active": True}
     if o["status"] != "SIGNED":
         raise rules.OrderError("ORDER_NOT_SIGNED")
-    if str(o["created_by"]) == actor:
+    if not direct and str(o["created_by"]) == actor:
         raise rules.OrderError("ORDER_SELF_ACTIVATION", "a second person activates the order")
     tenant = str(o["tenant_id"])
     lines = (

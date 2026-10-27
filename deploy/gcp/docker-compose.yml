@@ -1,0 +1,246 @@
+# Zoiko iD on GCP: production-style stack for one VM (or one VM per role, see README.md).
+#   cp env.example .env   # fill in, chmod 600
+#   docker compose --profile direct up -d     # or --profile lb behind the Google load balancer
+# Data lives outside the VM: PostgreSQL in Cloud SQL (private IP), keys in Cloud KMS, secrets in OpenBao
+# (auto-unsealed by Cloud KMS). Nothing here uses development keys: ZID_ENVIRONMENT is `production`, and the
+# local key provider and the env secret broker refuse to start there (DEC-F5).
+name: zoiko-id-gcp
+
+x-backend: &backend
+  image: ${ZID_BACKEND_IMAGE}
+  restart: unless-stopped
+  env_file: [.env]
+  environment: &backend-env
+    ZID_ENVIRONMENT: production
+    ZID_CELL_ID: ${ZID_CELL_ID}
+    ZID_REGION: ${ZID_REGION}
+    ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    ZID_KEY_PROVIDER: gcp-kms
+    ZID_GCP_KMS_PROJECT: ${GCP_PROJECT}
+    ZID_GCP_KMS_LOCATION: ${GCP_LOCATION}
+    ZID_GCP_KMS_HSM: "true"
+    ZID_SECRET_BROKER: ${ZID_SECRET_BROKER:-openbao}
+    ZID_OPENBAO_ADDR: http://openbao:8200
+    ZID_OPENBAO_AUTH: jwt
+    ZID_OPENBAO_JWT_ROLE: zid-platform
+    ZID_OPENBAO_JWT_FILE: /run/zid/jwt
+    ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+    ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-https://api.${ZID_DOMAIN}}
+    ZID_PUBLIC_BASE_URL: https://api.${ZID_DOMAIN}
+    ZID_CONSENT_URL: https://id.${ZID_DOMAIN}/consent
+    ZID_WEBAUTHN_RP_ID: ${ZID_DOMAIN}
+    ZID_WEBAUTHN_RP_NAME: Zoiko iD
+    ZID_WEBAUTHN_ORIGINS: '["https://id.${ZID_DOMAIN}"]'
+    ZID_TENANT_SIGNUP_ENABLED: "true"
+  volumes:
+    - ../../contracts:/app/contracts:ro
+    - ../../backend/config:/app/config:ro
+    - identity:/run/zid:ro
+    - ./secrets:/run/secrets:ro # smtp_password, stripe_key: root-owned files on the VM, mode 0400, not in git
+
+services:
+  # Writes a Google-signed identity token for the VM's service account to /run/zid/jwt every 30 minutes. OpenBao's
+  # JWT auth trusts Google's OIDC keys and its role is bound to that service account (openbao/bootstrap.sh), so no
+  # long-lived credential exists anywhere. The backend re-reads the file at every login.
+  vm-identity:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    user: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          curl -fsS -H 'Metadata-Flavor: Google' \
+            'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=openbao&format=full' \
+            > /run/zid/jwt.tmp && mv /run/zid/jwt.tmp /run/zid/jwt && chmod 644 /run/zid/jwt
+          sleep 1800
+        done
+    volumes: [identity:/run/zid]
+
+  openbao:
+    image: openbao/openbao:2.1.1
+    restart: unless-stopped
+    cap_add: [IPC_LOCK]
+    command: ["server", "-config=/openbao/config/config.hcl"]
+    environment:
+      GCP_PROJECT: ${GCP_PROJECT}
+      GCP_LOCATION: ${GCP_LOCATION}
+    volumes:
+      - ./openbao/config.hcl:/openbao/config/config.hcl:ro
+      - openbao-data:/openbao/data
+    expose: ["8200"]
+
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${ZID_VALKEY_PASSWORD}"]
+    volumes: [valkey-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"${ZID_VALKEY_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      retries: 10
+
+  # One-shot schema migration as the database OWNER role (never the runtime role), then exits.
+  migrate:
+    <<: *backend
+    restart: "no"
+    environment:
+      <<: *backend-env
+      ZID_CELL_DATABASE_URL: ${ZID_OWNER_CELL_DATABASE_URL}
+      ZID_GLOBAL_DATABASE_URL: ${ZID_OWNER_GLOBAL_DATABASE_URL}
+    command:
+      - python
+      - -c
+      - |
+        import os
+        from zid_platform.migrations import upgrade
+        upgrade(os.environ["ZID_CELL_DATABASE_URL"])
+        upgrade(os.environ["ZID_GLOBAL_DATABASE_URL"], role="global")
+        print("migrations applied")
+    healthcheck: {disable: true}
+
+  cell:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: cell
+      ZID_CELL_DATABASE_URL: ${ZID_RUNTIME_CELL_DATABASE_URL} # zid_runtime: row-level security applies
+    expose: ["8000"]
+
+  global:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: global
+      ZID_GLOBAL_DATABASE_URL: ${ZID_RUNTIME_GLOBAL_DATABASE_URL}
+    expose: ["8100"]
+
+  worker:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_WORKER_DATABASE_URL: ${ZID_WORKER_DATABASE_URL} # dedicated worker role, never the API's runtime role
+    command: ["python", "-m", "zid_platform.entrypoints.worker"]
+    healthcheck: {disable: true}
+
+  web:
+    image: ${ZID_WEB_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+      ZID_PUBLIC_ORIGIN: https://id.${ZID_DOMAIN}
+      ZID_OAUTH_CLIENT_ID: zoiko-web
+      ZID_OAUTH_REDIRECT_URI: https://id.${ZID_DOMAIN}/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    expose: ["3000"]
+
+  # Operator Console (JIT operator access, lockbox): its own origin and OAuth client, enabled with
+  #   docker compose --profile operator up -d      (set ZID_OPERATOR_TENANT_ID and add the origin to the cell's
+  #   ZID_WEBAUTHN_ORIGINS in .env first). Keep it behind an IP allow-list or IAP.
+  operator:
+    profiles: ["operator"]
+    image: ${ZID_OPERATOR_IMAGE:-}
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+      ZID_PUBLIC_ORIGIN: https://operator.${ZID_DOMAIN}
+      ZID_OAUTH_CLIENT_ID: zoiko-operator
+      ZID_OAUTH_REDIRECT_URI: https://operator.${ZID_DOMAIN}/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    expose: ["3000"]
+
+  # First operator account from .env (ZID_OPERATOR_TENANT_ID, ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID, ZID_OPERATOR_ORIGIN):
+  # a one-shot, idempotent job. Run it by hand so the single-use passkey link appears in YOUR terminal, not in logs:
+  #   docker compose --profile operator-bootstrap run --rm operator-bootstrap
+  operator-bootstrap:
+    profiles: ["operator-bootstrap"]
+    <<: *backend
+    restart: "no"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_CELL_DATABASE_URL: ${ZID_RUNTIME_CELL_DATABASE_URL}
+    command: ["python", "-m", "zid_platform.entrypoints.bootstrap_operator", "--ticket"]
+    healthcheck: {disable: true}
+
+  # Event backbone (DEC-D2) for cells that run the relay and consumer: points at a managed Kafka (Google Cloud
+  # Managed Service for Apache Kafka, Confluent or Redpanda Cloud) in ZID_KAFKA_BOOTSTRAP, not a broker on this VM.
+  #   docker compose --profile events up -d
+  outbox-relay:
+    profiles: ["events"]
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_RELAY_DATABASE_URL: ${ZID_RELAY_DATABASE_URL:-}
+      ZID_KAFKA_BOOTSTRAP: ${ZID_KAFKA_BOOTSTRAP:-}
+    command: ["python", "-m", "zid_platform.entrypoints.outbox_relay"]
+    healthcheck: {disable: true}
+
+  consumer:
+    profiles: ["events"]
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_DATABASE_URL: ${ZID_WORKER_DATABASE_URL}
+      ZID_KAFKA_BOOTSTRAP: ${ZID_KAFKA_BOOTSTRAP:-}
+    command: ["python", "-m", "zid_platform.entrypoints.consumer"]
+    healthcheck: {disable: true}
+
+  # Edge, one of two profiles (pick one, always pass it: `docker compose --profile direct up -d`):
+  #   direct  Caddy terminates TLS itself (automatic Let's Encrypt, HTTP to HTTPS, HSTS) and publishes 80 and 443.
+  #   lb      behind the Google load balancer (enable_load_balancer in the gcp-platform module): the load balancer
+  #           terminates TLS and Cloud Armor filters, Caddy serves plain HTTP on port 80 only (Caddyfile.lb).
+  caddy:
+    profiles: ["direct"]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      ZID_DOMAIN: ${ZID_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      OPERATOR_ALLOWED_CIDRS: ${OPERATOR_ALLOWED_CIDRS:-127.0.0.1/32}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web, cell, global]
+
+  caddy-lb:
+    profiles: ["lb"]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80"]
+    environment:
+      ZID_DOMAIN: ${ZID_DOMAIN}
+      OPERATOR_ALLOWED_CIDRS: ${OPERATOR_ALLOWED_CIDRS:-127.0.0.1/32}
+    volumes:
+      - ./Caddyfile.lb:/etc/caddy/Caddyfile:ro
+    depends_on: [web, cell, global]
+
+volumes:
+  identity:
+  openbao-data:
+  valkey-data:
+  caddy-data:
+  caddy-config:

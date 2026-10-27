@@ -7,11 +7,13 @@ import { ApiErrorView, useCellMutation } from "@/lib/op";
 
 import { CapabilityHint } from "../recovery-shared";
 import { buildRequest, type Action } from "./actions";
+import { useDirectMode } from "./mode";
 
 /** One operator write, rendered from its catalogue entry. The cell authorizes and validates it again; this
  * form only gathers values, asks for a confirmation sentence where the action is hard to undo, and shows
  * exactly what the cell answered. */
 export function ActionForm({ action, onDone }: { action: Action; onDone?: () => void }) {
+  const direct = useDirectMode();
   const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [confirmText, setConfirmText] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function ActionForm({ action, onDone }: { action: Action; onDone?: () => 
   const set = (key: string, v: string | boolean) => setValues((s) => ({ ...s, [key]: v }));
 
   return (
-    <Card title={action.title} description={action.description}>
+    <Card title={action.title} description={direct && action.directDescription ? action.directDescription : action.description}>
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label={action.title}>
         {action.fields.map((f) => {
           const kind = f.kind ?? "text";
@@ -92,9 +94,11 @@ export function ActionForm({ action, onDone }: { action: Action; onDone?: () => 
           <Button type="submit" isDisabled={run.isPending || !confirmed}>
             {run.isPending ? "Working…" : action.title}
           </Button>
-          <span className="text-xs text-ink-subtle">
-            Needs <span className="font-mono">{action.capability}</span>
-          </span>
+          {direct ? null : (
+            <span className="text-xs text-ink-subtle">
+              Needs <span className="font-mono">{action.capability}</span>
+            </span>
+          )}
         </div>
       </form>
       <div aria-live="polite" className="mt-3 space-y-3">

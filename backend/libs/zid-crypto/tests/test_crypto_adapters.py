@@ -299,7 +299,9 @@ def test_kms_mac_key_makes_stable_handles() -> None:
 # --- OPS-17: a throttled or unreachable key service degrades safely --------------------------------
 
 
-def test_throttled_kms_is_retried_briefly_then_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_throttled_kms_is_retried_briefly_then_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """OPS-17: a few throttles are absorbed with a short pause; persistent throttling is a retryable CRYPTO_THROTTLED
     and never an envelope sealed some other way."""
     import zid_crypto.aws_kms as kms_module
@@ -343,7 +345,9 @@ def test_throttled_signing_produces_no_signature_and_no_fallback() -> None:
     from zid_crypto.aws_kms import KmsSigner
 
     fake = FakeKmsAsymmetric()
-    signer = KmsSigner(fake, "arn:aws:kms:eu-west-2:111:key/ev", kid="ev-1", purpose=KeyPurpose.EVIDENCE_SIGNING)
+    signer = KmsSigner(
+        fake, "arn:aws:kms:eu-west-2:111:key/ev", kid="ev-1", purpose=KeyPurpose.EVIDENCE_SIGNING
+    )
 
     def throttled(**kw: Any) -> dict[str, Any]:
         raise ClientError("ThrottlingException")

@@ -1,13 +1,13 @@
 "use client";
 
-import type { BillingOrder, CatalogPlan, PlanRequest } from "@zoiko/api-client";
+import type { BillingOrder, Catalog, CatalogPlan, PlanRequest } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, DateTime, Dialog, EmptyState, StatusBadge, TextField, type Column } from "@zoiko/ui";
 import { FileSignature, Layers, Send } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { BILLING_KEY, count } from "./shared";
+import { BILLING_KEY, count, money } from "./shared";
 
 /** The signed orders behind this company's plan: what was agreed, from when, for how long. */
 export function OrdersCard() {
@@ -136,6 +136,15 @@ export function PlansCard({ current }: { current: string }) {
   const requests = useCellQuery(REQUESTS_KEY, (api) => api.billing.planRequests());
   const [asking, setAsking] = useState<CatalogPlan | null>(null);
   const latest = requests.data?.items[0];
+  // Each plan's monthly platform fee, from the approved price book the catalogue came with (none until one is approved).
+  const pricing = catalog.data?.pricing ?? null;
+  const fee = new Map((pricing?.lines ?? []).filter((l) => l.sku === "ZID-BASE").map((l) => [l.plan, l.unit_rate]));
+  const price = (p: CatalogPlan): string => {
+    const rate = fee.get(p.plan);
+    if (rate === undefined || !pricing) return "—";
+    if (Number(rate) === 0) return "Free";
+    return `${p.platform_fee_is_floor ? "From " : ""}${money(rate, pricing.currency)} / month`;
+  };
   const open = requests.data?.items.find((r) => r.status === "OPEN");
   const columns: Column<CatalogPlan>[] = [
     {
@@ -150,6 +159,7 @@ export function PlansCard({ current }: { current: string }) {
         </span>
       ),
     },
+    { key: "price", header: "Price", render: (p) => <span className="tabular-nums">{price(p)}</span>, sortValue: (p) => Number(fee.get(p.plan) ?? -1) },
     { key: "mah", header: "People", render: (p) => count(p.limits.mah_included), sortValue: (p) => p.limits.mah_included ?? -1 },
     { key: "auth", header: "Sign-ins", render: (p) => count(p.limits.auth_events_included), sortValue: (p) => p.limits.auth_events_included ?? -1 },
     { key: "dec", header: "Decisions", render: (p) => count(p.limits.policy_decisions_included), sortValue: (p) => p.limits.policy_decisions_included ?? -1 },
@@ -184,11 +194,79 @@ export function PlansCard({ current }: { current: string }) {
               rowKey={(p) => p.plan}
               empty={<EmptyState title="No plans published" icon={Layers} compact>Plans appear once a price book is approved.</EmptyState>}
             />
+            <RatesTable catalog={c} />
             <p className="border-t border-border px-4 py-3 text-xs text-ink-muted">{c.note}</p>
           </>
         )}
       </QueryView>
       {asking ? <AskDialog plan={asking} onClose={() => setAsking(null)} /> : null}
     </Card>
+  );
+}
+
+
+/** What each plan charges beyond what it includes, in plain words. Only metered items appear; the monthly fee is in the
+ * Price column above. Rates come from the approved price book, so nothing is shown until one is approved. */
+const RATE_LABEL: Record<string, string> = {
+  "ZID-HUM": "Each person above the included amount",
+  "ZID-AUTH": "1,000 sign-ins above the included amount",
+  "ZID-PDP": "10,000 access decisions above the included amount",
+  "ZID-M2M": "1,000 machine grants above the included amount",
+  "ZID-VCI": "Each credential issued",
+  "ZID-VCP": "Each credential check",
+  "ZID-FED": "Each extra single sign-on connection, per month",
+  "ZID-SCIM": "Each extra provisioning source, per month",
+};
+const RATE_ORDER = Object.keys(RATE_LABEL);
+
+/** A rate keeps its small decimals (0.015 must not read as 0.02), unlike a bill amount. */
+function rate(amount: string, currency: string): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(Number(amount));
+}
+
+function RatesTable({ catalog }: { catalog: Catalog }) {
+  const pricing = catalog.pricing;
+  if (!pricing) return null;
+  const byKey = new Map(pricing.lines.map((l) => [`${l.sku}|${l.plan}`, l]));
+  const plans = catalog.plans.filter((p) => pricing.lines.some((l) => l.plan === p.plan && l.sku !== "ZID-BASE"));
+  const skus = RATE_ORDER.filter((sku) => pricing.lines.some((l) => l.sku === sku));
+  if (plans.length === 0 || skus.length === 0) return null;
+  return (
+    <div className="border-t border-border px-4 py-3">
+      <h3 className="text-sm font-semibold text-ink">What you pay above the included amounts</h3>
+      <p className="mt-1 text-xs text-ink-muted">Each plan includes the amounts in the table above. Beyond them, usage is charged at these rates.</p>
+      <table className="mt-3 w-full text-sm">
+        <caption className="sr-only">Rates above the included amounts, by plan</caption>
+        <thead>
+          <tr className="border-b border-border text-left text-xs uppercase text-ink-subtle">
+            <th scope="col" className="py-2">
+              Item
+            </th>
+            {plans.map((p) => (
+              <th key={p.plan} scope="col" className="py-2 text-right">
+                {p.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {skus.map((sku) => (
+            <tr key={sku} className="border-b border-border last:border-0">
+              <th scope="row" className="py-2 text-left font-normal">
+                {RATE_LABEL[sku]}
+              </th>
+              {plans.map((p) => {
+                const line = byKey.get(`${sku}|${p.plan}`);
+                return (
+                  <td key={p.plan} className="tabular py-2 text-right">
+                    {line?.unit_rate ? rate(line.unit_rate, pricing.currency) : "—"}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

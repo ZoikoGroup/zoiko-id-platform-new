@@ -70,6 +70,12 @@ events:
     source: ZID-SEC-001 §11-13; DEC-F4; CR-012
     lane: domain
     source_status: "proposed"
+  operator_access.direct_action:
+    cloudevents_type: com.zoiko.id.operator_access.direct_action.v1
+    meaning: "An operator used a capability in direct mode (no access request, no second approver); Security can alert on it. CR-035."
+    source: DEC-F4; CR-035
+    lane: priority
+    source_status: "proposed"
   operator_access.break_glass.activated:
     cloudevents_type: com.zoiko.id.operator_access.break_glass.activated.v1
     meaning: "Emergency break-glass access activated; Security alerted; post-review pending."

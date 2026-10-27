@@ -170,6 +170,15 @@ def test_plan_shadow_pilot_rollback_activate(rt_url: str, owner_url: str) -> Non
         }
         assert gates["shadow.observations"] == "PASS" and gates["shadow.false_allows"] == "PASS"
 
+        # the page's plain-words progress: where to send decisions, and the same numbers as the gates
+        seen = api.get("/v1/onboarding/connection", headers=o.bearer(o.owner)).json()
+        assert seen["evaluation_url"].endswith("/access/v1/evaluation") and seen[
+            "token_url"
+        ].endswith("/oauth2/token")
+        assert seen["stage"] == "SHADOW"
+        assert seen["shadow"]["observations"] == 3 and seen["shadow"]["observations_needed"] >= 1
+        assert seen["shadow"]["false_allows"] == 0 and isinstance(seen["shadow"]["ready"], bool)
+
         async def false_allow(add: bool) -> None:
             async with engine(owner_url) as eng, eng.begin() as c:
                 if add:
