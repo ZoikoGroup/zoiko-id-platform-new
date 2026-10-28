@@ -74,8 +74,10 @@ jobs:
           ref="${IMAGE}@${DIGEST}"
           identity="https://github.com/${{ github.repository }}/.github/workflows/build-image.yml@refs/heads/main"
           cosign verify "$ref" --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com > sig.json
-          gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --signer-workflow "${{ github.repository }}/.github/workflows/build-image.yml" --format json > prov.json
-          gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --predicate-type https://cyclonedx.org/bom --format json > sbom-att.json
+          if [ "${{ github.event.repository.private }}" = "false" ]; then  # attestations exist only for public repositories
+            gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --signer-workflow "${{ github.repository }}/.github/workflows/build-image.yml" --format json > prov.json
+            gh attestation verify "oci://$ref" --repo "${{ github.repository }}" --predicate-type https://cyclonedx.org/bom --format json > sbom-att.json
+          else echo '{}' > prov.json; echo '{}' > sbom-att.json; fi
           docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD -v "$PWD:/out" "$TRIVY_IMAGE" image --format json --output /out/findings.json "$ref"
           curl --fail --silent --show-error --location --max-time 60 https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json --output kev.json
           python3 tools/scripts/build_candidate.py "$ref" "$PREPROD_DIGEST" > candidate.json

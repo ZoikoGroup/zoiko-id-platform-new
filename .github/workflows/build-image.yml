@@ -55,12 +55,14 @@ jobs:
           ref="${IMAGE}@${{ steps.build.outputs.digest }}"
           docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD -v "$PWD:/out" "$TRIVY_IMAGE" image --format cyclonedx --output /out/sbom.cdx.json "$ref"
           docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD -v "$PWD:/out" "$TRIVY_IMAGE" image --format json --severity CRITICAL,HIGH --output /out/findings.json "$ref"
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      - if: ${{ !github.event.repository.private }}  # GitHub attestations are unavailable to private repositories
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+      - if: ${{ !github.event.repository.private }}  # GitHub attestations are unavailable to private repositories
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
