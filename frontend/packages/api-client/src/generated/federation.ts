@@ -130,6 +130,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/federation/integrations:discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discover Provider
+         * @description Read a provider's published settings so a person types an address, not endpoints, keys and certificates. The
+         *     result is only returned: it is pinned when the integration is created, exactly as if it had been typed in.
+         */
+        post: operations["discover_provider_federation_integrations_discover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/federation/saml/acs": {
         parameters: {
             query?: never;
@@ -221,6 +242,16 @@ export interface components {
             jwks: {
                 [key: string]: unknown;
             };
+        };
+        /** DiscoverIn */
+        DiscoverIn: {
+            /**
+             * Protocol
+             * @enum {string}
+             */
+            protocol: "OIDC" | "SAML";
+            /** Url */
+            url: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -589,6 +620,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RotateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discover_provider_federation_integrations_discover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscoverIn"];
             };
         };
         responses: {

@@ -53,3 +53,36 @@ def test_security_state_cache_fits_the_propagation_slo() -> None:
     for rc, name in limits.items():
         assert STATE_CACHE_TTL[rc].total_seconds() < budget[name]["p99_le"], name
     assert STATE_CACHE_TTL[2].total_seconds() == STATE_CACHE_TTL[3].total_seconds() == 0
+
+
+MACHINE_SCRIPT = (REPO / "tests/load/machine-token/machine-token.js").read_text(encoding="utf-8")
+CAPACITY = yaml.safe_load((REPO / "contracts/baseline/capacity.yaml").read_text(encoding="utf-8"))
+
+
+def _machine_constant(name: str) -> float:
+    m = re.search(rf"^\s*{name}:\s*([\d.]+),", MACHINE_SCRIPT, re.MULTILINE)
+    assert m, f"GATE.{name} missing from machine-token.js"
+    return float(m.group(1))
+
+
+def test_machine_token_gate_matches_the_slo_and_twice_stage_a() -> None:
+    """MACH-26: 2x the Stage A token-issuance rate, with the published exchange budget and error limit."""
+    gate = SLO["machine_identity_gate"]
+    stage_a = CAPACITY["stages"]["A"]["token_issuance_per_s"]
+    assert gate["token_exchanges_per_s"] == 2 * stage_a
+    assert _machine_constant("ratePerSecond") == gate["token_exchanges_per_s"]
+    assert _machine_constant("soakMinutes") == gate["soak_minutes"]
+    assert _machine_constant("maxErrorRate") == gate["max_error_rate"]
+    assert _machine_constant("p95MsTokenExchange") == gate["workload_token_exchange"]["p95_lt_ms"]
+
+
+def test_machine_token_harness_identifies_the_workload_by_certificate_and_reports_percentiles() -> (
+    None
+):
+    assert "tlsAuth" in MACHINE_SCRIPT, (
+        "the workload must be identified by its SVID, not by a header"
+    )
+    assert "/v1/machine/workload-token" in MACHINE_SCRIPT
+    stats = re.search(r"summaryTrendStats:\s*\[([^\]]*)\]", MACHINE_SCRIPT)
+    assert stats and all(p in stats.group(1) for p in ('"p(50)"', '"p(95)"', '"p(99)"'))
+    assert '"avg"' not in stats.group(1)

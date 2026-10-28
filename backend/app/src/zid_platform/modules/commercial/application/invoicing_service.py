@@ -678,6 +678,24 @@ async def collect(
         idempotency_key=idempotency_key,
         customer_ref=await payment_customer(conn, str(i["tenant_id"])),
     )
+    return await _record_attempt(
+        conn, i, outstanding, result, idempotency_key=idempotency_key, now=now
+    )
+
+
+async def _record_attempt(
+    conn: AsyncConnection,
+    i: dict[str, Any],
+    amount: Decimal,
+    result: Any,
+    *,
+    idempotency_key: str,
+    now: datetime,
+) -> dict[str, Any]:
+    """Write one payment attempt, emit its event, and (on a capture that clears every overdue invoice) return a
+    past-due, restricted or suspended account to ACTIVE. Shared by a charge the platform made and by a payment the
+    processor reported afterwards."""
+    invoice_id = str(i["invoice_id"])
     aid = uuid.uuid4()
     await conn.execute(
         text(
@@ -690,7 +708,7 @@ async def collect(
             "t": i["tenant_id"],
             "i": uuid.UUID(invoice_id),
             "k": idempotency_key,
-            "m": outstanding,
+            "m": amount,
             "c": i["currency"],
             "s": result.status,
             "p": result.provider_ref,
@@ -704,7 +722,7 @@ async def collect(
         attempt_id=str(aid),
         invoice_id=invoice_id,
         status=result.status,
-        amount=_d(outstanding),
+        amount=_d(amount),
         currency=i["currency"],
     )
     moved = None
@@ -717,11 +735,62 @@ async def collect(
     return {
         "attempt_id": str(aid),
         "status": result.status,
-        "amount": _d(outstanding),
+        "amount": _d(amount),
         "failure_code": result.failure_code,
         "replayed": False,
         "state_change": moved,
     }
+
+
+async def attempt_statuses(conn: AsyncConnection, provider_ref: str) -> set[str]:
+    """The statuses already recorded for one processor reference (a payment intent), under the current tenant."""
+    rows = await conn.execute(
+        text("SELECT status FROM commercial.payment_attempt WHERE provider_ref = :p"),
+        {"p": provider_ref},
+    )
+    return {str(r[0]) for r in rows}
+
+
+async def record_reported_payment(
+    conn: AsyncConnection,
+    invoice_id: str,
+    *,
+    status: str,
+    provider_ref: str,
+    failure_code: str | None,
+    amount: Decimal,
+    idempotency_key: str,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Record a payment outcome the processor reported after the fact (a webhook): a charge that finished later than
+    the request that made it, or one made outside this platform's own call. Appended as its own attempt, keyed by the
+    event, so a redelivery changes nothing. None when the invoice is not collectable any more (the caller flags it
+    for a person: money moved for an invoice that is settled, void or not issued)."""
+    from zid_platform.modules.commercial.application.adapters import PaymentResult
+
+    now = now or datetime.now(UTC)
+    i = await load_invoice(conn, invoice_id, lock=True)
+    if status in await attempt_statuses(conn, provider_ref):
+        return {
+            "status": status,
+            "replayed": True,
+        }  # decided under the invoice lock: two callers cannot both record
+    if i["status"] != "ISSUED":
+        return None
+    if status == "CAPTURED":
+        outstanding = (
+            Decimal(i["gross"]) - await _credited(conn, invoice_id) - await _paid(conn, invoice_id)
+        )
+        if outstanding <= 0:
+            return None
+    return await _record_attempt(
+        conn,
+        i,
+        amount,
+        PaymentResult(status, provider_ref=provider_ref, failure_code=failure_code),
+        idempotency_key=idempotency_key,
+        now=now,
+    )
 
 
 async def _unpaid_overdue(

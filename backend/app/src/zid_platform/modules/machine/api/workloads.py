@@ -34,6 +34,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import key_m2m, record_billable
+from zid_platform.modules.machine.application import attestation
 from zid_platform.modules.machine.application import workload as service
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.infrastructure import workload_store as store
@@ -204,7 +205,45 @@ class WorkloadTokenBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     environment_id: str = Field(pattern=r"^[a-z0-9-]{1,64}$")
     artifact_digest: str = Field(pattern=r"^sha-?256:[0-9a-f]{64}$")
-    attestation: int = Field(default=0, ge=0, le=3)
+    # Accepted for older callers and ignored: the attestation level comes from verified attestation records, never from
+    # what the requesting workload says about itself (CR-042).
+    attestation: int = Field(default=0, ge=0, le=3, deprecated=True)
+
+
+class AttestationBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    statement: str = Field(min_length=20, max_length=8192)
+
+
+@router.post("/attestations:verify")
+async def verify_attestation(body: AttestationBody, request: Request) -> dict[str, Any]:
+    """Record a runtime attestation signed by an attestor this cell trusts (MACHINE-001 §9, §21). The signature is the
+    only credential: the tenant is read from the signed SPIFFE ID, the claims are checked only after the signature
+    passes, and an out-of-date but genuinely signed statement is kept as a FAILED record so the refusal is evidence."""
+    keys = list(getattr(request.app.state, "attestor_keys", None) or [])
+    if not keys:
+        raise ZidError("NOT_FOUND", "No such endpoint.", http_status=404)
+    try:
+        header, claims = attestation.signature_checked(body.statement, keys)
+        stmt = attestation.read_claims(header, claims)
+    except MachineError as e:
+        status = 400 if e.code == "ATTESTATION_SIGNATURE_INVALID" else 422
+        raise ZidError(e.code, "The attestation could not be accepted.", http_status=status) from e
+    problem = attestation.level_problem(stmt, keys) or attestation.timing_problem(stmt)
+    base = current_context() or RequestContext("req_attest", "cor_attest", "zoiko-id", "unknown")
+    ctx = base.with_identity(stmt.tenant_id, None)
+    from zid_db import tenant_transaction as tx
+
+    async with tx(request_engine(request), ctx) as conn:
+        attestation_id = await service.record_attestation(conn, stmt, failure_code=problem)
+    if problem:
+        raise ZidError(problem, "The attestation could not be accepted.", http_status=422)
+    return {
+        "attestation_id": attestation_id,
+        "status": "VALID",
+        "level": stmt.level,
+        "valid_until": stmt.valid_until.isoformat(),
+    }
 
 
 WORKLOAD_TOKEN_LIFETIME = timedelta(minutes=5)
@@ -240,7 +279,6 @@ async def workload_token(
                 spiffe_id=sid,
                 environment_id=body.environment_id,
                 artifact_digest=body.artifact_digest,
-                attestation=body.attestation,
             )
             await service.record_credential_issued(
                 conn, tenant, principal, expires_at=now + WORKLOAD_TOKEN_LIFETIME

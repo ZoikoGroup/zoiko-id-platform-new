@@ -19,7 +19,7 @@ export type Field = {
 
 export type Action = {
   id: string;
-  group: "catalogue" | "plans" | "sales" | "billing" | "vendors" | "assurance";
+  group: "catalogue" | "plans" | "sales" | "billing" | "vendors" | "assurance" | "payments";
   title: string;
   description: string;
   /** Shown instead of `description` when the cell runs the operator plane in direct mode (no second approver). */
@@ -578,6 +578,34 @@ export const ACTIONS: Action[] = [
     fields: [],
   },
   {
+    id: "payment-event-credit",
+    group: "payments",
+    title: "Credit a refund",
+    description:
+      "Issues a credit note for a refund Stripe reported, on the invoice it refunded, and closes the item. Stripe reports the total refunded on a charge, so enter only the amount not yet credited.",
+    method: "POST",
+    path: "/v1/commercial/payment-events/{event_id}:credit-note",
+    capability: "commercial.billing.manage",
+    confirm: "credit this refund",
+    fields: [
+      { key: "event_id", label: "Event ID", in: "path", required: true },
+      { key: "amount", label: "Amount to credit", kind: "decimal", required: true },
+    ],
+  },
+  {
+    id: "payment-event-resolve",
+    group: "payments",
+    title: "Close a payment event",
+    description: "Records what was done about a dispute, an unmatched payment or any other item, and removes it from the list.",
+    method: "POST",
+    path: "/v1/commercial/payment-events/{event_id}:resolve",
+    capability: "commercial.catalog.manage",
+    fields: [
+      { key: "event_id", label: "Event ID", in: "path", required: true },
+      { key: "resolution", label: "What was done", kind: "text", required: true },
+    ],
+  },
+  {
     id: "exception-resolve",
     group: "assurance",
     title: "Resolve an exception",
@@ -599,6 +627,7 @@ export const GROUP_LABEL: Record<Action["group"], string> = {
   billing: "Billing runs",
   vendors: "Suppliers",
   assurance: "Assurance",
+  payments: "Payment events",
 };
 
 /** Turn form values into a request. Throws a readable message for anything the form cannot express. */

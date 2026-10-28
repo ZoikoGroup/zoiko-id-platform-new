@@ -275,7 +275,7 @@ def test_the_repository_contracts_are_compatible_with_themselves_and_ci_runs_the
     )
     assert isinstance(accepted, list)
     workflow = yaml.safe_load((REPO / ".github/workflows/backend.yml").read_text(encoding="utf-8"))
-    steps = workflow["jobs"]["checks"]["steps"]
+    steps = workflow["jobs"]["static"]["steps"]
     gate = next(s for s in steps if "contract_compat.py" in s.get("run", ""))
     assert (
         gate["if"] == "github.event_name == 'pull_request'"
