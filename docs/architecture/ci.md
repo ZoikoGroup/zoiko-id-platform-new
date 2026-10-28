@@ -33,7 +33,6 @@ There is no `paths` filter on these, so a required check is always reported. (A 
 
 - **release** (push to `main`): builds the backend and both frontend images by digest in the hardened reusable builders, scans, writes a CycloneDX SBOM, attests provenance and SBOM, and signs by digest. **Promotion** is a manual run that verifies the same digest (signature, provenance, SBOM), runs the release gate with the CISA known-exploited feed, and waits for an environment approval. It never rebuilds.
 - **scheduled** (nightly): the Python and Node advisory audits again, against advisories published since the last change. A hit opens an issue.
-- **dependabot**: weekly grouped update pull requests for actions, Python, Node, images and OpenTofu.
 
 ## Branch rule: required checks
 
@@ -49,3 +48,4 @@ Add `frontend-checks`, and the `lint`, `backend-image` and `frontend-image` jobs
 4. No browser end-to-end tests run in CI. The Playwright suite in `frontend/tests/e2e` needs the whole stack (cell, global role, PostgreSQL, Valkey) and is not wired.
 5. No coverage measurement, no CodeQL or dependency review (both need GitHub Advanced Security on private repositories), no load or chaos stage.
 6. `CODEOWNERS` names `@zoiko/...` teams. The branch rule requires code-owner review, so those teams must exist with write access or no pull request can be approved.
+7. No automatic dependency-update pull requests. Dependencies change only when a person updates them; the nightly `scheduled` audits are what surface new advisories.
