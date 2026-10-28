@@ -23,6 +23,7 @@ from zid_context.spiffe import SpiffeError, SpiffeId, TrustPolicy, tenant_of
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.machine.application.attestation import Statement
 from zid_platform.modules.machine.domain.agents import (
     Attestation,
     BindingStatus,
@@ -250,16 +251,25 @@ async def resolve_workload(
     spiffe_id: SpiffeId,
     environment_id: str,
     artifact_digest: str,
-    attestation: int = 0,
+    attestation: int | None = None,
     risk_level: int = 2,
 ) -> WorkloadPrincipal:
     """The logical principal a mesh-verified workload may act as right now, or MachineError with
     every blocker (unregistered, inactive, wrong artifact, revoked blueprint, quarantined, weak
-    attestation). `spiffe_id` must come from `zid_context.spiffe.peer_spiffe_id`, never a body."""
+    attestation). `spiffe_id` must come from `zid_context.spiffe.peer_spiffe_id`, never a body.
+    `attestation` None (the API path) reads the level from verified attestation records (CR-042); a level passed
+    here is for callers that already hold a verified one."""
+    level = (
+        attestation
+        if attestation is not None
+        else await store.verified_level(
+            conn, str(spiffe_id), environment_id, artifact_digest, _now()
+        )
+    )
     req = CredentialRequest(
         str(spiffe_id),
         artifact_digest,
-        Attestation(attestation),
+        Attestation(level),
         environment_id,
         _now(),
         risk_level,
@@ -280,9 +290,65 @@ async def resolve_workload(
     )
 
 
+async def record_attestation(
+    conn: AsyncConnection, stmt: Statement, *, failure_code: str | None = None
+) -> str:
+    """Keep one verified (or, for a signed statement that is out of date, failed) attestation as evidence, emit its
+    event and audit it. Returns the attestation id."""
+    attestation_id = str(uuid7())
+    await store.add_attestation(
+        conn,
+        attestation_id=attestation_id,
+        tenant_id=stmt.tenant_id,
+        workload_identity_id=stmt.spiffe_id,
+        environment_id=stmt.environment_id,
+        artifact_digest=stmt.artifact_digest,
+        level=stmt.level,
+        verifier=stmt.verifier,
+        claims_commitment=stmt.commitment,
+        status="FAILED" if failure_code else "VALID",
+        failure_code=failure_code,
+        valid_until=stmt.valid_until,
+    )
+    name = "workload.attestation.failed" if failure_code else "workload.attestation.verified"
+    data = {
+        "attestation_id": attestation_id,
+        "spiffe_id": stmt.spiffe_id,
+        "environment_id": stmt.environment_id,
+        "level": stmt.level,
+        "verifier": stmt.verifier,
+        "valid_until": stmt.valid_until.isoformat(),
+        "claims_commitment": stmt.commitment,
+        **({"failure_code": failure_code} if failure_code else {}),
+    }
+    event_id = await emit(
+        conn,
+        name=name,
+        tenant_id=stmt.tenant_id,
+        aggregate_type="workload_attestation",
+        aggregate_id=attestation_id,
+        aggregate_version=1,
+        data={**data, "evidence_class": "E2"},
+    )
+    await _audit(
+        conn,
+        stmt.tenant_id,
+        event_id,
+        name,
+        actor=None,
+        target_type="workload_attestation",
+        target_ref=attestation_id,
+        outcome="DENIED" if failure_code else "SUCCESS",
+        reason=failure_code,
+        details=data,
+    )
+    return attestation_id
+
+
 __all__ = [
     "WorkloadPrincipal",
     "quarantine_environment",
+    "record_attestation",
     "register_binding",
     "release_environment",
     "resolve_workload",

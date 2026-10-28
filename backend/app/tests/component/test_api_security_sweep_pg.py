@@ -43,6 +43,8 @@ PUBLIC_PATHS: dict[str, str] = {
     "/metrics": "metrics (network-restricted at the edge)",
     "/v1/machine/trust-domain": "the cell's trust domain",
     "/v1/webhooks/signing-keys": "public keys receivers verify with",
+    "/v1/machine/attestations:verify": "runtime attestation, authenticated by an attestor signature only (CR-042)",
+    "/v1/provider-events/stripe": "payment processor events, authenticated by Stripe signature only (CR-040)",
     "/v1/signup/options": "sign-up form options",
     "/v1/workspaces/{name}": "workspace sign-in lookup",
     "/v1/cells": "published cell catalogue",

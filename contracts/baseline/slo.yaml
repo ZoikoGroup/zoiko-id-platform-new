@@ -35,6 +35,15 @@ decision_service_gate:
   pass: "p95 budgets met for both paths, p99 within the agreed bound, cost per million decisions within envelope"
   on_fail: "tune Python, then profile and fix the hot spot; only then extract decision and rewrite in Go (DEC-B3)"
 
+# MACH-26 (ZID-MACHINE-001 §25): the machine-identity gate. Harness: tests/load/machine-token/machine-token.js.
+machine_identity_gate:
+  tool: k6
+  token_exchanges_per_s: 20_000  # 2x Stage A token_issuance_per_s (capacity.yaml)
+  soak_minutes: 60
+  max_error_rate: 0.0001
+  workload_token_exchange: {p95_lt_ms: 150, requirement: "MACHINE-001 §25"}
+  pass: "p95 budget met at the gate rate with the error budget held and credential rotation completing inside its overlap window"
+
 # FR-SIG-004: authoritative security-state commit -> PEP enforcement, p99 in seconds. The cache TTL
 # per risk class (signals domain STATE_CACHE_TTL) must fit inside these; test_propagation_load_pg.py
 # demonstrates them under concurrent load and test_load_gate.py keeps the two bound together.

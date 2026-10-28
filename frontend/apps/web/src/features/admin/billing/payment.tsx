@@ -25,6 +25,13 @@ export function PaymentSection() {
     invalidate: [KEY],
     success: "Payment method saved",
   });
+  const online = useCellMutation((api, invoiceId: string) => api.billing.payOnline(invoiceId), {
+    onSuccess: (r) => window.location.assign(r.url),
+  });
+  const completeOnline = useCellMutation((api, sessionId: string) => api.billing.completeOnlinePayment(sessionId), {
+    invalidate: [KEY, [...BILLING_KEY, "invoices"], [...BILLING_KEY, "state"]],
+    success: "Payment received. Thank you.",
+  });
   const [paid, setPaid] = useState<{ ok: boolean; text: string } | null>(null);
   const pay = useCellMutation((api, v: { id: string; key: string }) => api.billing.payInvoice(v.id, v.key), {
     invalidate: [KEY, [...BILLING_KEY, "invoices"], [...BILLING_KEY, "state"]],
@@ -34,24 +41,26 @@ export function PaymentSection() {
   const ready = session?.authenticated === true;
   const returned = useRef(false);
 
-  // Stripe returns to /admin/billing?payment=saved&session_id=cs_...: finish the save once, then clean the address.
+  // Stripe returns to /admin/billing?payment=saved (a card) or payment=paid (an invoice paid on its page) with
+  // &session_id=cs_...: finish the step once, then clean the address.
   // Wait for the page's own session (it carries the request-verification token); a write sent before it loads is refused.
   useEffect(() => {
     if (returned.current || !ready) return;
     const url = new URL(window.location.href);
     const sessionId = url.searchParams.get("session_id");
-    if (url.searchParams.get("payment") === "saved" && sessionId) {
+    const outcome = url.searchParams.get("payment");
+    if ((outcome === "saved" || outcome === "paid") && sessionId) {
       returned.current = true;
-      complete.mutate(sessionId, {
-        onSettled: () => {
-          url.searchParams.delete("payment");
-          url.searchParams.delete("session_id");
-          window.history.replaceState(null, "", url.pathname + (url.search || ""));
-          void qc.invalidateQueries({ queryKey: KEY });
-        },
-      });
+      const settled = () => {
+        url.searchParams.delete("payment");
+        url.searchParams.delete("session_id");
+        window.history.replaceState(null, "", url.pathname + (url.search || ""));
+        void qc.invalidateQueries({ queryKey: KEY });
+      };
+      if (outcome === "saved") complete.mutate(sessionId, { onSettled: settled });
+      else completeOnline.mutate(sessionId, { onSettled: settled });
     }
-  }, [complete, qc, ready]);
+  }, [complete, completeOnline, qc, ready]);
 
   const cancelled = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("payment") === "cancelled";
 
@@ -60,16 +69,36 @@ export function PaymentSection() {
       {cancelled ? <Banner tone="info" title="No card was saved">You left the card page before finishing. Nothing changed.</Banner> : null}
       {complete.isError ? <ApiErrorView error={complete.error} title="Couldn't save the card" /> : null}
       {pay.isError ? <ApiErrorView error={pay.error} title="Couldn't take the payment" /> : null}
+      {online.isError ? <ApiErrorView error={online.error} title="Couldn't open the payment page" onRetry={() => online.reset()} /> : null}
+      {completeOnline.isError ? <ApiErrorView error={completeOnline.error} title="Couldn't confirm the payment" /> : null}
+      {completeOnline.isSuccess ? <Banner tone="ok" title="Payment received">Your payment was confirmed and your invoice is settled.</Banner> : null}
       {paid ? <Banner tone={paid.ok ? "ok" : "danger"} title={paid.ok ? "Payment received" : "The payment did not go through"}>{paid.text}</Banner> : null}
-      <QueryView query={payment}>{(p) => <Body p={p} onStart={() => start.mutate(undefined as never)} starting={start.isPending} startError={start.error} onPay={(id) => { setPaid(null); pay.mutate({ id, key: newKey() }); }} paying={pay.isPending} />}</QueryView>
+      <QueryView query={payment}>{(p) => <Body p={p} onOnline={(id) => online.mutate(id)} onlineBusy={online.isPending} onRetry={() => void payment.refetch()} refetching={payment.isFetching} onStart={() => start.mutate(undefined as never)} starting={start.isPending} startError={start.error} onPay={(id) => { setPaid(null); pay.mutate({ id, key: newKey() }); }} paying={pay.isPending} />}</QueryView>
     </div>
   );
 }
 
-function Body({ p, onStart, starting, startError, onPay, paying }: { p: BillingPayment; onStart: () => void; starting: boolean; startError: unknown; onPay: (invoiceId: string) => void; paying: boolean }) {
+function Body({ p, onOnline, onlineBusy, onRetry, refetching, onStart, starting, startError, onPay, paying }: { p: BillingPayment; onOnline: (invoiceId: string) => void; onlineBusy: boolean; onRetry: () => void; refetching: boolean; onStart: () => void; starting: boolean; startError: unknown; onPay: (invoiceId: string) => void; paying: boolean }) {
   const due = p.amount_due.filter((d) => Number(d.amount) > 0);
+  const expiry = p.method ? cardExpiry(p.method.exp_month, p.method.exp_year) : null;
+  const lastFailed = due.length > 0 && p.payments[0]?.status === "FAILED" ? p.payments[0] : null;
   return (
     <>
+      {lastFailed ? (
+        <Banner tone="danger" title="Your last payment did not go through">
+          {failureAdvice(lastFailed.failure_code)}
+          {p.can_manage
+            ? needsBank(lastFailed.failure_code)
+              ? " Use Pay on Stripe on the invoice below to confirm it with your bank."
+              : " Use Pay now on the invoice below, or replace the card."
+            : " Ask the company owner to update the card."}
+        </Banner>
+      ) : null}
+      {expiry === "expired" ? (
+        <Banner tone="danger" title="Your card has expired">Replace it so your invoices can be paid automatically.</Banner>
+      ) : expiry === "soon" ? (
+        <Banner tone="warn" title="Your card expires soon">Replace it before the end of the month so automatic payment keeps working.</Banner>
+      ) : null}
       <Card title="Amount due now" description="Issued invoices that are not yet paid. Your estimated bill for the current month is under Bill preview.">
         {due.length === 0 ? (
           <p className="text-sm text-ink-muted">Nothing is due right now.</p>
@@ -88,10 +117,23 @@ function Body({ p, onStart, starting, startError, onPay, paying }: { p: BillingP
                   <span className="font-mono text-xs">{i.number ?? "Invoice"}</span>
                   <span className="text-ink-muted">{i.due_at ? `due ${new Date(i.due_at).toLocaleDateString("en-GB")}` : ""}</span>
                   <span className="tabular-nums">{money(i.outstanding, i.currency)}</span>
-                  {p.can_manage && p.method ? (
-                    <Button size="xs" variant="secondary" isDisabled={paying} onPress={() => onPay(i.invoice_id)}>
-                      Pay now
-                    </Button>
+                  {p.can_manage ? (
+                    <span className="flex gap-2">
+                      {p.method && !needsBank(lastFailed?.failure_code ?? null) ? (
+                        <Button size="xs" variant="secondary" isDisabled={paying || onlineBusy} onPress={() => onPay(i.invoice_id)}>
+                          Pay now
+                        </Button>
+                      ) : null}
+                      <Button
+                        size="xs"
+                        variant={p.method && !needsBank(lastFailed?.failure_code ?? null) ? "ghost" : "primary"}
+                        pending={onlineBusy}
+                        isDisabled={paying}
+                        onPress={() => onOnline(i.invoice_id)}
+                      >
+                        Pay on Stripe
+                      </Button>
+                    </span>
                   ) : null}
                 </li>
               ))}
@@ -117,7 +159,14 @@ function Body({ p, onStart, starting, startError, onPay, paying }: { p: BillingP
                 ]}
               />
             ) : (
-              <p className="text-sm text-ink-muted">{p.method_error ? "The saved card could not be read from the payment provider just now." : "No card saved yet."}</p>
+              p.method_error ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-ink-muted">We couldn't check your saved card with the payment provider just now. This is usually brief and nothing has changed.</p>
+                  <Button size="xs" variant="secondary" pending={refetching} onPress={onRetry}>Check again</Button>
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted">No card saved yet.</p>
+              )
             )}
             {startError ? <ApiErrorView error={startError} title="Couldn't open the card page" /> : null}
             {p.can_manage ? (
@@ -180,9 +229,53 @@ function failureText(code: string | null): string {
     case "CARD_DECLINED":
     case "GENERIC_DECLINE":
       return "Card declined";
+    case "AUTHENTICATION_REQUIRED":
+    case "PAYMENT_REQUIRES_ACTION":
+      return "Bank confirmation needed";
+    case "INCORRECT_CVC":
+    case "INVALID_CVC":
+      return "Card security code refused";
+    case "PAYMENT_PROCESSING":
+      return "Processing";
     default:
       return "Not completed";
   }
+}
+
+/** Whether the bank has to confirm the payment with the cardholder, which only Stripe's own page can ask for. */
+function needsBank(code: string | null): boolean {
+  return code === "AUTHENTICATION_REQUIRED" || code === "PAYMENT_REQUIRES_ACTION";
+}
+
+/** What the person can do about a failed payment. Never a raw code. */
+function failureAdvice(code: string | null): string {
+  switch (code) {
+    case "AUTHENTICATION_REQUIRED":
+    case "PAYMENT_REQUIRES_ACTION":
+      return "Your bank needs you to confirm this payment.";
+    case "INSUFFICIENT_FUNDS":
+      return "The card did not have enough available funds.";
+    case "EXPIRED_CARD":
+      return "The card has expired.";
+    case "NO_PAYMENT_METHOD":
+      return "There is no card saved to pay with.";
+    case "PROVIDER_UNAVAILABLE":
+      return "We could not reach the payment provider. It will be tried again.";
+    case "CARD_DECLINED":
+    case "GENERIC_DECLINE":
+      return "Your bank declined the card.";
+    default:
+      return "The payment could not be completed.";
+  }
+}
+
+/** Whether a card is past its last month or ends within the next 30 days. */
+function cardExpiry(month: number, year: number): "expired" | "soon" | null {
+  if (!month || !year) return null;
+  const end = new Date(year, month, 0, 23, 59, 59); // the last moment of the expiry month
+  const now = new Date();
+  if (end < now) return "expired";
+  return end.getTime() - now.getTime() < 30 * 24 * 3600 * 1000 ? "soon" : null;
 }
 
 /** One per click on Pay now: the same key can never charge twice. */

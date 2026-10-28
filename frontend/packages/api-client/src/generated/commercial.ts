@@ -242,6 +242,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/payment-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment Events
+         * @description What the payment processor reported that needs a person: refunds, disputes, money for an invoice that cannot
+         *     take it, and payments naming no invoice (CR-041). Resolved items too when `resolved=true`.
+         */
+        get: operations["payment_events_v1_commercial_payment_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payment-events/{event_id}:credit-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit Refund
+         * @description Turn a refund Stripe reported into a credit note on the invoice it refunded, and close the review item, in one
+         *     transaction (CR-041). Only a refund that names the company's own invoice qualifies, and the credit can never
+         *     exceed what is left of that invoice (the credit-note rule itself).
+         */
+        post: operations["credit_refund_v1_commercial_payment_events__event_id__credit_note_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payment-events/{event_id}:resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Payment Event Route */
+        post: operations["resolve_payment_event_route_v1_commercial_payment_events__event_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/plan-requests": {
         parameters: {
             query?: never;
@@ -1151,11 +1211,8 @@ export interface components {
         };
         /** OverrideBody */
         OverrideBody: {
-            /**
-             * Approver Id
-             * Format: uuid
-             */
-            approver_id: string;
+            /** Approver Id */
+            approver_id?: string | null;
             /** Capability */
             capability: string;
             /** Expires At */
@@ -1278,6 +1335,11 @@ export interface components {
              * Format: date-time
              */
             period_start: string;
+        };
+        /** RefundCreditBody */
+        RefundCreditBody: {
+            /** Amount */
+            amount: number | string;
         };
         /** RegionBody */
         RegionBody: {
@@ -1775,6 +1837,113 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payment_events_v1_commercial_payment_events_get: {
+        parameters: {
+            query?: {
+                resolved?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    credit_refund_v1_commercial_payment_events__event_id__credit_note_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundCreditBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_payment_event_route_v1_commercial_payment_events__event_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ResolveBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -154,6 +154,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/machine/attestations:verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Attestation
+         * @description Record a runtime attestation signed by an attestor this cell trusts (MACHINE-001 §9, §21). The signature is the
+         *     only credential: the tenant is read from the signed SPIFFE ID, the claims are checked only after the signature
+         *     passes, and an out-of-date but genuinely signed statement is kept as a FAILED record so the refusal is evidence.
+         */
+        post: operations["verify_attestation_v1_machine_attestations_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/machine/blueprints": {
         parameters: {
             query?: never;
@@ -422,6 +444,11 @@ export interface components {
              */
             note: string;
         };
+        /** AttestationBody */
+        AttestationBody: {
+            /** Statement */
+            statement: string;
+        };
         /** BindingBody */
         BindingBody: {
             /** Agent Principal Id */
@@ -533,6 +560,7 @@ export interface components {
             artifact_digest: string;
             /**
              * Attestation
+             * @deprecated
              * @default 0
              */
             attestation: number;
@@ -884,6 +912,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["zid_platform__modules__machine__api__agents__ReasonBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_attestation_v1_machine_attestations_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttestationBody"];
             };
         };
         responses: {
