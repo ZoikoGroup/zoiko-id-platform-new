@@ -1,0 +1,498 @@
+# One CI pipeline for the whole repository: backend, frontend, images, security and the nightly advisory audit, all in
+# this file. Every pull request and every push to main runs every check; the `checks` job at the end is green only when all
+# of them are, and it is the one check the branch ruleset needs for the code. (`secret-scan` and `devsecops-controls` stay
+# named jobs because the ruleset and the policy tests name them.)
+#
+# No `paths` filter: a required check that never starts leaves a pull request waiting forever, so nothing is skipped by path.
+# Release and signing are NOT here: release.yml (with its two reusable builders) runs only from main, with its own identity.
+#
+# Pull-request safe: read-only token, no secrets, no registry login, no OIDC identity (test_devsecops_controls enforces it).
+# The only job that can write (to open an issue) is limited to the nightly run or to a secret-scan hit, and never runs for a
+# fork. Actions are pinned by commit SHA; tool images by digest.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *"  # nightly, off the hour on purpose: only the two advisory jobs at the bottom run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.0"
+  TRIVY_IMAGE: aquasec/trivy:0.58.1@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7
+  HADOLINT_IMAGE: hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e
+  ACTIONLINT_IMAGE: rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+
+jobs:
+  # ------------------------------------------------------------------------------------------------ backend
+  static:
+    name: static
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false  # tests run repository code: it must not find a token in .git/config
+          lfs: false  # specs are not in Git; nothing to fetch
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Repository structure checks
+        working-directory: .
+        run: python3 tools/scripts/check_repo.py
+
+      - name: Contract compatibility against the base branch
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BASE_REF"
+          mkdir -p "$RUNNER_TEMP/base"
+          git archive FETCH_HEAD contracts | tar -x -C "$RUNNER_TEMP/base"
+          python3 tools/scripts/contract_compat.py "$RUNNER_TEMP/base/contracts" contracts
+
+      - name: The lockfile matches pyproject (nothing resolved at install time)
+        run: uv lock --check
+
+      - name: Install (locked)
+        run: uv sync --frozen --all-packages
+
+      - name: Lint and format
+        run: |
+          uv run --frozen ruff check .
+          uv run --frozen ruff format --check .
+
+      - name: Types
+        run: uv run --frozen mypy app/src/zid_platform
+
+  unit:
+    name: unit
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          lfs: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Install (locked)
+        run: uv sync --frozen --all-packages
+      # No services here: unit, property and contract tests and the libraries' own tests. One line per test (-v) so a
+      # slow or stuck test is visible in the live log, and the step has its own timeout so a hang fails fast.
+      - name: Tests (unit, property, contract, libraries)
+        timeout-minutes: 15
+        run: >-
+          uv run --frozen pytest -v -p no:logging --durations=15
+          app/tests/unit app/tests/property app/tests/contract libs
+          --junitxml=../reports/backend-unit-junit.xml -o junit_family=xunit2
+      - name: Keep the test report as evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-unit-junit-${{ github.sha }}
+          path: reports/backend-unit-junit.xml
+          retention-days: 400
+
+  component:
+    name: component
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # Disposable CI database; the component suite creates and drops its own database inside it (AT-04 mandate concurrency).
+      ZID_TEST_PG_URL: postgresql+asyncpg://postgres:ci-only@localhost:5432/postgres
+      ZID_TEST_SPICEDB_URL: http://localhost:58443
+      ZID_TEST_KAFKA: localhost:59092
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          lfs: false
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Start SpiceDB (a service container cannot pass the `serve` command)
+        run: >-
+          docker run -d --rm --name spicedb -p 58443:8443 authzed/spicedb:v1.39.1 serve
+          --grpc-preshared-key test-key --http-enabled --datastore-engine memory --telemetry-endpoint=""
+
+      - name: Start Kafka (KRaft, single node)
+        run: >-
+          docker run -d --rm --name kafka -p 59092:9092 -e KAFKA_NODE_ID=1 -e KAFKA_PROCESS_ROLES=broker,controller
+          -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:59092
+          -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+          -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+          -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+          -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true apache/kafka:3.8.0
+
+      - name: Install (locked)
+        run: uv sync --frozen --all-packages
+
+      - name: Tests (PostgreSQL component)
+        timeout-minutes: 25
+        run: >-
+          uv run --frozen pytest -v -p no:logging --durations=15
+          app/tests/component
+          --junitxml=../reports/backend-component-junit.xml -o junit_family=xunit2
+
+      - name: Keep the test report as evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-component-junit-${{ github.sha }}
+          path: reports/backend-component-junit.xml
+          retention-days: 400
+
+  # Dependencies as locked (uv.lock) against the Python advisory database. A finding fails the job: fix it by updating the
+  # lock (`uv lock --upgrade-package <name>`), not by ignoring it.
+  python-audit:
+    name: python-audit
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Audit the locked dependency set
+        run: |
+          set -euo pipefail
+          uv export --frozen --all-packages --no-emit-workspace --no-hashes --no-header > "$RUNNER_TEMP/requirements.txt"
+          uv tool run pip-audit==2.10.1 -r "$RUNNER_TEMP/requirements.txt" --no-deps --disable-pip --progress-spinner off
+
+  # Static analysis of our own source for medium-or-worse issues with high confidence (tests excluded: they plant weak hashes
+  # and keys on purpose). Runs on Python 3.13 because the code uses 3.13 syntax and the analyser reads it with its own interpreter.
+  sast:
+    name: sast
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Bandit
+        run: uv tool run --python 3.13 bandit==1.9.4 -r app/src libs -ll -iii -x '*/tests/*' -q
+
+  # ------------------------------------------------------------------------------------------------ frontend
+  frontend:
+    name: frontend
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"  # the version the production image is built with (frontend/Dockerfile)
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (lockfile only, no install scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+      - name: Types
+        run: npm run typecheck
+      - name: Tests
+        run: npm run test
+
+      # The API client's types are generated from contracts/openapi. A contract change without regenerated types fails here.
+      - name: Generated API client matches the contracts
+        run: |
+          set -euo pipefail
+          npm run codegen
+          git diff --exit-code -- packages/api-client/src/generated
+
+      - name: Build both apps
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+  # What ships (no dev tooling) must have no high or critical advisory. Fix by upgrading the package, never by ignoring.
+  frontend-audit:
+    name: frontend-audit
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  # ------------------------------------------------------------------------------------------------ images
+  # The release only builds images after merge, so a Dockerfile or build break used to be found on main. This builds the same
+  # images without pushing or signing anything, lints the Dockerfiles and every workflow, and scans for critical
+  # vulnerabilities that have a fix.
+  lint:
+    name: lint
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      # DL3006 ("tag the version") is a false positive for images given by a digest-pinned ARG; errors still fail the job.
+      - name: Dockerfiles
+        run: |
+          set -euo pipefail
+          for f in backend/Dockerfile frontend/Dockerfile; do
+            echo "== $f"
+            docker run --rm -i "$HADOLINT_IMAGE" hadolint --failure-threshold error - < "$f"
+          done
+      - name: Workflows
+        run: docker run --rm -v "$PWD:/repo" -w /repo "$ACTIONLINT_IMAGE" -color
+
+  backend-image:
+    name: backend-image
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the runtime image (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          target: runtime
+          push: false
+          load: true
+          tags: zid-platform:ci
+      - name: Scan for critical vulnerabilities that have a fix
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE"
+          image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 zid-platform:ci
+      - name: The image starts and imports the platform as its non-root user
+        run: >-
+          docker run --rm --entrypoint python zid-platform:ci
+          -c "import zid_platform.main, os; print('uid', os.getuid()); assert os.getuid() != 0"
+
+  frontend-image:
+    name: frontend-image
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, operator]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the ${{ matrix.app }} image (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend
+          build-args: APP=${{ matrix.app }}
+          push: false
+          load: true
+          tags: zid-${{ matrix.app }}:ci
+      - name: Scan for critical vulnerabilities that have a fix
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE"
+          image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 zid-${{ matrix.app }}:ci
+
+  # ------------------------------------------------------------------------------------------------ security (DEC-G4 §1-2)
+  secret-scan:
+    name: secret-scan
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write  # only to open the rotation incident below, and never for a fork
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Scan tracked files for credentials
+        run: python3 tools/scripts/secret_scan.py
+      # A hit means the secret is compromised: open a rotation incident (revoke + rotate + purge history),
+      # not just a deletion commit. Only same-repo runs have a token that may write issues.
+      - name: Open a secret-rotation incident
+        if: failure() && github.event.pull_request.head.repo.fork != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --label "security,secret-compromised" --title "Rotate: credential committed in ${{ github.sha }}"
+          --body "secret-scan found a credential-shaped string. Treat it as COMPROMISED: revoke it at the provider, issue a new one from the secrets broker, then remove it from history. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  devsecops-controls:
+    name: devsecops-controls
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Static DevSecOps control tests (policies, charts, workflows, Dockerfile, release gate)
+        working-directory: backend
+        run: uv run --frozen --all-packages pytest app/tests/unit/test_devsecops_controls.py -q -p no:logging
+
+  # ------------------------------------------------------------------------------------------------ the gate
+  # Green only when every check above is green. Always reported (even when a job above failed or was skipped).
+  checks:
+    name: checks
+    if: always() && github.event_name != 'schedule'
+    needs:
+      - static
+      - unit
+      - component
+      - python-audit
+      - sast
+      - frontend
+      - frontend-audit
+      - lint
+      - backend-image
+      - frontend-image
+      - secret-scan
+      - devsecops-controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every check passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -qE '"(failure|cancelled|skipped)"'; then
+            echo "a check did not pass" >&2
+            exit 1
+          fi
+
+  # ------------------------------------------------------------------------------------------------ nightly (schedule only)
+  # New advisories against the dependencies we already ship, with no change needed to find them. A hit opens an issue.
+  advisories-python:
+    name: advisories-python
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Audit the locked dependency set
+        run: |
+          set -euo pipefail
+          uv export --frozen --all-packages --no-emit-workspace --no-hashes --no-header > "$RUNNER_TEMP/requirements.txt"
+          uv tool run pip-audit==2.10.1 -r "$RUNNER_TEMP/requirements.txt" --no-deps --disable-pip --progress-spinner off
+      - name: Open an issue for the new advisory
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --label security --title "Python dependency advisory ($(date -u +%F))"
+          --body "The nightly audit of backend/uv.lock found a known vulnerability. Update the lock (uv lock --upgrade-package NAME) and merge. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  advisories-node:
+    name: advisories-node
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Open an issue for the new advisory
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --label security --title "Node dependency advisory ($(date -u +%F))"
+          --body "The nightly audit of frontend/package-lock.json found a high or critical vulnerability. Upgrade the package and merge. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

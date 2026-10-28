@@ -274,7 +274,7 @@ def test_the_repository_contracts_are_compatible_with_themselves_and_ci_runs_the
         (REPO / "contracts/baseline/accepted-contract-changes.json").read_text(encoding="utf-8")
     )
     assert isinstance(accepted, list)
-    workflow = yaml.safe_load((REPO / ".github/workflows/backend.yml").read_text(encoding="utf-8"))
+    workflow = yaml.safe_load((REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
     steps = workflow["jobs"]["static"]["steps"]
     gate = next(s for s in steps if "contract_compat.py" in s.get("run", ""))
     assert (
