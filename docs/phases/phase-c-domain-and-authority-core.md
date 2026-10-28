@@ -43,7 +43,7 @@ Built in slices; each slice is pure domain logic first, then persistence.
 | Policy releases persisted: publish checks, reviewer separation, one ACTIVE per tenant, immutable source (AUTHZ §18) | `migrations/policy_authoring/`, `policy_authoring/infrastructure/release_store.py` | Done |
 | Decision records: every decision appended with release, revisions, chain and input commitments (AUTHZ §24) | `migrations/decision/`, `decision/infrastructure/decision_store.py` | Done |
 | 80 spec acceptance tests (AUTHZ, MAND, MACH, ROOT, DM-AT) mapped to passing tests; CI guard keeps the mapping honest | `docs/traceability/acceptance-tests.csv`, `test_acceptance_test_status_is_honest` | Done (IN_PROGRESS until the CI report is attached) |
-| CI: lint, types, full suite with PostgreSQL and SpiceDB; JUnit report kept as evidence | `.github/workflows/backend.yml` | Done (runs on the first push/PR) |
+| CI: lint, types, full suite with PostgreSQL and SpiceDB; JUnit report kept as evidence | `.github/workflows/ci.yml` | Done (runs on the first push/PR) |
 
 **Left for later phases by design:** domain events/outbox for grant, mandate and root changes (Doc 08 §23, Phase D event platform; the cascade is called directly until then); registry/vLEI source adapters (Phase G integrations); SPIFFE/SVID issuance (DEC-F7, Phase F); pseudonymous DecisionReceipts (Phase F evidence).
 

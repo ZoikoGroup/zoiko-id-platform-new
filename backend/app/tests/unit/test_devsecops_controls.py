@@ -965,7 +965,7 @@ def test_ci_scans_for_secrets_and_opens_a_rotation_incident_not_just_a_deletion(
     """DEVSEC-13 (workflow part): detection is a required check and a hit opens a revoke/rotate incident.
 
     The actual revocation at the provider is not performed by the workflow (no provider credentials exist in CI)."""
-    wf = _workflows()["security.yml"]
+    wf = _workflows()["ci.yml"]
     steps = wf["jobs"]["secret-scan"]["steps"]
     assert any("secret_scan.py" in s.get("run", "") for s in steps)
     incident = next(s for s in steps if "incident" in s.get("name", "").lower())
