@@ -1771,6 +1771,20 @@ export type PriceBookSummary = { price_book_id: string; version: number; currenc
 export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null };
 export type PriceBookDetail = PriceBookSummary & { lines: PriceBookLine[] };
 export type AssuranceException = { exception_id: string; kind: string; ref: string; tenant_id: string | null; detail: unknown; status: string; raised_at: string };
+/** Something the payment provider reported that needs a person: a refund, a dispute, or a payment that names no invoice of the customer. */
+export type PaymentEvent = {
+  event_id: string;
+  event_type: string;
+  outcome: "NEEDS_REVIEW" | "UNMATCHED";
+  detail: string | null;
+  received_at: string;
+  tenant_id: string | null;
+  invoice_id: string | null;
+  amount: string | null;
+  currency: string | null;
+  resolved: boolean;
+  resolution: string | null;
+};
 export type VendorCostRow = Record<string, unknown>;
 /** The answer to checking a signed audit pack against the trusted evidence keys. */
 export type AuditPackVerdict = { valid: boolean; reason?: string; kid?: string; issuer?: string };

@@ -172,6 +172,9 @@ class Settings(ServiceSettings):
     # answers "not configured" and a deployed cell refuses to collect. ZID_STRIPE_API_BASE: test doubles only.
     stripe_secret_key_file: str | None = None
     stripe_api_base: str = "https://api.stripe.com"
+    # ZID_STRIPE_WEBHOOK_SECRET_FILE (CR-040): path of a file holding the endpoint's signing secret (`whsec_...`).
+    # Set, POST /v1/webhooks/stripe accepts Stripe's signed events; unset, the endpoint answers 404.
+    stripe_webhook_secret_file: str | None = None
     # --- Email (Communication Estate; CR-031). Off by default: nothing is sent until a person turns it on.
     # ZID_EMAIL_ENABLED: master switch. ZID_EMAIL_ENABLED_TEMPLATES: JSON list of template ids, or ["*"] for
     # every template whose event is wired and whose links have a route. ZID_EMAIL_FROM: "Name <address>" of a
@@ -205,6 +208,11 @@ class Settings(ServiceSettings):
     # privacy.ports.enforce_processing; audit records every would-be refusal as evidence
     privacy_enforcement: Literal["enforce", "audit"] | None = None
     spiffe_bundle_files: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
+    # ZID_ATTESTOR_KEYS_FILE (CR-042): a JWK set (`{"keys": [...]}`) of the attestors this cell trusts to sign runtime
+    # attestation statements. Public keys only. A key may carry `zid_max_level` (1 to 3, default 2): the highest
+    # level that attestor may vouch for; level 3 only for an attestor that checks hardware evidence. Unset, POST /v1/machine/attestations:verify answers 404 and no workload
+    # can reach an attestation level above 0.
+    attestor_keys_file: str | None = None
     spiffe_federated_domains: tuple[str, ...] = ()
     mesh_trusted_proxies: tuple[str, ...] = ()
     # ZID_SECRET_BROKER: env (ZID_SECRET__<REF>; local/test only) | openbao (deployed cells)

@@ -1,8 +1,8 @@
 "use client";
 
-import type { AssuranceException, AuditPackVerdict, OperatorApi, PlanRequest, PriceBookSummary } from "@zoiko/api-client";
+import type { AssuranceException, AuditPackVerdict, OperatorApi, PaymentEvent, PlanRequest, PriceBookSummary } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, EmptyState, JsonView, StatusBadge, TextField, type Column } from "@zoiko/ui";
-import { BookOpen, Inbox, ShieldCheck } from "lucide-react";
+import { BookOpen, CreditCard, Inbox, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
@@ -190,6 +190,48 @@ export function ExceptionsView() {
             rows={d.items}
             rowKey={(e) => e.exception_id}
             empty={<EmptyState title="No open exceptions" icon={ShieldCheck}>Run the detectors to check again.</EmptyState>}
+          />
+        </Card>
+      )}
+    </QueryView>
+  );
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  "charge.refunded": "Refund",
+  "charge.dispute.created": "Dispute opened",
+  "charge.dispute.closed": "Dispute closed",
+  "charge.dispute.funds_withdrawn": "Dispute funds withdrawn",
+  "payment_intent.succeeded": "Payment received",
+  "payment_intent.payment_failed": "Payment failed",
+};
+
+/** What the payment provider reported that no rule could settle by itself. Work an item with the actions below. */
+export function PaymentEventsView() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "payment-events"], (api) => api.commercial.paymentEvents());
+  const columns: Column<PaymentEvent>[] = [
+    { key: "k", header: "What happened", pinned: true, render: (e) => <Badge tone="warn">{EVENT_LABEL[e.event_type] ?? e.event_type}</Badge>, sortValue: (e) => e.event_type },
+    { key: "o", header: "Why it is here", render: (e) => (e.outcome === "UNMATCHED" ? "Matches no invoice of the customer" : "Needs a decision") },
+    { key: "a", header: "Amount", render: (e) => (e.amount ? `${e.amount} ${e.currency ?? ""}` : "—") },
+    { key: "t", header: "Tenant", render: (e) => (e.tenant_id ? <span className="font-mono text-2xs">{e.tenant_id}</span> : "Not identified") },
+    { key: "i", header: "Invoice", render: (e) => (e.invoice_id ? <span className="font-mono text-2xs">{e.invoice_id}</span> : "—") },
+    { key: "w", header: "Received", render: (e) => new Date(e.received_at).toLocaleString("en-GB"), sortValue: (e) => e.received_at },
+    { key: "id", header: "Event ID", render: (e) => <span className="font-mono text-2xs">{e.event_id}</span> },
+  ];
+  return (
+    <QueryView query={list}>
+      {(d) => (
+        <Card
+          title="Payment events waiting for a person"
+          description="Refunds, disputes and payments that match no invoice. A refund can be credited here; anything else is closed with a note of what was done."
+          padded={false}
+        >
+          <DataTable<PaymentEvent>
+            caption="Payment provider events awaiting review"
+            columns={columns}
+            rows={d.items}
+            rowKey={(e) => e.event_id}
+            empty={<EmptyState title="Nothing waiting" icon={CreditCard}>Refunds, disputes and unmatched payments appear here when Stripe reports them.</EmptyState>}
           />
         </Card>
       )}

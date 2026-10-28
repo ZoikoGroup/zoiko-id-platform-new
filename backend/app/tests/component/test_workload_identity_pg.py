@@ -5,6 +5,7 @@ mesh-verified workload token, against PostgreSQL with RLS (F-W6; DEC-F7 acceptan
 from __future__ import annotations
 
 import asyncio
+import json
 import urllib.parse
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -20,7 +21,7 @@ from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from zid_context.spiffe import SpiffeId, TrustPolicy
-from zid_crypto import KeyRing, LocalSigner
+from zid_crypto import KeyRing, LocalSigner, sign_jws
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.evidence.application.runtime import configure_runtime, development_runtime
@@ -232,6 +233,24 @@ def test_mesh_verified_workload_gets_a_bound_token(rt_url: str, tmp_path: Path) 
     xfcc = {
         "x-forwarded-client-cert": f'Cert="{urllib.parse.quote(svid.public_bytes(Encoding.PEM).decode())}"'
     }
+    # Tokens are risk class R2, so the floor is a verified artifact attestation (ATTEST-2): the workload's attestor signs
+    # a statement and the cell verifies it. What the requester says about itself is not evidence (CR-042).
+    attestor = LocalSigner("attestor-1", "Ed25519")
+    attestors = tmp_path / "attestors.json"
+    attestors.write_text(json.dumps({"keys": [attestor.public_jwk()]}), encoding="utf-8")
+    now_ts = int(datetime.now(UTC).timestamp())
+    statement = sign_jws(
+        attestor,
+        {
+            "sub": sid,
+            "environment_id": "prod",
+            "artifact_digest": DIGEST,
+            "level": 2,
+            "iat": now_ts - 5,
+            "exp": now_ts + 1800,
+        },
+        typ="attestation+jwt",
+    )
 
     async def seed() -> None:
         configure_runtime(development_runtime("uk-1"))
@@ -263,6 +282,7 @@ def test_mesh_verified_workload_gets_a_bound_token(rt_url: str, tmp_path: Path) 
             spiffe_trust_domain=DOMAIN,
             spiffe_bundle_files={DOMAIN: str(bundle)},
             mesh_trusted_proxies=("testclient",),
+            attestor_keys_file=str(attestors),
         ),
         keyring=KeyRing(LocalSigner("issuer-wl")),
     )
@@ -276,10 +296,29 @@ def test_mesh_verified_workload_gets_a_bound_token(rt_url: str, tmp_path: Path) 
             headers=xfcc,
         )
         assert r.status_code == 403
+        # without a verified attestation the request's own claim (attestation: 2) earns nothing
+        r = api.post("/v1/machine/workload-token", json=body, headers=xfcc)
+        assert r.status_code == 403 and r.json()["error"]["code"] == "ATTESTATION_INSUFFICIENT"
+        assert (
+            api.post("/v1/machine/attestations:verify", json={"statement": statement}).status_code
+            == 200
+        )
         r = api.post("/v1/machine/workload-token", json=body, headers=xfcc)
         assert r.status_code == 200, r.text
         tok = r.json()
         assert tok["principal_id"] == agent_id and tok["expires_in"] == 300
+        # MACH-26 single-client check: the exchange stays well inside its 150 ms p95 budget (MACHINE-001 §25).
+        # The gate rate itself is a PERF-environment run (tests/load/machine-token).
+        import time
+
+        walls = []
+        for _ in range(100):
+            t0 = time.perf_counter()
+            assert (
+                api.post("/v1/machine/workload-token", json=body, headers=xfcc).status_code == 200
+            )
+            walls.append((time.perf_counter() - t0) * 1000)
+        assert sorted(walls)[94] < 150
         auth = {"Authorization": f"Bearer {tok['access_token']}"}
         # the token works only together with the same mesh-verified SVID (RFC 8705 cnf.x5t)
         assert api.get("/v1/privacy/purposes", headers={**auth, **xfcc}).status_code == 200

@@ -192,6 +192,7 @@ def create_app(
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
         from .modules.commercial.api.commercial import router as commercial_router
+        from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
         from .modules.configuration.api.settings import router as settings_router
         from .modules.credential.api.credentials import router as credentials_router
@@ -261,6 +262,7 @@ def create_app(
             settings_router,
             usage_router,
             commercial_router,
+            stripe_webhook_router,
             commercial_admin_router,
             communication_router,
         ):
@@ -311,6 +313,31 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    if settings.attestor_keys_file:
+        import json as _json
+        from pathlib import Path as _Path
+
+        keys = _json.loads(_Path(settings.attestor_keys_file).read_text(encoding="utf-8")).get(
+            "keys", []
+        )
+        if not keys or any("d" in k for k in keys):
+            raise RuntimeError(
+                "ZID_ATTESTOR_KEYS_FILE must hold public keys only, and at least one"
+            )
+        app.state.attestor_keys = keys
+    if settings.stripe_webhook_secret_file:
+        from pathlib import Path
+
+        # Signing secrets for Stripe's webhook (CR-040): one per line, so a secret can be rolled without a gap.
+        app.state.stripe_webhook_secrets = [
+            ln.strip()
+            for ln in Path(settings.stripe_webhook_secret_file)
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if ln.strip()
+        ]
+        if not app.state.stripe_webhook_secrets:
+            raise RuntimeError("ZID_STRIPE_WEBHOOK_SECRET_FILE is empty")
     from .modules.commercial.ports import key_auth, key_vc_issued
     from .modules.credential.ports import credentials_issued_between
     from .modules.session.ports import sessions_created_between

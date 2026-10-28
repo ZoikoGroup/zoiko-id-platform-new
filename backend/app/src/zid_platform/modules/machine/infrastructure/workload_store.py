@@ -87,3 +87,63 @@ async def lift(conn: AsyncConnection, environment_id: str, by: str) -> bool:
         {"e": environment_id, "by": uuid.UUID(by)},
     )
     return bool(result.rowcount)
+
+
+async def add_attestation(
+    conn: AsyncConnection,
+    *,
+    attestation_id: str,
+    tenant_id: str,
+    workload_identity_id: str,
+    environment_id: str,
+    artifact_digest: str,
+    level: int,
+    verifier: str,
+    claims_commitment: str,
+    status: str,
+    failure_code: str | None,
+    valid_until: Any,
+) -> None:
+    await conn.execute(
+        text(
+            "INSERT INTO agent.workload_attestation (attestation_id, tenant_id, workload_identity_id, "
+            "environment_id, artifact_digest, level, verifier, claims_commitment, status, failure_code, valid_until) "
+            "VALUES (:a, :t, :w, :e, :d, :l, :v, :c, :s, :f, :u)"
+        ),
+        {
+            "a": uuid.UUID(attestation_id),
+            "t": uuid.UUID(tenant_id),
+            "w": workload_identity_id,
+            "e": environment_id,
+            "d": artifact_digest,
+            "l": level,
+            "v": verifier,
+            "c": claims_commitment,
+            "s": status,
+            "f": failure_code,
+            "u": valid_until,
+        },
+    )
+
+
+async def verified_level(
+    conn: AsyncConnection,
+    workload_identity_id: str,
+    environment_id: str,
+    artifact_digest: str,
+    now: Any,
+) -> int:
+    """The highest attestation level recorded as VALID and still in date for exactly this workload, environment and
+    artifact; 0 when there is none. The token request's own claim is never an input."""
+    return int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT coalesce(max(level), 0) FROM agent.workload_attestation WHERE status = 'VALID' "
+                    "AND workload_identity_id = :w AND environment_id = :e AND artifact_digest = :d "
+                    "AND valid_until > :n"
+                ),
+                {"w": workload_identity_id, "e": environment_id, "d": artifact_digest, "n": now},
+            )
+        ).scalar_one()
+    )

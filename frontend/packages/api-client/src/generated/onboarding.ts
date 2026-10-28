@@ -1,5 +1,28 @@
 // GENERATED from contracts/openapi/public/onboarding.json by packages/api-client/openapi/codegen.mjs. Do not edit.
 export interface paths {
+    "/v1/onboarding/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connection Progress
+         * @description What a person needs to connect an application, in one read: where to send decisions and how far shadow is.
+         *
+         *     `shadow` is present while the company is in SHADOW or PILOT: the decisions seen so far against what the plan needs,
+         *     each as a plain ratio, and `ready` when every shadow gate passes. Nothing here is a secret.
+         */
+        get: operations["connection_progress_v1_onboarding_connection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/onboarding/gates": {
         parameters: {
             query?: never;
@@ -9,6 +32,26 @@ export interface paths {
         };
         /** Gates */
         get: operations["gates_v1_onboarding_gates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/onboarding/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Approval Mode
+         * @description How this company's two-person onboarding steps are approved, and whether the caller may approve them alone.
+         */
+        get: operations["approval_mode_v1_onboarding_mode_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -217,7 +260,7 @@ export interface components {
         /** ApprovalBody */
         ApprovalBody: {
             /** Approval Request Id */
-            approval_request_id: string;
+            approval_request_id?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -301,7 +344,51 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    connection_progress_v1_onboarding_connection_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     gates_v1_onboarding_gates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    approval_mode_v1_onboarding_mode_get: {
         parameters: {
             query?: never;
             header?: never;

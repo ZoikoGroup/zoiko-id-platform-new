@@ -57,10 +57,13 @@ from zid_platform.modules.commercial.ports import (
     log_change,
     meter_window_frozen,
     next_month,
+    open_payment_refund,
     operator_scope,
     orders,
+    payment_event_queue,
     plan_requests,
     reconcile,
+    resolve_payment_event,
     run_rating,
     vendors,
     verify_chain,
@@ -1439,6 +1442,77 @@ async def resolve_exception(
         ):
             raise ZidError("EXCEPTION_NOT_OPEN", "No open exception with that id.", http_status=404)
     return {"exception_id": str(exception_id), "status": "RESOLVED"}
+
+
+@router.get("/v1/commercial/payment-events")
+async def payment_events(
+    request: Request, op: OperatorDep, resolved: bool = Query(default=False)
+) -> dict[str, Any]:
+    """What the payment processor reported that needs a person: refunds, disputes, money for an invoice that cannot
+    take it, and payments naming no invoice (CR-041). Resolved items too when `resolved=true`."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        return {"items": await payment_event_queue(conn, include_resolved=resolved)}
+
+
+@router.post("/v1/commercial/payment-events/{event_id}:resolve")
+async def resolve_payment_event_route(
+    event_id: str, body: ResolveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    if not re.fullmatch(r"evt_[A-Za-z0-9_]{6,100}", event_id):
+        raise ZidError("EVENT_NOT_FOUND", "No open payment event with that id.", http_status=404)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _catalog_grant(conn, op)
+        if not await resolve_payment_event(
+            conn, event_id, operator=op.principal_id, resolution=body.resolution
+        ):
+            raise ZidError(
+                "EVENT_NOT_FOUND", "No open payment event with that id.", http_status=404
+            )
+    return {"event_id": event_id, "status": "RESOLVED"}
+
+
+class RefundCreditBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Stripe reports the TOTAL refunded on a charge, so a second refund event repeats the first: the operator
+    # confirms the amount still to be credited rather than the platform assuming it.
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+
+
+@router.post("/v1/commercial/payment-events/{event_id}:credit-note", status_code=201)
+async def credit_refund(
+    event_id: str, body: RefundCreditBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Turn a refund Stripe reported into a credit note on the invoice it refunded, and close the review item, in one
+    transaction (CR-041). Only a refund that names the company's own invoice qualifies, and the credit can never
+    exceed what is left of that invoice (the credit-note rule itself)."""
+    if not re.fullmatch(r"evt_[A-Za-z0-9_]{6,100}", event_id):
+        raise ZidError("EVENT_NOT_FOUND", "No open refund with that id.", http_status=404)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        found = await open_payment_refund(conn, event_id)
+        if found is None:
+            raise ZidError("EVENT_NOT_FOUND", "No open refund with that id.", http_status=404)
+        tenant, invoice = str(found["tenant_id"]), str(found["invoice_id"])
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                note = await invoicing.credit_note(
+                    conn,
+                    invoice,
+                    amount=body.amount,
+                    reason_code="CUSTOMER_REFUND",
+                    reverses_line=None,
+                    issuer=op.principal_id,
+                )
+            except InvoicingError as e:
+                raise _inv_fail(e) from e
+        await resolve_payment_event(
+            conn,
+            event_id,
+            operator=op.principal_id,
+            resolution=f"Credit note {note['number']} for {body.amount}",
+        )
+    return note
 
 
 @router.post("/v1/commercial/tenants/{tenant_id}/close")

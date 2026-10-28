@@ -844,6 +844,28 @@
         "title": "ReconcileBody",
         "type": "object"
       },
+      "RefundCreditBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "RefundCreditBody",
+        "type": "object"
+      },
       "RegionBody": {
         "additionalProperties": false,
         "properties": {
@@ -1737,6 +1759,161 @@
           }
         },
         "summary": "Activate Order",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/payment-events": {
+      "get": {
+        "description": "What the payment processor reported that needs a person: refunds, disputes, money for an invoice that cannot\ntake it, and payments naming no invoice (CR-041). Resolved items too when `resolved=true`.",
+        "operationId": "payment_events_v1_commercial_payment_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Resolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Payment Events V1 Commercial Payment Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Payment Events",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/payment-events/{event_id}:credit-note": {
+      "post": {
+        "description": "Turn a refund Stripe reported into a credit note on the invoice it refunded, and close the review item, in one\ntransaction (CR-041). Only a refund that names the company's own invoice qualifies, and the credit can never\nexceed what is left of that invoice (the credit-note rule itself).",
+        "operationId": "credit_refund_v1_commercial_payment_events__event_id__credit_note_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundCreditBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Credit Refund V1 Commercial Payment Events  Event Id  Credit Note Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Credit Refund",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/payment-events/{event_id}:resolve": {
+      "post": {
+        "operationId": "resolve_payment_event_route_v1_commercial_payment_events__event_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Payment Event Route V1 Commercial Payment Events  Event Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Payment Event Route",
         "tags": [
           "commercial"
         ]

@@ -6,7 +6,7 @@ import { Banner, PageHeader, Tabs } from "@zoiko/ui";
 import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
 import { useDirectMode } from "./mode";
-import { AuditView, COMMERCIAL_KEY, ExceptionsView, PlanRequestsView, PriceBooksView } from "./views";
+import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
   const qc = useQueryClient();
@@ -75,6 +75,16 @@ export function CommercialPage() {
               <div className="space-y-4">
                 <ExceptionsView />
                 <Actions group="assurance" />
+              </div>
+            ),
+          },
+          {
+            id: "payments",
+            label: GROUP_LABEL.payments,
+            content: (
+              <div className="space-y-4">
+                <PaymentEventsView />
+                <Actions group="payments" />
               </div>
             ),
           },

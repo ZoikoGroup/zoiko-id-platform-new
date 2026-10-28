@@ -13,7 +13,9 @@ status only). The processor is Stripe (`StripePayments`) and the tax engine is S
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -152,9 +154,36 @@ def _client(
         base_url=base_url,
         auth=httpx.BasicAuth(api_key, ""),
         headers={"Stripe-Version": "2025-09-30.clover"},
-        timeout=httpx.Timeout(15.0, connect=5.0),
+        timeout=httpx.Timeout(20.0, connect=10.0),
         transport=transport,
     )
+
+
+# Pauses between attempts after a network failure, a 429 or a 5xx. A tuple, so a test can make it empty.
+RETRY_PAUSES: tuple[float, ...] = (0.3, 1.0)
+
+
+async def _send(client: httpx.AsyncClient, method: str, path: str, **kw: Any) -> httpx.Response:
+    """One Stripe request, retried when the network or Stripe is briefly unavailable. A POST is only ever repeated
+    under an `Idempotency-Key` (the caller's, or one made here and held across the attempts), so a retry after a
+    timeout cannot create or charge twice. The last failure is raised or returned for the caller to classify."""
+    headers = dict(kw.pop("headers", None) or {})
+    if method.upper() == "POST":
+        headers.setdefault("Idempotency-Key", str(uuid.uuid4()))
+    attempt = 0
+    while True:
+        try:
+            res = await client.request(method, path, headers=headers, **kw)
+        except httpx.HTTPError:
+            if attempt >= len(RETRY_PAUSES):
+                raise
+        else:
+            if res.status_code != 429 and res.status_code < 500:
+                return res
+            if attempt >= len(RETRY_PAUSES):
+                return res
+        await asyncio.sleep(RETRY_PAUSES[attempt])
+        attempt += 1
 
 
 class StripePayments:
@@ -209,8 +238,12 @@ class StripePayments:
             "automatic_payment_methods[allow_redirects]": "never",
         }
         try:
-            res = await self._client.post(
-                "/v1/payment_intents", data=form, headers={"Idempotency-Key": idempotency_key}
+            res = await _send(
+                self._client,
+                "POST",
+                "/v1/payment_intents",
+                data=form,
+                headers={"Idempotency-Key": idempotency_key},
             )
         except httpx.HTTPError:
             log.warning("stripe payment_intents unreachable")
@@ -239,7 +272,7 @@ class StripePayments:
         """The customer's saved payment method: Stripe's off-session PaymentIntent needs it named (it does not
         pick `invoice_settings.default_payment_method` by itself; only the legacy `default_source` is implicit).
         None: the customer has nothing saved or does not exist. "UNAVAILABLE": Stripe could not answer."""
-        res = await self._client.get(f"/v1/customers/{customer_ref}")
+        res = await _send(self._client, "GET", f"/v1/customers/{customer_ref}")
         if res.status_code >= 500 or res.status_code == 429:
             return "UNAVAILABLE"
         if not res.is_success:
@@ -273,6 +306,16 @@ class PaymentMethodSummary:
     exp_year: int
 
 
+@dataclass(frozen=True, slots=True)
+class OnlinePayment:
+    """A payment the buyer made on Stripe's hosted page: what the platform records, never a card."""
+
+    payment_intent: str
+    invoice_id: str
+    amount_minor: int
+    currency: str
+
+
 class StripeCustomers:
     """A company's saved payment method, collected on Stripe's hosted page (Checkout in setup mode): the card number
     never reaches the platform or the browser app. The platform stores only the Stripe customer id, sends the buyer to
@@ -290,7 +333,7 @@ class StripeCustomers:
 
     async def _call(self, method: str, path: str, **kw: Any) -> dict[str, Any]:
         try:
-            res = await self._client.request(method, path, **kw)
+            res = await _send(self._client, method, path, **kw)
         except httpx.HTTPError as e:
             log.warning(
                 "stripe %s unreachable", path.split("/")[2] if path.count("/") > 1 else path
@@ -353,6 +396,64 @@ class StripeCustomers:
         )
         return await self._summary(method)
 
+    async def start_payment(
+        self,
+        *,
+        customer_ref: str,
+        invoice_id: str,
+        invoice_label: str,
+        amount: Decimal,
+        currency: str,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        """The address of Stripe's hosted page where the buyer pays one invoice, with the bank's own confirmation
+        step (3-D Secure) when it asks for one. The invoice is named in the payment's metadata so the webhook and the
+        return both find it; the buyer's card is saved for nothing else."""
+        body = await self._call(
+            "POST",
+            "/v1/checkout/sessions",
+            data={
+                "mode": "payment",
+                "customer": customer_ref,
+                "payment_method_types[0]": "card",
+                "line_items[0][quantity]": "1",
+                "line_items[0][price_data][currency]": currency.lower(),
+                "line_items[0][price_data][unit_amount]": str(to_minor_units(amount, currency)),
+                "line_items[0][price_data][product_data][name]": invoice_label[:200],
+                "payment_intent_data[metadata][invoice_id]": invoice_id,
+                "metadata[invoice_id]": invoice_id,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        )
+        return str(body["url"])
+
+    async def complete_payment(self, *, session_id: str, customer_ref: str) -> OnlinePayment:
+        """Verify a returned payment session is this customer's and was paid, and say what was paid."""
+        if not session_id.startswith("cs_") or len(session_id) > 200:
+            raise PaymentSetupError("SESSION_INVALID")
+        session = await self._call("GET", f"/v1/checkout/sessions/{session_id}")
+        meta = session.get("metadata") or {}
+        intent = session.get("payment_intent")
+        if isinstance(intent, dict):
+            intent = intent.get("id")
+        if (
+            session.get("mode") != "payment"
+            or session.get("customer") != customer_ref
+            or session.get("payment_status") != "paid"
+            or not intent
+            or not meta.get("invoice_id")
+            or not isinstance(session.get("amount_total"), int)
+        ):
+            raise PaymentSetupError("PAYMENT_NOT_COMPLETE")
+        return OnlinePayment(
+            payment_intent=str(intent),
+            invoice_id=str(meta["invoice_id"]),
+            amount_minor=int(session["amount_total"]),
+            currency=str(session.get("currency") or "").upper(),
+        )
+
     async def current_method(self, customer_ref: str) -> PaymentMethodSummary | None:
         customer = await self._call("GET", f"/v1/customers/{customer_ref}")
         method = (customer.get("invoice_settings") or {}).get("default_payment_method")
@@ -404,7 +505,7 @@ class StripeTax:
             form[f"line_items[{i}][reference]"] = str(ln.seq)
             form[f"line_items[{i}][tax_behavior]"] = "exclusive"
         try:
-            res = await self._client.post("/v1/tax/calculations", data=form)
+            res = await _send(self._client, "POST", "/v1/tax/calculations", data=form)
         except httpx.HTTPError:
             log.warning("stripe tax unreachable")
             return None

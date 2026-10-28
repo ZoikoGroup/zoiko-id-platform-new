@@ -512,6 +512,11 @@ export function createCellApi(t: Transport) {
       /** Start saving or replacing the card: the address of Stripe's hosted page. The card never reaches this app. */
       startPaymentSetup: () => post<{ url: string }>("/v1/billing/payment/setup"),
       /** After Stripe sends the buyer back: the cell verifies the session and makes the card the default. */
+      /** Pay one invoice on Stripe's page (the way through when the bank asks for confirmation): the address to send the buyer to. */
+      payOnline: (invoiceId: string) => post<{ url: string }>(`/v1/invoices/${seg(invoiceId)}/pay-online`),
+      /** After Stripe sends the buyer back from paying: the cell verifies the session and records the payment once. */
+      completeOnlinePayment: (sessionId: string) =>
+        post<{ recorded: boolean; already_recorded: boolean }>("/v1/billing/payment/online-complete", { session_id: sessionId }),
       completePaymentSetup: (sessionId: string) => post<{ method: M.PaymentMethod }>("/v1/billing/payment/complete", { session_id: sessionId }),
       withdrawPlanRequest: (id: string) => post<{ request_id: string; status: M.PlanRequestStatus }>(`/v1/billing/plan-requests/${seg(id)}:withdraw`),
     },
@@ -597,6 +602,8 @@ export function createOperatorApi(t: Transport) {
       answerPlanRequest: (id: string, decision: "ACCEPTED" | "DECLINED", note?: string) =>
         post<{ request_id: string; status: M.PlanRequestStatus; tenant_id: string }>(`/v1/commercial/plan-requests/${seg(id)}:answer`, { decision, note: note?.trim() || null }),
       exceptions: () => get<M.Items<M.AssuranceException>>("/v1/commercial/exceptions"),
+      /** What the payment provider reported that needs a person, oldest first. `resolved` also lists the closed ones. */
+      paymentEvents: (resolved = false) => get<M.Items<M.PaymentEvent>>("/v1/commercial/payment-events", resolved ? { resolved: "true" } : undefined),
       kpis: () => get<Record<string, unknown>>("/v1/commercial/kpis"),
       vendorCosts: (start: string, end: string) => get<M.Items<M.VendorCostRow>>("/v1/commercial/vendor-costs", { start, end }),
       auditPack: (tenantId: string, month: string) => get<Record<string, unknown>>(`/v1/commercial/tenants/${seg(tenantId)}/audit-pack`, { month }),

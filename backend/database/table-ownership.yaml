@@ -1044,3 +1044,13 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "COM-001 §10 (CR-032)"
+  commercial.stripe_event:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-001 §11 (CR-040)"
+  agent.workload_attestation:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-MACHINE-001 §9 (CR-042)"

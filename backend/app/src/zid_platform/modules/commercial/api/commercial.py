@@ -52,7 +52,11 @@ from zid_platform.modules.commercial.application import (
 from zid_platform.modules.commercial.application import (
     plan_request_service as plan_requests,
 )
-from zid_platform.modules.commercial.application.adapters import PaymentSetupError, StripeCustomers
+from zid_platform.modules.commercial.application.adapters import (
+    PaymentSetupError,
+    StripeCustomers,
+    from_minor_units,
+)
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
@@ -430,10 +434,24 @@ def _need_payment_setup(request: Request) -> StripeCustomers:
     return setup
 
 
+_PAYMENT_MESSAGES = {
+    "PROVIDER_UNAVAILABLE": "We could not reach the payment provider just now. Nothing was charged or changed; please try again in a moment.",
+    "SESSION_INVALID": "That card page link is not valid. Start again from the billing page.",
+    "SETUP_NOT_COMPLETE": "The card was not saved. Start again and finish the card page.",
+    "PAYMENT_NOT_COMPLETE": "That payment was not completed, so nothing was recorded. You have not been charged unless Stripe shows otherwise.",
+    "RESOURCE_MISSING": "The payment provider no longer has this billing record. Contact your account manager.",
+}
+
+
 def _payment_error(e: PaymentSetupError) -> ZidError:
-    status = 503 if e.code == "PROVIDER_UNAVAILABLE" else 409
+    """A person-readable message per code; the code itself stays in the response for support."""
+    unavailable = e.code == "PROVIDER_UNAVAILABLE"
     return ZidError(
-        e.code, "The payment provider could not complete this step.", http_status=status
+        e.code,
+        _PAYMENT_MESSAGES.get(e.code, "The payment provider could not complete this step."),
+        http_status=503 if unavailable else 409,
+        retryable=unavailable,
+        retry_after_ms=3000 if unavailable else None,
     )
 
 
@@ -607,6 +625,99 @@ async def billing_payment_complete(
             detail={"brand": method.brand, "last4": method.last4},
         )
     return {"method": _method_json(method)}
+
+
+class OnlinePayCompleteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str = Field(min_length=10, max_length=200, pattern=r"^cs_[A-Za-z0-9_]+$")
+
+
+@router.post("/v1/invoices/{invoice_id}/pay-online")
+async def pay_invoice_online(
+    invoice_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Pay what is outstanding on one invoice on Stripe's page: the way through when the saved card needs the bank's
+    confirmation (3-D Secure), when there is no saved card, or when the buyer prefers another card. Nothing is charged
+    here; the platform records the payment when Stripe reports it and the buyer returns (CR-041)."""
+    setup = _need_payment_setup(request)
+    tenant = caller.ctx.tenant_id or ""
+    origin = getattr(request.app.state, "billing_return_origin", None)
+    if not origin:
+        raise ZidError(
+            "PAYMENTS_NOT_CONFIGURED",
+            "The billing return address is not configured.",
+            http_status=501,
+        )
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        customer = await invoicing_service.payment_customer(conn, tenant)
+        try:
+            shown = await invoicing_service.view(conn, str(invoice_id))
+        except InvoicingError as e:
+            raise _invoice_error(e) from e
+        if shown["status"] != "ISSUED" or Decimal(shown["outstanding"] or 0) <= 0:
+            raise ZidError(
+                "INVOICE_NOT_PAYABLE", "Nothing is due on that invoice.", http_status=409
+            )
+    if customer is None:
+        raise ZidError(
+            "NO_PAYMENT_CUSTOMER",
+            "Add a card first, or contact your account manager to set up billing.",
+            http_status=409,
+        )
+    try:
+        url = await setup.start_payment(
+            customer_ref=customer,
+            invoice_id=str(invoice_id),
+            invoice_label=f"Invoice {shown.get('number') or invoice_id}",
+            amount=Decimal(shown["outstanding"]),
+            currency=shown["currency"],
+            success_url=f"{origin}/admin/billing?payment=paid&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{origin}/admin/billing?payment=cancelled",
+        )
+    except PaymentSetupError as e:
+        raise _payment_error(e) from e
+    return {"url": url}
+
+
+@router.post("/v1/billing/payment/online-complete")
+async def pay_invoice_online_complete(
+    body: OnlinePayCompleteBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Record a payment made on Stripe's page once the buyer is back. The session is verified at Stripe (this
+    company's customer, paid, an invoice named) and the invoice must be this company's; a payment the webhook already
+    recorded is not recorded again."""
+    setup = _need_payment_setup(request)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        customer = await invoicing_service.payment_customer(conn, tenant)
+    if customer is None:
+        raise ZidError(
+            "NO_PAYMENT_CUSTOMER", "No payment was started for this company.", http_status=409
+        )
+    try:
+        paid = await setup.complete_payment(session_id=body.session_id, customer_ref=customer)
+    except PaymentSetupError as e:
+        raise _payment_error(e) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            done = await invoicing_service.record_reported_payment(
+                conn,
+                paid.invoice_id,
+                status="CAPTURED",
+                provider_ref=paid.payment_intent,
+                failure_code=None,
+                amount=from_minor_units(paid.amount_minor, paid.currency),
+                idempotency_key=f"session-{body.session_id}"[:120],
+            )
+        except InvoicingError as e:  # the invoice named is not this company's: nothing is recorded
+            raise _invoice_error(e) from e
+    return {"recorded": done is not None, "already_recorded": bool(done and done.get("replayed"))}
 
 
 class PayBody(BaseModel):

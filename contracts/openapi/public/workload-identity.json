@@ -104,6 +104,22 @@
         "title": "AttestBody",
         "type": "object"
       },
+      "AttestationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "statement": {
+            "maxLength": 8192,
+            "minLength": 20,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "AttestationBody",
+        "type": "object"
+      },
       "BindingBody": {
         "additionalProperties": false,
         "properties": {
@@ -393,6 +409,7 @@
           },
           "attestation": {
             "default": 0,
+            "deprecated": true,
             "maximum": 3.0,
             "minimum": 0.0,
             "title": "Attestation",
@@ -936,6 +953,50 @@
         "summary": "Suspend Agent",
         "tags": [
           "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/attestations:verify": {
+      "post": {
+        "description": "Record a runtime attestation signed by an attestor this cell trusts (MACHINE-001 \u00a79, \u00a721). The signature is the\nonly credential: the tenant is read from the signed SPIFFE ID, the claims are checked only after the signature\npasses, and an out-of-date but genuinely signed statement is kept as a FAILED record so the refusal is evidence.",
+        "operationId": "verify_attestation_v1_machine_attestations_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttestationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Attestation V1 Machine Attestations Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Attestation",
+        "tags": [
+          "workload-identity"
         ]
       }
     },
