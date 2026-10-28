@@ -1,0 +1,94 @@
+# Image build check on pull requests. The release pipeline only builds images after merge, so a Dockerfile or build break
+# was found on main (the release workflow has failed there before). This builds the same images the release builds, without
+# pushing or signing anything, lints the Dockerfiles, and scans the backend image for critical vulnerabilities that have a fix.
+#
+# Pull-request workflow: read-only token, no secrets, no registry login, no OIDC identity (test_devsecops_controls enforces it).
+# Actions are pinned by commit SHA; tool images are pinned by digest.
+name: image-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.58.1@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7
+  HADOLINT_IMAGE: hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e
+  ACTIONLINT_IMAGE: rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      # DL3006 ("tag the version") is a false positive for images given by a digest-pinned ARG; errors still fail the job.
+      - name: Dockerfiles
+        run: |
+          set -euo pipefail
+          for f in backend/Dockerfile frontend/Dockerfile; do
+            echo "== $f"
+            docker run --rm -i "$HADOLINT_IMAGE" hadolint --failure-threshold error - < "$f"
+          done
+      - name: Workflows
+        run: docker run --rm -v "$PWD:/repo" -w /repo "$ACTIONLINT_IMAGE" -color
+
+  backend-image:
+    name: backend-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the runtime image (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          target: runtime
+          push: false
+          load: true
+          tags: zid-platform:pr
+      - name: Scan for critical vulnerabilities that have a fix
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE"
+          image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 zid-platform:pr
+      - name: The image starts and imports the platform as its non-root user
+        run: >-
+          docker run --rm --entrypoint python zid-platform:pr
+          -c "import zid_platform.main, os; print('uid', os.getuid()); assert os.getuid() != 0"
+
+  frontend-image:
+    name: frontend-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, operator]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the ${{ matrix.app }} image (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend
+          build-args: APP=${{ matrix.app }}
+          push: false
+          load: true
+          tags: zid-${{ matrix.app }}:pr
+      - name: Scan for critical vulnerabilities that have a fix
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE"
+          image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 zid-${{ matrix.app }}:pr
