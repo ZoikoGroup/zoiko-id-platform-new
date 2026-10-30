@@ -91,6 +91,12 @@ class Residency:
     def level(self) -> int:
         return PROFILES.index(self.profile)
 
+    @property
+    def isolation_mode(self) -> str:
+        """EDR-002 §4: dedicated tenant infrastructure (SRP-3) or shared multi-tenant cells; derived, so it is
+        versioned with the profile."""
+        return "DEDICATED" if self.profile == "SRP-3" else "SHARED"
+
 
 @dataclass(frozen=True, slots=True)
 class TransferRule:

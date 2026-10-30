@@ -10,6 +10,7 @@ import { QueryView, useCellQuery } from "@/lib/cell";
 import { BudgetsSection } from "./budgets";
 import { InvoicesSection } from "./invoices";
 import { PaymentSection } from "./payment";
+import { PlanFeaturesSection } from "./plan-features-section";
 import { PreviewSection } from "./preview";
 import { BILLING_KEY, STATE_COPY } from "./shared";
 import { SubscriptionSection } from "./subscription";
@@ -30,6 +31,7 @@ export function BillingPage() {
         defaultTab={returning ? "payment" : undefined}
         tabs={[
           { id: "subscription", label: "Subscription", content: <SubscriptionSection /> },
+          { id: "features", label: "Plan features", content: <PlanFeaturesSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
           { id: "preview", label: "Bill preview", content: <PreviewSection /> },
           { id: "invoices", label: "Invoices", content: <InvoicesSection /> },

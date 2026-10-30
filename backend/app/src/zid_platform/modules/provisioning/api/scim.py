@@ -30,7 +30,8 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
-from zid_platform.modules.commercial.ports import require_entitlement
+from zid_platform.modules.authentication.ports import require_step_up
+from zid_platform.modules.commercial.ports import require_entitlement, require_feature
 from zid_platform.modules.integration.ports import record_interaction
 from zid_platform.modules.provisioning.application import scim
 from zid_platform.modules.provisioning.application.lifecycle import LifecycleEvent
@@ -362,6 +363,19 @@ async def create_source(body: SourceIn, request: Request, caller: CallerDep) -> 
             "scim",
             used=await count_active_sources(conn),
             enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+        await require_feature(
+            conn,
+            "advanced.scim-automated-provisioning",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource=f"provisioning_source:{source_id}",
+            change={"operation": "CREATE", "client_id": body.client_id},
         )
         s = Source(
             source_id, caller.ctx.tenant_id or "", body.client_id, body.display_name, "ACTIVE"

@@ -22,6 +22,27 @@ from zid_platform.modules.organization.application.identity import (
     resolve_organization,
     source_is_quarantined,
 )
+from zid_platform.modules.organization.application.kyb import (
+    CaseView as KybCaseView,
+)
+from zid_platform.modules.organization.application.kyb import (
+    get_case as kyb_get_case,
+)
+from zid_platform.modules.organization.application.kyb import (
+    history as kyb_history,
+)
+from zid_platform.modules.organization.application.kyb import (
+    refresh as kyb_refresh,
+)
+from zid_platform.modules.organization.application.kyb import (
+    request_verification as kyb_request_verification,
+)
+from zid_platform.modules.organization.application.kyb import (
+    review as kyb_review,
+)
+from zid_platform.modules.organization.application.kyb import (
+    search as kyb_search,
+)
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
     NameMatcher,
@@ -30,7 +51,25 @@ from zid_platform.modules.organization.application.registry import (
     refresh_registry_roots,
     request_registry_refresh,
 )
+from zid_platform.modules.organization.domain.kyb import (
+    Applicant as KybApplicant,
+)
+from zid_platform.modules.organization.domain.kyb import (
+    KybError,
+    KybStatus,
+)
+from zid_platform.modules.organization.domain.kyb import (
+    Review as KybReview,
+)
 from zid_platform.modules.organization.domain.registry import RegistryError, check_identifier
+from zid_platform.modules.organization.infrastructure.kyb_adapters import (
+    CompaniesHouseKyb,
+    CreditsafeKyb,
+    GleifKyb,
+    KybAdapter,
+    SireneKyb,
+)
+from zid_platform.modules.organization.infrastructure.kyb_config import routing as kyb_routing
 from zid_platform.modules.organization.infrastructure.registry_adapters import (
     CompaniesHouse,
     Gleif,
@@ -41,19 +80,36 @@ from zid_platform.modules.organization.infrastructure.root_store import organiza
 
 __all__ = [
     "CompaniesHouse",
+    "CompaniesHouseKyb",
+    "CreditsafeKyb",
     "EstablishedRoot",
     "Gleif",
+    "GleifKyb",
+    "KybAdapter",
+    "KybApplicant",
+    "KybCaseView",
+    "KybError",
+    "KybReview",
+    "KybStatus",
     "NameMatcher",
     "RegistryAdapter",
     "RegistryError",
     "RootReader",
     "RootView",
+    "SireneKyb",
     "adapter_for",
     "check_identifier",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",
     "identifiers_of",
+    "kyb_get_case",
+    "kyb_history",
+    "kyb_refresh",
+    "kyb_request_verification",
+    "kyb_review",
+    "kyb_routing",
+    "kyb_search",
     "legal_name_history",
     "link_identifier",
     "organization_exists",
@@ -64,6 +120,7 @@ __all__ = [
     "request_registry_refresh",
     "resolve_organization",
     "source_is_quarantined",
+    "usable_root_for",
 ]
 
 
@@ -115,6 +172,25 @@ async def read_root(conn: AsyncConnection, tenant_id: str, root_id: str) -> Root
         value_limit=r.value_limit,
         currency=r.currency,
     )
+
+
+async def usable_root_for(
+    conn: AsyncConnection, tenant_id: str, organization_id: str, principal_id: str, now: datetime
+) -> str | None:
+    """The id of an ACTIVE, fresh authority root this person holds for the organization, else None. A registered company
+    alone is not a person's authority: the root exists only when the person was matched to a current officer."""
+    from zid_platform.modules.organization.infrastructure.root_store import load_roots
+
+    for r in await load_roots(conn, organization_id):
+        view = await read_root(conn, tenant_id, r.root_id)
+        if (
+            view is not None
+            and view.usable
+            and view.fresh_until > now
+            and view.holder_principal_id == principal_id
+        ):
+            return view.root_id
+    return None
 
 
 async def has_usable_root(

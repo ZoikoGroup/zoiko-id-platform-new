@@ -18,6 +18,7 @@ POST /verification-assertions/{id}:revoke             protected (verification.as
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
@@ -31,7 +32,13 @@ from zid_errors import ZidError
 from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.country_gate import enforce
 from zid_platform.modules.verification.application import service
+from zid_platform.modules.verification.domain.countries import Capability
+from zid_platform.modules.verification.domain.providers import (
+    ProviderKind,
+    validate_provider_config,
+)
 from zid_platform.modules.verification.domain.verification import (
     SessionStatus,
     VerificationError,
@@ -39,6 +46,7 @@ from zid_platform.modules.verification.domain.verification import (
     validate_requirements,
 )
 from zid_platform.modules.verification.infrastructure import verification_store as store
+from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["verification"])
@@ -55,6 +63,8 @@ _STATUS = {
     "CALLBACK_SIGNATURE_INVALID": 401,
     "CALLBACK_SCHEMA_INVALID": 400,
     "CALLBACK_STALE": 400,
+    "APPLICANT_DATA_UNAVAILABLE": 503,  # nothing was recorded: the provider retries
+    "COUNTRY_CAPABILITY_UNAVAILABLE": 503,  # the provider retries once the country is enabled again
 }
 
 
@@ -62,6 +72,19 @@ def _err(e: VerificationError) -> ZidError:
     return ZidError(
         e.code, e.code.replace("_", " ").capitalize() + ".", http_status=_STATUS.get(e.code, 409)
     )
+
+
+def _country_gate(request: Request, jurisdiction: str) -> None:
+    """EDR-001: no identity verification in a country that has not been enabled for it (fail closed)."""
+    enforce(request, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
+
+
+def _callback_country_check(request: Request, country: str) -> None:
+    """A provider result for a country switched off since the session began is held, never applied."""
+    try:
+        _country_gate(request, country)
+    except ZidError as e:
+        raise VerificationError("COUNTRY_CAPABILITY_UNAVAILABLE", country) from e
 
 
 def _scope(caller: Caller, scope: str) -> None:
@@ -75,6 +98,21 @@ def _ctx() -> RequestContext:
 
 def _transport(request: Request) -> httpx.AsyncBaseTransport | None:
     return getattr(request.app.state, "verification_transport", None)
+
+
+def _secrets(request: Request) -> Callable[[str], str | None]:
+    """Provider secrets by reference, read from the secrets broker at the moment of use and never kept."""
+    broker = getattr(request.app.state, "secret_broker", None)
+
+    def get(name: str) -> str | None:
+        if broker is None:
+            return None
+        try:
+            return str(broker.get(name))
+        except Exception:  # noqa: BLE001 - a missing secret is "not available", never a crash or a pass
+            return None
+
+    return get
 
 
 class StartIn(BaseModel):
@@ -103,6 +141,7 @@ def _session_view(s: store.VSession) -> dict[str, Any]:
 @router.post("/verifications", status_code=201)
 async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     _scope(caller, "verification:execute")
+    _country_gate(request, body.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),
@@ -114,15 +153,22 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
             floor=body.required_level,
             transport=_transport(request),
             now=datetime.now(UTC),
+            country_registry_version=registry().version,
+            secrets=_secrets(request),
         )
     except VerificationError as e:
         raise _err(e) from e
-    return {
+    started: dict[str, Any] = {
         "verification_id": out.session_id,
         "status": out.status,
         "adapter_id": out.adapter_id,
         "outcome": out.outcome,
     }
+    if out.handoff:
+        started["handoff"] = (
+            out.handoff
+        )  # the applicant's short-lived link or token: shown once, never stored
+    return started
 
 
 @router.get("/verifications/{verification_id}")
@@ -165,6 +211,7 @@ async def reverify(
             old = await store.load_session(conn, str(verification_id))
         except VerificationError as e:
             raise _err(e) from e
+    _country_gate(request, old.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),
@@ -177,10 +224,19 @@ async def reverify(
             transport=_transport(request),
             now=datetime.now(UTC),
             supersedes=old.session_id,
+            country_registry_version=registry().version,
+            secrets=_secrets(request),
         )
     except VerificationError as e:
         raise _err(e) from e
-    return {"verification_id": out.session_id, "status": out.status, "supersedes": old.session_id}
+    again: dict[str, Any] = {
+        "verification_id": out.session_id,
+        "status": out.status,
+        "supersedes": old.session_id,
+    }
+    if out.handoff:
+        again["handoff"] = out.handoff
+    return again
 
 
 def _self_or(caller: Caller, principal_id: uuid.UUID, scope: str) -> None:
@@ -302,6 +358,14 @@ async def review(
     return {"case_id": str(case_id), "outcome": outcome}
 
 
+async def _callback_ok_status(request: Request, tenant: str, adapter_id: str) -> int:
+    async with tenant_transaction(
+        request_engine(request), _ctx().with_identity(tenant, None)
+    ) as conn:
+        adapter = await store.load_adapter(conn, adapter_id)
+    return 202 if adapter is None or adapter.get("provider_kind", "GENERIC") == "GENERIC" else 200
+
+
 @router.post("/verification-provider-callbacks/{adapter_ref}", status_code=202)
 async def callback(adapter_ref: str, request: Request) -> Response:
     tenant, _, adapter_id = adapter_ref.partition(".")
@@ -317,11 +381,18 @@ async def callback(adapter_ref: str, request: Request) -> Response:
             body=body,
             base_ctx=_ctx(),
             now=datetime.now(UTC),
+            country_check=lambda country: _callback_country_check(request, country),
+            headers=dict(request.headers),
+            secrets=_secrets(request),
+            transport=_transport(request),
         )
     except ValueError as e:
         code = e.code if isinstance(e, VerificationError) else "PROVIDER_UNTRUSTED"
         return JSONResponse({"error": code}, status_code=_STATUS.get(code, 409))
-    return JSONResponse({"outcome": outcome}, status_code=202)
+    # Veriff and Sumsub retry anything that is not a plain 200, so their callbacks are answered 200; Zoiko's own protocol keeps 202
+    return JSONResponse(
+        {"outcome": outcome}, status_code=await _callback_ok_status(request, tenant, adapter_id)
+    )
 
 
 class ProfileIn(BaseModel):
@@ -391,14 +462,26 @@ async def activate_profile(
     return {"profile_id": str(profile_id), "status": "ACTIVE"}
 
 
+def _default_algorithms() -> list[Literal["ES256", "Ed25519", "RS256", "PS256"]]:
+    return ["ES256"]
+
+
 class AdapterIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     adapter_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{1,62}$")
     provider: str = Field(min_length=1, max_length=64)
     mapping_version: str = Field(min_length=1, max_length=32)
-    submit_endpoint: str = Field(pattern=r"^https://")
-    callback_jwks: dict[str, Any]
-    callback_algorithms: list[Literal["ES256", "Ed25519", "RS256", "PS256"]] = Field(min_length=1)
+    submit_endpoint: str = Field(
+        pattern=r"^https://"
+    )  # for Veriff and Sumsub, the provider's base address
+    callback_jwks: dict[str, Any] = Field(default_factory=lambda: {"keys": []})  # GENERIC only
+    callback_algorithms: list[Literal["ES256", "Ed25519", "RS256", "PS256"]] = Field(
+        default_factory=_default_algorithms, min_length=1
+    )
+    provider_kind: Literal["GENERIC", "VERIFF", "SUMSUB"] = "GENERIC"
+    provider_config: dict[str, Any] = Field(
+        default_factory=dict
+    )  # secret names and settings, never the secrets
     equivalence_group: str = Field(min_length=1, max_length=64)
     supported_evidence: list[str] = Field(min_length=1)
     jurisdictions: list[str] = Field(min_length=1)
@@ -414,6 +497,17 @@ async def adapters(request: Request, caller: CallerDep) -> dict[str, Any]:
 
 @router.post("/verification-adapters", status_code=201)
 async def create_adapter(body: AdapterIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+    kind = ProviderKind(body.provider_kind)
+    try:
+        config = validate_provider_config(kind, body.provider_config, body.jurisdictions)
+    except VerificationError as e:
+        raise _err(e) from e
+    if kind is ProviderKind.GENERIC and not body.callback_jwks.get("keys"):
+        raise ZidError(
+            "VALIDATION_FAILED",
+            "A generic adapter needs its pinned callback keys.",
+            http_status=422,
+        )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn,
@@ -422,7 +516,12 @@ async def create_adapter(body: AdapterIn, request: Request, caller: CallerDep) -
             resource=f"verification_adapter:{body.adapter_id}",
         )
         await store.create_adapter(
-            conn, {**body.model_dump(), "tenant_id": caller.ctx.tenant_id or ""}
+            conn,
+            {
+                **body.model_dump(),
+                "provider_config": config,
+                "tenant_id": caller.ctx.tenant_id or "",
+            },
         )
     return {
         "adapter_id": body.adapter_id,

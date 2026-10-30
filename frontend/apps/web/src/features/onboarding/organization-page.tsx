@@ -148,6 +148,17 @@ export function OrganizationPage({ carry }: { carry: CarriedOrganization }) {
         description="Your company is checked against its official register, and you are matched to one of its officers, before you become its owner."
         breadcrumbs={[{ label: "Overview", href: "/overview" }, { label: "Company verification" }]}
       />
+      <Banner
+        tone="info"
+        title="Is your company outside the United Kingdom?"
+        action={
+          <ButtonLink href="/admin/organization/claim" size="sm" variant="secondary">
+            Find your organization
+          </ButtonLink>
+        }
+      >
+        Search an official register in any country where company verification is open, and track each check on its own.
+      </Banner>
       <QueryView query={tenant}>
         {(t) => {
           if (!t) return <Banner tone="warn" title="No company workspace">You are not part of a company workspace.</Banner>;

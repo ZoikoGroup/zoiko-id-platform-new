@@ -418,6 +418,9 @@
         "commercial_entitlement_changed": {
           "$ref": "#/components/messages/commercial_entitlement_changed"
         },
+        "commercial_entitlement_snapshot_published": {
+          "$ref": "#/components/messages/commercial_entitlement_snapshot_published"
+        },
         "commercial_invoice_issued": {
           "$ref": "#/components/messages/commercial_invoice_issued"
         },
@@ -429,6 +432,18 @@
         },
         "commercial_price_book_approved": {
           "$ref": "#/components/messages/commercial_price_book_approved"
+        },
+        "commercial_quota_threshold_reached": {
+          "$ref": "#/components/messages/commercial_quota_threshold_reached"
+        },
+        "commercial_usage_committed": {
+          "$ref": "#/components/messages/commercial_usage_committed"
+        },
+        "commercial_usage_released": {
+          "$ref": "#/components/messages/commercial_usage_released"
+        },
+        "commercial_usage_reserved": {
+          "$ref": "#/components/messages/commercial_usage_reserved"
         }
       },
       "parameters": {
@@ -1264,6 +1279,9 @@
         "organization_identifier_changed": {
           "$ref": "#/components/messages/organization_identifier_changed"
         },
+        "organization_kyb_decided": {
+          "$ref": "#/components/messages/organization_kyb_decided"
+        },
         "organization_officer_changed": {
           "$ref": "#/components/messages/organization_officer_changed"
         },
@@ -1907,6 +1925,9 @@
         },
         "verification_reliance_denied": {
           "$ref": "#/components/messages/verification_reliance_denied"
+        },
+        "verification_screening_decided": {
+          "$ref": "#/components/messages/verification_screening_decided"
         },
         "verification_started": {
           "$ref": "#/components/messages/verification_started"
@@ -2563,6 +2584,17 @@
         "x-zid-source": "ZID-COM-001 \u00a76, \u00a729; CR-024",
         "x-zid-status": "proposed"
       },
+      "commercial_entitlement_snapshot_published": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.entitlement.snapshot_published.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A new signed entitlement snapshot became the tenant's current one because its plan, suspension, billing state or an override changed (plan, band, subscription state, catalogue version, revision; no feature detail).",
+        "title": "commercial.entitlement.snapshot_published",
+        "x-zid-source": "ZID-ENG-DEC-008 section 05; CR-045",
+        "x-zid-status": "proposed"
+      },
       "commercial_invoice_issued": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.commercial.invoice.issued.v1",
@@ -2605,6 +2637,50 @@
         "summary": "A price book was approved by a second operator and became effective (version, effective date).",
         "title": "commercial.price_book.approved",
         "x-zid-source": "ZID-COM-001 \u00a76, \u00a712; CR-024",
+        "x-zid-status": "proposed"
+      },
+      "commercial_quota_threshold_reached": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.quota.threshold_reached.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Reservations and committed use of a capped meter reached its limit for the period (meter, limit, period; ids only).",
+        "title": "commercial.quota.threshold_reached",
+        "x-zid-source": "ZID-ENG-DEC-008 section 05; CR-045",
+        "x-zid-status": "proposed"
+      },
+      "commercial_usage_committed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.usage.committed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A reservation was committed: the operation completed and its quantity counts (meter, quantity, period; ids only).",
+        "title": "commercial.usage.committed",
+        "x-zid-source": "ZID-ENG-DEC-008 section 05; CR-045",
+        "x-zid-status": "proposed"
+      },
+      "commercial_usage_released": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.usage.released.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A reservation was released: the operation failed, duplicated or never completed and its quantity was given back.",
+        "title": "commercial.usage.released",
+        "x-zid-source": "ZID-ENG-DEC-008 section 05; CR-045",
+        "x-zid-status": "proposed"
+      },
+      "commercial_usage_reserved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.commercial.usage.reserved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A tenant reserved a quantity of a meter for an operation (meter, quantity, period; ids only).",
+        "title": "commercial.usage.reserved",
+        "x-zid-source": "ZID-ENG-DEC-008 section 05; CR-045",
         "x-zid-status": "proposed"
       },
       "connector_quarantined": {
@@ -4092,6 +4168,17 @@
         "x-zid-source": "ZID-ROOT-001",
         "x-zid-status": "catalogued"
       },
+      "organization_kyb_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company-verification decision was recorded (case id, decision status, reasons, evidence hash, policy version and country; no company data beyond ids and codes).",
+        "title": "organization.kyb.decided",
+        "x-zid-source": "ZID-ED-03 Global Company Verification section 04-05; CR-043",
+        "x-zid-status": "proposed"
+      },
       "organization_officer_changed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.organization.officer_changed.v1",
@@ -5235,6 +5322,17 @@
         "title": "verification.reliance.denied",
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_screening_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.screening.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A director, beneficial-owner and sanctions screening decision was recorded (case id, decision status, reason codes, evidence hash, policy version, country and alert count; no names, dates of birth or list entry text).",
+        "title": "verification.screening.decided",
+        "x-zid-source": "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening section 04-06; CR-043",
+        "x-zid-status": "proposed"
       },
       "verification_started": {
         "contentType": "application/cloudevents+json",

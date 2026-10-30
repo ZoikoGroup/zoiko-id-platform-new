@@ -1,0 +1,20 @@
+# Home-cell readiness gate (ZID-EDR-002 section 8). A cell takes the Regional offer in a deployed environment only when
+# all five gates are recorded with a reference. A cell that has not passed holds that customer segment: the promise is
+# never silently downgraded to another region.
+# status: PROPOSED (founder approval of EDR-002 pending)
+# version: 0.1.0
+#
+# status: NOT_READY (the default), SANDBOX (a development stand-in: counts in local and test only), or READY
+#   (needs every gate in `gates` with its recorded reference).
+# gates: architecture, security, privacy_and_law, operations, commercial; the owners record the reference.
+
+version: 0.1.0
+cells:
+  us-1:
+    status: NOT_READY   # in the cell catalogue as a target (cells.yaml); not deployed, no gate recorded
+  uk-1:
+    status: SANDBOX
+  eu-1:
+    status: SANDBOX
+  local-1:
+    status: SANDBOX

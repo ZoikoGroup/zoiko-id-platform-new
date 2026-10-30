@@ -341,7 +341,7 @@ export interface components {
          * Role
          * @enum {string}
          */
-        Role: "OWNER" | "ADMIN" | "MEMBER";
+        Role: "OWNER" | "ADMIN" | "APPROVER" | "OPERATOR" | "VIEWER" | "MEMBER";
         /** Suspend */
         Suspend: {
             /** Reason Code */

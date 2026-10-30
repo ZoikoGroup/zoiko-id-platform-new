@@ -248,6 +248,52 @@
         ]
       }
     },
+    "/v1/countries": {
+      "get": {
+        "operationId": "countries_v1_countries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Countries V1 Countries Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Countries",
+        "tags": [
+          "countries"
+        ]
+      }
+    },
+    "/v1/residency-offers": {
+      "get": {
+        "operationId": "residency_offers_v1_residency_offers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Residency Offers V1 Residency Offers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Residency Offers",
+        "tags": [
+          "residency"
+        ]
+      }
+    },
     "/v1/tenant/cross-cell-transfers:authorize": {
       "post": {
         "operationId": "authorize_v1_tenant_cross_cell_transfers_authorize_post",

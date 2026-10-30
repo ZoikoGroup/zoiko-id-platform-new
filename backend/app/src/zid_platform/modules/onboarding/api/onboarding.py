@@ -29,6 +29,7 @@ from zid_db import tenant_transaction
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.country_gate import enforce, enforce_tenant, namespace_country
 from zid_platform.modules.onboarding.application import gates as gate_service
 from zid_platform.modules.onboarding.application import plans as plan_service
 from zid_platform.modules.onboarding.application.organization import submit_organization
@@ -36,7 +37,8 @@ from zid_platform.modules.onboarding.domain.gates import OWNER_APPROVER, Gate, O
 from zid_platform.modules.onboarding.infrastructure import store as plan_store
 from zid_platform.modules.onboarding.infrastructure.store import Plan, Stage
 from zid_platform.modules.organization.ports import RegistryAdapter, adapter_for
-from zid_platform.modules.tenant.ports import Role, RoleStatus, live_roles
+from zid_platform.modules.tenant.ports import Mode, Role, RoleStatus, live_roles, matrix_gate
+from zid_platform.modules.verification.ports import Capability
 from zid_platform.protected import approved_by_second_admin, catalog, protected_action
 
 router = APIRouter(prefix="/v1/onboarding", tags=["onboarding"])
@@ -128,6 +130,7 @@ async def organization(
         raise ZidError(
             "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
         )
+    enforce(request, namespace_country(body.namespace), Capability.BUSINESS_VERIFICATION)  # EDR-001
     adapter = registry_adapter(request, body.namespace)
     corroborate = [(registry_adapter(request, "LEI"), body.lei)] if body.lei else []
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -350,14 +353,21 @@ async def _admin_read(conn: Any, caller: Caller) -> None:
         )
 
 
-@router.get("/plans")
+@router.get(
+    "/plans",
+    dependencies=[Depends(matrix_gate("a.view-organization-dashboard", Mode.READ))],
+)
 async def list_plans(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
         return {"items": [plan_view(p) for p in await plan_store.plans(conn)]}
 
 
-@router.post("/plans", status_code=201)
+@router.post(
+    "/plans",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def create_plan(body: PlanBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -393,7 +403,10 @@ async def approve_plan(
     return plan_view(p)
 
 
-@router.post("/plans/{plan_id}:validate")
+@router.post(
+    "/plans/{plan_id}:validate",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def validate_plan(plan_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -408,7 +421,10 @@ async def validate_plan(plan_id: str, request: Request, caller: CallerDep) -> di
     return moved(t.status.value if t else "UNKNOWN", gates)
 
 
-@router.post("/plans/{plan_id}:start-integration")
+@router.post(
+    "/plans/{plan_id}:start-integration",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def start_integration(plan_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -421,7 +437,10 @@ async def start_integration(plan_id: str, request: Request, caller: CallerDep) -
             raise http(e) from e
 
 
-@router.post("/plans/{plan_id}:start-shadow")
+@router.post(
+    "/plans/{plan_id}:start-shadow",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def start_shadow(plan_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -437,6 +456,7 @@ async def _approved_move(
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await enforce_tenant(request, conn, tenant, Capability.ENTERPRISE_USE)  # EDR-001
         approver = await _second_person(
             request,
             conn,
@@ -453,21 +473,30 @@ async def _approved_move(
             raise http(e) from e
 
 
-@router.post("/plans/{plan_id}:start-pilot")
+@router.post(
+    "/plans/{plan_id}:start-pilot",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def start_pilot(
     plan_id: str, body: ApprovalBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     return await _approved_move(request, caller, plan_id, body, "START_PILOT")
 
 
-@router.post("/plans/{plan_id}:activate")
+@router.post(
+    "/plans/{plan_id}:activate",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def activate(
     plan_id: str, body: ApprovalBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     return await _approved_move(request, caller, plan_id, body, "ACTIVATE")
 
 
-@router.post("/plans/{plan_id}:rollback")
+@router.post(
+    "/plans/{plan_id}:rollback",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def rollback(
     plan_id: str, body: RollbackBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -483,7 +512,10 @@ async def rollback(
     return {"tenant_status": status}
 
 
-@router.get("/plans/{plan_id}/stages")
+@router.get(
+    "/plans/{plan_id}/stages",
+    dependencies=[Depends(matrix_gate("a.view-organization-dashboard", Mode.READ))],
+)
 async def list_stages(plan_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
@@ -494,7 +526,11 @@ async def list_stages(plan_id: str, request: Request, caller: CallerDep) -> dict
         }
 
 
-@router.post("/plans/{plan_id}/stages", status_code=201)
+@router.post(
+    "/plans/{plan_id}/stages",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def add_stage(
     plan_id: str, body: StageBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -510,12 +546,16 @@ async def add_stage(
     return stage_view(st)
 
 
-@router.post("/stages/{stage_id}:activate")
+@router.post(
+    "/stages/{stage_id}:activate",
+    dependencies=[Depends(matrix_gate("d.execute-ordinary-approved-operation", Mode.EXECUTE))],
+)
 async def activate_stage(
     stage_id: str, body: ApprovalBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await enforce_tenant(request, conn, tenant, Capability.ENTERPRISE_USE)  # EDR-001
         approver = await _second_person(
             request,
             conn,

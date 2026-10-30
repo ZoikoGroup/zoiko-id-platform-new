@@ -26,6 +26,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.authentication.api.step_up import require_step_up
 from zid_platform.modules.authentication.application import authenticators as manage
 from zid_platform.modules.authentication.application import recovery
 from zid_platform.modules.authentication.application.webauthn import (
@@ -342,6 +343,14 @@ async def revoke_authenticator(
 ) -> dict[str, Any]:
     now = datetime.now(UTC)
     async with tenant_transaction(request_engine(request), caller.ctx) as c:
+        await require_step_up(
+            request,
+            c,
+            caller,
+            action="enroll-remove-replace-passkey-mfa-or-recovery-factor",
+            resource=f"authenticator:{authenticator_id}",
+            change={"operation": "REVOKE"},
+        )
         try:
             await manage.revoke_own(
                 c,

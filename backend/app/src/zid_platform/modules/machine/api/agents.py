@@ -28,6 +28,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.machine.application import agents as service
 from zid_platform.modules.machine.domain.agents import ATTESTABLE_GATES, MachineError
 from zid_platform.modules.machine.infrastructure import agent_store, machine_store
@@ -232,6 +233,11 @@ async def register_agent(body: AgentBody, request: Request, caller: CallerDep) -
 
     async def go(conn: Any) -> dict[str, Any]:
         await protected_action(conn, caller, action="machine.agent.manage", resource="agent:new")
+        await require_feature(
+            conn,
+            "advanced.agent-workload-identities",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         agent = await service.register_agent(
             conn, _tenant(caller), home_cell=home, actor=_actor(caller), **body.model_dump()
         )

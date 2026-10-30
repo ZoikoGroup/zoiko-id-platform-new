@@ -14,8 +14,9 @@ and openbao; the local implementations refuse to start there.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 from zid_crypto import KeyRing, LocalSigner, Signer
@@ -187,6 +188,26 @@ def placement_signer(
     if not kms_key_id:
         return None
     return _signer_class(settings)(kms_client or _kms_client(settings), kms_key_id, kid=kid)
+
+
+COMPANY_EVIDENCE_TYP = "zid-company-evidence+jwt"
+
+
+def company_evidence_signer(settings: Settings) -> Callable[[dict[str, Any]], str] | None:
+    """Signs the evidence of a company-verification or screening decision (ZID-ED-03, ZID-ED-04). None when no key is
+    configured, and then no decision is recorded rather than recorded unsigned."""
+    from zid_crypto import KeyRing
+
+    signer = placement_signer(
+        settings,
+        dev_purpose="company_evidence",
+        kid=f"company-evidence-{settings.cell_id}",
+        kms_key_id=settings.company_evidence_kms_key_id,
+    )
+    if signer is None:
+        return None
+    ring = KeyRing(signer)
+    return lambda body: ring.sign(body, typ=COMPANY_EVIDENCE_TYP)
 
 
 def handle_key_from_settings(

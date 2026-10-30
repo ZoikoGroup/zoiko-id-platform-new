@@ -424,6 +424,16 @@ tables:
     module: authentication
     tenant_scoped: true
     source: "ZID-AUTH-001 §3.1-3.3, §6.4 (single-use WebAuthn challenge, <= 5 min)"
+  authn.step_up_challenge:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ENG-DEC-009 §05 step-up challenge bound to one command digest (CR-046)"
+  authn.step_up_proof:
+    role: cell
+    module: authentication
+    tenant_scoped: true
+    source: "ENG-DEC-009 §05 step-up proof, consumed once for S2 (CR-046)"
   authn.enrollment_ticket:
     role: cell
     module: authentication
@@ -634,6 +644,51 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-PRIV-001 rectification (PRIV-16)"
+  org.kyb_case:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-ED-03 Global Company Verification (CR-043)"
+  org.kyb_evidence:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-ED-03 signed verification evidence, append-only (CR-043)"
+  verify.sanction_list_version:
+    role: cell
+    module: screening
+    tenant_scoped: false
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.sanction_list_entry:
+    role: cell
+    module: screening
+    tenant_scoped: false
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_case:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_party:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_ownership:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_match:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_evidence:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
   verify.verification_assertion:
     role: cell
     module: verification
@@ -1029,6 +1084,11 @@ tables:
     module: operations
     tenant_scoped: false
     source: "SRE-001 §5.1, §23 change freeze (CR-017)"
+  platform.principal_person_link:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-007 invariant 2: accounts that are one natural person, for separation of duties (CR-044)"
   platform.tenant_registration:
     role: cell
     module: tenant
@@ -1044,6 +1104,16 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "COM-001 §10 (CR-032)"
+  commercial.usage_reservation:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ENG-DEC-008 §05 usage reserve, commit, release; idempotent quota ledger (CR-045)"
+  commercial.entitlement_snapshot:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ENG-DEC-008 §05 signed entitlement snapshot shared by every process (CR-045)"
   commercial.stripe_event:
     role: cell
     module: commercial

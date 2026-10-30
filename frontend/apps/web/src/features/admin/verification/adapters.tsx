@@ -78,6 +78,7 @@ function RegisterAdapterDialog({ onClose }: { onClose: () => void }) {
         equivalence_group: required(group, "Equivalence group"),
         supported_evidence: ev,
         jurisdictions: juris,
+        provider_kind: "GENERIC", // this form registers Zoiko's own signed-result protocol; Veriff and Sumsub adapters are created through the API
       });
     } catch (e) {
       setLocalError(e);

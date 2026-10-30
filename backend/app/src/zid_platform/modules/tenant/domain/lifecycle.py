@@ -135,6 +135,9 @@ def serves_runtime(status: TenantStatus | None) -> bool:
 class Role(StrEnum):
     OWNER = "OWNER"  # tenant administration; never business/legal signing authority
     ADMIN = "ADMIN"
+    APPROVER = "APPROVER"  # ZID-ENG-DEC-007: an independent, scoped checker; holds no authority grant until a request is approved
+    OPERATOR = "OPERATOR"
+    VIEWER = "VIEWER"
     MEMBER = "MEMBER"
 
 

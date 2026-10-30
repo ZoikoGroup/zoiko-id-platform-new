@@ -14,8 +14,9 @@ Provider payloads end at the adapter boundary: only canonical facts reach the re
 
 from __future__ import annotations
 
+import json
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
@@ -32,6 +33,18 @@ from zid_outbox import emit
 from zid_platform.modules.commercial.ports import record_vendor_check
 from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
+from zid_platform.modules.verification.domain.providers import (
+    ProviderKind,
+    sumsub_digest_ok,
+    sumsub_event_id,
+    sumsub_needs_applicant,
+    sumsub_ref,
+    sumsub_result,
+    veriff_event_id,
+    veriff_ref,
+    veriff_result,
+    veriff_signature_ok,
+)
 from zid_platform.modules.verification.domain.verification import (
     IAL_RANK,
     SESSION_TTL,
@@ -50,6 +63,9 @@ from zid_platform.modules.verification.domain.verification import (
     transition,
 )
 from zid_platform.modules.verification.infrastructure import verification_store as store
+from zid_platform.modules.verification.infrastructure.providers import SumsubClient, VeriffClient
+
+Secrets = Callable[[str], str | None]
 
 CALLBACK_TYP = "verification-result+jwt"
 CALLBACK_MAX_AGE = (
@@ -77,6 +93,9 @@ class Started:
     status: str
     adapter_id: str | None
     outcome: str | None
+    handoff: dict[str, str] | None = (
+        None  # the applicant's short-lived link or token: returned once, never stored
+    )
 
 
 async def start(
@@ -91,6 +110,8 @@ async def start(
     transport: httpx.AsyncBaseTransport | None,
     now: datetime,
     supersedes: str | None = None,
+    country_registry_version: str | None = None,
+    secrets: Secrets | None = None,
 ) -> Started:
     async with tenant_transaction(engine, ctx) as conn:
         profile = await store.load_profile(conn, profile_id)
@@ -122,7 +143,15 @@ async def start(
             expires_at=now + SESSION_TTL,
         )
         await store.create_session(conn, s, supersedes)
-        await _event(conn, "verification.created", s, 1, profile_id=profile.profile_id)
+        await _event(
+            conn,
+            "verification.created",
+            s,
+            1,
+            profile_id=profile.profile_id,
+            country=jurisdiction,  # EDR-001: which country rule and registry version allowed this
+            country_registry_version=country_registry_version,
+        )
         s = await store.update_session(
             conn, s, status=transition(s.status, SessionStatus.IN_PROGRESS), now=now
         )
@@ -139,7 +168,8 @@ async def start(
         for adapter_id in failover_candidates(adapters, group=group, attempted=attempted, now=now):
             adapter = next(a for a in adapters if a["adapter_id"] == adapter_id)
             attempted.append(adapter_id)
-            ref = await _submit(adapter, s, profile, transport)
+            submitted = await _submit(adapter, s, profile, transport, secrets)
+            ref = submitted[0] if submitted else None
             async with tenant_transaction(engine, ctx) as conn:
                 if ref is None:
                     await store.adapter_failed(conn, adapter_id, now)
@@ -158,7 +188,13 @@ async def start(
                 await _event(
                     conn, "verification.provider_submitted", done, 3, adapter_id=adapter_id
                 )
-            return Started(s.session_id, done.status.value, adapter_id, None)
+            return Started(
+                s.session_id,
+                done.status.value,
+                adapter_id,
+                None,
+                submitted[1] if submitted else None,
+            )
     async with tenant_transaction(
         engine, ctx
     ) as conn:  # no equivalent provider: fail, never downgrade
@@ -175,13 +211,57 @@ async def start(
     return Started(s.session_id, "FAILED", None, "PROVIDER_UNAVAILABLE")
 
 
+def _provider_client(
+    adapter: Mapping[str, Any], secrets: Secrets | None, transport: httpx.AsyncBaseTransport | None
+) -> VeriffClient | SumsubClient | None:
+    """The client for a Veriff or Sumsub adapter. No secrets source, or a missing setting, gives None: nothing is attempted."""
+    if secrets is None:
+        return None
+    cfg = adapter.get("provider_config") or {}
+    kind = adapter.get("provider_kind", "GENERIC")
+    try:
+        if kind == ProviderKind.VERIFF.value:
+            return VeriffClient(
+                adapter["submit_endpoint"],
+                secrets,
+                cfg["api_key_ref"],
+                cfg["shared_secret_ref"],
+                transport,
+            )
+        if kind == ProviderKind.SUMSUB.value:
+            return SumsubClient(
+                adapter["submit_endpoint"],
+                secrets,
+                cfg["app_token_ref"],
+                cfg["secret_key_ref"],
+                cfg["level_name"],
+                transport,
+            )
+    except KeyError:
+        return None
+    return None
+
+
 async def _submit(
     adapter: dict[str, Any],
     s: store.VSession,
     profile: Profile,
     transport: httpx.AsyncBaseTransport | None,
-) -> str | None:
-    """Only opaque references leave Zoiko; the provider collects evidence from the applicant."""
+    secrets: Secrets | None = None,
+) -> tuple[str, dict[str, str] | None] | None:
+    """Only opaque references leave Zoiko; the provider collects evidence from the applicant. Returns the provider's reference
+    for the session and, for Veriff and Sumsub, the applicant's short-lived link or token."""
+    if adapter.get("provider_kind", "GENERIC") != ProviderKind.GENERIC.value:
+        client = _provider_client(adapter, secrets, transport)
+        if client is None:
+            return None
+        made = await client.create_session(
+            s.session_id, (adapter.get("provider_config") or {}).get("callback_url")
+        )
+        if made is None:
+            return None
+        handoff = {k: v for k, v in (("url", made.url), ("token", made.token)) if v}
+        return made.provider_ref, handoff or None
     try:
         async with httpx.AsyncClient(
             transport=transport, timeout=budget_timeout(5.0), follow_redirects=False
@@ -201,7 +281,7 @@ async def _submit(
     if r.status_code not in (200, 201, 202):
         return None
     ref = r.json().get("transaction_ref") if r.content else None
-    return ref if isinstance(ref, str) and 1 <= len(ref) <= 256 else None
+    return (ref, None) if isinstance(ref, str) and 1 <= len(ref) <= 256 else None
 
 
 def _result(payload: dict[str, Any]) -> ProviderResult:
@@ -230,20 +310,21 @@ def _result(payload: dict[str, Any]) -> ProviderResult:
         raise VerificationError("CALLBACK_SCHEMA_INVALID") from e
 
 
-async def provider_callback(
-    engine: AsyncEngine,
-    *,
-    tenant_id: str,
+async def _normalize(
+    adapter: Mapping[str, Any],
     adapter_id: str,
     body: bytes,
-    base_ctx: RequestContext,
+    headers: Mapping[str, str],
+    secrets: Secrets | None,
+    transport: httpx.AsyncBaseTransport | None,
     now: datetime,
-) -> str:
-    ctx = base_ctx.with_identity(tenant_id, None)
-    async with tenant_transaction(engine, ctx) as conn:
-        adapter = await store.load_adapter(conn, adapter_id)
-        if adapter is None or adapter["status"] in ("QUARANTINED", "RETIRED"):
-            raise VerificationError("PROVIDER_UNTRUSTED")
+) -> tuple[str, str, ProviderResult]:
+    """Authenticate a provider callback on its raw bytes, then turn it into (event id, provider reference, normalized result).
+
+    Whatever the provider, an unauthenticated body decides nothing and an unreadable one is refused; Veriff and Sumsub
+    authenticate with a shared-secret HMAC, Zoiko's own protocol with pinned public keys."""
+    kind = ProviderKind(adapter.get("provider_kind", "GENERIC"))
+    if kind is ProviderKind.GENERIC:
         try:
             _, claims = verify_external_jws(
                 body.decode("ascii").strip(),
@@ -268,7 +349,77 @@ async def provider_callback(
         event_id, ref = claims.get("event_id"), claims.get("transaction_ref")
         if not isinstance(event_id, str) or not isinstance(ref, str):
             raise VerificationError("CALLBACK_SCHEMA_INVALID")
+        return event_id, ref, _result(claims.get("result") or {})
+    cfg = adapter.get("provider_config") or {}
+    get = secrets or (lambda _name: None)
+    if kind is ProviderKind.VERIFF:
+        if not veriff_signature_ok(
+            body,
+            headers,
+            api_key=get(str(cfg.get("api_key_ref", ""))) or "",
+            shared_secret=get(str(cfg.get("shared_secret_ref", ""))) or "",
+        ):
+            raise VerificationError("CALLBACK_SIGNATURE_INVALID")
+    elif not sumsub_digest_ok(
+        body, headers, webhook_secret=get(str(cfg.get("webhook_secret_ref", ""))) or ""
+    ):
+        raise VerificationError("CALLBACK_SIGNATURE_INVALID")
+    try:
+        payload = json.loads(body)
+    except ValueError as e:
+        raise VerificationError("CALLBACK_SCHEMA_INVALID", "not JSON") from e
+    if not isinstance(payload, dict):
+        raise VerificationError("CALLBACK_SCHEMA_INVALID", "not an object")
+    if kind is ProviderKind.VERIFF:
+        return (
+            veriff_event_id(payload),
+            veriff_ref(payload),
+            veriff_result(payload, uk_certified=bool(cfg.get("uk_certified"))),
+        )
+    info = None
+    if sumsub_needs_applicant(payload):
+        client = _provider_client(adapter, secrets, transport)
+        info = (
+            await client.applicant_info(sumsub_ref(payload))
+            if isinstance(client, SumsubClient)
+            else None
+        )
+        if (
+            info is None
+        ):  # nothing is recorded, so the provider's retry can try again; never an approval without the data
+            raise VerificationError("APPLICANT_DATA_UNAVAILABLE")
+    return (
+        sumsub_event_id(payload),
+        sumsub_ref(payload),
+        sumsub_result(payload, info=info, biometric_level=bool(cfg.get("biometric_level"))),
+    )
+
+
+async def provider_callback(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    adapter_id: str,
+    body: bytes,
+    base_ctx: RequestContext,
+    now: datetime,
+    country_check: Callable[[str], None] | None = None,
+    headers: Mapping[str, str] | None = None,
+    secrets: Secrets | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> str:
+    ctx = base_ctx.with_identity(tenant_id, None)
+    async with tenant_transaction(engine, ctx) as conn:
+        adapter = await store.load_adapter(conn, adapter_id)
+        if adapter is None or adapter["status"] in ("QUARANTINED", "RETIRED"):
+            raise VerificationError("PROVIDER_UNTRUSTED")
+        event_id, ref, result = await _normalize(
+            adapter, adapter_id, body, headers or {}, secrets, transport, now
+        )
         s = await store.session_by_ref(conn, adapter_id, ref)
+        if s is not None and country_check is not None:
+            # EDR-001: a disabled country applies no result and records nothing
+            country_check(s.jurisdiction)
         seen = await store.record_callback(
             conn,
             tenant_id=tenant_id,
@@ -284,7 +435,6 @@ async def provider_callback(
         if s.status not in (SessionStatus.PENDING_EXTERNAL, SessionStatus.IN_PROGRESS):
             return "IGNORED_TERMINAL"  # provider status never regresses a decided session
         profile = await store.load_profile(conn, s.profile_id)
-        result = _result(claims.get("result") or {})
         decision = decide(profile, result, jurisdiction=s.jurisdiction)
         basis = decision_basis(
             result,

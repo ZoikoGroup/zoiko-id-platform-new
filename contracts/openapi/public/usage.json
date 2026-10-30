@@ -14,6 +14,54 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "UsageReserveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "meter": {
+            "pattern": "^[a-z]+[.][a-z]+$",
+            "title": "Meter",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "meter",
+          "quantity",
+          "idempotency_key"
+        ],
+        "title": "UsageReserveBody",
+        "type": "object"
+      },
+      "UsageResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          }
+        },
+        "title": "UsageResolveBody",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -342,6 +390,184 @@
           }
         },
         "summary": "Rated Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/usage/reservations": {
+      "post": {
+        "description": "Reserve a quantity of a meter before the work happens. Idempotent by key; refuses only an operation that crosses a cap.",
+        "operationId": "reserve_usage_v1_usage_reservations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageReserveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reserve Usage V1 Usage Reservations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reserve Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/usage/reservations/{reservation_id}:commit": {
+      "post": {
+        "operationId": "commit_usage_v1_usage_reservations__reservation_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Commit Usage V1 Usage Reservations  Reservation Id  Commit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Commit Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/usage/reservations/{reservation_id}:release": {
+      "post": {
+        "operationId": "release_usage_v1_usage_reservations__reservation_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Usage V1 Usage Reservations  Reservation Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/usage/summary": {
+      "get": {
+        "description": "Committed use, open reservations and any cap per meter for this period, with how incomplete and duplicate checks are treated.",
+        "operationId": "usage_summary_v1_usage_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Usage Summary V1 Usage Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Usage Summary",
         "tags": [
           "commercial"
         ]

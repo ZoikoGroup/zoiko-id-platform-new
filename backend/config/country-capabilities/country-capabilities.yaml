@@ -1,0 +1,124 @@
+# Country capability registry (ZID-EDR-001 Global Launch Geography). Versioned configuration, not tenant data.
+# status: PROPOSED (founder approval of EDR-001 pending); effective_from dates are set at approval.
+# version: 0.1.0
+#
+# Per country and capability: status DISABLED (the default for anything not listed) | SANDBOX | ENABLED.
+#   ENABLED needs `effective_from` and all six go/no-go approvals (EDR-001 section 4), each with the recorded reference:
+#   legal_assessment, supplier_coverage, privacy_and_data, security_and_resilience, local_support, signoff.
+#   The loader refuses an ENABLED regulated capability without them. Only DISCOVERY is open without approvals.
+#   SANDBOX is a development stand-in (the simulated provider): it counts in local/test only, never when deployed.
+# The wave is a priority, not an activation: no country is live because it is listed here. Disable a country by
+# editing this file; no code changes and no other market is affected.
+# provider / legal_status name the country-scoped adapter and the recorded legal position; unknown stays unset.
+
+version: 0.1.0
+countries:
+  US:
+    name: "United States"
+    wave: 1
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  GB:
+    name: "United Kingdom"
+    wave: 1
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+      REGISTRATION: {status: SANDBOX, provider: simulator}
+      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}
+      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
+      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
+      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
+  IE:
+    name: "Ireland"
+    wave: 1
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  DE:
+    name: "Germany"
+    wave: 1
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  FR:
+    name: "France"
+    wave: 1
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}   # exercises the per-country biometric rule in tests
+  CA:
+    name: "Canada"
+    wave: 2
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  IN:
+    name: "India"
+    wave: 2
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  AU:
+    name: "Australia"
+    wave: 2
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  SG:
+    name: "Singapore"
+    wave: 2
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  AE:
+    name: "United Arab Emirates"
+    wave: 3
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  SA:
+    name: "Saudi Arabia"
+    wave: 3
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  JP:
+    name: "Japan"
+    wave: 3
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  BR:
+    name: "Brazil"
+    wave: 3
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  MX:
+    name: "Mexico"
+    wave: 3
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  ZA:
+    name: "South Africa"
+    wave: 4
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  NG:
+    name: "Nigeria"
+    wave: 4
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  KE:
+    name: "Kenya"
+    wave: 4
+    contact: "support@zoikogroup.com"
+    capabilities:
+      DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+  # Wave 4 'additional approved markets' are added here when approved; an unlisted country is DISABLED.

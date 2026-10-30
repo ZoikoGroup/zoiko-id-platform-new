@@ -136,3 +136,71 @@ async def payment_recorded(
         aggregate_version=1,
         data={"invoice_id": invoice_id, "status": status, "amount": amount, "currency": currency},
     )
+
+
+# A reservation's events share one aggregate, so each has its own version: reserved 1, quota reached 2, then committed or released 3.
+async def _usage_event(
+    conn: AsyncConnection, name: str, version: int, reservation: dict[str, object], **extra: object
+) -> str:
+    return await emit(
+        conn,
+        name=name,
+        tenant_id=str(reservation["tenant_id"]),
+        aggregate_type="usage_reservation",
+        aggregate_id=str(reservation["reservation_id"]),
+        aggregate_version=version,
+        data={
+            "meter": reservation["meter"],
+            "quantity": reservation["quantity"],
+            "period": reservation["period"],
+            "catalog_version": reservation["catalog_version"],
+            **extra,
+        },
+    )
+
+
+async def usage_reserved(conn: AsyncConnection, reservation: dict[str, object]) -> str:
+    return await _usage_event(conn, "commercial.usage.reserved", 1, reservation)
+
+
+async def usage_committed(conn: AsyncConnection, reservation: dict[str, object]) -> str:
+    return await _usage_event(conn, "commercial.usage.committed", 3, reservation)
+
+
+async def usage_released(conn: AsyncConnection, reservation: dict[str, object]) -> str:
+    return await _usage_event(conn, "commercial.usage.released", 3, reservation)
+
+
+async def quota_threshold_reached(
+    conn: AsyncConnection, reservation: dict[str, object], *, limit: int
+) -> str:
+    return await _usage_event(
+        conn, "commercial.quota.threshold_reached", 2, reservation, limit=limit
+    )
+
+
+async def entitlement_snapshot_published(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    revision: int,
+    plan: str,
+    band: str | None,
+    subscription_state: str,
+    catalog_version: str,
+) -> str:
+    return await emit(
+        conn,
+        name="commercial.entitlement.snapshot_published",
+        tenant_id=tenant_id,
+        aggregate_type="entitlement_snapshot",
+        aggregate_id=tenant_id,
+        aggregate_version=revision,
+        data={
+            "plan": plan,
+            "band": band,
+            "subscription_state": subscription_state,
+            "catalog_version": catalog_version,
+            "revision": revision,
+        },
+    )

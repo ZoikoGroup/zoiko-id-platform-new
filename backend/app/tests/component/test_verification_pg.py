@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+import pytest
 from admin_fixture import make_admin
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
@@ -46,7 +47,9 @@ def uid() -> str:
     return str(uuid.uuid4())
 
 
-def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url: str) -> None:
+def test_verification_profiles_providers_review_reliance(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """VERIFY-07 (a repeated provider callback is deduplicated), API-11 (invalid, stale, replayed and
     wrong-source or wrong-tenant callbacks are refused), VERIFY-10 (a manual review needs two named
     reviewers and is audited; nothing sets VERIFIED directly), VERIFY-19 VERIFY-20 (verification, including a
@@ -274,6 +277,15 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
             return http.post("/verifications", headers=app_client, json=body)
 
         assert start(level="IAL-Z3").status_code == 422  # never weaker than the caller's floor
+        # EDR-001: a country the registry has not enabled is refused, truthfully, never "verified"
+        r = start("NG")
+        assert (
+            r.status_code == 422 and r.json()["error"]["code"] == "COUNTRY_CAPABILITY_UNAVAILABLE"
+        )
+        listed = http.get("/v1/countries").json()["countries"]
+        assert {c["country"]: c["capabilities"]["INDIVIDUAL_VERIFICATION"] for c in listed}[
+            "NG"
+        ] == "DISABLED"
         assert (
             http.post(
                 "/verifications",
@@ -316,6 +328,17 @@ def test_verification_profiles_providers_review_reliance(rt_url: str, owner_url:
         assert (
             http.post(elsewhere, content=result(ref)).status_code != 202
         )  # another tenant has no such provider
+        # EDR-001: a result for a country switched off since the session began is held (503, retryable) and
+        # records nothing; once the country is open again the very same event is applied, not a duplicate
+        from zid_platform.modules.verification.infrastructure.country_registry import parse
+
+        with monkeypatch.context() as m:
+            m.setattr("zid_platform.country_gate.registry", lambda: parse({"version": "off"}))
+            held = http.post(cb + "beta", content=result(ref, event_id="evt-1"))
+            assert held.status_code == 503 and "COUNTRY_CAPABILITY_UNAVAILABLE" in held.text
+            assert http.get(f"/verifications/{vid}", headers=app_client).json()["status"] == (
+                "PENDING_EXTERNAL"
+            )
         first = result(ref, event_id="evt-1")
         r = http.post(cb + "beta", content=first)
         assert r.status_code == 202 and r.json()["outcome"] == "VERIFIED", r.text

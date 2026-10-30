@@ -16,6 +16,38 @@
         "title": "AssistIn",
         "type": "object"
       },
+      "ChallengeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "pattern": "^[a-z0-9-]{3,120}$",
+            "title": "Action",
+            "type": "string"
+          },
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "critical": {
+            "default": false,
+            "title": "Critical",
+            "type": "boolean"
+          },
+          "resource": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Resource",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "resource"
+        ],
+        "title": "ChallengeIn",
+        "type": "object"
+      },
       "ClientRef": {
         "additionalProperties": false,
         "properties": {
@@ -263,6 +295,21 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "VerifyIn",
         "type": "object"
       },
       "zid_platform__modules__authentication__api__recovery__StartIn": {
@@ -1303,6 +1350,171 @@
         "summary": "Revoke All",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/v1/step-up/challenges": {
+      "post": {
+        "operationId": "create_challenge_v1_step_up_challenges_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Challenge V1 Step Up Challenges Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Challenge",
+        "tags": [
+          "step-up"
+        ]
+      }
+    },
+    "/v1/step-up/challenges/{challenge_id}/cancel": {
+      "post": {
+        "operationId": "cancel_challenge_v1_step_up_challenges__challenge_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "challenge_id",
+            "required": true,
+            "schema": {
+              "title": "Challenge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Challenge V1 Step Up Challenges  Challenge Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Challenge",
+        "tags": [
+          "step-up"
+        ]
+      }
+    },
+    "/v1/step-up/challenges/{challenge_id}/verify": {
+      "post": {
+        "operationId": "verify_challenge_v1_step_up_challenges__challenge_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "challenge_id",
+            "required": true,
+            "schema": {
+              "title": "Challenge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Challenge V1 Step Up Challenges  Challenge Id  Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Challenge",
+        "tags": [
+          "step-up"
+        ]
+      }
+    },
+    "/v1/step-up/tiers": {
+      "get": {
+        "description": "What each tier asks and which actions need it. The UI uses this to explain; the server classifies every command itself.",
+        "operationId": "tiers_v1_step_up_tiers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Tiers V1 Step Up Tiers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tiers",
+        "tags": [
+          "step-up"
         ]
       }
     }

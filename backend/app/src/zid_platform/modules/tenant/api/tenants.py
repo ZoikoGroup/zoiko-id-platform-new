@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,11 +34,23 @@ from zid_errors import ZidError
 from zid_idempotency import Scope, begin, complete
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.authentication.ports import passkey_summary
+from zid_platform.modules.authentication.ports import passkey_summary, require_step_up
 from zid_platform.modules.session.ports import last_sign_in
+from zid_platform.modules.tenant.api.gate import matrix_gate, refusal
+from zid_platform.modules.tenant.application import access
 from zid_platform.modules.tenant.application import lifecycle as service
 from zid_platform.modules.tenant.domain.lifecycle import Move, Role, RoleStatus, TenantError
+from zid_platform.modules.tenant.domain.role_matrix import (
+    ROLES,
+    Mode,
+    check_direct_role_grant,
+    effective_rights,
+)
 from zid_platform.modules.tenant.infrastructure import tenant_store as store
+from zid_platform.modules.tenant.infrastructure.role_matrix import (
+    direct_admin_invitation_allowed,
+    role_matrix,
+)
 from zid_platform.modules.tenant.infrastructure.tenant_store import RoleAssignment, Tenant
 from zid_platform.protected import approved_by_second_admin, protected_action
 
@@ -141,6 +153,14 @@ class TenantCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
     tenant_slug: str = Field(min_length=1, max_length=63)
     deployment_mode: str = Field(default="O1", pattern=r"^O[0-3]$")
+
+
+def _grant_refusal(role: Role, actor: str) -> str | None:
+    """Why this role cannot be assigned by a plain invitation, or None. MEMBER stays directly invitable (the Team page's default);
+    ADMIN is directly invitable only while the owners' policy says so (`config/roles/role-policy.yaml`)."""
+    if role is Role.MEMBER or (role is Role.ADMIN and direct_admin_invitation_allowed()):
+        return None
+    return check_direct_role_grant(role.value, actor=actor, target="")
 
 
 class Invite(BaseModel):
@@ -301,7 +321,10 @@ def progress(a: RoleAssignment, passkey: dict[str, Any] | None, signed_in: datet
     return "PASSKEY_CREATED" if passkey else "INVITED"
 
 
-@router.get("/v1/tenant/members")
+@router.get(
+    "/v1/tenant/members",
+    dependencies=[Depends(matrix_gate("a.list-active-members-and-assigned-roles", Mode.READ))],
+)
 async def read_members(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _require_role(conn, caller)
@@ -329,17 +352,87 @@ async def read_members(request: Request, caller: CallerDep) -> dict[str, Any]:
 # ----------------------------------------------------------------------------------- members
 
 
+@router.get("/v1/roles/matrix")
+async def read_role_matrix(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The permission matrices as published policy: a catalogue for navigation, never an enforcement control."""
+    _principal(caller)
+    m = role_matrix()
+    return {
+        "version": m.version,
+        "policy_hash": m.policy_hash,
+        "roles": list(ROLES),
+        "matrices": [
+            {
+                "matrix": key,
+                "title": title,
+                "actions": [
+                    {
+                        "action": r.action_id,
+                        "feature": r.feature,
+                        "permissions": {role: mode.value for role, mode in r.cells.items()},
+                        "rule": r.rule,
+                    }
+                    for r in m.rows.values()
+                    if r.matrix == key
+                ],
+            }
+            for key, title in m.titles.items()
+        ],
+    }
+
+
+@router.get("/v1/tenant/me/permissions")
+async def read_my_permissions(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What the caller's live roles could do, if every other condition held. Navigation only: the server decides each request."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        roles = sorted(
+            {
+                a.role.value
+                for a in await store.roles(conn, principal_id=_principal(caller))
+                if a.status is RoleStatus.ACTIVE
+            }
+        )
+    m = role_matrix()
+    return {
+        "roles": roles,
+        "policy_hash": m.policy_hash,
+        "enforcement": False,
+        "rights": effective_rights(m, tuple(roles)),
+    }
+
+
 @router.post("/v1/tenant/members", status_code=201)
 async def invite_member(body: Invite, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
+    refusal_error: ZidError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="tenant.member.manage", resource=f"tenant:{tenant}"
         )
-        try:
-            inv = await service.invite(conn, tenant, role=body.role, invited_by=_principal(caller))
-        except TenantError as e:
-            raise http(e) from e
+        if body.role is not Role.OWNER:  # OWNER keeps the lifecycle's own refusal
+            # ZID-ENG-DEC-007 matrix A: Owner and Admin invite an Operator or a Viewer; no one assigns a privileged role directly
+            decision = await access.evaluate(
+                conn,
+                tenant,
+                _principal(caller),
+                "a.invite-operator-or-viewer",
+                Mode.EXECUTE,
+                object_id=f"tenant:{tenant}",
+                session_ok=True,  # protected_action above enforced the assurance this action needs
+                deny_with=_grant_refusal(body.role, _principal(caller)),
+            )
+            if not decision.allowed:
+                # raised after the transaction commits: a refusal that rolled its own evidence back would leave no proof
+                refusal_error = refusal(decision, "ROLE_GRANT_NOT_PERMITTED")
+        if refusal_error is None:
+            try:
+                inv = await service.invite(
+                    conn, tenant, role=body.role, invited_by=_principal(caller)
+                )
+            except TenantError as e:
+                raise http(e) from e
+    if refusal_error is not None:
+        raise refusal_error
     return {
         **role_view(inv.assignment),
         "enrollment_ticket": inv.enrollment_ticket,  # shown once; hand it to the invitee
@@ -359,7 +452,10 @@ async def accept(request: Request, caller: CallerDep) -> dict[str, Any]:
     return role_view(a)
 
 
-@router.post("/v1/tenant/members/{assignment_id}:reissue")
+@router.post(
+    "/v1/tenant/members/{assignment_id}:reissue",
+    dependencies=[Depends(matrix_gate("a.invite-operator-or-viewer", Mode.EXECUTE))],
+)
 async def reissue(assignment_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -383,7 +479,10 @@ async def reissue(assignment_id: uuid.UUID, request: Request, caller: CallerDep)
     }
 
 
-@router.post("/v1/tenant/members/{assignment_id}:revoke")
+@router.post(
+    "/v1/tenant/members/{assignment_id}:revoke",
+    dependencies=[Depends(matrix_gate("a.disable-remove-ordinary-member", Mode.EXECUTE))],
+)
 async def revoke_member(
     assignment_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -401,6 +500,78 @@ async def revoke_member(
     return role_view(a)
 
 
+class RoleGrant(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["ADMIN", "APPROVER"]
+    approval_request_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/v1/tenant/role-grants", status_code=201)
+async def grant_privileged_role(
+    body: RoleGrant, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Matrix A: an Administrator or Approver is granted by a request (Owner or Admin prepare it) that an independent Owner or
+    Approver approves. The approval is the protected two-person approval bound to exactly this change; the approving person is
+    checked against the matrix as an approver and must be a different natural person from the requester."""
+    tenant, me = caller.ctx.tenant_id or "", _principal(caller)
+    refusal_error: ZidError | None = None
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        asked = await access.evaluate(
+            conn,
+            tenant,
+            me,
+            "a.request-admin-approver-role-grant",
+            Mode.PREPARE,
+            object_id=f"tenant:{tenant}",
+            session_ok=True,
+        )
+        if not asked.allowed:
+            refusal_error = refusal(asked, "ROLE_GRANT_NOT_PERMITTED")
+        else:
+            checker = await approved_by_second_admin(
+                conn,
+                caller,
+                action="tenant.member.manage",
+                resource=f"tenant:{tenant}",
+                change=f"GRANT_ROLE:{body.role}",
+                approval_request_id=body.approval_request_id,
+            )
+            decided = await access.evaluate(
+                conn,
+                tenant,
+                checker,
+                "a.approve-privileged-role-grant",
+                Mode.APPROVE,
+                object_id=f"tenant:{tenant}",
+                session_ok=True,
+                initiator_id=me,
+            )
+            if not decided.allowed:
+                refusal_error = refusal(decided, "ROLE_GRANT_NOT_PERMITTED")
+            else:
+                await require_step_up(
+                    request,
+                    conn,
+                    caller,
+                    action="promote-user-to-admin-approver-change-privileged-role-grants",
+                    resource=f"tenant:{tenant}",
+                    change={"role": body.role, "approved_by": checker},
+                )
+                try:
+                    inv = await service.invite(
+                        conn, tenant, role=Role(body.role), invited_by=me, approved_by=checker
+                    )
+                except TenantError as e:
+                    raise http(e) from e
+    if refusal_error is not None:
+        raise refusal_error
+    return {
+        **role_view(inv.assignment),
+        "enrollment_ticket": inv.enrollment_ticket,
+        "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
+    }
+
+
 # ------------------------------------------------------------------------------------ owners
 
 
@@ -415,6 +586,14 @@ async def add_owner(body: OwnerChange, request: Request, caller: CallerDep) -> d
             resource=f"tenant:{tenant}",
             change=f"ADD_OWNER:{body.principal_id}",
             approval_request_id=body.approval_request_id,
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="initiate-confirm-transfer-of-organization-ownership",
+            resource=f"tenant:{tenant}",
+            change={"operation": "ADD_OWNER", "principal_id": str(body.principal_id)},
         )
         try:
             a = await service.add_owner(
@@ -442,6 +621,14 @@ async def remove_owner(
             resource=f"tenant:{tenant}",
             change=f"REMOVE_OWNER:{principal_id}",
             approval_request_id=body.approval_request_id,
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="initiate-confirm-transfer-of-organization-ownership",
+            resource=f"tenant:{tenant}",
+            change={"operation": "REMOVE_OWNER", "principal_id": str(principal_id)},
         )
         try:
             a = await service.remove_owner(

@@ -47,6 +47,9 @@ class Caller:
     tenant_status: str | None = None
     # x5t#S256 of the certificate the token is bound to: the SVID for a workload token (MACH-24)
     certificate_thumbprint: str | None = None
+    session_id: str | None = (
+        None  # the identity session the token was issued for (`sid`); step-up proofs bind to it
+    )
 
 
 def client_cert_thumbprint(request: Request) -> str | None:
@@ -155,6 +158,7 @@ async def authenticated_caller(request: Request) -> Caller:
         session_auth_time=auth.auth_time,
         tenant_status=tenant_status,
         certificate_thumbprint=auth.claims.cnf_x5t,
+        session_id=auth.claims.session_id,
     )
 
 

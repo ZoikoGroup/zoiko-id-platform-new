@@ -1,0 +1,29 @@
+# CR-046: Step-up authentication tiers and action-bound proofs (ZID-ENG-DEC-009), slice L-9
+
+Status: open (built). The decision record is proposed and awaits founder approval. Its freshness windows are Zoiko iD policy, not NIST-prescribed transaction limits.
+
+## What changes
+- **Configuration `config/step-up/step-up-tiers.yaml`:** the record's two trigger tables as 24 classified actions (18 S2, 5 S1, 1 S0), generated from the record. Tiers: S0 none; S1 fresh within 10 minutes; S2 fresh within 5 minutes, single-use, phishing-resistant, action-bound. `s2_forbidden_methods` names email link, SMS, security question, API token and device cookie. `risk_escalation_states` raise a tier by one. `s1_fallback_mfa` is false. `challenge_ttl_seconds` is 120 (the platform's existing passkey ceremony; the table forbids anything near five minutes). The catalogue is validated on load.
+- **Migration `authentication_0005`:** `authn.step_up_challenge` and `authn.step_up_proof` (tenant-isolated; triggers make a challenge resolve once and a proof change only by being spent once, and refuse deletes) and a new `ACTION_STEP_UP` ceremony on `authn.webauthn_challenge`, so login and session step-up can never claim an action challenge.
+- **Binding is cryptographic.** The passkey challenge is SHA-256 over a nonce, the digest of the exact command (tenant, action, target, every material change) and the challenge id. The signed assertion therefore covers the command. The server also keeps the digest and re-checks it when the command commits. A payload with more than one reading (floats, bytes, non-text keys) is refused.
+- **Endpoints:** `POST /v1/step-up/challenges`, `POST /v1/step-up/challenges/{id}/verify`, `POST /v1/step-up/challenges/{id}/cancel`, `GET /v1/step-up/tiers`. The server chooses the tier and the method and writes the summary the person sees.
+- **Guard `require_step_up`:** a route calls it inside the transaction that executes the command; the proof comes in the `X-Step-Up-Proof` header. An S2 proof is spent atomically; an S1 proof covers the same tenant, actor, session and action family. Enforcement `step_up_enforcement`: `off`, `shadow` (default: a missing or bad proof is logged, not blocked) or `enforce`. Refusals are recorded in their own transaction so they survive the rollback.
+- **Who:** only a person. An agent, a service, a delegated (token-exchange) token and a certificate-bound token are refused `STEP_UP_HUMAN_REQUIRED`. A person with no passkey gets `NO_STRONG_AUTHENTICATOR` (governed recovery), never email or SMS.
+- **Wired routes:** owner add and remove (S2), privileged role grants (S2), SSO connection and SCIM source creation (S2), passkey removal (S2), residency policy and transfer-rule changes (S2).
+- **Shared code:** the WebAuthn assertion check was extracted from login (`assert_credential`) and is used by login, session step-up and action step-up. `Caller.session_id` carries the token's session so proofs bind to it.
+- **Evidence:** audit records (E3) `authentication.step_up.challenge_created`, `.verified`, `.consumed`, `.refused`, `.cancelled`: ids, tier, action, digest and reason codes only; no biometric material or secrets.
+- **Web:** API client endpoints and types; `proveAction` in the runtime with an accessible dialog; the owners page asks for the proof; the session step-up no longer intercepts a command's own refusal.
+
+## A defect found on the way
+Two schema names (`ReserveBody`, `ResolveBody`) in the commercial usage routes (CR-045) collided with the mandate module's, so the OpenAPI renamed the mandate schema and broke the typed client. They are now `UsageReserveBody` and `UsageResolveBody`.
+
+## Known limits and open rulings
+- **Shadow by default.** Enforcement is the owners' switch (`step_up_enforcement`); until then a missing proof is reported, not refused.
+- **Not every S2 action in the record is guarded.** Exports of raw ID, UBO and bulk data, break-glass activation, credential and agent mandate changes, OAuth scope trust, key rotation, recovery completion and legal-entity changes still rely on their existing gates. The session bulk-revoke route cannot import the authentication module without a dependency cycle (the session module is below it), so it needs the guard handed in at composition.
+- **No route for password or primary-email change** exists to guard.
+- **S1 enterprise-MFA fallback is off** until an assurance policy for it is approved.
+- **Federation (T07 is partly met):** a federated assertion can never satisfy S2 (Zoiko iD runs its own passkey step-up or denies), and stale `auth_time` already cannot reach AAL-Z3. Requesting `max_age=0` and `acr_values` at OIDC login and `ForceAuthn` at SAML login, and verifying them on return, is not built.
+- **Risk signals:** only the existing security states raise a tier. New device, impossible travel, a recent recovery and a suspect token have no source in this module.
+- **The record's `POST /v1/commands/{action}/commit`** is the per-route guard here, not a generic command endpoint.
+- **Session timeout baselines** (12 hours overall, 30 minutes idle for privileged workforce) are proposals pending security sign-off and are not changed here.
+- **Q10 to Q12** decide independent approvers and solo-tenant exceptions; this slice neither replaces nor resolves them.

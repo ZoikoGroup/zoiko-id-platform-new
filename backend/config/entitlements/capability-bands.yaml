@@ -1,0 +1,254 @@
+# Capability bands C1-C5 (ZID-ENG-DEC-008 v1.0, proposed for founder approval): the two matrices as the record prints them.
+# M mandatory baseline, I included subject to catalogue quota, A optional paid add-on or contracted usage, - not included.
+# Generated from the record's tables. `catalogue` names the Commercial Estate capability that carries the feature today (an
+# engineering mapping for Commercial & Finance to confirm); the Estate stays authoritative for plan terms and quantities.
+version: "ZID-ENG-DEC-008-v1.0"
+# Engineering default: C1..C5 follow the order of the five existing plans. Commercial & Finance map them to signed SKUs.
+bands: {C1: DEVELOPER, C2: LAUNCH, C3: BUSINESS, C4: SCALE, C5: ENTERPRISE}
+# REPORT_ONLY: the Estate's plan capabilities decide and every divergence from this matrix is reported.
+# ENFORCE: this matrix is also a gate (the stricter of the two wins).
+band_matrix_enforcement: REPORT_ONLY
+# How long a signed snapshot may be reused (seconds, 1 to 300). A plan, suspension, billing or override change ends it at once.
+# 60 is an engineering default: the record asks for a bounded policy TTL and approves no number.
+snapshot_ttl_seconds: 60
+features:
+  - id: baseline.secure-account-registration-recovery
+    section: baseline
+    feature: "Secure account registration, recovery"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "Safety baseline"
+    catalogue: human_iam
+  - id: baseline.mfa-passkeys-session-protection
+    section: baseline
+    feature: "MFA, passkeys, session protection"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "No security paywall"
+    catalogue: passkeys_mfa
+  - id: baseline.five-standard-tenant-roles-q7
+    section: baseline
+    feature: "Five standard tenant roles (Q7)"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "RBAC + ABAC"
+    catalogue: organizations
+  - id: baseline.tenant-isolation-access-review-minimum
+    section: baseline
+    feature: "Tenant isolation / access review minimum"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "No cross-tenant grant"
+    catalogue: null
+  - id: baseline.mandatory-audit-evidence-integrity
+    section: baseline
+    feature: "Mandatory audit & evidence integrity"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "Retention by law/policy"
+    catalogue: null
+  - id: baseline.mandatory-sanctions-trust-holds
+    section: baseline
+    feature: "Mandatory sanctions / trust holds"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "Not customer-disableable"
+    catalogue: null
+  - id: baseline.regional-placement-policy-enforcement
+    section: baseline
+    feature: "Regional placement policy enforcement"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "Approved home cell only"
+    catalogue: null
+  - id: baseline.high-risk-dual-control-safeguards
+    section: baseline
+    feature: "High-risk dual-control safeguards"
+    bands: {C1: 'M', C2: 'M', C3: 'M', C4: 'M', C5: 'M'}
+    note: "Q10–12 determine triggers"
+    catalogue: null
+  - id: standard.hosted-authentication-oidc-core
+    section: standard
+    feature: "Hosted authentication / OIDC core"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Application quota"
+    catalogue: oidc_oauth
+  - id: standard.organization-onboarding-kyb-workflow
+    section: standard
+    feature: "Organization onboarding / KYB workflow"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Supplier availability"
+    catalogue: idv_kyb
+  - id: standard.human-id-proofing-orchestration
+    section: standard
+    feature: "Human ID proofing orchestration"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Allowances or disclosed usage"
+    catalogue: idv_kyb
+  - id: standard.authority-representative-verification
+    section: standard
+    feature: "Authority/representative verification"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "No customer self-certification"
+    catalogue: idv_kyb
+  - id: standard.basic-verifiable-credential-issuance
+    section: standard
+    feature: "Basic verifiable credential issuance"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Issuance allowance"
+    catalogue: credential_issue_verify
+  - id: standard.credential-verification-validation
+    section: standard
+    feature: "Credential verification / validation"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Verifier throughput limits"
+    catalogue: credential_issue_verify
+  - id: standard.api-access-and-signing-keys
+    section: standard
+    feature: "API access and signing keys"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Plan quotas + security"
+    catalogue: null
+  - id: standard.developer-sandbox-test-identities
+    section: standard
+    feature: "Developer sandbox / test identities"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Synthetic-only by default"
+    catalogue: null
+  - id: standard.event-webhooks-replay-safety
+    section: standard
+    feature: "Event webhooks + replay safety"
+    bands: {C1: 'I', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Quota and idempotency"
+    catalogue: null
+  - id: standard.custom-domain-hosted-brand-theme
+    section: standard
+    feature: "Custom domain / hosted brand theme"
+    bands: {C1: '-', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Domain ownership proof"
+    catalogue: null
+  - id: standard.service-identities-m2m-management
+    section: standard
+    feature: "Service identities (M2M) management"
+    bands: {C1: '-', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Least privilege / key expiry"
+    catalogue: agent_principal
+  - id: standard.enhanced-api-throughput-allowances
+    section: standard
+    feature: "Enhanced API/throughput allowances"
+    bands: {C1: '-', C2: 'I', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Exact caps in catalog"
+    catalogue: null
+  - id: advanced.custom-organization-roles-permission-models
+    section: advanced
+    feature: "Custom organization roles / permission models"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Standard five roles remain baseline"
+    catalogue: organizations
+  - id: advanced.advanced-delegation-workflow-templates
+    section: advanced
+    feature: "Advanced delegation workflow templates"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Minimum legal controls at all tiers"
+    catalogue: consent_receipts
+  - id: advanced.tenant-policy-automation-approval-routing
+    section: advanced
+    feature: "Tenant policy automation + approval routing"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "No bypass of mandatory approvals"
+    catalogue: policy_engine
+  - id: advanced.enterprise-sso-saml-oidc-federation
+    section: advanced
+    feature: "Enterprise SSO (SAML / OIDC federation)"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "SSO security parity once enabled"
+    catalogue: saml_sso
+  - id: advanced.scim-automated-provisioning
+    section: advanced
+    feature: "SCIM automated provisioning"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "No self-privilege escalation"
+    catalogue: scim
+  - id: advanced.custom-credential-schemas-trust-policies
+    section: advanced
+    feature: "Custom credential schemas / trust policies"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Schema signing / validation"
+    catalogue: credential_issue_verify
+  - id: advanced.bulk-identity-company-verification
+    section: advanced
+    feature: "Bulk identity / company verification"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Review / supplier rate gates"
+    catalogue: null
+  - id: advanced.advanced-evidence-export-and-analytics
+    section: advanced
+    feature: "Advanced evidence export and analytics"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Core evidence inspection all tiers"
+    catalogue: audit_export
+  - id: advanced.multi-org-hierarchy-group-governance
+    section: advanced
+    feature: "Multi-org hierarchy / group governance"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Explicit tenant boundaries"
+    catalogue: null
+  - id: advanced.advanced-policy-packs-assurance-reporting
+    section: advanced
+    feature: "Advanced policy packs / assurance reporting"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Not compliance certification"
+    catalogue: null
+  - id: advanced.agent-workload-identities
+    section: advanced
+    feature: "Agent / workload identities"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Separate from human identity"
+    catalogue: agent_principal
+  - id: advanced.agent-mandates-and-scoped-delegation
+    section: advanced
+    feature: "Agent mandates and scoped delegation"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "No agent self-approval"
+    catalogue: agent_principal
+  - id: advanced.advanced-agent-governance-attestations
+    section: advanced
+    feature: "Advanced agent governance / attestations"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Policy & audit required"
+    catalogue: agent_principal
+  - id: advanced.custom-event-streams-siem-integrations
+    section: advanced
+    feature: "Custom event streams / SIEM integrations"
+    bands: {C1: '-', C2: '-', C3: 'I', C4: 'I', C5: 'I'}
+    note: "Basic security records retained"
+    catalogue: null
+  - id: advanced.advanced-risk-dashboards
+    section: advanced
+    feature: "Advanced risk dashboards"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Mandatory risk controls continue"
+    catalogue: null
+  - id: advanced.custom-data-retention-configuration
+    section: advanced
+    feature: "Custom data retention configuration"
+    bands: {C1: '-', C2: '-', C3: '-', C4: 'I', C5: 'I'}
+    note: "Never below legal minimum"
+    catalogue: audit_export
+  - id: advanced.dedicated-isolation-private-deployment
+    section: advanced
+    feature: "Dedicated isolation / private deployment"
+    bands: {C1: '-', C2: '-', C3: '-', C4: '-', C5: 'A'}
+    note: "Contract + readiness gate"
+    catalogue: dedicated_region
+  - id: advanced.sovereign-service-configuration
+    section: advanced
+    feature: "Sovereign service configuration"
+    bands: {C1: '-', C2: '-', C3: '-', C4: '-', C5: 'A'}
+    note: "Jurisdiction + operator validation"
+    catalogue: dedicated_region
+  - id: advanced.byok-hyok-and-specialized-key-custody
+    section: advanced
+    feature: "BYOK/HYOK and specialized key custody"
+    bands: {C1: '-', C2: '-', C3: '-', C4: '-', C5: 'A'}
+    note: "Approved key architecture"
+    catalogue: null
+  - id: advanced.custom-sla-named-support-onboarding
+    section: advanced
+    feature: "Custom SLA / named support / onboarding"
+    bands: {C1: '-', C2: '-', C3: '-', C4: '-', C5: 'A'}
+    note: "Commercially contracted"
+    catalogue: operational_sla

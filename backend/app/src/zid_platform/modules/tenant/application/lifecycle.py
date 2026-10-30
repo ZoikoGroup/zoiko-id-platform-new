@@ -536,6 +536,7 @@ async def invite(
     *,
     role: Role,
     invited_by: str,
+    approved_by: str | None = None,
     now: datetime | None = None,
 ) -> Invitation:
     """A new principal with an INVITED role and a single-use enrollment ticket (MEMBER default)."""
@@ -561,7 +562,7 @@ async def invite(
         status=RoleStatus.INVITED,
         origin=RoleOrigin.INVITATION,
         granted_by=invited_by,
-        approved_by=None,
+        approved_by=approved_by,
         now=now,
     )
     expires = now + ENROLLMENT_TTL

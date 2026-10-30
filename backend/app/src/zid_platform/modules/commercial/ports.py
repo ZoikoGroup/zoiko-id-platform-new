@@ -20,6 +20,7 @@ from zid_platform.modules.commercial.application import budget_service as budget
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
+from zid_platform.modules.commercial.application import usage_reservations
 from zid_platform.modules.commercial.application import vendor_service as vendors
 from zid_platform.modules.commercial.application.adapters import (
     NoTaxConfigured,
@@ -36,6 +37,10 @@ from zid_platform.modules.commercial.application.adapters import (
     TaxPort,
 )
 from zid_platform.modules.commercial.application.change_log import log_change, verify_change_log
+from zid_platform.modules.commercial.application.entitlement_resolver import (
+    decide as decide_feature_entitlement,
+)
+from zid_platform.modules.commercial.application.entitlement_resolver import require_feature
 from zid_platform.modules.commercial.application.events import (
     billable_event_adjusted,
     entitlement_changed,
@@ -64,6 +69,7 @@ from zid_platform.modules.commercial.application.stripe_webhook_service import (
 from zid_platform.modules.commercial.application.stripe_webhook_service import (
     review_queue as payment_event_queue,
 )
+from zid_platform.modules.commercial.application.transfer_gate import plan_aware_transfer_gate
 from zid_platform.modules.commercial.domain.billable import (
     METERS,
     BillableError,
@@ -146,6 +152,7 @@ __all__ = [
     "budgets",
     "catalogue_store",
     "configure_ledger",
+    "decide_feature_entitlement",
     "entitled",
     "entitlement_changed",
     "freeze_month",
@@ -164,6 +171,7 @@ __all__ = [
     "operator_scope",
     "orders",
     "payment_event_queue",
+    "plan_aware_transfer_gate",
     "plan_requests",
     "reconcile",
     "record_active_human",
@@ -171,8 +179,10 @@ __all__ = [
     "record_identity_merge",
     "record_vendor_check",
     "require_entitlement",
+    "require_feature",
     "resolve_payment_event",
     "run_rating",
+    "usage_reservations",
     "vendors",
     "verify_chain",
     "verify_change_log",
