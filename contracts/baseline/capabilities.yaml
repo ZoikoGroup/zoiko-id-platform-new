@@ -41,9 +41,9 @@ capabilities:
 
   verification:
     name: Verification Service
-    owns: "Provider-neutral proofing workflow and normalized assertions"
+    owns: "Provider-neutral proofing workflow and normalized assertions; sanctions and ownership screening of parties (ED-04)"
     must_not_own: "Permanent vendor-specific schema (review rule; provider payloads stay behind adapters)"
-    modules: [verification]
+    modules: [verification, screening]
     forbidden_schemas: []
 
   credential:

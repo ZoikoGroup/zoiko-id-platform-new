@@ -252,9 +252,9 @@ export interface components {
             /** Adapter Id */
             adapter_id: string;
             /** Callback Algorithms */
-            callback_algorithms: ("ES256" | "Ed25519" | "RS256" | "PS256")[];
+            callback_algorithms?: ("ES256" | "Ed25519" | "RS256" | "PS256")[];
             /** Callback Jwks */
-            callback_jwks: {
+            callback_jwks?: {
                 [key: string]: unknown;
             };
             /** Equivalence Group */
@@ -265,6 +265,16 @@ export interface components {
             mapping_version: string;
             /** Provider */
             provider: string;
+            /** Provider Config */
+            provider_config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Provider Kind
+             * @default GENERIC
+             * @enum {string}
+             */
+            provider_kind: "GENERIC" | "VERIFF" | "SUMSUB";
             /** Submit Endpoint */
             submit_endpoint: string;
             /** Supported Evidence */

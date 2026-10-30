@@ -43,11 +43,13 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.application import (
     budget_service,
+    entitlement_resolver,
     invoicing_service,
     orders_service,
     rating_service,
     recorder,
     service,
+    usage_reservations,
 )
 from zid_platform.modules.commercial.application import (
     plan_request_service as plan_requests,
@@ -96,6 +98,89 @@ async def tenant_entitlements(
         counters = getattr(request.app.state, "commercial_counters", {})
         used = {key: await count(conn) for key, count in counters.items()}
         return await service.entitlement_view(conn, used=used)
+
+
+@router.get("/v1/entitlements/effective")
+async def effective_entitlements(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The five-band view of what this tenant can use (ZID-ENG-DEC-008): Included, Available as an add-on, Available with upgrade."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        return await entitlement_resolver.effective(
+            conn, enforcement=getattr(request.app.state, "commercial_enforcement", "shadow")
+        )
+
+
+@router.get("/v1/usage/summary")
+async def usage_summary(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Committed use, open reservations and any cap per meter for this period, with how incomplete and duplicate checks are treated."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        return await usage_reservations.summary(conn)
+
+
+def _usage_scope(caller: Caller) -> None:
+    """Reserving, committing and releasing usage is done by the platform's own services and workers, on a client with this scope."""
+    if "usage:write" not in caller.scope:
+        raise ZidError("SCOPE_INSUFFICIENT", "usage:write is required.", http_status=403)
+
+
+class UsageReserveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    meter: str = Field(pattern=r"^[a-z]+[.][a-z]+$")
+    quantity: int = Field(ge=1, le=1_000_000_000)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
+class UsageResolveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    outcome: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{1,63}$")
+
+
+@router.post("/v1/usage/reservations", status_code=201)
+async def reserve_usage(
+    body: UsageReserveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Reserve a quantity of a meter before the work happens. Idempotent by key; refuses only an operation that crosses a cap."""
+    _usage_scope(caller)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return await usage_reservations.reserve(
+            conn, tenant, body.meter, body.quantity, body.idempotency_key
+        )
+
+
+@router.post("/v1/usage/reservations/{reservation_id}:commit")
+async def commit_usage(
+    reservation_id: uuid.UUID, body: UsageResolveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    _usage_scope(caller)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return await usage_reservations.commit(conn, str(reservation_id), outcome=body.outcome)
+
+
+@router.post("/v1/usage/reservations/{reservation_id}:release")
+async def release_usage(
+    reservation_id: uuid.UUID, body: UsageResolveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    _usage_scope(caller)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return await usage_reservations.release(conn, str(reservation_id), outcome=body.outcome)
+
+
+@router.get("/v1/entitlements/downgrade-impact")
+async def downgrade_impact(
+    request: Request, caller: CallerDep, to: Annotated[str, Query(pattern=r"^C[1-5]$")]
+) -> dict[str, Any]:
+    """What moving to a lower band would switch off, before anyone commits to it. It deletes nothing."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        return await entitlement_resolver.downgrade_view(conn, to)
 
 
 class EstimateBody(BaseModel):

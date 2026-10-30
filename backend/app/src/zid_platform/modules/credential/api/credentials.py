@@ -37,6 +37,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.country_gate import enforce_tenant
 from zid_platform.modules.credential.application import issuer as issuing
 from zid_platform.modules.credential.application import verifier
 from zid_platform.modules.credential.domain.credentials import (
@@ -46,6 +47,7 @@ from zid_platform.modules.credential.domain.credentials import (
 )
 from zid_platform.modules.credential.domain.vcdm import VCDM_ADAPTER
 from zid_platform.modules.credential.infrastructure import credential_store as store
+from zid_platform.modules.verification.ports import Capability
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["credentials"])
@@ -267,6 +269,16 @@ async def issue_credential(body: CredentialIn, request: Request, caller: CallerD
         return JSONResponse({"error": "invalid_proof"}, status_code=400)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
+            # EDR-001: no credential is issued for an organization whose country is not enabled for it
+            await enforce_tenant(
+                request, conn, caller.ctx.tenant_id or "", Capability.CREDENTIAL_ISSUANCE
+            )
+        except ZidError as e:
+            return JSONResponse(
+                {"error": "invalid_credential_request", "error_description": e.code},
+                status_code=422,
+            )
+        try:
             out = await issuing.issue(
                 conn,
                 _issuer(request),
@@ -414,6 +426,9 @@ async def activate_configuration(
             change="activate",
         )
         if config.issuance_enabled:  # DEC-E2: issuing is a separate, credential-signing decision
+            await enforce_tenant(
+                request, conn, caller.ctx.tenant_id or "", Capability.CREDENTIAL_ISSUANCE
+            )
             await protected_action(
                 conn,
                 caller,

@@ -1,0 +1,6 @@
+# Owner-ruled settings that sit beside the role matrices (ZID-ENG-DEC-007; docs/signoff/roles-owner-pack.md item 2).
+version: "1"
+# ALLOWED: an Owner or Admin can still invite an Administrator directly (the behaviour the Team page shipped with).
+# REFUSED: an Administrator is granted only through POST /v1/tenant/role-grants, which an independent Owner or Approver approves,
+#          as matrix A requires. Flip this once the owners have ruled; no code change is needed.
+direct_admin_invitation: ALLOWED

@@ -17,6 +17,7 @@ Workstreams may overlap only where the upstream contract is stable enough that d
 | [I. Production proof](phase-i-production-proof.md) | 25 | Executable evidence that the whole system meets architecture and market-entry gates | — (proves A–H) |
 | [J. Commercial estate](phase-j-commercial-estate.md) | ZID-COM-001 | Catalogue, plans, entitlements, billable metering, rating and invoicing (proposal, design stage) | — (commercial layer over A–H) |
 | [K. Communication estate](phase-k-communication-estate.md) | Email Communication Estate v2.0 | The 160-template email estate: renderer, SMTP delivery, suppression, consent, contacts, wired events | none (a delivery layer over A to J) |
+| [L. Second wireframe decision set](phase-l-second-wireframe-decisions.md) | ZID-EDR 01–13, Commercial Closures 02–04, Wireframes 08–10, Document 11 | Country, verification, roles, step-up, approvals, sign-up and billing authority, one document at a time (proposed, awaiting founder approval) | none yet (the owners' rulings on the document conflicts are recorded in L-0) |
 
 **Not placed by the Guideline:** Document 09 (ZID-MACHINE-001, AI Agent, Service & Workload Identity) is missing from the §3 sequence. Its decisions currently sit in DEC-D3 (transaction context) and DEC-F7 (workload identity). The Architecture Chair should assign it a phase.
 

@@ -1,0 +1,93 @@
+# Commercial meter register (ZID-ENG-DEC-008 v1.0 section 04): what counts, and the guardrail each meter must keep.
+# No numerical cap, rate, automatic overage or included quantity is approved by the record. `priced: false` is the honest
+# state; a meter without an approved price, limit or definition is never billed silently (see usage reservations).
+version: "ZID-ENG-DEC-008-v1.0"
+meters:
+  auth.mau:
+    example_unit: "Monthly active distinct principal"
+    counts: "Deduplicated active human principal per billing period"
+    guardrail: "Exclude service principals; define dedup and retries"
+    existing_meter: MAH
+    existing_sku: null
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  idv.check:
+    example_unit: "Verification attempt / completion"
+    counts: "Provider-backed identity proofing event; unit must be defined"
+    guardrail: "Chargeable outcome only as explicitly contracted"
+    existing_meter: null
+    existing_sku: ZID-IDV
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  kyb.check:
+    example_unit: "Company lookup / enhanced screening"
+    counts: "Provider-backed case or search by product"
+    guardrail: "No undisclosed repeat-check or refresh fees"
+    existing_meter: null
+    existing_sku: ZID-KYB
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  credential.issue:
+    example_unit: "Issued credential"
+    counts: "Committed, signed credential creation"
+    guardrail: "No charge for failed signing / duplicates"
+    existing_meter: VC_ISSUED
+    existing_sku: null
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  credential.verify:
+    example_unit: "Validation transaction"
+    counts: "Authenticated verifier request under policy"
+    guardrail: "Cache, retries and replay treatment documented"
+    existing_meter: VC_PRESENTED
+    existing_sku: null
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  api.request:
+    example_unit: "Billable API call"
+    counts: "Authenticated successful service request per catalog"
+    guardrail: "Do not include internal service chatter"
+    existing_meter: null
+    existing_sku: null
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  agent.principal:
+    example_unit: "Active agent identity"
+    counts: "Distinct registered agent principal, per contracted metric"
+    guardrail: "Never conflate with human seats"
+    existing_meter: null
+    existing_sku: null
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false
+  data.retention:
+    example_unit: "Contracted optional capacity"
+    counts: "Approved storage/retention above standard policy"
+    guardrail: "Required evidence retention unaffected"
+    existing_meter: null
+    existing_sku: ZID-EVD
+    hard_quota: false
+    # true: committing a reservation also records one billable event for `existing_meter`, once (key = the reservation).
+    # Off until the owners rule that this API, not the operation itself, is the recording point (owner pack item 8).
+    bill_on_commit: false
+    priced: false

@@ -16,6 +16,8 @@ Lifecycle (G-W0; ZID-OVERLAY-001 §2-4):
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.tenant.application.lifecycle import (
@@ -60,6 +62,7 @@ from zid_platform.modules.tenant.domain.residency import (
     TransferDecision,
     minimize,
 )
+from zid_platform.modules.tenant.domain.role_matrix import Mode
 from zid_platform.modules.tenant.infrastructure.catalog import catalog as cell_catalog
 from zid_platform.modules.tenant.infrastructure.domain_store import (
     verified_count as verified_domain_count,
@@ -76,11 +79,21 @@ from zid_platform.modules.tenant.infrastructure.tenant_store import (
     workspace,
 )
 
+
+def matrix_gate(action_id: str, mode: Mode) -> Callable[..., Awaitable[None]]:
+    """The role matrix as a route dependency (see `api/gate.py`). Imported on first use: the API layer needs the request
+    machinery, which in turn imports the modules that import these ports."""
+    from zid_platform.modules.tenant.api.gate import matrix_gate as gate
+
+    return gate(action_id, mode)
+
+
 __all__ = [
     "CATEGORY_CLASS",
     "BootstrapResult",
     "ConsoleClient",
     "Declaration",
+    "Mode",
     "Move",
     "ResidencyError",
     "Role",
@@ -111,6 +124,7 @@ __all__ = [
     "live_roles",
     "load_residency",
     "load_tenant",
+    "matrix_gate",
     "minimize",
     "placement",
     "register_acceptance_hook",

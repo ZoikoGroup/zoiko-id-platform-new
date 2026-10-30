@@ -95,6 +95,39 @@ cells:
     role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE §14)
     pre_provisioned_tiers: [T1, T2, T3]
 
+  # U.S. home cell (ZID-EDR-002 section 2: U.S. is a wave 1 cell serving U.S. and approved international tenants).
+  # A TARGET, not a deployed cell: the regions below are proposed (DEC-G2 AWS) and SRE confirms them. Its readiness
+  # stays NOT_READY (cells/cell-readiness.yaml) until the five gates are recorded, so no one is placed on it before then.
+  us-1:
+    provider: aws
+    region: us-east-1            # N. Virginia (proposed)
+    jurisdiction: {country: US, legal_zone: US}
+    availability_zones: 3
+    supported_profiles: [SRP-0, SRP-1]
+    subsystem_placements:
+      authoritative_db: {region: us-east-1, country: US, dedicated: false}
+      object_evidence_store: {region: us-east-1, country: US, dedicated: false}
+      cache: {region: us-east-1, country: US, dedicated: false}
+      search_index: {region: us-east-1, country: US, dedicated: false}
+      relationship_projection: {region: us-east-1, country: US, dedicated: false}
+      message_broker: {region: us-east-1, country: US, dedicated: false}
+      logs_traces: {region: us-east-1, country: US, dedicated: false}
+      security_events: {region: us-east-1, country: US, dedicated: false}
+      backups_snapshots: {region: us-east-1, country: US, dedicated: false}
+      kms_hsm: {region: us-east-1, country: US, dedicated: false}
+      support_tooling: {region: us-east-1, country: US, dedicated: false}
+      subprocessors: {region: us-east-1, country: US, dedicated: false}
+      analytics: {region: us-east-1, country: US, dedicated: false}
+    recovery:
+      approved_recovery_cells: [us-1-dr]
+      in_region_posture: "Multi-AZ quorum + PITR/backups inside us-east-1"
+  us-1-dr:
+    provider: aws
+    region: us-west-2            # Oregon (proposed) - same U.S. legal zone as us-1
+    jurisdiction: {country: US, legal_zone: US}
+    role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE section 14)
+    pre_provisioned_tiers: [T1, T2, T3]
+
 recovery_tiers:   # RESILIENCE §11 (DEC-G1)
   T0: {subsystem: "Edge/stateless runtime", rto: "60s", rpo: "0"}
   T1: {subsystem: "Authn/PDP/security-state runtime", rto: "5m", rpo: "5s revision-convergent"}

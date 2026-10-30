@@ -1,0 +1,296 @@
+# Role by feature permission matrices A-F (ZID-ENG-DEC-007 v1.0, proposed for founder approval).
+# Generated from the decision record's tables. X execute within approved scope, S prepare or request, A independent approval,
+# R scoped read, T own account only, - denied. A role is never enough on its own: see domain/role_matrix.py for the full decision.
+version: "ZID-ENG-DEC-007-v1.0"
+roles: [OWNER, ADMIN, APPROVER, OPERATOR, VIEWER]
+matrices:
+  A:
+    title: "Organization & membership"
+    actions:
+      - id: a.view-organization-dashboard
+        feature: "View organization dashboard"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: 'R'}
+        rule: "Viewer sees only an approved, redacted overview."
+      - id: a.view-organization-profile
+        feature: "View organization profile"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: 'R'}
+        rule: "Visibility respects field classification and tenant policy."
+      - id: a.edit-ordinary-organization-profile
+        feature: "Edit ordinary organization profile"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Operator submits edits; legal-identity fields excluded."
+      - id: a.change-registered-entity-legal-jurisdiction
+        feature: "Change registered entity / legal jurisdiction"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Final change requires authoritative registry validation and applicable independent checks."
+      - id: a.list-active-members-and-assigned-roles
+        feature: "List active members and assigned roles"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: '-'}
+        rule: "Operator limited to assigned team; Viewer has no full directory by default."
+      - id: a.invite-operator-or-viewer
+        feature: "Invite Operator or Viewer"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Invitation expires; no privileges prior to identity and membership acceptance."
+      - id: a.disable-remove-ordinary-member
+        feature: "Disable / remove ordinary member"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Admin cannot remove Owner; preserve historical evidence."
+      - id: a.request-admin-approver-role-grant
+        feature: "Request Admin / Approver role grant"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "No user may self-elevate or directly assign privileged roles."
+      - id: a.approve-privileged-role-grant
+        feature: "Approve privileged role grant"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Independent of initiator; permissioned approver; owner/protected-role safeguards."
+      - id: a.initiate-organization-ownership-transfer
+        feature: "Initiate organization ownership transfer"
+        cells: {OWNER: 'S', ADMIN: '-', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Prospective owner identity and organizational authority must be established."
+      - id: a.approve-ownership-transfer
+        feature: "Approve ownership transfer"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Not final alone; platform trust controls and prescribed dual-control policy apply."
+  B:
+    title: "Verification, trust & credentials"
+    actions:
+      - id: b.view-verification-state-expiration
+        feature: "View verification state / expiration"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: 'R'}
+        rule: "Viewer receives status and limited public facts; no raw evidence."
+      - id: b.upload-organization-kyb-evidence
+        feature: "Upload organization KYB evidence"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: 'R', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Operator: assigned case only; protected evidence storage."
+      - id: b.submit-refresh-organization-verification
+        feature: "Submit / refresh organization verification"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Evidence submission does not grant verified status."
+      - id: b.review-organization-evidence-internally
+        feature: "Review organization evidence internally"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: '-'}
+        rule: "Only purpose-authorized and assigned users see sensitive materials."
+      - id: b.request-representative-authority-attestation
+        feature: "Request representative authority attestation"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Applicant/submitter cannot be the attesting approver."
+      - id: b.approve-internal-representative-authority
+        feature: "Approve internal representative authority"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Independent checker; does not replace independent source verification."
+      - id: b.issue-override-zoiko-id-verified-status
+        feature: "Issue / override Zoiko iD Verified status"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Reserved to approved Zoiko iD trust engine / trust officers."
+      - id: b.clear-sanctions-pep-or-ubo-exceptions
+        feature: "Clear sanctions, PEP or UBO exceptions"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Reserved to governed compliance review; no customer self-clearance."
+      - id: b.draft-routine-credential-issuance
+        feature: "Draft routine credential issuance"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: 'R', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Operator only for assigned templates and eligible subjects."
+      - id: b.authorize-high-trust-credential-issuance
+        feature: "Authorize high-trust credential issuance"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Separate policy evaluation and issuer control; no direct customer bypass."
+      - id: b.revoke-ordinary-scoped-credential
+        feature: "Revoke ordinary scoped credential"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Operator only for issuer-assigned credentials; high-impact revocations escalate."
+      - id: b.change-credential-template-assurance-policy
+        feature: "Change credential template / assurance policy"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Version and publish only after authorized independent review."
+  C:
+    title: "Security & account administration"
+    actions:
+      - id: c.view-organization-security-posture
+        feature: "View organization security posture"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Includes aggregated risk, sign-in policy and compliance state."
+      - id: c.propose-changes-to-sso-mfa-enforcement
+        feature: "Propose changes to SSO / MFA enforcement"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Applies to tenant policy only; emergency controls independently governed."
+      - id: c.approve-sso-mfa-policy-change
+        feature: "Approve SSO / MFA policy change"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Independent approver required where change is risk-classified."
+      - id: c.change-trusted-domains-session-restrictions
+        feature: "Change trusted domains / session restrictions"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Signed version, testing and rollback safeguards."
+      - id: c.request-reset-of-another-user-s-factors
+        feature: "Request reset of another user’s factors"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Identity recovery requires separate protected workflow."
+      - id: c.approve-recovery-of-another-user
+        feature: "Approve recovery of another user"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Independent of requester; higher assurance policies apply."
+      - id: c.revoke-ordinary-user-sessions
+        feature: "Revoke ordinary user sessions"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Admin cannot seize or remove owner session outside protective controls."
+      - id: c.suspend-compromised-ordinary-user
+        feature: "Suspend compromised ordinary user"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Immediate containment allowed; produce reason and evidence."
+      - id: c.view-own-security-settings
+        feature: "View own security settings"
+        cells: {OWNER: 'T', ADMIN: 'T', APPROVER: 'T', OPERATOR: 'T', VIEWER: 'T'}
+        rule: "Personal-account scope only."
+      - id: c.manage-own-passkeys-authenticators
+        feature: "Manage own passkeys / authenticators"
+        cells: {OWNER: 'T', ADMIN: 'T', APPROVER: 'T', OPERATOR: 'T', VIEWER: 'T'}
+        rule: "Subject to secure reauthentication / recovery policy (Q9)."
+      - id: c.access-other-users-raw-passwords-secrets
+        feature: "Access other users’ raw passwords / secrets"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Never exposed; no privilege grants plaintext credentials."
+  D:
+    title: "Delegation, approvals & governance"
+    actions:
+      - id: d.create-scoped-delegation-request
+        feature: "Create scoped delegation request"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Request specifies principal, rights, scope, purpose, expiry."
+      - id: d.approve-authority-delegation
+        feature: "Approve authority delegation"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Cannot approve own grant or grants exceeding source authority."
+      - id: d.revoke-authorized-ordinary-delegation
+        feature: "Revoke authorized ordinary delegation"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "No revocation of protected owner authority without control path."
+      - id: d.propose-approval-workflow-policies
+        feature: "Propose approval workflow / policies"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Policies must be versioned and tested before publication."
+      - id: d.approve-eligible-pending-request
+        feature: "Approve eligible pending request"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Only within granted approval mandate; no self-approval."
+      - id: d.execute-ordinary-approved-operation
+        feature: "Execute ordinary approved operation"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Execution limited to explicit, unexpired approved scope."
+      - id: d.re-open-an-operational-exception
+        feature: "Re-open an operational exception"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Evidence and previous decisions remain immutable."
+      - id: d.request-emergency-break-glass-access
+        feature: "Request emergency / break-glass access"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: '-', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Does not itself grant emergency privilege."
+      - id: d.authorize-emergency-platform-access
+        feature: "Authorize emergency platform access"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Separate protected Zoiko iD internal JIT security workflow."
+      - id: d.change-role-taxonomy-permission-catalog
+        feature: "Change role taxonomy / permission catalog"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Version-controlled release; no self-service super-admin creation."
+      - id: d.edit-delete-previous-approval-decision
+        feature: "Edit / delete previous approval decision"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Correction by superseding event only; no historical rewriting."
+  E:
+    title: "Integrations, agents & APIs"
+    actions:
+      - id: e.view-integration-directory-status
+        feature: "View integration directory / status"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: 'R'}
+        rule: "Viewer only non-secret configuration metadata."
+      - id: e.prepare-tenant-sso-external-trust-link
+        feature: "Prepare tenant SSO / external trust link"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Operator limited to assigned integration workflow."
+      - id: e.activate-sensitive-production-integration
+        feature: "Activate sensitive production integration"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: 'S', VIEWER: '-'}
+        rule: "Callback, issuer, keys, audience and data flow independently checked."
+      - id: e.rotate-assigned-nonprivileged-api-credential
+        feature: "Rotate assigned nonprivileged API credential"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Operator may rotate only assigned service credentials; zero secret disclosure."
+      - id: e.create-privileged-service-principal
+        feature: "Create privileged service principal"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Least privilege; tenancy, audience, TTL, and purpose bound."
+      - id: e.revoke-compromised-tenant-integration
+        feature: "Revoke compromised tenant integration"
+        cells: {OWNER: 'X', ADMIN: 'X', APPROVER: '-', OPERATOR: 'X', VIEWER: '-'}
+        rule: "Operator may disable assigned integration as incident containment."
+      - id: e.request-scoped-ai-agent-capability-grant
+        feature: "Request scoped AI / agent capability grant"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: 'S', VIEWER: '-'}
+        rule: "No agent authority without explicit human principal and lifecycle."
+      - id: e.approve-agent-authority-sensitive-tool-grant
+        feature: "Approve agent authority / sensitive tool grant"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Human checker only; cannot self-approve delegated tool grants."
+      - id: e.inspect-assigned-api-event-metadata
+        feature: "Inspect assigned API event metadata"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: '-'}
+        rule: "Operator only own integration events; redact secrets and PII."
+      - id: e.read-api-keys-private-keys-or-access-tokens
+        feature: "Read API keys, private keys or access tokens"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Secrets only displayed through tightly scoped one-time issuance, not retrieval."
+      - id: e.authorize-cross-tenant-service-access
+        feature: "Authorize cross-tenant service access"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Tenant roles never confer platform-wide authority."
+  F:
+    title: "Audit, privacy, data & commerce"
+    actions:
+      - id: f.view-authorized-audit-and-ledger-entries
+        feature: "View authorized audit and ledger entries"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: 'R', OPERATOR: 'R', VIEWER: 'R'}
+        rule: "Operator own cases only; Viewer redacted audit summaries."
+      - id: f.request-sensitive-evidence-export
+        feature: "Request sensitive evidence export"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Purpose, scope, legal basis and export destination required."
+      - id: f.approve-sensitive-evidence-export
+        feature: "Approve sensitive evidence export"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Privacy, residency and evidence-custody checks still apply."
+      - id: f.modify-delete-identity-ledger-history
+        feature: "Modify / delete identity-ledger history"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Append-only; corrections generate new signed events."
+      - id: f.request-change-to-tenant-data-residency
+        feature: "Request change to tenant data residency"
+        cells: {OWNER: 'S', ADMIN: 'S', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Separate legal and platform feasibility approval required (Decision 02)."
+      - id: f.approve-tenant-side-residency-request
+        feature: "Approve tenant-side residency request"
+        cells: {OWNER: 'A', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Does not authorize transfer absent platform privacy sign-off."
+      - id: f.submit-a-data-subject-privacy-request
+        feature: "Submit a data subject privacy request"
+        cells: {OWNER: 'T', ADMIN: 'T', APPROVER: 'T', OPERATOR: 'T', VIEWER: 'T'}
+        rule: "Personal privacy rights use dedicated service, not administrative shortcuts."
+      - id: f.release-legal-hold-override-retention
+        feature: "Release legal hold / override retention"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Governed platform legal/compliance function only."
+      - id: f.view-billing-records
+        feature: "View billing records"
+        cells: {OWNER: 'R', ADMIN: 'R', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Admin access limited to expressly assigned billing scope."
+      - id: f.change-commercial-subscription-contract
+        feature: "Change commercial subscription / contract"
+        cells: {OWNER: 'X', ADMIN: 'S', APPROVER: '-', OPERATOR: '-', VIEWER: '-'}
+        rule: "Subject to billing role, legal agreement and plan entitlements (Q8)."
+      - id: f.request-organizational-account-closure
+        feature: "Request organizational account closure"
+        cells: {OWNER: 'S', ADMIN: '-', APPROVER: 'R', OPERATOR: '-', VIEWER: '-'}
+        rule: "Protected termination workflow; legal hold and retention must be respected."
+      - id: f.approve-account-closure-request
+        feature: "Approve account closure request"
+        cells: {OWNER: '-', ADMIN: '-', APPROVER: 'A', OPERATOR: '-', VIEWER: '-'}
+        rule: "Not sufficient by itself; platform governance checks required."

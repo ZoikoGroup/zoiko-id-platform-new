@@ -1,6 +1,7 @@
 """Public Protocol interface of the authentication module. Other modules import ONLY this."""
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -29,6 +30,16 @@ from zid_platform.modules.authentication.infrastructure.link_store import (
 
 find_external_link = find_active
 external_links_for_principal = for_principal
+
+
+async def require_step_up(
+    request: Any, conn: AsyncConnection, caller: Any, **command: Any
+) -> dict[str, Any] | None:
+    """Fresh strong authentication for a sensitive command (ZID-ENG-DEC-009): call inside the transaction that executes it. Imported on
+    first use, because the API layer needs the request machinery, which imports the modules that import these ports."""
+    from zid_platform.modules.authentication.api.step_up import require_step_up as guard
+
+    return await guard(request, conn, caller, **command)
 
 
 async def issue_enrollment_ticket(

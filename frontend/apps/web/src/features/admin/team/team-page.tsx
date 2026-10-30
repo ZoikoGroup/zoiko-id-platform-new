@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invitation, MemberProgress, TenantMember } from "@zoiko/api-client";
+import type { Invitation, InvitableRole, MemberProgress, TenantMember } from "@zoiko/api-client";
 import {
   Banner,
   Button,
@@ -127,11 +127,11 @@ export function TeamPage() {
   const tenant = useCellQuery(TENANT_KEY, (api) => api.tenant.me());
   const members = useCellQuery(MEMBERS_KEY, (api) => api.tenant.members(), { refetchInterval: 5_000 });
   const [inviting, setInviting] = useState(false);
-  const [role, setRole] = useState<"MEMBER" | "ADMIN">("MEMBER");
+  const [role, setRole] = useState<InvitableRole>("MEMBER");
   const [issued, setIssued] = useState<Invitation | null>(null);
   const [revoking, setRevoking] = useState<TenantMember | null>(null);
 
-  const invite = useCellMutation((api, r: "MEMBER" | "ADMIN") => api.tenant.invite(r), {
+  const invite = useCellMutation((api, r: InvitableRole) => api.tenant.invite(r), {
     invalidate: [MEMBERS_KEY],
     onSuccess: (inv) => setIssued(inv),
   });
@@ -301,9 +301,11 @@ export function TeamPage() {
             <RadioCards
               label="Role"
               value={role}
-              onChange={(v) => setRole(v as "MEMBER" | "ADMIN")}
+              onChange={(v) => setRole(v as InvitableRole)}
               options={[
                 { id: "MEMBER", label: "Member", description: "Signs in and uses applications. The default." },
+                { id: "OPERATOR", label: "Operator", description: "Runs the verification and credential work assigned to them. No policy or role administration." },
+                { id: "VIEWER", label: "Viewer", description: "Reads redacted views only. Cannot change anything." },
                 { id: "ADMIN", label: "Administrator", description: "Can also see tenant administration. Authority still comes from grants." },
               ]}
             />

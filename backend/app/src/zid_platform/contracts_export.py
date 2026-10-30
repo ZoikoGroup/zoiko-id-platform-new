@@ -42,7 +42,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD protocol endpoints: OAuth 2.0 / OpenID Connect, federation, SSF and issuer metadata",
     ),
     OPENAPI / "public" / "authentication.json": (
-        ("/authn/", "/sessions", "/admin/"),
+        ("/authn/", "/sessions", "/admin/", "/v1/step-up/"),
         "Zoiko iD Authentication, Sessions and Recovery API",
     ),
     OPENAPI / "public" / "federation.json": (
@@ -84,6 +84,8 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
     OPENAPI / "public" / "residency.json": (
         (
             "/v1/cells",
+            "/v1/countries",
+            "/v1/residency-offers",
             "/v1/tenant/residency",
             "/v1/tenant/transfer-rules",
             "/v1/tenant/cross-cell-transfers",
@@ -104,7 +106,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle)",
     ),
     OPENAPI / "public" / "onboarding.json": (
-        ("/v1/onboarding/",),
+        ("/v1/onboarding/", "/v1/org-claims", "/v1/reviews/"),
         "Zoiko iD Tenant Onboarding API (organization gate, gates, plans, shadow, pilot, rollback)",
     ),
     OPENAPI / "public" / "integration.json": (

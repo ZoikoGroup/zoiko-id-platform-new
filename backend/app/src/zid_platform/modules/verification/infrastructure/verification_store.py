@@ -140,7 +140,7 @@ async def activate_profile(conn: AsyncConnection, profile: Profile, now: datetim
 _ACOLS = (
     "adapter_id, tenant_id, provider, mapping_version, submit_endpoint, callback_jwks, "
     "callback_algorithms, equivalence_group, supported_evidence, jurisdictions, status, "
-    "consecutive_failures, open_until"
+    "consecutive_failures, open_until, provider_kind, provider_config"
 )
 
 
@@ -150,12 +150,14 @@ async def create_adapter(conn: AsyncConnection, a: dict[str, Any]) -> None:
             f"INSERT INTO verify.provider_adapter ({_ACOLS}) VALUES (:adapter_id, :tenant_id, "
             ":provider, :mapping_version, :submit_endpoint, CAST(:callback_jwks AS jsonb), "
             ":callback_algorithms, :equivalence_group, :supported_evidence, :jurisdictions, "
-            "'ACTIVE', 0, NULL)"
+            "'ACTIVE', 0, NULL, :provider_kind, CAST(:provider_config AS jsonb))"
         ),
         {
             **a,
             "tenant_id": uuid.UUID(a["tenant_id"]),
             "callback_jwks": json.dumps(a["callback_jwks"]),
+            "provider_kind": a.get("provider_kind", "GENERIC"),
+            "provider_config": json.dumps(a.get("provider_config", {})),
         },
     )
 
@@ -192,6 +194,7 @@ def adapter_view(a: dict[str, Any]) -> dict[str, Any]:
         "equivalence_group": a["equivalence_group"],
         "supported_evidence": list(a["supported_evidence"]),
         "jurisdictions": list(a["jurisdictions"]),
+        "provider_kind": a["provider_kind"],
         "status": a["status"],
         "consecutive_failures": a["consecutive_failures"],
         "open_until": a["open_until"].isoformat() if a["open_until"] else None,

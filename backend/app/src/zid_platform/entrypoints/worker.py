@@ -12,7 +12,9 @@ Same image as the API, separate process. Each pass, in its own transaction per s
 - stale_connectors / offboarding: connectors past their freshness drop to DEGRADED; OFFBOARDING
   tenants are drained (integrations, sessions) and CLOSED (G-W5);
 - directory: changed tenant records are signed and published to the global locator (G-W6);
-- webhooks: due deliveries are sent, signed and retried (H-1).
+- webhooks: due deliveries are sent, signed and retried (H-1);
+- sanctions_lists / screening: lists with a verified address are fetched and loaded, and cases a list change or an expiry has
+  made stale are screened again (ED-04).
 A failing step is logged and retried on the next pass; it never stops the others.
 
     ZID_WORKER_DATABASE_URL  the worker role: BYPASSRLS, SELECT/INSERT/UPDATE on the evidence,
@@ -143,6 +145,22 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
                 conn, client=client, resolve=system_resolver, sign=signer.sign, now=now
             )
 
+    async def sanctions_lists(conn: AsyncConnection, now: datetime) -> object:
+        """ED-04 section 07: fetch and load the sanctions lists that have a verified address."""
+        from zid_platform.modules.screening.ports import ingest_pass, screening_config
+
+        return await ingest_pass(conn, screening_config(), now)
+
+    async def screening(conn: AsyncConnection, now: datetime) -> object:
+        """ED-04 section 07: screen again every case a list change or an expiry has made stale."""
+        from zid_platform.crypto_runtime import company_evidence_signer
+        from zid_platform.modules.screening.ports import rescreen_pass, screening_config
+
+        sign = company_evidence_signer(settings)
+        if sign is None:
+            return "NO_SIGNING_KEY"
+        return await rescreen_pass(conn, screening_config(), sign, now)
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -155,6 +173,8 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("deletion", deletion),
         ("directory", directory),
         ("webhooks", webhooks),
+        ("sanctions_lists", sanctions_lists),
+        ("screening", screening),
     ]
 
 

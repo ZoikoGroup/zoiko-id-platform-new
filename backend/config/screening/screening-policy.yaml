@@ -1,0 +1,61 @@
+# Screening policy and country packs (ZID-ED-04 sections 03, 05, 07). Versioned configuration, not tenant data.
+# status: PROPOSED (founder approval of ED-04 pending; Legal approves each country pack)
+# version: 0.1.0
+#
+# policy.required_lists: the minimum sanctions families ED-04 names (OFAC SDN and non-SDN, UK, EU, UN). LOCAL is the country's own
+#   list; a pack asks for it with `local_list_required: true`, and it is then needed before anyone in that country is screened.
+# (continued) the families: A list that is missing or older than
+#   list_max_age_hours means the party was not screened: the answer is UNAVAILABLE, never clear. The EU list needs a registered
+#   account to download, so until an owner supplies it every decision is UNAVAILABLE; that is the truthful state.
+# policy.validity_*: how long a clear outcome stands; ED-04 proposes annual, and 90 days for elevated risk.
+# policy.match_threshold / strong_name: the name similarity at which a party is alerted (proposed; owners tune).
+# packs: per ISO 3166-1 alpha-2 country, which ownership rules apply. A country with no pack has no rule, which is a review,
+#   never a pass, and no universal 25 percent is ever assumed. ofac_50 and ofsi are applied to every pack as the conservative
+#   choice (they only ever add a review). Only GB has a beneficial-owner rule (the UK PSC test); other countries need Legal.
+# sources: where each list is fetched. A url left null means no verified download address is on record: an owner supplies it.
+
+version: 0.1.0
+policy:
+  required_lists: [OFAC_SDN, OFAC_NON_SDN, UK_SANCTIONS, EU_CONSOLIDATED, UN_SC]
+  list_max_age_hours: 48
+  validity_days: 365
+  validity_elevated_days: 90
+  match_threshold: 0.88
+  strong_name: 0.97
+
+packs:
+  GB:
+    version: 0.1.0
+    beneficial_owner_rule: uk_psc
+    beneficial_owner_threshold: 25
+    sanctions_evaluators: [ofsi, ofac_50]
+    status: PROPOSED
+  US:
+    version: 0.1.0
+    beneficial_owner_rule: null
+    beneficial_owner_threshold: null
+    sanctions_evaluators: [ofac_50, ofsi]
+    status: PROPOSED
+
+sources:
+  # Each list is fetched from the address below, over https, redirects only to the listed hosts. A list with no address is not
+  # fetched (it stays UNAVAILABLE until an owner supplies one). OFAC lists are three files that load together.
+  OFAC_SDN:
+    urls: {sdn: null, alt: null, add: null}   # SDN.CSV, ALT.CSV, ADD.CSV from the OFAC Sanctions List Service: the owner confirms the address
+    format: csv
+  OFAC_NON_SDN:
+    urls: {sdn: null, alt: null, add: null}   # CONS_PRIM.CSV, CONS_ALT.CSV, CONS_ADD.CSV (the SDN layout): the owner confirms the address
+    format: csv
+  UK_SANCTIONS:
+    url: null        # the CSV published on the UK Sanctions List page: the owner confirms the address
+    format: csv
+  EU_CONSOLIDATED:
+    url: null        # needs a registered EU Financial Sanctions Files account and token
+    format: xml
+  UN_SC:
+    url: "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+    redirect_hosts: [unsolprodfiles.blob.core.windows.net]   # the UN file redirects to a short-lived signed blob address
+    format: xml
+  LOCAL:
+    url: null        # a country's own list, converted to the normalized local CSV by its owner and loaded by hand or from an address
+    format: csv

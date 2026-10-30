@@ -1,0 +1,436 @@
+"""Company-verification source adapters (ZID-ED-03 §02, §06): Companies House, GLEIF and Creditsafe.
+
+Each adapter answers two questions and states what it can do: `search` returns ranked candidates the applicant
+chooses from, `get` returns the normalized facts of one identified company or None when the source has no such record.
+An outage, a refusal or an unreadable answer is `KybError("SOURCE_UNAVAILABLE")`: it is never read as "not found" and
+never as success. Transport rules are those of the registry adapters (ROOT-001 §4.1): a fixed base URL per adapter,
+verified TLS, no redirects, bounded responses, credentials resolved by reference at call time, and an injectable
+transport for tests and for a sovereign cell's egress proxy.
+
+Creditsafe has NOT been run against a live account. Checked against its published documentation (doc.creditsafe.com,
+30 Oct 2026): `POST /authenticate` with `username` and `password` returns `token`; the company search is
+`GET /companies` with a required `countries` and optional `regNo`, `name` and `status` (Active, NonActive, Pending,
+Other), answered as `{correlationId, messages, totalSize, companies}`; the token goes in `Authorization: Bearer`; a
+sandbox host exists. Not confirmed by the documentation: the field names inside each `companies` item (`id`, `regNo`,
+`name`, `status`, `address`), so those are still unverified until a sandbox account exists (ED-03 §07). It stays
+DISABLED_UNTIL_CONTRACT in `config/kyb/kyb-routing.yaml`.
+
+The French source is the public Annuaire des Entreprises search API (INSEE Sirene and the RNE), open and without a
+key; its parameters and result fields below are from its OpenAPI document (recherche-entreprises.api.gouv.fr).
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Protocol
+from urllib.parse import quote
+
+import httpx
+
+from zid_platform.modules.organization.domain.kyb import (
+    Candidate,
+    Capabilities,
+    CompanyFacts,
+    KybError,
+    SourceKind,
+    name_similarity,
+    response_hash,
+)
+
+MAX_BYTES = 1_000_000
+TIMEOUT_S = 5.0
+MAX_CANDIDATES = 10
+
+
+class KybAdapter(Protocol):
+    adapter_id: str
+    kind: SourceKind
+    capabilities: Capabilities
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]: ...
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None: ...
+
+
+def _client(base: str, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=base, transport=transport, timeout=TIMEOUT_S, follow_redirects=False, verify=True
+    )
+
+
+async def _fetch(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, bytes, dict[str, Any]]:
+    """(status, raw bytes, parsed JSON); 404 gives an empty document, anything else unusable is unavailable."""
+    try:
+        r = await client.request(method, url, headers=headers or {}, json=json_body)
+    except httpx.HTTPError as e:
+        raise KybError("SOURCE_UNAVAILABLE", type(e).__name__) from e
+    if r.status_code == 404:
+        return 404, b"", {}
+    if r.status_code != 200:
+        raise KybError("SOURCE_UNAVAILABLE", f"source answered {r.status_code}")
+    if len(r.content) > MAX_BYTES:
+        raise KybError("SOURCE_UNAVAILABLE", "response too large")
+    try:
+        body = json.loads(r.content)
+    except ValueError as e:
+        raise KybError("SOURCE_UNAVAILABLE", "response is not JSON") from e
+    if not isinstance(body, dict):
+        raise KybError("SOURCE_UNAVAILABLE", "unexpected response shape")
+    return 200, r.content, body
+
+
+def _text(value: Any) -> str:
+    return str(value).strip() if value not in (None, "") else ""
+
+
+def _list(doc: dict[str, Any], key: str) -> list[Any]:
+    value = doc.get(key)
+    return value if isinstance(value, list) else []
+
+
+def _address(parts: Any) -> str | None:
+    if isinstance(parts, str):
+        return parts or None
+    if isinstance(parts, dict):
+        joined = ", ".join(_text(v) for v in parts.values() if _text(v))
+        return joined or None
+    return None
+
+
+@dataclass
+class CompaniesHouseKyb:
+    """Companies House Public Data API: GET /company/{number}, GET /search/companies. The GB source of record."""
+
+    api_key: Callable[[], str | None]
+    transport: httpx.AsyncBaseTransport | None = None
+    base_url: str = "https://api.company-information.service.gov.uk"
+    adapter_id: str = "companies-house"
+    kind: SourceKind = SourceKind.OFFICIAL_REGISTER
+    capabilities: Capabilities = field(
+        default_factory=lambda: Capabilities(countries=frozenset({"GB"}))
+    )
+
+    def _auth(self) -> httpx.BasicAuth:
+        key = self.api_key()
+        if not key:
+            raise KybError("SOURCE_UNAVAILABLE", "no Companies House credential configured")
+        return httpx.BasicAuth(key, "")
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        if jurisdiction != "GB":
+            return []
+        async with _client(self.base_url, self.transport) as c:
+            c.auth = self._auth()
+            _, _, doc = await _fetch(
+                c, "GET", f"/search/companies?q={quote(query)}&items_per_page={MAX_CANDIDATES}"
+            )
+        items = _list(doc, "items")
+        found = [
+            Candidate(
+                adapter_id=self.adapter_id,
+                jurisdiction="GB",
+                registry_authority="companies-house",
+                registration_number=_text(i.get("company_number")),
+                legal_name=_text(i.get("title")),
+                registration_status=_text(i.get("company_status")),
+                source_uri=f"{self.base_url}/company/{quote(_text(i.get('company_number')))}",
+                confidence=name_similarity(query, _text(i.get("title"))),
+            )
+            for i in items
+            if isinstance(i, dict) and _text(i.get("company_number"))
+        ]
+        return sorted(found, key=lambda x: (-x.confidence, x.registration_number))
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None:
+        if jurisdiction != "GB":
+            return None
+        async with _client(self.base_url, self.transport) as c:
+            c.auth = self._auth()
+            status, raw, doc = await _fetch(c, "GET", f"/company/{quote(registration_number)}")
+        if status == 404:
+            return None
+        source_status = _text(doc.get("company_status"))
+        return CompanyFacts(
+            adapter_id=self.adapter_id,
+            source_kind=self.kind,
+            jurisdiction="GB",
+            registry_authority="companies-house",
+            registration_number=_text(doc.get("company_number")) or registration_number,
+            legal_name=_text(doc.get("company_name")),
+            legal_form=_text(doc.get("type")) or None,
+            registration_status=source_status,
+            active=source_status == "active",
+            registered_address=_address(doc.get("registered_office_address")),
+            source_uri=f"{self.base_url}/company/{quote(registration_number)}",
+            observed_at=now,
+            response_hash=response_hash(raw),
+        )
+
+
+@dataclass
+class GleifKyb:
+    """GLEIF LEI records: reference data that can corroborate an entity, never an applicant's authority."""
+
+    transport: httpx.AsyncBaseTransport | None = None
+    base_url: str = "https://api.gleif.org/api/v1"
+    adapter_id: str = "gleif"
+    kind: SourceKind = SourceKind.LEI_REFERENCE
+    capabilities: Capabilities = field(  # a global reference, not universal coverage
+        default_factory=lambda: Capabilities(countries=frozenset({"*"}))
+    )
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        async with _client(self.base_url, self.transport) as c:
+            _, _, doc = await _fetch(
+                c,
+                "GET",
+                f"/lei-records?filter[entity.legalName]={quote(query)}&page[size]={MAX_CANDIDATES}",
+                headers={"Accept": "application/vnd.api+json"},
+            )
+        data = _list(doc, "data")
+        out: list[Candidate] = []
+        for rec in data:
+            attrs = (rec or {}).get("attributes") or {}
+            entity = attrs.get("entity") or {}
+            country = _text(entity.get("jurisdiction"))[:2].upper()
+            if jurisdiction and country and country != jurisdiction:
+                continue
+            name = _text((entity.get("legalName") or {}).get("name"))
+            lei = _text((rec or {}).get("id"))
+            out.append(
+                Candidate(
+                    adapter_id=self.adapter_id,
+                    jurisdiction=country,
+                    registry_authority="gleif",
+                    registration_number=lei,
+                    legal_name=name,
+                    registration_status=_text(entity.get("status")),
+                    source_uri=f"{self.base_url}/lei-records/{quote(lei)}",
+                    confidence=name_similarity(query, name),
+                )
+            )
+        return sorted(out, key=lambda x: (-x.confidence, x.registration_number))
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None:
+        """`registration_number` is the LEI here."""
+        async with _client(self.base_url, self.transport) as c:
+            status, raw, doc = await _fetch(
+                c,
+                "GET",
+                f"/lei-records/{quote(registration_number)}",
+                headers={"Accept": "application/vnd.api+json"},
+            )
+        if status == 404:
+            return None
+        attrs = (doc.get("data") or {}).get("attributes") or {}
+        entity = attrs.get("entity") or {}
+        registration = attrs.get("registration") or {}
+        entity_status, reg_status = _text(entity.get("status")), _text(registration.get("status"))
+        return CompanyFacts(
+            adapter_id=self.adapter_id,
+            source_kind=self.kind,
+            jurisdiction=_text(entity.get("jurisdiction"))[:2].upper(),
+            registry_authority="gleif",
+            registration_number=registration_number,
+            legal_name=_text((entity.get("legalName") or {}).get("name")),
+            legal_form=None,
+            registration_status=f"{entity_status}/{reg_status}",
+            active=entity_status == "ACTIVE" and reg_status == "ISSUED",
+            registered_address=_address(entity.get("legalAddress")),
+            source_uri=f"{self.base_url}/lei-records/{quote(registration_number)}",
+            observed_at=now,
+            response_hash=response_hash(raw),
+            lei=registration_number,
+        )
+
+
+@dataclass
+class CreditsafeKyb:
+    """Creditsafe Connect API: the preferred paid multi-country supplier. UNVERIFIED against a live account."""
+
+    credentials: Callable[
+        [], tuple[str, str] | None
+    ]  # (username, password) from the secrets broker
+    countries: frozenset[str]
+    transport: httpx.AsyncBaseTransport | None = None
+    base_url: str = (
+        "https://connect.creditsafe.com/v1"  # sandbox: https://connect.sandbox.creditsafe.com/v1
+    )
+    adapter_id: str = "creditsafe"
+    kind: SourceKind = SourceKind.SUPPLIER
+
+    @property
+    def capabilities(self) -> Capabilities:
+        return Capabilities(countries=self.countries)
+
+    async def _token(self, client: httpx.AsyncClient) -> dict[str, str]:
+        creds = self.credentials()
+        if not creds:
+            raise KybError("SOURCE_UNAVAILABLE", "no Creditsafe credential configured")
+        status, _, doc = await _fetch(
+            client, "POST", "/authenticate", json_body={"username": creds[0], "password": creds[1]}
+        )
+        token = _text(doc.get("token")) if status == 200 else ""
+        if not token:
+            raise KybError("SOURCE_UNAVAILABLE", "Creditsafe refused the credential")
+        return {"Authorization": f"Bearer {token}"}
+
+    async def _companies(
+        self, jurisdiction: str, params: str
+    ) -> tuple[bytes, list[dict[str, Any]]]:
+        async with _client(self.base_url, self.transport) as c:
+            headers = await self._token(c)
+            _, raw, doc = await _fetch(
+                c, "GET", f"/companies?countries={jurisdiction}&{params}", headers=headers
+            )
+        items = _list(doc, "companies")
+        return raw, [i for i in items if isinstance(i, dict)]
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        if jurisdiction not in self.countries:
+            return []
+        _, items = await self._companies(
+            jurisdiction, f"name={quote(query)}&pageSize={MAX_CANDIDATES}"
+        )
+        out = [
+            Candidate(
+                adapter_id=self.adapter_id,
+                jurisdiction=jurisdiction,
+                registry_authority=f"creditsafe:{jurisdiction}",
+                registration_number=_text(i.get("regNo")),
+                legal_name=_text(i.get("name")),
+                registration_status=_text(i.get("status")),
+                source_uri=f"{self.base_url}/companies/{quote(_text(i.get('id')))}",
+                confidence=name_similarity(query, _text(i.get("name"))),
+            )
+            for i in items
+            if _text(i.get("regNo"))
+        ]
+        return sorted(out, key=lambda x: (-x.confidence, x.registration_number))
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None:
+        if jurisdiction not in self.countries:
+            return None
+        raw, items = await self._companies(
+            jurisdiction, f"regNo={quote(registration_number)}&pageSize=5"
+        )
+        exact = [i for i in items if _text(i.get("regNo")) == registration_number]
+        if len(exact) != 1:  # none, or ambiguous: nothing is picked for the applicant
+            return None
+        i = exact[0]
+        status = _text(i.get("status"))
+        return CompanyFacts(
+            adapter_id=self.adapter_id,
+            source_kind=self.kind,
+            jurisdiction=jurisdiction,
+            registry_authority=f"creditsafe:{jurisdiction}",
+            registration_number=registration_number,
+            legal_name=_text(i.get("name")),
+            legal_form=None,  # `type` is Ltd / NonLtd / NonLtdNonReg, not the legal form
+            registration_status=status,
+            active=status == "Active",  # the documented enum: Active, NonActive, Pending, Other
+            registered_address=_address(i.get("address")),
+            source_uri=f"{self.base_url}/companies/{quote(_text(i.get('id')))}",
+            observed_at=now,
+            response_hash=response_hash(raw),
+            supplier_entity_id=_text(i.get("id")) or None,
+        )
+
+
+@dataclass
+class SireneKyb:
+    """Annuaire des Entreprises search API (INSEE Sirene and RNE): the French register of record, open and keyless.
+
+    `q` with exactly nine digits is a direct SIREN lookup that ignores every other filter."""
+
+    transport: httpx.AsyncBaseTransport | None = None
+    base_url: str = "https://recherche-entreprises.api.gouv.fr"
+    adapter_id: str = "sirene"
+    kind: SourceKind = SourceKind.OFFICIAL_REGISTER
+    capabilities: Capabilities = field(
+        default_factory=lambda: Capabilities(countries=frozenset({"FR"}))
+    )
+
+    @staticmethod
+    def _uri(siren: str) -> str:
+        return f"https://annuaire-entreprises.data.gouv.fr/entreprise/{quote(siren)}"
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        if jurisdiction != "FR":
+            return []
+        async with _client(self.base_url, self.transport) as c:
+            _, _, doc = await _fetch(
+                c, "GET", f"/search?q={quote(query)}&per_page={MAX_CANDIDATES}"
+            )
+        out = []
+        for r in _list(doc, "results"):
+            if not isinstance(r, dict) or not _text(r.get("siren")):
+                continue
+            name = _text(r.get("nom_raison_sociale")) or _text(r.get("nom_complet"))
+            out.append(
+                Candidate(
+                    adapter_id=self.adapter_id,
+                    jurisdiction="FR",
+                    registry_authority="sirene-rne",
+                    registration_number=_text(r.get("siren")),
+                    legal_name=name,
+                    registration_status=_text(r.get("etat_administratif")),
+                    source_uri=self._uri(_text(r.get("siren"))),
+                    confidence=name_similarity(query, name),
+                )
+            )
+        return sorted(out, key=lambda x: (-x.confidence, x.registration_number))
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None:
+        if jurisdiction != "FR":
+            return None
+        async with _client(self.base_url, self.transport) as c:
+            _, raw, doc = await _fetch(
+                c, "GET", f"/search?q={quote(registration_number)}&per_page=1"
+            )
+        exact = [
+            r
+            for r in _list(doc, "results")
+            if isinstance(r, dict) and _text(r.get("siren")) == registration_number
+        ]
+        if not exact:
+            return None
+        r = exact[0]
+        state = _text(r.get("etat_administratif"))  # A = active, C = ceased
+        siege_raw = r.get("siege")
+        siege: dict[str, Any] = siege_raw if isinstance(siege_raw, dict) else {}
+        return CompanyFacts(
+            adapter_id=self.adapter_id,
+            source_kind=self.kind,
+            jurisdiction="FR",
+            registry_authority="sirene-rne",
+            registration_number=registration_number,
+            legal_name=_text(r.get("nom_raison_sociale")) or _text(r.get("nom_complet")),
+            legal_form=None,  # `nature_juridique` is a numeric INSEE category code, not a name to compare
+            registration_status=state,
+            active=state == "A",
+            registered_address=_text(siege.get("adresse")) or None,
+            source_uri=self._uri(registration_number),
+            observed_at=now,
+            response_hash=response_hash(raw),
+        )

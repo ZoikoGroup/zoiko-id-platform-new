@@ -305,25 +305,31 @@ class LoggedIn:
     replaced_session_id: str | None
 
 
-async def authentication_verify(
+@dataclass(frozen=True, slots=True)
+class Asserted:
+    authenticator: Authenticator
+    assurance: Any  # PasskeyAssurance: aal and amr
+    anomaly: bool
+    user_verified: bool
+
+
+async def assert_credential(
     conn: AsyncConnection,
     settings: WebAuthnSettings,
     *,
-    tenant_id: str,
     credential: dict[str, Any],
+    challenge: bytes,
+    bound_principal_id: str | None,
+    user_verification: str,
     now: datetime,
-    risk_class: int = 1,
-) -> LoggedIn:
-    challenge = challenge_of(credential)
-    claimed = await store.claim_challenge(
-        conn, challenge, ceremonies=("AUTHENTICATION", "STEP_UP"), now=now
-    )
-    if claimed is None:
-        raise AuthnError("WEBAUTHN_CHALLENGE_INVALID")
+) -> Asserted:
+    """The assertion checks shared by login, session step-up and action step-up: the authenticator exists and is active, belongs to the
+    principal the challenge was issued to, the signature verifies for exactly this challenge, origin and RP ID, and the counter is
+    recorded. Creates no session: what the caller does with the result is its own business."""
     authenticator = await store.by_credential(conn, _raw_id(credential))
     if authenticator is None or authenticator.status is not AuthenticatorStatus.ACTIVE:
         raise AuthnError("AUTHENTICATOR_NOT_ACTIVE")
-    if claimed.principal_id is not None and claimed.principal_id != authenticator.principal_id:
+    if bound_principal_id is not None and bound_principal_id != authenticator.principal_id:
         raise AuthnError("WEBAUTHN_CHALLENGE_INVALID", "step-up by another principal")
     handle = (credential.get("response") or {}).get("userHandle")
     if handle and _unb64(str(handle)) != uuid.UUID(authenticator.principal_id).bytes:
@@ -337,7 +343,7 @@ async def authentication_verify(
             expected_origin=list(settings.all_origins),
             credential_public_key=authenticator.public_key_cose or b"",
             credential_current_sign_count=0,  # counter anomalies are a risk signal, not a lockout
-            require_user_verification=claimed.user_verification == "required",
+            require_user_verification=user_verification == "required",
         )
     except InvalidAuthenticationResponse as e:
         raise AuthnError("WEBAUTHN_VERIFICATION_FAILED", str(e)[:200]) from e
@@ -354,6 +360,34 @@ async def authentication_verify(
         backup_eligible=verified.credential_device_type == "multi_device",
         anomaly=anomaly,
     )
+    return Asserted(authenticator, assurance, anomaly, bool(verified.user_verified))
+
+
+async def authentication_verify(
+    conn: AsyncConnection,
+    settings: WebAuthnSettings,
+    *,
+    tenant_id: str,
+    credential: dict[str, Any],
+    now: datetime,
+    risk_class: int = 1,
+) -> LoggedIn:
+    challenge = challenge_of(credential)
+    claimed = await store.claim_challenge(
+        conn, challenge, ceremonies=("AUTHENTICATION", "STEP_UP"), now=now
+    )
+    if claimed is None:
+        raise AuthnError("WEBAUTHN_CHALLENGE_INVALID")
+    asserted = await assert_credential(
+        conn,
+        settings,
+        credential=credential,
+        challenge=challenge,
+        bound_principal_id=claimed.principal_id,
+        user_verification=claimed.user_verification,
+        now=now,
+    )
+    authenticator, assurance, anomaly = asserted.authenticator, asserted.assurance, asserted.anomaly
     principal, _ = await load_principal(conn, authenticator.principal_id)
     session = Session(
         session_id=str(uuid.uuid4()),

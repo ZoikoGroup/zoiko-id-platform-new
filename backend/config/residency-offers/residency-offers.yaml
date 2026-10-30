@@ -1,0 +1,47 @@
+# Residency offers (ZID-EDR-002 Data Residency and Sovereign Deployment). Commercial packaging over the
+# existing residency profiles SRP-0 to SRP-3 and data classes DC0 to DC3; it relabels and weakens neither.
+# status: PROPOSED (founder approval of EDR-002 pending)
+# version: 0.1.0
+#
+# availability: what may be sold, per EDR-002 section 1.
+#   NOT_A_SENSITIVE_TIER   shared global: configuration and non-personal content only, never identity evidence
+#   STANDARD_AFTER_GATE    regional: generally available only on a home cell that has passed its readiness gate
+#   CONTRACT_GATED         sovereign and dedicated: enterprise quotation after region, tenant and contract readiness
+# customer_promise: the only wording the product may use for the offer (EDR-002 section 7).
+
+version: 0.1.0
+offers:
+  SHARED_GLOBAL:
+    profile: SRP-0
+    availability: NOT_A_SENSITIVE_TIER
+    sensitive_data: false
+    customer_promise: "Global discovery and configuration for non-personal public content."
+  REGIONAL:
+    profile: SRP-1
+    availability: STANDARD_AFTER_GATE
+    sensitive_data: true
+    customer_promise: "Choose an available hosting region for your organization's identity data."
+  SOVEREIGN:
+    profile: SRP-2
+    availability: CONTRACT_GATED
+    sensitive_data: true
+    customer_promise: "Sovereign controls are assessed and contracted for eligible jurisdictions."
+  DEDICATED:
+    profile: SRP-3
+    availability: CONTRACT_GATED
+    sensitive_data: true
+    customer_promise: "Dedicated regional or sovereign deployment is available by assessed agreement."
+
+# Home cells that may serve the Regional offer (EDR-002 section 2). A target, not a claim that the cell exists:
+# a cell absent from the cell catalogue or from cell-readiness.yaml is not ready.
+home_regions:
+  US: {cell_id: us-1, wave: 1, serves: "U.S. and approved international tenants"}
+  EEA: {cell_id: eu-1, wave: 1, serves: "Germany, France, Ireland and approved EEA tenants"}
+  UK: {cell_id: uk-1, wave: 1, serves: "U.K. tenants and U.K.-residency customers"}
+
+# Never said to a customer, in the product or in copy, without a full data-flow inventory, tested exclusions and
+# contractual evidence (EDR-002 section 7). A lint test scans the product source for these.
+forbidden_claims:
+  - "global data residency"
+  - "data never leaves your country"
+  - "100% sovereign"

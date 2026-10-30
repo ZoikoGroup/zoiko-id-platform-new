@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.tenant.api.tenants import _principal, _require_role, http
 from zid_platform.modules.tenant.application import domains as service
 from zid_platform.modules.tenant.domain.domains import Method, instructions
@@ -69,6 +70,11 @@ async def start(body: DomainBody, request: Request, caller: CallerDep) -> dict[s
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=ACTION, resource=f"tenant:{tenant}")
+        await require_feature(
+            conn,
+            "standard.custom-domain-hosted-brand-theme",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         try:
             d = await service.start(
                 conn, tenant, domain=body.domain, method=body.method, actor=_principal(caller)

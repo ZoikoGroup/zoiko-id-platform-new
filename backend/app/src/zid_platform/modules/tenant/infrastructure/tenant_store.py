@@ -560,3 +560,46 @@ async def workspace(conn: AsyncConnection, name: str) -> dict[str, str] | None:
         "console_client_id": row.console_client_id,
         "display_name": row.display_name,
     }
+
+
+async def link_person(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str,
+    person_id: str,
+    source: str,
+    evidence_ref: str | None = None,
+    linked_by: str | None = None,
+) -> bool:
+    """Record that an account belongs to a person. Append-only: a second link for the same account changes nothing."""
+    row = await conn.execute(
+        text("""
+            INSERT INTO platform.principal_person_link
+                (tenant_id, principal_id, person_id, source, evidence_ref, linked_by)
+            VALUES (:t, :p, :person, :source, :ref, :by)
+            ON CONFLICT (tenant_id, principal_id) DO NOTHING
+            RETURNING principal_id
+        """),
+        {
+            "t": uuid.UUID(tenant_id),
+            "p": uuid.UUID(principal_id),
+            "person": uuid.UUID(person_id),
+            "source": source,
+            "ref": evidence_ref,
+            "by": _u(linked_by),
+        },
+    )
+    return row.first() is not None
+
+
+async def person_of(conn: AsyncConnection, principal_id: str) -> str:
+    """The natural person behind an account: the linked person, else the account itself (one account is one person until a link
+    says otherwise)."""
+    row = (
+        await conn.execute(
+            text("SELECT person_id FROM platform.principal_person_link WHERE principal_id = :p"),
+            {"p": uuid.UUID(principal_id)},
+        )
+    ).first()
+    return str(row.person_id) if row else principal_id

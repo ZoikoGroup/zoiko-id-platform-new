@@ -54,6 +54,21 @@
             "title": "Provider",
             "type": "string"
           },
+          "provider_config": {
+            "additionalProperties": true,
+            "title": "Provider Config",
+            "type": "object"
+          },
+          "provider_kind": {
+            "default": "GENERIC",
+            "enum": [
+              "GENERIC",
+              "VERIFF",
+              "SUMSUB"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
           "submit_endpoint": {
             "pattern": "^https://",
             "title": "Submit Endpoint",
@@ -73,8 +88,6 @@
           "provider",
           "mapping_version",
           "submit_endpoint",
-          "callback_jwks",
-          "callback_algorithms",
           "equivalence_group",
           "supported_evidence",
           "jurisdictions"

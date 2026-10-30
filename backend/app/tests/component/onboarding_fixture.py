@@ -201,3 +201,18 @@ def approval(
     )
     assert r.status_code == 201, r.text
     return rid
+
+
+def give_role(rt_url: str, o: Onboarded, principal: str, role: str) -> None:
+    """A tenant role record for an administrator who so far holds only authority grants (as an accepted invitation would)."""
+    from zid_platform.modules.tenant.domain.lifecycle import Role, RoleOrigin, RoleStatus
+    from zid_platform.modules.tenant.infrastructure import tenant_store
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
+            await tenant_store.insert_role(
+                c, tenant_id=o.tenant, principal_id=principal, role=Role(role), status=RoleStatus.ACTIVE,
+                origin=RoleOrigin.INVITATION, granted_by=None, approved_by=None, now=datetime.now(UTC),
+            )  # fmt: skip
+
+    asyncio.run(run())

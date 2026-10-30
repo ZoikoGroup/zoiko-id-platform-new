@@ -801,7 +801,8 @@ export type TenantStatus =
   | "SUSPENDED"
   | "OFFBOARDING"
   | "CLOSED";
-export type TenantRoleName = "OWNER" | "ADMIN" | "MEMBER";
+export type TenantRoleName = "OWNER" | "ADMIN" | "APPROVER" | "OPERATOR" | "VIEWER" | "MEMBER";
+export type InvitableRole = "MEMBER" | "ADMIN" | "OPERATOR" | "VIEWER";
 export type TenantRoleStatus = "PENDING_VERIFICATION" | "INVITED" | "ACTIVE" | "REVOKED";
 export type TenantRole = {
   assignment_id: string;
@@ -1647,6 +1648,89 @@ export type EntitlementView = {
   capabilities: { capability: string; mode: string; tier: string | null; released: boolean; granted_by_exception: boolean; limit: number | null; used: number | null }[];
   note: string;
 };
+export type StepUpDraft = { action: string; resource: string; change?: Record<string, unknown>; critical?: boolean };
+export type StepUpChallenge =
+  | { required: false; tier: "S0"; action: string; reasons: string[] }
+  | {
+      required: true;
+      challenge_id: string;
+      tier: "S1" | "S2";
+      action: string;
+      resource: string;
+      summary: string;
+      command_hash: string;
+      requested_assurance: string;
+      reasons: string[];
+      expires_at: string;
+      policy_version: string;
+      why: string;
+      public_key: Record<string, unknown>;
+    };
+export type StepUpProof = {
+  proof_id: string;
+  tier: "S1" | "S2";
+  action: string;
+  resource: string;
+  single_use: boolean;
+  verified_at: string;
+  expires_at: string;
+};
+export type StepUpTiers = {
+  version: string;
+  tiers: Record<string, { max_age_seconds: number | null; single_use: boolean; phishing_resistant: boolean; action_bound: boolean }>;
+  s2_never_accepts: string[];
+  actions: { action: string; name: string; tier: string; escalates_to: string | null; family: string; gate: string; control: string }[];
+};
+export type PlanFeature = {
+  feature: string;
+  section: "baseline" | "standard" | "advanced";
+  name: string;
+  band_state: "BASELINE" | "INCLUDED" | "ADD_ON" | "UPGRADE" | null;
+  label: string | null;
+  available: boolean;
+  reasons: string[];
+  upgrade_band: string | null;
+  note: string;
+};
+export type EffectiveEntitlements = {
+  plan: string;
+  band: string | null;
+  subscription_state: string;
+  source: string;
+  effective_from: string | null;
+  catalog_version: string;
+  commercial_enforcement: string;
+  band_matrix_enforcement: string;
+  features: PlanFeature[];
+  note: string;
+};
+export type DowngradeImpact = {
+  from_band: string;
+  to_band: string;
+  becomes_inactive: { feature: string; name: string }[];
+  becomes_add_on: { feature: string; name: string }[];
+  preserved: string[];
+  effective: string;
+  deletes_anything: boolean;
+  note: string;
+};
+export type UsageMeter = {
+  meter: string;
+  counts: string;
+  committed: number;
+  reserved: number;
+  released: number;
+  limit: number | null;
+  remaining: number | null;
+  quota_defined: boolean;
+  priced: boolean;
+};
+export type ReservationUsage = {
+  period: string;
+  resets_at: string;
+  meters: UsageMeter[];
+  treatment: { incomplete: string; duplicate: string; unpriced: string };
+};
 export type BillableMeter = { meter: string; events: number; quantity: string; adjustments: string; net: string; frozen: boolean; hash_total: string | null };
 export type BillableSummary = { month: string; meters: BillableMeter[] };
 export type BillableEvent = { event_id: string; meter: string; quantity: string; occurred_at: Iso; late: boolean; recovered: boolean };
@@ -1792,3 +1876,56 @@ export type AuditPackVerdict = { valid: boolean; reason?: string; kid?: string; 
 /* Email contacts (Communication Estate; CR-031). Addresses are returned masked, never in full. */
 export type EmailContactPurpose = "OWNER" | "BILLING" | "SECURITY" | "TECHNICAL";
 export type EmailContact = { contact_id: string; purpose: EmailContactPurpose; address: string };
+
+/* Organization claims (WF-13B; ED-03, ED-04). The applicant sees four independent checks and one outcome, never a list entry. */
+export type OrgClaimCandidate = {
+  jurisdiction: string;
+  registration_number: string;
+  legal_name: string;
+  status: string;
+  /** Ranking only: no candidate is ever chosen for the applicant. */
+  confidence: number;
+  register: string;
+};
+export type OrgClaimSearch = { candidates: OrgClaimCandidate[]; manual_review_available: boolean };
+export type OrgClaimCreate = {
+  country: string;
+  registration_number: string;
+  register_id?: string | null;
+  legal_name: string;
+  entity_form?: string | null;
+  lei?: string | null;
+};
+export type OrgClaimCheckState = "COMPLETED" | "PENDING" | "NEEDS_ACTION" | "HELD" | "DECLINED";
+export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "IN_REVIEW" | "RESTRICTED" | "DECLINED" | "STALE";
+export type OrgClaimStatus = {
+  claim_id: string;
+  jurisdiction: string;
+  registration_number: string;
+  outcome: OrgClaimOutcome;
+  checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
+  company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
+  screening: { status: string; next_action: string; expires_at: Iso | null } | null;
+};
+export type OrgClaimParty = {
+  ref: string;
+  kind?: "PERSON" | "ENTITY";
+  name: string;
+  birth?: string | null;
+  countries?: string[];
+  identifiers?: string[];
+};
+export type OrgClaimHolding = {
+  owner: string;
+  owned?: string;
+  shares_pct?: string | null;
+  votes_pct?: string | null;
+  controls?: ("APPOINT_BOARD_MAJORITY" | "SIGNIFICANT_INFLUENCE" | "OTHER_CONTROL" | "NOMINEE" | "TRUST")[];
+};
+export type OrgClaimScreening = {
+  representative: OrgClaimParty;
+  directors?: OrgClaimParty[];
+  owners?: OrgClaimParty[];
+  holdings?: OrgClaimHolding[];
+  elevated_risk?: boolean;
+};

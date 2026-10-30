@@ -155,6 +155,9 @@ class Settings(ServiceSettings):
     # Webhooks (EVENTS-001 §14-20). ZID_WEBHOOK_KMS_KEY_ID: the deployed RFC 9421 signing key (local/test
     # use the development key). ZID_WEBHOOK_ALLOW_HTTP: accept http:// endpoints, local/test only.
     webhook_kms_key_id: str | None = None
+    company_evidence_kms_key_id: str | None = (
+        None  # ZID_COMPANY_EVIDENCE_KMS_KEY_ID: signs company-verification and screening evidence
+    )
     # ZID_WEBHOOK_RETIRING_KEYS (JSON): keys still published during a signing-key rotation, as
     # [{"jwk": {...public key with its kid...}, "retire_at": "2026-11-30T00:00:00+00:00"}]; at most 30 days of overlap
     webhook_retiring_keys: list[dict[str, Any]] = []  # noqa: RUF012 - pydantic copies defaults
@@ -165,6 +168,8 @@ class Settings(ServiceSettings):
     # ZID_COMMERCIAL_ENFORCEMENT (CR-024): off | shadow | enforce. `shadow` (default) reports what the plan
     # would refuse without blocking; turn on `enforce` only once a price book is approved.
     commercial_enforcement: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID-ENG-DEC-009: shadow reports a missing or bad step-up proof without blocking; enforce refuses it
+    step_up_enforcement: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_COMMERCIAL_ISSUING_ENTITY (CR-027): the seller of record's invoice series prefix.
     commercial_issuing_entity: str = "ZID"
     # ZID_STRIPE_SECRET_KEY_FILE: path of a file holding the Stripe secret (or restricted) key. A file, never an

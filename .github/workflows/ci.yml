@@ -1,5 +1,5 @@
 # One CI pipeline for the whole repository: backend, frontend, images, security and the nightly advisory audit, all in
-# this file. Every pull request and every push to main runs every check; the `checks` job at the end is green only when all
+# this file. Every pull request runs every check (main only changes through a pull request, so there is no second run on the merge; the nightly run covers main); the `checks` job at the end is green only when all
 # of them are, and it is the one check the branch ruleset needs for the code. (`secret-scan` and `devsecops-controls` stay
 # named jobs because the ruleset and the policy tests name them.)
 #
@@ -12,8 +12,6 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
   schedule:
     - cron: "17 3 * * *"  # nightly, off the hour on purpose: only the two advisory jobs at the bottom run

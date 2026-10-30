@@ -101,6 +101,9 @@
         "enum": [
           "OWNER",
           "ADMIN",
+          "APPROVER",
+          "OPERATOR",
+          "VIEWER",
           "MEMBER"
         ],
         "title": "Role",

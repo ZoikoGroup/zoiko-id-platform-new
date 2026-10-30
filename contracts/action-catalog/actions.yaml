@@ -53,6 +53,9 @@ actions:
   data.sensitive.read:              {min_risk_class: R2, min_evidence_class: E2, category: "sensitive data", name_source: proposed, owner: customer-application (PEP)}
   external.write:                   {min_risk_class: R2, min_evidence_class: E2, category: "external write", name_source: proposed, owner: customer-application (PEP)}
   verification.review.decide:       {min_risk_class: R2, min_evidence_class: E2, category: "manual verification review (VERIFY §16)", name_source: proposed, owner: verification, note: "CR-009"}
+  organization.kyb.review:          {min_risk_class: R2, min_evidence_class: E2, category: "reviewer ruling on a company-verification case (ED-03 section 05)", name_source: proposed, owner: organization, note: "CR-043"}
+  verification.screening.review:    {min_risk_class: R2, min_evidence_class: E2, category: "reviewer ruling on a screening case (ED-04 section 04, 06)", name_source: proposed, owner: screening, note: "CR-043"}
+  verification.screening.read_restricted: {min_risk_class: R3, min_evidence_class: E3, category: "see sanctions alerts and the listed names (ED-04 section 06: only designated compliance reviewers)", name_source: proposed, owner: screening, note: "CR-043"}
   verification.assertion.revoke:    {min_risk_class: R2, min_evidence_class: E2, category: "invalidate a verification assertion (VERIFY §18)", name_source: proposed, owner: verification, note: "CR-009"}
   authentication.recovery.assist:   {min_risk_class: R2, min_evidence_class: E2, category: "governed recovery case opened by support (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}
   authentication.recovery.deny:     {min_risk_class: R2, min_evidence_class: E2, category: "deny a recovery case (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}

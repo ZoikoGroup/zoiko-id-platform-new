@@ -35,8 +35,8 @@ from zid_errors import ZidError
 
 from zid_platform import egress
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
-from zid_platform.modules.authentication.ports import AAL, effective_level
-from zid_platform.modules.commercial.ports import require_entitlement
+from zid_platform.modules.authentication.ports import AAL, effective_level, require_step_up
+from zid_platform.modules.commercial.ports import require_entitlement, require_feature
 from zid_platform.modules.federation.application import discovery
 from zid_platform.modules.federation.application.oidc_login import (
     FederationSettings,
@@ -592,6 +592,19 @@ async def create_integration(
             "saml_sso",
             used=await count_active_connections(conn),
             enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+        await require_feature(
+            conn,
+            "advanced.enterprise-sso-saml-oidc-federation",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource=f"federation_connection:{cid}",
+            change={"operation": "CREATE", "issuer": body.issuer},
         )
         try:
             async with conn.begin_nested():

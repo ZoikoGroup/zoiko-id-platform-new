@@ -1,6 +1,7 @@
 """Tenant residency and sovereignty API (ZID-TENANCY-001 §25; F-W5; CR-014).
 
     GET  /v1/cells                                  cell catalog: regions, jurisdictions, profiles
+    GET  /v1/residency-offers                       the four offers and where Regional can be taken (public, EDR-002)
     GET  /v1/tenant/residency                       tenant.residency.manage (R3; read)
     PUT  /v1/tenant/residency                       tenant.residency.manage + second admin
     GET  /v1/tenant/residency-matrix                subsystem placement for the tenant's profile
@@ -24,7 +25,9 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.authentication.ports import require_step_up
 from zid_platform.modules.tenant.application import residency as service
+from zid_platform.modules.tenant.domain.offers import public_view, require_cell_ready
 from zid_platform.modules.tenant.domain.residency import (
     Residency,
     ResidencyError,
@@ -33,12 +36,18 @@ from zid_platform.modules.tenant.domain.residency import (
 )
 from zid_platform.modules.tenant.infrastructure import residency_store as store
 from zid_platform.modules.tenant.infrastructure.catalog import catalog
+from zid_platform.modules.tenant.infrastructure.offers import offers
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(tags=["residency"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 ACTION = "tenant.residency.manage"
-_STATUS = {"NOT_FOUND": 404, "SOVEREIGN_OPERATOR_DENIED": 403, "PLACEMENT_MOVE_NOT_ALLOWED": 409}
+_STATUS = {
+    "NOT_FOUND": 404,
+    "SOVEREIGN_OPERATOR_DENIED": 403,
+    "PLACEMENT_MOVE_NOT_ALLOWED": 409,
+    "CELL_NOT_READY": 409,
+}
 
 
 def http(e: ResidencyError) -> ZidError:
@@ -59,6 +68,7 @@ def residency_view(r: Residency | None) -> dict[str, Any] | None:
         "prohibited_cells": list(r.prohibited_cells),
         "operator_jurisdictions": list(r.operator_jurisdictions),
         "key_profile": r.key_profile,
+        "isolation_mode": r.isolation_mode,
         "jurisdiction_pack_id": r.jurisdiction_pack_id,
         "placement_epoch": r.placement_epoch,
         "revision": r.revision,
@@ -137,9 +147,31 @@ class ResidencyBody(BaseModel):
         )
 
 
+def _environment(request: Request) -> str:
+    return str(getattr(request.app.state, "environment", "production"))
+
+
+@router.get("/v1/residency-offers")
+async def residency_offers(request: Request) -> dict[str, Any]:
+    o = offers()
+    return {
+        "version": o.version,
+        "offers": public_view(o, environment=_environment(request)),
+    }
+
+
 @router.put("/v1/tenant/residency")
 async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
+        try:  # EDR-002 §2: a home cell that has not passed its readiness gate holds the segment, never downgrades
+            require_cell_ready(
+                offers(),
+                body.residency_profile_id,
+                body.home_cell_id,
+                environment=_environment(request),
+            )
+        except ResidencyError as e:
+            raise http(e) from e
         await approved_by_second_admin(
             conn,
             caller,
@@ -147,6 +179,14 @@ async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep
             resource="tenant_residency",
             change=body.change(),
             approval_request_id=str(body.approval_request_id),
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-customer-home-region-cross-region-transfer-policy",
+            resource="tenant_residency",
+            change=body.model_dump(mode="json"),
         )
         r = await service.set_residency(
             conn,
@@ -221,6 +261,14 @@ async def add_rule(body: RuleBody, request: Request, caller: CallerDep) -> dict[
             resource="transfer_rule:*",
             change=body.change(),
             approval_request_id=str(body.approval_request_id),
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-customer-home-region-cross-region-transfer-policy",
+            resource="transfer_rule:*",
+            change=body.model_dump(mode="json"),
         )
         r = await service.add_rule(
             conn,

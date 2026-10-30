@@ -253,6 +253,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/org-claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Claim */
+        post: operations["create_claim_v1_org_claims_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search */
+        post: operations["search_v1_org_claims_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/{claim_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Claim */
+        post: operations["refresh_claim_v1_org_claims__claim_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/{claim_id}/screening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Screening */
+        post: operations["start_screening_v1_org_claims__claim_id__screening_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/{claim_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Claim Status */
+        get: operations["claim_status_v1_org_claims__claim_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/kyb-cases/{case_id}/rulings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kyb Ruling */
+        post: operations["kyb_ruling_v1_reviews_kyb_cases__case_id__rulings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/screening-cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Screening Alerts */
+        get: operations["screening_alerts_v1_reviews_screening_cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/screening-cases/{case_id}/rulings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Screening Ruling */
+        post: operations["screening_ruling_v1_reviews_screening_cases__case_id__rulings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -262,10 +398,51 @@ export interface components {
             /** Approval Request Id */
             approval_request_id?: string | null;
         };
+        /** ClaimIn */
+        ClaimIn: {
+            /** Country */
+            country: string;
+            /** Entity Form */
+            entity_form?: string | null;
+            /** Legal Name */
+            legal_name: string;
+            /** Lei */
+            lei?: string | null;
+            /** Register Id */
+            register_id?: string | null;
+            /** Registration Number */
+            registration_number: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HoldingIn */
+        HoldingIn: {
+            /** Controls */
+            controls?: ("APPOINT_BOARD_MAJORITY" | "SIGNIFICANT_INFLUENCE" | "OTHER_CONTROL" | "NOMINEE" | "TRUST")[];
+            /**
+             * Owned
+             * @default company
+             */
+            owned: string;
+            /** Owner */
+            owner: string;
+            /** Shares Pct */
+            shares_pct?: string | null;
+            /** Votes Pct */
+            votes_pct?: string | null;
+        };
+        /** KybRulingIn */
+        KybRulingIn: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "VERIFIED" | "REJECTED" | "NEEDS_REVIEW";
+            /** Rationale */
+            rationale: string;
         };
         /** OrganizationBody */
         OrganizationBody: {
@@ -276,10 +453,61 @@ export interface components {
             /** Namespace */
             namespace: string;
         };
+        /** PartyIn */
+        PartyIn: {
+            /** Birth */
+            birth?: string | null;
+            /** Countries */
+            countries?: string[];
+            /** Identifiers */
+            identifiers?: string[];
+            /**
+             * Kind
+             * @default PERSON
+             * @enum {string}
+             */
+            kind: "PERSON" | "ENTITY";
+            /** Name */
+            name: string;
+            /** Ref */
+            ref: string;
+        };
         /** RollbackBody */
         RollbackBody: {
             /** Reason Code */
             reason_code: string;
+        };
+        /** RulingIn */
+        RulingIn: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED";
+            /** Rationale */
+            rationale: string;
+        };
+        /** ScreeningIn */
+        ScreeningIn: {
+            /** Directors */
+            directors?: components["schemas"]["PartyIn"][];
+            /**
+             * Elevated Risk
+             * @default false
+             */
+            elevated_risk: boolean;
+            /** Holdings */
+            holdings?: components["schemas"]["HoldingIn"][];
+            /** Owners */
+            owners?: components["schemas"]["PartyIn"][];
+            representative: components["schemas"]["PartyIn"];
+        };
+        /** SearchIn */
+        SearchIn: {
+            /** Country */
+            country: string;
+            /** Query */
+            query: string;
         };
         /** StageBody */
         StageBody: {
@@ -853,6 +1081,288 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ApprovalBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_claim_v1_org_claims_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_v1_org_claims_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_claim_v1_org_claims__claim_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_screening_v1_org_claims__claim_id__screening_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreeningIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_status_v1_org_claims__claim_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kyb_ruling_v1_reviews_kyb_cases__case_id__rulings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KybRulingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    screening_alerts_v1_reviews_screening_cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    screening_ruling_v1_reviews_screening_cases__case_id__rulings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulingIn"];
             };
         };
         responses: {

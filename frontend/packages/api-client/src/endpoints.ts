@@ -83,17 +83,30 @@ export type QuarantineIn = S<Wl, "zid_platform__modules__machine__api__workloads
 
 export function createCellApi(t: Transport) {
   const get = <T>(path: string, query?: Record<string, string | number | undefined>) => t.request<T>("GET", path, { query });
-  const post = <T>(path: string, body?: unknown, extra: { idempotencyKey?: string; query?: Record<string, string | number | undefined> } = {}) =>
-    t.request<T>("POST", path, { body: body ?? {}, ...extra });
+  const post = <T>(
+    path: string,
+    body?: unknown,
+    extra: { idempotencyKey?: string; query?: Record<string, string | number | undefined>; headers?: Record<string, string> } = {},
+  ) => t.request<T>("POST", path, { body: body ?? {}, ...extra });
+  /** A proof that a person confirmed this exact command with their passkey (ZID-ENG-DEC-009), sent beside the command. */
+  const withProof = (proof?: string) => (proof ? { headers: { "x-step-up-proof": proof } } : {});
 
   return {
+    stepUp: {
+      tiers: () => get<M.StepUpTiers>("/v1/step-up/tiers"),
+      challenge: (draft: M.StepUpDraft) =>
+        post<M.StepUpChallenge>("/v1/step-up/challenges", { action: draft.action, resource: draft.resource, change: draft.change ?? {}, critical: draft.critical ?? false }),
+      verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
+      cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
+    },
     me: {
       userinfo: () => get<M.UserInfo>("/oauth2/userinfo"),
       sessions: () => get<M.Items<M.SessionView>>("/sessions"),
       revokeSession: (id: string) => post<{ session_id: string; status: M.SessionStatus }>(`/sessions/${seg(id)}:revoke`),
       revokeAllSessions: () => post<{ revoked: number }>("/sessions:revoke-all"),
       authenticators: () => get<M.Items<M.AuthenticatorView>>("/authn/authenticators"),
-      revokeAuthenticator: (id: string) => post<{ authenticator_id: string; status: M.AuthenticatorStatus }>(`/authn/authenticators/${seg(id)}:revoke`),
+      revokeAuthenticator: (id: string, proof?: string) =>
+        post<{ authenticator_id: string; status: M.AuthenticatorStatus }>(`/authn/authenticators/${seg(id)}:revoke`, undefined, withProof(proof)),
       issueRecoveryCodes: () => post<M.RecoveryCodes>("/authn/recovery-codes"),
       recoveryCodeStatus: () => get<M.RecoveryCodeStatus>("/authn/recovery-codes/status"),
       cancelRecovery: (id: string) => post<{ recovery_id: string; status: "DENIED" }>(`/authn/recovery/${seg(id)}:cancel`),
@@ -126,7 +139,7 @@ export function createCellApi(t: Transport) {
       integrations: () => get<M.Items<M.FederationIntegration>>("/federation/integrations"),
       /** Read a provider's published settings from its address: the OpenID issuer, or the SAML metadata address. */
       discoverProvider: (protocol: "OIDC" | "SAML", url: string) => post<M.ProviderSettings>("/federation/integrations:discover", { protocol, url }),
-      createIntegration: (body: IntegrationIn) => post<M.FederationIntegration>("/federation/integrations", body),
+      createIntegration: (body: IntegrationIn, proof?: string) => post<M.FederationIntegration>("/federation/integrations", body, withProof(proof)),
       rotate: (id: string, body: RotateIn) => post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:rotate`, body),
       setIdpInitiated: (id: string, body: IdpInitiatedIn) =>
         post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:idp-initiated`, body),
@@ -283,7 +296,7 @@ export function createCellApi(t: Transport) {
     tenant: {
       me: () => get<M.TenantView>("/v1/tenant"),
       members: () => get<M.Items<M.TenantMember>>("/v1/tenant/members"),
-      invite: (role: "MEMBER" | "ADMIN") => post<M.Invitation>("/v1/tenant/members", { role }),
+      invite: (role: M.InvitableRole) => post<M.Invitation>("/v1/tenant/members", { role }),
       reissue: (assignmentId: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:reissue`),
       revoke: (assignmentId: string) => post<M.TenantRole>(`/v1/tenant/members/${seg(assignmentId)}:revoke`),
       accept: () => post<M.TenantRole>("/v1/tenant/members/me:accept"),
@@ -293,10 +306,10 @@ export function createCellApi(t: Transport) {
       revokeDomain: (id: string) => post<M.TenantDomain>(`/v1/tenant/domains/${seg(id)}:revoke`),
       transitions: () => get<M.Items<M.TenantTransition>>("/v1/tenant/transitions"),
       configurationRevisions: () => get<M.Items<M.ConfigurationRevision>>("/v1/tenant/configuration-revisions"),
-      addOwner: (principalId: string, approvalRequestId: string) =>
-        post<M.TenantRole>("/v1/tenant/owners", { principal_id: principalId, approval_request_id: approvalRequestId }),
-      removeOwner: (principalId: string, approvalRequestId: string) =>
-        post<M.TenantRole>(`/v1/tenant/owners/${seg(principalId)}:remove`, { approval_request_id: approvalRequestId }),
+      addOwner: (principalId: string, approvalRequestId: string, proof?: string) =>
+        post<M.TenantRole>("/v1/tenant/owners", { principal_id: principalId, approval_request_id: approvalRequestId }, withProof(proof)),
+      removeOwner: (principalId: string, approvalRequestId: string, proof?: string) =>
+        post<M.TenantRole>(`/v1/tenant/owners/${seg(principalId)}:remove`, { approval_request_id: approvalRequestId }, withProof(proof)),
       suspend: (reasonCode: string) => post<M.TenantView>("/v1/tenant:suspend", { reason_code: reasonCode }),
       resume: (approvalRequestId: string) => post<M.TenantView>("/v1/tenant:resume", { approval_request_id: approvalRequestId }),
       offboard: (approvalRequestId: string, reasonCode: string) =>
@@ -333,6 +346,15 @@ export function createCellApi(t: Transport) {
       addRoute: (body: { kind: M.RouteKind; match: string; connection_ref: string }) => post<M.LoginRoute>("/v1/integration/routes", body),
       resolveRoute: (body: { application_id?: string; login_domain?: string }) =>
         post<{ connection_ref: string | null; rule_id: string | null }>("/v1/integration/routes:resolve", body),
+    },
+
+    orgClaims: {
+      search: (country: string, query: string) => post<M.OrgClaimSearch>("/v1/org-claims/search", { country, query }),
+      create: (body: M.OrgClaimCreate, idempotencyKey: string) =>
+        t.request<M.OrgClaimStatus>("POST", "/v1/org-claims", { body, idempotencyKey }),
+      status: (id: string) => get<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/status`),
+      refresh: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/refresh`, {}),
+      screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
     },
 
     onboarding: {
@@ -486,6 +508,11 @@ export function createCellApi(t: Transport) {
     billing: {
       catalog: () => get<M.Catalog>("/v1/catalog"),
       entitlements: (tenantId: string) => get<M.EntitlementView>(`/v1/tenants/${seg(tenantId)}/entitlements`),
+      /** The five-band view of what this plan includes (ZID-ENG-DEC-008). */
+      effective: () => get<M.EffectiveEntitlements>("/v1/entitlements/effective"),
+      /** What moving to a lower band would switch off. It deletes nothing. */
+      downgradeImpact: (to: string) => get<M.DowngradeImpact>("/v1/entitlements/downgrade-impact", { to }),
+      usageSummary: () => get<M.ReservationUsage>("/v1/usage/summary"),
       state: () => get<M.BillingState>("/v1/billing/state"),
       orders: () => get<M.Items<M.BillingOrder>>("/v1/billing/orders"),
       preview: () => get<M.BillPreview>("/v1/billing/preview"),

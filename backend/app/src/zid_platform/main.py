@@ -84,6 +84,11 @@ def create_app(
     app.state.verification_transport = None  # real network; tests inject a provider simulator
     app.state.credential_transport = None  # status-list / federation fetches (simulated in tests)
     app.state.registry_transport = None  # Companies House / GLEIF (simulated in tests)
+    app.state.kyb_transport = None  # company-verification sources (real network; tests inject)
+    app.state.kyb_adapters = None  # tests supply their own sources
+    from .crypto_runtime import company_evidence_signer
+
+    app.state.company_evidence_sign = company_evidence_signer(settings)
     app.state.domain_checks = None  # DNS TXT / HTTPS well-known (real network; tests inject)
     app.state.secret_broker = _secret_broker(settings)
     app.state.token_settings = None
@@ -188,6 +193,7 @@ def create_app(
     if role is Role.CELL:
         _configure_phase_f(app, settings)
         from .modules.authentication.api.recovery import router as recovery_router
+        from .modules.authentication.api.step_up import router as step_up_router
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
@@ -206,6 +212,7 @@ def create_app(
         from .modules.metering.api.usage import router as usage_router
         from .modules.notification.api.alerts import router as alerts_router
         from .modules.onboarding.api.onboarding import router as onboarding_router
+        from .modules.onboarding.api.org_claims import router as org_claims_router
         from .modules.onboarding.api.signup import router as signup_router
         from .modules.operations.api.ops import router as operations_router
         from .modules.operator_access.api.commercial_admin import router as commercial_admin_router
@@ -223,6 +230,7 @@ def create_app(
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.webhook.api.webhooks import router as webhooks_router
 
@@ -234,10 +242,12 @@ def create_app(
             oauth_router,
             sessions_router,
             webauthn_router,
+            step_up_router,
             signals_router,
             federation_router,
             scim_router,
             verification_router,
+            countries_router,
             recovery_router,
             credentials_router,
             principals_router,
@@ -248,6 +258,7 @@ def create_app(
             residency_router,
             tenants_router,
             onboarding_router,
+            org_claims_router,
             signup_router,
             domains_router,
             integration_router,
@@ -281,6 +292,7 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
 
     configure_ledger(environment=settings.environment, region=settings.cell_id)
     app.state.commercial_enforcement = settings.commercial_enforcement
+    app.state.step_up_enforcement = settings.step_up_enforcement
     from .modules.commercial.ports import NoTaxConfigured, RecordingPayments
 
     # No tax engine and no payment processor are chosen yet (CR-027): tax answers 'not configured' and
@@ -438,6 +450,21 @@ def _secret_broker(settings: Settings) -> object | None:
         return None
 
 
+def _plan_aware_sharing(settings: Settings) -> None:
+    """Shared identity leaves a cell only if the residency rules allow it and the plan includes the feature that sends it."""
+    from .modules.commercial.ports import plan_aware_transfer_gate
+    from .modules.tenant.ports import authorize_transfer
+    from .modules.verification.application.service import configure_transfer_gate
+
+    configure_transfer_gate(
+        plan_aware_transfer_gate(
+            authorize_transfer,
+            feature_id="standard.credential-verification-validation",
+            enforcement=settings.commercial_enforcement,
+        )
+    )
+
+
 def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     """Evidence keys (DEC-F1/F2/F5) and the operator plane (DEC-F4) for a cell process."""
     from .modules.decision.ports import register_evidence_replayer
@@ -451,6 +478,7 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
     register_privacy_stores()
+    _plan_aware_sharing(settings)
     _register_invitation_hooks()
     from .modules.privacy.ports import configure_enforcement
 

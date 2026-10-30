@@ -1,0 +1,65 @@
+# Company-verification routing and policy (ZID-ED-03 sections 03, 04, 05, 07). Versioned configuration, not tenant data.
+# status: PROPOSED (founder approval of ED-03 pending)
+# version: 0.1.0
+#
+# policy: validity_days is how long a VERIFIED outcome stands before a review is due; ED-03 gives no number, ED-04 asks
+#   for an annual refresh of verified entities, so 365 is the proposed ceiling and owners may shorten it.
+#   name_threshold is the similarity below which a name difference goes to a reviewer; it supports, never proves.
+# adapters: kind says what a source can prove. A SUPPLIER fact counts only for a country listed in
+#   `supplier_coverage_proven`, which stays empty until the five-country proof of coverage, licensing and procurement
+#   sign-off (ED-03 section 07) is recorded for that country. Until then the answer is UNAVAILABLE / NO_COVERAGE.
+# No official, keyless register API was found for the U.S. states (each state is its own register), Ireland (the CRO
+#   Open Services need a registered account and signed terms), or Germany (the Handelsregister portal offers no API
+#   and a number means nothing without its register court). Those countries use the supplier and so stay UNAVAILABLE
+#   until its coverage is proven; a national adapter is added when an owner obtains a lawful, licensed route.
+# routes: per ISO 3166-1 alpha-2 country, the adapters tried first, the one that may confirm an LEI, and the suppliers
+#   called only for a mismatch, an absent register route, or enrichment the policy allows. No silent vendor substitution.
+
+version: 0.1.0
+policy:
+  validity_days: 365
+  name_threshold: 0.85
+
+adapters:
+  companies-house:
+    kind: OFFICIAL_REGISTER
+    status: ENABLED
+  sirene:
+    kind: OFFICIAL_REGISTER             # French Annuaire des Entreprises (INSEE Sirene and RNE): open, keyless
+    status: ENABLED
+  gleif:
+    kind: LEI_REFERENCE
+    status: ENABLED
+  creditsafe:
+    kind: SUPPLIER
+    status: DISABLED_UNTIL_CONTRACT     # preferred paid supplier; contract, key and coverage proof outstanding
+  dnb:
+    kind: SUPPLIER
+    status: NOT_QUALIFIED               # independently qualified enterprise alternative; not built
+  opencorporates:
+    kind: SUPPLIER
+    status: NOT_LICENSED                # optional; only with commercial redistribution rights; not built
+
+routes:
+  GB:
+    first_pass: [companies-house]
+    lei: gleif
+    exception: [creditsafe]
+  US:
+    first_pass: [creditsafe]            # a state register adapter does not exist yet; the supplier is primary
+    lei: gleif
+    exception: []
+  IE:
+    first_pass: [creditsafe]            # a national register adapter does not exist yet
+    lei: gleif
+    exception: []
+  DE:
+    first_pass: [creditsafe]
+    lei: gleif
+    exception: []
+  FR:
+    first_pass: [sirene]                # the official register answers on its own: no supplier coverage needed
+    lei: gleif
+    exception: [creditsafe]
+
+supplier_coverage_proven: {}            # country -> [adapter ids]; filled only when the owners record the proof

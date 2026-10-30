@@ -42,7 +42,7 @@ from zid_platform.modules.integration.domain.model import (
 from zid_platform.modules.integration.domain.routing import RouteKind
 from zid_platform.modules.integration.infrastructure import mapping_store, store
 from zid_platform.modules.integration.infrastructure.store import Application, Connector
-from zid_platform.modules.tenant.ports import Role, RoleStatus, live_roles
+from zid_platform.modules.tenant.ports import Mode, Role, RoleStatus, live_roles, matrix_gate
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(prefix="/v1/integration", tags=["integration"])
@@ -178,14 +178,21 @@ class ReleaseBody(BaseModel):
     approval_request_id: str = Field(min_length=1, max_length=64)
 
 
-@router.get("/applications")
+@router.get(
+    "/applications",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def list_applications(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
         return {"items": [app_view(a) for a in await store.list_applications(conn)]}
 
 
-@router.post("/applications", status_code=201)
+@router.post(
+    "/applications",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def register_application(
     body: AppBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -218,7 +225,10 @@ async def register_application(
     return app_view(a)
 
 
-@router.post("/applications/{application_id}:transition")
+@router.post(
+    "/applications/{application_id}:transition",
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def transition_application(
     application_id: uuid.UUID, body: Transition, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -245,14 +255,21 @@ class OAuthClientBody(BaseModel):
     jwks: dict[str, Any] | None = None
 
 
-@router.get("/oauth-clients")
+@router.get(
+    "/oauth-clients",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def list_oauth_clients(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
         return {"items": await service.client_gateway().listing(conn)}
 
 
-@router.post("/oauth-clients", status_code=201)
+@router.post(
+    "/oauth-clients",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def register_oauth_client(
     body: OAuthClientBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -278,7 +295,10 @@ async def register_oauth_client(
     return c
 
 
-@router.post("/oauth-clients/{client_id}:retire")
+@router.post(
+    "/oauth-clients/{client_id}:retire",
+    dependencies=[Depends(matrix_gate("e.revoke-compromised-tenant-integration", Mode.EXECUTE))],
+)
 async def retire_oauth_client(
     client_id: str, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -294,14 +314,20 @@ async def retire_oauth_client(
     return {"client_id": client_id, "status": "RETIRED"}
 
 
-@router.get("/connectors")
+@router.get(
+    "/connectors",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def list_connectors(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
         return {"items": [connector_view(c) for c in await store.list_connectors(conn)]}
 
 
-@router.get("/connectors/{connector_id}")
+@router.get(
+    "/connectors/{connector_id}",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def read_connector(
     connector_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -326,7 +352,11 @@ async def read_connector(
     }
 
 
-@router.post("/connectors", status_code=201)
+@router.post(
+    "/connectors",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def register_connector(
     body: ConnectorBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -357,7 +387,12 @@ async def register_connector(
     return connector_view(c)
 
 
-@router.put("/connectors/{connector_id}/credential")
+@router.put(
+    "/connectors/{connector_id}/credential",
+    dependencies=[
+        Depends(matrix_gate("e.rotate-assigned-nonprivileged-api-credential", Mode.EXECUTE))
+    ],
+)
 async def put_credential(
     connector_id: uuid.UUID, body: CredentialBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -381,7 +416,10 @@ async def put_credential(
     return {"connector_id": str(connector_id), "version": version}  # the value is never echoed
 
 
-@router.post("/connectors/{connector_id}:quarantine")
+@router.post(
+    "/connectors/{connector_id}:quarantine",
+    dependencies=[Depends(matrix_gate("e.revoke-compromised-tenant-integration", Mode.EXECUTE))],
+)
 async def quarantine(
     connector_id: uuid.UUID, body: QuarantineBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -399,7 +437,10 @@ async def quarantine(
     return connector_view(c)
 
 
-@router.post("/connectors/{connector_id}:release")
+@router.post(
+    "/connectors/{connector_id}:release",
+    dependencies=[Depends(matrix_gate("e.revoke-compromised-tenant-integration", Mode.EXECUTE))],
+)
 async def release(
     connector_id: uuid.UUID, body: ReleaseBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -474,7 +515,10 @@ class ResolveBody(BaseModel):
     login_domain: str | None = Field(default=None, max_length=253)
 
 
-@router.get("/connectors/{connector_id}/mapping-releases")
+@router.get(
+    "/connectors/{connector_id}/mapping-releases",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def list_releases(
     connector_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -484,7 +528,11 @@ async def list_releases(
     return {"items": [release_view(r) for r in items]}
 
 
-@router.post("/connectors/{connector_id}/mapping-releases", status_code=201)
+@router.post(
+    "/connectors/{connector_id}/mapping-releases",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def create_release(
     connector_id: uuid.UUID, body: MappingBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -500,7 +548,10 @@ async def create_release(
     return release_view(r)
 
 
-@router.post("/mapping-releases/{release_id}:simulate")
+@router.post(
+    "/mapping-releases/{release_id}:simulate",
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def simulate(
     release_id: uuid.UUID, body: SimulateBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -518,7 +569,12 @@ async def simulate(
     return release_view(r)
 
 
-@router.post("/mapping-releases/{release_id}:activate")
+@router.post(
+    "/mapping-releases/{release_id}:activate",
+    dependencies=[
+        Depends(matrix_gate("e.activate-sensitive-production-integration", Mode.PREPARE))
+    ],
+)
 async def activate(
     release_id: uuid.UUID, body: ReleaseBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -545,7 +601,10 @@ async def activate(
     return release_view(r)
 
 
-@router.get("/routes")
+@router.get(
+    "/routes",
+    dependencies=[Depends(matrix_gate("e.view-integration-directory-status", Mode.READ))],
+)
 async def list_routes(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _admin_read(conn, caller)
@@ -553,7 +612,11 @@ async def list_routes(request: Request, caller: CallerDep) -> dict[str, Any]:
     return {"items": [route_view(r) for r in items]}
 
 
-@router.post("/routes", status_code=201)
+@router.post(
+    "/routes",
+    status_code=201,
+    dependencies=[Depends(matrix_gate("e.prepare-tenant-sso-external-trust-link", Mode.PREPARE))],
+)
 async def add_route(body: RouteBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:

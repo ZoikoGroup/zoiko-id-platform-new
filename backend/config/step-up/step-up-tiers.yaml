@@ -1,0 +1,212 @@
+# Step-up authentication tiers and the actions that need them (ZID-ENG-DEC-009 v1.0, proposed for founder approval).
+# The two trigger tables of the record, generated from it. The backend classifies the action; the UI never does.
+# Freshness windows are Zoiko iD policy, not NIST-prescribed transaction limits.
+version: "ZID-ENG-DEC-009-v1.0"
+tiers:
+  S0: {max_age_seconds: null, single_use: false, phishing_resistant: false, action_bound: false}
+  S1: {max_age_seconds: 600, single_use: false, phishing_resistant: true, action_bound: false}
+  S2: {max_age_seconds: 300, single_use: true, phishing_resistant: true, action_bound: true}
+# How long a challenge may wait for its passkey (seconds): the platform's 2-minute passkey ceremony, "at most 5, preferably shorter".
+challenge_ttl_seconds: 120
+# S1 may accept an approved enterprise MFA (for example TOTP plus a protected password and session) when a passkey is
+# unavailable and the tenant risk policy permits. Off until the owners approve an assurance policy for it.
+s1_fallback_mfa: false
+# Methods that can never authorize S2, whatever else is claimed.
+s2_forbidden_methods: [email_link, sms, security_question, api_token, device_cookie]
+# Signals that raise a tier by one (S0 to S1, S1 to S2); the security-state vocabulary is the signals module's.
+risk_escalation_states: [ELEVATED_RISK, STEP_UP_REQUIRED, REAUTH_REQUIRED]
+actions:
+  - id: change-account-password-or-primary-email
+    group: personal-and-organization
+    action: "Change account password or primary email"
+    tier: S1
+    family: account-security
+    gate: "Notify; session review"
+    control: "Email possession alone is insufficient; revalidate identity and current bound authenticator."
+    catalogue_actions: []
+  - id: enroll-remove-replace-passkey-mfa-or-recovery-factor
+    group: personal-and-organization
+    action: "Enroll / remove / replace passkey, MFA or recovery factor"
+    tier: S2
+    family: account-security
+    gate: "Recovery safeguards"
+    control: "Prove possession of existing factor; otherwise enter governed recovery, not direct bypass."
+    catalogue_actions: []
+  - id: add-a-trusted-device-change-login-protection-or-recovery-policy
+    group: personal-and-organization
+    action: "Add a trusted device, change login protection or recovery policy"
+    tier: S2
+    family: account-security
+    gate: "Risk review"
+    control: "Revoke affected sessions / refresh token grants as required; notify user."
+    catalogue_actions: [authentication.recovery.policy.manage, tenant.mfa_policy.change]
+  - id: revoke-own-sessions-or-all-other-sessions
+    group: personal-and-organization
+    action: "Revoke own sessions or all other sessions"
+    tier: S1
+    family: account-security
+    gate: "Revocation immediately effective"
+    control: "Low-risk “log out this device” may stay S0; bulk revocation requires fresh proof."
+    catalogue_actions: [session.bulk_revoke]
+  - id: invite-standard-operator-or-viewer
+    group: personal-and-organization
+    action: "Invite standard Operator or Viewer"
+    tier: S0
+    family: organization-governance
+    gate: "Q7 permission / membership"
+    control: "Ordinary invites require no default step-up unless risk engine elevates."
+    catalogue_actions: [tenant.member.manage]
+  - id: promote-user-to-admin-approver-change-privileged-role-grants
+    group: personal-and-organization
+    action: "Promote user to Admin / Approver, change privileged role grants"
+    tier: S2
+    family: organization-governance
+    gate: "Independent approval if prescribed"
+    control: "No self-elevation; requester and approver must be distinct humans."
+    catalogue_actions: [tenant.member.manage, authority.grant]
+  - id: initiate-confirm-transfer-of-organization-ownership
+    group: personal-and-organization
+    action: "Initiate / confirm transfer of organization ownership"
+    tier: S2
+    family: organization-governance
+    gate: "Independent authority proof + approval"
+    control: "Verify both principals and corporate authority; immutable handoff evidence."
+    catalogue_actions: [tenant.owner.change]
+  - id: modify-verified-legal-entity-registration-or-controllers
+    group: personal-and-organization
+    action: "Modify verified legal entity, registration or controllers"
+    tier: S2
+    family: organization-governance
+    gate: "KYB + manual / independent review"
+    control: "An authenticated Owner is not authority to self-certify legal records."
+    catalogue_actions: [organization.kyb.review]
+  - id: change-sso-federation-trust-or-scim-privilege-mapping
+    group: personal-and-organization
+    action: "Change SSO federation trust or SCIM privilege mapping"
+    tier: S2
+    family: organization-governance
+    gate: "Policy review / test"
+    control: "No backdoor role grants through group claims or SCIM updates."
+    catalogue_actions: [tenant.identity_provider.change, provisioning.source.manage]
+  - id: disable-required-sign-in-restrictions-security-rules-trust-policy
+    group: personal-and-organization
+    action: "Disable required sign-in restrictions, security rules, trust policy"
+    tier: S2
+    family: organization-governance
+    gate: "Independent approval where required"
+    control: "Mandatory controls cannot be disabled by subscription or tenant roles."
+    catalogue_actions: [tenant.mfa_policy.change, policy.release.publish]
+  - id: resolve-account-recovery-privileged-recovery-completion
+    group: personal-and-organization
+    action: "Resolve account recovery / privileged recovery completion"
+    tier: S2
+    recovery: true
+    family: account-security
+    gate: "Governed recovery; no factor shortcut"
+    control: "*Successful recovery establishes a new qualified auth context; never require an unavailable old factor."
+    catalogue_actions: [authentication.recovery.approve]
+  - id: issue-revoke-routine-low-risk-credentials
+    group: credentials-agents-evidence-infrastructure
+    action: "Issue / revoke routine low-risk credentials"
+    tier: S1
+    family: credentials
+    gate: "Issuer permission + policy"
+    control: "May elevate to S2 based on reliance, validity or credential scope."
+    catalogue_actions: [credential.issue, credential.status.change]
+  - id: issue-revoke-high-trust-organization-credentials
+    group: credentials-agents-evidence-infrastructure
+    action: "Issue / revoke high-trust organization credentials"
+    tier: S2
+    family: credentials
+    gate: "Trust policy + independent review"
+    control: "Cannot impersonate platform verification or bypass external validation."
+    catalogue_actions: [credential.trust.manage]
+  - id: grant-expand-transfer-or-revoke-high-impact-delegated-authority
+    group: credentials-agents-evidence-infrastructure
+    action: "Grant, expand, transfer or revoke high-impact delegated authority"
+    tier: S2
+    family: authority-and-agents
+    gate: "Authority proof / approval"
+    control: "Bind target principal, scope, validity and revocation context."
+    catalogue_actions: [authority.grant, authority.grant.delegate]
+  - id: create-expand-high-privilege-ai-agent-mandate
+    group: credentials-agents-evidence-infrastructure
+    action: "Create / expand high-privilege AI-agent mandate"
+    tier: S2
+    family: authority-and-agents
+    gate: "Human owner + defined grant"
+    control: "No agent can self-step-up or self-approve; bind actor to target agent."
+    catalogue_actions: [mandate.create, mandate.manage]
+  - id: create-production-signing-keys-or-privileged-api-clients
+    group: credentials-agents-evidence-infrastructure
+    action: "Create production signing keys or privileged API clients"
+    tier: S2
+    family: keys-and-integrations
+    gate: "Key-management approval"
+    control: "One-time secret display; no secret re-display; rotate and audit."
+    catalogue_actions: [integration.application.manage, machine.workload.manage]
+  - id: rotate-revoke-critical-enterprise-keys-or-production-certificates
+    group: credentials-agents-evidence-infrastructure
+    action: "Rotate / revoke critical enterprise keys or production certificates"
+    tier: S2
+    family: keys-and-integrations
+    gate: "Change control"
+    control: "Protect against key substitution, outage and stale grants."
+    catalogue_actions: [integration.connector.manage]
+  - id: authorize-new-high-risk-oauth-scopes-relying-party-trust
+    group: credentials-agents-evidence-infrastructure
+    action: "Authorize new high-risk OAuth scopes / relying-party trust"
+    tier: S2
+    family: keys-and-integrations
+    gate: "Consent + service policy"
+    control: "No blanket consent across changed scope or audience."
+    catalogue_actions: [integration.application.manage]
+  - id: export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii
+    group: credentials-agents-evidence-infrastructure
+    action: "Export raw ID proof, biometric evidence, UBO records or bulk PII"
+    tier: S2
+    family: data-and-evidence
+    gate: "Purpose + privacy + independent authorization"
+    control: "Risk-based and jurisdictional; no unrestricted super-admin export."
+    catalogue_actions: [data.bulk_export, data.sensitive.read, evidence.export]
+  - id: export-ordinary-redacted-account-report
+    group: credentials-agents-evidence-infrastructure
+    action: "Export ordinary redacted account report"
+    tier: S1
+    family: data-and-evidence
+    gate: "Permission + export quota"
+    control: "If highly sensitive or bulk, automatically escalate to S2."
+    catalogue_actions: [evidence.export]
+  - id: change-customer-home-region-cross-region-transfer-policy
+    group: credentials-agents-evidence-infrastructure
+    action: "Change customer home region / cross-region transfer policy"
+    tier: S2
+    family: data-and-evidence
+    gate: "Privacy/legal authorization"
+    control: "Validate residency constraints independently; approval cannot legalize prohibited transfers."
+    catalogue_actions: [tenant.residency.manage]
+  - id: delete-regulated-identity-records-or-alter-retention-holds
+    group: credentials-agents-evidence-infrastructure
+    action: "Delete regulated identity records or alter retention holds"
+    tier: S2
+    family: data-and-evidence
+    gate: "Lifecycle & legal review"
+    control: "Retention and evidence integrity override customer requests where legally required."
+    catalogue_actions: [privacy.retention.manage, evidence.legal_hold.manage]
+  - id: activate-break-glass-privileged-support-access
+    group: credentials-agents-evidence-infrastructure
+    action: "Activate break-glass privileged support access"
+    tier: S2
+    family: support-access
+    gate: "Separate internal approvals + expiry"
+    control: "No standing staff access. Details of exception process reserved for Q10–12."
+    catalogue_actions: [operator.jit.elevate, operator.lockbox.approve]
+  - id: execute-sensitive-approval-rejection
+    group: credentials-agents-evidence-infrastructure
+    action: "Execute sensitive approval / rejection"
+    tier: S1
+    escalates_to: S2
+    family: organization-governance
+    gate: "Independent checker policy"
+    control: "Approver must perform own fresh sign-in; S2 for critical approval."
+    catalogue_actions: []

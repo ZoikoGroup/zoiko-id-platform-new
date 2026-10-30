@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
-from onboarding_fixture import AUD, ISS, approval, onboard
+from onboarding_fixture import AUD, ISS, approval, give_role, onboard
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from zid_db import tenant_transaction
@@ -43,6 +43,9 @@ CLASHING = [
 
 def test_mapping_releases_and_routing(rt_url: str, owner_url: str) -> None:
     o = onboard(rt_url)
+    give_role(
+        rt_url, o, o.second, "ADMIN"
+    )  # the second administrator holds the role an accepted invitation gives
     app = create_app(
         Settings(
             database_url=rt_url,
