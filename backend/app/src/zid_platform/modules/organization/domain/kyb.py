@@ -125,6 +125,9 @@ class Policy:
     version: str
     validity: timedelta  # how long a VERIFIED outcome stands before a review is due
     name_threshold: float = 0.85  # supporting evidence only
+    refresh_lead: timedelta = timedelta(
+        days=30
+    )  # how long before a verification lapses it is read again
 
 
 @dataclass(frozen=True, slots=True)

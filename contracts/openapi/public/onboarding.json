@@ -1942,6 +1942,51 @@
         ]
       }
     },
+    "/v1/reviews/kyb-cases/{case_id}/proofs": {
+      "get": {
+        "operationId": "reviewer_list_proofs_v1_reviews_kyb_cases__case_id__proofs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reviewer List Proofs V1 Reviews Kyb Cases  Case Id  Proofs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reviewer List Proofs",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
     "/v1/reviews/kyb-cases/{case_id}/proofs/{proof_id}": {
       "get": {
         "operationId": "read_proof_v1_reviews_kyb_cases__case_id__proofs__proof_id__get",

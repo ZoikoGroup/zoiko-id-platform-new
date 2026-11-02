@@ -22,7 +22,6 @@ from zid_platform.modules.organization.domain.kyb import KybError, Routing
 from zid_platform.modules.organization.infrastructure.kyb_adapters import KybAdapter
 
 log = logging.getLogger("zid.kyb")
-DEFAULT_LEAD = timedelta(days=30)
 
 
 async def refresh_pass(
@@ -33,9 +32,10 @@ async def refresh_pass(
     now: datetime,
     *,
     country_gate: kyb.CountryGate | None = None,
-    lead: timedelta = DEFAULT_LEAD,
+    lead: timedelta | None = None,
 ) -> dict[str, int]:
-    """tenant id -> cases refreshed; `tenant id:held_by_country` -> cases left alone because their country is not open."""
+    """`lead` defaults to the policy's refresh lead.
+    tenant id -> cases refreshed; `tenant id:held_by_country` -> cases left alone because their country is not open."""
     due = (
         await conn.execute(
             text(
@@ -43,7 +43,7 @@ async def refresh_pass(
                 "WHERE status = 'VERIFIED' AND expiry_at IS NOT NULL AND expiry_at <= :horizon "
                 "ORDER BY tenant_id, expiry_at"
             ),
-            {"horizon": now + lead},
+            {"horizon": now + (lead if lead is not None else routing.policy.refresh_lead)},
         )
     ).all()
     out: dict[str, int] = {}

@@ -25,6 +25,7 @@ def parse(doc: dict[str, Any]) -> ProofPolicy:
         types=types,
         kinds=kinds,
         per_case_limit=int(doc.get("per_case_limit", 20)),
+        retention_days=int(doc["retention_days"]) if doc.get("retention_days") else None,
     )
 
 

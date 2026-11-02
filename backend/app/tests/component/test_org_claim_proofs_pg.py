@@ -327,3 +327,47 @@ def test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_
                 )
 
         assert asyncio.run(reads()) == 1
+
+
+def test_a_reviewer_lists_the_documents_on_a_case_and_the_retention_policy_sets_when_they_expire(
+    rt_url: str, owner_url: str, monkeypatch: Any
+) -> None:
+    from dataclasses import replace
+
+    from zid_platform.modules.onboarding.api import org_claim_proofs as api_module
+
+    original = api_module.proof_policy()
+    monkeypatch.setattr(api_module, "proof_policy", lambda: replace(original, retention_days=30))
+    o, api, tenant, owner = make(
+        rt_url, FakeScanner(), extra_actions=REVIEW_ACTIONS, extra_resources=REVIEW_RESOURCES
+    )
+    second = o.bearer(o.second)
+    with api:
+        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()[
+            "claim_id"
+        ]
+        proof = put(api, owner, claim, PDF).json()["proof_id"]
+        listed = api.get(f"/v1/reviews/kyb-cases/{claim}/proofs", headers=second)
+        assert listed.status_code == 200 and [p["proof_id"] for p in listed.json()["proofs"]] == [
+            proof
+        ]
+        assert api.get(f"/v1/reviews/kyb-cases/{claim}/proofs").status_code == 401
+        assert (
+            api.get(f"/v1/reviews/kyb-cases/{uuid.uuid4()}/proofs", headers=second).status_code
+            == 404
+        )
+
+        async def expires() -> Any:
+            async with engine(owner_url) as eng, eng.begin() as c:
+                return (
+                    await c.execute(
+                        text(
+                            "SELECT expires_at FROM evidence.evidence_object WHERE tenant_id = :t AND object_type = 'kyb_proof'"
+                        ),
+                        {"t": uuid.UUID(tenant)},
+                    )
+                ).scalar_one()
+
+        assert asyncio.run(expires()) is not None, (
+            "a set retention period gives the stored document an expiry"
+        )

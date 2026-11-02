@@ -48,6 +48,7 @@ def parse(doc: dict[str, Any]) -> Routing:
             version=str(doc.get("version", "0")),
             validity=timedelta(days=int(policy.get("validity_days", 365))),
             name_threshold=float(policy.get("name_threshold", 0.85)),
+            refresh_lead=timedelta(days=int(policy.get("refresh_lead_days", 30))),
         ),
         routes=routes,
         adapter_status=adapters,

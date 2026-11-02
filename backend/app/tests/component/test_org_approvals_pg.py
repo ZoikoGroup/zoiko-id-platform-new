@@ -272,8 +272,8 @@ def test_filters_search_and_pages_are_applied_after_authorization(world: World) 
 
 
 def test_an_approved_request_is_held_when_policy_or_trust_changes(
-    world: World,
-    monkeypatch: pytest.MonkeyPatch,  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """AT-08 and AT-09: the earlier quorum does not run a changed world. The hold is derived and visible; the votes stay."""
     w = world

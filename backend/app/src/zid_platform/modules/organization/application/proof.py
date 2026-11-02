@@ -14,7 +14,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -185,6 +185,7 @@ async def add_proof(
         object_type="kyb_proof",
         classification="D3",
         retention_class="kyb_proof",
+        expires_at=now + timedelta(days=policy.retention_days) if policy.retention_days else None,
     )
     proof_id = str(uuid.uuid4())
     label = sanitize_name(filename)

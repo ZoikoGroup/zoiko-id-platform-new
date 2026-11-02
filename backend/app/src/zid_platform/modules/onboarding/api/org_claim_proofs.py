@@ -186,6 +186,25 @@ async def list_proofs(claim_id: uuid.UUID, request: Request, caller: CallerDep) 
     }
 
 
+@router.get("/reviews/kyb-cases/{case_id}/proofs")
+async def reviewer_list_proofs(
+    case_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="organization.kyb.review", resource=f"kyb_case:{case_id}"
+        )
+        try:
+            proofs = await proof_service.list_proofs(conn, caller.ctx.tenant_id or "", str(case_id))
+        except KybError as e:
+            raise _kyb_error(e) from e
+    return {
+        "claim_id": str(case_id),
+        "proofs": [_shown(p) for p in proofs],
+        "limit": proof_policy().per_case_limit,
+    }
+
+
 @router.get("/reviews/kyb-cases/{case_id}/proofs/{proof_id}")
 async def read_proof(
     case_id: uuid.UUID, proof_id: uuid.UUID, request: Request, caller: CallerDep

@@ -63,8 +63,8 @@ def activate(w: World, who: str | None = None) -> Any:
 
 
 def test_a_new_organization_starts_in_draft_with_honest_words_and_no_fake_second_user(
-    world: World,
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+) -> None:
     """13C-01A to 01E: read-only trust header, server-derived checklist, recommended approvers, and the solo variant."""
     w = world
     r = get(w)
@@ -137,8 +137,9 @@ def test_acknowledgements_are_versioned_idempotent_and_owner_only(world: World) 
 
 
 def test_a_register_match_without_verified_authority_cannot_activate(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """AT-01 and AT-02: whatever the client sends or toggles, the gate reads server facts; a declined or missing one blocks, with reasons."""
     w = world
     accept(w)
@@ -177,8 +178,9 @@ def test_a_register_match_without_verified_authority_cannot_activate(
 
 
 def test_activation_needs_every_fact_and_is_recorded_once(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """13C section 02 exit contract: ready only when entity, person, authority and screening are verified and the required items are done."""
     w = world
     use_claim(monkeypatch, claim())
@@ -218,8 +220,9 @@ def test_activation_needs_every_fact_and_is_recorded_once(
 
 
 def test_an_unsecured_privileged_account_blocks_activation(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """13C-01B: every Owner and Administrator must hold a passkey; this is derived, so it cannot be suppressed from the client."""
     w = world
     use_claim(monkeypatch, claim())
@@ -238,8 +241,9 @@ def test_an_unsecured_privileged_account_blocks_activation(
 
 
 def test_approver_readiness_is_recommended_and_counted_by_independent_people(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """13C-01C and 01E: no approvers never blocks activation; two independent people are what an A2 change needs."""
     w = world
     use_claim(monkeypatch, claim())
@@ -260,8 +264,9 @@ def test_approver_readiness_is_recommended_and_counted_by_independent_people(
 
 
 def test_a_new_policy_version_asks_again_and_limits_an_active_organization(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """AT-09 for setup: when the controls text changes, acceptance is Required again; an active organization is limited until accepted."""
     w = world
     use_claim(monkeypatch, claim())

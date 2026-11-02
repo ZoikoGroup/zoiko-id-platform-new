@@ -30,6 +30,7 @@ class ProofPolicy:
     types: tuple[str, ...]  # accepted media types, as sniffed
     kinds: tuple[str, ...]  # what the applicant says the document is
     per_case_limit: int  # how many proofs one claim may hold
+    retention_days: int | None = None  # None: kept until the owners set a period
 
 
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (

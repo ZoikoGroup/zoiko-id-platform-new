@@ -55,6 +55,8 @@ async function signUp(context: BrowserContext, page: Page) {
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
 
 async function clean(page: Page) {
+  // a scan taken a moment after a click can catch a colour half way through its hover transition; the settled colours are what count
+  await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; animation: none !important; }" });
   const result = await axe(page);
   expect(result.violations, JSON.stringify(result.violations.map((v) => [v.id, v.nodes.map((n) => [n.target, n.any.map((a) => a.message)])]))).toEqual([]);
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);

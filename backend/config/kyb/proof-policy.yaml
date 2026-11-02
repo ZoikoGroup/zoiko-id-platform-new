@@ -6,6 +6,8 @@
 # types: media types accepted, as the file's own bytes show them (never the file name).
 # kinds: what the applicant says a document is; a reviewer reads it as a claim, never as proof of a fact.
 # per_case_limit: how many proofs one claim may hold.
+# retention_days: how long a document is kept in the evidence vault before it is disposed of. Unset (null) keeps it until the owners
+#   (Privacy and Legal) decide a period; nothing here invents one.
 # A proof is evidence for a reviewer. It never verifies a company by itself.
 # A file is refused before anything is stored if the tenant's residency does not allow the cell to hold it, and it is scanned
 # before it is stored: a deployed environment without a scanner refuses uploads (nothing is stored unscanned).
@@ -13,6 +15,7 @@
 version: 0.1.0
 max_bytes: 10485760
 per_case_limit: 20
+retention_days: null
 types:
   - application/pdf
   - image/png

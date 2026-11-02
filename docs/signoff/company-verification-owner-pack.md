@@ -58,4 +58,6 @@ A national adapter is added when an owner obtains a lawful, licensed route; the 
 | The size limit (10 MB proposed) and the accepted types (PDF, PNG, JPEG proposed) | Security / Legal | ______ |
 | How long a proof is kept, and who may open one (a reviewer with the protected action, every read audited, proposed) | Privacy / Legal | ______ |
 | Whether an Operator on an assigned case may upload (the matrix says assigned case only; the route admits Owner and Admin) | Product | ______ |
-| The refresh lead time (30 days before a verification lapses, proposed) | Trust operations | ______ |
+| The refresh lead time (30 days before a verification lapses, proposed): set `refresh_lead_days` in `config/kyb/kyb-routing.yaml` | Trust operations | ______ |
+| The proof retention period: set `retention_days` in `config/kyb/proof-policy.yaml` (unset keeps documents until a period is decided) | Privacy / Legal | ______ |
+| Where the scanner runs and its address: set `ZID_PROOF_SCANNER_ADDRESS` (a cell without it refuses uploads) | Security / SRE | ______ |

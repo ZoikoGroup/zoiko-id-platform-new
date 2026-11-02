@@ -37,7 +37,7 @@ export function ProofsCard({ claimId }: { claimId: string }) {
       description="Optional. A reviewer may ask for these. A document is read by a person; it never verifies the company on its own."
     >
       <form
-        className="grid gap-4 sm:grid-cols-[16rem_1fr_auto] sm:items-end"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] sm:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           if (!file) return;
@@ -46,8 +46,8 @@ export function ProofsCard({ claimId }: { claimId: string }) {
           if (!p) upload.mutate(file);
         }}
       >
-        <Select label="What kind of document is it?" value={kind} onChange={(v) => setKind(v as OrgClaimProofKind)} options={PROOF_KINDS.map((k) => ({ id: k.id, label: k.label }))} />
-        <div className="flex flex-col gap-1">
+        <Select className="min-w-0" label="What kind of document is it?" value={kind} onChange={(v) => setKind(v as OrgClaimProofKind)} options={PROOF_KINDS.map((k) => ({ id: k.id, label: k.label }))} />
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={fileId} className="text-sm font-medium text-ink">
             File
           </label>
@@ -57,7 +57,7 @@ export function ProofsCard({ claimId }: { claimId: string }) {
             type="file"
             accept={PROOF_ACCEPT}
             aria-describedby={`${fileId}-help`}
-            className="min-h-11 rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink file:mr-3 file:min-h-8 file:rounded-md file:border-0 file:bg-sunken file:px-3 file:py-1 file:text-sm file:font-medium file:text-ink"
+            className="min-h-11 w-full min-w-0 rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink file:mr-3 file:min-h-8 file:rounded-md file:border-0 file:bg-sunken file:px-3 file:py-1 file:text-sm file:font-medium file:text-ink"
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setProblem(null);

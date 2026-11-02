@@ -223,3 +223,27 @@ async def _free_port() -> int:
     server.close()
     await server.wait_closed()
     return port
+
+
+def test_retention_and_the_refresh_lead_are_policy_settings_that_default_to_nothing_invented() -> (
+    None
+):
+    from datetime import timedelta
+
+    from zid_platform.modules.organization.infrastructure.kyb_config import parse as parse_routing
+    from zid_platform.modules.organization.infrastructure.kyb_config import routing
+
+    assert proof_policy().retention_days is None, (
+        "no retention period is invented before the owners decide one"
+    )
+    base = {"types": ["application/pdf"], "kinds": ["OTHER"], "max_bytes": 1}
+    assert parse({**base, "retention_days": 90}).retention_days == 90
+    assert parse({**base, "retention_days": None}).retention_days is None
+    assert routing().policy.refresh_lead == timedelta(days=30)
+    doc = {
+        "version": "t",
+        "policy": {"validity_days": 365, "refresh_lead_days": 10},
+        "adapters": {},
+        "routes": {},
+    }
+    assert parse_routing(doc).policy.refresh_lead == timedelta(days=10)

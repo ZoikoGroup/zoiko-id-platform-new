@@ -229,3 +229,35 @@ def test_only_cases_about_to_lapse_are_refreshed_and_a_closed_country_is_left_al
             assert len((await ledger(worker, fresh_tenant, fresh))[0]) == 1
 
     asyncio.run(run())
+
+
+def test_the_refresh_lead_time_is_the_policys(rt_url: str, owner_url: str) -> None:
+    from dataclasses import replace
+
+    tenant = uid()
+
+    def with_lead(days: int) -> Any:
+        return replace(ROUTING, policy=replace(ROUTING.policy, refresh_lead=timedelta(days=days)))
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, engine(owner_url) as worker:
+            await verified(eng, tenant, days_ago=340, key="key-refresh-007")  # lapses in 25 days
+            async with worker.begin() as c:  # a 5 day lead: too early to look again
+                assert (
+                    mine(
+                        await refresh_pass(
+                            c, {"companies-house": Register(company())}, with_lead(5), sign, NOW
+                        ),
+                        tenant,
+                    )
+                    == {}
+                )
+            async with worker.begin() as c:  # a 30 day lead: due
+                assert mine(
+                    await refresh_pass(
+                        c, {"companies-house": Register(company())}, with_lead(30), sign, NOW
+                    ),
+                    tenant,
+                ) == {tenant: 1}
+
+    asyncio.run(run())
