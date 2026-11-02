@@ -99,6 +99,28 @@ export function createCellApi(t: Transport) {
       verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
       cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
     },
+    /** The organization-scoped approvals and onboarding routes of ZID-UX-WF-013C. The organization is always the caller's own. */
+    org: {
+      approvals: (orgId: string, q: M.OrgApprovalQuery = {}) => get<M.OrgApprovalInbox>(`/v1/organizations/${seg(orgId)}/approvals`, q),
+      approval: (orgId: string, requestId: string) => get<M.OrgApprovalCase>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}`),
+      /** `version` is the request_hash of the version the person read (If-Match); a stale one is 409 VERSION_CONFLICT with no side effect. */
+      decide: (orgId: string, requestId: string, body: { decision: M.OrgDecision; reason?: string }, version: string, opts: { proof?: string; idempotencyKey?: string } = {}) =>
+        post<M.OrgApprovalCase>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}/decisions`, body, {
+          idempotencyKey: opts.idempotencyKey,
+          headers: { "if-match": `"${version}"`, ...(opts.proof ? { "x-step-up-proof": opts.proof } : {}) },
+        }),
+      onboarding: (orgId: string) => get<M.OrgOnboarding>(`/v1/organizations/${seg(orgId)}/onboarding`),
+      acknowledge: (orgId: string, body: M.OrgAcknowledgementIn, idempotencyKey?: string) =>
+        post<M.OrgOnboarding & { recorded: boolean }>(`/v1/organizations/${seg(orgId)}/onboarding/acknowledgments`, body, { idempotencyKey }),
+      activate: (orgId: string) => post<M.OrgOnboarding & { activated_now: boolean }>(`/v1/organizations/${seg(orgId)}/activation`),
+    },
+    registration: {
+      capabilities: (country?: string) => get<M.RegistrationCapabilities>("/v1/registration/capabilities", { country }),
+      start: (b: M.RegistrationIntentIn, idempotencyKey?: string) => post<M.RegistrationStarted>("/v1/registration/intents", b, { idempotencyKey }),
+      resend: (requestId: string) => post<{ status: string; message: string }>("/v1/registration/resend", { request_id: requestId }),
+      confirm: (token: string, requestId?: string) => post<M.RegistrationConfirmed>("/v1/registration/confirm", requestId ? { token, request_id: requestId } : { token }),
+      status: (requestId: string) => get<M.RegistrationStatus>("/v1/registration/status", { request_id: requestId }),
+    },
     approvals: {
       policy: () => get<M.ApprovalPolicy>("/v1/approval-policy"),
       soloStatus: () => get<M.SoloStatus>("/v1/governance/solo-status"),

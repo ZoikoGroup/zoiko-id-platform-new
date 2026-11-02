@@ -562,6 +562,17 @@ async def workspace(conn: AsyncConnection, name: str) -> dict[str, str] | None:
     }
 
 
+async def console_client_for(conn: AsyncConnection, tenant_id: str) -> str | None:
+    """The opaque first-party console client of a tenant (what a sign-in link needs), never its name."""
+    row = (
+        await conn.execute(
+            text("SELECT console_client_id FROM platform.workspace_directory WHERE tenant_id = :t"),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).first()
+    return None if row is None else str(row.console_client_id)
+
+
 async def link_person(
     conn: AsyncConnection,
     *,

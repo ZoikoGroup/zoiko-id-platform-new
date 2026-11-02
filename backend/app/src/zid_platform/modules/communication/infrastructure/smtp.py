@@ -54,6 +54,7 @@ class SmtpConfig:
     reply_to: str | None = None
     implicit_tls: bool = False
     timeout_s: float = 20.0
+    insecure_local: bool = False  # a local mail sink: no TLS, never in a deployed environment
 
     @classmethod
     def load(
@@ -67,6 +68,7 @@ class SmtpConfig:
         from_address: str,
         reply_to: str | None = None,
         timeout_s: float = 20.0,
+        insecure_local: bool = False,
     ) -> SmtpConfig:
         password = Path(password_file).read_text(encoding="utf-8").strip()
         if not password:
@@ -81,8 +83,9 @@ class SmtpConfig:
             from_name=from_name,
             from_address=from_address,
             reply_to=reply_to,
-            implicit_tls=port == 465,
+            implicit_tls=port == 465 and not insecure_local,
             timeout_s=timeout_s,
+            insecure_local=insecure_local,
         )
 
 
@@ -132,7 +135,7 @@ class SmtpSender:
             )
             with smtp:
                 smtp.ehlo()
-                if not cfg.implicit_tls:
+                if not cfg.implicit_tls and not cfg.insecure_local:
                     smtp.starttls(context=context)
                     smtp.ehlo()
                 smtp.login(cfg.username, cfg.password)

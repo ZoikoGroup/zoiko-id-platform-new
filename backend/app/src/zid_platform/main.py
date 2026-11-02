@@ -79,6 +79,21 @@ def create_app(
     )
     app.state.onboarding_approval = settings.onboarding_approval
     app.state.tenant_signup_notice_version = settings.tenant_signup_notice_version
+    app.state.registration_tenant = settings.registration_tenant_id
+    app.state.email_config = None
+    app.state.email_sender = None
+    if settings.registration_tenant_id:
+        from .modules.communication.ports import EmailConfig, build_sender
+        from .modules.onboarding.application.registration import invitation_hook
+        from .modules.tenant.ports import register_invitation_hook
+
+        register_invitation_hook("registration", invitation_hook(settings.registration_tenant_id))
+        sender = build_sender(
+            settings
+        )  # None when email is off; fails fast when it is on but not fully configured
+        if sender is not None:
+            app.state.email_config = EmailConfig.from_settings(settings)
+            app.state.email_sender = sender
     app.state.environment = settings.environment
     app.state.federation_authority_hints = settings.federation_authority_hints
     app.state.verification_transport = None  # real network; tests inject a provider simulator
@@ -213,6 +228,8 @@ def create_app(
         from .modules.notification.api.alerts import router as alerts_router
         from .modules.onboarding.api.onboarding import router as onboarding_router
         from .modules.onboarding.api.org_claims import router as org_claims_router
+        from .modules.onboarding.api.readiness import router as readiness_router
+        from .modules.onboarding.api.registration import router as registration_router
         from .modules.onboarding.api.signup import router as signup_router
         from .modules.operations.api.ops import router as operations_router
         from .modules.operator_access.api.commercial_admin import router as commercial_admin_router
@@ -229,6 +246,7 @@ def create_app(
         from .modules.signals.api.signals import router as signals_router
         from .modules.tenant.api.approvals import router as approval_cases_router
         from .modules.tenant.api.domains import router as domains_router
+        from .modules.tenant.api.org_approvals import router as org_approvals_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.countries import router as countries_router
@@ -259,9 +277,12 @@ def create_app(
             residency_router,
             tenants_router,
             approval_cases_router,
+            org_approvals_router,
             onboarding_router,
             org_claims_router,
             signup_router,
+            registration_router,
+            readiness_router,
             domains_router,
             integration_router,
             resilience_router,

@@ -9,6 +9,7 @@ raises with `persist=True`; the API commits and then refuses.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -299,6 +300,9 @@ class CaseView:
     votes: list[store.VoteRow] = field(default_factory=list)
     independent_available: int = 0
     gates: list[Gate] = field(default_factory=list)
+    execution_hold: str | None = (
+        None  # why an approved case cannot run now (policy, region or trust changed), derived, never stored
+    )
 
 
 async def _refuse_audited(
@@ -498,15 +502,18 @@ async def revise_case(
     if old is None:
         raise ApprovalError("APPROVAL_CASE_NOT_FOUND")
     old = await _lapse(conn, old, now)
-    if old.state not in OPEN:
+    if old.state not in OPEN and old.state is not State.NEEDS_CHANGES:
         raise ApprovalError("APPROVAL_STATE_INVALID", f"a {old.state.value} case cannot be revised")
     new = await create_case(
         conn, tenant_id, actor, action_id=old.action_id, target_id=old.target_id, payload=payload,
         reason=reason, supersedes=old, platform_tenant_id=platform_tenant_id, now=now,
     )  # fmt: skip
-    await store.set_state(
-        conn, old, State.INVALIDATED, actor=actor, reason_code="MATERIAL_CHANGE", now=now
-    )
+    if (
+        old.state is not State.NEEDS_CHANGES
+    ):  # a version that already ended for changes stays as it is
+        await store.set_state(
+            conn, old, State.INVALIDATED, actor=actor, reason_code="MATERIAL_CHANGE", now=now
+        )
     refreshed = await store.load_case(conn, old.case_id)
     assert refreshed is not None
     await _audit(conn, tenant_id, actor, "governance.approval.invalidated", refreshed, "SUCCESS", "MATERIAL_CHANGE",
@@ -602,7 +609,29 @@ async def view(conn: AsyncConnection, case: store.Case, *, now: datetime | None 
         if ex and ex.check and case.state in OPEN
         else []
     )
-    return CaseView(case, policy, hold, t.approvals, policy.required_votes, votes, available, gates)
+    return CaseView(
+        case, policy, hold, t.approvals, policy.required_votes, votes, available, gates,
+        await _execution_hold(conn, case, ex, gates),
+    )  # fmt: skip
+
+
+async def _execution_hold(
+    conn: AsyncConnection, case: store.Case, ex: Executor | None, gates: list[Gate]
+) -> str | None:
+    """Why an APPROVED case cannot run right now: the policy it was classified under changed, its region changed, the organization is not
+    serving, or a gate the platform checks no longer holds. The votes stay; nothing is applied until the cause ends or a new request is made."""
+    if case.state not in (State.APPROVED_READY, State.FAILED):
+        return None
+    reg = store.registry()
+    if reg.policy_version != case.policy_version:
+        return "POLICY_CHANGED"
+    tenant = await tenant_store.load_tenant(conn, case.tenant_id)
+    if tenant is None or tenant.home_cell_id != case.region:
+        return "REGION_CHANGED"
+    if not serves_runtime(tenant.status) and (ex is None or ex.name != "lifecycle.resume"):
+        return "TENANT_NOT_SERVING"
+    failed = next((g for g in gates if g.blocking and not g.ok), None)
+    return failed.code if failed else None
 
 
 async def my_refusals(
@@ -656,6 +685,8 @@ async def cast_vote(
     vote: str,
     presented_hash: str,
     step_up: StepUp,
+    idempotency_key: str | None = None,
+    reason: str | None = None,
     now: datetime | None = None,
 ) -> CaseView:
     """Record one person's vote on one immutable version. The case row is locked, so concurrent votes meet one authoritative state."""
@@ -665,6 +696,16 @@ async def cast_vote(
     case = await store.load_case(conn, case_id, lock=True)
     if case is None:
         raise ApprovalError("APPROVAL_CASE_NOT_FOUND")
+    key_hash = (
+        hashlib.sha256(idempotency_key.encode()).hexdigest()[:32] if idempotency_key else None
+    )
+    if key_hash:  # a retry of the same decision returns what it already did and records nothing new
+        who = await tenant_store.person_of(conn, actor)
+        if any(
+            v.approver_person_id == who and v.auth_context.get("idempotency_key") == key_hash
+            for v in await store.votes(conn, case.case_id)
+        ):
+            return await view(conn, case, now=now)
     case = await _lapse(conn, case, now)
     if case.state is State.EXPIRED:
         raise ApprovalError("APPROVAL_EXPIRED", persist=True)
@@ -691,7 +732,11 @@ async def cast_vote(
         conn, tenant_id=tenant_id, case=case, principal_id=actor, person_id=voter.person_id,
         authority_basis=basis, vote=vote,
         step_up_proof_ref=(ctx or {}).get("proof_id"),
-        auth_context={"tier": (ctx or {}).get("tier", "NONE"), "required": bool((ctx or {}).get("required", False))},
+        auth_context={
+            "tier": (ctx or {}).get("tier", "NONE"),
+            "required": bool((ctx or {}).get("required", False)),
+            **({"idempotency_key": key_hash} if key_hash else {}),
+        },
         now=now,
     )  # fmt: skip
     t, _, _ = await _quorum(conn, case, policy, now)
@@ -1122,3 +1167,152 @@ async def consume_authorization(
         "no unused, current, executed approval covers this exact operation",
         persist=True,
     )
+
+
+# --------------------------------------------------------------------------------- request changes (WF-13C-03D)
+
+
+async def request_changes(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    case_id: str,
+    *,
+    reason: str,
+    now: datetime | None = None,
+) -> CaseView:
+    """An eligible approver asks for changes: this version ends and every vote on it is void; the requester revises it into a new version
+    (and the votes of the old one are never reused). It needs a reason, an eligible approver and no step-up, because it grants nothing."""
+    now = now or datetime.now(UTC)
+    if not reason.strip():
+        raise ApprovalError("VALIDATION_FAILED", "say what needs to change")
+    case = await store.load_case(conn, case_id, lock=True)
+    if case is None:
+        raise ApprovalError("APPROVAL_CASE_NOT_FOUND")
+    case = await _lapse(conn, case, now)
+    if case.state is State.EXPIRED:
+        raise ApprovalError("APPROVAL_EXPIRED", persist=True)
+    if case.state not in (State.PENDING_APPROVAL, State.PARTIALLY_APPROVED, State.APPROVED_READY):
+        raise ApprovalError(
+            "APPROVAL_STATE_INVALID", f"a {case.state.value} case cannot be sent back"
+        )
+    refusals = [r for r in await my_refusals(conn, case, actor, now) if r != "VOTER_ALREADY_VOTED"]
+    if refusals:
+        raise await _deny_vote(conn, case, actor, refusals[0], now, tuple(refusals))
+    case = await store.set_state(
+        conn, case, State.NEEDS_CHANGES, actor=actor, reason_code="CHANGES_REQUESTED", now=now
+    )
+    await _audit(conn, tenant_id, actor, "governance.approval.changes_requested", case, "SUCCESS", "CHANGES_REQUESTED",
+                 {"reason": reason.strip()[:300]}, now)  # fmt: skip
+    await _event(conn, "governance.approval.changes_requested", case, {})
+    return await view(conn, case, now=now)
+
+
+# ------------------------------------------------------------------------------------- who may see what (WF-13C-02)
+
+
+@dataclass(frozen=True, slots=True)
+class Listing:
+    items: list[CaseView]
+    counts: dict[
+        str, int
+    ]  # per tab, over what this caller may see: a caller who may see nothing gets zeros, not other people's numbers
+    next_cursor: str | None
+
+
+async def _governor(
+    conn: AsyncConnection, tenant_id: str, actor: str, region: str, now: datetime
+) -> Voter:
+    return await voter_for(conn, tenant_id, actor, region=region, now=now)
+
+
+def _is_governor(v: Voter) -> bool:
+    """Someone who holds, or has been appointed to, an approving role: the people the inbox is for."""
+    return v.human and (any(a.role in ("OWNER", "APPROVER") for a in v.authorities) or v.reviewer)
+
+
+async def can_view(
+    conn: AsyncConnection, case: store.Case, actor: str, now: datetime | None = None
+) -> bool:
+    """Object-level read authorization. The requester sees their own request, anyone who voted sees it, and the organization's approving
+    roles see the organization's requests. Everyone else sees nothing, and is told the request does not exist."""
+    now = now or datetime.now(UTC)
+    person = await tenant_store.person_of(conn, actor)
+    if person == case.requester_person_id or person in case.editor_persons:
+        return True
+    if any(v.approver_person_id == person for v in await store.votes(conn, case.case_id)):
+        return True
+    return _is_governor(await _governor(conn, case.tenant_id, actor, case.region, now))
+
+
+def _cursor(case: store.Case) -> str:
+    return f"{case.created_at.isoformat()}|{case.case_id}"
+
+
+async def list_visible(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    *,
+    scope: str = "review",
+    states: tuple[State, ...] | None = None,
+    tier: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    query: str | None = None,
+    cursor: str | None = None,
+    limit: int = 25,
+    now: datetime | None = None,
+) -> Listing:
+    """The inbox, built from object-level authorization first and filters second, so a filter can never reveal a row or a count that the
+    caller may not see. Tabs: `review` (open requests this person may vote on now), `mine` (submitted by this person, any state),
+    `history` (ended requests this person made, voted on, or, for approving roles, any in the organization)."""
+    if scope not in ("review", "mine", "history"):
+        raise ApprovalError("VALIDATION_FAILED", "scope is review, mine or history")
+    now = now or datetime.now(UTC)
+    tenant = await tenant_store.load_tenant(conn, tenant_id)
+    if tenant is None:
+        raise ApprovalError("TENANT_NOT_FOUND")
+    person = await tenant_store.person_of(conn, actor)
+    voter = await _governor(conn, tenant_id, actor, tenant.home_cell_id, now)
+    governor = _is_governor(voter)
+    reg = store.registry()
+    seen: dict[str, list[store.Case]] = {"review": [], "mine": [], "history": []}
+    for case in await store.list_cases(conn, limit=500):
+        case = await _lapse(conn, case, now)
+        policy = reg.actions.get(case.action_id)
+        voted = any(v.approver_person_id == person for v in await store.votes(conn, case.case_id))
+        mine = person == case.requester_person_id or person in case.editor_persons
+        is_open = case.state in OPEN
+        if mine:
+            seen["mine"].append(case)
+        voteable = case.state in (State.PENDING_APPROVAL, State.PARTIALLY_APPROVED)
+        eligible = (
+            policy is not None and not voter_refusals(_facts(case, policy), voter)
+            if governor
+            else False
+        )
+        if is_open and voteable and not mine and not voted and eligible:
+            seen["review"].append(case)
+        if not is_open and (mine or voted or governor):
+            seen["history"].append(case)
+    counts = {k: len(v) for k, v in seen.items()}
+
+    def keep(c: store.Case) -> bool:
+        return (
+            (not states or c.state in states)
+            and (not tier or c.tier.value == tier)
+            and (created_from is None or c.created_at >= created_from)
+            and (created_to is None or c.created_at <= created_to)
+            and (not query or c.case_id.startswith(query.strip().lower()))
+        )
+
+    rows = sorted(
+        (c for c in seen[scope] if keep(c)), key=lambda c: (c.created_at, c.case_id), reverse=True
+    )
+    if cursor:
+        rows = [c for c in rows if _cursor(c) < cursor]
+    limit = max(1, min(limit, 100))
+    page = rows[:limit]
+    items = [await view(conn, c, now=now) for c in page]
+    return Listing(items, counts, _cursor(page[-1]) if len(rows) > limit else None)

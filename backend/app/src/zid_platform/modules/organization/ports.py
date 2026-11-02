@@ -70,6 +70,9 @@ from zid_platform.modules.organization.infrastructure.kyb_adapters import (
     SireneKyb,
 )
 from zid_platform.modules.organization.infrastructure.kyb_config import routing as kyb_routing
+from zid_platform.modules.organization.infrastructure.kyb_store import (
+    latest_case_id as latest_kyb_case_id,
+)
 from zid_platform.modules.organization.infrastructure.registry_adapters import (
     CompaniesHouse,
     Gleif,
@@ -110,6 +113,7 @@ __all__ = [
     "kyb_review",
     "kyb_routing",
     "kyb_search",
+    "latest_kyb_case_id",
     "legal_name_history",
     "link_identifier",
     "organization_exists",

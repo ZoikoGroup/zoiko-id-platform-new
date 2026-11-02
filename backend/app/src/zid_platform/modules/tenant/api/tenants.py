@@ -168,6 +168,9 @@ def _grant_refusal(role: Role, actor: str) -> str | None:
 class Invite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Role = Role.MEMBER
+    email: str | None = Field(
+        default=None, max_length=254
+    )  # lets sign-up recognise the invitee after they prove the inbox
 
 
 class OwnerChange(BaseModel):
@@ -429,7 +432,11 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
         if refusal_error is None:
             try:
                 inv = await service.invite(
-                    conn, tenant, role=body.role, invited_by=_principal(caller)
+                    conn,
+                    tenant,
+                    role=body.role,
+                    invited_by=_principal(caller),
+                    invitee_email=body.email,
                 )
             except TenantError as e:
                 raise http(e) from e

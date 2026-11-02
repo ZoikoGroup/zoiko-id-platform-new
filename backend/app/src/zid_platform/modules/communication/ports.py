@@ -19,6 +19,7 @@ from zid_platform.modules.communication.application.contacts import (
     ContactError,
     Recipient,
     add_role_contact,
+    address_hash,
     normalize_address,
     set_principal_contact,
 )
@@ -53,6 +54,9 @@ def build_sender(settings: Any) -> EmailSender | None:
         raise RuntimeError(f"email is enabled but {', '.join(missing)} is not set")
     from email.utils import parseaddr
 
+    insecure = bool(getattr(settings, "smtp_insecure_local", False))
+    if insecure and settings.environment not in ("local", "test"):
+        raise RuntimeError("ZID_SMTP_INSECURE_LOCAL is for local/test only")
     name, address = parseaddr(settings.email_from)
     return SmtpSender(
         SmtpConfig.load(
@@ -63,6 +67,7 @@ def build_sender(settings: Any) -> EmailSender | None:
             from_name=name or "Zoiko iD",
             from_address=address,
             reply_to=settings.email_reply_to,
+            insecure_local=insecure,
         )
     )
 
@@ -77,6 +82,7 @@ __all__ = [
     "SmtpConfig",
     "SmtpSender",
     "add_role_contact",
+    "address_hash",
     "build_sender",
     "catalogue",
     "contacts",

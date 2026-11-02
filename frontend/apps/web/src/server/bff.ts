@@ -67,6 +67,15 @@ const API_PATH_PREFIXES = [
   "/v1/search",
   "/v1/settings",
   "/v1/usage",
+  // Phase L: the organization pages (setup, approvals, decisions), step-up proofs, company claims and plan features. Each is a route a
+  // console screen calls; the cell still decides every call by role, authority, step-up and approvals.
+  "/v1/organizations/",
+  "/v1/approval-cases",
+  "/v1/approval-policy",
+  "/v1/governance/",
+  "/v1/step-up/",
+  "/v1/org-claims",
+  "/v1/entitlements",
   // Billing (ZID-COM-001): the tenant's own plan, ledger, invoices and budgets. The public pricing page reads the
   // catalogue server-side without a session; the console's Subscription tab reads the same read-only catalogue here
   // so a company can see the plans on offer and ask for one.

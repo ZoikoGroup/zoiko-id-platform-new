@@ -104,6 +104,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v1/tenant/domains",
             "/v1/approval-policy",
             "/v1/approval-cases",
+            "/v1/organizations/",
             "/v1/recovery-cases",
             "/v1/containment-actions",
             "/v1/governance/",
@@ -111,7 +112,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle, approvals)",
     ),
     OPENAPI / "public" / "onboarding.json": (
-        ("/v1/onboarding/", "/v1/org-claims", "/v1/reviews/"),
+        ("/v1/onboarding/", "/v1/org-claims", "/v1/reviews/", "/v1/registration/"),
         "Zoiko iD Tenant Onboarding API (organization gate, gates, plans, shadow, pilot, rollback)",
     ),
     OPENAPI / "public" / "integration.json": (

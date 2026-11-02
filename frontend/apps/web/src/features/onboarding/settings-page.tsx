@@ -34,7 +34,7 @@ import { useRuntime } from "@/lib/runtime";
 
 import { AuthenticationSettings } from "../settings/authentication";
 import { BrandingSettingsPanel } from "../settings/branding";
-import { CryptographySettings } from ". ./settings/cryptography";
+import { CryptographySettings } from "../settings/cryptography";
 import { NotificationSettingsPanel } from "../settings/notifications";
 import { ApprovalStep, TENANT_KEY, standing, useTenant } from "./shared";
 

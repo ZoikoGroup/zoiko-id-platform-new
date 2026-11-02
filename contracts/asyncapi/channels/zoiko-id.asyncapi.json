@@ -883,6 +883,9 @@
         "governance_approval_case_created": {
           "$ref": "#/components/messages/governance_approval_case_created"
         },
+        "governance_approval_changes_requested": {
+          "$ref": "#/components/messages/governance_approval_changes_requested"
+        },
         "governance_approval_executed": {
           "$ref": "#/components/messages/governance_approval_executed"
         },
@@ -1175,11 +1178,38 @@
     "onboarding.domain": {
       "address": "zid.{env}.{region}.onboarding.domain",
       "messages": {
+        "onboarding_organization_acknowledged": {
+          "$ref": "#/components/messages/onboarding_organization_acknowledged"
+        },
+        "onboarding_organization_activated": {
+          "$ref": "#/components/messages/onboarding_organization_activated"
+        },
         "onboarding_pilot_started": {
           "$ref": "#/components/messages/onboarding_pilot_started"
         },
         "onboarding_plan_changed": {
           "$ref": "#/components/messages/onboarding_plan_changed"
+        },
+        "onboarding_registration_abandoned": {
+          "$ref": "#/components/messages/onboarding_registration_abandoned"
+        },
+        "onboarding_registration_authenticator_enrolled": {
+          "$ref": "#/components/messages/onboarding_registration_authenticator_enrolled"
+        },
+        "onboarding_registration_completed": {
+          "$ref": "#/components/messages/onboarding_registration_completed"
+        },
+        "onboarding_registration_email_initiated": {
+          "$ref": "#/components/messages/onboarding_registration_email_initiated"
+        },
+        "onboarding_registration_failed_safe": {
+          "$ref": "#/components/messages/onboarding_registration_failed_safe"
+        },
+        "onboarding_registration_started": {
+          "$ref": "#/components/messages/onboarding_registration_started"
+        },
+        "onboarding_registration_verification_completed": {
+          "$ref": "#/components/messages/onboarding_registration_verification_completed"
         },
         "onboarding_rollback": {
           "$ref": "#/components/messages/onboarding_rollback"
@@ -3484,6 +3514,17 @@
         "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
         "x-zid-status": "proposed"
       },
+      "governance_approval_changes_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.changes_requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approver sent an approval case back for changes: that version ended and every vote on it is void (case id, request hash, policy version, region; the reason is in the audit record).",
+        "title": "governance.approval.changes_requested",
+        "x-zid-source": "ZID-UX-WF-013C section 05, 09; CR-049",
+        "x-zid-status": "proposed"
+      },
       "governance_approval_executed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.governance.approval.executed.v1",
@@ -3935,6 +3976,28 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "onboarding_organization_acknowledged": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.organization.acknowledged.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An organization accepted a versioned setup text (kind and version; no person data).",
+        "title": "onboarding.organization.acknowledged",
+        "x-zid-source": "ZID-UX-WF-013C section 03, 11; CR-049",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_organization_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.organization.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An organization passed its activation gate and was activated (the policy versions it rested on).",
+        "title": "onboarding.organization.activated",
+        "x-zid-source": "ZID-UX-WF-013C section 02, 11; CR-049",
+        "x-zid-status": "proposed"
+      },
       "onboarding_pilot_started": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.onboarding.pilot_started.v1",
@@ -3955,6 +4018,83 @@
         "summary": "An onboarding plan version was created or approved (version, status, target mode).",
         "title": "onboarding.plan.changed",
         "x-zid-source": "ZID-OVERLAY-001 \u00a717-19; CR-015",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_abandoned": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.abandoned.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A sign-up request expired unused; its token and its copy of the address were dropped (request id).",
+        "title": "onboarding.registration.abandoned",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_authenticator_enrolled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.authenticator_enrolled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The account of a sign-up request enrolled a strong authenticator (request id and country).",
+        "title": "onboarding.registration.authenticator_enrolled",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A sign-up request finished: an active account that is not identity verified (request id, country and journey).",
+        "title": "onboarding.registration.completed",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_email_initiated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.email_initiated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A sign-up verification email was requested or held back (request id and country; the same event whether or not the address is known).",
+        "title": "onboarding.registration.email_initiated",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_failed_safe": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.failed_safe.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A sign-up request was held for a reason the person is never told (request id and a coarse reason code, never a score).",
+        "title": "onboarding.registration.failed_safe",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person-first sign-up request began (request id, country, journey and locale; never an address).",
+        "title": "onboarding.registration.started",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
+        "x-zid-status": "proposed"
+      },
+      "onboarding_registration_verification_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.onboarding.registration.verification_completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A sign-up request proved control of its inbox and its account was created or its invitation routed (request id, country, journey, invitation flag).",
+        "title": "onboarding.registration.verification_completed",
+        "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
         "x-zid-status": "proposed"
       },
       "onboarding_rollback": {

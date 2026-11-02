@@ -1,0 +1,14 @@
+# Organization setup policy (ZID-UX-WF-013C screen 1, section 03): what an organization must accept before it can be activated, and which
+# version of each text is current. Required acknowledgements are server-derived; a client cannot suppress or add one. Changing a version
+# here asks every organization to accept the new text again before its next activation (an activated organization keeps its activation but
+# its checklist shows the item as Required, and activation shows ACTIVE_LIMITED until it is accepted).
+version: "ZID-UX-WF-013C-setup-v1"
+acknowledgements:
+  ORGANIZATIONAL_CONTROLS:
+    version: "2026-10-28"
+    title: "Organizational controls"
+    summary: "Identity, authority and evidence are separate facts. Approvals are governed actions: critical changes need two independent people, strong authentication is required for sensitive actions, and a plan or payment never removes a safety, privacy or approval requirement."
+  REGION_POLICY:
+    version: "2026-10-28"
+    title: "Data region and policy"
+    summary: "Your organization's data is held in its home region under the residency policy shown here. Moving it is a critical change, and a transfer the policy prohibits stays prohibited."

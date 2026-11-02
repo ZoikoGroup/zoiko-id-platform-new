@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ApprovalsInboxPage } from "@/features/admin/approvals/approvals-pages";
-
-export const metadata: Metadata = { title: "Approvals" };
-
-export default function Page() {
-  return <ApprovalsInboxPage />;
+/** One inbox, not two: the approvals center lives under the organization (WF-013C-02). */
+export default function Page(): never {
+  redirect("/organizations/current/approvals");
 }

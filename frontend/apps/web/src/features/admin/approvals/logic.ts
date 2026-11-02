@@ -35,12 +35,14 @@ export const STATE_WORDS: Record<ApprovalCaseState, string> = {
   EXPIRED: "Expired",
   INVALIDATED: "No longer valid",
   CANCELLED: "Withdrawn",
+  NEEDS_CHANGES: "Needs changes",
 };
 
 export function stateTone(s: ApprovalCaseState): "ok" | "warn" | "danger" | "info" | "neutral" {
   if (s === "EXECUTED") return "ok";
   if (s === "FAILED" || s === "REJECTED") return "danger";
   if (s === "EXPIRED" || s === "INVALIDATED" || s === "CANCELLED") return "neutral";
+  if (s === "NEEDS_CHANGES") return "warn";
   if (s === "APPROVED_READY") return "info";
   return "warn";
 }

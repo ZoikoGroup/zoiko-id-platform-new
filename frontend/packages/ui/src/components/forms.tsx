@@ -48,6 +48,8 @@ export type TextFieldProps = {
   placeholder?: string;
   type?: "text" | "email" | "url" | "password" | "number" | "datetime-local" | "date" | "search";
   isRequired?: boolean;
+  /** Extra classes for the input element itself (for example a taller touch target); the default look is unchanged. */
+  inputClassName?: string;
   isDisabled?: boolean;
   isReadOnly?: boolean;
   multiline?: boolean;
@@ -71,6 +73,7 @@ export function TextField({
   className,
   autoComplete,
   inputMode,
+  inputClassName,
   ...props
 }: TextFieldProps) {
   return (
@@ -86,7 +89,7 @@ export function TextField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           inputMode={inputMode}
-          className={cn(inputClass, mono && "font-mono")}
+          className={cn(inputClass, mono && "font-mono", inputClassName)}
         />
       )}
       {description ? (

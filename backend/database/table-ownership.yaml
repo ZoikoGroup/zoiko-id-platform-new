@@ -1119,6 +1119,31 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "ENG-DEC-012: appointed independent reviewers of an organization (CR-047)"
+  platform.registration_intent:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: one person-first sign-up request, kept in the cell registration tenant (CR-048)"
+  platform.registration_account:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: keyed email hash to the account it created, never shown to a caller (CR-048)"
+  platform.registration_invitation_index:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: keyed email hash to a pending invitation so a verified address can be routed to it (CR-048)"
+  platform.organization_acknowledgement:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013C: versioned acceptance of the organizational controls and region policy (CR-049)"
+  platform.organization_activation:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013C: the activation record with its gate report and policy versions (CR-049)"
   platform.tenant_registration:
     role: cell
     module: tenant

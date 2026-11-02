@@ -1691,7 +1691,8 @@ export type ApprovalCaseState =
   | "REJECTED"
   | "EXPIRED"
   | "INVALIDATED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "NEEDS_CHANGES";
 export type ApprovalHold = "BLOCKED_INSUFFICIENT_APPROVERS" | "PENDING_INDEPENDENT_REVIEW";
 export type ApprovalVoteRow = {
   vote_id: string;
@@ -1818,6 +1819,130 @@ export type ApprovalEvidence = {
   state: ApprovalCaseState;
   audit: { target_type: string; target_ref: string; event_prefix: string };
 };
+export type RegistrationCountry = {
+  code: string;
+  account: "AVAILABLE" | "AVAILABLE_IN_ANOTHER_REGION" | "NOT_AVAILABLE_YET";
+  routing: { state: "HERE" | "OTHER_CELL" | "UNAVAILABLE"; url: string | null };
+  organization_claims: "AVAILABLE" | "NOT_AVAILABLE_YET";
+  message: string | null;
+};
+export type RegistrationCapabilities = {
+  notice_version: string;
+  locale: string;
+  nonce: string;
+  journeys: ("PERSONAL" | "ORGANIZATION")[];
+  identity_providers: string[];
+  authenticators: { primary: string; fallback: string };
+  country: RegistrationCountry | null;
+};
+export type RegistrationIntentIn = {
+  country: string;
+  journey: "PERSONAL" | "ORGANIZATION";
+  email: string;
+  locale?: string;
+  notice_version: string;
+  nonce: string;
+};
+export type RegistrationStarted = { request_id: string; status: "VERIFICATION_REQUESTED"; message: string };
+export type RegistrationNextStep =
+  | "VERIFY_EMAIL"
+  | "ENROLL_AUTHENTICATOR"
+  | "PERSONAL_WORKSPACE"
+  | "ORGANIZATION_CLAIM"
+  | "ACCEPT_INVITATION"
+  | "REQUEST_NEW_LINK"
+  | "CONTACT_SUPPORT";
+export type RegistrationStatus = {
+  request_id: string;
+  state: "PENDING_VERIFICATION" | "VERIFIED" | "COMPLETED" | "EXPIRED" | "ON_HOLD";
+  next_step: RegistrationNextStep;
+  account: "NONE" | "ACTIVE";
+  identity: "NOT_VERIFIED";
+  organization: "NONE";
+  message: string | null;
+  expires_at: string;
+};
+/** The link was redeemed: an active account that is NOT identity verified, and a single-use enrollment ticket shown once. */
+export type RegistrationConfirmed = {
+  request_id: string;
+  account: "ACTIVE";
+  identity: "NOT_VERIFIED";
+  next_step: "ENROLL_AUTHENTICATOR";
+  then: "PERSONAL_WORKSPACE" | "ORGANIZATION_CLAIM" | "ACCEPT_INVITATION";
+  enrollment_ticket: string;
+  enrollment_ticket_expires_at: string;
+  console_client_id: string | null;
+  workspace: string | null;
+  address: string;
+  authenticator_fallback: "GOVERNED_RECOVERY";
+};
+/** An approval case as the organization routes return it: the L-10 case plus the plain status word, the level, the derived execution hold
+ * and the evidence reference (restricted evidence is separately authorized and never inline). */
+export type OrgApprovalCase = ApprovalCase & {
+  status_label: string;
+  level: ApprovalTier;
+  execution_hold: string | null;
+  evidence: { reference: string | null; access: "SEPARATELY_AUTHORIZED" };
+};
+export type OrgApprovalSummary = {
+  request_id: string;
+  title: string;
+  requester_principal_id: string;
+  level: ApprovalTier;
+  state: ApprovalCaseState;
+  status_label: string;
+  approvals_received: number;
+  approvals_required: number;
+  shortage: string | null;
+  policy_version: string;
+  expires_at: string;
+  created_at: string;
+  next_action: string;
+};
+export type ApprovalScope = "review" | "mine" | "history";
+export type OrgApprovalInbox = {
+  scope: ApprovalScope;
+  items: OrgApprovalSummary[];
+  counts: Record<ApprovalScope, number>;
+  next_cursor: string | null;
+};
+export type OrgApprovalQuery = {
+  scope?: ApprovalScope;
+  state?: ApprovalCaseState;
+  risk?: ApprovalTier;
+  created_from?: string;
+  created_to?: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+};
+export type OrgDecision = "APPROVE" | "REJECT" | "REQUEST_CHANGES";
+export type OnboardingItem = {
+  key: string;
+  title: string;
+  status: "Required" | "In review" | "Verified" | "Needs action" | "Restricted";
+  required: boolean;
+  done: boolean;
+  reason: string | null;
+  next_action: string | null;
+};
+export type OrgReadiness = "DRAFT" | "LIMITED_SETUP" | "READY_FOR_ACTIVATION" | "ACTIVE" | "ACTIVE_LIMITED" | "RESTRICTED";
+export type OrgOnboarding = {
+  organization_id: string;
+  readiness: OrgReadiness;
+  trust: OnboardingItem[];
+  required: OnboardingItem[];
+  approvers: OnboardingItem;
+  solo: boolean;
+  can_activate: boolean;
+  blockers: string[];
+  restrictions: string[];
+  activated_at: string | null;
+  region: string;
+  acknowledgements: { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; title: string; summary: string; accepted: boolean }[];
+  policy_version: string;
+};
+export type OrgAcknowledgementIn = { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; locale?: string };
 export type PlanFeature = {
   feature: string;
   section: "baseline" | "standard" | "advanced";

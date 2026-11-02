@@ -239,3 +239,16 @@ async def evidence_history(
         )
         for r in rows
     ]
+
+
+async def latest_case_id(conn: AsyncConnection, tenant_id: str) -> str | None:
+    """The most recent company-verification case of this tenant (row-level security scopes it), or None if none was opened."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT case_id FROM org.kyb_case WHERE tenant_id = :t ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).first()
+    return None if row is None else str(row.case_id)

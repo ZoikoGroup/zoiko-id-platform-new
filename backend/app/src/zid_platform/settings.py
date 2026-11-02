@@ -139,6 +139,9 @@ class Settings(ServiceSettings):
     dev_simulators: bool = False
     # ZID_TENANT_SIGNUP_NOTICE_VERSION: the privacy notice a registrant must acknowledge (PRIV-001)
     tenant_signup_notice_version: str = "2026-10-22"
+    # ZID_REGISTRATION_TENANT_ID: this cell's registration tenant (WF-013A): where person-first sign-up requests and their email log
+    # sit before an account exists. Unset means person-first sign-up is off. Seed it with `entrypoints.seed_registration_tenant`.
+    registration_tenant_id: str | None = None
     # --- Global locator and discovery (G-W6; DEC-G3) ---------------------------------------------
     # ZID_CELL_ENDPOINTS (JSON cell -> base URL): where each cell's API is (discovery answers and
     # the CELL_ROUTING_STALE / CELL_NOT_AUTHORITATIVE location hint)
@@ -193,6 +196,8 @@ class Settings(ServiceSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password_file: str | None = None
+    # ZID_SMTP_INSECURE_LOCAL (local/test only): talk to a local mail sink (for example Mailpit) without TLS. Refused anywhere else.
+    smtp_insecure_local: bool = False
     email_public_base_url: str | None = None
     email_routes: dict[str, str] = Field(default_factory=dict)
     email_flood_per_template_hour: int = 5

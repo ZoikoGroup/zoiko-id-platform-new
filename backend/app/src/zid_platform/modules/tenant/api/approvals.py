@@ -55,6 +55,7 @@ _STATUS = {
     "APPROVAL_QUORUM_LOST": 409,
     "APPROVAL_DUPLICATE_PERSON": 409,
     "APPROVAL_HASH_MISMATCH": 409,
+    "VERSION_CONFLICT": 409,
     "APPROVAL_WOULD_ORPHAN_TENANT": 409,
     "APPROVAL_TENANT_NOT_SERVING": 409,
     "REVIEWER_ALREADY_APPOINTED": 409,
@@ -126,6 +127,11 @@ def case_view(
         "reason": c.reason,
         "payload": c.payload,
         "gate": v.policy.gate,
+        "execution_hold": v.execution_hold,  # why an approved case cannot run now; derived, the votes stay
+        "evidence": {
+            "reference": c.evidence_ref,
+            "access": "SEPARATELY_AUTHORIZED",
+        },  # restricted evidence is never inline
         "gates": [
             {"code": g.code, "ok": g.ok, "blocking": g.blocking, "note": g.note} for g in v.gates
         ],
@@ -300,6 +306,8 @@ async def list_cases(
         )
         out = []
         for c in cases:
+            if not await svc.can_view(conn, c, me):
+                continue
             now = datetime.now(UTC)
             v = await svc.view(conn, c, now=now)
             out.append(case_view(v, mine=await svc.my_refusals(conn, c, me, now), me=me))
@@ -312,7 +320,9 @@ async def read_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> 
 
     async def work(conn: Any) -> dict[str, Any]:
         c = await store.load_case(conn, str(case_id))
-        if c is None:
+        if c is None or not await svc.can_view(
+            conn, c, me
+        ):  # not yours to see is the same answer as not there
             raise ApprovalError("APPROVAL_CASE_NOT_FOUND")
         now = datetime.now(UTC)
         c = await svc._lapse(conn, c, now)
@@ -421,11 +431,11 @@ async def execute(
 
 @router.get("/v1/approval-cases/{case_id}/evidence")
 async def evidence(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
-    _who(caller)
+    _, me = _who(caller)
 
     async def work(conn: Any) -> dict[str, Any]:
         c = await store.load_case(conn, str(case_id))
-        if c is None:
+        if c is None or not await svc.can_view(conn, c, me):
             raise ApprovalError("APPROVAL_CASE_NOT_FOUND")
         votes = await store.votes(conn, c.case_id)
         return {

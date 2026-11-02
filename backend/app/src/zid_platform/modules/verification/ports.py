@@ -1,5 +1,9 @@
 """Public Protocol interface of the verification module. Other modules import ONLY this."""
 
+from datetime import datetime
+
+from sqlalchemy.ext.asyncio import AsyncConnection
+
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.service import (
     assurance,
@@ -29,6 +33,7 @@ __all__ = [
     "availability",
     "claim_matches",
     "fresh_reproof",
+    "person_assurance_current",
     "reconstruct_decision",
     "record_presentation",
     "registry",
@@ -37,3 +42,14 @@ __all__ = [
     "seed_representative_proofing",
     "shared_assertions",
 ]
+
+
+async def person_assurance_current(conn: AsyncConnection, principal_id: str, now: datetime) -> bool:
+    """Does this person hold at least one valid, unexpired identity verification assertion? Only the result of an identity check counts:
+    a registry match, a declaration or a payment never does."""
+    from zid_platform.modules.verification.infrastructure.verification_store import assertions_for
+
+    return any(
+        a["status"] == "VALID" and a["valid_until"] is not None and a["valid_until"] > now
+        for a in await assertions_for(conn, principal_id)
+    )

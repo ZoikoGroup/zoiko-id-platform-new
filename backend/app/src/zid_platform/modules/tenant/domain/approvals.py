@@ -54,15 +54,25 @@ class State(StrEnum):
     EXPIRED = "EXPIRED"
     INVALIDATED = "INVALIDATED"
     CANCELLED = "CANCELLED"
+    NEEDS_CHANGES = (
+        "NEEDS_CHANGES"  # an approver asked for changes: this version ends, the requester revises
+    )
 
 
 TERMINAL = frozenset(
-    {State.EXECUTED, State.REJECTED, State.EXPIRED, State.INVALIDATED, State.CANCELLED}
+    {
+        State.EXECUTED,
+        State.REJECTED,
+        State.EXPIRED,
+        State.INVALIDATED,
+        State.CANCELLED,
+        State.NEEDS_CHANGES,
+    }
 )
 OPEN = frozenset(
     {State.PENDING_APPROVAL, State.PARTIALLY_APPROVED, State.APPROVED_READY, State.FAILED}
 )
-_ENDINGS = {State.EXPIRED, State.INVALIDATED, State.CANCELLED}
+_ENDINGS = {State.EXPIRED, State.INVALIDATED, State.CANCELLED, State.NEEDS_CHANGES}
 TRANSITIONS: dict[State, frozenset[State]] = {
     State.DRAFT: frozenset({State.SUBMITTED}),
     State.SUBMITTED: frozenset({State.PENDING_APPROVAL}),

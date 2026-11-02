@@ -325,7 +325,7 @@ function TopBar({
       >
         <MenuIcon aria-hidden className="size-5" />
       </button>
-      <AriaLink href={homeHref} className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+      <AriaLink href={homeHref} aria-label={`ZOIKO iD ${surface}`} className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
         <ZoikoMark />
         <span className="hidden flex-col leading-none sm:flex">
           <span className="text-sm font-bold tracking-tight text-ink">

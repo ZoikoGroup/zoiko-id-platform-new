@@ -460,3 +460,63 @@ events:
     source: ZID-ENG-DEC-011 section 02; CR-047
     lane: domain
     source_status: "proposed"
+  onboarding.registration.started:
+    cloudevents_type: com.zoiko.id.onboarding.registration.started.v1
+    meaning: "A person-first sign-up request began (request id, country, journey and locale; never an address)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.email_initiated:
+    cloudevents_type: com.zoiko.id.onboarding.registration.email_initiated.v1
+    meaning: "A sign-up verification email was requested or held back (request id and country; the same event whether or not the address is known)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.verification_completed:
+    cloudevents_type: com.zoiko.id.onboarding.registration.verification_completed.v1
+    meaning: "A sign-up request proved control of its inbox and its account was created or its invitation routed (request id, country, journey, invitation flag)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.authenticator_enrolled:
+    cloudevents_type: com.zoiko.id.onboarding.registration.authenticator_enrolled.v1
+    meaning: "The account of a sign-up request enrolled a strong authenticator (request id and country)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.completed:
+    cloudevents_type: com.zoiko.id.onboarding.registration.completed.v1
+    meaning: "A sign-up request finished: an active account that is not identity verified (request id, country and journey)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.failed_safe:
+    cloudevents_type: com.zoiko.id.onboarding.registration.failed_safe.v1
+    meaning: "A sign-up request was held for a reason the person is never told (request id and a coarse reason code, never a score)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.abandoned:
+    cloudevents_type: com.zoiko.id.onboarding.registration.abandoned.v1
+    meaning: "A sign-up request expired unused; its token and its copy of the address were dropped (request id)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  governance.approval.changes_requested:
+    cloudevents_type: com.zoiko.id.governance.approval.changes_requested.v1
+    meaning: "An approver sent an approval case back for changes: that version ended and every vote on it is void (case id, request hash, policy version, region; the reason is in the audit record)."
+    source: ZID-UX-WF-013C section 05, 09; CR-049
+    lane: domain
+    source_status: "proposed"
+  onboarding.organization.acknowledged:
+    cloudevents_type: com.zoiko.id.onboarding.organization.acknowledged.v1
+    meaning: "An organization accepted a versioned setup text (kind and version; no person data)."
+    source: ZID-UX-WF-013C section 03, 11; CR-049
+    lane: domain
+    source_status: "proposed"
+  onboarding.organization.activated:
+    cloudevents_type: com.zoiko.id.onboarding.organization.activated.v1
+    meaning: "An organization passed its activation gate and was activated (the policy versions it rested on)."
+    source: ZID-UX-WF-013C section 02, 11; CR-049
+    lane: domain
+    source_status: "proposed"
