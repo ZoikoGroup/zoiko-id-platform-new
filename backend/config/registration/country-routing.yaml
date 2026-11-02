@@ -5,6 +5,8 @@
 # Legal and Privacy own this table. Decision (2026-11-02): GB only for now. The EU and U.S. rows below are switched off (commented) until
 # those cells pass their readiness gates (see the residency owner pack); until then those countries get the honest "not available yet" answer.
 version: "ZID-UX-WF-013A-routing-v1"
+# Where a person goes when registration is unavailable for their country and the registry names no contact of its own (ZID-EDR-001 section 3).
+contact: "support@zoikogroup.com"
 routes:
   GB: [uk-1, local-1]
   # Switched off until the eu-1 and us-1 cells are ready; uncomment a row to offer that country (and say so in the owner pack):

@@ -244,3 +244,24 @@ def test_before_the_inbox_is_proved_there_is_no_account_to_describe() -> None:
         and held.account == "NONE"
         and held.identity == "NOT_VERIFIED"
     )
+
+
+def test_registration_follows_the_country_registry_and_a_sandbox_never_counts_when_deployed() -> (
+    None
+):
+    """ZID-EDR-001: account registration only in approved markets. The registry decides; unlisted countries are closed; a country always
+    has somewhere to go."""
+    from zid_platform.modules.onboarding.application.registration import _contact, registration_open
+
+    local, deployed = (
+        Env("t", "uk-1", "n", "local", None, {}),
+        Env("t", "uk-1", "n", "production", None, {}),
+    )
+    assert registration_open(local, "GB", NOW) and not registration_open(
+        deployed, "GB", NOW
+    )  # a sandbox is for development only
+    for country in ("US", "IE", "DE", "BR", "ZZ"):
+        assert not registration_open(local, country, NOW), (
+            country
+        )  # discovery is open, registration is not
+    assert _contact("GB") == "support@zoikogroup.com" and _contact("BR") == "support@zoikogroup.com"

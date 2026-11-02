@@ -58,7 +58,15 @@ async function clean(page: Page) {
   const result = await axe(page);
   expect(result.violations, JSON.stringify(result.violations.map((v) => [v.id, v.nodes.map((n) => n.target)]))).toEqual([]);
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-  expect(wide, "horizontal scrolling").toBe(false);
+  const offenders = wide
+    ? await page.evaluate(() =>
+        [...document.querySelectorAll("body *")]
+          .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+          .slice(0, 5)
+          .map((e) => `${e.tagName}.${String(e.className).slice(0, 60)}`),
+      )
+    : [];
+  expect(wide, `horizontal scrolling: ${JSON.stringify(offenders)}`).toBe(false);
 }
 
 const hash = "a".repeat(64);

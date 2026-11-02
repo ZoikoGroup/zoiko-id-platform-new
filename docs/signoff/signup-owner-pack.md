@@ -2,7 +2,8 @@
 
 1. **Founder approval** of the 13A wireframe and its acceptance tests (the document is proposed).
 2. **Seed and configure the registration tenant per cell:** run `python -m zid_platform.entrypoints.seed_registration_tenant --apply`, then set `ZID_REGISTRATION_TENANT_ID`. Person-first sign-up is off without it.
-3. **Country table** (`backend/config/registration/country-routing.yaml`): ruled GB only on 2026-11-02. Legal and Privacy confirm that, and decide when each EU or U.S. row is switched back on (it needs its cell to pass the readiness gates first).
+3. **Country registry:** a person can sign up only where the country capability registry has approved REGISTRATION for the deployed environment (today GB is a sandbox, so a deployed environment answers "not available yet" with the contact route until the six approvals in `country-capability-owner-pack.md` are recorded). Legal and Privacy also confirm the contact route shown to people in closed countries (default `support@zoikogroup.com`).
+4. **Country table** (`backend/config/registration/country-routing.yaml`): ruled GB only on 2026-11-02. Legal and Privacy confirm that, and decide when each EU or U.S. row is switched back on (it needs its cell to pass the readiness gates first).
 4. **Verification mail:** enable template ZID-EM-001 (and later 002 and 003), route `single_use_verification_url` to the web verify page, and approve the sender identity and copy. Without a route and an enabled template, no mail is sent.
 5. **Notice and legal copy:** Terms of Service and Privacy Notice versions and links; which version string is current (`ZID_TENANT_SIGNUP_NOTICE_VERSION`).
 6. **Anti-abuse proportionality:** the signed nonce, per-client and per-address limits are engineering defaults; Security decides any further bot control (it must not exclude assistive technology) and sets the edge limits.

@@ -272,7 +272,7 @@ export function EnvironmentBadge({ environment }: { environment: EnvironmentKind
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-env-sandbox/50 bg-info-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-env-sandbox">
-      <FlaskConical aria-hidden className="size-3.5" />
+      <FlaskConical aria-hidden className="hidden size-3.5 sm:block" />
       {environment}
     </span>
   );

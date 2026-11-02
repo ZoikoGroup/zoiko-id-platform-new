@@ -471,12 +471,37 @@ def test_the_region_is_resolved_before_anything_about_the_person_is_stored(world
         r = w.start(f"{off.lower()}@example.com", country=off)
         assert r.status_code == 422 and code(r) == "REGION_UNAVAILABLE", off
     # a country the table assigns to another cell is routed there, with nothing stored (the table is patched for this check)
-    original = svc._routing_table
+    from dataclasses import replace
+
+    from zid_platform.modules.verification.domain.countries import (
+        Availability,
+        Capability,
+        CapabilityEntry,
+        Registry,
+    )
+
+    original, real = svc._routing_table, svc.registry()
+    de = real.countries["DE"]
+    opened = Registry(
+        real.version,
+        {
+            **real.countries,
+            "DE": replace(
+                de,
+                capabilities={
+                    **de.capabilities,
+                    Capability.REGISTRATION: CapabilityEntry(Availability.SANDBOX),
+                },
+            ),
+        },
+    )
     svc._routing_table = lambda: {"GB": ["uk-1"], "DE": ["eu-1"]}  # type: ignore[assignment]
+    svc.registry = lambda: opened  # type: ignore[assignment]
     try:
         elsewhere = w.start("de@example.com", country="DE")
     finally:
         svc._routing_table = original  # type: ignore[assignment]
+        svc.registry = lambda: real  # type: ignore[assignment]
     assert elsewhere.status_code == 421 and code(elsewhere) == "CELL_ROUTING_REQUIRED"
     reg_api._buckets.clear()  # this test makes more requests than one client address is allowed in a window
     for bad in ("", "ZZ", "UK", "+44"):
@@ -841,3 +866,51 @@ def test_ended_requests_are_purged_after_thirty_days_and_nothing_else(
     assert (
         w.rows("SELECT count(*) AS n FROM platform.registration_account")[0].n >= 1
     )  # the account index is not purged
+
+
+def test_a_country_the_registry_has_closed_stores_nothing_and_says_where_to_go(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ZID-EDR-001 acceptance: a country can be disabled without a code change, and the person is told truthfully."""
+    from dataclasses import replace
+
+    from zid_platform.modules.verification.domain.countries import Capability, Country, Registry
+
+    w = world
+    real = svc.registry()
+    gb = real.countries["GB"]
+    closed = Registry(
+        real.version,
+        {
+            **real.countries,
+            "GB": replace(
+                gb,
+                capabilities={
+                    k: v for k, v in gb.capabilities.items() if k is not Capability.REGISTRATION
+                },
+            ),
+        },
+    )
+    assert isinstance(closed.countries["GB"], Country)
+    monkeypatch.setattr(svc, "registry", lambda: closed)
+    n0 = w.rows("SELECT count(*) AS n FROM platform.registration_intent")[0].n
+    refused = w.start("closed.gb@example.com", country="GB")
+    assert refused.status_code == 422 and code(refused) == "COUNTRY_CAPABILITY_UNAVAILABLE"
+    assert (
+        "Nothing has been stored" in refused.json()["error"]["message"]
+        and "support@zoikogroup.com" in refused.json()["error"]["message"]
+    )
+    assert (
+        w.rows("SELECT count(*) AS n FROM platform.registration_intent")[0].n == n0
+        and not w.sender.sent
+    )
+    caps = w.http.get("/v1/registration/capabilities", params={"country": "GB"}).json()["country"]
+    assert (
+        caps["account"] == "NOT_AVAILABLE_YET"
+        and caps["contact"] == "support@zoikogroup.com"
+        and "not available" in caps["message"]
+    )
+    monkeypatch.setattr(
+        svc, "registry", lambda: real
+    )  # opened again by editing the registry, no code change
+    assert w.start("open.again@example.com", country="GB").status_code == 202

@@ -1825,6 +1825,8 @@ export type RegistrationCountry = {
   routing: { state: "HERE" | "OTHER_CELL" | "UNAVAILABLE"; url: string | null };
   organization_claims: "AVAILABLE" | "NOT_AVAILABLE_YET";
   message: string | null;
+  /** Where to go when registration is not open for the country. */
+  contact?: string | null;
 };
 export type RegistrationCapabilities = {
   notice_version: string;

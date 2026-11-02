@@ -316,7 +316,7 @@ function TopBar({
 }) {
   const critical = alerts.filter((a) => a.severity === "CRITICAL").length;
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-surface/85 sm:gap-3 lg:px-4">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-1 border-b border-border bg-surface/95 px-2 backdrop-blur sm:px-3 supports-[backdrop-filter]:bg-surface/85 sm:gap-3 lg:px-4">
       <button
         type="button"
         onClick={onOpenDrawer}

@@ -159,7 +159,22 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         sign = company_evidence_signer(settings)
         if sign is None:
             return "NO_SIGNING_KEY"
-        return await rescreen_pass(conn, screening_config(), sign, now)
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        def gate(
+            country: str,
+        ) -> (
+            None
+        ):  # raises unless business verification is open for the country in this environment
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await rescreen_pass(conn, screening_config(), sign, now, country_gate=gate)
 
     return [
         ("evidence", evidence),

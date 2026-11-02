@@ -447,3 +447,16 @@ async def restricted_detail(conn: AsyncConnection, tenant_id: str, case_id: str)
 
 async def history(conn: AsyncConnection, tenant_id: str, case_id: str) -> list[store.EvidenceRow]:
     return await store.history(conn, tenant_id, case_id)
+
+
+async def case_countries(conn: AsyncConnection, case_ids: list[str]) -> dict[str, str]:
+    """The country each case was opened for (row-level security scopes the read to the tenant in force)."""
+    if not case_ids:
+        return {}
+    rows = (
+        await conn.execute(
+            text("SELECT case_id, country FROM verify.screening_case WHERE case_id = ANY(:ids)"),
+            {"ids": [uuid.UUID(c) for c in case_ids]},
+        )
+    ).all()
+    return {str(r.case_id): str(r.country).strip() for r in rows}

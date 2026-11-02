@@ -38,7 +38,9 @@ def parse(offers_doc: dict[str, Any], readiness_doc: dict[str, Any]) -> Offers:
     }
     readiness = {
         cell: CellReadiness(
-            status=str(body.get("status", "NOT_READY")), gates=dict(body.get("gates") or {})
+            status=str(body.get("status", "NOT_READY")),
+            gates=dict(body.get("gates") or {}),
+            suppliers={str(k): dict(v or {}) for k, v in (body.get("suppliers") or {}).items()},
         )
         for cell, body in (readiness_doc.get("cells") or {}).items()
     }

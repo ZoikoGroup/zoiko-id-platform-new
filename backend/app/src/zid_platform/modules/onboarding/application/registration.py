@@ -169,6 +169,30 @@ def _available(country: str, capability: Capability, env: Env, now: datetime) ->
     return True
 
 
+def registration_open(env: Env, country: str, now: datetime) -> bool:
+    """Is account registration approved for this country here, now? Anything unlisted, unapproved, not yet effective or only a sandbox in
+    a deployed environment is closed. This is the registry of ZID-EDR-001, separate from which cell would hold the account."""
+    return _available(country, Capability.REGISTRATION, env, now)
+
+
+def _default_contact() -> str | None:
+    import os
+
+    root = Path(os.environ.get("ZID_PLATFORM_CONFIG") or _ROUTING_FILE.parents[1])
+    doc = (
+        yaml.safe_load((root / "registration" / "country-routing.yaml").read_text(encoding="utf-8"))
+        or {}
+    )
+    value = doc.get("contact")
+    return str(value) if value else None
+
+
+def _contact(country: str) -> str | None:
+    """Where a person goes when registration is unavailable (ZID-EDR-001 section 3): the country's own contact, else the default."""
+    c = registry().countries.get(country)
+    return (c.contact if c is not None else None) or _default_contact()
+
+
 async def capabilities(env: Env, country: str | None, *, now: datetime) -> dict[str, Any]:
     out: dict[str, Any] = {
         "notice_version": env.notice_version,
@@ -191,15 +215,20 @@ async def capabilities(env: Env, country: str | None, *, now: datetime) -> dict[
     )
     out["country"] = {
         "code": code,
-        "account": {
-            "HERE": "AVAILABLE",
-            "OTHER_CELL": "AVAILABLE_IN_ANOTHER_REGION",
-            "UNAVAILABLE": "NOT_AVAILABLE_YET",
-        }[routing.state],
+        "account": (
+            {
+                "HERE": "AVAILABLE",
+                "OTHER_CELL": "AVAILABLE_IN_ANOTHER_REGION",
+                "UNAVAILABLE": "NOT_AVAILABLE_YET",
+            }[routing.state]
+            if registration_open(env, code, now)
+            else "NOT_AVAILABLE_YET"
+        ),
+        "contact": _contact(code),
         "routing": {"state": routing.state, "url": routing.url},
         "organization_claims": "AVAILABLE" if org_open else "NOT_AVAILABLE_YET",
         "message": None
-        if routing.state != "UNAVAILABLE"
+        if routing.state != "UNAVAILABLE" and registration_open(env, code, now)
         else "Zoiko iD accounts are not available for this country yet. Nothing has been stored.",
     }
     return out
@@ -261,6 +290,15 @@ async def initiate(
         raise RegistrationError(
             "REGION_UNAVAILABLE",
             "Zoiko iD accounts are not available for this country yet. Nothing has been stored.",
+        )
+    if not registration_open(
+        env, code, now
+    ):  # registration only in legally approved markets: the registry decides, not the cell table
+        where = _contact(code)
+        raise RegistrationError(
+            "COUNTRY_CAPABILITY_UNAVAILABLE",
+            "Account registration is not open for this country yet. Nothing has been stored."
+            + (f" You can contact {where}." if where else ""),
         )
     if routing.state == "OTHER_CELL":
         raise RegistrationError("CELL_ROUTING_REQUIRED", routing.url or routing.cell or "")

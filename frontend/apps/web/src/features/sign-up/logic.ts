@@ -71,7 +71,7 @@ export type CountryState =
   | { kind: "none" }
   | { kind: "ok"; organizationClaims: boolean }
   | { kind: "other_region"; url: string | null }
-  | { kind: "unavailable"; message: string };
+  | { kind: "unavailable"; message: string; contact: string | null };
 
 /** What the server said about the chosen country, in the states the document names. Unavailable and other-region refuse to submit. */
 export function countryState(caps: RegistrationCapabilities | undefined, chosen: string): CountryState {
@@ -79,7 +79,7 @@ export function countryState(caps: RegistrationCapabilities | undefined, chosen:
   if (!chosen || !c || c.code !== chosen) return { kind: "none" };
   if (c.account === "AVAILABLE") return { kind: "ok", organizationClaims: c.organization_claims === "AVAILABLE" };
   if (c.account === "AVAILABLE_IN_ANOTHER_REGION") return { kind: "other_region", url: c.routing.url };
-  return { kind: "unavailable", message: c.message ?? "Zoiko iD accounts are not available for this country yet." };
+  return { kind: "unavailable", message: c.message ?? "Zoiko iD accounts are not available for this country yet.", contact: c.contact ?? null };
 }
 
 export const canSubmit = (s: CountryState) => s.kind === "ok";
@@ -91,6 +91,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   INTENT_INVALID: "Choose For myself or For an organization.",
   NOTICE_VERSION_STALE: "The privacy notice was updated. Read the current notice and continue.",
   REGION_UNAVAILABLE: "Zoiko iD accounts are not available for this country yet. Nothing has been stored.",
+  COUNTRY_CAPABILITY_UNAVAILABLE: "Account registration is not open for this country yet. Nothing has been stored.",
   CELL_ROUTING_REQUIRED: "Your account is held in a different region.",
   RATE_LIMITED: "Too many requests from this network. Try again in a few minutes.",
   REGISTRATION_DISABLED: "Sign-up is not available here right now.",

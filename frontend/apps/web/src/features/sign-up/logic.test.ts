@@ -79,6 +79,15 @@ describe("what the server said about the chosen country", () => {
     expect(s.kind === "unavailable" && s.message).toMatch(/not available for this country yet/);
   });
 
+  it("carries the contact route when the registry has closed a country", () => {
+    const s = countryState(
+      caps({ code: "DE", account: "NOT_AVAILABLE_YET", routing: { state: "HERE", url: null }, organization_claims: "NOT_AVAILABLE_YET", message: "Zoiko iD accounts are not available for this country yet. Nothing has been stored.", contact: "support@zoikogroup.com" }),
+      "DE",
+    );
+    expect(s.kind === "unavailable" && s.contact).toBe("support@zoikogroup.com");
+    expect(canSubmit(s)).toBe(false);
+  });
+
   it("refuses to submit here for a country held in another region", () => {
     const s = countryState(
       caps({ code: "DE", account: "AVAILABLE_IN_ANOTHER_REGION", routing: { state: "OTHER_CELL", url: "https://eu.example.com" }, organization_claims: "AVAILABLE", message: null }),

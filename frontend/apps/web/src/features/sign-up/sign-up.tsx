@@ -189,6 +189,16 @@ export function SignUp() {
             {state.kind === "unavailable" ? (
               <Banner tone="warn" live="polite" title="Not available yet">
                 {state.message}
+                {state.contact ? (
+                  <>
+                    {" "}
+                    You can contact{" "}
+                    <a className="inline-flex min-h-11 items-center font-medium underline" href={`mailto:${state.contact}`}>
+                      {state.contact}
+                    </a>
+                    .
+                  </>
+                ) : null}
               </Banner>
             ) : null}
             {state.kind === "other_region" ? (
