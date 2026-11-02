@@ -54,7 +54,21 @@ Both ownership tests are applied to every pack as the conservative choice, becau
 | EDR04-01 a registered company without an authorized applicant never grants verified-owner authority | `backend/app/tests/unit/test_screening.py` |
 | EDR04-02 UK PSC, indirect control and the UK and U.S. ownership rules give different answers | `test_screening.py` |
 | EDR04-03 namesakes, transliteration and incomplete records go to review, never automatic rejection | `test_screening.py` |
-| EDR04-04 list updates, outages and stale data are traceable and replayable | `backend/app/tests/component/test_screening_pg.py` (delisting is not yet tested) |
+| EDR04-04 list updates, outages, stale data and delistings are traceable and replayable | `backend/app/tests/component/test_screening_register_pg.py` (a delisting is screened again and every decision is replayed from the lists it named; the earlier outage and stale cases are in `test_screening_pg.py`) |
 | EDR04-05 a missing intermediary or unresolved owner cannot silently pass | `test_screening.py` |
-| EDR04-06 restricted person records stay out of events, logs, audit and the customer view | `test_screening.py` and `test_screening_pg.py` (analytics and third-party regions are not covered) |
+| EDR04-06 restricted person records stay out of events, logs, audit and the customer view, and in the organization's region | `backend/app/tests/component/test_screening_register_api_pg.py` (residency is checked before a name is stored; nothing from the register, the declaration or an appeal reaches an event, an audit record or signed evidence), `test_screening.py`, `test_screening_pg.py` (analytics and third-party processors are not covered: none exists) |
+| Directors and persons with significant control from the register, reconciled with the declaration, screened and explained as tasks | `backend/app/tests/unit/test_screening_register.py`, `test_kyb_register.py`, `component/test_screening_register_pg.py` |
+| Appeal and correction, decided by a different reviewer, the statement kept private | `test_screening_register_pg.py`, `test_screening_register_api_pg.py` |
+| Monitoring triggers: a changed register, a privileged role, an owner added, an activation | `test_screening_register_pg.py`, `test_screening_register_api_pg.py` |
+| No plan or entitlement can switch screening off | `backend/app/tests/unit/test_kyb_register.py` |
 | EDR04-07 legal, privacy and security sign-off of the packs, licences and procedure | the owners |
+
+## 6. Added: decisions about the register, appeals and monitoring
+
+| Decision | Owner | Recorded |
+|---|---|---|
+| The fair-review procedure for an appeal: who may decide, the time to answer, what the customer is told | Legal / Compliance | ______ |
+| How long an appeal statement and the register snapshots are kept | Privacy / Legal | ______ |
+| Which registers other than Companies House are read for directors and persons with significant control, and on what lawful basis | Legal / Registry owners | ______ |
+| How a register's protected entries are handled (a person reviews them today) | Compliance | ______ |
+| Which actions count as high-risk for a rescreen beyond a privileged role, a new owner and an activation | Security / Compliance | ______ |

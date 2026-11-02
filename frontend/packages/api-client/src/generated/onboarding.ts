@@ -287,6 +287,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/org-claims/{claim_id}/appeal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Appeal */
+        post: operations["appeal_v1_org_claims__claim_id__appeal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org-claims/{claim_id}/proofs": {
         parameters: {
             query?: never;
@@ -330,7 +347,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Amend Screening */
+        put: operations["amend_screening_v1_org_claims__claim_id__screening_put"];
         /** Start Screening */
         post: operations["start_screening_v1_org_claims__claim_id__screening_post"];
         delete?: never;
@@ -509,6 +527,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reviews/screening-cases/{case_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Replay Case */
+        get: operations["replay_case_v1_reviews_screening_cases__case_id__replay_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reviews/screening-cases/{case_id}/rulings": {
         parameters: {
             query?: never;
@@ -530,6 +565,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AppealIn */
+        AppealIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "APPEAL" | "CORRECTION";
+            /** Statement */
+            statement: string;
+        };
         /** ApprovalBody */
         ApprovalBody: {
             /** Approval Request Id */
@@ -1347,6 +1392,43 @@ export interface operations {
             };
         };
     };
+    appeal_v1_org_claims__claim_id__appeal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppealIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_proofs_v1_org_claims__claim_id__proofs_get: {
         parameters: {
             query?: never;
@@ -1430,6 +1512,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    amend_screening_v1_org_claims__claim_id__screening_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreeningIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1798,6 +1917,41 @@ export interface operations {
     screening_alerts_v1_reviews_screening_cases__case_id__get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replay_case_v1_reviews_screening_cases__case_id__replay_get: {
+        parameters: {
+            query: {
+                version: number;
+            };
             header?: never;
             path: {
                 case_id: string;

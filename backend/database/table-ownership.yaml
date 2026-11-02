@@ -694,6 +694,26 @@ tables:
     module: screening
     tenant_scoped: true
     source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_register_snapshot:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 register evidence snapshots (CR-044)"
+  verify.screening_register_person:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 register directors and persons with significant control (CR-044)"
+  verify.screening_trigger:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 rescreen triggers (CR-044)"
+  verify.screening_appeal:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 appeals and corrections (CR-044)"
   verify.verification_assertion:
     role: cell
     module: verification

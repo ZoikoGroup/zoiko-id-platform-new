@@ -1,6 +1,7 @@
 import type {
   OrgClaimCheckState,
   OrgClaimHolding,
+  OrgClaimAppealKind,
   OrgClaimOutcome,
   OrgClaimParty,
   OrgClaimProofKind,
@@ -158,6 +159,48 @@ export function proofKey(claimId: string, file: { name: string; size: number }, 
 
 export function sizeLabel(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export const MIN_STATEMENT = 20;
+export const MAX_STATEMENT = 2000;
+
+/** Which request a person can make about a screening, from its state: an appeal after a rejection, a correction while a case is
+ * waiting, in review or rejected. Nothing is offered once the checks are complete or while they are unavailable. */
+export function appealKinds(screeningStatus: string | undefined): OrgClaimAppealKind[] {
+  switch (screeningStatus) {
+    case "REJECTED":
+      return ["APPEAL", "CORRECTION"];
+    case "GATHERING":
+    case "REVIEW_REQUIRED":
+      return ["CORRECTION"];
+    default:
+      return [];
+  }
+}
+
+export const APPEAL_LABELS: Record<OrgClaimAppealKind, { label: string; help: string }> = {
+  APPEAL: { label: "Appeal the decision", help: "Ask a different person to look again, and say why the decision should change." },
+  CORRECTION: { label: "Ask for a correction", help: "Tell us what is wrong in what we hold or in what the register says." },
+};
+
+/** A problem the browser can see before sending; the server checks again. */
+export function statementProblem(statement: string): string | null {
+  const n = statement.trim().length;
+  if (n < MIN_STATEMENT) return `Write at least a sentence (${MIN_STATEMENT} characters).`;
+  if (n > MAX_STATEMENT) return `Keep it under ${MAX_STATEMENT} characters.`;
+  return null;
+}
+
+const APPEAL_MESSAGES: Record<string, string> = {
+  STATEMENT_INVALID: `Write at least a sentence (${MIN_STATEMENT} characters), and no more than ${MAX_STATEMENT}.`,
+  APPEAL_NOT_AVAILABLE: "That request is not available for this check right now.",
+  APPEAL_ALREADY_OPEN: "A request is already open. A person is looking at it.",
+  AMEND_NOT_AVAILABLE: "These details can only be changed while we are waiting for them.",
+  SCREENING_RESIDENCY_DENIED: "This organization's data region does not allow these details to be stored here. Nothing was stored.",
+};
+
+export function appealMessage(code: string | undefined): string {
+  return (code && APPEAL_MESSAGES[code]) || "That request could not be sent.";
 }
 
 /** What the next step is, from the checks alone. */

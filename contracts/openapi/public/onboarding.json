@@ -1,6 +1,31 @@
 {
   "components": {
     "schemas": {
+      "AppealIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "APPEAL",
+              "CORRECTION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "statement": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "statement"
+        ],
+        "title": "AppealIn",
+        "type": "object"
+      },
       "ApprovalBody": {
         "additionalProperties": false,
         "properties": {
@@ -1427,6 +1452,61 @@
         ]
       }
     },
+    "/v1/org-claims/{claim_id}/appeal": {
+      "post": {
+        "operationId": "appeal_v1_org_claims__claim_id__appeal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appeal V1 Org Claims  Claim Id  Appeal Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
     "/v1/org-claims/{claim_id}/proofs": {
       "get": {
         "operationId": "list_proofs_v1_org_claims__claim_id__proofs_get",
@@ -1649,6 +1729,59 @@
           }
         },
         "summary": "Start Screening",
+        "tags": [
+          "org-claims"
+        ]
+      },
+      "put": {
+        "operationId": "amend_screening_v1_org_claims__claim_id__screening_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreeningIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Amend Screening V1 Org Claims  Claim Id  Screening Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Amend Screening",
         "tags": [
           "org-claims"
         ]
@@ -2133,6 +2266,60 @@
           }
         },
         "summary": "Screening Alerts",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
+    "/v1/reviews/screening-cases/{case_id}/replay": {
+      "get": {
+        "operationId": "replay_case_v1_reviews_screening_cases__case_id__replay_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Replay Case V1 Reviews Screening Cases  Case Id  Replay Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Case",
         "tags": [
           "org-claims"
         ]

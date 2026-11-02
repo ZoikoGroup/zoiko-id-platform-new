@@ -21,6 +21,7 @@ key; its parameters and result fields below are from its OpenAPI document (reche
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -35,6 +36,8 @@ from zid_platform.modules.organization.domain.kyb import (
     Capabilities,
     CompanyFacts,
     KybError,
+    RegisterPersonFact,
+    RegisterRead,
     SourceKind,
     name_similarity,
     response_hash,
@@ -179,6 +182,76 @@ class CompaniesHouseKyb:
             observed_at=now,
             response_hash=response_hash(raw),
         )
+
+    async def register_people(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> RegisterRead:
+        """GET /company/{n}/officers and /persons-with-significant-control (Companies House Public Data API). A list the register says
+        is longer than what we read is UNAVAILABLE, never a partial answer that looks complete."""
+        if jurisdiction != "GB":
+            return RegisterRead("NOT_APPLICABLE", source=self.adapter_id)
+        number = quote(registration_number)
+        async with _client(self.base_url, self.transport) as c:
+            c.auth = self._auth()
+            _, _, officers = await _fetch(
+                c, "GET", f"/company/{number}/officers?items_per_page=100"
+            )
+            _, _, pscs = await _fetch(
+                c, "GET", f"/company/{number}/persons-with-significant-control?items_per_page=100"
+            )
+        people: list[RegisterPersonFact] = []
+        for doc, kind in ((officers, "OFFICER"), (pscs, "PSC")):
+            items = [i for i in _list(doc, "items") if isinstance(i, dict)]
+            total = doc.get("total_results")
+            if isinstance(total, int) and total > len(items):
+                raise KybError(
+                    "SOURCE_UNAVAILABLE", "the register list is longer than the page read"
+                )
+            for i in items:
+                ceased = (
+                    bool(i.get("ceased")) or bool(i.get("ceased_on")) or bool(i.get("resigned_on"))
+                )
+                role_or_kind = (
+                    _text(i.get("officer_role")) if kind == "OFFICER" else _text(i.get("kind"))
+                )
+                entity = kind == "PSC" and not role_or_kind.startswith("individual")
+                if kind == "OFFICER":
+                    entity = _text(i.get("officer_role")).startswith("corporate")
+                birth = i.get("date_of_birth")
+                year = _text(birth.get("year")) if isinstance(birth, dict) else ""
+                people.append(
+                    RegisterPersonFact(
+                        kind=kind,
+                        name=_natural_name(_text(i.get("name"))),
+                        entity=entity,
+                        natures=tuple(_text(n) for n in i.get("natures_of_control", []) if _text(n))
+                        if kind == "PSC"
+                        else (role_or_kind,),
+                        ceased=ceased,
+                        birth_year=year or None,
+                    )
+                )
+        canonical = json.dumps(
+            sorted(
+                [p.kind, p.name, p.entity, list(p.natures), p.ceased, p.birth_year or ""]
+                for p in people
+            ),
+            separators=(",", ":"),
+        )
+        return RegisterRead(
+            "OK",
+            tuple(people),
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            self.adapter_id,
+        )
+
+
+def _natural_name(name: str) -> str:
+    """Companies House writes an individual as "SURNAME, Forename Middle"; screening and declarations use natural order."""
+    if "," in name:
+        surname, _, rest = name.partition(",")
+        return f"{rest.strip()} {surname.strip()}".strip()
+    return name
 
 
 @dataclass

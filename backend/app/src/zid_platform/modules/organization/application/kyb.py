@@ -29,6 +29,7 @@ from zid_platform.modules.organization.domain.kyb import (
     Decision,
     KybError,
     KybStatus,
+    RegisterRead,
     Review,
     Routing,
     SourceKind,
@@ -349,6 +350,27 @@ def _applicant(case: store.CaseRow) -> Applicant:
         lei=case.lei,
         register_id=case.register_id,
     )
+
+
+async def register_people(
+    adapters: Mapping[str, KybAdapter], registration_number: str, country: str, now: datetime
+) -> RegisterRead:
+    """The directors and persons with significant control the official register lists, or why they could not be read. A country
+    with no source is NOT_APPLICABLE (the customer's declaration is then all there is, and a pack may still ask for review); a source
+    that fails is UNAVAILABLE and goes to a person, never read as "there is no one"."""
+    for adapter in adapters.values():
+        reader = getattr(adapter, "register_people", None)
+        if reader is None:
+            continue
+        try:
+            read = await asyncio.wait_for(
+                reader(registration_number, country, now), SOURCE_TIMEOUT_S * 2
+            )
+        except (KybError, TimeoutError, Exception):  # noqa: BLE001 - any failure of the source is an outage, not an answer
+            return RegisterRead("UNAVAILABLE", source=getattr(adapter, "adapter_id", ""))
+        if isinstance(read, RegisterRead) and read.status != "NOT_APPLICABLE":
+            return read
+    return RegisterRead("NOT_APPLICABLE")
 
 
 async def request_verification(

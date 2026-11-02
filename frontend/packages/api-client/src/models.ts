@@ -2169,8 +2169,12 @@ export type OrgClaimStatus = {
   outcome: OrgClaimOutcome;
   checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
-  screening: { status: string; next_action: string; expires_at: Iso | null } | null;
+  screening: { status: string; next_action: string; expires_at: Iso | null; tasks: OrgClaimTask[] } | null;
 };
+/** Something the customer can do next. Codes, counts and plain words only: never a name or any watchlist content. */
+export type OrgClaimTask = { code: string; count: number; text: string };
+export type OrgClaimAppealKind = "APPEAL" | "CORRECTION";
+export type OrgClaimAppeal = { kind: OrgClaimAppealKind; statement: string };
 export type OrgClaimProofKind =
   | "CERTIFICATE_OF_INCORPORATION"
   | "REGISTER_EXTRACT"

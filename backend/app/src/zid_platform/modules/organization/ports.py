@@ -36,6 +36,9 @@ from zid_platform.modules.organization.application.kyb import (
     refresh as kyb_refresh,
 )
 from zid_platform.modules.organization.application.kyb import (
+    register_people as kyb_register_people,
+)
+from zid_platform.modules.organization.application.kyb import (
     request_verification as kyb_request_verification,
 )
 from zid_platform.modules.organization.application.kyb import (
@@ -58,6 +61,7 @@ from zid_platform.modules.organization.domain.kyb import (
 from zid_platform.modules.organization.domain.kyb import (
     KybError,
     KybStatus,
+    RegisterRead,
 )
 from zid_platform.modules.organization.domain.kyb import (
     Review as KybReview,
@@ -103,6 +107,7 @@ __all__ = [
     "KybStatus",
     "NameMatcher",
     "ProofError",
+    "RegisterRead",
     "RegistryAdapter",
     "RegistryError",
     "RootReader",
@@ -118,6 +123,7 @@ __all__ = [
     "kyb_get_case",
     "kyb_history",
     "kyb_refresh",
+    "kyb_register_people",
     "kyb_request_verification",
     "kyb_review",
     "kyb_routing",

@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { AppealCard, TasksCard } from "./org-claim-review";
 import { ProofsCard } from "./org-claim-proofs";
 import {
   CHECKS,
@@ -167,7 +168,10 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
   const status = useCellQuery(["org-claims", claimId], (api) => api.orgClaims.status(claimId));
   const [name, setName] = useState("");
   const [owners, setOwners] = useState<OwnerRow[]>([emptyOwner()]);
-  const submit = useCellMutation((api) => api.orgClaims.screening(claimId, buildScreening(name, owners)), {
+  const declared = status.data?.screening != null;
+  const submit = useCellMutation(
+    (api) => (declared ? api.orgClaims.amendScreening(claimId, buildScreening(name, owners)) : api.orgClaims.screening(claimId, buildScreening(name, owners))),
+    {
     invalidate: [["org-claims", claimId]],
     onSuccess: () => router.push(claimBase(claimId) + "/status"),
   });
@@ -279,6 +283,8 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
                 </Button>
               </div>
               {refresh.error ? <ApiErrorView error={refresh.error} title="The check could not be refreshed" /> : null}
+              <TasksCard claimId={s.claim_id} status={s} />
+              <AppealCard claimId={s.claim_id} status={s} />
               <ProofsCard claimId={s.claim_id} />
             </div>
           );

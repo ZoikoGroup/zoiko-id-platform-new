@@ -28,6 +28,7 @@ from zid_platform.modules.onboarding.domain.readiness import (
     project,
 )
 from zid_platform.modules.onboarding.infrastructure import readiness_store as store
+from zid_platform.modules.screening.ports import request_rescreen
 from zid_platform.modules.tenant.ports import (
     governance_status,
     load_tenant,
@@ -295,6 +296,9 @@ async def activate(
         policy_versions={**current_versions(), "setup": str(setup_policy().get("version", ""))}, now=now,
     )  # fmt: skip
     if created:
+        await request_rescreen(
+            conn, tenant_id, reason="ORGANIZATION_ACTIVATED", now=now
+        )  # a high-risk action (ED-04 section 07)
         await _audit(
             conn,
             tenant_id,

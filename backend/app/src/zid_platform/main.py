@@ -230,6 +230,7 @@ def create_app(
         from .modules.notification.api.alerts import router as alerts_router
         from .modules.onboarding.api.onboarding import router as onboarding_router
         from .modules.onboarding.api.org_claim_proofs import router as org_claim_proofs_router
+        from .modules.onboarding.api.org_claim_screening import router as org_claim_screening_router
         from .modules.onboarding.api.org_claims import router as org_claims_router
         from .modules.onboarding.api.readiness import router as readiness_router
         from .modules.onboarding.api.registration import router as registration_router
@@ -284,6 +285,7 @@ def create_app(
             onboarding_router,
             org_claims_router,
             org_claim_proofs_router,
+            org_claim_screening_router,
             signup_router,
             registration_router,
             readiness_router,

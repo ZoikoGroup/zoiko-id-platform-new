@@ -75,20 +75,22 @@ async function clean(page: Page) {
 const CLAIM_ID = "01a19b00-0000-7000-8000-0000000000c1";
 const PDF = Buffer.from("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n");
 
-const status = () => ({
+type Screening = { status: string; next_action: string; expires_at: string | null; tasks: { code: string; count: number; text: string }[] } | null;
+
+const status = (screening: Screening = null) => ({
   claim_id: CLAIM_ID,
   jurisdiction: "GB",
   registration_number: "00123456",
   outcome: "PROVISIONAL",
   checks: { company: "COMPLETED", person_assurance: "PENDING", authority: "PENDING", risk: "PENDING" },
   company: { status: "VERIFIED", review_reason: null, reasons: [], expires_at: SOON },
-  screening: null,
+  screening,
 });
 
 type Proof = { proof_id: string; kind: string; media_type: string; size_bytes: number; label: string; scan_status: string; content_hash: string; uploaded_at: string };
 
 /** The company service, as the browser sees it. `refuse` makes the next upload fail the way the server does for an unsafe file. */
-async function mockClaims(page: Page, opts: { refuse?: boolean } = {}) {
+async function mockClaims(page: Page, opts: { refuse?: boolean; screening?: Screening; appealCode?: string } = {}) {
   const proofs: Proof[] = [];
   await page.route("**/api/bff/v1/org-claims**", async (route) => {
     const url = new URL(route.request().url());
@@ -106,6 +108,10 @@ async function mockClaims(page: Page, opts: { refuse?: boolean } = {}) {
       });
     }
     if (path === "/v1/org-claims" && method === "POST") return route.fulfill({ status: 201, json: status() });
+    if (path.endsWith("/appeal") && method === "POST") {
+      if (opts.appealCode) return route.fulfill({ status: 409, json: { error: { code: opts.appealCode, message: "refused" } } });
+      return route.fulfill({ status: 201, json: status({ status: "REVIEW_REQUIRED", next_action: "Additional review is required.", expires_at: null, tasks: [] }) });
+    }
     if (path.endsWith("/proofs") && method === "POST") {
       if (opts.refuse) {
         return route.fulfill({ status: 422, json: { error: { code: "PROOF_ACTIVE_CONTENT", message: "That PDF contains scripts or embedded content and cannot be accepted." } } });
@@ -125,7 +131,7 @@ async function mockClaims(page: Page, opts: { refuse?: boolean } = {}) {
       return route.fulfill({ status: 201, json: p });
     }
     if (path.endsWith("/proofs")) return route.fulfill({ json: { claim_id: CLAIM_ID, proofs, limit: 20 } });
-    return route.fulfill({ json: status() });
+    return route.fulfill({ json: status(opts.screening ?? null) });
   });
 }
 
@@ -215,6 +221,47 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByText("Upload a PDF, PNG or JPEG file.").first()).toBeVisible();
       await expect(page.locator('[role="status"][aria-live="polite"]').first()).toContainText("not added");
       expect(sent).toBe(false);
+      await clean(page);
+    });
+
+    test("the status page lists what is needed in plain words and lets a person ask for a review", async () => {
+      const tasks = [{ code: "DECLARE_REGISTER_PSC", count: 1, text: "The official register lists 1 person with significant control that you have not declared. Add them to the owners and controllers, then submit again." }];
+      await mockClaims(page, { screening: { status: "GATHERING", next_action: "More information is needed.", expires_at: null, tasks } });
+      await page.goto(`/admin/organization/claim/${CLAIM_ID}/status`);
+      await expect(page.getByRole("heading", { name: "Verification status" })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      const list = page.getByRole("list", { name: "Tasks" });
+      await expect(list).toBeVisible();
+      await expect(list.getByText(/significant control that you have not declared/)).toBeVisible();
+      await expect(page.getByRole("link", { name: "Update owners and controllers" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Think we got something wrong?" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Send to a reviewer" })).toBeDisabled();
+      await clean(page);
+
+      await page.getByLabel(/What should we know\?/).fill("too short");
+      await page.getByRole("button", { name: "Send to a reviewer" }).click();
+      await expect(page.getByText(/Write at least a sentence/).first()).toBeVisible();
+      await expect(page.locator('[role="status"][aria-live="polite"]').first()).toContainText("not sent");
+      await clean(page);
+
+      await page.getByLabel(/What should we know\?/).fill("The birth year on file is wrong and my passport shows 1975.");
+      expect((await page.getByRole("button", { name: "Send to a reviewer" }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+      await page.getByRole("button", { name: "Send to a reviewer" }).click();
+      await expect(page.getByText("A person will look at this.")).toBeVisible();
+      await clean(page);
+    });
+
+    test("an appeal is offered after a rejection and a request that is already open is explained", async () => {
+      await mockClaims(page, {
+        screening: { status: "REJECTED", next_action: "This could not be verified. You may appeal.", expires_at: null, tasks: [] },
+        appealCode: "APPEAL_ALREADY_OPEN",
+      });
+      await page.goto(`/admin/organization/claim/${CLAIM_ID}/status`);
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByRole("combobox").first()).toBeVisible(); // both "Appeal the decision" and "Ask for a correction" are offered
+      await page.getByLabel(/What should we know\?/).fill("The decision rests on a record that is not mine; here is why.");
+      await page.getByRole("button", { name: "Send to a reviewer" }).click();
+      await expect(page.getByText(/A request is already open/)).toBeVisible();
       await clean(page);
     });
 

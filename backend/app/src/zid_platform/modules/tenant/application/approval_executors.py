@@ -20,6 +20,7 @@ from zid_platform.modules.authentication.ports import (
     revoke_for_security,
 )
 from zid_platform.modules.principal.ports import PrincipalStatus, PrincipalType, load_principal
+from zid_platform.modules.screening.ports import request_rescreen
 from zid_platform.modules.tenant.application import lifecycle
 from zid_platform.modules.tenant.application.approvals import (
     ExecContext,
@@ -100,6 +101,9 @@ async def _owner_add(ctx: ExecContext) -> dict[str, Any]:
         ctx.conn, ctx.tenant_id, principal_id=p, granted_by=ctx.case.requester_principal_id,
         approved_by=ctx.approvers[0], now=ctx.now,
     )  # fmt: skip
+    await request_rescreen(
+        ctx.conn, ctx.tenant_id, reason="OWNER_ADDED", now=ctx.now
+    )  # ED-04 section 07: privilege escalation
     return {"assignment_id": a.assignment_id, "role": "OWNER", "principal_id": p}
 
 
@@ -168,6 +172,7 @@ async def _role_grant(ctx: ExecContext) -> dict[str, Any]:
         ctx.conn, ctx.tenant_id, role=role, invited_by=ctx.case.requester_principal_id,
         approved_by=ctx.approvers[0], now=ctx.now,
     )  # fmt: skip
+    await request_rescreen(ctx.conn, ctx.tenant_id, reason="PRIVILEGED_ROLE_GRANTED", now=ctx.now)
     return {
         "assignment_id": inv.assignment.assignment_id,
         "role": role.value,

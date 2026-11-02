@@ -397,6 +397,10 @@ export function createCellApi(t: Transport) {
       status: (id: string) => get<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/status`),
       refresh: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/refresh`, {}),
       screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
+      /** Declare again while the case is waiting for details; the earlier declaration stays. */
+      amendScreening: (id: string, body: M.OrgClaimScreening) => t.request<M.OrgClaimStatus>("PUT", `/v1/org-claims/${seg(id)}/screening`, { body }),
+      /** Appeal a rejection or ask for a correction; the case goes back to a person. */
+      appeal: (id: string, body: M.OrgClaimAppeal) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/appeal`, body),
       proofs: (id: string) => get<M.OrgClaimProofs>(`/v1/org-claims/${seg(id)}/proofs`),
       /** One supporting document, sent as the file itself. A repeat with the same key is the same document. */
       uploadProof: (id: string, file: File, kind: M.OrgClaimProofKind, idempotencyKey: string) =>

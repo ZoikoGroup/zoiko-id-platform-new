@@ -2,9 +2,12 @@ import type { OrgClaimStatus } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
 import {
+  APPEAL_LABELS,
   CHECKS,
   MAX_PROOF_BYTES,
   PROOF_KINDS,
+  appealKinds,
+  appealMessage,
   attemptId,
   buildScreening,
   claimKey,
@@ -17,6 +20,7 @@ import {
   proofMessage,
   proofProblem,
   sizeLabel,
+  statementProblem,
   tidy,
 } from "./org-claim";
 
@@ -95,7 +99,7 @@ describe("keys and next steps", () => {
   it("asks for the authority details only once the company is found, then waits, then is done", () => {
     expect(nextStep(base)).toBe("authority");
     expect(nextStep({ ...base, checks: { ...base.checks, company: "PENDING" } })).toBe("wait");
-    expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null } })).toBe("wait");
+    expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null, tasks: [] } })).toBe("wait");
     expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
   });
 });
@@ -135,5 +139,34 @@ describe("supporting documents", () => {
     expect(sizeLabel(10)).toBe("1 KB");
     expect(sizeLabel(2048)).toBe("2 KB");
     expect(sizeLabel(3 * 1024 * 1024)).toBe("3.0 MB");
+  });
+});
+
+describe("appeals and corrections", () => {
+  it("offers the right request for each state and nothing when the checks are complete or unavailable", () => {
+    expect(appealKinds("REJECTED")).toEqual(["APPEAL", "CORRECTION"]);
+    expect(appealKinds("GATHERING")).toEqual(["CORRECTION"]);
+    expect(appealKinds("REVIEW_REQUIRED")).toEqual(["CORRECTION"]);
+    for (const s of ["VERIFIED", "UNAVAILABLE", "EXPIRED", "SUSPENDED", undefined]) expect(appealKinds(s)).toEqual([]);
+    expect(Object.keys(APPEAL_LABELS).sort()).toEqual(["APPEAL", "CORRECTION"]);
+  });
+
+  it("asks for at least a sentence and no more than the limit before sending", () => {
+    expect(statementProblem("")).toMatch(/at least a sentence/i);
+    expect(statementProblem("too short")).toMatch(/at least a sentence/i);
+    expect(statementProblem("x".repeat(19))).not.toBeNull();
+    expect(statementProblem("x".repeat(20))).toBeNull();
+    expect(statementProblem("   " + "x".repeat(19) + "   ")).not.toBeNull(); // spaces do not count
+    expect(statementProblem("x".repeat(2000))).toBeNull();
+    expect(statementProblem("x".repeat(2001))).toMatch(/under 2000/);
+  });
+
+  it("says every server refusal in plain words and never shows a raw code", () => {
+    for (const code of ["STATEMENT_INVALID", "APPEAL_NOT_AVAILABLE", "APPEAL_ALREADY_OPEN", "AMEND_NOT_AVAILABLE", "SCREENING_RESIDENCY_DENIED"]) {
+      expect(appealMessage(code)).not.toMatch(/[A-Z]{4,}_[A-Z]/);
+      expect(appealMessage(code).length).toBeGreaterThan(15);
+    }
+    expect(appealMessage("SOMETHING_NEW")).toBe("That request could not be sent.");
+    expect(appealMessage(undefined)).toBe("That request could not be sent.");
   });
 });

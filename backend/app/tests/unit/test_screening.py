@@ -428,7 +428,10 @@ def test_evidence_names_lists_and_policy_and_holds_no_name_or_birth_date() -> No
 def test_a_customer_sees_an_outcome_and_a_next_step_only() -> None:
     for status in ScreeningStatus:
         view = safe_view(status, ["OFAC_50_PERCENT_AGGREGATE", "ALERT_STRONG"])
-        assert set(view) == {"status", "next_action"}
+        assert set(view) == {"status", "next_action", "tasks"}
+        assert (
+            view["tasks"] == []
+        )  # nothing from a list or an ownership finding becomes a task the customer can read
         assert "OFAC" not in view["next_action"] and "alert" not in view["next_action"].lower()
 
 
