@@ -176,6 +176,36 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await rescreen_pass(conn, screening_config(), sign, now, country_gate=gate)
 
+    async def company_refresh(conn: AsyncConnection, now: datetime) -> object:
+        """ED-03 section 08: read the sources again before a company verification lapses (country gate first)."""
+        from zid_platform.crypto_runtime import company_evidence_signer
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.organization.application.passes import refresh_pass
+        from zid_platform.modules.organization.ports import default_adapters, kyb_routing
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        sign = company_evidence_signer(settings)
+        if sign is None:
+            return "NO_SIGNING_KEY"
+
+        def gate(country: str) -> None:
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await refresh_pass(
+            conn,
+            default_adapters(_secret_broker(settings)),
+            kyb_routing(),
+            sign,
+            now,
+            country_gate=gate,
+        )
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -190,6 +220,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("webhooks", webhooks),
         ("sanctions_lists", sanctions_lists),
         ("screening", screening),
+        ("company_refresh", company_refresh),
     ]
 
 

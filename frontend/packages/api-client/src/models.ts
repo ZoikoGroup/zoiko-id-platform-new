@@ -2171,6 +2171,24 @@ export type OrgClaimStatus = {
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
   screening: { status: string; next_action: string; expires_at: Iso | null } | null;
 };
+export type OrgClaimProofKind =
+  | "CERTIFICATE_OF_INCORPORATION"
+  | "REGISTER_EXTRACT"
+  | "LETTER_OF_AUTHORITY"
+  | "OWNERSHIP_CHART"
+  | "BOARD_RESOLUTION"
+  | "OTHER";
+export type OrgClaimProof = {
+  proof_id: string;
+  kind: OrgClaimProofKind;
+  media_type: string;
+  size_bytes: number;
+  label: string;
+  scan_status: "CLEAN" | "NOT_SCANNED";
+  content_hash: string;
+  uploaded_at: Iso;
+};
+export type OrgClaimProofs = { claim_id: string; proofs: OrgClaimProof[]; limit: number };
 export type OrgClaimParty = {
   ref: string;
   kind?: "PERSON" | "ENTITY";

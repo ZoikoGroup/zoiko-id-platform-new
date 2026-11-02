@@ -158,6 +158,9 @@ class Settings(ServiceSettings):
     # Webhooks (EVENTS-001 §14-20). ZID_WEBHOOK_KMS_KEY_ID: the deployed RFC 9421 signing key (local/test
     # use the development key). ZID_WEBHOOK_ALLOW_HTTP: accept http:// endpoints, local/test only.
     webhook_kms_key_id: str | None = None
+    # ZID_PROOF_SCANNER_ADDRESS: host[:port] of the clamd malware scanner that checks uploaded proof documents; a deployed
+    # environment refuses uploads without one (nothing is stored unscanned), local and test record NOT_SCANNED
+    proof_scanner_address: str | None = None
     company_evidence_kms_key_id: str | None = (
         None  # ZID_COMPANY_EVIDENCE_KMS_KEY_ID: signs company-verification and screening evidence
     )

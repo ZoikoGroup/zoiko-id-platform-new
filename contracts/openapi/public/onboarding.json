@@ -1427,6 +1427,133 @@
         ]
       }
     },
+    "/v1/org-claims/{claim_id}/proofs": {
+      "get": {
+        "operationId": "list_proofs_v1_org_claims__claim_id__proofs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Proofs V1 Org Claims  Claim Id  Proofs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Proofs",
+        "tags": [
+          "org-claims"
+        ]
+      },
+      "post": {
+        "operationId": "upload_proof_v1_org_claims__claim_id__proofs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-proof-kind",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 2,
+              "title": "X-Proof-Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-proof-name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Proof-Name"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Proof V1 Org Claims  Claim Id  Proofs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Proof",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
     "/v1/org-claims/{claim_id}/refresh": {
       "post": {
         "operationId": "refresh_claim_v1_org_claims__claim_id__refresh_post",
@@ -1812,6 +1939,57 @@
         "summary": "Registration Status",
         "tags": [
           "registration"
+        ]
+      }
+    },
+    "/v1/reviews/kyb-cases/{case_id}/proofs/{proof_id}": {
+      "get": {
+        "operationId": "read_proof_v1_reviews_kyb_cases__case_id__proofs__proof_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proof_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proof Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Proof",
+        "tags": [
+          "org-claims"
         ]
       }
     },

@@ -1365,6 +1365,12 @@
         "organization_kyb_decided": {
           "$ref": "#/components/messages/organization_kyb_decided"
         },
+        "organization_kyb_proof_added": {
+          "$ref": "#/components/messages/organization_kyb_proof_added"
+        },
+        "organization_kyb_verification_lost": {
+          "$ref": "#/components/messages/organization_kyb_verification_lost"
+        },
         "organization_officer_changed": {
           "$ref": "#/components/messages/organization_officer_changed"
         },
@@ -4469,6 +4475,28 @@
         "summary": "A company-verification decision was recorded (case id, decision status, reasons, evidence hash, policy version and country; no company data beyond ids and codes).",
         "title": "organization.kyb.decided",
         "x-zid-source": "ZID-ED-03 Global Company Verification section 04-05; CR-043",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_proof_added": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.proof_added.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A proof document was added to a company claim (case id, proof id, kind, media type, size, content hash and scan status; never the document or its name). A proof is evidence for a reviewer and never verifies a company.",
+        "title": "organization.kyb.proof_added",
+        "x-zid-source": "WF-13B Global Company Verification section 06 (AT-12); ZID-ED-03; CR-043",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_verification_lost": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.verification_lost.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company that was verified no longer is (case id, previous and new status, reason codes, country and version; no company data beyond ids and codes). Whatever depends on the verification reads the case live and drops at once; the evidence stays on the ledger.",
+        "title": "organization.kyb.verification_lost",
+        "x-zid-source": "ZID-ED-03 Global Company Verification section 05, 08; WF-13B AT-11",
         "x-zid-status": "proposed"
       },
       "organization_officer_changed": {

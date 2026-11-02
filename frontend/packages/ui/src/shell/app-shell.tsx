@@ -154,7 +154,7 @@ export function AppShell(props: AppShellProps) {
           <aside
             aria-label="Primary"
             className={cn(
-              "sticky top-0 hidden h-[calc(100dvh-3.75rem)] shrink-0 flex-col border-e border-border bg-surface lg:flex",
+              "sticky top-14 hidden h-[calc(100dvh-3.75rem)] shrink-0 flex-col border-e border-border bg-surface lg:flex",
               collapsed ? "w-16" : "w-64",
             )}
           >

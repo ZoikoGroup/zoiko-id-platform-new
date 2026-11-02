@@ -434,3 +434,20 @@ class SireneKyb:
             observed_at=now,
             response_hash=response_hash(raw),
         )
+
+
+def default_adapters(broker: Any, transport: Any = None) -> dict[str, KybAdapter]:
+    """The sources Zoiko reads without a supplier contract: the UK register (key from the secret broker), GLEIF and the French
+    register. Creditsafe joins only when it is enabled in the routing and has credentials."""
+
+    def key() -> str | None:
+        try:
+            return str(broker.get("companies-house-api-key")) if broker else None
+        except Exception:  # noqa: BLE001 - the source then reports itself unavailable
+            return None
+
+    return {
+        "companies-house": CompaniesHouseKyb(key, transport),
+        "gleif": GleifKyb(transport),
+        "sirene": SireneKyb(transport),
+    }

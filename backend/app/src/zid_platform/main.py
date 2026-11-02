@@ -95,6 +95,8 @@ def create_app(
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
     app.state.environment = settings.environment
+    app.state.proof_scanner_address = settings.proof_scanner_address
+    app.state.proof_scanner = None  # tests supply their own scanner
     app.state.federation_authority_hints = settings.federation_authority_hints
     app.state.verification_transport = None  # real network; tests inject a provider simulator
     app.state.credential_transport = None  # status-list / federation fetches (simulated in tests)
@@ -227,6 +229,7 @@ def create_app(
         from .modules.metering.api.usage import router as usage_router
         from .modules.notification.api.alerts import router as alerts_router
         from .modules.onboarding.api.onboarding import router as onboarding_router
+        from .modules.onboarding.api.org_claim_proofs import router as org_claim_proofs_router
         from .modules.onboarding.api.org_claims import router as org_claims_router
         from .modules.onboarding.api.readiness import router as readiness_router
         from .modules.onboarding.api.registration import router as registration_router
@@ -280,6 +283,7 @@ def create_app(
             org_approvals_router,
             onboarding_router,
             org_claims_router,
+            org_claim_proofs_router,
             signup_router,
             registration_router,
             readiness_router,

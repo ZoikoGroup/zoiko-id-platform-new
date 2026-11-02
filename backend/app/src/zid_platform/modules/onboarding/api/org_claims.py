@@ -32,14 +32,12 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce
 from zid_platform.modules.organization.ports import (
-    CompaniesHouseKyb,
-    GleifKyb,
     KybAdapter,
     KybApplicant,
     KybError,
     KybReview,
     KybStatus,
-    SireneKyb,
+    default_adapters,
     kyb_get_case,
     kyb_refresh,
     kyb_request_verification,
@@ -136,20 +134,10 @@ def _adapters(request: Request) -> dict[str, KybAdapter]:
     injected = getattr(request.app.state, "kyb_adapters", None)
     if injected is not None:
         return dict(injected)  # tests supply their own sources
-    broker = getattr(request.app.state, "secret_broker", None)
-    transport = getattr(request.app.state, "kyb_transport", None)
-
-    def key() -> str | None:
-        try:
-            return str(broker.get("companies-house-api-key")) if broker else None
-        except Exception:  # noqa: BLE001 - the source then reports itself unavailable
-            return None
-
-    return {
-        "companies-house": CompaniesHouseKyb(key, transport),
-        "gleif": GleifKyb(transport),
-        "sirene": SireneKyb(transport),
-    }  # Creditsafe joins only when it is enabled in the routing and has credentials
+    return default_adapters(
+        getattr(request.app.state, "secret_broker", None),
+        getattr(request.app.state, "kyb_transport", None),
+    )
 
 
 def _gate(request: Request) -> Callable[[str], None]:

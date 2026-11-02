@@ -1,4 +1,12 @@
-import type { OrgClaimCheckState, OrgClaimHolding, OrgClaimOutcome, OrgClaimParty, OrgClaimScreening, OrgClaimStatus } from "@zoiko/api-client";
+import type {
+  OrgClaimCheckState,
+  OrgClaimHolding,
+  OrgClaimOutcome,
+  OrgClaimParty,
+  OrgClaimProofKind,
+  OrgClaimScreening,
+  OrgClaimStatus,
+} from "@zoiko/api-client";
 
 /** The four independent checks of WF-13B-03, in the order they are shown. A found company is not a verified person,
  * a verified person is not an authorized one, and none of it is a cleared risk review. */
@@ -103,6 +111,53 @@ export function attemptId(): string {
 /** A fresh idempotency key per intention, so a double click is one claim and a second company is a second claim. */
 export function claimKey(country: string, registrationNumber: string, attempt: string): string {
   return `claim-${country}-${registrationNumber}-${attempt}`.slice(0, 120);
+}
+
+/** What each kind of document is called, in the order a person is likely to need them. */
+export const PROOF_KINDS: { id: OrgClaimProofKind; label: string }[] = [
+  { id: "CERTIFICATE_OF_INCORPORATION", label: "Certificate of incorporation" },
+  { id: "REGISTER_EXTRACT", label: "Register extract" },
+  { id: "LETTER_OF_AUTHORITY", label: "Letter of authority" },
+  { id: "OWNERSHIP_CHART", label: "Ownership chart" },
+  { id: "BOARD_RESOLUTION", label: "Board resolution" },
+  { id: "OTHER", label: "Another document" },
+];
+export const PROOF_ACCEPT = "application/pdf,image/png,image/jpeg";
+export const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+
+/** A problem the browser can see before sending, in plain words; the server checks again whatever this says. */
+export function proofProblem(file: { name: string; size: number; type: string }): string | null {
+  if (file.size === 0) return "That file is empty.";
+  if (file.size > MAX_PROOF_BYTES) return "That file is larger than 10 MB.";
+  if (file.type && !PROOF_ACCEPT.split(",").includes(file.type)) return "Upload a PDF, PNG or JPEG file.";
+  return null;
+}
+
+/** The server's refusals in the product's words. An unknown code gets a neutral message, never the raw code. */
+const PROOF_MESSAGES: Record<string, string> = {
+  PROOF_TOO_LARGE: "That file is larger than 10 MB.",
+  PROOF_EMPTY: "That file is empty.",
+  PROOF_TYPE_NOT_ALLOWED: "Upload a PDF, PNG or JPEG file.",
+  PROOF_TYPE_MISMATCH: "That file is not the type it says it is.",
+  PROOF_ACTIVE_CONTENT: "That PDF contains scripts or embedded content and cannot be accepted.",
+  PROOF_MALFORMED: "That PDF is incomplete or damaged.",
+  PROOF_INFECTED: "That file was refused by the security scan.",
+  PROOF_SCAN_UNAVAILABLE: "Uploads are paused for a moment. Nothing was stored; try again shortly.",
+  PROOF_RESIDENCY_DENIED: "This organization's data region does not allow the document to be stored here.",
+  PROOF_LIMIT_REACHED: "This claim already holds the most documents it can.",
+};
+
+export function proofMessage(code: string | undefined): string {
+  return (code && PROOF_MESSAGES[code]) || "That document could not be added.";
+}
+
+/** One idempotency key per file choice, so a double click is one upload and a different file is another. */
+export function proofKey(claimId: string, file: { name: string; size: number }, attempt: string): string {
+  return `proof-${claimId.slice(0, 8)}-${file.size}-${attempt}`.slice(0, 120);
+}
+
+export function sizeLabel(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** What the next step is, from the checks alone. */

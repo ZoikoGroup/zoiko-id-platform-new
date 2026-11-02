@@ -1,7 +1,24 @@
 import type { OrgClaimStatus } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
-import { CHECKS, attemptId, buildScreening, claimKey, emptyOwner, nextStep, outcomeCopy, ownerRowErrors, pctValid, tidy } from "./org-claim";
+import {
+  CHECKS,
+  MAX_PROOF_BYTES,
+  PROOF_KINDS,
+  attemptId,
+  buildScreening,
+  claimKey,
+  emptyOwner,
+  nextStep,
+  outcomeCopy,
+  ownerRowErrors,
+  pctValid,
+  proofKey,
+  proofMessage,
+  proofProblem,
+  sizeLabel,
+  tidy,
+} from "./org-claim";
 
 const base: OrgClaimStatus = {
   claim_id: "c1",
@@ -80,5 +97,43 @@ describe("keys and next steps", () => {
     expect(nextStep({ ...base, checks: { ...base.checks, company: "PENDING" } })).toBe("wait");
     expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null } })).toBe("wait");
     expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
+  });
+});
+
+describe("supporting documents", () => {
+  const f = (over: Partial<{ name: string; size: number; type: string }> = {}) => ({ name: "certificate.pdf", size: 1024, type: "application/pdf", ...over });
+
+  it("flags what the browser can see before anything is sent", () => {
+    expect(proofProblem(f())).toBeNull();
+    expect(proofProblem(f({ type: "image/png" }))).toBeNull();
+    expect(proofProblem(f({ size: 0 }))).toMatch(/empty/i);
+    expect(proofProblem(f({ size: MAX_PROOF_BYTES + 1 }))).toMatch(/10 MB/);
+    expect(proofProblem(f({ type: "application/x-msdownload", name: "a.pdf" }))).toMatch(/PDF, PNG or JPEG/);
+    expect(proofProblem(f({ type: "" }))).toBeNull(); // an unknown type is left for the server, which reads the bytes
+  });
+
+  it("says every server refusal in plain words and never shows a raw code", () => {
+    for (const code of ["PROOF_TOO_LARGE", "PROOF_EMPTY", "PROOF_TYPE_NOT_ALLOWED", "PROOF_TYPE_MISMATCH", "PROOF_ACTIVE_CONTENT", "PROOF_MALFORMED", "PROOF_INFECTED", "PROOF_SCAN_UNAVAILABLE", "PROOF_RESIDENCY_DENIED", "PROOF_LIMIT_REACHED"]) {
+      expect(proofMessage(code)).not.toMatch(/PROOF_/);
+      expect(proofMessage(code).length).toBeGreaterThan(10);
+    }
+    expect(proofMessage("SOMETHING_NEW")).toBe("That document could not be added.");
+    expect(proofMessage(undefined)).toBe("That document could not be added.");
+  });
+
+  it("keeps one key per file choice and names every kind", () => {
+    const a = proofKey("0190abcd-1111", f(), "x1");
+    expect(a).toBe(proofKey("0190abcd-1111", f(), "x1"));
+    expect(a).not.toBe(proofKey("0190abcd-1111", f(), "x2"));
+    expect(a).not.toBe(proofKey("0190abcd-1111", f({ size: 2048 }), "x1"));
+    expect(a.length).toBeLessThanOrEqual(120);
+    expect(PROOF_KINDS.map((k) => k.id)).toContain("OTHER");
+    expect(PROOF_KINDS.every((k) => k.label.length > 3)).toBe(true);
+  });
+
+  it("writes sizes people can read", () => {
+    expect(sizeLabel(10)).toBe("1 KB");
+    expect(sizeLabel(2048)).toBe("2 KB");
+    expect(sizeLabel(3 * 1024 * 1024)).toBe("3.0 MB");
   });
 });

@@ -400,6 +400,18 @@ events:
     source: ZID-ED-03 Global Company Verification section 04-05; CR-043
     lane: domain
     source_status: "proposed"
+  organization.kyb.proof_added:
+    cloudevents_type: com.zoiko.id.organization.kyb.proof_added.v1
+    meaning: "A proof document was added to a company claim (case id, proof id, kind, media type, size, content hash and scan status; never the document or its name). A proof is evidence for a reviewer and never verifies a company."
+    source: WF-13B Global Company Verification section 06 (AT-12); ZID-ED-03; CR-043
+    lane: domain
+    source_status: "proposed"
+  organization.kyb.verification_lost:
+    cloudevents_type: com.zoiko.id.organization.kyb.verification_lost.v1
+    meaning: "A company that was verified no longer is (case id, previous and new status, reason codes, country and version; no company data beyond ids and codes). Whatever depends on the verification reads the case live and drops at once; the evidence stays on the ledger."
+    source: ZID-ED-03 Global Company Verification section 05, 08; WF-13B AT-11
+    lane: domain
+    source_status: "proposed"
   verification.screening.decided:
     cloudevents_type: com.zoiko.id.verification.screening.decided.v1
     meaning: "A director, beneficial-owner and sanctions screening decision was recorded (case id, decision status, reason codes, evidence hash, policy version, country and alert count; no names, dates of birth or list entry text)."

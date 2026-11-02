@@ -287,6 +287,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/org-claims/{claim_id}/proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proofs */
+        get: operations["list_proofs_v1_org_claims__claim_id__proofs_get"];
+        put?: never;
+        /** Upload Proof */
+        post: operations["upload_proof_v1_org_claims__claim_id__proofs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org-claims/{claim_id}/refresh": {
         parameters: {
             query?: never;
@@ -415,6 +433,23 @@ export interface paths {
         };
         /** Registration Status */
         get: operations["registration_status_v1_registration_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/kyb-cases/{case_id}/proofs/{proof_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Proof */
+        get: operations["read_proof_v1_reviews_kyb_cases__case_id__proofs__proof_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1295,6 +1330,76 @@ export interface operations {
             };
         };
     };
+    list_proofs_v1_org_claims__claim_id__proofs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_proof_v1_org_claims__claim_id__proofs_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "x-proof-kind": string;
+                "x-proof-name"?: string | null;
+            };
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     refresh_claim_v1_org_claims__claim_id__refresh_post: {
         parameters: {
             query?: never;
@@ -1558,6 +1663,38 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_proof_v1_reviews_kyb_cases__case_id__proofs__proof_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                proof_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

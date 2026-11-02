@@ -397,6 +397,14 @@ export function createCellApi(t: Transport) {
       status: (id: string) => get<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/status`),
       refresh: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/refresh`, {}),
       screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
+      proofs: (id: string) => get<M.OrgClaimProofs>(`/v1/org-claims/${seg(id)}/proofs`),
+      /** One supporting document, sent as the file itself. A repeat with the same key is the same document. */
+      uploadProof: (id: string, file: File, kind: M.OrgClaimProofKind, idempotencyKey: string) =>
+        t.request<M.OrgClaimProof>("POST", `/v1/org-claims/${seg(id)}/proofs`, {
+          raw: { data: file, contentType: file.type || "application/octet-stream" },
+          idempotencyKey,
+          headers: { "x-proof-kind": kind, "x-proof-name": file.name.slice(0, 200) },
+        }),
     },
 
     onboarding: {

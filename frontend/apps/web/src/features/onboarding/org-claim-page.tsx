@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { ProofsCard } from "./org-claim-proofs";
 import {
   CHECKS,
   CHECK_TONE,
@@ -145,11 +146,13 @@ function OwnerEditor({ owner, index, onChange, onRemove }: { owner: OwnerRow; in
         Can appoint or remove most of the board
       </label>
       {errors.length > 0 ? (
-        <ul className="space-y-1 text-xs font-medium text-danger-fg" role="alert">
-          {errors.map((e) => (
-            <li key={e}>{e}</li>
-          ))}
-        </ul>
+        <div role="alert">
+          <ul className="space-y-1 text-xs font-medium text-danger-fg">
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       <Button variant="secondary" size="sm" onPress={onRemove} icon={<Trash2 aria-hidden className="size-4" />}>
         Remove
@@ -276,6 +279,7 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
                 </Button>
               </div>
               {refresh.error ? <ApiErrorView error={refresh.error} title="The check could not be refreshed" /> : null}
+              <ProofsCard claimId={s.claim_id} />
             </div>
           );
         }}
