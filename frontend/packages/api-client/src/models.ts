@@ -1681,6 +1681,143 @@ export type StepUpTiers = {
   s2_never_accepts: string[];
   actions: { action: string; name: string; tier: string; escalates_to: string | null; family: string; gate: string; control: string }[];
 };
+export type ApprovalTier = "A1" | "A2";
+export type ApprovalCaseState =
+  | "PENDING_APPROVAL"
+  | "PARTIALLY_APPROVED"
+  | "APPROVED_READY"
+  | "EXECUTED"
+  | "FAILED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "INVALIDATED"
+  | "CANCELLED";
+export type ApprovalHold = "BLOCKED_INSUFFICIENT_APPROVERS" | "PENDING_INDEPENDENT_REVIEW";
+export type ApprovalVoteRow = {
+  vote_id: string;
+  approver_principal_id: string;
+  person_ref: string;
+  authority_basis: string;
+  vote: "APPROVE" | "REJECT";
+  step_up_tier: string | null;
+  step_up_proof_ref: string | null;
+  decided_at: string;
+};
+/** One immutable request version. The server decides quorum; `hold` and `you.reasons` explain a disabled Approve. */
+export type ApprovalCase = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  state: ApprovalCaseState;
+  hold: ApprovalHold | null;
+  approvals_received: number;
+  approvals_required: number;
+  independent_people_available: number;
+  summary: string;
+  reason: string;
+  payload: Record<string, unknown>;
+  gate: string;
+  /** Additional gates the platform can check: blocking ones refuse the request, the others inform the approver. */
+  gates: { code: string; ok: boolean; blocking: boolean; note: string }[];
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  requester_principal_id: string;
+  beneficiary_principal_id: string | null;
+  expires_at: string;
+  created_at: string;
+  approved_at: string | null;
+  applied_at: string | null;
+  votes: ApprovalVoteRow[];
+  notice: string;
+  you?: { may_vote: boolean; reasons: string[]; is_requester: boolean };
+};
+export type ApprovalCaseDraft = {
+  action_id: string;
+  target_id: string;
+  payload?: Record<string, unknown>;
+  reason: string;
+  ttl_seconds?: number;
+  evidence_ref?: string;
+};
+export type ApprovalExecution = {
+  outcome: "EXECUTED" | "FAILED";
+  replayed: boolean;
+  attempt: number;
+  reason_code: string | null;
+  result: Record<string, unknown>;
+  case: ApprovalCase;
+  /** An enrollment link: shown to the first caller only and never stored. */
+  shown_once?: Record<string, unknown>;
+  guidance?: string;
+};
+export type ApprovalPolicyRow = {
+  action_id: string;
+  tier: "A0" | "A1" | "A2" | "FORBIDDEN" | "CONTAINMENT";
+  scope: "CUSTOMER" | "PLATFORM";
+  votes_required: number;
+  approver_roles: string[];
+  executable: boolean;
+  /** Why nothing can apply this action (a platform rule or no such capability), or null. */
+  no_operation: string | null;
+  gate: string;
+};
+export type ApprovalPolicy = {
+  version: string;
+  policy_version: string;
+  enforcement: "SHADOW" | "ENFORCE";
+  assured_review: "ACTIVE" | "INACTIVE";
+  tiers: Record<string, number>;
+  actions: ApprovalPolicyRow[];
+};
+export type SoloStatus = {
+  eligible_human_member_count: number;
+  solo_mode: boolean;
+  region: string;
+  policy_version: string;
+  legal_form_resolved: boolean;
+  independent_routes: string[];
+  a2_requires: string;
+  message: string | null;
+};
+export type GovernanceReviewer = {
+  reviewer_id: string;
+  principal_id: string;
+  relationship: "EXTERNAL_PROFESSIONAL" | "CO_DIRECTOR" | "TRUSTEE" | "AUTHORIZED_DELEGATE";
+  status: "PROPOSED" | "ACTIVE" | "REVOKED" | "EXPIRED";
+  region: string;
+  expires_at: string;
+  activated_via: "A1_APPROVAL" | "PLATFORM_VERIFICATION" | null;
+  conflicts_declared: number;
+  kind: "REVIEWER";
+};
+export type ReviewerAppointIn = {
+  principal_id: string;
+  relationship: GovernanceReviewer["relationship"];
+  authority_basis: string;
+  independence_declaration: string;
+  declared_conflicts?: string[];
+};
+export type ApprovalEvidence = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  maker: { principal_id: string; person_ref: string };
+  editors: number;
+  checkers: ApprovalVoteRow[];
+  distinct_checkers: number;
+  transitions: { from: string; to: string; actor: string | null; reason_code: string; at: string }[];
+  executions: { attempt: number; outcome: string; reason_code: string | null; executed_at: string; idempotency_key_hash: string; quorum: Record<string, unknown> }[];
+  state: ApprovalCaseState;
+  audit: { target_type: string; target_ref: string; event_prefix: string };
+};
 export type PlanFeature = {
   feature: string;
   section: "baseline" | "standard" | "advanced";

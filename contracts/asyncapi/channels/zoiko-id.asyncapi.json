@@ -871,6 +871,59 @@
         }
       }
     },
+    "governance.domain": {
+      "address": "zid.{env}.{region}.governance.domain",
+      "messages": {
+        "governance_adjudication_requested": {
+          "$ref": "#/components/messages/governance_adjudication_requested"
+        },
+        "governance_approval_cancelled": {
+          "$ref": "#/components/messages/governance_approval_cancelled"
+        },
+        "governance_approval_case_created": {
+          "$ref": "#/components/messages/governance_approval_case_created"
+        },
+        "governance_approval_executed": {
+          "$ref": "#/components/messages/governance_approval_executed"
+        },
+        "governance_approval_expired": {
+          "$ref": "#/components/messages/governance_approval_expired"
+        },
+        "governance_approval_failed": {
+          "$ref": "#/components/messages/governance_approval_failed"
+        },
+        "governance_approval_vote_recorded": {
+          "$ref": "#/components/messages/governance_approval_vote_recorded"
+        },
+        "governance_containment_executed": {
+          "$ref": "#/components/messages/governance_containment_executed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "governance.priority": {
+      "address": "zid.{env}.{region}.governance.priority",
+      "messages": {
+        "governance_approval_invalidated": {
+          "$ref": "#/components/messages/governance_approval_invalidated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "identity_source.domain": {
       "address": "zid.{env}.{region}.identity_source.domain",
       "messages": {
@@ -3398,6 +3451,105 @@
         "x-zid-source": "ZID-AUTH-001",
         "x-zid-status": "catalogued"
       },
+      "governance_adjudication_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.adjudication.requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An organization, after two independent approvals, asked Zoiko iD for its own independent adjudication of a trust decision (case id, decision reference and request hash). No status was changed.",
+        "title": "governance.adjudication.requested",
+        "x-zid-source": "ZID-ENG-DEC-011 section 02; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_cancelled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.cancelled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The requester withdrew an approval case (case id).",
+        "title": "governance.approval.cancelled",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_case_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.case_created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approval case was requested (case id, action, tier, state, request hash, policy version, region and version; no payload).",
+        "title": "governance.approval.case_created",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_executed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.executed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approved case was applied once (case id, action, attempt and request hash).",
+        "title": "governance.approval.executed",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approval case reached its expiry without being applied (case id).",
+        "title": "governance.approval.expired",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An attempt to apply an approved case failed and changed nothing (case id, attempt and reason code).",
+        "title": "governance.approval.failed",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_invalidated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.invalidated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approval case can no longer be approved or applied: a material change, a stale policy, a changed region or a lost requester authority (case id and reason code).",
+        "title": "governance.approval.invalidated",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_vote_recorded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.vote_recorded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "One person's vote was recorded on an approval case (case id, vote, approvals received and required, request hash; no approver identity beyond the audit record).",
+        "title": "governance.approval.vote_recorded",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_containment_executed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.containment.executed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An immediate defensive action ran without waiting for approval (action id, region, reason and that a post-incident review is required).",
+        "title": "governance.containment.executed",
+        "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
       "identity_source_created": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.identity_source.created.v1",
@@ -5894,6 +6046,20 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/federation.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_governance_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/governance.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_governance_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/governance.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

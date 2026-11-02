@@ -7,6 +7,9 @@ Residency (F-W5; ZID-TENANCY-001):
 - `authorize_remote_access` support staff reading data from outside the company's region need an approved transfer;
 - `check_dependency_locations` refuses a dependency (subprocessor) whose locations cannot satisfy the profile;
 - `effective_operator_jurisdictions(conn, tenant, configured)` SRP-2/3 operator restrictions.
+Approvals (L-10; ZID-ENG-DEC-010 to 012): `create_case`, `cast_vote`, `execute_case`, `contain` are the one place a critical or sensitive
+change is requested, voted and applied (jobs, scripts and support tools call these, never the tables); `register_executor` adds what
+applies a kind of approved case; `legacy_path_gate` is the owners' enforcement switch for the earlier two-person path.
 Lifecycle (G-W0; ZID-OVERLAY-001 §2-4):
 - `load_tenant(conn, tenant)` the tenant record; `transition(conn, tenant, Move, ...)` the only way
   its lifecycle moves (the onboarding orchestrator supplies the gate report);
@@ -20,6 +23,17 @@ from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.tenant.application.approvals import (
+    ExecContext,
+    Executor,
+    Gate,
+    cast_vote,
+    contain,
+    create_case,
+    execute_case,
+    legacy_path_gate,
+    register_executor,
+)
 from zid_platform.modules.tenant.application.lifecycle import (
     BootstrapResult,
     ConsoleClient,
@@ -48,6 +62,7 @@ from zid_platform.modules.tenant.application.routing import (
     placement,
     tenant_state,
 )
+from zid_platform.modules.tenant.domain.approvals import ApprovalError
 from zid_platform.modules.tenant.domain.lifecycle import (
     Move,
     Role,
@@ -90,9 +105,13 @@ def matrix_gate(action_id: str, mode: Mode) -> Callable[..., Awaitable[None]]:
 
 __all__ = [
     "CATEGORY_CLASS",
+    "ApprovalError",
     "BootstrapResult",
     "ConsoleClient",
     "Declaration",
+    "ExecContext",
+    "Executor",
+    "Gate",
     "Mode",
     "Move",
     "ResidencyError",
@@ -112,15 +131,20 @@ __all__ = [
     "cached_home_cell",
     "cached_placement",
     "cached_tenant_state",
+    "cast_vote",
     "cell_catalog",
     "check_category_transfer",
     "check_dependency_locations",
+    "contain",
+    "create_case",
     "declared_registration",
     "effective_operator_jurisdictions",
     "enforcement_for",
     "ensure_member",
+    "execute_case",
     "forget",
     "home_cell",
+    "legacy_path_gate",
     "live_roles",
     "load_residency",
     "load_tenant",
@@ -128,6 +152,7 @@ __all__ = [
     "minimize",
     "placement",
     "register_acceptance_hook",
+    "register_executor",
     "self_signup",
     "set_fields",
     "tenant_state",

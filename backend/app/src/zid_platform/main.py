@@ -227,6 +227,7 @@ def create_app(
         from .modules.session.api.oauth import router as oauth_router
         from .modules.session.api.sessions import router as sessions_router
         from .modules.signals.api.signals import router as signals_router
+        from .modules.tenant.api.approvals import router as approval_cases_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
@@ -257,6 +258,7 @@ def create_app(
             privacy_router,
             residency_router,
             tenants_router,
+            approval_cases_router,
             onboarding_router,
             org_claims_router,
             signup_router,
@@ -293,6 +295,11 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
     configure_ledger(environment=settings.environment, region=settings.cell_id)
     app.state.commercial_enforcement = settings.commercial_enforcement
     app.state.step_up_enforcement = settings.step_up_enforcement
+    from . import approval_wiring  # noqa: F401  (registers approval executors that need other modules)
+
+    app.state.platform_tenant_id = (
+        settings.operator_tenant_id
+    )  # where Zoiko iD operations approve platform actions
     from .modules.commercial.ports import NoTaxConfigured, RecordingPayments
 
     # No tax engine and no payment processor are chosen yet (CR-027): tax answers 'not configured' and

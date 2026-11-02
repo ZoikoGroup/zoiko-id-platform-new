@@ -23,6 +23,115 @@
         "title": "Approved",
         "type": "object"
       },
+      "CaseCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Action Id",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Target Id",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Seconds"
+          }
+        },
+        "required": [
+          "action_id",
+          "target_id",
+          "reason"
+        ],
+        "title": "CaseCreate",
+        "type": "object"
+      },
+      "CaseRevise": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload",
+          "reason"
+        ],
+        "title": "CaseRevise",
+        "type": "object"
+      },
+      "Containment": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Action Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "reason"
+        ],
+        "title": "Containment",
+        "type": "object"
+      },
       "DomainBody": {
         "additionalProperties": false,
         "properties": {
@@ -97,6 +206,84 @@
         "title": "OwnerChange",
         "type": "object"
       },
+      "RecoveryOpen": {
+        "additionalProperties": false,
+        "properties": {
+          "identity_reproof_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Identity Reproof Ref",
+            "type": "string"
+          },
+          "principal_id": {
+            "format": "uuid",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "identity_reproof_ref",
+          "reason"
+        ],
+        "title": "RecoveryOpen",
+        "type": "object"
+      },
+      "ReviewerAppoint": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_basis": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Authority Basis",
+            "type": "string"
+          },
+          "declared_conflicts": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Declared Conflicts",
+            "type": "array"
+          },
+          "independence_declaration": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Independence Declaration",
+            "type": "string"
+          },
+          "principal_id": {
+            "format": "uuid",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "EXTERNAL_PROFESSIONAL",
+              "CO_DIRECTOR",
+              "TRUSTEE",
+              "AUTHORIZED_DELEGATE"
+            ],
+            "title": "Relationship",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "relationship",
+          "authority_basis",
+          "independence_declaration"
+        ],
+        "title": "ReviewerAppoint",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "OWNER",
@@ -107,6 +294,23 @@
           "MEMBER"
         ],
         "title": "Role",
+        "type": "string"
+      },
+      "State": {
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "PENDING_APPROVAL",
+          "PARTIALLY_APPROVED",
+          "APPROVED_READY",
+          "EXECUTED",
+          "FAILED",
+          "REJECTED",
+          "EXPIRED",
+          "INVALIDATED",
+          "CANCELLED"
+        ],
+        "title": "State",
         "type": "string"
       },
       "Suspend": {
@@ -192,15 +396,736 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VoteBody": {
+        "additionalProperties": false,
+        "description": "The vote and the hash the approver reviewed. Nothing about quorum, identity or freshness is taken from here.",
+        "properties": {
+          "request_hash": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "vote": {
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Vote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vote",
+          "request_hash"
+        ],
+        "title": "VoteBody",
+        "type": "object"
       }
     }
   },
   "info": {
-    "title": "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle)",
+    "title": "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle, approvals)",
     "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/approval-cases": {
+      "get": {
+        "operationId": "list_cases_v1_approval_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/State"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Cases V1 Approval Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Cases",
+        "tags": [
+          "approvals"
+        ]
+      },
+      "post": {
+        "operationId": "create_case_v1_approval_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Case V1 Approval Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Case",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}": {
+      "get": {
+        "operationId": "read_case_v1_approval_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Case V1 Approval Cases  Case Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Case",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}/evidence": {
+      "get": {
+        "operationId": "evidence_v1_approval_cases__case_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence V1 Approval Cases  Case Id  Evidence Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}/execute": {
+      "post": {
+        "operationId": "execute_v1_approval_cases__case_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Execute V1 Approval Cases  Case Id  Execute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}/votes": {
+      "post": {
+        "operationId": "cast_vote_v1_approval_cases__case_id__votes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cast Vote V1 Approval Cases  Case Id  Votes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cast Vote",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}:cancel": {
+      "post": {
+        "operationId": "cancel_v1_approval_cases__case_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel V1 Approval Cases  Case Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-cases/{case_id}:revise": {
+      "post": {
+        "operationId": "revise_v1_approval_cases__case_id__revise_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseRevise"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revise V1 Approval Cases  Case Id  Revise Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revise",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-policy": {
+      "get": {
+        "operationId": "policy_v1_approval_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Policy V1 Approval Policy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Policy",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/approval-policy/actions/{action_id}": {
+      "get": {
+        "operationId": "policy_action_v1_approval_policy_actions__action_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Policy Action V1 Approval Policy Actions  Action Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Policy Action",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/containment-actions": {
+      "post": {
+        "operationId": "contain_v1_containment_actions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Containment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Contain V1 Containment Actions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contain",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/governance/reviewers": {
+      "get": {
+        "operationId": "list_reviewers_v1_governance_reviewers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Reviewers V1 Governance Reviewers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Reviewers",
+        "tags": [
+          "approvals"
+        ]
+      },
+      "post": {
+        "operationId": "appoint_reviewer_v1_governance_reviewers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerAppoint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appoint Reviewer V1 Governance Reviewers Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appoint Reviewer",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/governance/reviewers/{reviewer_id}:revoke": {
+      "post": {
+        "operationId": "revoke_reviewer_v1_governance_reviewers__reviewer_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reviewer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reviewer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Reviewer V1 Governance Reviewers  Reviewer Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Reviewer",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/governance/solo-status": {
+      "get": {
+        "operationId": "solo_status_v1_governance_solo_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Solo Status V1 Governance Solo Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Solo Status",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/recovery-cases": {
+      "post": {
+        "description": "A privileged recovery is an A2 case: independent re-proofing is named, two independent people approve the unmodified request,\nand the result is a narrow, expiring, single-use capability. Nothing is restored silently.",
+        "operationId": "open_recovery_v1_recovery_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryOpen"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Recovery V1 Recovery Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Recovery",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/v1/tenant": {
       "get": {
         "operationId": "read_tenant_v1_tenant_get",

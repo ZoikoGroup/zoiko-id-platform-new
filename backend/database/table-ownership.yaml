@@ -1089,6 +1089,36 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "ENG-DEC-007 invariant 2: accounts that are one natural person, for separation of duties (CR-044)"
+  platform.approval_case:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: one immutable approval request version (CR-047)"
+  platform.approval_case_transition:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010: every approval state change, append-only (CR-047)"
+  platform.approval_vote:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: one vote per approving person per case (CR-047)"
+  platform.approval_execution:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: every attempt to apply an approved case (CR-047)"
+  platform.approval_consumption:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-011: a platform A2 authorization is consumed once by the operation it authorizes (CR-047)"
+  platform.governance_reviewer:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-012: appointed independent reviewers of an organization (CR-047)"
   platform.tenant_registration:
     role: cell
     module: tenant

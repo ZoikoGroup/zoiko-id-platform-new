@@ -7,7 +7,7 @@ import { visibleNav } from "./nav-access";
 const icon = (() => null) as unknown as NavGroup["items"][number]["icon"];
 const item = (id: string) => ({ id, label: id, href: `/${id}`, icon });
 const NAV: NavGroup[] = [
-  { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "domains", "applications", "integrations", "team", "billing", "contacts", "settings"].map(item) },
+  { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "settings"].map(item) },
   { label: "My account", items: ["account", "sessions", "passkeys"].map(item) },
   { label: "Administration", items: ["idp", "authority", "mandates", "policies"].map(item) },
 ];
@@ -25,6 +25,7 @@ describe("UX-02 role default: a Member sees no administration", () => {
     expect(seen).toContain("onboarding");
     expect(seen).toContain("organization");
     expect(seen).not.toContain("team");
+    expect(seen).not.toContain("approvals");
     expect(seen).not.toContain("authority");
   });
 

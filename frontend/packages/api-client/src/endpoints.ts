@@ -99,6 +99,26 @@ export function createCellApi(t: Transport) {
       verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
       cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
     },
+    approvals: {
+      policy: () => get<M.ApprovalPolicy>("/v1/approval-policy"),
+      soloStatus: () => get<M.SoloStatus>("/v1/governance/solo-status"),
+      list: (q: { state?: M.ApprovalCaseState; limit?: number } = {}) => get<M.Items<M.ApprovalCase>>("/v1/approval-cases", q),
+      read: (id: string) => get<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}`),
+      create: (draft: M.ApprovalCaseDraft) => post<M.ApprovalCase>("/v1/approval-cases", draft),
+      /** The vote carries a step-up proof made for this case, this hash and this vote (see `stepUp.challenge`). */
+      vote: (id: string, vote: "APPROVE" | "REJECT", requestHash: string, proof: string) =>
+        post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}/votes`, { vote, request_hash: requestHash }, withProof(proof)),
+      revise: (id: string, payload: Record<string, unknown>, reason: string) => post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}:revise`, { payload, reason }),
+      cancel: (id: string) => post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}:cancel`),
+      execute: (id: string, idempotencyKey: string) => post<M.ApprovalExecution>(`/v1/approval-cases/${seg(id)}/execute`, undefined, { idempotencyKey }),
+      evidence: (id: string) => get<M.ApprovalEvidence>(`/v1/approval-cases/${seg(id)}/evidence`),
+      openRecovery: (b: { principal_id: string; identity_reproof_ref: string; reason: string }) => post<M.ApprovalCase>("/v1/recovery-cases", b),
+      contain: (b: { action_id: string; payload?: Record<string, unknown>; reason: string }) =>
+        post<{ action_id: string; executed_at: string; region: string; post_incident_review: "REQUIRED" }>("/v1/containment-actions", b),
+      reviewers: () => get<M.Items<M.GovernanceReviewer>>("/v1/governance/reviewers"),
+      appointReviewer: (b: M.ReviewerAppointIn) => post<M.GovernanceReviewer & { activation_case: M.ApprovalCase }>("/v1/governance/reviewers", b),
+      revokeReviewer: (id: string) => post<M.GovernanceReviewer>(`/v1/governance/reviewers/${seg(id)}:revoke`),
+    },
     me: {
       userinfo: () => get<M.UserInfo>("/oauth2/userinfo"),
       sessions: () => get<M.Items<M.SessionView>>("/sessions"),

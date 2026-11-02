@@ -47,3 +47,4 @@ Raised by engineering when a decision ([docs/phases/](../../phases/README.md)) o
 | [CR-044](CR-044-role-feature-matrix.md) | ZID-ENG-DEC-007; ZID-OVERLAY-001 §4 | Five tenant roles, the role by feature matrices and their decision evidence | Phase L L-7 | Open (built) |
 | [CR-045](CR-045-capability-bands-and-usage-reservations.md) | ZID-ENG-DEC-008; ZID-COM-001 §6, §29 | Capability bands C1 to C5 over the Commercial Estate, the meter register and idempotent usage reservations | Phase L L-8 | Open (built) |
 | [CR-046](CR-046-step-up-authentication.md) | ZID-ENG-DEC-009; ZID-AUTH-001 §3-5 | Step-up tiers S0 to S2, action-bound single-use proofs and the guard on sensitive routes | Phase L L-9 | Open (built) |
+| [CR-047](CR-047-approval-tiers-and-governance.md) | ZID-ENG-DEC-010; ZID-ENG-DEC-011; ZID-ENG-DEC-012 | Approval tiers A0/A1/A2, the approval service, independent reviewers, containment and recovery cases | Phase L L-10 | Open (built) |

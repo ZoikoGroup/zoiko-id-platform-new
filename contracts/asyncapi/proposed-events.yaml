@@ -406,3 +406,57 @@ events:
     source: ZID-ED-04 Director, Beneficial Owner and Sanctions Screening section 04-06; CR-043
     lane: domain
     source_status: "proposed"
+  governance.approval.case_created:
+    cloudevents_type: com.zoiko.id.governance.approval.case_created.v1
+    meaning: "An approval case was requested (case id, action, tier, state, request hash, policy version, region and version; no payload)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.vote_recorded:
+    cloudevents_type: com.zoiko.id.governance.approval.vote_recorded.v1
+    meaning: "One person's vote was recorded on an approval case (case id, vote, approvals received and required, request hash; no approver identity beyond the audit record)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.executed:
+    cloudevents_type: com.zoiko.id.governance.approval.executed.v1
+    meaning: "An approved case was applied once (case id, action, attempt and request hash)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.failed:
+    cloudevents_type: com.zoiko.id.governance.approval.failed.v1
+    meaning: "An attempt to apply an approved case failed and changed nothing (case id, attempt and reason code)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.invalidated:
+    cloudevents_type: com.zoiko.id.governance.approval.invalidated.v1
+    meaning: "An approval case can no longer be approved or applied: a material change, a stale policy, a changed region or a lost requester authority (case id and reason code)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: priority
+    source_status: "proposed"
+  governance.approval.expired:
+    cloudevents_type: com.zoiko.id.governance.approval.expired.v1
+    meaning: "An approval case reached its expiry without being applied (case id)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.cancelled:
+    cloudevents_type: com.zoiko.id.governance.approval.cancelled.v1
+    meaning: "The requester withdrew an approval case (case id)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.containment.executed:
+    cloudevents_type: com.zoiko.id.governance.containment.executed.v1
+    meaning: "An immediate defensive action ran without waiting for approval (action id, region, reason and that a post-incident review is required)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: priority
+    source_status: "proposed"
+  governance.adjudication.requested:
+    cloudevents_type: com.zoiko.id.governance.adjudication.requested.v1
+    meaning: "An organization, after two independent approvals, asked Zoiko iD for its own independent adjudication of a trust decision (case id, decision reference and request hash). No status was changed."
+    source: ZID-ENG-DEC-011 section 02; CR-047
+    lane: domain
+    source_status: "proposed"

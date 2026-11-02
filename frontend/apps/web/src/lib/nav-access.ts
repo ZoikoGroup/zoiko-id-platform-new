@@ -6,7 +6,7 @@ export type NavStanding = { isAdmin: boolean; pendingOwner: boolean };
 /** Company administration. A person without an administrator role is not shown these controls (UX-02): the cell still
  * refuses the calls by itself (UX-03), so hiding is courtesy, never the protection. */
 const ADMIN_ITEMS = new Set([
-  "onboarding", "organization", "domains", "applications", "integrations", "team", "billing", "contacts", "settings",
+  "onboarding", "organization", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "settings",
 ]);
 /** What the registrant who has not yet been confirmed as owner needs: the way to get confirmed. */
 const SETUP_ITEMS = new Set(["onboarding", "organization"]);

@@ -26,10 +26,11 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from zid_context import RequestContext
 from zid_db import tenant_transaction
 
+from zid_platform.modules.operator_access.domain.model import OperatorRole
 from zid_platform.settings import Settings
 
 
@@ -71,12 +72,47 @@ def enrollment_base(settings: Settings) -> str:
     return origin
 
 
+async def require_platform_authorization(
+    c: AsyncConnection,
+    settings: Settings,
+    tenant: str,
+    principal: str,
+    roles: frozenset[OperatorRole],
+) -> None:
+    """Registering an operator is a root or super-admin grant: a critical platform action (Decision 11). In a deployed environment every
+    operator after the first needs an executed platform approval for exactly this account and these roles; the guard uses it up. The
+    first operator is the bootstrap exception: nobody independent exists yet to approve it, so it is created from configuration by whoever
+    controls the deployment, and the owners' pack records that. Local and test environments are not gated."""
+    if settings.environment in ("local", "test"):
+        return
+    existing = (
+        await c.execute(text("SELECT count(*) FROM platform.operator_profile"))
+    ).scalar_one()
+    if not existing:
+        return
+    from zid_platform.modules.tenant.application.approvals import consume_authorization
+    from zid_platform.modules.tenant.domain.approvals import ApprovalError
+
+    try:
+        await consume_authorization(
+            c,
+            tenant,
+            action_id="root-super-admin-or-global-break-glass-grant",
+            target_id=f"principal:{principal}",
+            payload={"principal_id": principal, "roles": sorted(r.value for r in roles)},
+            consumer="bootstrap_operator",
+        )
+    except ApprovalError as e:
+        raise BootstrapError(
+            f"a platform approval is required to register another operator ({e.code})"
+        ) from e
+
+
 async def bootstrap(
     settings: Settings, database_url: str, *, issue_ticket_link: bool, now: datetime | None = None
 ) -> str | None:
     from zid_platform.modules.authentication.infrastructure.authenticator_store import issue_ticket
     from zid_platform.modules.operator_access.application.service import register_operator
-    from zid_platform.modules.operator_access.domain.model import OperatorRole
     from zid_platform.modules.operator_access.infrastructure.store import load_profile
     from zid_platform.modules.principal.domain.principal import (
         Principal,
@@ -151,6 +187,7 @@ async def bootstrap(
                 )
                 print(f"OAuth client {client_id} created, redirect {', '.join(uris)}")
             if await load_profile(c, principal) is None:
+                await require_platform_authorization(c, settings, tenant, principal, roles)
                 await register_operator(
                     c,
                     tenant_id=tenant,

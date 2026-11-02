@@ -5,6 +5,7 @@ import { AppShell, Banner, StatusBarItems, StatusBadge, type AlertItem, type Com
 import {
   AppWindow,
   BadgeCheck,
+  ClipboardCheck,
   Building2,
   Cable,
   FileCode2,
@@ -62,6 +63,7 @@ const NAV: NavGroup[] = [
       { id: "applications", label: "Applications", href: "/admin/applications", icon: AppWindow },
       { id: "integrations", label: "Integrations", href: "/admin/integrations", icon: Cable },
       { id: "team", label: "Team & invitations", href: "/admin/team", icon: UserPlus },
+      { id: "approvals", label: "Approvals", href: "/admin/approvals", icon: ClipboardCheck },
       { id: "billing", label: "Billing", href: "/admin/billing", icon: Receipt },
       { id: "contacts", label: "Email contacts", href: "/admin/contacts", icon: Mail },
       { id: "settings", label: "Company settings", href: "/admin/settings", icon: Settings },
