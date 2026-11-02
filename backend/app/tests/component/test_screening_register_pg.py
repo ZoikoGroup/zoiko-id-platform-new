@@ -486,7 +486,7 @@ def test_the_retry_gap_does_not_fill_the_evidence_when_nothing_changed(rt_url: s
 
 
 def test_granting_a_privileged_role_asks_for_a_rescreen_of_the_organizations_live_cases(
-    world: Any,
+    world: Any,  # noqa: F811
 ) -> None:
     """ZID-ED-04 section 07: privilege escalation is a trigger. The executor of the privileged-role grant asks; the worker answers."""
     w = world
