@@ -1268,3 +1268,133 @@ def test_registering_another_operator_needs_a_platform_approval_in_a_deployed_en
     assert w.execute(w.o.owner, case["case_id"]).json()["outcome"] == "EXECUTED"
     assert asyncio.run(attempt(deployed, second)) == "ALLOWED"
     assert asyncio.run(attempt(deployed, second)) == "REFUSED"  # the approval was used up
+
+
+# ---------------------------------------------------------------------------------- L-10 completion: execution-time checks
+
+
+def test_a_country_that_closes_after_the_vote_stops_the_run_and_two_votes_cannot_reopen_it(
+    world: World, monkeypatch: Any
+) -> None:
+    """Decision 12 test 07 and Decision 11 order: execution rechecks the country. The refusal is recorded as a failed attempt that
+    changes nothing, and the same approval runs once the country allows it again."""
+    w = world
+    a1, a2, target = w.person(), w.person(), w.person(None)
+    case = w.create(w.o.owner, OWNER_TRANSFER, "t", {"principal_id": target}).json()
+    assert w.vote(a1, case).status_code == 201 and w.vote(a2, case).status_code == 201
+
+    async def closed(conn: Any, tenant_id: str) -> str:
+        return "COUNTRY_CAPABILITY_UNAVAILABLE"
+
+    monkeypatch.setattr(svc, "_STANDING", closed)
+    done = w.execute(w.o.owner, case["case_id"], "closed").json()
+    assert done["outcome"] == "FAILED" and done["reason_code"] == "COUNTRY_CAPABILITY_UNAVAILABLE"
+    assert target not in w.owner_roles()
+    monkeypatch.setattr(svc, "_STANDING", None)
+    again = w.execute(w.o.owner, case["case_id"], "reopened").json()
+    assert again["outcome"] == "EXECUTED" and target in w.owner_roles()
+
+
+def test_the_country_check_is_the_registrys_answer_and_a_deployed_environment_needs_a_known_country(
+    world: World,
+) -> None:
+    """The check composed at start-up: sandbox environments allow a tenant built directly, a deployed one refuses a tenant whose
+    country is unknown."""
+    from zid_platform.country_gate import tenant_standing_check
+
+    w = world
+
+    async def run(env: str) -> Any:
+        async with engine(w.rt_url) as eng, tenant_transaction(eng, ctx(w.o.tenant)) as c:
+            return await tenant_standing_check(env)(c, w.o.tenant)
+
+    assert asyncio.run(run("test")) is None
+    assert asyncio.run(run("production")) == "COUNTRY_NOT_DECLARED"
+    assert svc.standing_check_configured()  # create_app composed it
+
+
+def test_removing_an_owner_checks_the_successor_when_asked_and_again_when_it_runs(
+    world: World,
+) -> None:
+    """Decision 11 gate for removing an Owner: prohibit orphaning and verify the successor. A remaining Owner must exist and hold a
+    passkey, and that is checked again at execution."""
+    w = world
+    leaving = w.person("OWNER")
+    a1, a2 = w.person(), w.person()
+    case = w.create(
+        w.o.owner, "removal-of-last-owner-or-control-chain", "t", {"principal_id": leaving}
+    ).json()
+    assert {g["code"]: g["ok"] for g in case["gates"]} == {
+        "OWNER_REMAINS": True,
+        "REMAINING_OWNER_STRONG_AUTHENTICATOR": True,
+    }
+    assert w.vote(a1, case).status_code == 201 and w.vote(a2, case).status_code == 201
+
+    async def drop_keys(c: Any) -> None:
+        await c.execute(
+            text("UPDATE authn.authenticator SET status = 'REVOKED' WHERE principal_id = :p"),
+            {"p": uuid.UUID(w.o.owner)},
+        )
+
+    try:
+        w.run(drop_keys)
+    except DBAPIError:
+        pytest.skip("authenticators cannot be revoked by update here")
+    done = w.execute(w.o.owner, case["case_id"]).json()
+    assert (
+        done["outcome"] == "FAILED"
+        and done["reason_code"] == "REMAINING_OWNER_STRONG_AUTHENTICATOR"
+    )
+    assert leaving in w.owner_roles()  # nobody was removed
+
+
+def test_recovery_ends_the_targets_sessions_and_is_refused_if_they_stopped_being_privileged(
+    world: World,
+) -> None:
+    """Decision 11 section 07: revoke the compromised sessions. A new security revision makes every session the account holds
+    sign in again; the gates are checked at execution, so an approval cannot recover an account that lost its privilege."""
+    w = world
+    admin = w.person("ADMIN")
+    lost, gone = w.person("APPROVER", passkey=False), w.person("APPROVER", passkey=False)
+    a1, a2 = w.person(), w.person()
+
+    def revision(who: str) -> int:
+        async def work(c: Any) -> int:
+            row = (
+                await c.execute(
+                    text("SELECT security_revision FROM core.principal WHERE principal_id = :p"),
+                    {"p": uuid.UUID(who)},
+                )
+            ).one()
+            return int(row.security_revision)
+
+        return int(w.run(work))
+
+    def open_case(target: str) -> dict[str, Any]:
+        r = w.http.post(
+            "/v1/recovery-cases",
+            headers=w.h(admin),
+            json={"principal_id": target, "identity_reproof_ref": "idv/1", "reason": "lost"},
+        )
+        assert r.status_code == 201, r.text
+        return dict(r.json())
+
+    ok = open_case(lost)
+    assert {g["code"] for g in ok["gates"]} == {
+        "RECOVERY_TARGET_ACTIVE_PERSON",
+        "RECOVERY_TARGET_PRIVILEGED",
+        "SESSIONS_ENDED_ON_RUN",
+    }
+    assert w.vote(a1, ok).status_code == 201 and w.vote(a2, ok).status_code == 201
+    before = revision(lost)
+    done = w.execute(admin, ok["case_id"]).json()
+    assert done["outcome"] == "EXECUTED" and done["result"]["sessions_ended"] is True
+    assert revision(lost) == before + 1
+
+    stale = open_case(gone)
+    assert w.vote(a1, stale).status_code == 201 and w.vote(a2, stale).status_code == 201
+    w.revoke_role(gone)
+    before = revision(gone)
+    refused = w.execute(admin, stale["case_id"]).json()
+    assert refused["outcome"] == "FAILED" and refused["reason_code"] == "RECOVERY_TARGET_PRIVILEGED"
+    assert revision(gone) == before  # a refused run ends nothing

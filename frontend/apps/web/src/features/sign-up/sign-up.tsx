@@ -6,6 +6,8 @@ import { Banner, Button, ButtonLink, Card, RadioCards, TextField } from "@zoiko/
 import { ShieldCheck } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
 
+import { TERMS } from "@/lib/legal";
+
 import { SignUpStatus } from "./status";
 import {
   canSubmit,
@@ -250,9 +252,11 @@ export function SignUp() {
         <a className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline" href="/sign-in">
           Already have a Zoiko iD? Sign in
         </a>
-        <a className="inline-flex min-h-11 items-center text-ink-muted hover:underline" href="/legal/terms">
-          Terms of Service
-        </a>
+        {TERMS.published ? (
+          <a className="inline-flex min-h-11 items-center text-ink-muted hover:underline" href="/legal/terms">
+            Terms of Service
+          </a>
+        ) : null}
         <a className="inline-flex min-h-11 items-center text-ink-muted hover:underline" href="/legal/privacy">
           Privacy Notice
         </a>

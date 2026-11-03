@@ -35,7 +35,7 @@ export async function get(path: string, params: Record<string, string | null>, e
 
 type Body = Record<string, unknown>;
 
-export async function post(req: Request, path: string, fields: string[], opts: { onOk?: (payload: Record<string, unknown>) => string[] } = {}): Promise<Response> {
+export async function post(req: Request, path: string, fields: string[], opts: { onOk?: (payload: Record<string, unknown>) => string[]; replacesHeld?: boolean } = {}): Promise<Response> {
   if (!sameOrigin(req)) return errorJson(403, "CSRF_REJECTED", "The request could not be verified.");
   let body: Body;
   try {
@@ -48,6 +48,13 @@ export async function post(req: Request, path: string, fields: string[], opts: {
   if (fields.includes("request_id") && !fields.includes("token") && forward.request_id === undefined) {
     const held = cookieValue(req, REQUEST_COOKIE);
     if (held) forward.request_id = held;
+  }
+  if (opts.replacesHeld) {
+    // A new request from the browser that already holds an open one ends the earlier one (state S3, change the address). Only this
+    // browser's own cookie can name it; whatever the page body says is ignored.
+    const held = cookieValue(req, REQUEST_COOKIE);
+    if (held) forward.replaces = held;
+    else delete forward.replaces;
   }
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
   const key = req.headers.get("idempotency-key");

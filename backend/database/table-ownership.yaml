@@ -1144,6 +1144,16 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "ENG-DEC-012: appointed independent reviewers of an organization (CR-047)"
+  platform.billing_grant:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "COM-CL-002: billing permissions the Owner gave one member; revoke only, never edited (CR-050)"
+  platform.approval_attachment:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013C AT-12: documents attached to an approval request, append-only (CR-051)"
   platform.registration_intent:
     role: cell
     module: onboarding

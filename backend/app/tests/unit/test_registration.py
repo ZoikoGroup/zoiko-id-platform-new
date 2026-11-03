@@ -33,7 +33,7 @@ TABLE = {"GB": ["uk-1", "local-1"], "DE": ["eu-1"], "US": ["us-1"]}
 
 
 def _env(here: str = "uk-1", endpoints: dict[str, str] | None = None) -> Env:
-    return Env("t", here, "2026-10-22", "test", None, endpoints or {})
+    return Env("t", here, "2026-11-03", "test", None, endpoints or {})
 
 
 def _intent(token: str | None = None, **kw) -> Intent:

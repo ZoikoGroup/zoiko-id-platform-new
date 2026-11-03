@@ -31,6 +31,7 @@ import {
   statusTone,
   stepUpDraft,
 } from "./logic";
+import { AttachmentsCard } from "./attachments";
 import { StatusWord } from "./parts";
 import { Refusal, ReviseDialog, Row, ShownOnce, useOrgId } from "./shared";
 
@@ -186,18 +187,7 @@ function Decision({ orgId, c, refetch }: { orgId: string; c: OrgApprovalCase; re
         </p>
       </Card>
 
-      <Card title="Evidence summary">
-        <p className="text-sm text-ink-muted">
-          {c.evidence.reference ? (
-            <>
-              Reference <span className="font-mono text-xs">{c.evidence.reference}</span>.{" "}
-            </>
-          ) : (
-            "No evidence reference was attached. "
-          )}
-          Restricted evidence opens only through separately authorized, expiring access. It is never shown here.
-        </p>
-      </Card>
+      <AttachmentsCard orgId={orgId} requestId={c.case_id} reference={c.evidence.reference ?? null} />
 
       <Card title="Approval progress">
         {isRequesterView(c) ? (

@@ -25,10 +25,13 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.tenant.application.approvals import (
+    CaseAccess,
     ExecContext,
     Executor,
     Gate,
+    case_access,
     cast_vote,
+    configure_standing_check,
     contain,
     create_case,
     execute_case,
@@ -106,10 +109,19 @@ def matrix_gate(action_id: str, mode: Mode) -> Callable[..., Awaitable[None]]:
     return gate(action_id, mode)
 
 
+def billing_permission_checker() -> Callable[..., Awaitable[None]]:
+    """The billing permission decision (see `api/billing_access.py`), handed to the commercial module at start-up. Imported on first
+    use for the same reason as `matrix_gate`."""
+    from zid_platform.modules.tenant.api.billing_access import check_permission
+
+    return check_permission
+
+
 __all__ = [
     "CATEGORY_CLASS",
     "ApprovalError",
     "BootstrapResult",
+    "CaseAccess",
     "ConsoleClient",
     "Declaration",
     "ExecContext",
@@ -130,14 +142,17 @@ __all__ = [
     "advance_placement",
     "authorize_remote_access",
     "authorize_transfer",
+    "billing_permission_checker",
     "bump_configuration",
     "cached_home_cell",
     "cached_placement",
     "cached_tenant_state",
+    "case_access",
     "cast_vote",
     "cell_catalog",
     "check_category_transfer",
     "check_dependency_locations",
+    "configure_standing_check",
     "console_client_for",
     "contain",
     "create_case",

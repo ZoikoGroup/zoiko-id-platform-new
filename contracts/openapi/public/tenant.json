@@ -113,6 +113,47 @@
         "title": "Approved",
         "type": "object"
       },
+      "BillingGrantBody": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Bundle",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grantee_principal_id": {
+            "format": "uuid",
+            "title": "Grantee Principal Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grantee_principal_id",
+          "bundle",
+          "reason"
+        ],
+        "title": "BillingGrantBody",
+        "type": "object"
+      },
       "CaseCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1551,6 +1592,214 @@
         ]
       }
     },
+    "/v1/organizations/{org_id}/approvals/{request_id}/attachments": {
+      "get": {
+        "operationId": "list_attachments_v1_organizations__org_id__approvals__request_id__attachments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Attachments V1 Organizations  Org Id  Approvals  Request Id  Attachments Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attachments",
+        "tags": [
+          "approvals"
+        ]
+      },
+      "post": {
+        "operationId": "attach_v1_organizations__org_id__approvals__request_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-attachment-kind",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 2,
+              "title": "X-Attachment-Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-attachment-name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Attachment-Name"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Attach V1 Organizations  Org Id  Approvals  Request Id  Attachments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/v1/organizations/{org_id}/approvals/{request_id}/attachments/{attachment_id}": {
+      "get": {
+        "operationId": "open_attachment_v1_organizations__org_id__approvals__request_id__attachments__attachment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Attachment",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/v1/organizations/{org_id}/approvals/{request_id}/decisions": {
       "post": {
         "operationId": "decide_v1_organizations__org_id__approvals__request_id__decisions_post",
@@ -1829,6 +2078,139 @@
           }
         },
         "summary": "Read Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/v1/tenant/billing-access/me": {
+      "get": {
+        "description": "What this person can do in billing, so the page shows only the controls they can use. The server still decides each call.",
+        "operationId": "my_billing_access_v1_tenant_billing_access_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Billing Access V1 Tenant Billing Access Me Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Billing Access",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/v1/tenant/billing-grants": {
+      "get": {
+        "operationId": "billing_grants_v1_tenant_billing_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Billing Grants V1 Tenant Billing Grants Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Billing Grants",
+        "tags": [
+          "tenant"
+        ]
+      },
+      "post": {
+        "operationId": "give_billing_access_v1_tenant_billing_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingGrantBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Give Billing Access V1 Tenant Billing Grants Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Billing Access",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/v1/tenant/billing-grants/{grant_id}:revoke": {
+      "post": {
+        "operationId": "take_billing_access_away_v1_tenant_billing_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Take Billing Access Away V1 Tenant Billing Grants  Grant Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Billing Access Away",
         "tags": [
           "tenant"
         ]

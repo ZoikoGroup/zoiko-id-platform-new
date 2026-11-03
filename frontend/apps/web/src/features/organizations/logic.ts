@@ -1,4 +1,5 @@
 import type {
+  ApprovalAttachmentKind,
   ApprovalScope,
   OnboardingItem,
   OrgApprovalCase,
@@ -226,4 +227,51 @@ export function remediationKeyFor(line: string): string | null {
     ["Secure every privileged account", "privileged_account"],
   ];
   return pairs.find(([title]) => line.startsWith(title))?.[1] ?? null;
+}
+
+// ---- documents on a request (WF-013C AT-12)
+
+export const ATTACHMENT_KINDS: { id: ApprovalAttachmentKind; label: string }[] = [
+  { id: "SUPPORTING_DOCUMENT", label: "Supporting document" },
+  { id: "AUTHORITY_DOCUMENT", label: "Document showing authority" },
+  { id: "IDENTITY_REPROOF_RECORD", label: "Identity re-proofing record" },
+  { id: "OTHER", label: "Another document" },
+];
+export const ATTACHMENT_ACCEPT = "application/pdf,image/png,image/jpeg";
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+/** A problem the browser can see before sending, in plain words; the server checks the file's own bytes again whatever this says. */
+export function attachmentProblem(file: { size: number; type: string }): string | null {
+  if (file.size === 0) return "That file is empty.";
+  if (file.size > MAX_ATTACHMENT_BYTES) return "That file is larger than 10 MB.";
+  if (file.type && !ATTACHMENT_ACCEPT.split(",").includes(file.type)) return "Upload a PDF, PNG or JPEG file.";
+  return null;
+}
+
+const ATTACHMENT_MESSAGES: Record<string, string> = {
+  ATTACHMENT_TOO_LARGE: "That file is larger than 10 MB.",
+  ATTACHMENT_EMPTY: "That file is empty.",
+  ATTACHMENT_TYPE_NOT_ALLOWED: "Upload a PDF, PNG or JPEG file.",
+  ATTACHMENT_TYPE_MISMATCH: "That file is not the type it says it is.",
+  ATTACHMENT_ACTIVE_CONTENT: "That PDF contains scripts or embedded content and cannot be accepted.",
+  ATTACHMENT_MALFORMED: "That PDF is incomplete or damaged.",
+  ATTACHMENT_INFECTED: "That file was refused by the security scan.",
+  ATTACHMENT_SCAN_UNAVAILABLE: "Uploads are paused for a moment. Nothing was stored; try again shortly.",
+  ATTACHMENT_RESIDENCY_DENIED: "This organization's data region does not allow the document to be stored here.",
+  ATTACHMENT_LIMIT_REACHED: "This request already holds the most documents it can.",
+  ATTACHMENT_NOT_PERMITTED: "Documents can be added only by the requester, while the request is open and nobody has voted.",
+  ATTACHMENT_EXPIRED: "Access to this document ended with the request.",
+};
+
+/** The server's refusals in the product's words. An unknown code gets a neutral message, never the raw code. */
+export function attachmentMessage(code: string | undefined): string {
+  return (code && ATTACHMENT_MESSAGES[code]) || "That document could not be added.";
+}
+
+/** One idempotency key per file choice, so a double click is one upload and a different file is another. */
+export const attachmentKey = (requestId: string, file: { size: number }, attempt: string) =>
+  `attach-${requestId.slice(0, 8)}-${file.size}-${attempt}`.slice(0, 120);
+
+export function attachmentSize(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

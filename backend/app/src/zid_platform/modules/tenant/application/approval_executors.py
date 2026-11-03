@@ -19,7 +19,12 @@ from zid_platform.modules.authentication.ports import (
     passkey_summary,
     revoke_for_security,
 )
-from zid_platform.modules.principal.ports import PrincipalStatus, PrincipalType, load_principal
+from zid_platform.modules.principal.ports import (
+    PrincipalStatus,
+    PrincipalType,
+    bump_security_revision,
+    load_principal,
+)
 from zid_platform.modules.screening.ports import request_rescreen
 from zid_platform.modules.tenant.application import lifecycle
 from zid_platform.modules.tenant.application.approvals import (
@@ -125,6 +130,25 @@ async def _validate_owner_remove(
         raise ApprovalError("APPROVAL_PAYLOAD_INVALID", "that account is not an Owner")
 
 
+async def _check_owner_remove(
+    conn: AsyncConnection, tenant_id: str, payload: dict[str, Any]
+) -> list[Gate]:
+    """Decision 11: prohibit orphaning the tenant and verify the successor and the effective ownership record. Checked when it is
+    requested and again when it runs, because an Owner may have left or lost their passkey in between: after the removal at least one
+    Owner must remain, and one of the remaining Owners must hold a passkey, so ownership never lands on nobody who can pass step-up."""
+    target = _text(payload, "principal_id")
+    remaining = [
+        a.principal_id
+        for a in await tenant_store.roles(conn)
+        if a.role is Role.OWNER and a.status is RoleStatus.ACTIVE and a.principal_id != target
+    ]
+    keyed = await passkey_summary(conn, remaining) if remaining else {}
+    return [
+        Gate("OWNER_REMAINS", bool(remaining), "At least one other Owner must remain after the removal."),
+        Gate("REMAINING_OWNER_STRONG_AUTHENTICATOR", any(p in keyed for p in remaining), "A remaining Owner must hold a passkey, so someone can still pass step-up."),
+    ]  # fmt: skip
+
+
 async def _owner_remove(ctx: ExecContext) -> dict[str, Any]:
     p = _text(ctx.case.payload, "principal_id")
     a = await lifecycle.remove_owner(
@@ -206,11 +230,38 @@ async def _validate_recovery(
         )
 
 
+async def _check_recovery(
+    conn: AsyncConnection, tenant_id: str, payload: dict[str, Any]
+) -> list[Gate]:
+    """Decision 11: independent re-proofing and a privileged target. The re-proofing reference is required to request it (see the
+    validation); here the platform checks, again at execution, that the account is still an active person who still holds a
+    privileged role, so an old approval cannot issue a recovery capability for an account that is no longer one."""
+    target = _text(payload, "principal_id")
+    held = {
+        a.role
+        for a in await tenant_store.roles(conn, principal_id=target)
+        if a.status is RoleStatus.ACTIVE
+    }
+    try:
+        await _active_human(conn, tenant_id, target)
+        active = True
+    except ApprovalError:
+        active = False
+    return [
+        Gate("RECOVERY_TARGET_ACTIVE_PERSON", active, "The account must still be an active person in this organization."),
+        Gate("RECOVERY_TARGET_PRIVILEGED", bool(held & set(_PRIVILEGED)), "The account must still hold a privileged role; otherwise use ordinary recovery."),
+        Gate("SESSIONS_ENDED_ON_RUN", True, "Running it ends every session the account holds; the person signs in again with the new passkey.", blocking=False),
+    ]  # fmt: skip
+
+
 async def _recovery(ctx: ExecContext) -> dict[str, Any]:
     """A narrow, expiring, single-use capability to enrol a new authenticator for exactly one account. It restores no role and no
     session: the person proves themselves with the new passkey, and every authority they held is checked as usual."""
     target = _text(ctx.case.payload, "principal_id")
     expires = ctx.now + RECOVERY_TICKET_TTL
+    # Decision 11: revoke the compromised sessions. A new security revision makes every session the account holds re-authenticate, so
+    # whoever held the lost or stolen factor is out before the new passkey exists.
+    await bump_security_revision(ctx.conn, target, reason="privileged_recovery")
     ticket = await issue_enrollment_ticket(
         ctx.conn, tenant_id=ctx.tenant_id, principal_id=target, purpose="BOOTSTRAP",
         issued_by=ctx.case.requester_principal_id, expires_at=expires,
@@ -218,6 +269,7 @@ async def _recovery(ctx: ExecContext) -> dict[str, Any]:
     return {
         "principal_id": target,
         "capability": "SINGLE_USE_ENROLLMENT_TICKET",
+        "sessions_ended": True,
         "expires_at": expires.isoformat(),
         "_once": {"enrollment_ticket": ticket, "expires_at": expires.isoformat()},
     }
@@ -373,13 +425,23 @@ for _e in (
         lambda p: _principal_of(p),
         check=_check_owner_add,
     ),
-    Executor("owner.remove", _owner_remove, _validate_owner_remove, lambda p: _principal_of(p)),
+    Executor(
+        "owner.remove",
+        _owner_remove,
+        _validate_owner_remove,
+        lambda p: _principal_of(p),
+        check=_check_owner_remove,
+    ),
     Executor("role.grant_privileged", _role_grant, _validate_role_grant, check=_check_role_grant),
     Executor("member.invite", _member_invite, _validate_member_invite),
     Executor("trust.adjudication_request", _adjudication_request, _validate_adjudication),
     Executor("platform.authorize", _platform_authorize),
     Executor(
-        "lifecycle.recovery_reissue", _recovery, _validate_recovery, lambda p: _principal_of(p)
+        "lifecycle.recovery_reissue",
+        _recovery,
+        _validate_recovery,
+        lambda p: _principal_of(p),
+        check=_check_recovery,
     ),
     Executor("lifecycle.resume", _resume, _validate_resume),
     Executor(

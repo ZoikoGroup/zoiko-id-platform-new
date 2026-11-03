@@ -510,7 +510,7 @@ events:
     source_status: "proposed"
   onboarding.registration.abandoned:
     cloudevents_type: com.zoiko.id.onboarding.registration.abandoned.v1
-    meaning: "A sign-up request expired unused; its token and its copy of the address were dropped (request id)."
+    meaning: "A sign-up request ended unused, because it expired or because the person gave another address; its token and its copy of the address were dropped (request id and, when the person changed address, the coarse reason ADDRESS_CHANGED)."
     source: ZID-UX-WF-013A section 07; CR-048
     lane: domain
     source_status: "proposed"

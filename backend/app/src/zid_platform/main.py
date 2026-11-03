@@ -228,6 +228,9 @@ def create_app(
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
         from .modules.notification.api.alerts import router as alerts_router
+        from .modules.onboarding.api.approval_attachments import (
+            router as approval_attachments_router,
+        )
         from .modules.onboarding.api.onboarding import router as onboarding_router
         from .modules.onboarding.api.org_claim_proofs import router as org_claim_proofs_router
         from .modules.onboarding.api.org_claim_screening import router as org_claim_screening_router
@@ -249,6 +252,7 @@ def create_app(
         from .modules.session.api.sessions import router as sessions_router
         from .modules.signals.api.signals import router as signals_router
         from .modules.tenant.api.approvals import router as approval_cases_router
+        from .modules.tenant.api.billing_access import router as billing_access_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.org_approvals import router as org_approvals_router
         from .modules.tenant.api.residency import router as residency_router
@@ -282,6 +286,8 @@ def create_app(
             tenants_router,
             approval_cases_router,
             org_approvals_router,
+            approval_attachments_router,
+            billing_access_router,
             onboarding_router,
             org_claims_router,
             org_claim_proofs_router,
@@ -511,9 +517,11 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     else:
         configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
-    register_privacy_stores()
+    register_privacy_stores(settings.registration_tenant_id)
     _plan_aware_sharing(settings)
     _register_invitation_hooks()
+    _billing_access()
+    _approval_standing_check(settings)
     from .modules.privacy.ports import configure_enforcement
 
     configure_enforcement(settings.privacy_enforcement)
@@ -554,6 +562,22 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     )
 
 
+def _approval_standing_check(settings: Settings) -> None:
+    """An approved change is applied only if the organization's country still allows it when it runs (Decision 11, Decision 12 test 07)."""
+    from .country_gate import tenant_standing_check
+    from .modules.tenant.ports import configure_standing_check
+
+    configure_standing_check(tenant_standing_check(settings.environment))
+
+
+def _billing_access() -> None:
+    """Billing authority belongs to the tenant module (roles and grants); commercial is handed its decision, never the module."""
+    from .modules.commercial.ports import configure_billing_gate
+    from .modules.tenant.ports import billing_permission_checker
+
+    configure_billing_gate(billing_permission_checker())
+
+
 def _register_invitation_hooks() -> None:
     """An Administrator who accepts an invitation receives the owner's delegated tenant administration, which is
     what lets a company have a second approver (OVERLAY §4)."""
@@ -574,7 +598,7 @@ def _register_invitation_hooks() -> None:
     register_acceptance_hook("administrator-grant", administrator_joined)
 
 
-def register_privacy_stores() -> None:
+def register_privacy_stores(registration_tenant: str | None = None) -> None:
     """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
     data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
     from .modules.authentication.infrastructure import privacy_adapter as authentication
@@ -585,6 +609,12 @@ def register_privacy_stores() -> None:
 
     for adapter in (principal, authentication, session, verification, credential):
         adapter.register()
+    if (
+        registration_tenant
+    ):  # sign-up records follow an erased account (PRIV-001 §17); a cell with sign-up off has none
+        from .modules.onboarding.infrastructure import privacy_adapter as registration
+
+        registration.register(registration_tenant)
 
     # An erased subject leaves nothing cached behind (PRIV-10).
     from .modules.privacy.ports import register_erasure_hook

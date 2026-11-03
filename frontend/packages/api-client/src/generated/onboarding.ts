@@ -642,6 +642,8 @@ export interface components {
             nonce?: string | null;
             /** Notice Version */
             notice_version: string;
+            /** Replaces */
+            replaces?: string | null;
         };
         /** KybRulingIn */
         KybRulingIn: {

@@ -273,8 +273,13 @@ async def initiate(
     nonce: str | None,
     idempotency_key: str | None,
     now: datetime,
+    replaces: str | None = None,
 ) -> Initiated:
-    """Validate, route, and only then store. The caller gets the same answer for a new address, a known one, a flooded one and a held one."""
+    """Validate, route, and only then store. The caller gets the same answer for a new address, a known one, a flooded one and a held one.
+
+    `replaces` is the request this browser already holds (the person is changing the address, state S3): if it is still open it ends here,
+    so its link stops working and its copy of the address is dropped. Anything else it names (unknown, verified, held, ended, malformed) is
+    ignored without a word, so it cannot be used to learn whether a request exists."""
     code = country_of(country)
     kind = journey_of(journey)
     address = canonical_email(email)
@@ -311,6 +316,16 @@ async def initiate(
             prior = await store.by_idempotency_key(conn, env.registration_tenant, idempotency_key)
             if prior is not None:
                 return Initiated(prior.request_ref, None)
+        if replaces and request_shaped(replaces):
+            earlier = await store.by_ref(conn, replaces, lock=True)
+            if earlier is not None and await store.end_open(conn, earlier.intent_id, now):
+                await _event(
+                    conn,
+                    env,
+                    "onboarding.registration.abandoned",
+                    earlier.intent_id,
+                    {"reason": "ADDRESS_CHANGED"},
+                )
         known = await store.account_for(conn, env.registration_tenant, email_hash) is not None
         flooded = (
             await store.sent_last_hour(

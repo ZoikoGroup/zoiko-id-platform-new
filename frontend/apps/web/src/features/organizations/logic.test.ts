@@ -2,9 +2,14 @@ import type { OrgApprovalCase } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
 import {
+  ATTACHMENT_KINDS,
   CONFLICT_MESSAGE,
   READINESS_WORDS,
   SOLO_MESSAGE,
+  attachmentKey,
+  attachmentMessage,
+  attachmentProblem,
+  attachmentSize,
   blockerLines,
   canApply,
   canDecide,
@@ -180,5 +185,37 @@ describe("the setup checklist", () => {
     expect(blockerLines([{ field: "blocker", issue: "Screening: held" }, { field: "x", issue: "ignored" }], ["fallback"])).toEqual(["Screening: held"]);
     expect(blockerLines(undefined, ["fallback"])).toEqual(["fallback"]);
     expect(SOLO_MESSAGE).toBe("You can manage your organization on your own. Certain high-risk actions need independent approval.");
+  });
+});
+
+describe("documents on a request (AT-12)", () => {
+  it("lists the kinds a requester can name, with plain labels", () => {
+    expect(ATTACHMENT_KINDS.map((k) => k.id)).toEqual(["SUPPORTING_DOCUMENT", "AUTHORITY_DOCUMENT", "IDENTITY_REPROOF_RECORD", "OTHER"]);
+    expect(ATTACHMENT_KINDS.every((k) => k.label.length > 0 && !k.label.includes("_"))).toBe(true);
+  });
+
+  it("stops what the browser can see: empty, too large, or not a PDF, PNG or JPEG", () => {
+    expect(attachmentProblem({ size: 0, type: "application/pdf" })).toMatch(/empty/);
+    expect(attachmentProblem({ size: 10 * 1024 * 1024 + 1, type: "application/pdf" })).toMatch(/10 MB/);
+    expect(attachmentProblem({ size: 10, type: "application/zip" })).toMatch(/PDF, PNG or JPEG/);
+    expect(attachmentProblem({ size: 10, type: "application/pdf" })).toBeNull();
+    expect(attachmentProblem({ size: 10, type: "" })).toBeNull(); // the server judges the file's own bytes
+  });
+
+  it("explains every refusal in words and never shows a raw code", () => {
+    for (const code of ["ATTACHMENT_INFECTED", "ATTACHMENT_RESIDENCY_DENIED", "ATTACHMENT_NOT_PERMITTED", "ATTACHMENT_EXPIRED", "ATTACHMENT_SCAN_UNAVAILABLE"]) {
+      expect(attachmentMessage(code)).not.toContain("ATTACHMENT_");
+    }
+    expect(attachmentMessage("SOMETHING_NEW")).toBe("That document could not be added.");
+    expect(attachmentMessage(undefined)).toBe("That document could not be added.");
+  });
+
+  it("makes one key per file choice and sizes in plain units", () => {
+    const a = attachmentKey("0123456789abcdef", { size: 5 }, "x1");
+    expect(a).toBe(attachmentKey("0123456789abcdef", { size: 5 }, "x1"));
+    expect(a).not.toBe(attachmentKey("0123456789abcdef", { size: 6 }, "x1"));
+    expect(a.length).toBeLessThanOrEqual(120);
+    expect(attachmentSize(100)).toBe("1 KB");
+    expect(attachmentSize(3 * 1024 * 1024)).toBe("3.0 MB");
   });
 });

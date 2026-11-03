@@ -31,7 +31,7 @@ from zid_platform.modules.session.ports import issue_access_token
 from zid_platform.modules.tenant.ports import ConsoleClient, self_signup
 from zid_platform.settings import Settings
 
-NOTICE = "2026-10-22"
+NOTICE = "2026-11-03"
 LINK = re.compile(r"[?&]t=([A-Za-z0-9_-]+)")
 
 
@@ -624,6 +624,151 @@ def test_resends_are_limited_and_end_the_earlier_link(world: World) -> None:
     assert (
         sent == 1 + 2 + 0 or sent <= 4
     )  # a bounded number of resends in all (three), however often it is asked
+
+
+def test_giving_another_address_ends_the_earlier_request_and_drops_its_copy_of_the_address(
+    world: World,
+) -> None:
+    """State S3, change the address: a new request from the browser that holds an open one ends it. Its link stops working, its copy of
+    the address is dropped, one coarse event says why, and nothing else it names is ever confirmed or denied."""
+    w = world
+    first = w.start("typo@example.com").json()["request_id"]
+    old_token = w.link()[0]
+    second = w.start("right@example.com", replaces=first).json()["request_id"]
+    assert second != first and len(w.sender.sent) == 2
+
+    ended = w.rows(
+        "SELECT state::text AS state, email_pending, token_hash FROM platform.registration_intent WHERE request_ref = :r",
+        r=first,
+    )[0]
+    assert ended.state == "EXPIRED" and ended.email_pending is None and ended.token_hash is None
+    assert (
+        code(w.confirm(first, old_token)) == "LINK_INVALID"
+    )  # the wrong address's link is dead, on this device or another
+
+    why = w.rows(
+        "SELECT payload::text AS body FROM events.outbox_event WHERE event_type = 'com.zoiko.id.onboarding.registration.abandoned.v1'"
+    )
+    assert any("ADDRESS_CHANGED" in str(r.body) for r in why)
+    assert "typo@example.com" not in " ".join(str(r.body) for r in why)
+
+    confirmed = w.confirm(second, w.link()[0])  # the new request is whole and independent
+    assert confirmed.status_code == 200, confirmed.text
+
+    # a request that is verified, unknown, malformed or already ended is ignored in silence: the answer is the same as with no `replaces`
+    for ghost in (second, "req_" + "0" * 24, "not a request", first):
+        r = w.start(f"other-{uuid.uuid4().hex[:6]}@example.com", replaces=ghost)
+        assert r.status_code == 202 and set(r.json()) == {"request_id", "status", "message"}
+    still = w.rows(
+        "SELECT state::text AS state FROM platform.registration_intent WHERE request_ref = :r",
+        r=second,
+    )[0]
+    assert still.state == "VERIFIED"  # a confirmed account is never undone by naming it
+
+
+def test_an_erased_account_takes_its_sign_up_records_with_it_and_only_erasure_may_do_that(
+    world: World, owner_url: str
+) -> None:
+    """PRIV-001: the account index (keyed address hash to account), the requests and invitation routes of an erased account are found, exported
+    without the hash, and removed. Nothing else may remove them, another person's records are untouched, and the address can register again."""
+    from types import SimpleNamespace
+
+    from zid_platform.modules.onboarding.infrastructure import privacy_adapter as adapter
+
+    w = world
+
+    def sign_up(address: str) -> tuple[str, str, str]:
+        ref = w.start(address).json()["request_id"]
+        assert w.confirm(ref, w.link()[0]).status_code == 200
+        r = w.rows(
+            "SELECT account_tenant_id, account_principal_id, email_hash FROM platform.registration_intent WHERE request_ref = :r",
+            r=ref,
+        )[0]
+        return str(r.account_tenant_id), str(r.account_principal_id), str(r.email_hash)
+
+    tenant, subject, address_hash = sign_up("erase.me@example.com")
+    other_tenant, other_subject, _ = sign_up("keep.me@example.com")
+
+    def count(table: str, who: str) -> int:
+        column = "principal_id" if table.endswith("invitation_index") else "account_principal_id"
+        return int(
+            w.rows(
+                f"SELECT count(*) AS n FROM platform.{table} WHERE {column} = :p", p=uuid.UUID(who)
+            )[0].n
+        )
+
+    # found under the person's own organization, as the privacy erasure would: the account index and the request, named without the hash
+    entries = w.run(lambda c: adapter._locate(w.reg_tenant, c, subject), tenant=tenant)
+    assert sorted(e["object_type"] for e in entries) == [
+        "registration.account_index",
+        "registration.request",
+    ]
+    assert all(address_hash not in str(e) for e in entries) and all(
+        e["data_category"] == "D2" for e in entries
+    )
+    exported = [
+        w.run(lambda c, e=e: adapter._export(w.reg_tenant, c, SimpleNamespace(**e)), tenant=tenant)
+        for e in entries
+    ]
+    assert all("email_hash" not in x and "token_hash" not in x and x for x in exported)
+
+    # the disposal runs as the worker (the runtime role has no delete at all); even the worker is refused unless the erasure marked its transaction
+    def as_worker(work: Any) -> Any:
+        async def go() -> Any:
+            async with engine(owner_url) as eng, eng.begin() as c:
+                return await work(c)
+
+        return asyncio.run(go())
+
+    async def plain_delete(c: Any) -> None:
+        await c.execute(
+            text("DELETE FROM platform.registration_account WHERE account_principal_id = :p"),
+            {"p": uuid.UUID(subject)},
+        )
+
+    with pytest.raises(DBAPIError):
+        w.run(plain_delete)  # the runtime role cannot
+    with pytest.raises(DBAPIError):
+        as_worker(plain_delete)  # and the worker cannot without the mark
+    assert count("registration_account", subject) == 1
+
+    async def dispose_then_try_another_delete(c: Any) -> None:
+        for e in entries:
+            await adapter._dispose(w.reg_tenant, c, SimpleNamespace(**e), "ERASE")
+        await c.execute(
+            text("DELETE FROM platform.registration_account WHERE account_principal_id = :p"),
+            {"p": uuid.UUID(other_subject)},
+        )
+
+    with pytest.raises(
+        DBAPIError
+    ):  # the mark is cleared at once: the next delete in the same transaction is refused, and all of it rolls back
+        as_worker(dispose_then_try_another_delete)
+    assert (
+        count("registration_account", subject) == 1
+        and count("registration_account", other_subject) == 1
+    )
+
+    # while the address is registered a second request for it sends nothing; erase the account and it is free again
+    sent = len(w.sender.sent)
+    w.start("erase.me@example.com")
+    assert len(w.sender.sent) == sent
+
+    async def dispose_all(c: Any) -> None:
+        for e in entries:
+            await adapter._dispose(w.reg_tenant, c, SimpleNamespace(**e), "ERASE")
+
+    as_worker(dispose_all)
+    assert (
+        count("registration_account", subject) == 0 and count("registration_intent", subject) == 0
+    )
+    assert (
+        count("registration_account", other_subject) == 1
+        and count("registration_intent", other_subject) == 1
+    )  # nobody else's
+    w.start("erase.me@example.com")
+    assert len(w.sender.sent) == sent + 1, "the address registers again once its account is erased"
+    del other_tenant
 
 
 # --------------------------------------------------------------------------------------- AC-11, S8, S9

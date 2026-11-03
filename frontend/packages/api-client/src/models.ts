@@ -2086,6 +2086,25 @@ export type OnboardingConnection = {
 export type ProviderSettings =
   | { protocol: "OIDC"; issuer: string; authorization_endpoint: string; token_endpoint: string; jwks: { keys: Record<string, unknown>[] } }
   | { protocol: "SAML"; entity_id: string; sso_url: string; certificates: string[] };
+/** What this person can do in billing (ZID-COM-CL-002). The server decides every call; this only decides what the page shows. */
+export type BillingAccess = {
+  permissions: string[];
+  catalogue: { key: string; label: string }[];
+  bundles: Record<BillingBundle, string[]>;
+  enforced: boolean;
+};
+export type BillingBundle = "BILLING_ADMIN" | "BILLING_VIEWER" | "INVOICE_READER";
+export type BillingGrant = {
+  grant_id: string;
+  grantee_principal_id: string;
+  bundle: BillingBundle;
+  permissions: string[];
+  reason: string;
+  granted_by: string;
+  expires_at: Iso | null;
+  created_at: Iso;
+  revoked_at: Iso | null;
+};
 export type BillingState = {
   state: string;
   reason: string;
@@ -2192,6 +2211,20 @@ export type OrgClaimProof = {
   content_hash: string;
   uploaded_at: Iso;
 };
+/** A document on an approval request (WF-013C AT-12). The list carries metadata only; opening one is for an approver and is audited. */
+export type ApprovalAttachmentKind = "SUPPORTING_DOCUMENT" | "AUTHORITY_DOCUMENT" | "IDENTITY_REPROOF_RECORD" | "OTHER";
+export type ApprovalAttachment = {
+  attachment_id: string;
+  kind: ApprovalAttachmentKind;
+  media_type: string;
+  size_bytes: number;
+  label: string;
+  scan_status: "CLEAN" | "NOT_SCANNED";
+  content_hash: string;
+  uploaded_at: Iso;
+  access_ends_at: Iso;
+};
+export type ApprovalAttachments = { request_id: string; attachments: ApprovalAttachment[]; limit: number; may_attach: boolean; may_open: boolean };
 export type OrgClaimProofs = { claim_id: string; proofs: OrgClaimProof[]; limit: number };
 export type OrgClaimParty = {
   ref: string;

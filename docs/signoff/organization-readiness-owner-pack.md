@@ -8,8 +8,7 @@
 4. **Trust freshness.** How long a verified company, identity, authority and screening check stays fresh before it shows "Needs action" (the sources set expiry
    dates today; the owners set the windows), and what an activated organization may do while one is stale.
 5. **Who may ask for changes.** Today any eligible approver of an open request may send it back; decide whether a reason template, a limit or a second person applies.
-6. **Evidence attachments (AT-12).** Which documents may be attached, the malware scanner and its contract, expiry of access links, who may open restricted evidence,
-   and region-bound storage. None of it exists yet.
+6. **Evidence attachments (AT-12), now built (CR-051) with engineering proposals in `backend/config/approvals/attachment-policy.yaml`.** Rule on: which kinds of document may be attached (four are proposed), the file types and the 10 MiB limit, how many documents one request may hold (10), the vault retention period (unset until Privacy and Legal decide one; access itself ends when the request does), who may open restricted evidence (today an approving role or someone who voted, each opening audited), and the malware scanner and its contract (the scanner hook speaks the clamd protocol; a deployed environment with no scanner refuses uploads).
 7. **Reminders and expiry.** How long a request may wait (3 days default, 14 days maximum are engineering proposals), who is reminded, how often, and to whom.
 8. **Approver invitation touchpoint** (13C-01C): how the setup page should let an organization invite approvers or appoint independent reviewers beyond the link to the
    governance page (the role editor itself is Document 13D).

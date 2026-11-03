@@ -214,6 +214,19 @@ async def supersede_open(
     return int(result.rowcount)
 
 
+async def end_open(conn: AsyncConnection, intent_id: str, now: datetime) -> bool:
+    """The person gave another address from the same browser: this open request ends, its link stops working and its copy of the address
+    is cleared. A request that is already verified, held or ended is left as it is."""
+    result = await conn.execute(
+        text("""
+            UPDATE platform.registration_intent SET state = 'EXPIRED', token_hash = NULL, email_pending = NULL, updated_at = :now
+            WHERE intent_id = :id AND state IN ('INITIATED', 'VERIFICATION_SENT')
+        """),
+        {"id": uuid.UUID(intent_id), "now": now},
+    )
+    return bool(result.rowcount)
+
+
 async def mark_sent(
     conn: AsyncConnection,
     intent_id: str,

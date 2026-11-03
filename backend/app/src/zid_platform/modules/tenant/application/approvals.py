@@ -110,6 +110,23 @@ def executor_names() -> frozenset[str]:
     return frozenset(_EXECUTORS)
 
 
+# What must still be true of the organization when a customer case runs, whatever the votes say (Decision 11 order: "revalidate at
+# execution"; Decision 12 test 07: execute rechecks country and data controls). It returns a reason code when the organization may not
+# act now, or None. Composition supplies it (the country registry is not the tenant module's); without one nothing is refused, which
+# is the earlier behaviour, and `standing_check_configured` lets a deployed process refuse to start without it.
+StandingCheck = Callable[[AsyncConnection, str], Awaitable[str | None]]
+_STANDING: StandingCheck | None = None
+
+
+def configure_standing_check(check: StandingCheck | None) -> None:
+    global _STANDING
+    _STANDING = check
+
+
+def standing_check_configured() -> bool:
+    return _STANDING is not None
+
+
 # ------------------------------------------------------------------------------------------------ evidence
 
 
@@ -931,6 +948,12 @@ async def execute_case(
         )
     ctx = ExecContext(conn, case, tenant_id, actor, approvers, now)
     attempt = len(prior) + 1
+    if _STANDING is not None and policy.scope is Scope.CUSTOMER:
+        standing = await _STANDING(conn, tenant_id)
+        if standing:  # the country (or its data controls) closed after the vote; two valid votes cannot reopen it
+            return await _record_failure(
+                conn, case, policy, actor, idempotency_key, attempt, standing, quorum, now
+            )
     if ex.check is not None:
         failed = next(
             (g for g in await ex.check(conn, tenant_id, case.payload) if g.blocking and not g.ok),
@@ -1243,6 +1266,40 @@ async def can_view(
     if any(v.approver_person_id == person for v in await store.votes(conn, case.case_id)):
         return True
     return _is_governor(await _governor(conn, case.tenant_id, actor, case.region, now))
+
+
+@dataclass(frozen=True, slots=True)
+class CaseAccess:
+    """What one caller may do with the documents on one request (WF-013C AT-12). Built for the attachment service, which lives in
+    another module and must not read approval tables."""
+
+    case_id: str
+    state: str
+    expires_at: datetime
+    may_attach: bool  # the requester or an editor, while the request is open and no vote has been cast on it
+    may_open: bool  # someone who holds or was appointed to an approving role, or who has voted
+
+
+async def case_access(
+    conn: AsyncConnection, case_id: str, actor: str, now: datetime | None = None
+) -> CaseAccess | None:
+    """None when the case does not exist for this organization or the caller may not see it: the same answer for both."""
+    now = now or datetime.now(UTC)
+    case = await store.load_case(conn, case_id)
+    if case is None or not await can_view(conn, case, actor, now):
+        return None
+    person = await tenant_store.person_of(conn, actor)
+    votes = await store.votes(conn, case.case_id)
+    mine = person == case.requester_person_id or person in case.editor_persons
+    voted = any(v.approver_person_id == person for v in votes)
+    governor = _is_governor(await _governor(conn, case.tenant_id, actor, case.region, now))
+    return CaseAccess(
+        case_id=case.case_id,
+        state=case.state.value,
+        expires_at=case.expires_at,
+        may_attach=mine and case.state is State.PENDING_APPROVAL and not votes,
+        may_open=voted or governor,
+    )
 
 
 def _cursor(case: store.Case) -> str:

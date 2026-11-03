@@ -109,6 +109,14 @@ export function createCellApi(t: Transport) {
           idempotencyKey: opts.idempotencyKey,
           headers: { "if-match": `"${version}"`, ...(opts.proof ? { "x-step-up-proof": opts.proof } : {}) },
         }),
+      attachments: (orgId: string, requestId: string) => get<M.ApprovalAttachments>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}/attachments`),
+      /** One document, sent as the file itself, while the request is open and unvoted. A repeat with the same key is the same document. */
+      attach: (orgId: string, requestId: string, file: File, kind: M.ApprovalAttachmentKind, idempotencyKey: string) =>
+        t.request<M.ApprovalAttachment>("POST", `/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}/attachments`, {
+          raw: { data: file, contentType: file.type || "application/octet-stream" },
+          idempotencyKey,
+          headers: { "x-attachment-kind": kind, "x-attachment-name": file.name.slice(0, 200) },
+        }),
       onboarding: (orgId: string) => get<M.OrgOnboarding>(`/v1/organizations/${seg(orgId)}/onboarding`),
       acknowledge: (orgId: string, body: M.OrgAcknowledgementIn, idempotencyKey?: string) =>
         post<M.OrgOnboarding & { recorded: boolean }>(`/v1/organizations/${seg(orgId)}/onboarding/acknowledgments`, body, { idempotencyKey }),
@@ -560,6 +568,12 @@ export function createCellApi(t: Transport) {
     },
 
     billing: {
+      /** The permissions this person holds in billing, and the catalogue of all of them. */
+      access: () => get<M.BillingAccess>("/v1/tenant/billing-access/me"),
+      grants: () => get<M.Items<M.BillingGrant>>("/v1/tenant/billing-grants"),
+      giveAccess: (body: { grantee_principal_id: string; bundle: M.BillingBundle; reason: string; expires_at?: string | null }) =>
+        post<{ grant_id: string }>("/v1/tenant/billing-grants", body),
+      revokeAccess: (grantId: string) => post<{ grant_id: string; revoked: boolean }>(`/v1/tenant/billing-grants/${seg(grantId)}:revoke`),
       catalog: () => get<M.Catalog>("/v1/catalog"),
       entitlements: (tenantId: string) => get<M.EntitlementView>(`/v1/tenants/${seg(tenantId)}/entitlements`),
       /** The five-band view of what this plan includes (ZID-ENG-DEC-008). */

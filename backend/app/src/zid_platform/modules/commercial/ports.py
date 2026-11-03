@@ -16,11 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.modules.commercial.application import assurance_service as assurance
+from zid_platform.modules.commercial.application import billing_gate, usage_reservations
 from zid_platform.modules.commercial.application import budget_service as budgets
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
-from zid_platform.modules.commercial.application import usage_reservations
 from zid_platform.modules.commercial.application import vendor_service as vendors
 from zid_platform.modules.commercial.application.adapters import (
     NoTaxConfigured,
@@ -96,6 +96,7 @@ from zid_platform.modules.commercial.infrastructure import billable_store, catal
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
+configure_billing_gate = billing_gate.configure
 
 
 async def require_entitlement(
@@ -151,6 +152,7 @@ __all__ = [
     "billable_store",
     "budgets",
     "catalogue_store",
+    "configure_billing_gate",
     "configure_ledger",
     "decide_feature_entitlement",
     "entitled",
