@@ -622,6 +622,24 @@ export function createCellApi(t: Transport) {
         post<{ recorded: boolean; already_recorded: boolean }>("/v1/billing/payment/online-complete", { session_id: sessionId }),
       completePaymentSetup: (sessionId: string) => post<{ method: M.PaymentMethod }>("/v1/billing/payment/complete", { session_id: sessionId }),
       withdrawPlanRequest: (id: string) => post<{ request_id: string; status: M.PlanRequestStatus }>(`/v1/billing/plan-requests/${seg(id)}:withdraw`),
+      /** B01: the state, the one next action, the payer and recent activity. The server decides all of it. */
+      overview: () => get<M.BillingOverview>("/v1/billing/overview"),
+      /** B04: the payer's address, tax identifiers and billing contacts. The legal payer and tax country are never edited here. */
+      profile: () => get<M.BillingProfile>("/v1/billing/profile"),
+      saveProfile: (body: M.BillingProfileIn) => t.request<M.BillingProfile>("PUT", "/v1/billing/profile", { body }),
+      profileHistory: () => get<M.Items<M.BillingProfileVersion>>("/v1/billing/profile/history"),
+      /** B05: customer approval of a new or increased commitment (ZID-COM-CL-004 section 04). The server derives the amount from the order. */
+      commitments: () => get<M.Items<M.CommitmentRequest>>("/v1/billing/commitment-requests"),
+      commitment: (id: string) => get<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}`),
+      requestCommitment: (orderId: string) => post<M.CommitmentRequest>("/v1/billing/commitment-requests", { order_id: orderId }),
+      /** The decision carries the hash the person read and, when the server asks for one, a step-up proof made for exactly this decision. */
+      decideCommitment: (id: string, decision: "approve" | "reject", snapshotHash: string, reason?: string, proof?: string) =>
+        post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:${decision}`, { snapshot_hash: snapshotHash, reason: reason?.trim() || null }, withProof(proof)),
+      cancelCommitment: (id: string) => post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:cancel`),
+      delegates: () => get<M.Items<M.CommitmentDelegate>>("/v1/billing/commitment-delegates"),
+      giveDelegate: (body: { principal_id: string; kind: M.CommitmentDelegateKind; cap_usd: string; effective_to?: string | null }) =>
+        post<{ delegate_id: string }>("/v1/billing/commitment-delegates", body),
+      revokeDelegate: (id: string) => post<{ delegate_id: string; revoked: boolean }>(`/v1/billing/commitment-delegates/${seg(id)}:revoke`),
     },
 
     settings: {
@@ -718,6 +736,26 @@ export function createOperatorApi(t: Transport) {
       verifyChangeLog: () => get<Record<string, unknown>>("/v1/commercial/change-log:verify"),
       verifyInvoiceChain: () => get<Record<string, unknown>>("/v1/commercial/invoice-chain:verify"),
       call: (method: "POST" | "PUT", path: string, body: unknown) => t.request<Record<string, unknown>>(method, path, { body: body ?? {} }),
+    },
+
+    /** Zoiko's finance authority (ZID-COM-CL-004, ZID-UX-COM-009): appointments, the signed policy, and money requests that need distinct approvers. */
+    finance: {
+      overview: () => get<M.FinanceOverview>("/v1/commercial/finance/overview"),
+      policy: () => get<M.FinancePolicy>("/v1/commercial/finance/policy"),
+      signPolicy: (contentHash: string) => post<M.FinancePolicy>("/v1/commercial/finance/policy:sign", { content_hash: contentHash }),
+      appointments: () => get<{ items: M.FinanceAppointment[]; roles: string[] }>("/v1/commercial/finance/appointments"),
+      appoint: (body: { principal_id: string; role: string; effective_to?: string | null }) => post<M.FinanceAppointment>("/v1/commercial/finance/appointments", body),
+      endAppointment: (id: string) => post<{ appointment_id: string; ended: boolean }>(`/v1/commercial/finance/appointments/${seg(id)}:end`),
+      requests: (state?: string) => get<M.Items<M.FinanceRequest>>("/v1/commercial/finance/requests", { state }),
+      request: (id: string) => get<M.FinanceRequest>(`/v1/commercial/finance/requests/${seg(id)}`),
+      open: (body: M.FinanceOpenIn) => post<M.FinanceRequest>("/v1/commercial/finance/requests", body),
+      decide: (id: string, body: { role: string; decision: "APPROVE" | "REJECT"; snapshot_hash: string; reason?: string | null }) =>
+        post<M.FinanceRequest>(`/v1/commercial/finance/requests/${seg(id)}:decide`, body),
+      cancel: (id: string) => post<M.FinanceRequest>(`/v1/commercial/finance/requests/${seg(id)}:cancel`),
+      execute: (id: string, idempotencyKey: string) => post<M.FinanceRequest>(`/v1/commercial/finance/requests/${seg(id)}:execute`, { idempotency_key: idempotencyKey }),
+      reviewCommitment: (tenantId: string, requestId: string) =>
+        post<M.CommitmentRequest>(`/v1/commercial/finance/commitments/${seg(tenantId)}/${seg(requestId)}:review`),
+      eligibility: (tenantId: string) => get<M.Eligibility>(`/v1/commercial/finance/eligibility/${seg(tenantId)}`),
     },
 
     /** Cells and governed recovery operations (RESILIENCE-001 sections 15-20, 25-30). */

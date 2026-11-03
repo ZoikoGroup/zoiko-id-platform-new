@@ -214,6 +214,7 @@ def create_app(
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
+        from .modules.commercial.api.billing_workspace import router as billing_workspace_router
         from .modules.commercial.api.commercial import router as commercial_router
         from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
@@ -240,6 +241,9 @@ def create_app(
         from .modules.onboarding.api.signup import router as signup_router
         from .modules.operations.api.ops import router as operations_router
         from .modules.operator_access.api.commercial_admin import router as commercial_admin_router
+        from .modules.operator_access.api.commercial_finance import (
+            router as commercial_finance_router,
+        )
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.policy_authoring.api.policies import router as policy_router
@@ -253,6 +257,7 @@ def create_app(
         from .modules.signals.api.signals import router as signals_router
         from .modules.tenant.api.approvals import router as approval_cases_router
         from .modules.tenant.api.billing_access import router as billing_access_router
+        from .modules.tenant.api.commitments import router as commitments_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.org_approvals import router as org_approvals_router
         from .modules.tenant.api.residency import router as residency_router
@@ -288,6 +293,7 @@ def create_app(
             org_approvals_router,
             approval_attachments_router,
             billing_access_router,
+            commitments_router,
             onboarding_router,
             org_claims_router,
             org_claim_proofs_router,
@@ -308,8 +314,10 @@ def create_app(
             settings_router,
             usage_router,
             commercial_router,
+            billing_workspace_router,
             stripe_webhook_router,
             commercial_admin_router,
+            commercial_finance_router,
             communication_router,
         ):
             app.include_router(router)
@@ -564,6 +572,19 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     )
 
 
+def _eligibility_org_state() -> None:
+    """The organization's readiness state belongs to onboarding; the commercial eligibility check is handed it (it must not import onboarding)."""
+    from datetime import UTC, datetime
+
+    from .modules.commercial.ports import configure_org_state
+    from .modules.onboarding.application.claims import organization_state
+
+    async def state(conn, tenant_id):  # type: ignore[no-untyped-def]
+        return await organization_state(conn, tenant_id, datetime.now(UTC))
+
+    configure_org_state(state)
+
+
 def _readiness_policy() -> None:
     """What an organization's readiness refuses is checked against the approval registry at start-up, and the onboarding module's view of the
     state is handed to the approval service (which must not import it)."""
@@ -599,10 +620,12 @@ def _approval_standing_check(settings: Settings) -> None:
 
 def _billing_access() -> None:
     """Billing authority belongs to the tenant module (roles and grants); commercial is handed its decision, never the module."""
-    from .modules.commercial.ports import configure_billing_gate
-    from .modules.tenant.ports import billing_permission_checker
+    from .modules.commercial.ports import configure_billing_gate, configure_commitment_authority
+    from .modules.tenant.ports import billing_permission_checker, owner_checker
 
     configure_billing_gate(billing_permission_checker())
+    configure_commitment_authority(owner_checker())
+    _eligibility_org_state()
 
 
 def _register_invitation_hooks() -> None:

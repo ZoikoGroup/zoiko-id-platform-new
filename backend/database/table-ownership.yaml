@@ -1164,6 +1164,56 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "WF-013C section 05: a reminder raised once per request and window, append-only (CR-053)"
+  commercial.finance_policy_signature:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-CL-004 / COM-RAT-011: who signed which version of the finance policy, by content hash, append-only (CR-054)"
+  commercial.finance_request:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-CL-004: a credit note or pilot credit asked for, its facts frozen with a hash (CR-054)"
+  commercial.finance_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-CL-004: one decision per required role, bound to the request hash, append-only (CR-054)"
+  commercial.finance_execution:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-CL-004: the single right to apply an approved request, once, append-only (CR-054)"
+  commercial.finance_pilot_credit:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "COM-CL-004: a scoped, expiring, non-cash pilot benefit an approved request granted (CR-054)"
+  commercial.commitment_delegate:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "COM-CL-004 section 04: what the customer Owner gave another person (a spend limit, a procurement role), dated and revocable (CR-054)"
+  commercial.commitment_request:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "COM-CL-004 section 04: a new or increased customer commitment, exposure worked out by the server, facts frozen with a hash (CR-054)"
+  commercial.commitment_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "COM-CL-004 section 04: one signature per person per commitment, bound to the request hash, append-only (CR-054)"
+  commercial.billing_profile:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-UX-COM-008 B04: the payer address, tax identifiers and billing contacts, one versioned row per organization (CR-054)"
+  commercial.billing_profile_history:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-UX-COM-008 B04: every saved version of the billing profile with who changed what, append-only (CR-054)"
   platform.registration_intent:
     role: cell
     module: onboarding

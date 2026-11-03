@@ -1,0 +1,51 @@
+# Finance authority: who may approve a credit note or a pilot credit, up to how much (ZID-COM-CL-004; the discount bands are
+# commercial.discount_policy, CL-003). Versioned configuration. Every number here is a PROPOSED default (Closure 04 says so itself): nothing in this
+# file has any authority until the Founder and the CFO, two different people, sign THIS file's hash (`finance_policy_signature`); changing a
+# single character makes it unsigned again, which is how a later change gets a new version, a retest and a renewed authorization (Document 11).
+# Until it is signed, the platform refuses to open, approve or run these instruments in a deployed environment.
+#
+# Amounts are compared in USD minor units. A request in another currency is compared at a rate pinned in `fx_usd` (one unit of the currency in
+# USD), never at a live rate; a currency with no rate here is refused (FX_UNPINNED). The conversion rounds UP, so a request is never placed in a
+# lower tier by rounding. USD is a threshold unit only: nothing is charged or credited in it.
+#   tiers        by the exposure, lowest first; `max_usd: null` is every amount above the last limit. `roles` must ALL approve, each a different person.
+#   window_days  credit notes and pilot credits for the same organization within this many days add up (no splitting a credit to stay under a limit).
+version: "ZID-COM-CL-004-proposal-v1"
+unit: USD
+fx_usd:
+  USD: "1"
+request_roles: [FINANCE_OPS_LEAD, REVOPS]    # who may open a case (they never approve their own)
+execute_roles: [FINANCE_EXECUTOR]            # a separate permission: executing is not approving
+request_valid_days: 14                        # an undecided request lapses
+approval_valid_days: 14                       # a fully approved request that is not run lapses
+
+credit_note:
+  window_days: 90
+  tiers:
+    - {max_usd: 500, roles: [FINANCE_OPS_LEAD]}
+    - {max_usd: 5000, roles: [CONTROLLER]}
+    - {max_usd: 25000, roles: [CFO]}
+    - {max_usd: null, roles: [CFO, FOUNDER]}
+
+pilot_credit:
+  window_days: 90
+  max_days: 90                                # a pilot benefit lasts at most this long; renewing is a new request; it never renews itself
+  tiers:
+    - {max_usd: 1000, roles: [CCO, FINANCE_OPS_LEAD]}
+    - {max_usd: 5000, roles: [CCO, CONTROLLER]}
+    - {max_usd: 10000, roles: [CCO, CFO]}
+    - {max_usd: null, roles: [CFO, FOUNDER]}
+
+# Customer-side commitments (Closure 04 section 04): a NEW or INCREASED contractual obligation of a customer organization, by the HIGHER of its first-12-month
+# committed value and its whole non-cancelable term value, before tax, in USD at the pinned rate. Paying an invoice already authorized is not a commitment.
+#   up to tier1_max_usd    the Owner, or a Billing Admin the Owner gave a spend limit of at least the amount
+#   up to tier2_max_usd    the Owner, or a Procurement Approver the Owner named, with a limit of at least the amount (never the person who asked, unless Owner)
+#   above                  two different people: the Owner AND a Procurement Approver
+#   overlay                an uncapped liability, a residency commitment or a term longer than overlay_term_months needs Zoiko Contract/Legal/Finance review
+#                          (a Controller or CFO marks it reviewed) before any customer approval counts, whatever the amount
+#   enforcement            OFF, REPORT_ONLY (records an activation that has no approved commitment, lets it through) or ENFORCED (refuses it); owners decide
+commitment:
+  valid_days: 14
+  tier1_max_usd: 2500
+  tier2_max_usd: 25000
+  overlay_term_months: 36
+  enforcement: REPORT_ONLY

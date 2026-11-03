@@ -118,6 +118,13 @@ def billing_permission_checker() -> Callable[..., Awaitable[None]]:
     return check_permission
 
 
+def owner_checker() -> Callable[..., Awaitable[bool]]:
+    """Whether a person is an active Owner (see `application/billing_access.py`), handed to the commercial module at start-up."""
+    from zid_platform.modules.tenant.application.billing_access import is_owner
+
+    return is_owner
+
+
 __all__ = [
     "CATEGORY_CLASS",
     "ApprovalError",
@@ -172,6 +179,7 @@ __all__ = [
     "load_tenant",
     "matrix_gate",
     "minimize",
+    "owner_checker",
     "placement",
     "register_acceptance_hook",
     "register_executor",

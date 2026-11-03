@@ -2043,6 +2043,8 @@ export type Invoice = {
   credited: string;
   paid: string;
   outstanding: string | null;
+  /** The credit notes issued against this invoice: references only, never an unapproved staff adjustment. */
+  credit_notes?: { number: string; amount: string; reason_code: string; issued_at: string }[];
   lines: InvoiceLine[];
 };
 export type PaymentAttempt = { at: string; amount: string; currency: string; status: "CAPTURED" | "FAILED"; failure_code: string | null; invoice_number: string | null };
@@ -2283,3 +2285,160 @@ export type ApprovalForm = {
 };
 export type ApprovalForms = { forms: ApprovalForm[] };
 export type OrgApprovalCreate = { action_id: string; target_id: string; payload: Record<string, string>; reason: string };
+/* ---------------------------------------------------------------------------------------------------------------------------------------------
+ * Customer billing workspace, commitment approval and Zoiko's finance authority (ZID-UX-COM-008/009/010; ZID-COM-CL-004; CR-054).
+ * Money is a decimal string or whole minor units; the server decides every state and every next action.
+ * ------------------------------------------------------------------------------------------------------------------------------------------- */
+
+export type BillingOverviewState = "FREE" | "PENDING_APPROVAL" | "ACTIVE" | "PAST_DUE" | "PILOT" | "RESTRICTED";
+export type NextActionKind = "VIEW_PLANS" | "COMPLETE_APPROVAL" | "PAY_INVOICE" | "CONTACT_SALES" | "NONE";
+export type BillingOverview = {
+  as_of: string;
+  state: BillingOverviewState;
+  message: string;
+  billing_state: string;
+  safety_hold: boolean;
+  restricted: string[];
+  plan: { code: string | null; source: string | null; effective_from: string | null; term_months: number | null; contract_ref: string | null };
+  next_action: { kind: NextActionKind; label: string; target: string | null; ref: string | null; reason: string };
+  payer: { legal_name: string | null; country: string | null; currency: string | null; issuer: string | null };
+  pilot: { ends_at: string | null; automatic_conversion: false } | null;
+  recent_activity: { kind: "INVOICE"; ref: string | null; invoice_id: string; at: string | null; amount: string; currency: string; status: "PAID" | "OPEN" }[];
+};
+
+export type TaxIdType = "VAT" | "GST" | "EIN" | "COMPANY_REGISTRATION" | "OTHER";
+export type BillingProfile = {
+  version: number;
+  payer: { legal_name: string | null; country: string | null; currency: string | null; change_note: string };
+  address: { line1: string; line2: string; city: string; region: string; postal_code: string; country: string } | null;
+  tax_ids: { type: TaxIdType; value: string; verification: "UNVERIFIED" }[];
+  contacts: { invoice_email: string; notices_email: string; tax_document_email: string } | null;
+  contact_verification: "UNVERIFIED";
+  updated_at: string | null;
+};
+export type BillingProfileIn = {
+  expected_version: number;
+  address: Record<string, string>;
+  tax_ids: { type: string; value: string }[];
+  contacts: Record<string, string>;
+};
+export type BillingProfileVersion = { version: number; changed_fields: string[]; changed_by: string; changed_at: string };
+
+export type CommitmentTier = "T1" | "T2" | "T3";
+export type CommitmentState = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type CommitmentRequest = {
+  request_id: string;
+  order_id: string;
+  currency: string;
+  term_months: number;
+  monthly: string;
+  exposure: string;
+  exposure_usd_minor: number;
+  tier: CommitmentTier;
+  needs: string[];
+  review_required: boolean;
+  reviewed_at: string | null;
+  snapshot_hash: string;
+  policy_version: string;
+  state: CommitmentState;
+  requested_by: string;
+  created_at: string;
+  expires_at: string;
+  approved_at: string | null;
+  approval_expires_at: string | null;
+  approvals: { authority: "OWNER" | "BILLING_SPEND" | "PROCUREMENT_APPROVER"; principal_id: string; decision: "APPROVE" | "REJECT"; decided_at: string }[];
+};
+export type CommitmentDelegateKind = "BILLING_SPEND" | "PROCUREMENT_APPROVER";
+export type CommitmentDelegate = {
+  delegate_id: string;
+  principal_id: string;
+  kind: CommitmentDelegateKind;
+  cap_usd: string;
+  effective_from: string;
+  effective_to: string | null;
+  revoked_at: string | null;
+};
+
+export type FinanceKind = "CREDIT_NOTE" | "PILOT_CREDIT";
+export type FinanceState = "PENDING_APPROVAL" | "APPROVED" | "APPLYING" | "APPLIED" | "APPLICATION_FAILED" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type FinanceRequest = {
+  request_id: string;
+  kind: FinanceKind;
+  tenant_id: string;
+  invoice_id: string | null;
+  currency: string;
+  amount: string;
+  usd_minor: number;
+  exposure_usd_minor: number;
+  category: "CORRECTION" | "GOODWILL" | "PILOT";
+  reason: string;
+  snapshot_hash: string;
+  policy_version: string;
+  required_roles: string[];
+  state: FinanceState;
+  requested_by: string;
+  created_at: string;
+  expires_at: string;
+  approved_at: string | null;
+  approval_expires_at: string | null;
+  approvals: { role: string; principal_id: string; decision: "APPROVE" | "REJECT"; decided_at: string }[];
+  result: Record<string, unknown> | null;
+};
+export type FinanceTier = { max_usd: string | null; roles: string[] };
+export type FinancePolicy = {
+  version: string;
+  content_hash: string;
+  effective: boolean;
+  awaiting: string[];
+  signatures: { role: string; signed_at: string }[];
+  environment: string;
+  locked: boolean;
+  unit: "USD";
+  request_roles: string[];
+  execute_roles: string[];
+  request_valid_days: number;
+  approval_valid_days: number;
+  credit_note: { window_days: number; tiers: FinanceTier[] };
+  pilot_credit: { window_days: number; max_days: number; tiers: FinanceTier[] };
+};
+export type FinanceAppointment = {
+  appointment_id: string;
+  principal_id: string;
+  role: string;
+  effective_from: string;
+  effective_to: string | null;
+  revoked_at: string | null;
+};
+export type FinanceOverview = {
+  as_of: string;
+  counts: { pending_approval: number; approved_unexecuted: number; failed_application: number; expiring_soon: number; payment_events_open: number };
+  mine: string[];
+  policy: { version: string; effective: boolean; awaiting: string[] };
+  exceptions: { key: string; severity: "warn" | "danger"; text: string }[];
+  definitions: string;
+};
+export type FinanceOpenIn = {
+  kind: FinanceKind;
+  target_tenant_id: string;
+  invoice_id?: string | null;
+  amount: string;
+  currency: string;
+  category: "CORRECTION" | "GOODWILL" | "PILOT";
+  reason: string;
+  ends_at?: string | null;
+  evidence_ref?: string | null;
+  disposition?: "INVOICE_BALANCE" | "REFUND" | "CUSTOMER_BALANCE" | "OUT_OF_BAND" | null;
+  program_ref?: string | null;
+  sponsor?: string | null;
+};
+export type EligibilityGate = { key: string; label: string; passed: boolean; detail: string; remedy: string | null };
+export type Eligibility = {
+  tenant_id: string;
+  classification: "FREE" | "COMMERCIAL" | "PILOT_NON_BILLABLE" | "INTERNAL";
+  state: "NOT_ELIGIBLE" | "ELIGIBLE" | "AWAITING_APPROVAL" | "ACTIVE";
+  gates: EligibilityGate[];
+  blockers: string[];
+  schedule: { order_id: string; quote_hash: string; effective_from: string; pilot_ends_at: string | null } | null;
+  commitment_state: string | null;
+  note: string;
+};

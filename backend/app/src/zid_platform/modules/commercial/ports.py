@@ -18,6 +18,9 @@ from zid_errors import ErrorDetail, ZidError
 from zid_platform.modules.commercial.application import assurance_service as assurance
 from zid_platform.modules.commercial.application import billing_gate, usage_reservations
 from zid_platform.modules.commercial.application import budget_service as budgets
+from zid_platform.modules.commercial.application import commitment_service as commitments
+from zid_platform.modules.commercial.application import eligibility_service as eligibility
+from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
@@ -87,6 +90,9 @@ from zid_platform.modules.commercial.domain.catalogue import (
     Enforcement,
     Entitlement,
 )
+from zid_platform.modules.commercial.domain.commitment import CommitmentError
+from zid_platform.modules.commercial.domain.finance import FinanceError
+from zid_platform.modules.commercial.domain.finance import Kind as FinanceKind
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError, verify_chain
 from zid_platform.modules.commercial.domain.orders import OrderError, QuoteLine
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
@@ -97,6 +103,8 @@ from zid_platform.modules.commercial.infrastructure.plan_request_store import op
 
 record_vendor_check = vendors.record_check
 configure_billing_gate = billing_gate.configure
+configure_commitment_authority = commitments.configure_authority
+configure_org_state = eligibility.configure_org_state
 
 
 async def require_entitlement(
@@ -126,9 +134,12 @@ __all__ = [
     "PLAN_CODES",
     "BillableError",
     "CommercialError",
+    "CommitmentError",
     "Credit",
     "Enforcement",
     "Entitlement",
+    "FinanceError",
+    "FinanceKind",
     "InvoicingError",
     "NoTaxConfigured",
     "OnlinePayment",
@@ -152,11 +163,16 @@ __all__ = [
     "billable_store",
     "budgets",
     "catalogue_store",
+    "commitments",
     "configure_billing_gate",
+    "configure_commitment_authority",
     "configure_ledger",
+    "configure_org_state",
     "decide_feature_entitlement",
+    "eligibility",
     "entitled",
     "entitlement_changed",
+    "finance",
     "freeze_month",
     "invoicing",
     "key_auth",

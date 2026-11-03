@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
+from zid_db import in_tenant
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.tenant.domain.billing_access import (
@@ -30,6 +31,13 @@ from zid_platform.modules.tenant.infrastructure import tenant_store as store
 async def _roles(conn: AsyncConnection, principal_id: str) -> tuple[str, ...]:
     held = await store.roles(conn, principal_id=principal_id)
     return tuple(sorted({a.role.value for a in held if a.status is RoleStatus.ACTIVE}))
+
+
+async def is_owner(conn: AsyncConnection, tenant_id: str, principal_id: str) -> bool:
+    """Is this person an active Owner of this organization right now. Handed to the commercial module, which approves customer commitments."""
+    async with in_tenant(conn, tenant_id):
+        held = await store.roles(conn, principal_id=principal_id)
+    return any(a.role.value == "OWNER" and a.status is RoleStatus.ACTIVE for a in held)
 
 
 async def _audit(

@@ -136,6 +136,52 @@
         "title": "AdjustmentBody",
         "type": "object"
       },
+      "AppointBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "principal_id": {
+            "format": "uuid",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "role"
+        ],
+        "title": "AppointBody",
+        "type": "object"
+      },
       "ApproveBody": {
         "additionalProperties": false,
         "properties": {
@@ -272,6 +318,49 @@
         "title": "CreditNoteBody",
         "type": "object"
       },
+      "DecideBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "role": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Role",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "decision",
+          "snapshot_hash"
+        ],
+        "title": "DecideBody",
+        "type": "object"
+      },
       "DeletionBody": {
         "additionalProperties": false,
         "properties": {
@@ -389,6 +478,22 @@
           "plan"
         ],
         "title": "EstimateBody",
+        "type": "object"
+      },
+      "ExecuteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "ExecuteBody",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -914,6 +1019,21 @@
         "title": "SafetyHoldBody",
         "type": "object"
       },
+      "SignBody": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_hash"
+        ],
+        "title": "SignBody",
+        "type": "object"
+      },
       "StateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1270,6 +1390,143 @@
           "reason"
         ],
         "title": "RouteBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_finance__RequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category": {
+            "enum": [
+              "CORRECTION",
+              "GOODWILL",
+              "PILOT"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "INVOICE_BALANCE",
+                  "REFUND",
+                  "CUSTOMER_BALANCE",
+                  "OUT_OF_BAND"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "invoice_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Id"
+          },
+          "kind": {
+            "enum": [
+              "CREDIT_NOTE",
+              "PILOT_CREDIT"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "program_ref": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program Ref"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sponsor": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sponsor"
+          },
+          "target_tenant_id": {
+            "format": "uuid",
+            "title": "Target Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target_tenant_id",
+          "amount",
+          "currency",
+          "category",
+          "reason"
+        ],
+        "title": "RequestBody",
         "type": "object"
       }
     }
@@ -1668,6 +1925,612 @@
         "summary": "Resolve Exception",
         "tags": [
           "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/finance/appointments": {
+      "get": {
+        "operationId": "list_appointments_v1_commercial_finance_appointments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Appointments V1 Commercial Finance Appointments Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Appointments",
+        "tags": [
+          "commercial-finance"
+        ]
+      },
+      "post": {
+        "operationId": "appoint_v1_commercial_finance_appointments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appoint V1 Commercial Finance Appointments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appoint",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/appointments/{appointment_id}:end": {
+      "post": {
+        "operationId": "end_appointment_v1_commercial_finance_appointments__appointment_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appointment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response End Appointment V1 Commercial Finance Appointments  Appointment Id  End Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Appointment",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/commitments/{target_tenant_id}/{request_id}:review": {
+      "post": {
+        "description": "A Controller or a CFO marks a customer's nonstandard terms reviewed (contract, legal and finance), once; only then do the customer's signatures count.",
+        "operationId": "review_commitment_v1_commercial_finance_commitments__target_tenant_id___request_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Target Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Commitment V1 Commercial Finance Commitments  Target Tenant Id   Request Id  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Commitment",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/eligibility/{target_tenant_id}": {
+      "get": {
+        "description": "O01: the classification, the nine gates and what blocks paid activation for one organization. Reading it never activates anything.",
+        "operationId": "commercial_eligibility_v1_commercial_finance_eligibility__target_tenant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Target Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Commercial Eligibility V1 Commercial Finance Eligibility  Target Tenant Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Commercial Eligibility",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/overview": {
+      "get": {
+        "description": "F01: the workload summary, the requests that wait on this person, and the exceptions that stop money moving.",
+        "operationId": "finance_overview_v1_commercial_finance_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Finance Overview V1 Commercial Finance Overview Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Finance Overview",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/policy": {
+      "get": {
+        "operationId": "get_policy_v1_commercial_finance_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy V1 Commercial Finance Policy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/policy:sign": {
+      "post": {
+        "operationId": "sign_policy_v1_commercial_finance_policy_sign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Policy V1 Commercial Finance Policy Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Policy",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/requests": {
+      "get": {
+        "operationId": "list_requests_v1_commercial_finance_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 30,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Requests V1 Commercial Finance Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "commercial-finance"
+        ]
+      },
+      "post": {
+        "operationId": "open_request_v1_commercial_finance_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_finance__RequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Request V1 Commercial Finance Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Request",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/requests/{request_id}": {
+      "get": {
+        "operationId": "get_request_v1_commercial_finance_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Request V1 Commercial Finance Requests  Request Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Request",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/requests/{request_id}:cancel": {
+      "post": {
+        "operationId": "cancel_request_v1_commercial_finance_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Request V1 Commercial Finance Requests  Request Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Request",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/requests/{request_id}:decide": {
+      "post": {
+        "operationId": "decide_request_v1_commercial_finance_requests__request_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Request V1 Commercial Finance Requests  Request Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Request",
+        "tags": [
+          "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/finance/requests/{request_id}:execute": {
+      "post": {
+        "operationId": "execute_request_v1_commercial_finance_requests__request_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Execute Request V1 Commercial Finance Requests  Request Id  Execute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Request",
+        "tags": [
+          "commercial-finance"
         ]
       }
     },
