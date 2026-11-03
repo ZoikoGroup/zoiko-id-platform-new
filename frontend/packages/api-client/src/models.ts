@@ -2261,3 +2261,25 @@ export type OrgClaimScreening = {
   holdings?: OrgClaimHolding[];
   elevated_risk?: boolean;
 };
+
+/** What "New request" asks for, per governed action (WF-013C screen 2). The server still classifies the action, checks who may ask and decides who must approve. */
+export type ApprovalFormFieldKind = "member" | "owner" | "text" | "textarea" | "select";
+export type ApprovalFormField = {
+  key: string;
+  label: string;
+  kind: ApprovalFormFieldKind;
+  required: boolean;
+  help: string | null;
+  max_length: number;
+  options: { id: string; label: string }[];
+};
+export type ApprovalForm = {
+  action_id: string;
+  level: "A1" | "A2";
+  label: string;
+  summary: string;
+  target: { from: string | null; prefix: string; literal: string | null };
+  fields: ApprovalFormField[];
+};
+export type ApprovalForms = { forms: ApprovalForm[] };
+export type OrgApprovalCreate = { action_id: string; target_id: string; payload: Record<string, string>; reason: string };

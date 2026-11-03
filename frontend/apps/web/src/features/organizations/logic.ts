@@ -1,6 +1,9 @@
 import type {
   ApprovalAttachmentKind,
+  ApprovalForm,
   ApprovalScope,
+  OrgApprovalCreate,
+  TenantMember,
   OnboardingItem,
   OrgApprovalCase,
   OrgApprovalQuery,
@@ -275,3 +278,45 @@ export const attachmentKey = (requestId: string, file: { size: number }, attempt
 export function attachmentSize(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// ---- starting a request from a form (WF-013C screen 2)
+
+export type FormValues = Record<string, string>;
+
+/** What the browser can see is missing or wrong before it sends; the server checks everything again. */
+export function formProblems(form: ApprovalForm, values: FormValues, reason: string): string[] {
+  const out: string[] = [];
+  for (const f of form.fields) {
+    const v = (values[f.key] ?? "").trim();
+    if (f.required && !v) out.push(`${f.label} is required.`);
+    else if (v && f.kind === "select" && !f.options.some((o) => o.id === v)) out.push(`Choose one of the options for ${f.label.toLowerCase()}.`);
+    else if (v.length > f.max_length) out.push(`${f.label} is longer than ${f.max_length} characters.`);
+  }
+  if (!reason.trim()) out.push("Say why you are asking.");
+  if (reason.trim().length > 500) out.push("Keep the reason under 500 characters.");
+  return out;
+}
+
+/** The request a form makes: the payload is what was typed, the target is what the form says the request is about. */
+export function buildRequest(form: ApprovalForm, values: FormValues, reason: string): OrgApprovalCreate {
+  const payload: Record<string, string> = {};
+  for (const f of form.fields) {
+    const v = (values[f.key] ?? "").trim();
+    if (v) payload[f.key] = v;
+  }
+  const t = form.target;
+  const target = t.literal ?? `${t.prefix}${t.from ? (payload[t.from] ?? "") : ""}`;
+  return { action_id: form.action_id, target_id: target, payload, reason: reason.trim() };
+}
+
+/** The people a "member" or "owner" field can choose from: active members only, shown by role and a short id (never an email or a name). */
+export function memberChoices(members: TenantMember[], kind: "member" | "owner"): { id: string; label: string }[] {
+  return members
+    .filter((m) => m.status === "ACTIVE" && (kind === "member" || m.role === "OWNER"))
+    .map((m) => ({ id: m.principal_id, label: `${m.role.charAt(0)}${m.role.slice(1).toLowerCase()} · ${m.principal_id.slice(0, 8)}` }));
+}
+
+export const LEVEL_WORDS: Record<ApprovalForm["level"], string> = {
+  A1: "Sensitive: one independent person approves.",
+  A2: "Critical: two independent people approve.",
+};

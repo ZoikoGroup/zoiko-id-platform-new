@@ -31,6 +31,7 @@ from zid_platform.modules.organization.ports import (
     kyb_get_case,
     kyb_open_claims,
     kyb_routing,
+    latest_kyb_case_id,
 )
 from zid_platform.modules.screening.ports import ScreeningStatus, case_for_kyb, close_for_kyb
 from zid_platform.modules.verification.ports import person_assurance_current
@@ -205,6 +206,20 @@ async def record_outcome(
             {"t": tenant, "c": claim, "o": outcome, "k": json.dumps(checks), "now": now},
         )
     return announced
+
+
+async def organization_state(conn: AsyncConnection, tenant_id: str, now: datetime) -> str:
+    """The organization's readiness state (DRAFT ... ACTIVE, ACTIVE_LIMITED, RESTRICTED), from the same facts the setup screen shows, read for
+    the person who made the claim: the state belongs to the organization, not to whoever happens to be asking. An organization that has
+    started no claim is DRAFT. This is what the readiness policy is asked about."""
+    from zid_platform.modules.onboarding.application.readiness import gather
+
+    case_id = await latest_kyb_case_id(conn, tenant_id)
+    if case_id is None:
+        return "DRAFT"
+    applicant = (await kyb_get_case(conn, tenant_id, case_id, now=now)).requested_by
+    seen = await status(conn, tenant_id, case_id, now)
+    return (await gather(conn, tenant_id, applicant, seen, now=now)).projection.state.value
 
 
 async def close(

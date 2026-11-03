@@ -52,6 +52,7 @@ from zid_platform.modules.tenant.domain.lifecycle import (
 from zid_platform.modules.tenant.domain.role_matrix import Mode
 from zid_platform.modules.tenant.infrastructure import approvals as store
 from zid_platform.modules.tenant.infrastructure import tenant_store
+from zid_platform.modules.tenant.infrastructure.readiness_policy import readiness_policy
 
 log = logging.getLogger("zid.approvals")
 
@@ -121,6 +122,37 @@ _STANDING: StandingCheck | None = None
 def configure_standing_check(check: StandingCheck | None) -> None:
     global _STANDING
     _STANDING = check
+
+
+# The organization's readiness state, composed at start-up (the onboarding module computes it; this module must not import it). What each state
+# refuses is `config/onboarding/readiness-policy.yaml`; without a check composed in, nothing is refused.
+ReadinessState = Callable[[AsyncConnection, str], Awaitable[str]]
+_READINESS: ReadinessState | None = None
+
+
+def configure_readiness_check(check: ReadinessState | None) -> None:
+    global _READINESS
+    _READINESS = check
+
+
+async def _readiness_gate(
+    conn: AsyncConnection, tenant_id: str, actor: str, action_id: str, now: datetime
+) -> str | None:
+    """A reason code when the organization's readiness refuses this governed action, else None. Under REPORT_ONLY a refusal that would
+    have happened is written to the audit record and the action goes through; under OFF nothing is looked at."""
+    policy = readiness_policy()
+    if _READINESS is None or policy.enforcement == "OFF":
+        return None
+    state = await _READINESS(conn, tenant_id)
+    if not policy.refuses(state, action_id):
+        return None
+    if policy.enforcement == "REPORT_ONLY":
+        await _audit(
+            conn, tenant_id, actor, approval_audit.READINESS_REPORT, None, "SUCCESS", "ORGANIZATION_NOT_READY",
+            {"action_id": action_id, "readiness": state, "policy": policy.version}, now, target=action_id,
+        )  # fmt: skip
+        return None
+    return "ORGANIZATION_NOT_READY"
 
 
 def standing_check_configured() -> bool:
@@ -432,6 +464,13 @@ async def create_case(
     tenant = await tenant_store.load_tenant(conn, tenant_id)
     if tenant is None:
         raise ApprovalError("TENANT_NOT_FOUND")
+    if policy.scope is Scope.CUSTOMER:
+        held = await _readiness_gate(conn, tenant_id, actor, action_id, now)
+        if held:  # the organization is not in a state to ask for this: no case
+            raise await _refuse_audited(
+                conn, tenant_id, actor, approval_audit.REFUSED, held, action_id, now,
+                "the organization's readiness does not allow this change right now",
+            )  # fmt: skip
     if not target_id or not reason.strip():
         raise ApprovalError("VALIDATION_FAILED", "a target and a reason are required")
     payload_json = canonical_payload(payload)
@@ -953,6 +992,12 @@ async def execute_case(
         if standing:  # the country (or its data controls) closed after the vote; two valid votes cannot reopen it
             return await _record_failure(
                 conn, case, policy, actor, idempotency_key, attempt, standing, quorum, now
+            )
+    if policy.scope is Scope.CUSTOMER:
+        held = await _readiness_gate(conn, tenant_id, actor, case.action_id, now)
+        if held:  # the organization is no longer in a state for this change; the approval stands and the run can be tried again
+            return await _record_failure(
+                conn, case, policy, actor, idempotency_key, attempt, held, quorum, now
             )
     if ex.check is not None:
         failed = next(

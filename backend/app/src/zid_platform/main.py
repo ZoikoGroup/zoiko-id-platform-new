@@ -522,6 +522,8 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     _register_invitation_hooks()
     _billing_access()
     _approval_standing_check(settings)
+    _approval_forms()
+    _readiness_policy()
     from .modules.privacy.ports import configure_enforcement
 
     configure_enforcement(settings.privacy_enforcement)
@@ -560,6 +562,31 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         cell_id=settings.cell_id,
         cell_uuids=uuids,
     )
+
+
+def _readiness_policy() -> None:
+    """What an organization's readiness refuses is checked against the approval registry at start-up, and the onboarding module's view of the
+    state is handed to the approval service (which must not import it)."""
+    from datetime import UTC, datetime
+
+    from .modules.onboarding.application.claims import organization_state
+    from .modules.tenant.infrastructure.readiness_policy import readiness_policy
+    from .modules.tenant.ports import configure_readiness_check
+
+    readiness_policy()
+
+    async def state(conn, tenant_id):  # type: ignore[no-untyped-def]
+        return await organization_state(conn, tenant_id, datetime.now(UTC))
+
+    configure_readiness_check(state)
+
+
+def _approval_forms() -> None:
+    """The forms behind "New request" are checked against the approval registry at start-up: a file that offers something a customer cannot
+    request, or leaves a requestable action with no way to ask, stops the process."""
+    from .modules.tenant.infrastructure.approval_forms import request_forms
+
+    request_forms()
 
 
 def _approval_standing_check(settings: Settings) -> None:

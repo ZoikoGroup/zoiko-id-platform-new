@@ -1537,6 +1537,52 @@
         ]
       }
     },
+    "/v1/organizations/{org_id}/approvals/forms": {
+      "get": {
+        "description": "What \"New request\" asks for, per action: the same for everyone in the organization. It collects; the server still classifies the\naction, checks who may ask and decides who must approve.",
+        "operationId": "request_forms_v1_organizations__org_id__approvals_forms_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Forms V1 Organizations  Org Id  Approvals Forms Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Forms",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/v1/organizations/{org_id}/approvals/{request_id}": {
       "get": {
         "operationId": "read_v1_organizations__org_id__approvals__request_id__get",

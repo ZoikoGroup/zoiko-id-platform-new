@@ -238,6 +238,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await sync_outcomes(conn, now)
 
+    async def approval_reminders(conn: AsyncConnection, now: datetime) -> object:
+        """WF-013C: remind, once, about approval requests that are about to expire (an in-app alert)."""
+        from zid_platform.modules.tenant.application.reminders import remind_due
+
+        return await remind_due(conn, now)
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -256,6 +262,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("company_refresh", company_refresh),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
+        ("approval_reminders", approval_reminders),
     ]
 
 

@@ -109,6 +109,10 @@ export function createCellApi(t: Transport) {
           idempotencyKey: opts.idempotencyKey,
           headers: { "if-match": `"${version}"`, ...(opts.proof ? { "x-step-up-proof": opts.proof } : {}) },
         }),
+      /** The forms behind "New request". */
+      requestForms: (orgId: string) => get<M.ApprovalForms>(`/v1/organizations/${seg(orgId)}/approvals/forms`),
+      /** Ask for a governed change. The server checks it; a refusal says why. */
+      createRequest: (orgId: string, body: M.OrgApprovalCreate) => post<M.OrgApprovalCase>(`/v1/organizations/${seg(orgId)}/approvals`, body),
       attachments: (orgId: string, requestId: string) => get<M.ApprovalAttachments>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}/attachments`),
       /** One document, sent as the file itself, while the request is open and unvoted. A repeat with the same key is the same document. */
       attach: (orgId: string, requestId: string, file: File, kind: M.ApprovalAttachmentKind, idempotencyKey: string) =>

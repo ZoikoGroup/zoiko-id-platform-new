@@ -550,6 +550,12 @@ events:
     source: ZID-UX-WF-013B section 09; CR-052
     lane: domain
     source_status: "proposed"
+  governance.approval.reminder_due:
+    cloudevents_type: com.zoiko.id.governance.approval.reminder_due.v1
+    meaning: "An approval request inside a reminder window is about to expire (case id, level, state, the window and the hours left; no person, payload or reason). Raised once per request and window."
+    source: ZID-UX-WF-013C section 05; CR-053
+    lane: domain
+    source_status: "proposed"
   governance.approval.changes_requested:
     cloudevents_type: com.zoiko.id.governance.approval.changes_requested.v1
     meaning: "An approver sent an approval case back for changes: that version ended and every vote on it is void (case id, request hash, policy version, region; the reason is in the audit record)."

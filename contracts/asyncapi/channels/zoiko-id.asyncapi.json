@@ -895,6 +895,9 @@
         "governance_approval_failed": {
           "$ref": "#/components/messages/governance_approval_failed"
         },
+        "governance_approval_reminder_due": {
+          "$ref": "#/components/messages/governance_approval_reminder_due"
+        },
         "governance_approval_vote_recorded": {
           "$ref": "#/components/messages/governance_approval_vote_recorded"
         },
@@ -3591,6 +3594,17 @@
         "summary": "An approval case can no longer be approved or applied: a material change, a stale policy, a changed region or a lost requester authority (case id and reason code).",
         "title": "governance.approval.invalidated",
         "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
+        "x-zid-status": "proposed"
+      },
+      "governance_approval_reminder_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.reminder_due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approval request inside a reminder window is about to expire (case id, level, state, the window and the hours left; no person, payload or reason). Raised once per request and window.",
+        "title": "governance.approval.reminder_due",
+        "x-zid-source": "ZID-UX-WF-013C section 05; CR-053",
         "x-zid-status": "proposed"
       },
       "governance_approval_vote_recorded": {

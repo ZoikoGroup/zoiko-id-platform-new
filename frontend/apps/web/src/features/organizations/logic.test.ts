@@ -1,9 +1,10 @@
-import type { OrgApprovalCase } from "@zoiko/api-client";
+import type { ApprovalForm, OrgApprovalCase, TenantMember } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
 import {
   ATTACHMENT_KINDS,
   CONFLICT_MESSAGE,
+  LEVEL_WORDS,
   READINESS_WORDS,
   SOLO_MESSAGE,
   attachmentKey,
@@ -11,6 +12,7 @@ import {
   attachmentProblem,
   attachmentSize,
   blockerLines,
+  buildRequest,
   canApply,
   canDecide,
   canRequestChanges,
@@ -18,10 +20,12 @@ import {
   countsAnnouncement,
   decisionKey,
   deltaRows,
+  formProblems,
   hasFilters,
   holdWords,
   inboxQuery,
   itemTone,
+  memberChoices,
   needsReason,
   needsStepUp,
   noFilters,
@@ -217,5 +221,55 @@ describe("documents on a request (AT-12)", () => {
     expect(a.length).toBeLessThanOrEqual(120);
     expect(attachmentSize(100)).toBe("1 KB");
     expect(attachmentSize(3 * 1024 * 1024)).toBe("3.0 MB");
+  });
+});
+
+describe("starting a request from a form (WF-013C-02)", () => {
+  const grant: ApprovalForm = {
+    action_id: "privileged-role-grant-or-elevation",
+    level: "A2",
+    label: "Give Administrator or Approver rights",
+    summary: "x",
+    target: { from: "role", prefix: "role:", literal: null },
+    fields: [{ key: "role", label: "Which role", kind: "select", required: true, help: null, max_length: 200, options: [{ id: "ADMIN", label: "Administrator" }, { id: "APPROVER", label: "Approver" }] }],
+  };
+  const reinstate: ApprovalForm = {
+    action_id: "reinstate-suspended-tenant-access",
+    level: "A2",
+    label: "Reinstate",
+    summary: "x",
+    target: { from: null, prefix: "", literal: "organization" },
+    fields: [{ key: "reason_code", label: "Reason", kind: "text", required: true, help: null, max_length: 10, options: [] }],
+  };
+
+  it("asks for what is missing, what is not an option and what is too long, and always for a reason", () => {
+    expect(formProblems(grant, {}, "")).toEqual(["Which role is required.", "Say why you are asking."]);
+    expect(formProblems(grant, { role: "OWNER" }, "because")).toEqual(["Choose one of the options for which role."]);
+    expect(formProblems(reinstate, { reason_code: "x".repeat(11) }, "because")).toEqual(["Reason is longer than 10 characters."]);
+    expect(formProblems(grant, { role: "ADMIN" }, "x".repeat(501))).toEqual(["Keep the reason under 500 characters."]);
+    expect(formProblems(grant, { role: "ADMIN" }, " because ")).toEqual([]);
+  });
+
+  it("names what the request is about the way the form says, and sends only what was typed", () => {
+    expect(buildRequest(grant, { role: "ADMIN" }, " because ")).toEqual({
+      action_id: "privileged-role-grant-or-elevation",
+      target_id: "role:ADMIN",
+      payload: { role: "ADMIN" },
+      reason: "because",
+    });
+    expect(buildRequest(reinstate, { reason_code: " incident " }, "r").target_id).toBe("organization");
+    expect(buildRequest(grant, { role: "ADMIN", stray: "x" }, "r").payload).toEqual({ role: "ADMIN" }); // a value no field asked for is never sent
+  });
+
+  it("offers active people only, and Owners only where an Owner is asked for, by role and a short id", () => {
+    const m = (id: string, role: string, status: string) => ({ principal_id: id, role, status }) as unknown as TenantMember;
+    const people = [m("11111111-aaaa", "OWNER", "ACTIVE"), m("22222222-bbbb", "ADMIN", "ACTIVE"), m("33333333-cccc", "OWNER", "REVOKED"), m("44444444-dddd", "VIEWER", "PENDING_VERIFICATION")];
+    expect(memberChoices(people, "member").map((c) => c.id)).toEqual(["11111111-aaaa", "22222222-bbbb"]);
+    expect(memberChoices(people, "owner")).toEqual([{ id: "11111111-aaaa", label: "Owner · 11111111" }]);
+  });
+
+  it("says how many independent people will have to approve", () => {
+    expect(LEVEL_WORDS.A2).toMatch(/two independent people/);
+    expect(LEVEL_WORDS.A1).toMatch(/one independent person/);
   });
 });

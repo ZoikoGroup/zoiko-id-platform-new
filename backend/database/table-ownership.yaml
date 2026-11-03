@@ -1159,6 +1159,11 @@ tables:
     module: onboarding
     tenant_scoped: true
     source: "WF-013B: the last outcome of a company claim, so a change is announced once (CR-052)"
+  platform.approval_reminder:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "WF-013C section 05: a reminder raised once per request and window, append-only (CR-053)"
   platform.registration_intent:
     role: cell
     module: onboarding
