@@ -19,11 +19,13 @@ from zid_platform.modules.tenant.api import residency as residency_api
 from zid_platform.modules.tenant.api.residency import router
 from zid_platform.modules.tenant.domain.offers import (
     GATES,
+    SUPPLIER_FIELDS,
     Offers,
     cell_state,
     offer_for_profile,
     public_view,
     require_cell_ready,
+    supplier_route_findings,
 )
 from zid_platform.modules.tenant.domain.residency import PROFILES, Residency, ResidencyError
 from zid_platform.modules.tenant.infrastructure.catalog import catalog
@@ -31,6 +33,15 @@ from zid_platform.modules.tenant.infrastructure.offers import offers, parse
 
 BACKEND = Path(__file__).resolve().parents[3]
 GATED = {g: f"ref-{g}" for g in GATES}
+DECLARED = {
+    "Example Supplier": {
+        "country_coverage": ["GB"],
+        "data_access": "none beyond the request",
+        "storage_locations": ["GB"],
+        "onward_transfers": "none",
+        "subcontractors": "none",
+    }
+}
 
 
 def _offers(readiness: dict[str, object]) -> Offers:
@@ -105,10 +116,42 @@ def test_ready_needs_all_five_gates() -> None:
     for missing in GATES:
         gates = {g: r for g, r in GATED.items() if g != missing}
         with pytest.raises(ResidencyError) as caught:
-            _offers({"uk-1": {"status": "READY", "gates": gates}})
+            _offers({"uk-1": {"status": "READY", "gates": gates, "suppliers": DECLARED}})
         assert caught.value.code == "CELL_GATES_MISSING" and missing in str(caught.value)
-    o = _offers({"uk-1": {"status": "READY", "gates": GATED}})
+    o = _offers({"uk-1": {"status": "READY", "gates": GATED, "suppliers": DECLARED}})
     assert require_cell_ready(o, "SRP-1", "uk-1", environment="production") == "READY"
+
+
+def test_ready_also_needs_every_supplier_to_have_declared_its_coverage_storage_and_transfers() -> (
+    None
+):
+    """ZID-EDR-002 section 4 (external suppliers): nothing is enabled for a region on an undeclared supplier."""
+    with pytest.raises(ResidencyError) as caught:  # no supplier at all
+        _offers({"uk-1": {"status": "READY", "gates": GATED}})
+    assert caught.value.code == "CELL_SUPPLIERS_MISSING"
+    for missing in SUPPLIER_FIELDS:
+        partial = {
+            "Example Supplier": {
+                k: v for k, v in DECLARED["Example Supplier"].items() if k != missing
+            }
+        }
+        with pytest.raises(ResidencyError) as caught:
+            _offers({"uk-1": {"status": "READY", "gates": GATED, "suppliers": partial}})
+        assert caught.value.code == "CELL_SUPPLIERS_MISSING" and missing in str(caught.value)
+    # a held or sandbox cell is not asked: only a READY claim is
+    _offers({"uk-1": {"status": "NOT_READY"}, "eu-1": {"status": "SANDBOX"}})
+
+
+def test_a_supplier_that_would_store_the_cells_data_outside_its_zone_is_a_finding() -> None:
+    cat = catalog()
+    inside = {"A": {**DECLARED["Example Supplier"], "storage_locations": ["GB", "UK"]}}
+    outside = {"A": {**DECLARED["Example Supplier"], "storage_locations": ["GB", "US"]}}
+    assert supplier_route_findings(cat, "uk-1", inside) == []
+    [finding] = supplier_route_findings(cat, "uk-1", outside)
+    assert finding.startswith("A: US is outside")
+    assert (
+        supplier_route_findings(cat, "us-1", inside) != []
+    )  # the same declaration does not serve the U.S. cell
 
 
 def test_an_unknown_status_or_profile_is_refused_at_load() -> None:
@@ -136,6 +179,7 @@ def test_the_shipped_cells_are_the_catalogue_cells() -> None:
         assert cell_id in cat.cells, cell_id
         if readiness.status == "READY":
             assert all(readiness.gates.get(g) for g in GATES)
+            assert supplier_route_findings(cat, cell_id, readiness.suppliers) == [], cell_id
     for region in offers().home_regions.values():  # every priority home cell is catalogued
         assert region.cell_id in cat.cells and not cat.cells[region.cell_id].recovery_only
     # the U.S. cell is a catalogued target that nobody can be placed on until its gates are recorded

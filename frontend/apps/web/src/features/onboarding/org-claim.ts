@@ -1,4 +1,13 @@
-import type { OrgClaimCheckState, OrgClaimHolding, OrgClaimOutcome, OrgClaimParty, OrgClaimScreening, OrgClaimStatus } from "@zoiko/api-client";
+import type {
+  OrgClaimCheckState,
+  OrgClaimHolding,
+  OrgClaimAppealKind,
+  OrgClaimOutcome,
+  OrgClaimParty,
+  OrgClaimProofKind,
+  OrgClaimScreening,
+  OrgClaimStatus,
+} from "@zoiko/api-client";
 
 /** The four independent checks of WF-13B-03, in the order they are shown. A found company is not a verified person,
  * a verified person is not an authorized one, and none of it is a cleared risk review. */
@@ -103,6 +112,95 @@ export function attemptId(): string {
 /** A fresh idempotency key per intention, so a double click is one claim and a second company is a second claim. */
 export function claimKey(country: string, registrationNumber: string, attempt: string): string {
   return `claim-${country}-${registrationNumber}-${attempt}`.slice(0, 120);
+}
+
+/** What each kind of document is called, in the order a person is likely to need them. */
+export const PROOF_KINDS: { id: OrgClaimProofKind; label: string }[] = [
+  { id: "CERTIFICATE_OF_INCORPORATION", label: "Certificate of incorporation" },
+  { id: "REGISTER_EXTRACT", label: "Register extract" },
+  { id: "LETTER_OF_AUTHORITY", label: "Letter of authority" },
+  { id: "OWNERSHIP_CHART", label: "Ownership chart" },
+  { id: "BOARD_RESOLUTION", label: "Board resolution" },
+  { id: "OTHER", label: "Another document" },
+];
+export const PROOF_ACCEPT = "application/pdf,image/png,image/jpeg";
+export const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+
+/** A problem the browser can see before sending, in plain words; the server checks again whatever this says. */
+export function proofProblem(file: { name: string; size: number; type: string }): string | null {
+  if (file.size === 0) return "That file is empty.";
+  if (file.size > MAX_PROOF_BYTES) return "That file is larger than 10 MB.";
+  if (file.type && !PROOF_ACCEPT.split(",").includes(file.type)) return "Upload a PDF, PNG or JPEG file.";
+  return null;
+}
+
+/** The server's refusals in the product's words. An unknown code gets a neutral message, never the raw code. */
+const PROOF_MESSAGES: Record<string, string> = {
+  PROOF_TOO_LARGE: "That file is larger than 10 MB.",
+  PROOF_EMPTY: "That file is empty.",
+  PROOF_TYPE_NOT_ALLOWED: "Upload a PDF, PNG or JPEG file.",
+  PROOF_TYPE_MISMATCH: "That file is not the type it says it is.",
+  PROOF_ACTIVE_CONTENT: "That PDF contains scripts or embedded content and cannot be accepted.",
+  PROOF_MALFORMED: "That PDF is incomplete or damaged.",
+  PROOF_INFECTED: "That file was refused by the security scan.",
+  PROOF_SCAN_UNAVAILABLE: "Uploads are paused for a moment. Nothing was stored; try again shortly.",
+  PROOF_RESIDENCY_DENIED: "This organization's data region does not allow the document to be stored here.",
+  PROOF_LIMIT_REACHED: "This claim already holds the most documents it can.",
+};
+
+export function proofMessage(code: string | undefined): string {
+  return (code && PROOF_MESSAGES[code]) || "That document could not be added.";
+}
+
+/** One idempotency key per file choice, so a double click is one upload and a different file is another. */
+export function proofKey(claimId: string, file: { name: string; size: number }, attempt: string): string {
+  return `proof-${claimId.slice(0, 8)}-${file.size}-${attempt}`.slice(0, 120);
+}
+
+export function sizeLabel(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export const MIN_STATEMENT = 20;
+export const MAX_STATEMENT = 2000;
+
+/** Which request a person can make about a screening, from its state: an appeal after a rejection, a correction while a case is
+ * waiting, in review or rejected. Nothing is offered once the checks are complete or while they are unavailable. */
+export function appealKinds(screeningStatus: string | undefined): OrgClaimAppealKind[] {
+  switch (screeningStatus) {
+    case "REJECTED":
+      return ["APPEAL", "CORRECTION"];
+    case "GATHERING":
+    case "REVIEW_REQUIRED":
+      return ["CORRECTION"];
+    default:
+      return [];
+  }
+}
+
+export const APPEAL_LABELS: Record<OrgClaimAppealKind, { label: string; help: string }> = {
+  APPEAL: { label: "Appeal the decision", help: "Ask a different person to look again, and say why the decision should change." },
+  CORRECTION: { label: "Ask for a correction", help: "Tell us what is wrong in what we hold or in what the register says." },
+};
+
+/** A problem the browser can see before sending; the server checks again. */
+export function statementProblem(statement: string): string | null {
+  const n = statement.trim().length;
+  if (n < MIN_STATEMENT) return `Write at least a sentence (${MIN_STATEMENT} characters).`;
+  if (n > MAX_STATEMENT) return `Keep it under ${MAX_STATEMENT} characters.`;
+  return null;
+}
+
+const APPEAL_MESSAGES: Record<string, string> = {
+  STATEMENT_INVALID: `Write at least a sentence (${MIN_STATEMENT} characters), and no more than ${MAX_STATEMENT}.`,
+  APPEAL_NOT_AVAILABLE: "That request is not available for this check right now.",
+  APPEAL_ALREADY_OPEN: "A request is already open. A person is looking at it.",
+  AMEND_NOT_AVAILABLE: "These details can only be changed while we are waiting for them.",
+  SCREENING_RESIDENCY_DENIED: "This organization's data region does not allow these details to be stored here. Nothing was stored.",
+};
+
+export function appealMessage(code: string | undefined): string {
+  return (code && APPEAL_MESSAGES[code]) || "That request could not be sent.";
 }
 
 /** What the next step is, from the checks alone. */

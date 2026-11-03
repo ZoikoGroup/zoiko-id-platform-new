@@ -13,6 +13,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.organization.application import proof as proof_service
 from zid_platform.modules.organization.application.identity import (
     identifiers_of,
     legal_name_history,
@@ -33,6 +34,9 @@ from zid_platform.modules.organization.application.kyb import (
 )
 from zid_platform.modules.organization.application.kyb import (
     refresh as kyb_refresh,
+)
+from zid_platform.modules.organization.application.kyb import (
+    register_people as kyb_register_people,
 )
 from zid_platform.modules.organization.application.kyb import (
     request_verification as kyb_request_verification,
@@ -57,10 +61,12 @@ from zid_platform.modules.organization.domain.kyb import (
 from zid_platform.modules.organization.domain.kyb import (
     KybError,
     KybStatus,
+    RegisterRead,
 )
 from zid_platform.modules.organization.domain.kyb import (
     Review as KybReview,
 )
+from zid_platform.modules.organization.domain.proof import ProofError
 from zid_platform.modules.organization.domain.registry import RegistryError, check_identifier
 from zid_platform.modules.organization.infrastructure.kyb_adapters import (
     CompaniesHouseKyb,
@@ -68,8 +74,16 @@ from zid_platform.modules.organization.infrastructure.kyb_adapters import (
     GleifKyb,
     KybAdapter,
     SireneKyb,
+    default_adapters,
 )
 from zid_platform.modules.organization.infrastructure.kyb_config import routing as kyb_routing
+from zid_platform.modules.organization.infrastructure.kyb_store import (
+    latest_case_id as latest_kyb_case_id,
+)
+from zid_platform.modules.organization.infrastructure.proof_config import proof_policy
+from zid_platform.modules.organization.infrastructure.proof_scan import (
+    from_address as proof_scanner_from_address,
+)
 from zid_platform.modules.organization.infrastructure.registry_adapters import (
     CompaniesHouse,
     Gleif,
@@ -92,6 +106,8 @@ __all__ = [
     "KybReview",
     "KybStatus",
     "NameMatcher",
+    "ProofError",
+    "RegisterRead",
     "RegistryAdapter",
     "RegistryError",
     "RootReader",
@@ -99,6 +115,7 @@ __all__ = [
     "SireneKyb",
     "adapter_for",
     "check_identifier",
+    "default_adapters",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",
@@ -106,13 +123,18 @@ __all__ = [
     "kyb_get_case",
     "kyb_history",
     "kyb_refresh",
+    "kyb_register_people",
     "kyb_request_verification",
     "kyb_review",
     "kyb_routing",
     "kyb_search",
+    "latest_kyb_case_id",
     "legal_name_history",
     "link_identifier",
     "organization_exists",
+    "proof_policy",
+    "proof_scanner_from_address",
+    "proof_service",
     "quarantine_source",
     "read_root",
     "refresh_registry_roots",

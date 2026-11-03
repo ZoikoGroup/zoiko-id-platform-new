@@ -1681,6 +1681,270 @@ export type StepUpTiers = {
   s2_never_accepts: string[];
   actions: { action: string; name: string; tier: string; escalates_to: string | null; family: string; gate: string; control: string }[];
 };
+export type ApprovalTier = "A1" | "A2";
+export type ApprovalCaseState =
+  | "PENDING_APPROVAL"
+  | "PARTIALLY_APPROVED"
+  | "APPROVED_READY"
+  | "EXECUTED"
+  | "FAILED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "INVALIDATED"
+  | "CANCELLED"
+  | "NEEDS_CHANGES";
+export type ApprovalHold = "BLOCKED_INSUFFICIENT_APPROVERS" | "PENDING_INDEPENDENT_REVIEW";
+export type ApprovalVoteRow = {
+  vote_id: string;
+  approver_principal_id: string;
+  person_ref: string;
+  authority_basis: string;
+  vote: "APPROVE" | "REJECT";
+  step_up_tier: string | null;
+  step_up_proof_ref: string | null;
+  decided_at: string;
+};
+/** One immutable request version. The server decides quorum; `hold` and `you.reasons` explain a disabled Approve. */
+export type ApprovalCase = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  state: ApprovalCaseState;
+  hold: ApprovalHold | null;
+  approvals_received: number;
+  approvals_required: number;
+  independent_people_available: number;
+  summary: string;
+  reason: string;
+  payload: Record<string, unknown>;
+  gate: string;
+  /** Additional gates the platform can check: blocking ones refuse the request, the others inform the approver. */
+  gates: { code: string; ok: boolean; blocking: boolean; note: string }[];
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  requester_principal_id: string;
+  beneficiary_principal_id: string | null;
+  expires_at: string;
+  created_at: string;
+  approved_at: string | null;
+  applied_at: string | null;
+  votes: ApprovalVoteRow[];
+  notice: string;
+  you?: { may_vote: boolean; reasons: string[]; is_requester: boolean };
+};
+export type ApprovalCaseDraft = {
+  action_id: string;
+  target_id: string;
+  payload?: Record<string, unknown>;
+  reason: string;
+  ttl_seconds?: number;
+  evidence_ref?: string;
+};
+export type ApprovalExecution = {
+  outcome: "EXECUTED" | "FAILED";
+  replayed: boolean;
+  attempt: number;
+  reason_code: string | null;
+  result: Record<string, unknown>;
+  case: ApprovalCase;
+  /** An enrollment link: shown to the first caller only and never stored. */
+  shown_once?: Record<string, unknown>;
+  guidance?: string;
+};
+export type ApprovalPolicyRow = {
+  action_id: string;
+  tier: "A0" | "A1" | "A2" | "FORBIDDEN" | "CONTAINMENT";
+  scope: "CUSTOMER" | "PLATFORM";
+  votes_required: number;
+  approver_roles: string[];
+  executable: boolean;
+  /** Why nothing can apply this action (a platform rule or no such capability), or null. */
+  no_operation: string | null;
+  gate: string;
+};
+export type ApprovalPolicy = {
+  version: string;
+  policy_version: string;
+  enforcement: "SHADOW" | "ENFORCE";
+  assured_review: "ACTIVE" | "INACTIVE";
+  tiers: Record<string, number>;
+  actions: ApprovalPolicyRow[];
+};
+export type SoloStatus = {
+  eligible_human_member_count: number;
+  solo_mode: boolean;
+  region: string;
+  policy_version: string;
+  legal_form_resolved: boolean;
+  independent_routes: string[];
+  a2_requires: string;
+  message: string | null;
+};
+export type GovernanceReviewer = {
+  reviewer_id: string;
+  principal_id: string;
+  relationship: "EXTERNAL_PROFESSIONAL" | "CO_DIRECTOR" | "TRUSTEE" | "AUTHORIZED_DELEGATE";
+  status: "PROPOSED" | "ACTIVE" | "REVOKED" | "EXPIRED";
+  region: string;
+  expires_at: string;
+  activated_via: "A1_APPROVAL" | "PLATFORM_VERIFICATION" | null;
+  conflicts_declared: number;
+  kind: "REVIEWER";
+};
+export type ReviewerAppointIn = {
+  principal_id: string;
+  relationship: GovernanceReviewer["relationship"];
+  authority_basis: string;
+  independence_declaration: string;
+  declared_conflicts?: string[];
+};
+export type ApprovalEvidence = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  maker: { principal_id: string; person_ref: string };
+  editors: number;
+  checkers: ApprovalVoteRow[];
+  distinct_checkers: number;
+  transitions: { from: string; to: string; actor: string | null; reason_code: string; at: string }[];
+  executions: { attempt: number; outcome: string; reason_code: string | null; executed_at: string; idempotency_key_hash: string; quorum: Record<string, unknown> }[];
+  state: ApprovalCaseState;
+  audit: { target_type: string; target_ref: string; event_prefix: string };
+};
+export type RegistrationCountry = {
+  code: string;
+  account: "AVAILABLE" | "AVAILABLE_IN_ANOTHER_REGION" | "NOT_AVAILABLE_YET";
+  routing: { state: "HERE" | "OTHER_CELL" | "UNAVAILABLE"; url: string | null };
+  organization_claims: "AVAILABLE" | "NOT_AVAILABLE_YET";
+  message: string | null;
+  /** Where to go when registration is not open for the country. */
+  contact?: string | null;
+};
+export type RegistrationCapabilities = {
+  notice_version: string;
+  locale: string;
+  nonce: string;
+  journeys: ("PERSONAL" | "ORGANIZATION")[];
+  identity_providers: string[];
+  authenticators: { primary: string; fallback: string };
+  country: RegistrationCountry | null;
+};
+export type RegistrationIntentIn = {
+  country: string;
+  journey: "PERSONAL" | "ORGANIZATION";
+  email: string;
+  locale?: string;
+  notice_version: string;
+  nonce: string;
+};
+export type RegistrationStarted = { request_id: string; status: "VERIFICATION_REQUESTED"; message: string };
+export type RegistrationNextStep =
+  | "VERIFY_EMAIL"
+  | "ENROLL_AUTHENTICATOR"
+  | "PERSONAL_WORKSPACE"
+  | "ORGANIZATION_CLAIM"
+  | "ACCEPT_INVITATION"
+  | "REQUEST_NEW_LINK"
+  | "CONTACT_SUPPORT";
+export type RegistrationStatus = {
+  request_id: string;
+  state: "PENDING_VERIFICATION" | "VERIFIED" | "COMPLETED" | "EXPIRED" | "ON_HOLD";
+  next_step: RegistrationNextStep;
+  account: "NONE" | "ACTIVE";
+  identity: "NOT_VERIFIED";
+  organization: "NONE";
+  message: string | null;
+  expires_at: string;
+};
+/** The link was redeemed: an active account that is NOT identity verified, and a single-use enrollment ticket shown once. */
+export type RegistrationConfirmed = {
+  request_id: string;
+  account: "ACTIVE";
+  identity: "NOT_VERIFIED";
+  next_step: "ENROLL_AUTHENTICATOR";
+  then: "PERSONAL_WORKSPACE" | "ORGANIZATION_CLAIM" | "ACCEPT_INVITATION";
+  enrollment_ticket: string;
+  enrollment_ticket_expires_at: string;
+  console_client_id: string | null;
+  workspace: string | null;
+  address: string;
+  authenticator_fallback: "GOVERNED_RECOVERY";
+};
+/** An approval case as the organization routes return it: the L-10 case plus the plain status word, the level, the derived execution hold
+ * and the evidence reference (restricted evidence is separately authorized and never inline). */
+export type OrgApprovalCase = ApprovalCase & {
+  status_label: string;
+  level: ApprovalTier;
+  execution_hold: string | null;
+  evidence: { reference: string | null; access: "SEPARATELY_AUTHORIZED" };
+};
+export type OrgApprovalSummary = {
+  request_id: string;
+  title: string;
+  requester_principal_id: string;
+  level: ApprovalTier;
+  state: ApprovalCaseState;
+  status_label: string;
+  approvals_received: number;
+  approvals_required: number;
+  shortage: string | null;
+  policy_version: string;
+  expires_at: string;
+  created_at: string;
+  next_action: string;
+};
+export type ApprovalScope = "review" | "mine" | "history";
+export type OrgApprovalInbox = {
+  scope: ApprovalScope;
+  items: OrgApprovalSummary[];
+  counts: Record<ApprovalScope, number>;
+  next_cursor: string | null;
+};
+export type OrgApprovalQuery = {
+  scope?: ApprovalScope;
+  state?: ApprovalCaseState;
+  risk?: ApprovalTier;
+  created_from?: string;
+  created_to?: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+};
+export type OrgDecision = "APPROVE" | "REJECT" | "REQUEST_CHANGES";
+export type OnboardingItem = {
+  key: string;
+  title: string;
+  status: "Required" | "In review" | "Verified" | "Needs action" | "Restricted";
+  required: boolean;
+  done: boolean;
+  reason: string | null;
+  next_action: string | null;
+};
+export type OrgReadiness = "DRAFT" | "LIMITED_SETUP" | "READY_FOR_ACTIVATION" | "ACTIVE" | "ACTIVE_LIMITED" | "RESTRICTED";
+export type OrgOnboarding = {
+  organization_id: string;
+  readiness: OrgReadiness;
+  trust: OnboardingItem[];
+  required: OnboardingItem[];
+  approvers: OnboardingItem;
+  solo: boolean;
+  can_activate: boolean;
+  blockers: string[];
+  restrictions: string[];
+  activated_at: string | null;
+  region: string;
+  acknowledgements: { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; title: string; summary: string; accepted: boolean }[];
+  policy_version: string;
+};
+export type OrgAcknowledgementIn = { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; locale?: string };
 export type PlanFeature = {
   feature: string;
   section: "baseline" | "standard" | "advanced";
@@ -1905,8 +2169,30 @@ export type OrgClaimStatus = {
   outcome: OrgClaimOutcome;
   checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
-  screening: { status: string; next_action: string; expires_at: Iso | null } | null;
+  screening: { status: string; next_action: string; expires_at: Iso | null; tasks: OrgClaimTask[] } | null;
 };
+/** Something the customer can do next. Codes, counts and plain words only: never a name or any watchlist content. */
+export type OrgClaimTask = { code: string; count: number; text: string };
+export type OrgClaimAppealKind = "APPEAL" | "CORRECTION";
+export type OrgClaimAppeal = { kind: OrgClaimAppealKind; statement: string };
+export type OrgClaimProofKind =
+  | "CERTIFICATE_OF_INCORPORATION"
+  | "REGISTER_EXTRACT"
+  | "LETTER_OF_AUTHORITY"
+  | "OWNERSHIP_CHART"
+  | "BOARD_RESOLUTION"
+  | "OTHER";
+export type OrgClaimProof = {
+  proof_id: string;
+  kind: OrgClaimProofKind;
+  media_type: string;
+  size_bytes: number;
+  label: string;
+  scan_status: "CLEAN" | "NOT_SCANNED";
+  content_hash: string;
+  uploaded_at: Iso;
+};
+export type OrgClaimProofs = { claim_id: string; proofs: OrgClaimProof[]; limit: number };
 export type OrgClaimParty = {
   ref: string;
   kind?: "PERSON" | "ENTITY";

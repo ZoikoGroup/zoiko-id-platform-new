@@ -7,6 +7,9 @@ Residency (F-W5; ZID-TENANCY-001):
 - `authorize_remote_access` support staff reading data from outside the company's region need an approved transfer;
 - `check_dependency_locations` refuses a dependency (subprocessor) whose locations cannot satisfy the profile;
 - `effective_operator_jurisdictions(conn, tenant, configured)` SRP-2/3 operator restrictions.
+Approvals (L-10; ZID-ENG-DEC-010 to 012): `create_case`, `cast_vote`, `execute_case`, `contain` are the one place a critical or sensitive
+change is requested, voted and applied (jobs, scripts and support tools call these, never the tables); `register_executor` adds what
+applies a kind of approved case; `legacy_path_gate` is the owners' enforcement switch for the earlier two-person path.
 Lifecycle (G-W0; ZID-OVERLAY-001 §2-4):
 - `load_tenant(conn, tenant)` the tenant record; `transition(conn, tenant, Move, ...)` the only way
   its lifecycle moves (the onboarding orchestrator supplies the gate report);
@@ -17,9 +20,21 @@ Lifecycle (G-W0; ZID-OVERLAY-001 §2-4):
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.tenant.application.approvals import (
+    ExecContext,
+    Executor,
+    Gate,
+    cast_vote,
+    contain,
+    create_case,
+    execute_case,
+    legacy_path_gate,
+    register_executor,
+)
 from zid_platform.modules.tenant.application.lifecycle import (
     BootstrapResult,
     ConsoleClient,
@@ -29,6 +44,7 @@ from zid_platform.modules.tenant.application.lifecycle import (
     ensure_member,
     live_roles,
     register_acceptance_hook,
+    register_invitation_hook,
     self_signup,
     transition,
 )
@@ -48,6 +64,7 @@ from zid_platform.modules.tenant.application.routing import (
     placement,
     tenant_state,
 )
+from zid_platform.modules.tenant.domain.approvals import ApprovalError
 from zid_platform.modules.tenant.domain.lifecycle import (
     Move,
     Role,
@@ -74,6 +91,7 @@ from zid_platform.modules.tenant.infrastructure.tenant_store import (
     Tenant,
     active_owner_count,
     bump_configuration,
+    console_client_for,
     load_tenant,
     set_fields,
     workspace,
@@ -90,9 +108,13 @@ def matrix_gate(action_id: str, mode: Mode) -> Callable[..., Awaitable[None]]:
 
 __all__ = [
     "CATEGORY_CLASS",
+    "ApprovalError",
     "BootstrapResult",
     "ConsoleClient",
     "Declaration",
+    "ExecContext",
+    "Executor",
+    "Gate",
     "Mode",
     "Move",
     "ResidencyError",
@@ -112,15 +134,22 @@ __all__ = [
     "cached_home_cell",
     "cached_placement",
     "cached_tenant_state",
+    "cast_vote",
     "cell_catalog",
     "check_category_transfer",
     "check_dependency_locations",
+    "console_client_for",
+    "contain",
+    "create_case",
     "declared_registration",
     "effective_operator_jurisdictions",
     "enforcement_for",
     "ensure_member",
+    "execute_case",
     "forget",
+    "governance_status",
     "home_cell",
+    "legacy_path_gate",
     "live_roles",
     "load_residency",
     "load_tenant",
@@ -128,8 +157,12 @@ __all__ = [
     "minimize",
     "placement",
     "register_acceptance_hook",
+    "register_executor",
+    "register_invitation_hook",
+    "roles_of_principal",
     "self_signup",
     "set_fields",
+    "tenant_roles",
     "tenant_state",
     "transition",
     "verified_domain_count",
@@ -142,3 +175,24 @@ async def searchable_domains(conn: AsyncConnection) -> list[tuple[str, str, str]
     from zid_platform.modules.tenant.infrastructure.domain_store import list_domains
 
     return [(d.domain_id, d.domain, f"domain · {d.status}") for d in await list_domains(conn)]
+
+
+async def tenant_roles(conn: AsyncConnection) -> list[RoleAssignment]:
+    """Every role assignment of the caller's tenant that is not revoked (row-level security scopes the read)."""
+    from zid_platform.modules.tenant.infrastructure import tenant_store
+
+    return await tenant_store.roles(conn)
+
+
+async def governance_status(conn: AsyncConnection, tenant_id: str) -> Any:
+    """How many eligible human approvers the organization has and whether it is solo (never client-controlled)."""
+    from zid_platform.modules.tenant.application.approvals import governance_status as status
+
+    return await status(conn, tenant_id)
+
+
+async def roles_of_principal(conn: AsyncConnection, principal_id: str) -> list[RoleAssignment]:
+    """The tenant role assignments one account holds (any status but revoked), read in the caller's tenant scope."""
+    from zid_platform.modules.tenant.infrastructure import tenant_store
+
+    return await tenant_store.roles(conn, principal_id=principal_id)

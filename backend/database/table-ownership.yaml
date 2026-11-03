@@ -654,6 +654,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-ED-03 signed verification evidence, append-only (CR-043)"
+  org.kyb_proof:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "WF-13B proof documents (AT-12), CR-043"
   verify.sanction_list_version:
     role: cell
     module: screening
@@ -689,6 +694,26 @@ tables:
     module: screening
     tenant_scoped: true
     source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_register_snapshot:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 register evidence snapshots (CR-044)"
+  verify.screening_register_person:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 register directors and persons with significant control (CR-044)"
+  verify.screening_trigger:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 rescreen triggers (CR-044)"
+  verify.screening_appeal:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-ED-04 appeals and corrections (CR-044)"
   verify.verification_assertion:
     role: cell
     module: verification
@@ -1089,6 +1114,61 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "ENG-DEC-007 invariant 2: accounts that are one natural person, for separation of duties (CR-044)"
+  platform.approval_case:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: one immutable approval request version (CR-047)"
+  platform.approval_case_transition:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010: every approval state change, append-only (CR-047)"
+  platform.approval_vote:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: one vote per approving person per case (CR-047)"
+  platform.approval_execution:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-010/011: every attempt to apply an approved case (CR-047)"
+  platform.approval_consumption:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-011: a platform A2 authorization is consumed once by the operation it authorizes (CR-047)"
+  platform.governance_reviewer:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "ENG-DEC-012: appointed independent reviewers of an organization (CR-047)"
+  platform.registration_intent:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: one person-first sign-up request, kept in the cell registration tenant (CR-048)"
+  platform.registration_account:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: keyed email hash to the account it created, never shown to a caller (CR-048)"
+  platform.registration_invitation_index:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013A: keyed email hash to a pending invitation so a verified address can be routed to it (CR-048)"
+  platform.organization_acknowledgement:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013C: versioned acceptance of the organizational controls and region policy (CR-049)"
+  platform.organization_activation:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013C: the activation record with its gate report and policy versions (CR-049)"
   platform.tenant_registration:
     role: cell
     module: tenant

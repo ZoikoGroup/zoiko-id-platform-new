@@ -32,6 +32,8 @@ x-backend: &backend
     ZID_WEBAUTHN_RP_NAME: Zoiko iD
     ZID_WEBAUTHN_ORIGINS: '["https://id.${ZID_DOMAIN}"]'
     ZID_TENANT_SIGNUP_ENABLED: "true"
+    # the malware scanner for company proof documents; unset, uploads are refused (nothing is stored unscanned)
+    ZID_PROOF_SCANNER_ADDRESS: ${ZID_PROOF_SCANNER_ADDRESS:-}
   volumes:
     - ../../contracts:/app/contracts:ro
     - ../../backend/config:/app/config:ro

@@ -7,6 +7,9 @@
 # status: NOT_READY (the default), SANDBOX (a development stand-in: counts in local and test only), or READY
 #   (needs every gate in `gates` with its recorded reference).
 # gates: architecture, security, privacy_and_law, operations, commercial; the owners record the reference.
+# suppliers: a READY cell names every supplier that routes its data (identity proofing, sanctions, address and phone, email and SMS,
+#   support, telemetry, AI) and each declares country_coverage, data_access, storage_locations (a list), onward_transfers and
+#   subcontractors (ZID-EDR-002 section 4). Storage outside the cell's legal zone is refused by the build.
 
 version: 0.1.0
 cells:

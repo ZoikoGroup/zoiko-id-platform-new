@@ -1,7 +1,28 @@
 import type { OrgClaimStatus } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
-import { CHECKS, attemptId, buildScreening, claimKey, emptyOwner, nextStep, outcomeCopy, ownerRowErrors, pctValid, tidy } from "./org-claim";
+import {
+  APPEAL_LABELS,
+  CHECKS,
+  MAX_PROOF_BYTES,
+  PROOF_KINDS,
+  appealKinds,
+  appealMessage,
+  attemptId,
+  buildScreening,
+  claimKey,
+  emptyOwner,
+  nextStep,
+  outcomeCopy,
+  ownerRowErrors,
+  pctValid,
+  proofKey,
+  proofMessage,
+  proofProblem,
+  sizeLabel,
+  statementProblem,
+  tidy,
+} from "./org-claim";
 
 const base: OrgClaimStatus = {
   claim_id: "c1",
@@ -78,7 +99,74 @@ describe("keys and next steps", () => {
   it("asks for the authority details only once the company is found, then waits, then is done", () => {
     expect(nextStep(base)).toBe("authority");
     expect(nextStep({ ...base, checks: { ...base.checks, company: "PENDING" } })).toBe("wait");
-    expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null } })).toBe("wait");
+    expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null, tasks: [] } })).toBe("wait");
     expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
+  });
+});
+
+describe("supporting documents", () => {
+  const f = (over: Partial<{ name: string; size: number; type: string }> = {}) => ({ name: "certificate.pdf", size: 1024, type: "application/pdf", ...over });
+
+  it("flags what the browser can see before anything is sent", () => {
+    expect(proofProblem(f())).toBeNull();
+    expect(proofProblem(f({ type: "image/png" }))).toBeNull();
+    expect(proofProblem(f({ size: 0 }))).toMatch(/empty/i);
+    expect(proofProblem(f({ size: MAX_PROOF_BYTES + 1 }))).toMatch(/10 MB/);
+    expect(proofProblem(f({ type: "application/x-msdownload", name: "a.pdf" }))).toMatch(/PDF, PNG or JPEG/);
+    expect(proofProblem(f({ type: "" }))).toBeNull(); // an unknown type is left for the server, which reads the bytes
+  });
+
+  it("says every server refusal in plain words and never shows a raw code", () => {
+    for (const code of ["PROOF_TOO_LARGE", "PROOF_EMPTY", "PROOF_TYPE_NOT_ALLOWED", "PROOF_TYPE_MISMATCH", "PROOF_ACTIVE_CONTENT", "PROOF_MALFORMED", "PROOF_INFECTED", "PROOF_SCAN_UNAVAILABLE", "PROOF_RESIDENCY_DENIED", "PROOF_LIMIT_REACHED"]) {
+      expect(proofMessage(code)).not.toMatch(/PROOF_/);
+      expect(proofMessage(code).length).toBeGreaterThan(10);
+    }
+    expect(proofMessage("SOMETHING_NEW")).toBe("That document could not be added.");
+    expect(proofMessage(undefined)).toBe("That document could not be added.");
+  });
+
+  it("keeps one key per file choice and names every kind", () => {
+    const a = proofKey("0190abcd-1111", f(), "x1");
+    expect(a).toBe(proofKey("0190abcd-1111", f(), "x1"));
+    expect(a).not.toBe(proofKey("0190abcd-1111", f(), "x2"));
+    expect(a).not.toBe(proofKey("0190abcd-1111", f({ size: 2048 }), "x1"));
+    expect(a.length).toBeLessThanOrEqual(120);
+    expect(PROOF_KINDS.map((k) => k.id)).toContain("OTHER");
+    expect(PROOF_KINDS.every((k) => k.label.length > 3)).toBe(true);
+  });
+
+  it("writes sizes people can read", () => {
+    expect(sizeLabel(10)).toBe("1 KB");
+    expect(sizeLabel(2048)).toBe("2 KB");
+    expect(sizeLabel(3 * 1024 * 1024)).toBe("3.0 MB");
+  });
+});
+
+describe("appeals and corrections", () => {
+  it("offers the right request for each state and nothing when the checks are complete or unavailable", () => {
+    expect(appealKinds("REJECTED")).toEqual(["APPEAL", "CORRECTION"]);
+    expect(appealKinds("GATHERING")).toEqual(["CORRECTION"]);
+    expect(appealKinds("REVIEW_REQUIRED")).toEqual(["CORRECTION"]);
+    for (const s of ["VERIFIED", "UNAVAILABLE", "EXPIRED", "SUSPENDED", undefined]) expect(appealKinds(s)).toEqual([]);
+    expect(Object.keys(APPEAL_LABELS).sort()).toEqual(["APPEAL", "CORRECTION"]);
+  });
+
+  it("asks for at least a sentence and no more than the limit before sending", () => {
+    expect(statementProblem("")).toMatch(/at least a sentence/i);
+    expect(statementProblem("too short")).toMatch(/at least a sentence/i);
+    expect(statementProblem("x".repeat(19))).not.toBeNull();
+    expect(statementProblem("x".repeat(20))).toBeNull();
+    expect(statementProblem("   " + "x".repeat(19) + "   ")).not.toBeNull(); // spaces do not count
+    expect(statementProblem("x".repeat(2000))).toBeNull();
+    expect(statementProblem("x".repeat(2001))).toMatch(/under 2000/);
+  });
+
+  it("says every server refusal in plain words and never shows a raw code", () => {
+    for (const code of ["STATEMENT_INVALID", "APPEAL_NOT_AVAILABLE", "APPEAL_ALREADY_OPEN", "AMEND_NOT_AVAILABLE", "SCREENING_RESIDENCY_DENIED"]) {
+      expect(appealMessage(code)).not.toMatch(/[A-Z]{4,}_[A-Z]/);
+      expect(appealMessage(code).length).toBeGreaterThan(15);
+    }
+    expect(appealMessage("SOMETHING_NEW")).toBe("That request could not be sent.");
+    expect(appealMessage(undefined)).toBe("That request could not be sent.");
   });
 });

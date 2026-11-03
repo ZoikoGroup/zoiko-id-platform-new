@@ -159,7 +159,72 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         sign = company_evidence_signer(settings)
         if sign is None:
             return "NO_SIGNING_KEY"
-        return await rescreen_pass(conn, screening_config(), sign, now)
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        def gate(
+            country: str,
+        ) -> (
+            None
+        ):  # raises unless business verification is open for the country in this environment
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await rescreen_pass(conn, screening_config(), sign, now, country_gate=gate)
+
+    async def register_watch(conn: AsyncConnection, now: datetime) -> object:
+        """ED-04 section 07: read the official register again for every live case; a change asks for a rescreen (answered by `screening`)."""
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.onboarding.application.monitoring import register_watch_pass
+        from zid_platform.modules.organization.ports import default_adapters
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        def gate(country: str) -> None:
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await register_watch_pass(
+            conn, default_adapters(_secret_broker(settings)), now, country_gate=gate
+        )
+
+    async def company_refresh(conn: AsyncConnection, now: datetime) -> object:
+        """ED-03 section 08: read the sources again before a company verification lapses (country gate first)."""
+        from zid_platform.crypto_runtime import company_evidence_signer
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.organization.application.passes import refresh_pass
+        from zid_platform.modules.organization.ports import default_adapters, kyb_routing
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        sign = company_evidence_signer(settings)
+        if sign is None:
+            return "NO_SIGNING_KEY"
+
+        def gate(country: str) -> None:
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await refresh_pass(
+            conn,
+            default_adapters(_secret_broker(settings)),
+            kyb_routing(),
+            sign,
+            now,
+            country_gate=gate,
+        )
 
     return [
         ("evidence", evidence),
@@ -174,7 +239,9 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("directory", directory),
         ("webhooks", webhooks),
         ("sanctions_lists", sanctions_lists),
+        ("register_watch", register_watch),
         ("screening", screening),
+        ("company_refresh", company_refresh),
     ]
 
 

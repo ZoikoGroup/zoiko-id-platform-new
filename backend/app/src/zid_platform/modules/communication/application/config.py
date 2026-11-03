@@ -36,6 +36,8 @@ DEFAULT_ROUTES: Mapping[str, str] = {
     "trusted_audit_url": "/admin/evidence",
     "trusted_developer_url": "/admin/developers",
     "trusted_support_url": "/help",
+    # the sign-up verification page (WF-013A): the link carries only its single-use token, `?t=`
+    "single_use_verification_url": "/sign-up/verify",
 }
 
 MARKETING_LISTS: Mapping[str, str] = {"ZID-EM-142": "product_updates"}

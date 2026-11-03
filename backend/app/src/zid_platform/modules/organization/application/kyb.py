@@ -29,6 +29,7 @@ from zid_platform.modules.organization.domain.kyb import (
     Decision,
     KybError,
     KybStatus,
+    RegisterRead,
     Review,
     Routing,
     SourceKind,
@@ -282,8 +283,62 @@ async def _record(
             },
         ),
     )
+    if case.status is KybStatus.VERIFIED and decision.status is not KybStatus.VERIFIED:
+        await _verification_lost(conn, tenant_id, case, decision, version, actor, now)
     updated = await store.load_case(conn, tenant_id, case.case_id)
     return _view(updated, body["evidence_hash"], decision.reasons, now)
+
+
+async def _verification_lost(
+    conn: AsyncConnection,
+    tenant_id: str,
+    case: store.CaseRow,
+    decision: Decision,
+    version: int,
+    actor: str | None,
+    now: datetime,
+) -> None:
+    """A company that was verified no longer is (a dissolved register entry, a changed name or form, a withdrawn ruling, a lapse).
+    What depends on the company reads the case's status live, so it drops at once; this records why, once, with the evidence
+    still on the ledger (WF-13B AT-11)."""
+    from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+
+    data = {
+        "case_id": case.case_id,
+        "previous_status": KybStatus.VERIFIED.value,
+        "decision_status": decision.status.value,
+        "reasons": list(decision.reasons),
+        "jurisdiction": case.jurisdiction,
+        "version": version,
+    }
+    event_id = await emit(
+        conn,
+        name="organization.kyb.verification_lost",
+        tenant_id=tenant_id,
+        aggregate_type="kyb_case",
+        aggregate_id=case.case_id,
+        aggregate_version=1000 + version,
+        data=data,
+    )
+    await record_audit(
+        conn,
+        tenant_id,
+        AuditFacts(
+            event_type="organization.kyb.verification_lost",
+            actor_type="HUMAN" if actor else "SERVICE",
+            action="lost",
+            target_type="kyb_case",
+            target_ref=case.case_id,
+            outcome="SUCCESS",
+            evidence_class=EvidenceClass.E3,
+            occurred_at=now,
+            actor_principal_id=actor,
+            reason_code=decision.review_reason,
+            source_service="organization",
+            source_event_id=event_id,
+            details=data,
+        ),
+    )
 
 
 def _applicant(case: store.CaseRow) -> Applicant:
@@ -295,6 +350,27 @@ def _applicant(case: store.CaseRow) -> Applicant:
         lei=case.lei,
         register_id=case.register_id,
     )
+
+
+async def register_people(
+    adapters: Mapping[str, KybAdapter], registration_number: str, country: str, now: datetime
+) -> RegisterRead:
+    """The directors and persons with significant control the official register lists, or why they could not be read. A country
+    with no source is NOT_APPLICABLE (the customer's declaration is then all there is, and a pack may still ask for review); a source
+    that fails is UNAVAILABLE and goes to a person, never read as "there is no one"."""
+    for adapter in adapters.values():
+        reader = getattr(adapter, "register_people", None)
+        if reader is None:
+            continue
+        try:
+            read = await asyncio.wait_for(
+                reader(registration_number, country, now), SOURCE_TIMEOUT_S * 2
+            )
+        except (KybError, TimeoutError, Exception):  # noqa: BLE001 - any failure of the source is an outage, not an answer
+            return RegisterRead("UNAVAILABLE", source=getattr(adapter, "adapter_id", ""))
+        if isinstance(read, RegisterRead) and read.status != "NOT_APPLICABLE":
+            return read
+    return RegisterRead("NOT_APPLICABLE")
 
 
 async def request_verification(
@@ -375,13 +451,22 @@ async def refresh(
     now: datetime,
     actor: str | None = None,
     country_gate: CountryGate | None = None,
+    keep_valid_on_outage: bool = False,
 ) -> CaseView:
-    """Re-read the sources and append a new decision. A source outage appends UNAVAILABLE; the earlier evidence stays."""
+    """Re-read the sources and append a new decision. A source outage appends UNAVAILABLE; the earlier evidence stays.
+    A scheduled refresh sets `keep_valid_on_outage`: a verification that still stands is not replaced by an outage, which says
+    nothing about the company; the next pass asks again, and the verification lapses on its own date if the sources stay down."""
     case = await store.load_case(conn, tenant_id, case_id, lock=True)
     if country_gate is not None:
         country_gate(case.jurisdiction)
     applicant = _applicant(case)
     decision = await decide(applicant, adapters=adapters, routing=routing, now=now)
+    if (
+        keep_valid_on_outage
+        and decision.status is KybStatus.UNAVAILABLE
+        and effective_status(case.status, case.expiry_at, now) is KybStatus.VERIFIED
+    ):
+        return await get_case(conn, tenant_id, case_id, now=now)
     return await _record(
         conn, tenant_id, case, applicant, decision, routing, sign,
         version=case.current_version + 1, actor=actor, decided_by=None, rationale=None, now=now,

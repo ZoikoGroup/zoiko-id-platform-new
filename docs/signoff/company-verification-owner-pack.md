@@ -47,4 +47,17 @@ A national adapter is added when an owner obtains a lawful, licensed route; the 
 | EDR03-02 no verified status from a name, a claim, missing data, an expired check or a timeout | `backend/app/tests/unit/test_kyb.py` |
 | EDR03-03 every decision has source, jurisdiction, time, policy, reason, actor and an immutable trace; reviewer overrides record a rationale | `backend/app/tests/component/test_kyb_pg.py` |
 | EDR03-04 region isolation under cache, retry, webhook and outage | `test_kyb_pg.py`: no cache or global state, tenant isolation, concurrent retries, outage appended not overwritten. No inbound webhook exists for company verification |
+| WF13B-AT-08 to AT-12: a single founder claims provisionally and cannot self-approve; another organization learns nothing and reaches nothing; replays and concurrent requests make one decision; a dissolved company drops out of every view and the history stays; proof uploads are judged, scanned, region-checked and encrypted | `backend/app/tests/component/test_org_claims_trust_pg.py`, `test_org_claim_proofs_pg.py`, `test_kyb_refresh_pg.py`, `backend/app/tests/unit/test_kyb_proof.py` |
 | EDR03-05 cost per completed verification recorded | `test_kyb_pg.py::test_supplier_lookups_are_costed_and_an_outage_is_never_chargeable`; the sign-off itself is Finance's |
+
+## 5. Decisions for the owners about proof documents and refresh
+
+| Decision | Owner | Recorded |
+|---|---|---|
+| The malware scanner: product, hosting and where it runs (it must sit in the same data region as the files it scans) | Security | ______ |
+| The size limit (10 MB proposed) and the accepted types (PDF, PNG, JPEG proposed) | Security / Legal | ______ |
+| How long a proof is kept, and who may open one (a reviewer with the protected action, every read audited, proposed) | Privacy / Legal | ______ |
+| Whether an Operator on an assigned case may upload (the matrix says assigned case only; the route admits Owner and Admin) | Product | ______ |
+| The refresh lead time (30 days before a verification lapses, proposed): set `refresh_lead_days` in `config/kyb/kyb-routing.yaml` | Trust operations | ______ |
+| The proof retention period: set `retention_days` in `config/kyb/proof-policy.yaml` (unset keeps documents until a period is decided) | Privacy / Legal | ______ |
+| Where the scanner runs and its address: set `ZID_PROOF_SCANNER_ADDRESS` (a cell without it refuses uploads) | Security / SRE | ______ |

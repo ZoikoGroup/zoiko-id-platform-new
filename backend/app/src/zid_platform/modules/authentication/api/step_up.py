@@ -209,12 +209,14 @@ async def require_step_up(
     resource: str,
     change: dict[str, Any],
     critical: bool = False,
+    force_enforce: bool = False,
 ) -> dict[str, Any] | None:
     """Call inside the transaction that executes the command. S0 needs nothing. Otherwise the proof in `X-Step-Up-Proof` must be fresh,
     bound to exactly this command and (for S2) unused; it is spent in this transaction. In `shadow` a missing or bad proof is logged and
     does not block; in `enforce` it is refused with `STEP_UP_REQUIRED` or the specific reason, and the refusal is recorded even though
-    this transaction rolls back."""
-    mode = _enforcement(request)
+    this transaction rolls back. `force_enforce` is for commands whose own record forbids a shadow period (an approval vote): the proof is
+    required whatever the platform-wide switch says."""
+    mode = "enforce" if force_enforce else _enforcement(request)
     if mode == "off":
         return None
     cat = step_up_catalogue()

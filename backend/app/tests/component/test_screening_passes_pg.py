@@ -176,3 +176,62 @@ def test_the_rescreen_pass_screens_again_what_a_list_change_made_stale(
                 ) == 0  # and only once
 
     asyncio.run(run())
+
+
+def test_the_rescreen_pass_holds_a_case_whose_country_the_registry_has_closed(
+    rt_url: str, owner_url: str
+) -> None:
+    """ZID-EDR-001: country permissions hold in jobs. A closed country is left alone (no screening, no appended decision), reported
+    as held, and looked at again once it is open."""
+    tenant, requester = str(uuid.uuid4()), str(uuid.uuid4())
+    cfg = config()
+    graph = Graph("co", {"co": Holder("co", HolderKind.ENTITY)}, ())
+    subjects = [
+        (Role.ENTITY, Party("co", PartyKind.ENTITY, "Acme Widgets Limited")),
+        (Role.REPRESENTATIVE, Party("rep", PartyKind.PERSON, "Alice Smith")),
+    ]
+    gathered = AuthorityEvidence(AuthorityKind.REGISTER_OFFICER, "officer-1")
+
+    def closed(country: str) -> None:
+        raise ValueError(f"business verification is not open for {country}")
+
+    async def lists(eng: Any, un_bytes: bytes) -> None:
+        async with eng.begin() as c:
+            for lid, files in (
+                (ListId.OFAC_SDN, {"sdn": SDN}), (ListId.OFAC_NON_SDN, {"sdn": SDN}), (ListId.UK_SANCTIONS, {"file": UK}),
+                (ListId.EU_CONSOLIDATED, {"file": EU}), (ListId.UN_SC, {"file": un_bytes}),
+            ):  # fmt: skip
+                await service.ingest_list(c, lid, files, fetched_at=NOW, source_ref="t", now=NOW)
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, engine(owner_url) as worker:
+            await lists(eng, un(("Eric", "Badege"), ("Aaa", "Bbb"), ("Ccc", "Ddd")))
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                v = await service.open_case(
+                    c, tenant, country="GB", subjects=subjects, graph=graph, authority=gathered,
+                    requested_by=requester, idempotency_key="gate-0000001", cfg=cfg, sign=sign, now=NOW,
+                )  # fmt: skip
+                case_id = v.case_id
+            await lists(
+                eng, un(("Eric", "Badege"), ("Aaa", "Bbb"), ("Ccc", "Ddd"), ("Alice", "Smith"))
+            )  # the case is now due
+            async with worker.begin() as c:
+                held = await passes.rescreen_pass(
+                    c, cfg, sign, NOW + timedelta(minutes=10), country_gate=closed
+                )
+            assert held[tenant] == 0 and held[f"{tenant}:held_by_country"] == 1
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                assert [r.version for r in await service.history(c, tenant, case_id)] == [
+                    1
+                ]  # nothing was screened or appended
+            async with worker.begin() as c:
+                done = await passes.rescreen_pass(
+                    c, cfg, sign, NOW + timedelta(minutes=20), country_gate=lambda _c: None
+                )
+            assert (
+                done[tenant] == 1 and f"{tenant}:held_by_country" not in done
+            )  # open again: screened as usual
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                assert [r.version for r in await service.history(c, tenant, case_id)] == [1, 2]
+
+    asyncio.run(run())

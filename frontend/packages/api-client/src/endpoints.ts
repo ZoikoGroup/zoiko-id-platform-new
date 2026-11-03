@@ -99,6 +99,48 @@ export function createCellApi(t: Transport) {
       verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
       cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
     },
+    /** The organization-scoped approvals and onboarding routes of ZID-UX-WF-013C. The organization is always the caller's own. */
+    org: {
+      approvals: (orgId: string, q: M.OrgApprovalQuery = {}) => get<M.OrgApprovalInbox>(`/v1/organizations/${seg(orgId)}/approvals`, q),
+      approval: (orgId: string, requestId: string) => get<M.OrgApprovalCase>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}`),
+      /** `version` is the request_hash of the version the person read (If-Match); a stale one is 409 VERSION_CONFLICT with no side effect. */
+      decide: (orgId: string, requestId: string, body: { decision: M.OrgDecision; reason?: string }, version: string, opts: { proof?: string; idempotencyKey?: string } = {}) =>
+        post<M.OrgApprovalCase>(`/v1/organizations/${seg(orgId)}/approvals/${seg(requestId)}/decisions`, body, {
+          idempotencyKey: opts.idempotencyKey,
+          headers: { "if-match": `"${version}"`, ...(opts.proof ? { "x-step-up-proof": opts.proof } : {}) },
+        }),
+      onboarding: (orgId: string) => get<M.OrgOnboarding>(`/v1/organizations/${seg(orgId)}/onboarding`),
+      acknowledge: (orgId: string, body: M.OrgAcknowledgementIn, idempotencyKey?: string) =>
+        post<M.OrgOnboarding & { recorded: boolean }>(`/v1/organizations/${seg(orgId)}/onboarding/acknowledgments`, body, { idempotencyKey }),
+      activate: (orgId: string) => post<M.OrgOnboarding & { activated_now: boolean }>(`/v1/organizations/${seg(orgId)}/activation`),
+    },
+    registration: {
+      capabilities: (country?: string) => get<M.RegistrationCapabilities>("/v1/registration/capabilities", { country }),
+      start: (b: M.RegistrationIntentIn, idempotencyKey?: string) => post<M.RegistrationStarted>("/v1/registration/intents", b, { idempotencyKey }),
+      resend: (requestId: string) => post<{ status: string; message: string }>("/v1/registration/resend", { request_id: requestId }),
+      confirm: (token: string, requestId?: string) => post<M.RegistrationConfirmed>("/v1/registration/confirm", requestId ? { token, request_id: requestId } : { token }),
+      status: (requestId: string) => get<M.RegistrationStatus>("/v1/registration/status", { request_id: requestId }),
+    },
+    approvals: {
+      policy: () => get<M.ApprovalPolicy>("/v1/approval-policy"),
+      soloStatus: () => get<M.SoloStatus>("/v1/governance/solo-status"),
+      list: (q: { state?: M.ApprovalCaseState; limit?: number } = {}) => get<M.Items<M.ApprovalCase>>("/v1/approval-cases", q),
+      read: (id: string) => get<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}`),
+      create: (draft: M.ApprovalCaseDraft) => post<M.ApprovalCase>("/v1/approval-cases", draft),
+      /** The vote carries a step-up proof made for this case, this hash and this vote (see `stepUp.challenge`). */
+      vote: (id: string, vote: "APPROVE" | "REJECT", requestHash: string, proof: string) =>
+        post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}/votes`, { vote, request_hash: requestHash }, withProof(proof)),
+      revise: (id: string, payload: Record<string, unknown>, reason: string) => post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}:revise`, { payload, reason }),
+      cancel: (id: string) => post<M.ApprovalCase>(`/v1/approval-cases/${seg(id)}:cancel`),
+      execute: (id: string, idempotencyKey: string) => post<M.ApprovalExecution>(`/v1/approval-cases/${seg(id)}/execute`, undefined, { idempotencyKey }),
+      evidence: (id: string) => get<M.ApprovalEvidence>(`/v1/approval-cases/${seg(id)}/evidence`),
+      openRecovery: (b: { principal_id: string; identity_reproof_ref: string; reason: string }) => post<M.ApprovalCase>("/v1/recovery-cases", b),
+      contain: (b: { action_id: string; payload?: Record<string, unknown>; reason: string }) =>
+        post<{ action_id: string; executed_at: string; region: string; post_incident_review: "REQUIRED" }>("/v1/containment-actions", b),
+      reviewers: () => get<M.Items<M.GovernanceReviewer>>("/v1/governance/reviewers"),
+      appointReviewer: (b: M.ReviewerAppointIn) => post<M.GovernanceReviewer & { activation_case: M.ApprovalCase }>("/v1/governance/reviewers", b),
+      revokeReviewer: (id: string) => post<M.GovernanceReviewer>(`/v1/governance/reviewers/${seg(id)}:revoke`),
+    },
     me: {
       userinfo: () => get<M.UserInfo>("/oauth2/userinfo"),
       sessions: () => get<M.Items<M.SessionView>>("/sessions"),
@@ -355,6 +397,18 @@ export function createCellApi(t: Transport) {
       status: (id: string) => get<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/status`),
       refresh: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/refresh`, {}),
       screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
+      /** Declare again while the case is waiting for details; the earlier declaration stays. */
+      amendScreening: (id: string, body: M.OrgClaimScreening) => t.request<M.OrgClaimStatus>("PUT", `/v1/org-claims/${seg(id)}/screening`, { body }),
+      /** Appeal a rejection or ask for a correction; the case goes back to a person. */
+      appeal: (id: string, body: M.OrgClaimAppeal) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/appeal`, body),
+      proofs: (id: string) => get<M.OrgClaimProofs>(`/v1/org-claims/${seg(id)}/proofs`),
+      /** One supporting document, sent as the file itself. A repeat with the same key is the same document. */
+      uploadProof: (id: string, file: File, kind: M.OrgClaimProofKind, idempotencyKey: string) =>
+        t.request<M.OrgClaimProof>("POST", `/v1/org-claims/${seg(id)}/proofs`, {
+          raw: { data: file, contentType: file.type || "application/octet-stream" },
+          idempotencyKey,
+          headers: { "x-proof-kind": kind, "x-proof-name": file.name.slice(0, 200) },
+        }),
     },
 
     onboarding: {

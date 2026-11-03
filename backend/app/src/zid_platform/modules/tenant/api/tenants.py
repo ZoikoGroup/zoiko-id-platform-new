@@ -39,6 +39,8 @@ from zid_platform.modules.session.ports import last_sign_in
 from zid_platform.modules.tenant.api.gate import matrix_gate, refusal
 from zid_platform.modules.tenant.application import access
 from zid_platform.modules.tenant.application import lifecycle as service
+from zid_platform.modules.tenant.application.approvals import legacy_path_gate
+from zid_platform.modules.tenant.domain.approvals import ApprovalError
 from zid_platform.modules.tenant.domain.lifecycle import Move, Role, RoleStatus, TenantError
 from zid_platform.modules.tenant.domain.role_matrix import (
     ROLES,
@@ -166,6 +168,9 @@ def _grant_refusal(role: Role, actor: str) -> str | None:
 class Invite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Role = Role.MEMBER
+    email: str | None = Field(
+        default=None, max_length=254
+    )  # lets sign-up recognise the invitee after they prove the inbox
 
 
 class OwnerChange(BaseModel):
@@ -427,7 +432,11 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
         if refusal_error is None:
             try:
                 inv = await service.invite(
-                    conn, tenant, role=body.role, invited_by=_principal(caller)
+                    conn,
+                    tenant,
+                    role=body.role,
+                    invited_by=_principal(caller),
+                    invitee_email=body.email,
                 )
             except TenantError as e:
                 raise http(e) from e
@@ -500,6 +509,13 @@ async def revoke_member(
     return role_view(a)
 
 
+def _a2_gate(action_id: str) -> None:
+    try:
+        legacy_path_gate(action_id)
+    except ApprovalError as e:
+        raise ZidError(e.code, e.detail, http_status=409) from e
+
+
 class RoleGrant(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Literal["ADMIN", "APPROVER"]
@@ -514,6 +530,7 @@ async def grant_privileged_role(
     Approver approves. The approval is the protected two-person approval bound to exactly this change; the approving person is
     checked against the matrix as an approver and must be a different natural person from the requester."""
     tenant, me = caller.ctx.tenant_id or "", _principal(caller)
+    _a2_gate("privileged-role-grant-or-elevation")
     refusal_error: ZidError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         asked = await access.evaluate(
@@ -578,6 +595,7 @@ async def grant_privileged_role(
 @router.post("/v1/tenant/owners", status_code=201)
 async def add_owner(body: OwnerChange, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
+    _a2_gate("ownership-transfer-or-replacement")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         approver = await approved_by_second_admin(
             conn,
@@ -613,6 +631,7 @@ async def remove_owner(
     principal_id: uuid.UUID, body: Approved, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
+    _a2_gate("removal-of-last-owner-or-control-chain")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         approver = await approved_by_second_admin(
             conn,
@@ -693,6 +712,7 @@ async def _approved_move(
 
 @router.post("/v1/tenant:resume")
 async def resume(body: Approved, request: Request, caller: CallerDep) -> dict[str, Any]:
+    _a2_gate("reinstate-suspended-tenant-access")
     return await _approved_move(request, caller, body, Move.RESUME)
 
 

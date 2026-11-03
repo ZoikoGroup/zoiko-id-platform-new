@@ -46,9 +46,10 @@ Customer wording is fixed in `backend/config/residency-offers/residency-offers.y
 
 | Acceptance test | Evidence |
 |---|---|
-| EDR02-01 placement, evidence, logs, backups, keys and supplier routes follow the profile | `backend/app/tests/unit/test_residency_enforcement.py`, `test_residency_inventory.py` |
+| EDR02-01 placement, evidence, logs, backups, keys and supplier routes follow the profile | `backend/app/tests/unit/test_residency_wave_one_cells.py` (the same rules in the U.S., EEA and U.K. cells), `test_residency_enforcement.py`, `test_residency_inventory.py` |
 | EDR02-02 wrong-cell token, rogue webhook, stale epoch and disallowed support access refused with evidence | `backend/app/tests/component/test_residency_drill_pg.py` (all four injected together) |
-| EDR02-03 outage and approved migration: no forbidden fallback, single writer | `backend/app/tests/component/test_recovery_fencing_pg.py` |
+| EDR02-03 outage and approved migration: no forbidden fallback, dual authorization, single writer, post-migration cleanup | `backend/app/tests/component/test_residency_migration_pg.py` (one approver opens nothing, a prohibited destination is blocked and nothing moves, the old copy is retired with erasure evidence before completion), `test_resilience_operations_pg.py` (failover), `test_recovery_fencing_pg.py` (fenced cutover) |
+| A READY cell has every supplier's coverage, storage, onward transfers and subcontractors declared, none stored outside the cell's zone | `backend/app/tests/unit/test_residency_offers.py` |
 | A cell that has not passed holds the segment, never downgrades | `backend/app/tests/unit/test_residency_offers.py` (domain and HTTP) |
 
 Statuses stay in progress until an owner accepts them in `docs/traceability/acceptance-tests.csv`.

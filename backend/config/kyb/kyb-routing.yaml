@@ -4,6 +4,7 @@
 #
 # policy: validity_days is how long a VERIFIED outcome stands before a review is due; ED-03 gives no number, ED-04 asks
 #   for an annual refresh of verified entities, so 365 is the proposed ceiling and owners may shorten it.
+#   refresh_lead_days is how long before a verification lapses the worker reads the sources again (30 is a proposal).
 #   name_threshold is the similarity below which a name difference goes to a reviewer; it supports, never proves.
 # adapters: kind says what a source can prove. A SUPPLIER fact counts only for a country listed in
 #   `supplier_coverage_proven`, which stays empty until the five-country proof of coverage, licensing and procurement
@@ -18,6 +19,7 @@
 version: 0.1.0
 policy:
   validity_days: 365
+  refresh_lead_days: 30
   name_threshold: 0.85
 
 adapters:

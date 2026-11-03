@@ -1,0 +1,29 @@
+# Which cell holds a person's account, by the residence country they chose (ZID-UX-WF-013A section 05; AC-06, AC-07).
+# Versioned configuration, not a guess: a country that is not listed has NO home cell and registration for it is refused with an honest
+# "not available yet" answer, never routed to a default (no implicit GB, UK or +44), and nothing about the person is stored first.
+# The first cell listed that this deployment knows is the home cell. A cell that is not accepting placements refuses (fail closed).
+# Legal and Privacy own this table. Decision (2026-11-02): GB only for now. The EU and U.S. rows below are switched off (commented) until
+# those cells pass their readiness gates (see the residency owner pack); until then those countries get the honest "not available yet" answer.
+version: "ZID-UX-WF-013A-routing-v1"
+# Where a person goes when registration is unavailable for their country and the registry names no contact of its own (ZID-EDR-001 section 3).
+contact: "support@zoikogroup.com"
+routes:
+  GB: [uk-1, local-1]
+  # Switched off until the eu-1 and us-1 cells are ready; uncomment a row to offer that country (and say so in the owner pack):
+  # IE: [eu-1]
+  # DE: [eu-1]
+  # FR: [eu-1]
+  # NL: [eu-1]
+  # ES: [eu-1]
+  # IT: [eu-1]
+  # PT: [eu-1]
+  # BE: [eu-1]
+  # LU: [eu-1]
+  # AT: [eu-1]
+  # SE: [eu-1]
+  # DK: [eu-1]
+  # FI: [eu-1]
+  # PL: [eu-1]
+  # CZ: [eu-1]
+  # GR: [eu-1]
+  # US: [us-1]
