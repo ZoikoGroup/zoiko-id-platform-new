@@ -279,8 +279,8 @@ def create_app(
             lockbox_router,
             privacy_router,
             residency_router,
-            tenants_router,
             approval_cases_router,
+            tenants_router,
             org_approvals_router,
             onboarding_router,
             org_claims_router,
@@ -327,6 +327,10 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
     app.state.platform_tenant_id = (
         settings.operator_tenant_id
     )  # where Zoiko iD operations approve platform actions
+    # The session module sits below authentication and cannot import it, so the guard is handed in here (ZID-ENG-DEC-009).
+    from .modules.authentication.ports import require_step_up as _step_up_guard
+
+    app.state.step_up_guard = _step_up_guard
     from .modules.commercial.ports import NoTaxConfigured, RecordingPayments
 
     # No tax engine and no payment processor are chosen yet (CR-027): tax answers 'not configured' and

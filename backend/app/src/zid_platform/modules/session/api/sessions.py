@@ -22,6 +22,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, http_error, requ
 from zid_platform.modules.session.domain.session import SessionStatus
 from zid_platform.modules.session.infrastructure import session_store
 from zid_platform.protected import protected_action
+from zid_platform.step_up_hook import composed_step_up
 
 router = APIRouter(tags=["sessions"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -67,6 +68,14 @@ async def revoke_session(
 @router.post("/sessions:revoke-all")
 async def revoke_all(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await composed_step_up(
+            request,
+            conn,
+            caller,
+            action="revoke-own-sessions-or-all-other-sessions",
+            resource=f"principal:{caller.ctx.principal_id}",
+            change={"operation": "REVOKE_ALL"},
+        )
         n = await session_store.revoke_principal_sessions(
             conn, caller.ctx.principal_id or "", reason="global_logout"
         )
@@ -81,6 +90,14 @@ async def admin_revoke_all(
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="session.bulk_revoke", resource=f"principal:{principal_id}"
+        )
+        await composed_step_up(
+            request,
+            conn,
+            caller,
+            action="revoke-own-sessions-or-all-other-sessions",
+            resource=f"principal:{principal_id}",
+            change={"operation": "ADMIN_REVOKE_ALL", "principal_id": str(principal_id)},
         )
         n = await session_store.revoke_principal_sessions(
             conn, str(principal_id), reason=f"admin:{caller.ctx.principal_id}"

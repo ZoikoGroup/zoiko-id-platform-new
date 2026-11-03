@@ -38,6 +38,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce_tenant
+from zid_platform.modules.authentication.ports import require_step_up
 from zid_platform.modules.credential.application import issuer as issuing
 from zid_platform.modules.credential.application import verifier
 from zid_platform.modules.credential.domain.credentials import (
@@ -528,6 +529,18 @@ async def rotate_trust_keys(
             resource=f"credential_issuer:{body.issuer_identifier}",
             change="rotate-keys",
         )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="rotate-revoke-critical-enterprise-keys-or-production-certificates",
+            resource=f"credential_issuer:{body.issuer_identifier}",
+            change={
+                "operation": "ROTATE_KEYS",
+                "issuer": body.issuer_identifier,
+                "keys": len(keys),
+            },
+        )
         if not await store.rotate_trust_keys(conn, body.issuer_identifier, body.jwks):
             raise ZidError("ISSUER_NOT_FOUND", "Not found.", http_status=404)
     return {"issuer_identifier": body.issuer_identifier, "keys": len(keys)}
@@ -557,6 +570,14 @@ async def register_rp(body: RegistrationIn, request: Request, caller: CallerDep)
             caller,
             action="credential.trust.manage",
             resource=f"rp_registration:{body.client_id}",
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="authorize-new-high-risk-oauth-scopes-relying-party-trust",
+            resource=f"rp_registration:{body.client_id}",
+            change={"operation": "REGISTER", "client_id": body.client_id, "purpose": body.purpose},
         )
         rid = await store.create_registration(conn, caller.ctx.tenant_id or "", body.model_dump())
     return {"registration_id": rid, "client_id": body.client_id, "purpose": body.purpose}
