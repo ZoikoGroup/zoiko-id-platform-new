@@ -1,0 +1,76 @@
+# What a person fills in to ask for a governed change from the approvals inbox (ZID-UX-WF-013C screen 2). Versioned configuration.
+# The form only collects what the request needs; the server still classifies the action, checks who may ask, validates the payload against the
+# action's executor, and decides who must approve. A form that names an action the registry (action-tiers.yaml) does not offer to a customer,
+# or a registry action that can run and has neither a form nor a reason below, stops the process from starting.
+#
+# fields: key is the name in the request's payload.
+#   kind    member    an active member of the organization (shown by role and a short id)
+#           owner     an active Owner
+#           text      a short line
+#           textarea  a few lines
+#           select    one of `options`
+# target: what the request is about, as the registry's target id. `from` names a field; `prefix` is put in front of its value; `literal` is fixed.
+version: "ZID-UX-WF-013C-forms-v1"
+
+forms:
+  - action_id: ownership-transfer-or-replacement
+    label: "Add an Owner"
+    summary: "Make an existing member an additional Owner. Two independent people must approve, and the new Owner needs a passkey."
+    target: {from: principal_id}
+    fields:
+      - {key: principal_id, label: "Who becomes an Owner", kind: member, required: true}
+
+  - action_id: removal-of-last-owner-or-control-chain
+    label: "Remove an Owner"
+    summary: "End an Owner's ownership. The last Owner can never be removed, and another Owner with a passkey must remain."
+    target: {from: principal_id}
+    fields:
+      - {key: principal_id, label: "Which Owner", kind: owner, required: true}
+
+  - action_id: privileged-role-grant-or-elevation
+    label: "Give Administrator or Approver rights"
+    summary: "A privileged role is granted only by a request that someone else approves. You will get an enrolment link once, when it is applied."
+    target: {prefix: "role:", from: role}
+    fields:
+      - {key: role, label: "Which role", kind: select, required: true, options: [{id: ADMIN, label: "Administrator"}, {id: APPROVER, label: "Approver"}]}
+
+  - action_id: invite-nonprivileged-team-member
+    label: "Invite a team member"
+    summary: "Invite someone to a role that cannot change security settings. One independent person approves."
+    target: {prefix: "role:", from: role}
+    fields:
+      - {key: role, label: "Which role", kind: select, required: true, options: [{id: MEMBER, label: "Member"}, {id: OPERATOR, label: "Operator"}, {id: VIEWER, label: "Viewer"}]}
+
+  - action_id: privileged-owner-or-admin-recovery
+    label: "Recover a privileged account"
+    summary: "Give someone with a privileged role a one-hour, single-use link to enrol a new passkey, after their identity was checked again independently."
+    target: {from: principal_id}
+    fields:
+      - {key: principal_id, label: "Whose account", kind: member, required: true}
+      - {key: identity_reproof_ref, label: "Reference of the identity re-check", kind: text, required: true, help: "The record of the independent check, not the person's documents."}
+
+  - action_id: reinstate-suspended-tenant-access
+    label: "Reinstate a suspended organization"
+    summary: "Bring a suspended organization back. Restoring access is never immediate: it is a critical change that two independent people approve."
+    target: {literal: "organization"}
+    fields:
+      - {key: reason_code, label: "Reason, in a few words", kind: text, required: true, max_length: 64}
+
+  - action_id: powerful-agent-or-integration-authority
+    label: "Activate a powerful agent"
+    summary: "Let an agent that is waiting for approval start acting. Its scopes, key restrictions and the person accountable for it are checked again when it runs."
+    target: {from: agent_id}
+    fields:
+      - {key: agent_id, label: "The agent's id", kind: text, required: true, help: "Shown on the agent's page while it waits for approval."}
+
+  - action_id: manual-reversal-of-high-assurance-trust-decision
+    label: "Ask Zoiko iD to review a trust decision"
+    summary: "Approving only lets your organization ask. Zoiko iD decides on its own, and your votes alone can never change a verified status."
+    target: {from: decision_ref}
+    fields:
+      - {key: decision_ref, label: "Reference of the decision", kind: text, required: true}
+      - {key: grounds, label: "Why it should be looked at again", kind: textarea, required: true, max_length: 500}
+
+# Registry actions that can run but are started somewhere else, with the reason. Nothing is left out without one.
+handled_elsewhere:
+  appoint-independent-reviewer: "A reviewer is proposed from the governance page, which opens this request for you."

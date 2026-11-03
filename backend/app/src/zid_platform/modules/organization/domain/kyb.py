@@ -125,6 +125,34 @@ class Policy:
     version: str
     validity: timedelta  # how long a VERIFIED outcome stands before a review is due
     name_threshold: float = 0.85  # supporting evidence only
+    refresh_lead: timedelta = timedelta(
+        days=30
+    )  # how long before a verification lapses it is read again
+    draft_period: timedelta = timedelta(
+        days=30
+    )  # a claim not submitted within this long is closed as abandoned
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterPersonFact:
+    """A director/officer or a person with significant control as an official register lists them (ZID-ED-04 section 04)."""
+
+    kind: str  # "PSC" or "OFFICER"
+    name: str  # in natural order ("John Smith"); empty for a protected entry the register does not name
+    entity: bool  # a company or legal person rather than an individual
+    natures: tuple[str, ...] = ()  # the register's own words for the control or the role
+    ceased: bool = False
+    birth_year: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterRead:
+    """`status`: OK (read in full), UNAVAILABLE (could not be read in full: never read as "no one"), NOT_APPLICABLE (no source)."""
+
+    status: str
+    people: tuple[RegisterPersonFact, ...] = ()
+    content_hash: str = ""
+    source: str = ""
 
 
 @dataclass(frozen=True, slots=True)

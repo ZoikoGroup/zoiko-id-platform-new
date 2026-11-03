@@ -53,7 +53,7 @@ export type BffConfig = {
 };
 
 // sec-gpc: Global Privacy Control, an opt-out signal the cell must honor without verification (PRIV-21).
-const FORWARD_REQUEST_HEADERS = ["accept", "accept-language", "content-type", "idempotency-key", "if-match", "if-none-match", "sec-gpc"];
+const FORWARD_REQUEST_HEADERS = ["accept", "accept-language", "content-type", "idempotency-key", "if-match", "if-none-match", "sec-gpc", "x-proof-kind", "x-proof-name"];
 const FORWARD_RESPONSE_HEADERS = ["content-type", "etag", "retry-after", "x-correlation-id", "x-request-id", "www-authenticate"];
 /** Prefix match, or exact match when the entry ends with "$". */
 function allowed(list: string[], path: string): boolean {

@@ -356,7 +356,7 @@ async def self_signup(
     tenant_slug: str,
     deployment_mode: str,
     home_cell_id: str,
-    console: ConsoleClient,
+    console: ConsoleClient | None,
     registration: Declaration | None = None,
     now: datetime | None = None,
 ) -> BootstrapResult:
@@ -537,9 +537,11 @@ async def invite(
     role: Role,
     invited_by: str,
     approved_by: str | None = None,
+    invitee_email: str | None = None,
     now: datetime | None = None,
 ) -> Invitation:
-    """A new principal with an INVITED role and a single-use enrollment ticket (MEMBER default)."""
+    """A new principal with an INVITED role and a single-use enrollment ticket (MEMBER default). `invitee_email`, when given, is handed to
+    the registered invitation hooks (the sign-up route that recognises the invitee after they prove the inbox); it is never stored here."""
     now = now or _now()
     check_invitation(role)
     tenant = await store.load_tenant(conn, tenant_id)
@@ -575,6 +577,9 @@ async def invite(
         expires_at=expires,
     )
     await _member_event(conn, tenant, assignment, actor=invited_by)
+    if invitee_email:
+        for hook in _INVITATION_HOOKS.values():
+            await hook(conn, tenant_id, principal, role.value, invitee_email)
     return Invitation(assignment, ticket, expires)
 
 
@@ -630,6 +635,15 @@ async def reissue_invitation(
 # Other modules react to an accepted invitation without this module importing them (module-cycle guard): they
 # register at start-up (main.py). Keyed by name so registering twice is harmless.
 AcceptanceHook = Callable[[AsyncConnection, str, RoleAssignment], Awaitable[None]]
+InvitationHook = Callable[[AsyncConnection, str, str, str, str], Awaitable[None]]
+_INVITATION_HOOKS: dict[str, InvitationHook] = {}
+
+
+def register_invitation_hook(name: str, hook: InvitationHook) -> None:
+    """(conn in the inviting tenant, tenant, invited principal, role, invitee email). Idempotent by name."""
+    _INVITATION_HOOKS[name] = hook
+
+
 _ACCEPTANCE_HOOKS: dict[str, AcceptanceHook] = {}
 
 
@@ -897,6 +911,7 @@ __all__ = [
     "invite",
     "live_roles",
     "register_acceptance_hook",
+    "register_invitation_hook",
     "reissue_invitation",
     "remove_owner",
     "revoke_member",

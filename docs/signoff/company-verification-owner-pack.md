@@ -47,4 +47,33 @@ A national adapter is added when an owner obtains a lawful, licensed route; the 
 | EDR03-02 no verified status from a name, a claim, missing data, an expired check or a timeout | `backend/app/tests/unit/test_kyb.py` |
 | EDR03-03 every decision has source, jurisdiction, time, policy, reason, actor and an immutable trace; reviewer overrides record a rationale | `backend/app/tests/component/test_kyb_pg.py` |
 | EDR03-04 region isolation under cache, retry, webhook and outage | `test_kyb_pg.py`: no cache or global state, tenant isolation, concurrent retries, outage appended not overwritten. No inbound webhook exists for company verification |
+| WF13B-AT-08 to AT-12: a single founder claims provisionally and cannot self-approve; another organization learns nothing and reaches nothing; replays and concurrent requests make one decision; a dissolved company drops out of every view and the history stays; proof uploads are judged, scanned, region-checked and encrypted | `backend/app/tests/component/test_org_claims_trust_pg.py`, `test_org_claim_proofs_pg.py`, `test_kyb_refresh_pg.py`, `backend/app/tests/unit/test_kyb_proof.py` |
 | EDR03-05 cost per completed verification recorded | `test_kyb_pg.py::test_supplier_lookups_are_costed_and_an_outage_is_never_chargeable`; the sign-off itself is Finance's |
+
+## 5. Decisions for the owners about proof documents and refresh
+
+| Decision | Owner | Recorded |
+|---|---|---|
+| The malware scanner: product, hosting and where it runs (it must sit in the same data region as the files it scans) | Security | ______ |
+| The size limit (10 MB proposed) and the accepted types (PDF, PNG, JPEG proposed) | Security / Legal | ______ |
+| How long a proof is kept, and who may open one (a reviewer with the protected action, every read audited, proposed) | Privacy / Legal | ______ |
+| Whether an Operator on an assigned case may upload (the matrix says assigned case only; the route admits Owner and Admin) | Product | ______ |
+| The refresh lead time (30 days before a verification lapses, proposed): set `refresh_lead_days` in `config/kyb/kyb-routing.yaml` | Trust operations | ______ |
+| The proof retention period: set `retention_days` in `config/kyb/proof-policy.yaml` (unset keeps documents until a period is decided) | Privacy / Legal | ______ |
+| Where the scanner runs and its address: set `ZID_PROOF_SCANNER_ADDRESS` (a cell without it refuses uploads) | Security / SRE | ______ |
+
+
+## 5. A company claim over its life (WF-13B; CR-052): engineering decisions to confirm
+
+1. **A delegated mandate proves nothing until a person confirms it.** For a delegated employee or an outside representative, the document the applicant uploads is
+   evidence for a reviewer. Say who may confirm one (today: whoever holds the screening review action, who is never the applicant), whether a second person must,
+   and what a reviewer must check in the document.
+2. **The end date of a mandate bounds the verification.** A clear outcome never outlives the mandate it rests on, and an expired mandate is unproven even if it was
+   once confirmed. Confirm the rule, and whether a mandate may be open-ended (today an end date is required).
+3. **Draft period.** A claim nobody submits within 30 days (`draft_days` in `backend/config/kyb/kyb-routing.yaml`) is closed as abandoned. The number is an
+   engineering proposal. Submitted claims are never abandoned by the clock.
+4. **Withdrawing.** An applicant may withdraw any claim that is not verified; nothing is deleted and the watching stops. Say whether the screened persons' records of a
+   withdrawn or abandoned claim are kept for the retention schedule or disposed of earlier (today they stay, closed, and the retention schedule decides).
+5. **Outcome words.** STALE (a check that was complete has lapsed) and RESTRICTED (a review suspended the screening) are shown as such. Confirm the wording the
+   applicant sees and what a restricted company may still do.
+6. **Document kinds that can stand as a mandate:** letter of authority, board resolution and signing matrix. A verified legal-entity credential is not built.

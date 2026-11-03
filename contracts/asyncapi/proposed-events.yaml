@@ -400,9 +400,177 @@ events:
     source: ZID-ED-03 Global Company Verification section 04-05; CR-043
     lane: domain
     source_status: "proposed"
+  organization.kyb.proof_added:
+    cloudevents_type: com.zoiko.id.organization.kyb.proof_added.v1
+    meaning: "A proof document was added to a company claim (case id, proof id, kind, media type, size, content hash and scan status; never the document or its name). A proof is evidence for a reviewer and never verifies a company."
+    source: WF-13B Global Company Verification section 06 (AT-12); ZID-ED-03; CR-043
+    lane: domain
+    source_status: "proposed"
+  organization.kyb.verification_lost:
+    cloudevents_type: com.zoiko.id.organization.kyb.verification_lost.v1
+    meaning: "A company that was verified no longer is (case id, previous and new status, reason codes, country and version; no company data beyond ids and codes). Whatever depends on the verification reads the case live and drops at once; the evidence stays on the ledger."
+    source: ZID-ED-03 Global Company Verification section 05, 08; WF-13B AT-11
+    lane: domain
+    source_status: "proposed"
   verification.screening.decided:
     cloudevents_type: com.zoiko.id.verification.screening.decided.v1
     meaning: "A director, beneficial-owner and sanctions screening decision was recorded (case id, decision status, reason codes, evidence hash, policy version, country and alert count; no names, dates of birth or list entry text)."
     source: ZID-ED-04 Director, Beneficial Owner and Sanctions Screening section 04-06; CR-043
+    lane: domain
+    source_status: "proposed"
+  governance.approval.case_created:
+    cloudevents_type: com.zoiko.id.governance.approval.case_created.v1
+    meaning: "An approval case was requested (case id, action, tier, state, request hash, policy version, region and version; no payload)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.vote_recorded:
+    cloudevents_type: com.zoiko.id.governance.approval.vote_recorded.v1
+    meaning: "One person's vote was recorded on an approval case (case id, vote, approvals received and required, request hash; no approver identity beyond the audit record)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.executed:
+    cloudevents_type: com.zoiko.id.governance.approval.executed.v1
+    meaning: "An approved case was applied once (case id, action, attempt and request hash)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.failed:
+    cloudevents_type: com.zoiko.id.governance.approval.failed.v1
+    meaning: "An attempt to apply an approved case failed and changed nothing (case id, attempt and reason code)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.invalidated:
+    cloudevents_type: com.zoiko.id.governance.approval.invalidated.v1
+    meaning: "An approval case can no longer be approved or applied: a material change, a stale policy, a changed region or a lost requester authority (case id and reason code)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: priority
+    source_status: "proposed"
+  governance.approval.expired:
+    cloudevents_type: com.zoiko.id.governance.approval.expired.v1
+    meaning: "An approval case reached its expiry without being applied (case id)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.approval.cancelled:
+    cloudevents_type: com.zoiko.id.governance.approval.cancelled.v1
+    meaning: "The requester withdrew an approval case (case id)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: domain
+    source_status: "proposed"
+  governance.containment.executed:
+    cloudevents_type: com.zoiko.id.governance.containment.executed.v1
+    meaning: "An immediate defensive action ran without waiting for approval (action id, region, reason and that a post-incident review is required)."
+    source: ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047
+    lane: priority
+    source_status: "proposed"
+  governance.adjudication.requested:
+    cloudevents_type: com.zoiko.id.governance.adjudication.requested.v1
+    meaning: "An organization, after two independent approvals, asked Zoiko iD for its own independent adjudication of a trust decision (case id, decision reference and request hash). No status was changed."
+    source: ZID-ENG-DEC-011 section 02; CR-047
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.started:
+    cloudevents_type: com.zoiko.id.onboarding.registration.started.v1
+    meaning: "A person-first sign-up request began (request id, country, journey and locale; never an address)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.email_initiated:
+    cloudevents_type: com.zoiko.id.onboarding.registration.email_initiated.v1
+    meaning: "A sign-up verification email was requested or held back (request id and country; the same event whether or not the address is known)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.verification_completed:
+    cloudevents_type: com.zoiko.id.onboarding.registration.verification_completed.v1
+    meaning: "A sign-up request proved control of its inbox and its account was created or its invitation routed (request id, country, journey, invitation flag)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.authenticator_enrolled:
+    cloudevents_type: com.zoiko.id.onboarding.registration.authenticator_enrolled.v1
+    meaning: "The account of a sign-up request enrolled a strong authenticator (request id and country)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.completed:
+    cloudevents_type: com.zoiko.id.onboarding.registration.completed.v1
+    meaning: "A sign-up request finished: an active account that is not identity verified (request id, country and journey)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.failed_safe:
+    cloudevents_type: com.zoiko.id.onboarding.registration.failed_safe.v1
+    meaning: "A sign-up request was held for a reason the person is never told (request id and a coarse reason code, never a score)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  onboarding.registration.abandoned:
+    cloudevents_type: com.zoiko.id.onboarding.registration.abandoned.v1
+    meaning: "A sign-up request ended unused, because it expired or because the person gave another address; its token and its copy of the address were dropped (request id and, when the person changed address, the coarse reason ADDRESS_CHANGED)."
+    source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  organization.claim.source_verified:
+    cloudevents_type: com.zoiko.id.organization.claim.source_verified.v1
+    meaning: "A source answered for a company claim and its company check changed state (claim id, the check, its new and previous state; never a name or a number)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.authority_evaluated:
+    cloudevents_type: com.zoiko.id.organization.claim.authority_evaluated.v1
+    meaning: "The authority check of a company claim changed state: an officer found on the register, a delegated mandate waiting for a person, confirmed, or lapsed (claim id, the check, its new and previous state)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.risk_assessed:
+    cloudevents_type: com.zoiko.id.organization.claim.risk_assessed.v1
+    meaning: "The risk screening of a company claim changed state (claim id, the check, its new and previous state; never a name, an alert or a score)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.decision_issued:
+    cloudevents_type: com.zoiko.id.organization.claim.decision_issued.v1
+    meaning: "A company claim reached a decision: VERIFIED, DECLINED or RESTRICTED (claim id, the outcome and the one before it)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.submitted:
+    cloudevents_type: com.zoiko.id.organization.claim.submitted.v1
+    meaning: "The applicant said a company claim is complete and ready for review (claim id)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.closed:
+    cloudevents_type: com.zoiko.id.organization.claim.closed.v1
+    meaning: "A company claim was withdrawn by the applicant or abandoned as an unsubmitted draft (claim id and the reason); nothing was deleted."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  governance.approval.reminder_due:
+    cloudevents_type: com.zoiko.id.governance.approval.reminder_due.v1
+    meaning: "An approval request inside a reminder window is about to expire (case id, level, state, the window and the hours left; no person, payload or reason). Raised once per request and window."
+    source: ZID-UX-WF-013C section 05; CR-053
+    lane: domain
+    source_status: "proposed"
+  governance.approval.changes_requested:
+    cloudevents_type: com.zoiko.id.governance.approval.changes_requested.v1
+    meaning: "An approver sent an approval case back for changes: that version ended and every vote on it is void (case id, request hash, policy version, region; the reason is in the audit record)."
+    source: ZID-UX-WF-013C section 05, 09; CR-049
+    lane: domain
+    source_status: "proposed"
+  onboarding.organization.acknowledged:
+    cloudevents_type: com.zoiko.id.onboarding.organization.acknowledged.v1
+    meaning: "An organization accepted a versioned setup text (kind and version; no person data)."
+    source: ZID-UX-WF-013C section 03, 11; CR-049
+    lane: domain
+    source_status: "proposed"
+  onboarding.organization.activated:
+    cloudevents_type: com.zoiko.id.onboarding.organization.activated.v1
+    meaning: "An organization passed its activation gate and was activated (the policy versions it rested on)."
+    source: ZID-UX-WF-013C section 02, 11; CR-049
     lane: domain
     source_status: "proposed"

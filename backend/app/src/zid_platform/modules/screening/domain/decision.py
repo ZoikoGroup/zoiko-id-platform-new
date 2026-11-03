@@ -7,6 +7,9 @@ Passing one never satisfies another. Rules:
 - any alert, a sanctions ownership finding, an unresolved ownership chain, a country with no pack, or authority nobody
   proved goes to a person (REVIEW_REQUIRED); no provider and no rule here approves or rejects anyone;
 - REJECTED is a reviewer's ruling and cannot come from a rule;
+- what the official register says about directors and people with significant control is screened too, and a person the
+  register lists that the customer did not declare is an explicit task (GATHERING), never a quiet pass; a register that
+  cannot be read is a review, not a clear outcome;
 - a decision names the exact list versions and policy that produced it, and the customer sees only a safe outcome.
 """
 
@@ -15,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -25,6 +28,7 @@ from zid_platform.modules.screening.domain.matching import (
     Match,
     MatchPolicy,
     Party,
+    name_score,
     screen_party,
 )
 from zid_platform.modules.screening.domain.ownership import (
@@ -72,9 +76,19 @@ class AuthorityEvidence:
     kind: AuthorityKind
     reference: str | None = None  # an id of the register entry or the mandate, never a name
     expires_at: datetime | None = None
+    relationship: str | None = (
+        None  # how the person says they act for the company (DIRECTOR_OR_OFFICER, DELEGATED_EMPLOYEE, EXTERNAL_REPRESENTATIVE)
+    )
+    confirmed: bool = (
+        False  # a reviewer read the mandate and confirmed it (only a delegated mandate needs this)
+    )
 
     def valid(self, now: datetime) -> bool:
+        """An officer the register lists is proof by itself. A delegated mandate is the applicant's own document: it proves nothing until a
+        person has read it and confirmed it, and it stops proving anything on its expiry."""
         if self.kind is AuthorityKind.NONE or not self.reference:
+            return False
+        if self.kind is AuthorityKind.DELEGATED_MANDATE and not self.confirmed:
             return False
         return self.expires_at is None or self.expires_at > now
 
@@ -96,6 +110,28 @@ class Subject:
 
 
 @dataclass(frozen=True, slots=True)
+class RegisterPerson:
+    """A director/officer or a person with significant control as the official register lists them."""
+
+    ref: str  # opaque: `psc1`, `off3`
+    kind: str  # "PSC" or "OFFICER"
+    party: Party
+    natures: tuple[str, ...] = ()  # the register's own words for the control, for the reviewer
+    ceased: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterEvidence:
+    """`status` is OK (read), UNAVAILABLE (the register could not be read: a review, never a pass) or NOT_APPLICABLE (the country
+    has no source for this); `seq` numbers the snapshot a case has seen."""
+
+    status: str
+    people: tuple[RegisterPerson, ...] = ()
+    content_hash: str = ""
+    seq: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class ScreeningInput:
     country: str
     subjects: tuple[Subject, ...]
@@ -106,6 +142,7 @@ class ScreeningInput:
     pack: CountryPack | None
     policy: Policy
     now: datetime
+    register: RegisterEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,8 +198,17 @@ def decide(inp: ScreeningInput) -> Decision:
             ScreeningStatus.GATHERING, ("MISSING_OWNERSHIP",), (), None, False, checked, None
         )
 
+    register = inp.register if inp.register is not None and inp.register.status == "OK" else None
+    # the people the register itself lists are screened as well: a person the customer left out must not escape the lists
+    listed = [
+        Subject(
+            Role.OWNER if p.kind == "PSC" else Role.DIRECTOR, replace(p.party, ref=f"reg:{p.ref}")
+        )
+        for p in (register.people if register else ())
+        if not p.ceased
+    ]
     matches: list[Match] = []
-    for subject in inp.subjects:
+    for subject in (*inp.subjects, *listed):
         matches += screen_party(subject.party, usable, inp.policy.match)
     alerted = frozenset(m.party_ref for m in matches)
 
@@ -179,20 +225,39 @@ def decide(inp: ScreeningInput) -> Decision:
     if matches:
         reasons.append("SCREENING_ALERT")
         reasons += sorted({f"ALERT_{m.strength.value}" for m in matches})
+    gaps = reconcile_register(inp)
+    if inp.register is not None and inp.register.status == "UNAVAILABLE":
+        reasons.append(
+            "REGISTER_OWNERSHIP_UNAVAILABLE"
+        )  # evidence we could not read is never read as clear
+    reasons += [
+        g
+        for g in gaps
+        if g.startswith(("DECLARED_DIRECTOR_NOT_ON_REGISTER", "REGISTER_PSC_PROTECTED"))
+    ]
+    undeclared = [g for g in gaps if g.startswith("REGISTER_PSC_UNDECLARED")]
     authority_ok = inp.authority.valid(inp.now)
     if not authority_ok:
-        reasons.append(
-            "AUTHORITY_UNPROVEN"
-        )  # a registered company is not a person's authority to act for it
+        # a registered company is not a person's authority to act for it; a mandate the applicant supplied waits for a person to read it
+        waiting = (
+            inp.authority.kind is AuthorityKind.DELEGATED_MANDATE
+            and inp.authority.reference
+            and (inp.authority.expires_at is None or inp.authority.expires_at > inp.now)
+        )
+        reasons.append("AUTHORITY_MANDATE_REVIEW" if waiting else "AUTHORITY_UNPROVEN")
     if reasons:
         return Decision(
             ScreeningStatus.REVIEW_REQUIRED,
-            tuple(dict.fromkeys(reasons)),
+            tuple(dict.fromkeys([*reasons, *undeclared])),
             tuple(matches),
             ownership,
             authority_ok,
             checked,
             None,
+        )
+    if undeclared:  # nothing for a person to decide yet: the customer has details to add
+        return Decision(
+            ScreeningStatus.GATHERING, tuple(undeclared), (), ownership, authority_ok, checked, None
         )
     validity = inp.policy.validity_elevated if inp.elevated_risk else inp.policy.validity
     return Decision(
@@ -202,8 +267,49 @@ def decide(inp: ScreeningInput) -> Decision:
         ownership,
         True,
         checked,
-        inp.now + validity,
+        bounded_expiry(inp.now + validity, inp.authority),
     )
+
+
+def bounded_expiry(expiry: datetime, authority: AuthorityEvidence) -> datetime:
+    """A clear outcome never outlives the mandate it rests on."""
+    if authority.kind is AuthorityKind.DELEGATED_MANDATE and authority.expires_at is not None:
+        return min(expiry, authority.expires_at)
+    return expiry
+
+
+def _same_person(a: Party, b: Party, threshold: float) -> bool:
+    return a.kind == b.kind and name_score(a.name, b.name) >= threshold
+
+
+def reconcile_register(inp: ScreeningInput) -> list[str]:
+    """Where the customer's declaration and the official register disagree (ZID-ED-04 section 04, step 03). A person with significant
+    control the register lists and the customer did not declare is `REGISTER_PSC_UNDECLARED:<ref>` (a task); a director the customer
+    declared who is not a current officer on the register is `DECLARED_DIRECTOR_NOT_ON_REGISTER:<ref>` (a review). Only current
+    entries count. Names are compared as in screening, so word order, accents and case never create a difference."""
+    reg = inp.register
+    if reg is None or reg.status != "OK":
+        return []
+    t = inp.policy.match.threshold
+    declared = [
+        s.party for s in inp.subjects if s.role in (Role.OWNER, Role.DIRECTOR, Role.REPRESENTATIVE)
+    ]
+    out: list[str] = []
+    for p in reg.people:
+        if p.ceased or p.kind != "PSC":
+            continue
+        if (
+            not p.party.name.strip()
+        ):  # a protected entry the register does not name: a person must look at it
+            out.append(f"REGISTER_PSC_PROTECTED:{p.ref}")
+            continue
+        if not any(_same_person(p.party, d, t) for d in declared):
+            out.append(f"REGISTER_PSC_UNDECLARED:{p.ref}")
+    officers = [p.party for p in reg.people if p.kind == "OFFICER" and not p.ceased]
+    for s in inp.subjects:
+        if s.role is Role.DIRECTOR and not any(_same_person(s.party, o, t) for o in officers):
+            out.append(f"DECLARED_DIRECTOR_NOT_ON_REGISTER:{s.party.ref}")
+    return out
 
 
 def effective_status(
@@ -239,6 +345,9 @@ def evidence_object(
         "authority_verified": decision.authority_verified,
         "authority_kind": inp.authority.kind.value,
         "authority_reference": inp.authority.reference,
+        "authority_relationship": inp.authority.relationship,
+        # remembered in every record that follows, so a rescreen or an appeal never loses a reviewer's confirmation of the mandate
+        "mandate_confirmed_reference": inp.authority.reference if inp.authority.confirmed else None,
         "lists": [{"list_id": a, "version": b, "content_hash": c} for a, b, c in decision.lists],
         "policy_version": inp.policy.version,
         "match_policy_version": inp.policy.match.version,
@@ -261,6 +370,15 @@ def evidence_object(
             "unresolved": list(decision.ownership.unresolved) if decision.ownership else [],
             "identify": list(decision.ownership.identify) if decision.ownership else [],
         },
+        "register": {
+            "status": inp.register.status if inp.register else "NOT_APPLICABLE",
+            "seq": inp.register.seq if inp.register else 0,
+            "content_hash": inp.register.content_hash if inp.register else "",
+            "people": [
+                {"ref": p.ref, "kind": p.kind, "ceased": p.ceased}
+                for p in (inp.register.people if inp.register else ())
+            ],
+        },
         "screened_at": inp.now.isoformat(),
         "expiry_at": decision.expiry_at.isoformat() if decision.expiry_at else None,
         "reviewed": reviewed,
@@ -269,6 +387,45 @@ def evidence_object(
         body.update(carry)
     body["evidence_hash"] = hashlib.sha256(_canonical(body)).hexdigest()
     return body
+
+
+def tasks_for(reasons: Sequence[str]) -> list[dict[str, Any]]:
+    """What the customer can do next, as explicit tasks (ZID-ED-04 section 04, step 03). Codes and counts only: no name, and no
+    detail of any list or of a third party's record."""
+    undeclared = sum(1 for r in reasons if r.startswith("REGISTER_PSC_UNDECLARED"))
+    out: list[dict[str, Any]] = []
+    if undeclared:
+        who = "person" if undeclared == 1 else "people"
+        out.append(
+            {
+                "code": "DECLARE_REGISTER_PSC",
+                "count": undeclared,
+                "text": f"The official register lists {undeclared} {who} with significant control that you have not declared. "
+                "Add them to the owners and controllers, then submit again.",
+            }
+        )
+    if any(r.startswith("MISSING_PARTY") for r in reasons):
+        out.append(
+            {"code": "ADD_PARTIES", "count": 0, "text": "Add the company and your own details."}
+        )
+    if "MISSING_OWNERSHIP" in reasons:
+        out.append(
+            {
+                "code": "DECLARE_OWNERSHIP",
+                "count": 0,
+                "text": "Say who owns and controls the company.",
+            }
+        )
+    unscreened = sum(1 for r in reasons if r.startswith("OWNER_NOT_SCREENED"))
+    if unscreened:
+        out.append(
+            {
+                "code": "ADD_IDENTIFIED_OWNERS",
+                "count": unscreened,
+                "text": "Add the owners or controllers your country's rules ask to be identified.",
+            }
+        )
+    return out
 
 
 def safe_view(status: ScreeningStatus, reasons: Sequence[str]) -> dict[str, Any]:
@@ -282,7 +439,7 @@ def safe_view(status: ScreeningStatus, reasons: Sequence[str]) -> dict[str, Any]
         ScreeningStatus.EXPIRED: "The checks are out of date and must be refreshed.",
         ScreeningStatus.SUSPENDED: "Verified privileges are suspended while a review is open.",
     }.get(status, "Checks have not started.")
-    return {"status": status.value, "next_action": next_action}
+    return {"status": status.value, "next_action": next_action, "tasks": tasks_for(reasons)}
 
 
 REVIEW_OUTCOMES = frozenset(
@@ -295,6 +452,42 @@ class Ruling:
     reviewer_id: str
     outcome: ScreeningStatus
     rationale: str
+    confirm_mandate: bool = False  # the reviewer read the delegated mandate and confirms the person may act for the company
+
+
+APPEAL_KINDS = ("APPEAL", "CORRECTION")
+APPEAL_OPEN = "APPEAL_REQUESTED"
+
+
+def check_appeal(status: ScreeningStatus, kind: str, statement: str, *, open_appeal: bool) -> None:
+    """A customer may appeal a rejection or ask for a correction while a case is not clear (ZID-ED-04 section 06, decision fairness).
+    A correction can be asked for while the case is gathering, in review or rejected; an appeal only after a rejection. One request
+    is open at a time; the statement is what the customer wrote, at least a sentence."""
+    if kind not in APPEAL_KINDS:
+        raise ScreeningError("APPEAL_KIND_INVALID", kind)
+    if kind == "APPEAL" and status is not ScreeningStatus.REJECTED:
+        raise ScreeningError("APPEAL_NOT_AVAILABLE", status.value)
+    if kind == "CORRECTION" and status not in (
+        ScreeningStatus.GATHERING,
+        ScreeningStatus.REVIEW_REQUIRED,
+        ScreeningStatus.REJECTED,
+    ):
+        raise ScreeningError("APPEAL_NOT_AVAILABLE", status.value)
+    if open_appeal:
+        raise ScreeningError("APPEAL_ALREADY_OPEN")
+    if not 20 <= len(statement.strip()) <= 2000:
+        raise ScreeningError(
+            "STATEMENT_INVALID", "write at least a sentence, at most 2000 characters"
+        )
+
+
+def check_appeal_reviewer(reviewer_id: str, earlier_deciders: Sequence[str]) -> None:
+    """An appeal is decided by someone who did not decide the case before (an independent second look)."""
+    if reviewer_id in earlier_deciders:
+        raise ScreeningError(
+            "REVIEWER_CONFLICT",
+            "an appeal is decided by someone who did not decide the case before",
+        )
 
 
 def check_ruling(
@@ -308,6 +501,10 @@ def check_ruling(
         raise ScreeningError("CASE_NOT_IN_REVIEW", current.value)
     if ruling.outcome not in REVIEW_OUTCOMES:
         raise ScreeningError("RULING_OUTCOME_INVALID", ruling.outcome.value)
+    if ruling.confirm_mandate and ruling.outcome is not ScreeningStatus.VERIFIED:
+        raise ScreeningError(
+            "RULING_OUTCOME_INVALID", "a mandate is confirmed only by a ruling that verifies"
+        )
     if len(ruling.rationale.strip()) < 20:
         raise ScreeningError("RATIONALE_REQUIRED", "a reviewer's decision needs a recorded reason")
     if ruling.reviewer_id == requester_id or ruling.reviewer_id in subject_refs:

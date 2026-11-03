@@ -1,11 +1,21 @@
-import type { OrgClaimCheckState, OrgClaimHolding, OrgClaimOutcome, OrgClaimParty, OrgClaimScreening, OrgClaimStatus } from "@zoiko/api-client";
+import type {
+  OrgClaimRelationship,
+  OrgClaimCheckState,
+  OrgClaimHolding,
+  OrgClaimAppealKind,
+  OrgClaimOutcome,
+  OrgClaimParty,
+  OrgClaimProofKind,
+  OrgClaimScreening,
+  OrgClaimStatus,
+} from "@zoiko/api-client";
 
 /** The four independent checks of WF-13B-03, in the order they are shown. A found company is not a verified person,
  * a verified person is not an authorized one, and none of it is a cleared risk review. */
 export const CHECKS: { key: keyof OrgClaimStatus["checks"]; label: string; help: string }[] = [
   { key: "company", label: "Company and legal status", help: "The company exists and is active in an official source." },
   { key: "person_assurance", label: "Your identity", help: "Your identity is verified in its own step; signing up or a matching email is not proof." },
-  { key: "authority", label: "Your authority to act for it", help: "You are a current officer of the company, or hold a valid delegation." },
+  { key: "authority", label: "Your authority to act for it", help: "You are a current officer of the company, or hold a delegation that a person at Zoiko iD has read and confirmed." },
   { key: "risk", label: "Risk and ownership review", help: "Directors, owners and sanctions checks the country requires." },
 ];
 
@@ -14,6 +24,8 @@ export const CHECK_TONE: Record<OrgClaimCheckState, "ok" | "info" | "warn" | "da
   PENDING: "info",
   NEEDS_ACTION: "warn",
   HELD: "warn",
+  STALE: "warn",
+  RESTRICTED: "danger",
   DECLINED: "danger",
 };
 
@@ -22,6 +34,8 @@ export const CHECK_WORDS: Record<OrgClaimCheckState, string> = {
   PENDING: "Pending",
   NEEDS_ACTION: "Needs action",
   HELD: "In review",
+  STALE: "Out of date",
+  RESTRICTED: "Restricted",
   DECLINED: "Declined",
 };
 
@@ -37,9 +51,13 @@ export function outcomeCopy(outcome: OrgClaimOutcome): { title: string; body: st
     case "DECLINED":
       return { title: "Declined", body: "This claim could not be verified. You can ask for a review or start a new claim.", tone: "danger" };
     case "STALE":
-      return { title: "Out of date", body: "The evidence has expired and must be refreshed.", tone: "warn" };
+      return { title: "Out of date", body: "A check that was complete has run out and must be refreshed. Check again, or add the evidence marked Out of date.", tone: "warn" };
     case "RESTRICTED":
-      return { title: "Restricted", body: "Verified privileges are paused while a review is open.", tone: "warn" };
+      return { title: "Restricted", body: "Verified privileges are paused while a review is open. A person at Zoiko iD will contact you if they need anything.", tone: "warn" };
+    case "WITHDRAWN":
+      return { title: "Withdrawn", body: "You withdrew this claim. Nothing was deleted and nobody is being checked for it. You can start a new claim.", tone: "info" };
+    case "ABANDONED":
+      return { title: "Closed", body: "This claim was not sent for review in time, so it was closed. Nothing was deleted. You can start a new claim.", tone: "info" };
     default:
       return {
         title: "Provisional",
@@ -78,7 +96,9 @@ export function ownerRowErrors(r: OwnerRow): string[] {
 
 /** The screening request. Each person gets an id of this form's own; holdings are what the applicant declares, and the server
  * treats them as unverified until a source confirms them, so a declaration never clears anyone. */
-export function buildScreening(representativeName: string, owners: OwnerRow[]): OrgClaimScreening {
+export type AuthorityChoice = { relationship: OrgClaimRelationship; proofId: string; expires: string };
+
+export function buildScreening(representativeName: string, owners: OwnerRow[], authority?: AuthorityChoice): OrgClaimScreening {
   const party = (ref: string, name: string, birthYear?: string): OrgClaimParty => ({
     ref,
     kind: "PERSON",
@@ -92,7 +112,11 @@ export function buildScreening(representativeName: string, owners: OwnerRow[]): 
     votes_pct: o.votesPct.trim() || null,
     controls: o.boardControl ? ["APPOINT_BOARD_MAJORITY"] : [],
   }));
-  return { representative: party("rep", representativeName), owners: people, holdings };
+  const mandate =
+    authority && authority.relationship !== "DIRECTOR_OR_OFFICER"
+      ? { mandate_proof_id: authority.proofId, mandate_expires_at: new Date(`${authority.expires}T23:59:59`).toISOString() }
+      : {};
+  return { relationship: authority?.relationship ?? "DIRECTOR_OR_OFFICER", ...mandate, representative: party("rep", representativeName), owners: people, holdings };
 }
 
 /** One id per opening of the search page: a double click is one claim, and coming back later is a new attempt. */
@@ -105,9 +129,121 @@ export function claimKey(country: string, registrationNumber: string, attempt: s
   return `claim-${country}-${registrationNumber}-${attempt}`.slice(0, 120);
 }
 
-/** What the next step is, from the checks alone. */
-export function nextStep(status: OrgClaimStatus): "authority" | "wait" | "done" {
-  if (status.outcome === "VERIFIED") return "done";
+/** What each kind of document is called, in the order a person is likely to need them. */
+export const PROOF_KINDS: { id: OrgClaimProofKind; label: string }[] = [
+  { id: "CERTIFICATE_OF_INCORPORATION", label: "Certificate of incorporation" },
+  { id: "REGISTER_EXTRACT", label: "Register extract" },
+  { id: "LETTER_OF_AUTHORITY", label: "Letter of authority" },
+  { id: "OWNERSHIP_CHART", label: "Ownership chart" },
+  { id: "BOARD_RESOLUTION", label: "Board resolution" },
+  { id: "SIGNING_MATRIX", label: "Signing matrix" },
+  { id: "OTHER", label: "Another document" },
+];
+export const PROOF_ACCEPT = "application/pdf,image/png,image/jpeg";
+export const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+
+/** A problem the browser can see before sending, in plain words; the server checks again whatever this says. */
+export function proofProblem(file: { name: string; size: number; type: string }): string | null {
+  if (file.size === 0) return "That file is empty.";
+  if (file.size > MAX_PROOF_BYTES) return "That file is larger than 10 MB.";
+  if (file.type && !PROOF_ACCEPT.split(",").includes(file.type)) return "Upload a PDF, PNG or JPEG file.";
+  return null;
+}
+
+/** The server's refusals in the product's words. An unknown code gets a neutral message, never the raw code. */
+const PROOF_MESSAGES: Record<string, string> = {
+  PROOF_TOO_LARGE: "That file is larger than 10 MB.",
+  PROOF_EMPTY: "That file is empty.",
+  PROOF_TYPE_NOT_ALLOWED: "Upload a PDF, PNG or JPEG file.",
+  PROOF_TYPE_MISMATCH: "That file is not the type it says it is.",
+  PROOF_ACTIVE_CONTENT: "That PDF contains scripts or embedded content and cannot be accepted.",
+  PROOF_MALFORMED: "That PDF is incomplete or damaged.",
+  PROOF_INFECTED: "That file was refused by the security scan.",
+  PROOF_SCAN_UNAVAILABLE: "Uploads are paused for a moment. Nothing was stored; try again shortly.",
+  PROOF_RESIDENCY_DENIED: "This organization's data region does not allow the document to be stored here.",
+  PROOF_LIMIT_REACHED: "This claim already holds the most documents it can.",
+  CLAIM_CLOSED: "This claim is closed, so it takes no more documents. Start a new claim.",
+};
+
+export function proofMessage(code: string | undefined): string {
+  return (code && PROOF_MESSAGES[code]) || "That document could not be added.";
+}
+
+/** One idempotency key per file choice, so a double click is one upload and a different file is another. */
+export function proofKey(claimId: string, file: { name: string; size: number }, attempt: string): string {
+  return `proof-${claimId.slice(0, 8)}-${file.size}-${attempt}`.slice(0, 120);
+}
+
+export function sizeLabel(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export const MIN_STATEMENT = 20;
+export const MAX_STATEMENT = 2000;
+
+/** Which request a person can make about a screening, from its state: an appeal after a rejection, a correction while a case is
+ * waiting, in review or rejected. Nothing is offered once the checks are complete or while they are unavailable. */
+export function appealKinds(screeningStatus: string | undefined): OrgClaimAppealKind[] {
+  switch (screeningStatus) {
+    case "REJECTED":
+      return ["APPEAL", "CORRECTION"];
+    case "GATHERING":
+    case "REVIEW_REQUIRED":
+      return ["CORRECTION"];
+    default:
+      return [];
+  }
+}
+
+export const APPEAL_LABELS: Record<OrgClaimAppealKind, { label: string; help: string }> = {
+  APPEAL: { label: "Appeal the decision", help: "Ask a different person to look again, and say why the decision should change." },
+  CORRECTION: { label: "Ask for a correction", help: "Tell us what is wrong in what we hold or in what the register says." },
+};
+
+/** A problem the browser can see before sending; the server checks again. */
+export function statementProblem(statement: string): string | null {
+  const n = statement.trim().length;
+  if (n < MIN_STATEMENT) return `Write at least a sentence (${MIN_STATEMENT} characters).`;
+  if (n > MAX_STATEMENT) return `Keep it under ${MAX_STATEMENT} characters.`;
+  return null;
+}
+
+const APPEAL_MESSAGES: Record<string, string> = {
+  STATEMENT_INVALID: `Write at least a sentence (${MIN_STATEMENT} characters), and no more than ${MAX_STATEMENT}.`,
+  APPEAL_NOT_AVAILABLE: "That request is not available for this check right now.",
+  APPEAL_ALREADY_OPEN: "A request is already open. A person is looking at it.",
+  AMEND_NOT_AVAILABLE: "These details can only be changed while we are waiting for them.",
+  SCREENING_RESIDENCY_DENIED: "This organization's data region does not allow these details to be stored here. Nothing was stored.",
+};
+
+export function appealMessage(code: string | undefined): string {
+  return (code && APPEAL_MESSAGES[code]) || "That request could not be sent.";
+}
+
+/** What the next step is, from the claim alone. A closed or verified claim has none; a claim that has said who to screen and has not been
+ * sent is ready to submit. */
+export function nextStep(status: OrgClaimStatus): "authority" | "submit" | "wait" | "done" {
+  if (status.closed_at !== null || status.outcome === "VERIFIED") return "done";
   if (status.screening === null && status.checks.company === "COMPLETED") return "authority";
+  if (status.screening !== null && status.submitted_at === null) return "submit";
   return "wait";
+}
+
+/** How the person acts for the company, in the words of the design. An officer is read from the register; the others act under a document. */
+export const RELATIONSHIPS: { id: OrgClaimRelationship; label: string; help: string }[] = [
+  { id: "DIRECTOR_OR_OFFICER", label: "I am a director or officer of the company", help: "We check the official register. You upload nothing for this." },
+  { id: "DELEGATED_EMPLOYEE", label: "I work for the company and have been given authority", help: "Upload the letter, board resolution or signing matrix that gives it to you." },
+  { id: "EXTERNAL_REPRESENTATIVE", label: "I represent the company from outside (an agent, adviser or lawyer)", help: "Upload the letter, board resolution or signing matrix that gives it to you." },
+];
+
+/** The documents that can stand as a mandate: the ones that say who may act for the company. */
+export const MANDATE_KINDS: OrgClaimProofKind[] = ["LETTER_OF_AUTHORITY", "BOARD_RESOLUTION", "SIGNING_MATRIX"];
+
+/** What the browser can say before sending about a mandate; the server judges the document and the date again. */
+export function mandateProblem(relationship: OrgClaimRelationship, proofId: string, expires: string, today: Date): string | null {
+  if (relationship === "DIRECTOR_OR_OFFICER") return null;
+  if (!proofId) return "Choose the document that gives you authority. Upload it first if it is not listed.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) return "Enter the date the authority ends.";
+  if (new Date(`${expires}T23:59:59`).getTime() <= today.getTime()) return "The end date must be in the future.";
+  return null;
 }

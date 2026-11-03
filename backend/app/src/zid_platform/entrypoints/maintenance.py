@@ -23,11 +23,21 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from zid_outbox import emit
 
+REGISTRATION_RETENTION = timedelta(days=30)  # sign-up requests after they end
 REPLAY_GRACE = timedelta(hours=1)  # keep spent single-use rows a little past expiry
 SET_RETENTION = timedelta(days=30)
 UNCOLLECTED_CLAIMS = timedelta(hours=1)
 
 PURGE: tuple[tuple[str, str], ...] = (
+    # sign-up requests: kept 30 days after they end (owners, 2026-11-02); the account index is not purged
+    (
+        "platform.registration_intent",
+        "state NOT IN ('INITIATED', 'VERIFICATION_SENT') AND updated_at < :registration_retention",
+    ),
+    (
+        "platform.registration_invitation_index",
+        "status = 'ROUTED' AND created_at < :registration_retention",
+    ),
     ("authn.authorization_code", "expires_at < :grace"),
     ("authn.par_request", "expires_at < :grace"),
     ("authn.dpop_nonce", "expires_at < :now"),
@@ -61,6 +71,10 @@ SWEEP: dict[str, str] = {
         "UPDATE cred.presentation_record SET status = 'EXPIRED', completed_at = :now "
         "WHERE status = 'REQUESTED' AND expires_at <= :now"
     ),
+    "platform.registration_intent": (
+        "UPDATE platform.registration_intent SET state = 'EXPIRED', token_hash = NULL, email_pending = NULL, updated_at = :now "
+        "WHERE state IN ('INITIATED', 'VERIFICATION_SENT') AND expires_at <= :now"
+    ),
     "cred.presentation_record.claims": (
         "UPDATE cred.presentation_record SET disclosed_claims = NULL "
         "WHERE disclosed_claims IS NOT NULL AND completed_at < :uncollected"
@@ -74,6 +88,7 @@ async def run_once(conn: AsyncConnection, now: datetime) -> dict[str, int]:
         "grace": now - REPLAY_GRACE,
         "set_retention": now - SET_RETENTION,
         "uncollected": now - UNCOLLECTED_CLAIMS,
+        "registration_retention": now - REGISTRATION_RETENTION,
     }
     counts: dict[str, int] = {}
     for table, where in PURGE:

@@ -154,7 +154,7 @@ export function AppShell(props: AppShellProps) {
           <aside
             aria-label="Primary"
             className={cn(
-              "sticky top-0 hidden h-[calc(100dvh-3.75rem)] shrink-0 flex-col border-e border-border bg-surface lg:flex",
+              "sticky top-14 hidden h-[calc(100dvh-3.75rem)] shrink-0 flex-col border-e border-border bg-surface lg:flex",
               collapsed ? "w-16" : "w-64",
             )}
           >
@@ -316,7 +316,7 @@ function TopBar({
 }) {
   const critical = alerts.filter((a) => a.severity === "CRITICAL").length;
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-surface/85 sm:gap-3 lg:px-4">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-1 border-b border-border bg-surface/95 px-2 backdrop-blur sm:px-3 supports-[backdrop-filter]:bg-surface/85 sm:gap-3 lg:px-4">
       <button
         type="button"
         onClick={onOpenDrawer}
@@ -325,7 +325,7 @@ function TopBar({
       >
         <MenuIcon aria-hidden className="size-5" />
       </button>
-      <AriaLink href={homeHref} className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+      <AriaLink href={homeHref} aria-label={`ZOIKO iD ${surface}`} className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
         <ZoikoMark />
         <span className="hidden flex-col leading-none sm:flex">
           <span className="text-sm font-bold tracking-tight text-ink">

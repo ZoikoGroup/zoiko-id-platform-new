@@ -17,6 +17,7 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
+from zid_errors import ZidError
 
 from zid_platform.modules.screening.application import screening
 from zid_platform.modules.screening.domain.decision import ScreeningError
@@ -63,9 +64,17 @@ async def ingest_pass(
 
 
 async def rescreen_pass(
-    conn: AsyncConnection, cfg: ScreeningConfig, sign: Signer, now: datetime
+    conn: AsyncConnection,
+    cfg: ScreeningConfig,
+    sign: Signer,
+    now: datetime,
+    *,
+    country_gate: Callable[[str], None] | None = None,
 ) -> dict[str, int]:
-    """tenant id -> how many cases were screened again."""
+    """tenant id -> how many cases were screened again; `tenant id:held_by_country` -> how many were left alone because the
+    case's country is no longer open for business verification (ZID-EDR-001: country permissions hold in jobs too). A held case
+    keeps its last decision, which ages out on its own, and is looked at again on the next pass; nothing is screened, appended
+    or marked verified for a country that has been closed."""
     tenants = [
         str(r.tenant_id)
         for r in (
@@ -74,9 +83,21 @@ async def rescreen_pass(
     ]
     out: dict[str, int] = {}
     for tenant in tenants:
-        done = 0
+        done = held = 0
         async with in_tenant(conn, tenant):
-            for case_id in await screening.due_for_rescreen(conn, tenant, now=now):
+            due = await screening.due_for_rescreen(conn, tenant, now=now)
+            countries = await screening.case_countries(conn, due)
+            for case_id in due:
+                if country_gate is not None:
+                    try:
+                        country_gate(countries.get(case_id, ""))
+                    except (
+                        ValueError,
+                        ZidError,
+                    ):  # a closed, unknown or unreadable country is a hold, never a screening
+                        held += 1
+                        log.warning("rescreen of case %s held: its country is not open", case_id)
+                        continue
                 try:
                     async with conn.begin_nested():
                         await screening.rescreen(conn, tenant, case_id, cfg=cfg, sign=sign, now=now)
@@ -84,4 +105,6 @@ async def rescreen_pass(
                 except Exception:
                     log.exception("rescreen of case %s failed", case_id)
         out[tenant] = done
+        if held:
+            out[f"{tenant}:held_by_country"] = held
     return out

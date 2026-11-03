@@ -340,14 +340,45 @@ def test_a_company_that_exists_is_not_a_persons_authority_to_act_for_it() -> Non
         d = decide(clean_inputs(authority=authority))
         assert d.status is ScreeningStatus.REVIEW_REQUIRED and not d.authority_verified
         assert "AUTHORITY_UNPROVEN" in d.reasons
-    ok = decide(
-        clean_inputs(
-            authority=AuthorityEvidence(
-                AuthorityKind.DELEGATED_MANDATE, "m-1", NOW + timedelta(days=30)
-            )
-        )
+    # an expired mandate is unproven even when a reviewer once confirmed it
+    lapsed = AuthorityEvidence(
+        AuthorityKind.DELEGATED_MANDATE, "m-1", NOW - timedelta(days=1), "DELEGATED_EMPLOYEE", True
     )
-    assert ok.status is ScreeningStatus.VERIFIED
+    assert "AUTHORITY_UNPROVEN" in decide(clean_inputs(authority=lapsed)).reasons
+
+
+def test_a_delegated_mandate_proves_nothing_until_a_person_confirms_it_and_never_outlives_its_end_date() -> (
+    None
+):
+    """The applicant's own document is evidence for a reviewer, not proof: it waits for a person, a confirmed one proves authority, and the
+    clear outcome ends no later than the mandate does."""
+    ends = NOW + timedelta(days=10)
+    declared = AuthorityEvidence(
+        AuthorityKind.DELEGATED_MANDATE, "m-1", ends, "EXTERNAL_REPRESENTATIVE"
+    )
+    waiting = decide(clean_inputs(authority=declared))
+    assert waiting.status is ScreeningStatus.REVIEW_REQUIRED and not waiting.authority_verified
+    assert (
+        "AUTHORITY_MANDATE_REVIEW" in waiting.reasons
+        and "AUTHORITY_UNPROVEN" not in waiting.reasons
+    )
+    assert not declared.valid(NOW)
+
+    confirmed = AuthorityEvidence(
+        AuthorityKind.DELEGATED_MANDATE, "m-1", ends, "EXTERNAL_REPRESENTATIVE", True
+    )
+    ok = decide(clean_inputs(authority=confirmed))
+    assert ok.status is ScreeningStatus.VERIFIED and ok.authority_verified
+    assert (
+        ok.expiry_at is not None and ok.expiry_at <= ends
+    )  # the policy's validity is longer; the mandate is what bounds it
+    assert not confirmed.valid(ends)  # and on its end date it proves nothing
+
+    # a register officer is unaffected: the register is the proof, and nothing about a mandate applies
+    officer = AuthorityEvidence(
+        AuthorityKind.REGISTER_OFFICER, "root-1", None, "DIRECTOR_OR_OFFICER"
+    )
+    assert decide(clean_inputs(authority=officer)).status is ScreeningStatus.VERIFIED
 
 
 def test_entity_and_representative_are_always_required() -> None:
@@ -428,7 +459,10 @@ def test_evidence_names_lists_and_policy_and_holds_no_name_or_birth_date() -> No
 def test_a_customer_sees_an_outcome_and_a_next_step_only() -> None:
     for status in ScreeningStatus:
         view = safe_view(status, ["OFAC_50_PERCENT_AGGREGATE", "ALERT_STRONG"])
-        assert set(view) == {"status", "next_action"}
+        assert set(view) == {"status", "next_action", "tasks"}
+        assert (
+            view["tasks"] == []
+        )  # nothing from a list or an ownership finding becomes a task the customer can read
         assert "OFAC" not in view["next_action"] and "alert" not in view["next_action"].lower()
 
 

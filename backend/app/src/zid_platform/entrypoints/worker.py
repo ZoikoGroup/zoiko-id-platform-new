@@ -159,7 +159,90 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         sign = company_evidence_signer(settings)
         if sign is None:
             return "NO_SIGNING_KEY"
-        return await rescreen_pass(conn, screening_config(), sign, now)
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        def gate(
+            country: str,
+        ) -> (
+            None
+        ):  # raises unless business verification is open for the country in this environment
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await rescreen_pass(conn, screening_config(), sign, now, country_gate=gate)
+
+    async def register_watch(conn: AsyncConnection, now: datetime) -> object:
+        """ED-04 section 07: read the official register again for every live case; a change asks for a rescreen (answered by `screening`)."""
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.onboarding.application.monitoring import register_watch_pass
+        from zid_platform.modules.organization.ports import default_adapters
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        def gate(country: str) -> None:
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await register_watch_pass(
+            conn, default_adapters(_secret_broker(settings)), now, country_gate=gate
+        )
+
+    async def company_refresh(conn: AsyncConnection, now: datetime) -> object:
+        """ED-03 section 08: read the sources again before a company verification lapses (country gate first)."""
+        from zid_platform.crypto_runtime import company_evidence_signer
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.organization.application.passes import refresh_pass
+        from zid_platform.modules.organization.ports import default_adapters, kyb_routing
+        from zid_platform.modules.verification.ports import Capability, registry, require
+
+        sign = company_evidence_signer(settings)
+        if sign is None:
+            return "NO_SIGNING_KEY"
+
+        def gate(country: str) -> None:
+            require(
+                registry(),
+                country,
+                Capability.BUSINESS_VERIFICATION,
+                now=now,
+                environment=settings.environment,
+            )
+
+        return await refresh_pass(
+            conn,
+            default_adapters(_secret_broker(settings)),
+            kyb_routing(),
+            sign,
+            now,
+            country_gate=gate,
+        )
+
+    async def claim_housekeeping(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: close the claims nobody submitted in time (abandoned), so no half-made claim watches people for ever."""
+        from zid_platform.modules.onboarding.application.claims import abandon_drafts
+
+        return await abandon_drafts(conn, now)
+
+    async def claim_outcomes(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: follow every open claim and announce, once, whatever changed since the last pass (a ruling, a refresh, a lapse)."""
+        from zid_platform.modules.onboarding.application.claims import sync_outcomes
+
+        return await sync_outcomes(conn, now)
+
+    async def approval_reminders(conn: AsyncConnection, now: datetime) -> object:
+        """WF-013C: remind, once, about approval requests that are about to expire (an in-app alert)."""
+        from zid_platform.modules.tenant.application.reminders import remind_due
+
+        return await remind_due(conn, now)
 
     return [
         ("evidence", evidence),
@@ -174,7 +257,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("directory", directory),
         ("webhooks", webhooks),
         ("sanctions_lists", sanctions_lists),
+        ("register_watch", register_watch),
         ("screening", screening),
+        ("company_refresh", company_refresh),
+        ("claim_housekeeping", claim_housekeeping),
+        ("claim_outcomes", claim_outcomes),
+        ("approval_reminders", approval_reminders),
     ]
 
 
@@ -212,7 +300,9 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
 
     configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
-    register_privacy_stores()  # the retention sweep disposes through the owning modules
+    register_privacy_stores(
+        settings.registration_tenant_id
+    )  # the retention sweep and every erasure dispose through the owning modules
     engine = create_async_engine(database_url(settings), pool_size=2, max_overflow=0)
     interval = float(os.environ.get("ZID_WORKER_INTERVAL_S", "10"))
     try:

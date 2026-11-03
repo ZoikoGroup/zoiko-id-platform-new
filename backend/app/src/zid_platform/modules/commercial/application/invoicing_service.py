@@ -552,6 +552,16 @@ async def _credited(conn: AsyncConnection, invoice_id: str) -> Decimal:
     )
 
 
+async def credit_headroom(conn: AsyncConnection, invoice_id: str) -> tuple[dict[str, Any], Decimal]:
+    """The invoice and what is still creditable on it, so a finance request is refused before anyone is asked to approve it."""
+    i = await load_invoice(conn, invoice_id)
+    return i, Decimal(i["gross"]) - await _credited(conn, invoice_id)
+
+
+async def amount_paid(conn: AsyncConnection, invoice_id: str) -> Decimal:
+    return await _paid(conn, invoice_id)
+
+
 async def _paid(conn: AsyncConnection, invoice_id: str) -> Decimal:
     return Decimal(
         (
@@ -855,6 +865,19 @@ async def view(conn: AsyncConnection, invoice_id: str) -> dict[str, Any]:
     credited = await _credited(conn, invoice_id)
     paid = await _paid(conn, invoice_id)
     gross = Decimal(i["gross"])
+    notes = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT sequence_number, issuing_entity, amount, reason_code, issued_at FROM commercial.credit_note "
+                    "WHERE invoice_id = :i ORDER BY issued_at"
+                ),
+                {"i": uuid.UUID(invoice_id)},
+            )
+        )
+        .mappings()
+        .all()
+    )
     return {
         "invoice_id": str(i["invoice_id"]),
         "number": f"{i['issuing_entity']}-{int(i['sequence_number']):08d}"
@@ -873,6 +896,15 @@ async def view(conn: AsyncConnection, invoice_id: str) -> dict[str, Any]:
         "credited": _d(credited),
         "paid": _d(paid),
         "outstanding": _d(max(ZERO, gross - credited - paid)) if i["status"] == "ISSUED" else None,
+        "credit_notes": [
+            {
+                "number": f"{n['issuing_entity']}-{int(n['sequence_number']):08d}",
+                "amount": _d(n["amount"]),
+                "reason_code": n["reason_code"],
+                "issued_at": n["issued_at"].isoformat(),
+            }
+            for n in notes
+        ],
         "lines": [
             {
                 "seq": ln["seq"],

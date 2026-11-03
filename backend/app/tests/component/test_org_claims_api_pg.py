@@ -8,9 +8,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from conftest import engine
+from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, onboard
+from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.organization.domain.kyb import (
     Candidate,
@@ -21,6 +22,7 @@ from zid_platform.modules.organization.domain.kyb import (
 )
 from zid_platform.modules.screening.application import screening as screening_service
 from zid_platform.modules.screening.domain.lists import ListId
+from zid_platform.modules.tenant.application import residency
 from zid_platform.settings import Settings
 
 NOW = datetime.now(UTC)
@@ -108,6 +110,17 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
 ) -> None:
     asyncio.run(load_lists(rt_url))
     o = onboard(rt_url, extra_actions=REVIEW_ACTIONS, extra_resources=REVIEW_RESOURCES)
+
+    async def place() -> (
+        None
+    ):  # screened person records are held only in the organization's own region (ZID-ED-04 section 06)
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
+            await residency.set_residency(
+                c, o.tenant, profile="SRP-1", home_cell_id="uk-1", recovery_cells=[], prohibited_cells=[], operator_juris=[],
+                key_profile="PLATFORM_MANAGED", jurisdiction_pack_id="uk-gdpr", approval_ref="LEGAL-1", actor=o.owner,
+            )  # fmt: skip
+
+    asyncio.run(place())
     register = Register()
     app = create_app(
         Settings(

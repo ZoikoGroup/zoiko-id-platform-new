@@ -1681,6 +1681,270 @@ export type StepUpTiers = {
   s2_never_accepts: string[];
   actions: { action: string; name: string; tier: string; escalates_to: string | null; family: string; gate: string; control: string }[];
 };
+export type ApprovalTier = "A1" | "A2";
+export type ApprovalCaseState =
+  | "PENDING_APPROVAL"
+  | "PARTIALLY_APPROVED"
+  | "APPROVED_READY"
+  | "EXECUTED"
+  | "FAILED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "INVALIDATED"
+  | "CANCELLED"
+  | "NEEDS_CHANGES";
+export type ApprovalHold = "BLOCKED_INSUFFICIENT_APPROVERS" | "PENDING_INDEPENDENT_REVIEW";
+export type ApprovalVoteRow = {
+  vote_id: string;
+  approver_principal_id: string;
+  person_ref: string;
+  authority_basis: string;
+  vote: "APPROVE" | "REJECT";
+  step_up_tier: string | null;
+  step_up_proof_ref: string | null;
+  decided_at: string;
+};
+/** One immutable request version. The server decides quorum; `hold` and `you.reasons` explain a disabled Approve. */
+export type ApprovalCase = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  state: ApprovalCaseState;
+  hold: ApprovalHold | null;
+  approvals_received: number;
+  approvals_required: number;
+  independent_people_available: number;
+  summary: string;
+  reason: string;
+  payload: Record<string, unknown>;
+  gate: string;
+  /** Additional gates the platform can check: blocking ones refuse the request, the others inform the approver. */
+  gates: { code: string; ok: boolean; blocking: boolean; note: string }[];
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  requester_principal_id: string;
+  beneficiary_principal_id: string | null;
+  expires_at: string;
+  created_at: string;
+  approved_at: string | null;
+  applied_at: string | null;
+  votes: ApprovalVoteRow[];
+  notice: string;
+  you?: { may_vote: boolean; reasons: string[]; is_requester: boolean };
+};
+export type ApprovalCaseDraft = {
+  action_id: string;
+  target_id: string;
+  payload?: Record<string, unknown>;
+  reason: string;
+  ttl_seconds?: number;
+  evidence_ref?: string;
+};
+export type ApprovalExecution = {
+  outcome: "EXECUTED" | "FAILED";
+  replayed: boolean;
+  attempt: number;
+  reason_code: string | null;
+  result: Record<string, unknown>;
+  case: ApprovalCase;
+  /** An enrollment link: shown to the first caller only and never stored. */
+  shown_once?: Record<string, unknown>;
+  guidance?: string;
+};
+export type ApprovalPolicyRow = {
+  action_id: string;
+  tier: "A0" | "A1" | "A2" | "FORBIDDEN" | "CONTAINMENT";
+  scope: "CUSTOMER" | "PLATFORM";
+  votes_required: number;
+  approver_roles: string[];
+  executable: boolean;
+  /** Why nothing can apply this action (a platform rule or no such capability), or null. */
+  no_operation: string | null;
+  gate: string;
+};
+export type ApprovalPolicy = {
+  version: string;
+  policy_version: string;
+  enforcement: "SHADOW" | "ENFORCE";
+  assured_review: "ACTIVE" | "INACTIVE";
+  tiers: Record<string, number>;
+  actions: ApprovalPolicyRow[];
+};
+export type SoloStatus = {
+  eligible_human_member_count: number;
+  solo_mode: boolean;
+  region: string;
+  policy_version: string;
+  legal_form_resolved: boolean;
+  independent_routes: string[];
+  a2_requires: string;
+  message: string | null;
+};
+export type GovernanceReviewer = {
+  reviewer_id: string;
+  principal_id: string;
+  relationship: "EXTERNAL_PROFESSIONAL" | "CO_DIRECTOR" | "TRUSTEE" | "AUTHORIZED_DELEGATE";
+  status: "PROPOSED" | "ACTIVE" | "REVOKED" | "EXPIRED";
+  region: string;
+  expires_at: string;
+  activated_via: "A1_APPROVAL" | "PLATFORM_VERIFICATION" | null;
+  conflicts_declared: number;
+  kind: "REVIEWER";
+};
+export type ReviewerAppointIn = {
+  principal_id: string;
+  relationship: GovernanceReviewer["relationship"];
+  authority_basis: string;
+  independence_declaration: string;
+  declared_conflicts?: string[];
+};
+export type ApprovalEvidence = {
+  case_id: string;
+  version: number;
+  supersedes_case_id: string | null;
+  action_id: string;
+  tier: ApprovalTier;
+  request_hash: string;
+  policy_version: string;
+  region: string;
+  maker: { principal_id: string; person_ref: string };
+  editors: number;
+  checkers: ApprovalVoteRow[];
+  distinct_checkers: number;
+  transitions: { from: string; to: string; actor: string | null; reason_code: string; at: string }[];
+  executions: { attempt: number; outcome: string; reason_code: string | null; executed_at: string; idempotency_key_hash: string; quorum: Record<string, unknown> }[];
+  state: ApprovalCaseState;
+  audit: { target_type: string; target_ref: string; event_prefix: string };
+};
+export type RegistrationCountry = {
+  code: string;
+  account: "AVAILABLE" | "AVAILABLE_IN_ANOTHER_REGION" | "NOT_AVAILABLE_YET";
+  routing: { state: "HERE" | "OTHER_CELL" | "UNAVAILABLE"; url: string | null };
+  organization_claims: "AVAILABLE" | "NOT_AVAILABLE_YET";
+  message: string | null;
+  /** Where to go when registration is not open for the country. */
+  contact?: string | null;
+};
+export type RegistrationCapabilities = {
+  notice_version: string;
+  locale: string;
+  nonce: string;
+  journeys: ("PERSONAL" | "ORGANIZATION")[];
+  identity_providers: string[];
+  authenticators: { primary: string; fallback: string };
+  country: RegistrationCountry | null;
+};
+export type RegistrationIntentIn = {
+  country: string;
+  journey: "PERSONAL" | "ORGANIZATION";
+  email: string;
+  locale?: string;
+  notice_version: string;
+  nonce: string;
+};
+export type RegistrationStarted = { request_id: string; status: "VERIFICATION_REQUESTED"; message: string };
+export type RegistrationNextStep =
+  | "VERIFY_EMAIL"
+  | "ENROLL_AUTHENTICATOR"
+  | "PERSONAL_WORKSPACE"
+  | "ORGANIZATION_CLAIM"
+  | "ACCEPT_INVITATION"
+  | "REQUEST_NEW_LINK"
+  | "CONTACT_SUPPORT";
+export type RegistrationStatus = {
+  request_id: string;
+  state: "PENDING_VERIFICATION" | "VERIFIED" | "COMPLETED" | "EXPIRED" | "ON_HOLD";
+  next_step: RegistrationNextStep;
+  account: "NONE" | "ACTIVE";
+  identity: "NOT_VERIFIED";
+  organization: "NONE";
+  message: string | null;
+  expires_at: string;
+};
+/** The link was redeemed: an active account that is NOT identity verified, and a single-use enrollment ticket shown once. */
+export type RegistrationConfirmed = {
+  request_id: string;
+  account: "ACTIVE";
+  identity: "NOT_VERIFIED";
+  next_step: "ENROLL_AUTHENTICATOR";
+  then: "PERSONAL_WORKSPACE" | "ORGANIZATION_CLAIM" | "ACCEPT_INVITATION";
+  enrollment_ticket: string;
+  enrollment_ticket_expires_at: string;
+  console_client_id: string | null;
+  workspace: string | null;
+  address: string;
+  authenticator_fallback: "GOVERNED_RECOVERY";
+};
+/** An approval case as the organization routes return it: the L-10 case plus the plain status word, the level, the derived execution hold
+ * and the evidence reference (restricted evidence is separately authorized and never inline). */
+export type OrgApprovalCase = ApprovalCase & {
+  status_label: string;
+  level: ApprovalTier;
+  execution_hold: string | null;
+  evidence: { reference: string | null; access: "SEPARATELY_AUTHORIZED" };
+};
+export type OrgApprovalSummary = {
+  request_id: string;
+  title: string;
+  requester_principal_id: string;
+  level: ApprovalTier;
+  state: ApprovalCaseState;
+  status_label: string;
+  approvals_received: number;
+  approvals_required: number;
+  shortage: string | null;
+  policy_version: string;
+  expires_at: string;
+  created_at: string;
+  next_action: string;
+};
+export type ApprovalScope = "review" | "mine" | "history";
+export type OrgApprovalInbox = {
+  scope: ApprovalScope;
+  items: OrgApprovalSummary[];
+  counts: Record<ApprovalScope, number>;
+  next_cursor: string | null;
+};
+export type OrgApprovalQuery = {
+  scope?: ApprovalScope;
+  state?: ApprovalCaseState;
+  risk?: ApprovalTier;
+  created_from?: string;
+  created_to?: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+};
+export type OrgDecision = "APPROVE" | "REJECT" | "REQUEST_CHANGES";
+export type OnboardingItem = {
+  key: string;
+  title: string;
+  status: "Required" | "In review" | "Verified" | "Needs action" | "Restricted";
+  required: boolean;
+  done: boolean;
+  reason: string | null;
+  next_action: string | null;
+};
+export type OrgReadiness = "DRAFT" | "LIMITED_SETUP" | "READY_FOR_ACTIVATION" | "ACTIVE" | "ACTIVE_LIMITED" | "RESTRICTED";
+export type OrgOnboarding = {
+  organization_id: string;
+  readiness: OrgReadiness;
+  trust: OnboardingItem[];
+  required: OnboardingItem[];
+  approvers: OnboardingItem;
+  solo: boolean;
+  can_activate: boolean;
+  blockers: string[];
+  restrictions: string[];
+  activated_at: string | null;
+  region: string;
+  acknowledgements: { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; title: string; summary: string; accepted: boolean }[];
+  policy_version: string;
+};
+export type OrgAcknowledgementIn = { kind: "ORGANIZATIONAL_CONTROLS" | "REGION_POLICY"; version: string; locale?: string };
 export type PlanFeature = {
   feature: string;
   section: "baseline" | "standard" | "advanced";
@@ -1779,6 +2043,8 @@ export type Invoice = {
   credited: string;
   paid: string;
   outstanding: string | null;
+  /** The credit notes issued against this invoice: references only, never an unapproved staff adjustment. */
+  credit_notes?: { number: string; amount: string; reason_code: string; issued_at: string }[];
   lines: InvoiceLine[];
 };
 export type PaymentAttempt = { at: string; amount: string; currency: string; status: "CAPTURED" | "FAILED"; failure_code: string | null; invoice_number: string | null };
@@ -1822,6 +2088,25 @@ export type OnboardingConnection = {
 export type ProviderSettings =
   | { protocol: "OIDC"; issuer: string; authorization_endpoint: string; token_endpoint: string; jwks: { keys: Record<string, unknown>[] } }
   | { protocol: "SAML"; entity_id: string; sso_url: string; certificates: string[] };
+/** What this person can do in billing (ZID-COM-CL-002). The server decides every call; this only decides what the page shows. */
+export type BillingAccess = {
+  permissions: string[];
+  catalogue: { key: string; label: string }[];
+  bundles: Record<BillingBundle, string[]>;
+  enforced: boolean;
+};
+export type BillingBundle = "BILLING_ADMIN" | "BILLING_VIEWER" | "INVOICE_READER";
+export type BillingGrant = {
+  grant_id: string;
+  grantee_principal_id: string;
+  bundle: BillingBundle;
+  permissions: string[];
+  reason: string;
+  granted_by: string;
+  expires_at: Iso | null;
+  created_at: Iso;
+  revoked_at: Iso | null;
+};
 export type BillingState = {
   state: string;
   reason: string;
@@ -1896,17 +2181,62 @@ export type OrgClaimCreate = {
   entity_form?: string | null;
   lei?: string | null;
 };
-export type OrgClaimCheckState = "COMPLETED" | "PENDING" | "NEEDS_ACTION" | "HELD" | "DECLINED";
-export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "IN_REVIEW" | "RESTRICTED" | "DECLINED" | "STALE";
+export type OrgClaimCheckState = "COMPLETED" | "PENDING" | "NEEDS_ACTION" | "HELD" | "STALE" | "RESTRICTED" | "DECLINED";
+export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "IN_REVIEW" | "RESTRICTED" | "DECLINED" | "STALE" | "WITHDRAWN" | "ABANDONED";
+/** Where a claim is in its own life, apart from what its checks say: not yet sent, sent for review, or closed. */
+export type OrgClaimState = "DRAFT" | "SUBMITTED" | "WITHDRAWN" | "ABANDONED";
+/** How the person says they act for the company (WF-13B-02). Only an officer is what the register says; the others rest on a mandate. */
+export type OrgClaimRelationship = "DIRECTOR_OR_OFFICER" | "DELEGATED_EMPLOYEE" | "EXTERNAL_REPRESENTATIVE";
 export type OrgClaimStatus = {
   claim_id: string;
   jurisdiction: string;
   registration_number: string;
+  state: OrgClaimState;
   outcome: OrgClaimOutcome;
+  relationship: OrgClaimRelationship | null;
+  submitted_at: Iso | null;
+  closed_at: Iso | null;
   checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
-  screening: { status: string; next_action: string; expires_at: Iso | null } | null;
+  screening: { status: string; next_action: string; expires_at: Iso | null; tasks: OrgClaimTask[] } | null;
 };
+/** Something the customer can do next. Codes, counts and plain words only: never a name or any watchlist content. */
+export type OrgClaimTask = { code: string; count: number; text: string };
+export type OrgClaimAppealKind = "APPEAL" | "CORRECTION";
+export type OrgClaimAppeal = { kind: OrgClaimAppealKind; statement: string };
+export type OrgClaimProofKind =
+  | "CERTIFICATE_OF_INCORPORATION"
+  | "REGISTER_EXTRACT"
+  | "LETTER_OF_AUTHORITY"
+  | "OWNERSHIP_CHART"
+  | "BOARD_RESOLUTION"
+  | "SIGNING_MATRIX"
+  | "OTHER";
+export type OrgClaimProof = {
+  proof_id: string;
+  kind: OrgClaimProofKind;
+  media_type: string;
+  size_bytes: number;
+  label: string;
+  scan_status: "CLEAN" | "NOT_SCANNED";
+  content_hash: string;
+  uploaded_at: Iso;
+};
+/** A document on an approval request (WF-013C AT-12). The list carries metadata only; opening one is for an approver and is audited. */
+export type ApprovalAttachmentKind = "SUPPORTING_DOCUMENT" | "AUTHORITY_DOCUMENT" | "IDENTITY_REPROOF_RECORD" | "OTHER";
+export type ApprovalAttachment = {
+  attachment_id: string;
+  kind: ApprovalAttachmentKind;
+  media_type: string;
+  size_bytes: number;
+  label: string;
+  scan_status: "CLEAN" | "NOT_SCANNED";
+  content_hash: string;
+  uploaded_at: Iso;
+  access_ends_at: Iso;
+};
+export type ApprovalAttachments = { request_id: string; attachments: ApprovalAttachment[]; limit: number; may_attach: boolean; may_open: boolean };
+export type OrgClaimProofs = { claim_id: string; proofs: OrgClaimProof[]; limit: number };
 export type OrgClaimParty = {
   ref: string;
   kind?: "PERSON" | "ENTITY";
@@ -1923,9 +2253,192 @@ export type OrgClaimHolding = {
   controls?: ("APPOINT_BOARD_MAJORITY" | "SIGNIFICANT_INFLUENCE" | "OTHER_CONTROL" | "NOMINEE" | "TRUST")[];
 };
 export type OrgClaimScreening = {
+  relationship?: OrgClaimRelationship;
+  /** A letter of authority, board resolution or signing matrix uploaded to this claim, for a delegated employee or an outside representative. */
+  mandate_proof_id?: string | null;
+  mandate_expires_at?: string | null;
   representative: OrgClaimParty;
   directors?: OrgClaimParty[];
   owners?: OrgClaimParty[];
   holdings?: OrgClaimHolding[];
   elevated_risk?: boolean;
+};
+
+/** What "New request" asks for, per governed action (WF-013C screen 2). The server still classifies the action, checks who may ask and decides who must approve. */
+export type ApprovalFormFieldKind = "member" | "owner" | "text" | "textarea" | "select";
+export type ApprovalFormField = {
+  key: string;
+  label: string;
+  kind: ApprovalFormFieldKind;
+  required: boolean;
+  help: string | null;
+  max_length: number;
+  options: { id: string; label: string }[];
+};
+export type ApprovalForm = {
+  action_id: string;
+  level: "A1" | "A2";
+  label: string;
+  summary: string;
+  target: { from: string | null; prefix: string; literal: string | null };
+  fields: ApprovalFormField[];
+};
+export type ApprovalForms = { forms: ApprovalForm[] };
+export type OrgApprovalCreate = { action_id: string; target_id: string; payload: Record<string, string>; reason: string };
+/* ---------------------------------------------------------------------------------------------------------------------------------------------
+ * Customer billing workspace, commitment approval and Zoiko's finance authority (ZID-UX-COM-008/009/010; ZID-COM-CL-004; CR-054).
+ * Money is a decimal string or whole minor units; the server decides every state and every next action.
+ * ------------------------------------------------------------------------------------------------------------------------------------------- */
+
+export type BillingOverviewState = "FREE" | "PENDING_APPROVAL" | "ACTIVE" | "PAST_DUE" | "PILOT" | "RESTRICTED";
+export type NextActionKind = "VIEW_PLANS" | "COMPLETE_APPROVAL" | "PAY_INVOICE" | "CONTACT_SALES" | "NONE";
+export type BillingOverview = {
+  as_of: string;
+  state: BillingOverviewState;
+  message: string;
+  billing_state: string;
+  safety_hold: boolean;
+  restricted: string[];
+  plan: { code: string | null; source: string | null; effective_from: string | null; term_months: number | null; contract_ref: string | null };
+  next_action: { kind: NextActionKind; label: string; target: string | null; ref: string | null; reason: string };
+  payer: { legal_name: string | null; country: string | null; currency: string | null; issuer: string | null };
+  pilot: { ends_at: string | null; automatic_conversion: false } | null;
+  recent_activity: { kind: "INVOICE"; ref: string | null; invoice_id: string; at: string | null; amount: string; currency: string; status: "PAID" | "OPEN" }[];
+};
+
+export type TaxIdType = "VAT" | "GST" | "EIN" | "COMPANY_REGISTRATION" | "OTHER";
+export type BillingProfile = {
+  version: number;
+  payer: { legal_name: string | null; country: string | null; currency: string | null; change_note: string };
+  address: { line1: string; line2: string; city: string; region: string; postal_code: string; country: string } | null;
+  tax_ids: { type: TaxIdType; value: string; verification: "UNVERIFIED" }[];
+  contacts: { invoice_email: string; notices_email: string; tax_document_email: string } | null;
+  contact_verification: "UNVERIFIED";
+  updated_at: string | null;
+};
+export type BillingProfileIn = {
+  expected_version: number;
+  address: Record<string, string>;
+  tax_ids: { type: string; value: string }[];
+  contacts: Record<string, string>;
+};
+export type BillingProfileVersion = { version: number; changed_fields: string[]; changed_by: string; changed_at: string };
+
+export type CommitmentTier = "T1" | "T2" | "T3";
+export type CommitmentState = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type CommitmentRequest = {
+  request_id: string;
+  order_id: string;
+  currency: string;
+  term_months: number;
+  monthly: string;
+  exposure: string;
+  exposure_usd_minor: number;
+  tier: CommitmentTier;
+  needs: string[];
+  review_required: boolean;
+  reviewed_at: string | null;
+  snapshot_hash: string;
+  policy_version: string;
+  state: CommitmentState;
+  requested_by: string;
+  created_at: string;
+  expires_at: string;
+  approved_at: string | null;
+  approval_expires_at: string | null;
+  approvals: { authority: "OWNER" | "BILLING_SPEND" | "PROCUREMENT_APPROVER"; principal_id: string; decision: "APPROVE" | "REJECT"; decided_at: string }[];
+};
+export type CommitmentDelegateKind = "BILLING_SPEND" | "PROCUREMENT_APPROVER";
+export type CommitmentDelegate = {
+  delegate_id: string;
+  principal_id: string;
+  kind: CommitmentDelegateKind;
+  cap_usd: string;
+  effective_from: string;
+  effective_to: string | null;
+  revoked_at: string | null;
+};
+
+export type FinanceKind = "CREDIT_NOTE" | "PILOT_CREDIT";
+export type FinanceState = "PENDING_APPROVAL" | "APPROVED" | "APPLYING" | "APPLIED" | "APPLICATION_FAILED" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type FinanceRequest = {
+  request_id: string;
+  kind: FinanceKind;
+  tenant_id: string;
+  invoice_id: string | null;
+  currency: string;
+  amount: string;
+  usd_minor: number;
+  exposure_usd_minor: number;
+  category: "CORRECTION" | "GOODWILL" | "PILOT";
+  reason: string;
+  snapshot_hash: string;
+  policy_version: string;
+  required_roles: string[];
+  state: FinanceState;
+  requested_by: string;
+  created_at: string;
+  expires_at: string;
+  approved_at: string | null;
+  approval_expires_at: string | null;
+  approvals: { role: string; principal_id: string; decision: "APPROVE" | "REJECT"; decided_at: string }[];
+  result: Record<string, unknown> | null;
+};
+export type FinanceTier = { max_usd: string | null; roles: string[] };
+export type FinancePolicy = {
+  version: string;
+  content_hash: string;
+  effective: boolean;
+  awaiting: string[];
+  signatures: { role: string; signed_at: string }[];
+  environment: string;
+  locked: boolean;
+  unit: "USD";
+  request_roles: string[];
+  execute_roles: string[];
+  request_valid_days: number;
+  approval_valid_days: number;
+  credit_note: { window_days: number; tiers: FinanceTier[] };
+  pilot_credit: { window_days: number; max_days: number; tiers: FinanceTier[] };
+};
+export type FinanceAppointment = {
+  appointment_id: string;
+  principal_id: string;
+  role: string;
+  effective_from: string;
+  effective_to: string | null;
+  revoked_at: string | null;
+};
+export type FinanceOverview = {
+  as_of: string;
+  counts: { pending_approval: number; approved_unexecuted: number; failed_application: number; expiring_soon: number; payment_events_open: number };
+  mine: string[];
+  policy: { version: string; effective: boolean; awaiting: string[] };
+  exceptions: { key: string; severity: "warn" | "danger"; text: string }[];
+  definitions: string;
+};
+export type FinanceOpenIn = {
+  kind: FinanceKind;
+  target_tenant_id: string;
+  invoice_id?: string | null;
+  amount: string;
+  currency: string;
+  category: "CORRECTION" | "GOODWILL" | "PILOT";
+  reason: string;
+  ends_at?: string | null;
+  evidence_ref?: string | null;
+  disposition?: "INVOICE_BALANCE" | "REFUND" | "CUSTOMER_BALANCE" | "OUT_OF_BAND" | null;
+  program_ref?: string | null;
+  sponsor?: string | null;
+};
+export type EligibilityGate = { key: string; label: string; passed: boolean; detail: string; remedy: string | null };
+export type Eligibility = {
+  tenant_id: string;
+  classification: "FREE" | "COMMERCIAL" | "PILOT_NON_BILLABLE" | "INTERNAL";
+  state: "NOT_ELIGIBLE" | "ELIGIBLE" | "AWAITING_APPROVAL" | "ACTIVE";
+  gates: EligibilityGate[];
+  blockers: string[];
+  schedule: { order_id: string; quote_hash: string; effective_from: string; pilot_ends_at: string | null } | null;
+  commitment_state: string | null;
+  note: string;
 };

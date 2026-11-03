@@ -15,7 +15,13 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.screening.domain.decision import Role, ScreeningError, ScreeningStatus
+from zid_platform.modules.screening.domain.decision import (
+    RegisterEvidence,
+    RegisterPerson,
+    Role,
+    ScreeningError,
+    ScreeningStatus,
+)
 from zid_platform.modules.screening.domain.lists import Entry, ListId, PartyKind, Snapshot
 from zid_platform.modules.screening.domain.matching import Match, Party
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
@@ -511,3 +517,215 @@ async def matches_for(
         )
     ).all()
     return [dict(r._mapping) for r in rows]
+
+
+# ---- register evidence, triggers, appeals (migration screening_0002) ---------------------------------------------------------
+
+
+async def put_register(
+    conn: AsyncConnection,
+    tenant_id: str,
+    case_id: str,
+    ev: RegisterEvidence,
+    *,
+    source: str,
+    now: datetime,
+) -> int:
+    """Record what the official register said, as the case's next numbered snapshot; returns its number."""
+    t, c = uuid.UUID(tenant_id), uuid.UUID(case_id)
+    seq = int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT coalesce(max(seq), 0) + 1 FROM verify.screening_register_snapshot WHERE tenant_id = :t AND case_id = :c"
+                ),
+                {"t": t, "c": c},
+            )
+        ).scalar_one()
+    )
+    await conn.execute(
+        text(
+            "INSERT INTO verify.screening_register_snapshot (tenant_id, case_id, seq, status, content_hash, source, observed_at) "
+            "VALUES (:t, :c, :s, :st, :h, :src, :at)"
+        ),
+        {"t": t, "c": c, "s": seq, "st": ev.status, "h": ev.content_hash, "src": source, "at": now},
+    )
+    for p in ev.people:
+        await conn.execute(
+            text(
+                "INSERT INTO verify.screening_register_person (tenant_id, case_id, seq, ref, kind, party_kind, name, birth, natures, ceased) "
+                "VALUES (:t, :c, :s, :r, :k, :pk, :n, :b, CAST(:na AS jsonb), :ce)"
+            ),
+            {
+                "t": t, "c": c, "s": seq, "r": p.ref, "k": p.kind, "pk": p.party.kind.value, "n": p.party.name,
+                "b": p.party.birth, "na": json.dumps(list(p.natures)), "ce": p.ceased,
+            },
+        )  # fmt: skip
+    return seq
+
+
+async def load_register(
+    conn: AsyncConnection, tenant_id: str, case_id: str, *, seq: int | None = None
+) -> RegisterEvidence | None:
+    """The snapshot with this number, or the latest; None when the case never saw one."""
+    t, c = uuid.UUID(tenant_id), uuid.UUID(case_id)
+    snap = (
+        await conn.execute(
+            text(
+                "SELECT seq, status, content_hash FROM verify.screening_register_snapshot WHERE tenant_id = :t AND case_id = :c "
+                + ("AND seq = :s" if seq is not None else "ORDER BY seq DESC LIMIT 1")
+            ),
+            {"t": t, "c": c, **({"s": seq} if seq is not None else {})},
+        )
+    ).first()
+    if snap is None:
+        return None
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT ref, kind, party_kind, name, birth, natures, ceased FROM verify.screening_register_person "
+                "WHERE tenant_id = :t AND case_id = :c AND seq = :s ORDER BY ref"
+            ),
+            {"t": t, "c": c, "s": snap.seq},
+        )
+    ).all()
+    people = tuple(
+        RegisterPerson(
+            ref=r.ref,
+            kind=r.kind,
+            party=Party(r.ref, PartyKind(r.party_kind), r.name, r.birth),
+            natures=tuple(r.natures or ()),
+            ceased=bool(r.ceased),
+        )
+        for r in rows
+    )
+    return RegisterEvidence(snap.status, people, snap.content_hash, int(snap.seq))
+
+
+async def add_trigger(
+    conn: AsyncConnection, tenant_id: str, case_id: str, reason: str, now: datetime
+) -> None:
+    await conn.execute(
+        text(
+            "INSERT INTO verify.screening_trigger (trigger_id, tenant_id, case_id, reason, requested_at) "
+            "VALUES (:i, :t, :c, :r, :at)"
+        ),
+        {
+            "i": uuid.uuid4(),
+            "t": uuid.UUID(tenant_id),
+            "c": uuid.UUID(case_id),
+            "r": reason,
+            "at": now,
+        },
+    )
+
+
+async def open_triggers(conn: AsyncConnection, tenant_id: str) -> dict[str, list[str]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT case_id, reason FROM verify.screening_trigger WHERE tenant_id = :t AND handled_version IS NULL "
+                "ORDER BY requested_at"
+            ),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).all()
+    out: dict[str, list[str]] = {}
+    for r in rows:
+        out.setdefault(str(r.case_id), []).append(r.reason)
+    return out
+
+
+async def close_triggers(conn: AsyncConnection, tenant_id: str, case_id: str, version: int) -> None:
+    await conn.execute(
+        text(
+            "UPDATE verify.screening_trigger SET handled_version = :v "
+            "WHERE tenant_id = :t AND case_id = :c AND handled_version IS NULL"
+        ),
+        {"v": version, "t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id)},
+    )
+
+
+async def add_appeal(
+    conn: AsyncConnection, tenant_id: str, case_id: str, *, kind: str, statement: str, statement_hash: str,
+    requested_by: str, evidence_version: int, now: datetime,
+) -> str:  # fmt: skip
+    appeal_id = str(uuid.uuid4())
+    await conn.execute(
+        text(
+            "INSERT INTO verify.screening_appeal (appeal_id, tenant_id, case_id, kind, statement, statement_hash, requested_by, "
+            "created_at, evidence_version) VALUES (:i, :t, :c, :k, :s, :h, :r, :at, :v)"
+        ),
+        {
+            "i": uuid.UUID(appeal_id), "t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id), "k": kind, "s": statement,
+            "h": statement_hash, "r": uuid.UUID(requested_by), "at": now, "v": evidence_version,
+        },
+    )  # fmt: skip
+    return appeal_id
+
+
+async def appeals_for(conn: AsyncConnection, tenant_id: str, case_id: str) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT appeal_id, kind, statement, created_at, evidence_version FROM verify.screening_appeal "
+                "WHERE tenant_id = :t AND case_id = :c ORDER BY created_at"
+            ),
+            {"t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id)},
+        )
+    ).all()
+    return [
+        {
+            "appeal_id": str(r.appeal_id), "kind": r.kind, "statement": r.statement,
+            "requested_at": r.created_at.isoformat(), "evidence_version": int(r.evidence_version),
+        }
+        for r in rows
+    ]  # fmt: skip
+
+
+async def count_cases_for_kyb(conn: AsyncConnection, tenant_id: str, kyb_case_id: str) -> int:
+    return int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM verify.screening_case WHERE tenant_id = :t AND kyb_case_id = :k"
+                ),
+                {"t": uuid.UUID(tenant_id), "k": uuid.UUID(kyb_case_id)},
+            )
+        ).scalar_one()
+    )
+
+
+async def snapshot_for(
+    conn: AsyncConnection, list_id: ListId, content_hash: str
+) -> Snapshot | None:
+    """A list exactly as it was when a decision named it (old versions are kept), for replaying that decision."""
+    v = (
+        await conn.execute(
+            text(
+                "SELECT version_id, list_id, version, content_hash, fetched_at FROM verify.sanction_list_version "
+                "WHERE list_id = :l AND content_hash = :h"
+            ),
+            {"l": list_id.value, "h": content_hash},
+        )
+    ).first()
+    if v is None:
+        return None
+    entries = []
+    for r in (
+        await conn.execute(
+            text(
+                "SELECT source_ref, kind, primary_name, data FROM verify.sanction_list_entry WHERE version_id = :v"
+            ),
+            {"v": v.version_id},
+        )
+    ).all():
+        d = r.data
+        entries.append(
+            Entry(
+                list_id=ListId(v.list_id), source_ref=r.source_ref, kind=PartyKind(r.kind), primary_name=r.primary_name,
+                aliases=tuple(d.get("aliases", [])), birth=tuple(d.get("birth", [])), countries=tuple(d.get("countries", [])),
+                identifiers=tuple(d.get("identifiers", [])), programs=tuple(d.get("programs", [])),
+            )
+        )  # fmt: skip
+    return Snapshot(ListId(v.list_id), v.version, v.content_hash, v.fetched_at, tuple(entries))

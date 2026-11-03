@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 
 import { QueryView, useCellQuery } from "@/lib/cell";
 
+import { AccessSection, ACCESS_KEY } from "./access";
 import { BudgetsSection } from "./budgets";
 import { InvoicesSection } from "./invoices";
 import { PaymentSection } from "./payment";
@@ -19,25 +20,29 @@ import { UsageSection } from "./usage";
 export function BillingPage() {
   // Stripe sends the buyer back with ?payment=saved|cancelled: open the Payment tab so the return is handled there.
   const returning = useSearchParams().get("payment") !== null;
+  // The menu follows the person's effective billing permissions (ZID-COM-CL-002); the server still decides every call.
+  const access = useCellQuery(ACCESS_KEY, (api) => api.billing.access());
+  const can = (key: string) => !access.data?.enforced || access.data.permissions.includes(key);
   return (
     <>
       <PageHeader
         title="Billing"
         description="Your plan and what it includes, usage against it, the bill so far, invoices and budgets. Figures come from the platform's ledger; this page never decides what you can use."
       />
-      <StateBanner />
+      {can("billing.overview.read") ? <StateBanner /> : null}
       <Tabs
         label="Billing"
         defaultTab={returning ? "payment" : undefined}
         tabs={[
-          { id: "subscription", label: "Subscription", content: <SubscriptionSection /> },
+          can("billing.overview.read") ? { id: "subscription", label: "Subscription", content: <SubscriptionSection /> } : null,
           { id: "features", label: "Plan features", content: <PlanFeaturesSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
-          { id: "preview", label: "Bill preview", content: <PreviewSection /> },
-          { id: "invoices", label: "Invoices", content: <InvoicesSection /> },
-          { id: "payment", label: "Payment", content: <PaymentSection /> },
+          can("billing.overview.read") ? { id: "preview", label: "Bill preview", content: <PreviewSection /> } : null,
+          can("billing.invoice.read") ? { id: "invoices", label: "Invoices", content: <InvoicesSection /> } : null,
+          can("billing.payment_method.read_masked") ? { id: "payment", label: "Payment", content: <PaymentSection /> } : null,
           { id: "budgets", label: "Budgets", content: <BudgetsSection /> },
-        ]}
+          { id: "access", label: "Billing access", content: <AccessSection /> },
+        ].filter((t): t is NonNullable<typeof t> => t !== null)}
       />
     </>
   );

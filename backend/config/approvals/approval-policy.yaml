@@ -1,0 +1,17 @@
+# Owner-ruled switches for the approval service (ZID-ENG-DEC-010 to 012). Anything but the stated value is the safe value.
+#
+# governance_enforcement: SHADOW keeps the earlier two-person approval (an authority approval request bound to one change) valid on the
+#   owner-change and role-grant routes and reports that an A2 case would have been required; ENFORCE refuses the earlier path for every
+#   action the registry classifies A2. Default SHADOW so existing flows keep working until the owners switch it on.
+governance_enforcement: SHADOW
+# How long a case may wait for its votes (seconds). The record sets no default; operations set expiry and SLAs (Decision 10 section 10).
+default_ttl_seconds: 259200
+max_ttl_seconds: 1209600
+# Zoiko iD Assured Review (Decision 12): a staffed trust-operations service that does not exist yet. INACTIVE means no case may name it
+# as a route to independence; it becomes ACTIVE only after the owners record operational sign-off.
+assured_review: INACTIVE
+# How long an appointed independent reviewer stays valid before the appointment must be renewed (days). A proposal.
+reviewer_validity_days: 365
+# How long an executed platform approval stays usable by the operation it authorizes (seconds). It is used up by the first operation that
+# consumes it. A proposal; operations set the real window.
+authorization_valid_seconds: 3600

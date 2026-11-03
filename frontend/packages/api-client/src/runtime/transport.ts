@@ -5,6 +5,8 @@ import { ApiError } from "./errors";
 export type RequestOptions = {
   query?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
+  /** A file sent as it is (an upload), with the type the sender gives it. Not combined with `body`. */
+  raw?: { data: Blob; contentType: string };
   /** Required by the cell on grant creation and mandate reservations. */
   idempotencyKey?: string;
   headers?: Record<string, string>;
@@ -41,7 +43,8 @@ export function createTransport(config: TransportConfig): Transport {
       for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
       const url = `${config.baseUrl}${path}${qs.size ? `?${qs.toString()}` : ""}`;
       const headers: Record<string, string> = { accept: "application/json", "x-correlation-id": newCorrelationId(), ...opts.headers };
-      if (opts.body !== undefined) headers["content-type"] = "application/json";
+      if (opts.raw) headers["content-type"] = opts.raw.contentType;
+      else if (opts.body !== undefined) headers["content-type"] = "application/json";
       if (opts.idempotencyKey) headers["idempotency-key"] = opts.idempotencyKey;
       if (method !== "GET") {
         const csrf = config.csrf?.();
@@ -50,7 +53,7 @@ export function createTransport(config: TransportConfig): Transport {
       const res = await doFetch(url, {
         method,
         headers,
-        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        body: opts.raw ? opts.raw.data : opts.body === undefined ? undefined : JSON.stringify(opts.body),
         credentials: "same-origin",
         cache: "no-store",
         signal: opts.signal,

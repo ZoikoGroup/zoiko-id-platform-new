@@ -2,21 +2,28 @@
 
 import type { OrgClaimCandidate, OrgClaimStatus } from "@zoiko/api-client";
 import { Badge, Banner, Button, ButtonLink, Card, DateTime, PageHeader, Select, TextField } from "@zoiko/ui";
-import { Building2, Plus, Search, Trash2 } from "lucide-react";
+import { Building2, Plus, Search, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { AppealCard, TasksCard } from "./org-claim-review";
+import { ProofsCard } from "./org-claim-proofs";
 import {
   CHECKS,
   CHECK_TONE,
   CHECK_WORDS,
+  MANDATE_KINDS,
+  PROOF_KINDS,
+  RELATIONSHIPS,
+  type AuthorityChoice,
   type OwnerRow,
   attemptId,
   buildScreening,
   claimKey,
   emptyOwner,
+  mandateProblem,
   nextStep,
   outcomeCopy,
   ownerRowErrors,
@@ -145,11 +152,13 @@ function OwnerEditor({ owner, index, onChange, onRemove }: { owner: OwnerRow; in
         Can appoint or remove most of the board
       </label>
       {errors.length > 0 ? (
-        <ul className="space-y-1 text-xs font-medium text-danger-fg" role="alert">
-          {errors.map((e) => (
-            <li key={e}>{e}</li>
-          ))}
-        </ul>
+        <div role="alert">
+          <ul className="space-y-1 text-xs font-medium text-danger-fg">
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       <Button variant="secondary" size="sm" onPress={onRemove} icon={<Trash2 aria-hidden className="size-4" />}>
         Remove
@@ -164,12 +173,22 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
   const status = useCellQuery(["org-claims", claimId], (api) => api.orgClaims.status(claimId));
   const [name, setName] = useState("");
   const [owners, setOwners] = useState<OwnerRow[]>([emptyOwner()]);
-  const submit = useCellMutation((api) => api.orgClaims.screening(claimId, buildScreening(name, owners)), {
+  const [authority, setAuthority] = useState<AuthorityChoice>({ relationship: "DIRECTOR_OR_OFFICER", proofId: "", expires: "" });
+  const proofs = useCellQuery(["org-claims", claimId, "proofs"], (api) => api.orgClaims.proofs(claimId));
+  const mandates = (proofs.data?.proofs ?? []).filter((p) => MANDATE_KINDS.includes(p.kind));
+  const declared = status.data?.screening != null;
+  const submit = useCellMutation(
+    (api) =>
+      declared
+        ? api.orgClaims.amendScreening(claimId, buildScreening(name, owners, authority))
+        : api.orgClaims.screening(claimId, buildScreening(name, owners, authority)),
+    {
     invalidate: [["org-claims", claimId]],
     onSuccess: () => router.push(claimBase(claimId) + "/status"),
   });
   const ownersOk = owners.every((o) => ownerRowErrors(o).length === 0);
-  const ok = tidy(name).length > 1 && ownersOk && owners.length > 0;
+  const mandateIssue = mandateProblem(authority.relationship, authority.proofId, authority.expires, new Date());
+  const ok = tidy(name).length > 1 && ownersOk && owners.length > 0 && mandateIssue === null;
 
   return (
     <div className="space-y-6">
@@ -195,6 +214,38 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
             >
               <Card title="You" description="Your full legal name, as on your identity document.">
                 <TextField label="Your full legal name" value={name} onChange={setName} isRequired />
+              </Card>
+              <Card title="How you act for the company" description="Your authority is something we establish, not something you tell us.">
+                <div className="space-y-4">
+                  <Select
+                    label="Your relationship to the company"
+                    value={authority.relationship}
+                    onChange={(v) => setAuthority({ relationship: v as AuthorityChoice["relationship"], proofId: "", expires: "" })}
+                    options={RELATIONSHIPS.map((r) => ({ id: r.id, label: r.label }))}
+                  />
+                  <p className="text-sm text-ink-muted">{RELATIONSHIPS.find((r) => r.id === authority.relationship)?.help}</p>
+                  {authority.relationship !== "DIRECTOR_OR_OFFICER" ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Select
+                        label="The document that gives you authority"
+                        value={authority.proofId}
+                        onChange={(v) => setAuthority({ ...authority, proofId: v })}
+                        options={[
+                          { id: "", label: mandates.length ? "Choose a document" : "None uploaded yet" },
+                          ...mandates.map((p) => ({ id: p.proof_id, label: `${PROOF_KINDS.find((k) => k.id === p.kind)?.label ?? "Document"}: ${p.label}` })),
+                        ]}
+                      />
+                      <TextField label="The date this authority ends" type="date" value={authority.expires} onChange={(v) => setAuthority({ ...authority, expires: v })} isRequired />
+                    </div>
+                  ) : null}
+                  {authority.relationship !== "DIRECTOR_OR_OFFICER" ? (
+                    <Banner tone="info" title="A person reads your document">
+                      Upload it on the <a className="font-medium underline" href={claimBase(claimId) + "/status"}>status page</a> under Supporting documents. It counts only once a
+                      person at Zoiko iD has read it and confirmed it, and it stops counting on the end date.
+                    </Banner>
+                  ) : null}
+                  {mandateIssue && authority.relationship !== "DIRECTOR_OR_OFFICER" ? <p className="text-sm text-warn-fg">{mandateIssue}</p> : null}
+                </div>
               </Card>
               <Card title="Owners and controllers" description="Anyone who owns or controls the company in the way your country's rules count.">
                 <div className="space-y-4">
@@ -232,6 +283,9 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
 export function VerificationStatusPage({ claimId }: { claimId: string }) {
   const status = useCellQuery(["org-claims", claimId], (api) => api.orgClaims.status(claimId));
   const refresh = useCellMutation((api) => api.orgClaims.refresh(claimId), { invalidate: [["org-claims", claimId]] });
+  const send = useCellMutation((api) => api.orgClaims.submit(claimId), { invalidate: [["org-claims", claimId]], success: "Sent for review" });
+  const withdraw = useCellMutation((api) => api.orgClaims.withdraw(claimId), { invalidate: [["org-claims", claimId]], success: "Claim withdrawn" });
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -269,13 +323,66 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
                 </p>
               ) : null}
               {s.screening ? <p className="text-sm text-ink-muted">{s.screening.next_action}</p> : null}
-              <div className="flex flex-wrap gap-3">
-                {step === "authority" ? <ButtonLink href={claimBase(s.claim_id) + "/authority"}>Add your authority and owners</ButtonLink> : null}
-                <Button variant="secondary" pending={refresh.isPending} onPress={() => refresh.mutate(undefined)}>
-                  Check again
-                </Button>
-              </div>
+              <p className="text-sm text-ink-muted" data-testid="claim-state">
+                {s.state === "DRAFT" ? "Not sent for review yet." : null}
+                {s.state === "SUBMITTED" && s.submitted_at ? (
+                  <>
+                    Sent for review on <DateTime value={s.submitted_at} />.
+                  </>
+                ) : null}
+                {s.closed_at ? (
+                  <>
+                    Closed on <DateTime value={s.closed_at} />.
+                  </>
+                ) : null}
+              </p>
+              {s.closed_at ? (
+                <ButtonLink href="/admin/organization/claim">Start a new claim</ButtonLink>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  {step === "authority" ? <ButtonLink href={claimBase(s.claim_id) + "/authority"}>Add your authority and owners</ButtonLink> : null}
+                  {step === "submit" ? (
+                    <Button pending={send.isPending} onPress={() => send.mutate(undefined)} icon={<Send aria-hidden className="size-4" />}>
+                      Send for review
+                    </Button>
+                  ) : null}
+                  <Button variant="secondary" pending={refresh.isPending} onPress={() => refresh.mutate(undefined)}>
+                    Check again
+                  </Button>
+                  {s.outcome !== "VERIFIED" ? (
+                    <Button variant="secondary" onPress={() => setConfirming(true)}>
+                      Withdraw this claim
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+              {confirming && !s.closed_at ? (
+                <Banner tone="warn" title="Withdraw this claim?">
+                  Nothing is deleted and you can start a new claim, but nobody will be checked for this one any more.
+                  <span className="mt-2 flex flex-wrap gap-3">
+                    <Button
+                      variant="secondary"
+                      pending={withdraw.isPending}
+                      onPress={() => withdraw.mutate(undefined, { onSettled: () => setConfirming(false) })}
+                    >
+                      Yes, withdraw it
+                    </Button>
+                    <Button variant="secondary" onPress={() => setConfirming(false)}>
+                      Keep it
+                    </Button>
+                  </span>
+                </Banner>
+              ) : null}
               {refresh.error ? <ApiErrorView error={refresh.error} title="The check could not be refreshed" /> : null}
+              {send.error ? <ApiErrorView error={send.error} title="The claim could not be sent" /> : null}
+              {withdraw.error ? <ApiErrorView error={withdraw.error} title="The claim could not be withdrawn" /> : null}
+              {s.closed_at ? null : (
+                <>
+                  <TasksCard claimId={s.claim_id} status={s} />
+                  <AppealCard claimId={s.claim_id} status={s} />
+                  <ProofsCard claimId={s.claim_id} />
+                </>
+              )}
             </div>
           );
         }}

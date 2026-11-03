@@ -1,0 +1,31 @@
+# What an organization's readiness state refuses (ZID-UX-WF-013C section 03 and 13; slice L-13, CR-053). Versioned configuration.
+# An engineering proposal for the owners to confirm: the record shows the states but does not say what each unlocks.
+#
+# enforcement: OFF          nothing is checked
+#              REPORT_ONLY  the request or the run goes through and an audit record says it would have been refused (the default, for the weeks
+#                           before the owners rule)
+#              ENFORCED     the request is refused (ORGANIZATION_NOT_READY), and a run of an approved change is recorded as a failed attempt that
+#                           changes nothing and can be tried again when the organization is ready
+#
+# A state that is not listed refuses nothing. States: DRAFT, LIMITED_SETUP, READY_FOR_ACTIVATION, ACTIVE, ACTIVE_LIMITED, RESTRICTED.
+#   refuses              the governed actions (ids in action-tiers.yaml) the state refuses
+#   refuses_all_except   the state refuses every governed customer action but these
+# Emergency containment is never a governed action here (it is immediate and is never queued), so no state can refuse it.
+version: "ZID-UX-WF-013C-readiness-v1"
+enforcement: REPORT_ONLY
+
+states:
+  # a trust check was declined or a review suspended it: nothing that widens or moves authority, but the ways back stay open
+  RESTRICTED:
+    refuses_all_except:
+      - privileged-owner-or-admin-recovery            # a locked-out Owner or Administrator must be able to recover
+      - manual-reversal-of-high-assurance-trust-decision  # the way to ask for the decision to be looked at again
+      - appoint-independent-reviewer                  # more independence is never a risk
+      - reinstate-suspended-tenant-access             # an organization must not be trapped by its own restriction
+      - removal-of-last-owner-or-control-chain        # taking authority away is never refused: a compromised Owner must be removable
+  # activated, but a fact activation rested on has lapsed (a check ran out, a text changed): no new privilege until it is current again
+  ACTIVE_LIMITED:
+    refuses:
+      - ownership-transfer-or-replacement
+      - privileged-role-grant-or-elevation
+      - powerful-agent-or-integration-authority

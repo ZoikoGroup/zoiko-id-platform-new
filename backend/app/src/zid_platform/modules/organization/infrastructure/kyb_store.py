@@ -31,6 +31,9 @@ class CaseRow:
     requested_by: str
     current_version: int
     expiry_at: datetime | None
+    submitted_at: datetime | None = None
+    closed_at: datetime | None = None
+    closed_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +56,8 @@ class EvidenceRow:
 
 _CASE = (
     "case_id, tenant_id, jurisdiction, registration_number, applicant_name, entity_form, lei, "
-    "register_id, idempotency_key, status, review_reason, requested_by, current_version, expiry_at"
+    "register_id, idempotency_key, status, review_reason, requested_by, current_version, expiry_at, "
+    "submitted_at, closed_at, closed_reason"
 )
 
 
@@ -73,6 +77,9 @@ def _case(r: Any) -> CaseRow:
         requested_by=str(r.requested_by),
         current_version=int(r.current_version),
         expiry_at=r.expiry_at,
+        submitted_at=r.submitted_at,
+        closed_at=r.closed_at,
+        closed_reason=r.closed_reason,
     )
 
 
@@ -239,3 +246,70 @@ async def evidence_history(
         )
         for r in rows
     ]
+
+
+async def latest_case_id(conn: AsyncConnection, tenant_id: str) -> str | None:
+    """The most recent company-verification case of this tenant (row-level security scopes it), or None if none was opened."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT case_id FROM org.kyb_case WHERE tenant_id = :t ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).first()
+    return None if row is None else str(row.case_id)
+
+
+async def mark_submitted(
+    conn: AsyncConnection, tenant_id: str, case_id: str, now: datetime
+) -> bool:
+    """The applicant says the claim is complete. Once: a repeat changes nothing and answers False."""
+    result = await conn.execute(
+        text(
+            "UPDATE org.kyb_case SET submitted_at = :now, updated_at = :now "
+            "WHERE tenant_id = :t AND case_id = :c AND submitted_at IS NULL AND closed_at IS NULL"
+        ),
+        {"t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id), "now": now},
+    )
+    return bool(result.rowcount)
+
+
+async def close_case(
+    conn: AsyncConnection, tenant_id: str, case_id: str, reason: str, now: datetime
+) -> bool:
+    """Closed by the applicant or as an unsubmitted draft. Once: a closed claim stays as it closed and answers False."""
+    result = await conn.execute(
+        text(
+            "UPDATE org.kyb_case SET closed_at = :now, closed_reason = :r, updated_at = :now "
+            "WHERE tenant_id = :t AND case_id = :c AND closed_at IS NULL"
+        ),
+        {"t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id), "r": reason, "now": now},
+    )
+    return bool(result.rowcount)
+
+
+async def draft_cases_before(conn: AsyncConnection, cutoff: datetime) -> list[tuple[str, str]]:
+    """(tenant, case) of every claim nobody submitted that was started before `cutoff`, for the worker (which sees every tenant)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, case_id FROM org.kyb_case "
+                "WHERE submitted_at IS NULL AND closed_at IS NULL AND created_at < :cutoff ORDER BY created_at"
+            ),
+            {"cutoff": cutoff},
+        )
+    ).all()
+    return [(str(r.tenant_id), str(r.case_id)) for r in rows]
+
+
+async def open_cases(conn: AsyncConnection) -> list[tuple[str, str]]:
+    """(tenant, case) of every claim that is not closed, for the worker (which sees every tenant)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, case_id FROM org.kyb_case WHERE closed_at IS NULL ORDER BY created_at"
+            )
+        )
+    ).all()
+    return [(str(r.tenant_id), str(r.case_id)) for r in rows]
