@@ -226,6 +226,18 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             country_gate=gate,
         )
 
+    async def claim_housekeeping(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: close the claims nobody submitted in time (abandoned), so no half-made claim watches people for ever."""
+        from zid_platform.modules.onboarding.application.claims import abandon_drafts
+
+        return await abandon_drafts(conn, now)
+
+    async def claim_outcomes(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: follow every open claim and announce, once, whatever changed since the last pass (a ruling, a refresh, a lapse)."""
+        from zid_platform.modules.onboarding.application.claims import sync_outcomes
+
+        return await sync_outcomes(conn, now)
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -242,6 +254,8 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_watch", register_watch),
         ("screening", screening),
         ("company_refresh", company_refresh),
+        ("claim_housekeeping", claim_housekeeping),
+        ("claim_outcomes", claim_outcomes),
     ]
 
 

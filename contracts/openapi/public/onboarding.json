@@ -453,6 +453,11 @@
       "RulingIn": {
         "additionalProperties": false,
         "properties": {
+          "confirm_mandate": {
+            "default": false,
+            "title": "Confirm Mandate",
+            "type": "boolean"
+          },
           "outcome": {
             "enum": [
               "VERIFIED",
@@ -500,6 +505,30 @@
             "title": "Holdings",
             "type": "array"
           },
+          "mandate_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Expires At"
+          },
+          "mandate_proof_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Proof Id"
+          },
           "owners": {
             "items": {
               "$ref": "#/components/schemas/PartyIn"
@@ -507,6 +536,16 @@
             "maxItems": 100,
             "title": "Owners",
             "type": "array"
+          },
+          "relationship": {
+            "default": "DIRECTOR_OR_OFFICER",
+            "enum": [
+              "DIRECTOR_OR_OFFICER",
+              "DELEGATED_EMPLOYEE",
+              "EXTERNAL_REPRESENTATIVE"
+            ],
+            "title": "Relationship",
+            "type": "string"
           },
           "representative": {
             "$ref": "#/components/schemas/PartyIn"
@@ -1802,7 +1841,96 @@
     },
     "/v1/org-claims/{claim_id}/status": {
       "get": {
+        "description": "The status carries an ETag of exactly what it says, and is never cached by anyone: a person polling it sends the tag back and\ngets a bare 304 while nothing has changed.",
         "operationId": "claim_status_v1_org_claims__claim_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Status",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
+    "/v1/org-claims/{claim_id}/submit": {
+      "post": {
+        "description": "The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing\nhere makes the company verified. The claim must say whom to screen and how the person acts for the company first. Once: a repeat is\nthe same answer and changes nothing.",
+        "operationId": "submit_claim_v1_org_claims__claim_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Claim V1 Org Claims  Claim Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Claim",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
+    "/v1/org-claims/{claim_id}/withdraw": {
+      "post": {
+        "description": "The applicant withdraws a claim. Nothing is deleted; nobody is watched for it any more; the applicant may start a new claim. A\nclaim that is verified is not withdrawn here (that is a governed change), and a repeat is the same answer.",
+        "operationId": "withdraw_claim_v1_org_claims__claim_id__withdraw_post",
         "parameters": [
           {
             "in": "path",
@@ -1821,7 +1949,7 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Claim Status V1 Org Claims  Claim Id  Status Get",
+                  "title": "Response Withdraw Claim V1 Org Claims  Claim Id  Withdraw Post",
                   "type": "object"
                 }
               }
@@ -1839,7 +1967,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Claim Status",
+        "summary": "Withdraw Claim",
         "tags": [
           "org-claims"
         ]

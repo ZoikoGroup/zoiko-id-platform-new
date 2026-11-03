@@ -1154,6 +1154,11 @@ tables:
     module: onboarding
     tenant_scoped: true
     source: "WF-013C AT-12: documents attached to an approval request, append-only (CR-051)"
+  platform.org_claim_outcome:
+    role: cell
+    module: onboarding
+    tenant_scoped: true
+    source: "WF-013B: the last outcome of a company claim, so a change is announced once (CR-052)"
   platform.registration_intent:
     role: cell
     module: onboarding

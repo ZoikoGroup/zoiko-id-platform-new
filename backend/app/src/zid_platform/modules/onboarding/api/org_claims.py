@@ -4,7 +4,9 @@
     POST /v1/org-claims                             open a provisional claim for ONE selected company and check it
     GET  /v1/org-claims/{id}/status                 the four independent checks and one outcome, safe for the applicant
     POST /v1/org-claims/{id}/refresh                check the sources again; the earlier decision is kept
-    POST /v1/org-claims/{id}/screening              declare the people and ownership to screen (directors, owners, sanctions)
+    POST /v1/org-claims/{id}/screening              declare the people and ownership to screen, and how the person acts for the company
+    POST /v1/org-claims/{id}/submit                 say the claim is complete and ready for review (202; once, a repeat changes nothing)
+    POST /v1/org-claims/{id}/withdraw               withdraw a claim that is not verified; nothing is deleted
 
     GET  /v1/reviews/screening-cases/{id}           the alerts with the listed names   (verification.screening.read_restricted)
     POST /v1/reviews/screening-cases/{id}/rulings   a reviewer's ruling                (verification.screening.review)
@@ -18,18 +20,22 @@ reviewer routes are protected actions, so a role flag never grants them.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce
+from zid_platform.modules.onboarding.application import claims
 from zid_platform.modules.organization.ports import (
     KybAdapter,
     KybApplicant,
@@ -43,12 +49,12 @@ from zid_platform.modules.organization.ports import (
     kyb_review,
     kyb_routing,
     kyb_search,
+    kyb_submit,
 )
 from zid_platform.modules.screening.ports import (
     Ruling,
     ScreeningError,
     ScreeningStatus,
-    case_for_kyb,
     restricted_detail,
     screening_config,
 )
@@ -72,6 +78,10 @@ _KYB_STATUS = {
     "CASE_NOT_IN_REVIEW": 409,
     "RATIONALE_REQUIRED": 422,
     "REVIEW_OUTCOME_INVALID": 422,
+    "CLAIM_CLOSED": 409,
+    "CLAIM_INCOMPLETE": 409,
+    "CLAIM_VERIFIED": 409,
+    "CLOSE_REASON_INVALID": 422,
 }
 _SCREENING_STATUS = {
     "SCREENING_RESIDENCY_DENIED": 403,
@@ -87,6 +97,7 @@ _SCREENING_STATUS = {
     "RATIONALE_REQUIRED": 422,
     "RULING_OUTCOME_INVALID": 422,
     "COUNTRY_INVALID": 422,
+    "MANDATE_NOT_CONFIRMABLE": 409,
 }
 
 
@@ -156,77 +167,21 @@ def _sign(request: Request) -> Any:
 
 # ---- the four checks and one outcome (WF-13B-03) -----------------------------------------------------------------------------
 
-_COMPANY = {
-    KybStatus.VERIFIED: "COMPLETED",
-    KybStatus.NEEDS_REVIEW: "HELD",
-    KybStatus.UNAVAILABLE: "PENDING",
-    KybStatus.IN_PROGRESS: "PENDING",
-    KybStatus.NOT_STARTED: "PENDING",
-    KybStatus.REJECTED: "DECLINED",
-    KybStatus.EXPIRED: "NEEDS_ACTION",
-}
-_SCREENING = {
-    ScreeningStatus.VERIFIED: "COMPLETED",
-    ScreeningStatus.REVIEW_REQUIRED: "HELD",
-    ScreeningStatus.UNAVAILABLE: "PENDING",
-    ScreeningStatus.GATHERING: "NEEDS_ACTION",
-    ScreeningStatus.SCREENING: "PENDING",
-    ScreeningStatus.NOT_STARTED: "PENDING",
-    ScreeningStatus.REJECTED: "DECLINED",
-    ScreeningStatus.EXPIRED: "NEEDS_ACTION",
-    ScreeningStatus.SUSPENDED: "HELD",
-}
-
-
-def final_outcome(checks: dict[str, str]) -> str:
-    """The one label (WF-13B-03D). VERIFIED only when every check is complete; the person-assurance check is a separate
-    verification step, so while it is not complete a company is never VERIFIED here."""
-    states = set(checks.values())
-    if "DECLINED" in states:
-        return "DECLINED"
-    if "HELD" in states:
-        return "IN_REVIEW"
-    if "NEEDS_ACTION" in states:
-        return "NEEDS_EVIDENCE"
-    if states == {"COMPLETED"}:
-        return "VERIFIED"
-    return "PROVISIONAL"
+final_outcome = claims.final_outcome
+_peek = claims.status  # reads (the status page, readiness) change nothing
 
 
 async def _status(conn: Any, tenant_id: str, case_id: str, now: datetime) -> dict[str, Any]:
-    kyb = await kyb_get_case(conn, tenant_id, case_id, now=now)
-    screening = await case_for_kyb(conn, tenant_id, case_id, now=now)
-    checks = {
-        "company": _COMPANY[kyb.status],
-        "person_assurance": "PENDING",  # identity verification is its own step and is not read here
-        "authority": "COMPLETED" if screening and screening[1] else "PENDING",
-        "risk": _SCREENING[screening[0].status] if screening else "PENDING",
-    }
-    return {
-        "claim_id": case_id,
-        "jurisdiction": kyb.jurisdiction,
-        "registration_number": kyb.registration_number,
-        "outcome": final_outcome(checks),
-        "checks": checks,
-        "company": {
-            "status": kyb.status.value,
-            "review_reason": kyb.review_reason,
-            "reasons": list(kyb.reasons),
-            "expires_at": kyb.expiry_at.isoformat() if kyb.expiry_at else None,
-        },
-        "screening": (
-            {
-                "status": screening[0].status.value,
-                "next_action": screening[0].next_action,
-                "tasks": list(screening[0].tasks),
-                "expires_at": screening[0].expiry_at.isoformat()
-                if screening[0].expiry_at
-                else None,
-            }
-            if screening
-            else None
-        ),
-    }
+    """What a write route answers with: the status, after remembering it, so that whatever it changed is announced once."""
+    seen = await claims.status(conn, tenant_id, case_id, now)
+    await claims.record_outcome(conn, tenant_id, case_id, seen, now)
+    return seen
+
+
+async def _open_claim(conn: Any, tenant_id: str, claim_id: str, now: datetime) -> None:
+    """A withdrawn or abandoned claim takes nothing more: not a declaration, not an appeal, not a submission."""
+    if (await kyb_get_case(conn, tenant_id, claim_id, now=now)).closed_at is not None:
+        raise KybError("CLAIM_CLOSED")
 
 
 # ---- applicant routes --------------------------------------------------------------------------------------------------------
@@ -325,13 +280,24 @@ async def create_claim(
     "/org-claims/{claim_id}/status",
     dependencies=[Depends(matrix_gate("b.view-verification-state-expiration", Mode.READ))],
 )
-async def claim_status(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def claim_status(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> Response:
+    """The status carries an ETag of exactly what it says, and is never cached by anyone: a person polling it sends the tag back and
+    gets a bare 304 while nothing has changed."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _require_admin(conn, caller)
         try:
-            return await _status(conn, caller.ctx.tenant_id or "", str(claim_id), datetime.now(UTC))
+            shown = await _peek(conn, caller.ctx.tenant_id or "", str(claim_id), datetime.now(UTC))
         except KybError as e:
             raise _kyb_error(e) from e
+    tag = (
+        '"'
+        + hashlib.sha256(json.dumps(shown, sort_keys=True).encode("utf-8")).hexdigest()[:32]
+        + '"'
+    )
+    headers = {"ETag": tag, "Cache-Control": "no-store"}
+    if request.headers.get("if-none-match", "").replace("W/", "").strip() == tag:
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(shown, headers=headers)
 
 
 @router.post(
@@ -360,6 +326,59 @@ async def refresh_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep
             raise _kyb_error(e) from e
 
 
+@router.post(
+    "/org-claims/{claim_id}/submit",
+    status_code=202,
+    dependencies=[Depends(matrix_gate("b.submit-refresh-organization-verification", Mode.PREPARE))],
+)
+async def submit_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing
+    here makes the company verified. The claim must say whom to screen and how the person acts for the company first. Once: a repeat is
+    the same answer and changes nothing."""
+    now = datetime.now(UTC)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        me = await _require_admin(conn, caller)
+        try:
+            seen = await claims.status(conn, tenant, str(claim_id), now)
+            if seen["closed_at"] is not None:
+                raise KybError("CLAIM_CLOSED", seen["state"])
+            if seen["screening"] is None:
+                raise KybError(
+                    "CLAIM_INCOMPLETE", "Say who to screen and how you act for the company first."
+                )
+            _, first = await kyb_submit(conn, tenant, str(claim_id), now=now)
+        except KybError as e:
+            raise _kyb_error(e) from e
+        if first:
+            await claims.announce_submitted(conn, tenant, str(claim_id), actor=me, now=now)
+        return await _status(conn, tenant, str(claim_id), now)
+
+
+@router.post(
+    "/org-claims/{claim_id}/withdraw",
+    dependencies=[Depends(matrix_gate("b.submit-refresh-organization-verification", Mode.PREPARE))],
+)
+async def withdraw_claim(
+    claim_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """The applicant withdraws a claim. Nothing is deleted; nobody is watched for it any more; the applicant may start a new claim. A
+    claim that is verified is not withdrawn here (that is a governed change), and a repeat is the same answer."""
+    now = datetime.now(UTC)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        me = await _require_admin(conn, caller)
+        try:
+            seen = await claims.status(conn, tenant, str(claim_id), now)
+            if seen["closed_at"] is None:
+                if seen["outcome"] == "VERIFIED":
+                    raise KybError("CLAIM_VERIFIED", "A verified claim is not withdrawn here.")
+                await claims.close(conn, tenant, str(claim_id), "WITHDRAWN", actor=me, now=now)
+        except KybError as e:
+            raise _kyb_error(e) from e
+        return await _status(conn, tenant, str(claim_id), now)
+
+
 # ---- reviewer routes (protected actions: a role never grants these) ---------------------------------------------------------
 
 
@@ -367,6 +386,9 @@ class RulingIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     outcome: Literal["VERIFIED", "REJECTED", "REVIEW_REQUIRED"]
     rationale: str = Field(min_length=10, max_length=2000)
+    # the reviewer read the delegated mandate (an audited read of the document) and confirms the person may act for the company;
+    # only a ruling that verifies can say so, and only for a case that rests on a mandate
+    confirm_mandate: bool = False
 
 
 class KybRulingIn(BaseModel):
@@ -410,7 +432,9 @@ async def screening_ruling(
                 conn,
                 tenant,
                 str(case_id),
-                ruling=Ruling(_me(caller), ScreeningStatus(body.outcome), body.rationale),
+                ruling=Ruling(
+                    _me(caller), ScreeningStatus(body.outcome), body.rationale, body.confirm_mandate
+                ),
                 cfg=screening_config(),
                 sign=_sign(request),
                 now=now,

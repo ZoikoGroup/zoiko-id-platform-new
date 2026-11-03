@@ -364,10 +364,57 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Claim Status */
+        /**
+         * Claim Status
+         * @description The status carries an ETag of exactly what it says, and is never cached by anyone: a person polling it sends the tag back and
+         *     gets a bare 304 while nothing has changed.
+         */
         get: operations["claim_status_v1_org_claims__claim_id__status_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/{claim_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Claim
+         * @description The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing
+         *     here makes the company verified. The claim must say whom to screen and how the person acts for the company first. Once: a repeat is
+         *     the same answer and changes nothing.
+         */
+        post: operations["submit_claim_v1_org_claims__claim_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-claims/{claim_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Claim
+         * @description The applicant withdraws a claim. Nothing is deleted; nobody is watched for it any more; the applicant may start a new claim. A
+         *     claim that is verified is not withdrawn here (that is a governed change), and a repeat is the same answer.
+         */
+        post: operations["withdraw_claim_v1_org_claims__claim_id__withdraw_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -696,6 +743,11 @@ export interface components {
         /** RulingIn */
         RulingIn: {
             /**
+             * Confirm Mandate
+             * @default false
+             */
+            confirm_mandate: boolean;
+            /**
              * Outcome
              * @enum {string}
              */
@@ -714,8 +766,18 @@ export interface components {
             elevated_risk: boolean;
             /** Holdings */
             holdings?: components["schemas"]["HoldingIn"][];
+            /** Mandate Expires At */
+            mandate_expires_at?: string | null;
+            /** Mandate Proof Id */
+            mandate_proof_id?: string | null;
             /** Owners */
             owners?: components["schemas"]["PartyIn"][];
+            /**
+             * Relationship
+             * @default DIRECTOR_OR_OFFICER
+             * @enum {string}
+             */
+            relationship: "DIRECTOR_OR_OFFICER" | "DELEGATED_EMPLOYEE" | "EXTERNAL_REPRESENTATIVE";
             representative: components["schemas"]["PartyIn"];
         };
         /** SearchIn */
@@ -1609,6 +1671,70 @@ export interface operations {
         };
     };
     claim_status_v1_org_claims__claim_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_claim_v1_org_claims__claim_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_claim_v1_org_claims__claim_id__withdraw_post: {
         parameters: {
             query?: never;
             header?: never;

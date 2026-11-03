@@ -405,6 +405,10 @@ export function createCellApi(t: Transport) {
       status: (id: string) => get<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/status`),
       refresh: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/refresh`, {}),
       screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
+      /** Say the claim is complete and ready for review. Accepted, not decided (202); once, and a repeat changes nothing. */
+      submit: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/submit`),
+      /** Withdraw a claim that is not verified. Nothing is deleted; the applicant may start a new claim. */
+      withdraw: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/withdraw`),
       /** Declare again while the case is waiting for details; the earlier declaration stays. */
       amendScreening: (id: string, body: M.OrgClaimScreening) => t.request<M.OrgClaimStatus>("PUT", `/v1/org-claims/${seg(id)}/screening`, { body }),
       /** Appeal a rejection or ask for a correction; the case goes back to a person. */

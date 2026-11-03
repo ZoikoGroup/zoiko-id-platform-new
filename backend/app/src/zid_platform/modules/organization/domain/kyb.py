@@ -128,6 +128,9 @@ class Policy:
     refresh_lead: timedelta = timedelta(
         days=30
     )  # how long before a verification lapses it is read again
+    draft_period: timedelta = timedelta(
+        days=30
+    )  # a claim not submitted within this long is closed as abandoned
 
 
 @dataclass(frozen=True, slots=True)

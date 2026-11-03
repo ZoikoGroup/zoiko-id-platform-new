@@ -27,10 +27,19 @@ from zid_platform.modules.organization.application.kyb import (
     CaseView as KybCaseView,
 )
 from zid_platform.modules.organization.application.kyb import (
+    close_claim as kyb_close,
+)
+from zid_platform.modules.organization.application.kyb import (
+    drafts_before as kyb_drafts_before,
+)
+from zid_platform.modules.organization.application.kyb import (
     get_case as kyb_get_case,
 )
 from zid_platform.modules.organization.application.kyb import (
     history as kyb_history,
+)
+from zid_platform.modules.organization.application.kyb import (
+    open_claims as kyb_open_claims,
 )
 from zid_platform.modules.organization.application.kyb import (
     refresh as kyb_refresh,
@@ -46,6 +55,9 @@ from zid_platform.modules.organization.application.kyb import (
 )
 from zid_platform.modules.organization.application.kyb import (
     search as kyb_search,
+)
+from zid_platform.modules.organization.application.kyb import (
+    submit_claim as kyb_submit,
 )
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
@@ -136,14 +148,18 @@ __all__ = [
     "establish_registry_root",
     "has_usable_root",
     "identifiers_of",
+    "kyb_close",
+    "kyb_drafts_before",
     "kyb_get_case",
     "kyb_history",
+    "kyb_open_claims",
     "kyb_refresh",
     "kyb_register_people",
     "kyb_request_verification",
     "kyb_review",
     "kyb_routing",
     "kyb_search",
+    "kyb_submit",
     "latest_kyb_case_id",
     "legal_name_history",
     "link_identifier",

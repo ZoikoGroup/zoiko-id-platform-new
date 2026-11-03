@@ -2179,13 +2179,21 @@ export type OrgClaimCreate = {
   entity_form?: string | null;
   lei?: string | null;
 };
-export type OrgClaimCheckState = "COMPLETED" | "PENDING" | "NEEDS_ACTION" | "HELD" | "DECLINED";
-export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "IN_REVIEW" | "RESTRICTED" | "DECLINED" | "STALE";
+export type OrgClaimCheckState = "COMPLETED" | "PENDING" | "NEEDS_ACTION" | "HELD" | "STALE" | "RESTRICTED" | "DECLINED";
+export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "IN_REVIEW" | "RESTRICTED" | "DECLINED" | "STALE" | "WITHDRAWN" | "ABANDONED";
+/** Where a claim is in its own life, apart from what its checks say: not yet sent, sent for review, or closed. */
+export type OrgClaimState = "DRAFT" | "SUBMITTED" | "WITHDRAWN" | "ABANDONED";
+/** How the person says they act for the company (WF-13B-02). Only an officer is what the register says; the others rest on a mandate. */
+export type OrgClaimRelationship = "DIRECTOR_OR_OFFICER" | "DELEGATED_EMPLOYEE" | "EXTERNAL_REPRESENTATIVE";
 export type OrgClaimStatus = {
   claim_id: string;
   jurisdiction: string;
   registration_number: string;
+  state: OrgClaimState;
   outcome: OrgClaimOutcome;
+  relationship: OrgClaimRelationship | null;
+  submitted_at: Iso | null;
+  closed_at: Iso | null;
   checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
   screening: { status: string; next_action: string; expires_at: Iso | null; tasks: OrgClaimTask[] } | null;
@@ -2200,6 +2208,7 @@ export type OrgClaimProofKind =
   | "LETTER_OF_AUTHORITY"
   | "OWNERSHIP_CHART"
   | "BOARD_RESOLUTION"
+  | "SIGNING_MATRIX"
   | "OTHER";
 export type OrgClaimProof = {
   proof_id: string;
@@ -2242,6 +2251,10 @@ export type OrgClaimHolding = {
   controls?: ("APPOINT_BOARD_MAJORITY" | "SIGNIFICANT_INFLUENCE" | "OTHER_CONTROL" | "NOMINEE" | "TRUST")[];
 };
 export type OrgClaimScreening = {
+  relationship?: OrgClaimRelationship;
+  /** A letter of authority, board resolution or signing matrix uploaded to this claim, for a delegated employee or an outside representative. */
+  mandate_proof_id?: string | null;
+  mandate_expires_at?: string | null;
   representative: OrgClaimParty;
   directors?: OrgClaimParty[];
   owners?: OrgClaimParty[];

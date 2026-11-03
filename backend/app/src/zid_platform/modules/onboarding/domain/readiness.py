@@ -41,7 +41,9 @@ _WORDS = {
     "PENDING": REQUIRED,
     "HELD": IN_REVIEW,
     "NEEDS_ACTION": NEEDS_ACTION,
+    "STALE": NEEDS_ACTION,  # it was complete and has lapsed: it needs fresh evidence, and is never read as verified
     "DECLINED": RESTRICTED,
+    "RESTRICTED": RESTRICTED,  # a review suspended it
 }
 
 TRUST_CHECKS = ("company", "person_assurance", "authority", "risk")
@@ -58,7 +60,7 @@ class TrustFact:
     """One canonical assertion as the trust services returned it (read-only, never customer-edited)."""
 
     check: str
-    state: str  # COMPLETED, PENDING, HELD, NEEDS_ACTION or DECLINED
+    state: str  # COMPLETED, PENDING, HELD, NEEDS_ACTION, STALE, RESTRICTED or DECLINED
     expires_at: datetime | None = None
     started: bool = False  # the person has begun this check
 
@@ -223,7 +225,7 @@ def project(
 
 def _trust_reason(key: str, word: str) -> str:
     if word == RESTRICTED:
-        return "This check was declined. Activation is blocked."
+        return "This check was declined or is restricted. Activation is blocked."
     if word == IN_REVIEW:
         return "This check is being reviewed. It is never treated as verified while it is."
     if word == NEEDS_ACTION:

@@ -76,9 +76,19 @@ class AuthorityEvidence:
     kind: AuthorityKind
     reference: str | None = None  # an id of the register entry or the mandate, never a name
     expires_at: datetime | None = None
+    relationship: str | None = (
+        None  # how the person says they act for the company (DIRECTOR_OR_OFFICER, DELEGATED_EMPLOYEE, EXTERNAL_REPRESENTATIVE)
+    )
+    confirmed: bool = (
+        False  # a reviewer read the mandate and confirmed it (only a delegated mandate needs this)
+    )
 
     def valid(self, now: datetime) -> bool:
+        """An officer the register lists is proof by itself. A delegated mandate is the applicant's own document: it proves nothing until a
+        person has read it and confirmed it, and it stops proving anything on its expiry."""
         if self.kind is AuthorityKind.NONE or not self.reference:
+            return False
+        if self.kind is AuthorityKind.DELEGATED_MANDATE and not self.confirmed:
             return False
         return self.expires_at is None or self.expires_at > now
 
@@ -228,9 +238,13 @@ def decide(inp: ScreeningInput) -> Decision:
     undeclared = [g for g in gaps if g.startswith("REGISTER_PSC_UNDECLARED")]
     authority_ok = inp.authority.valid(inp.now)
     if not authority_ok:
-        reasons.append(
-            "AUTHORITY_UNPROVEN"
-        )  # a registered company is not a person's authority to act for it
+        # a registered company is not a person's authority to act for it; a mandate the applicant supplied waits for a person to read it
+        waiting = (
+            inp.authority.kind is AuthorityKind.DELEGATED_MANDATE
+            and inp.authority.reference
+            and (inp.authority.expires_at is None or inp.authority.expires_at > inp.now)
+        )
+        reasons.append("AUTHORITY_MANDATE_REVIEW" if waiting else "AUTHORITY_UNPROVEN")
     if reasons:
         return Decision(
             ScreeningStatus.REVIEW_REQUIRED,
@@ -253,8 +267,15 @@ def decide(inp: ScreeningInput) -> Decision:
         ownership,
         True,
         checked,
-        inp.now + validity,
+        bounded_expiry(inp.now + validity, inp.authority),
     )
+
+
+def bounded_expiry(expiry: datetime, authority: AuthorityEvidence) -> datetime:
+    """A clear outcome never outlives the mandate it rests on."""
+    if authority.kind is AuthorityKind.DELEGATED_MANDATE and authority.expires_at is not None:
+        return min(expiry, authority.expires_at)
+    return expiry
 
 
 def _same_person(a: Party, b: Party, threshold: float) -> bool:
@@ -324,6 +345,9 @@ def evidence_object(
         "authority_verified": decision.authority_verified,
         "authority_kind": inp.authority.kind.value,
         "authority_reference": inp.authority.reference,
+        "authority_relationship": inp.authority.relationship,
+        # remembered in every record that follows, so a rescreen or an appeal never loses a reviewer's confirmation of the mandate
+        "mandate_confirmed_reference": inp.authority.reference if inp.authority.confirmed else None,
         "lists": [{"list_id": a, "version": b, "content_hash": c} for a, b, c in decision.lists],
         "policy_version": inp.policy.version,
         "match_policy_version": inp.policy.match.version,
@@ -428,6 +452,7 @@ class Ruling:
     reviewer_id: str
     outcome: ScreeningStatus
     rationale: str
+    confirm_mandate: bool = False  # the reviewer read the delegated mandate and confirms the person may act for the company
 
 
 APPEAL_KINDS = ("APPEAL", "CORRECTION")
@@ -476,6 +501,10 @@ def check_ruling(
         raise ScreeningError("CASE_NOT_IN_REVIEW", current.value)
     if ruling.outcome not in REVIEW_OUTCOMES:
         raise ScreeningError("RULING_OUTCOME_INVALID", ruling.outcome.value)
+    if ruling.confirm_mandate and ruling.outcome is not ScreeningStatus.VERIFIED:
+        raise ScreeningError(
+            "RULING_OUTCOME_INVALID", "a mandate is confirmed only by a ruling that verifies"
+        )
     if len(ruling.rationale.strip()) < 20:
         raise ScreeningError("RATIONALE_REQUIRED", "a reviewer's decision needs a recorded reason")
     if ruling.reviewer_id == requester_id or ruling.reviewer_id in subject_refs:
