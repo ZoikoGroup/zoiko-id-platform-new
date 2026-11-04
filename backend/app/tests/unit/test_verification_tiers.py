@@ -87,13 +87,13 @@ def test_proofing_alone_grants_no_authority() -> None:
 
 
 def test_the_critical_tier_needs_a_fresh_sign_in_and_an_independent_approval() -> None:
-    base = dict(
-        email_proved=True,
-        proofed=True,
-        strong_authentication=True,
-        company_verified=True,
-        mandate_evidence=True,
-    )
+    base = {
+        "email_proved": True,
+        "proofed": True,
+        "strong_authentication": True,
+        "company_verified": True,
+        "mandate_evidence": True,
+    }
     assert t.tier_of(t.Facts(**base, fresh_strong_sign_in=True), POLICY).tier is t.Tier.R2
     assert t.tier_of(t.Facts(**base, independent_approval=True), POLICY).tier is t.Tier.R2
     top = t.tier_of(t.Facts(**base, fresh_strong_sign_in=True, independent_approval=True), POLICY)

@@ -308,10 +308,14 @@ async def establish_from_verified_claim(
     if tenant is None:
         raise OnboardingError("TENANT_NOT_FOUND")
     if tenant.organization_id:
-        return OrganizationResult(tenant.status.value, (_gate(GateStatus.PASS, detail="established"),), None, None)
+        return OrganizationResult(
+            tenant.status.value, (_gate(GateStatus.PASS, detail="established"),), None, None
+        )
     seen = await claims.status(conn, tenant_id, claim_id, now)
     if seen["outcome"] != "VERIFIED":
-        raise OnboardingError("CLAIM_NOT_VERIFIED", "The claim is not verified: every check must be complete first.")
+        raise OnboardingError(
+            "CLAIM_NOT_VERIFIED", "The claim is not verified: every check must be complete first."
+        )
     case = await kyb_get_case(conn, tenant_id, claim_id, now=now)
     pending = [
         a
@@ -319,7 +323,10 @@ async def establish_from_verified_claim(
         if a.role is Role.OWNER and a.status is RoleStatus.PENDING_VERIFICATION
     ]
     if not pending:
-        raise OnboardingError("TENANT_OWNER_UNAUTHORIZED", "Only the claimant's pending OWNER role is activated by a verified claim.")
+        raise OnboardingError(
+            "TENANT_OWNER_UNAUTHORIZED",
+            "Only the claimant's pending OWNER role is activated by a verified claim.",
+        )
     facts = None
     for adapter in adapters.values():
         countries = adapter.capabilities.countries
@@ -333,9 +340,19 @@ async def establish_from_verified_claim(
             break
         facts = None
     if facts is None:
-        raise OnboardingError("SOURCE_UNAVAILABLE", "The official source could not be read just now. Nothing was changed; try again.")
+        raise OnboardingError(
+            "SOURCE_UNAVAILABLE",
+            "The official source could not be read just now. Nothing was changed; try again.",
+        )
     if tenant.status is TenantStatus.DRAFT:
-        await transition(conn, tenant_id, Move.ADVANCE, reason_code="ORGANIZATION_SUBMITTED", actor=case.requested_by, now=now)
+        await transition(
+            conn,
+            tenant_id,
+            Move.ADVANCE,
+            reason_code="ORGANIZATION_SUBMITTED",
+            actor=case.requested_by,
+            now=now,
+        )
     root = await establish_claim_root(
         conn,
         tenant_id,

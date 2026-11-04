@@ -25,6 +25,7 @@ from zid_platform.modules.commercial.ports import (
     commitments,
     eligibility,
     finance,
+    finance_policy,
 )
 from zid_platform.modules.operator_access.api.commercial_admin import OperatorDep, _require
 
@@ -121,7 +122,7 @@ def _tiers(inst: Any) -> list[dict[str, Any]]:
 
 @router.get("/v1/commercial/finance/policy")
 async def get_policy(request: Request, op: OperatorDep) -> dict[str, Any]:
-    p = finance.finance_policy()
+    p = finance_policy()
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _gate(conn, op)
         state = await finance.policy_state(conn)

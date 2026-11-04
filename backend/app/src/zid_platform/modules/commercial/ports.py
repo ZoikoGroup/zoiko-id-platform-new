@@ -111,6 +111,7 @@ from zid_platform.modules.commercial.infrastructure import (
     billable_store,
     catalogue_store,
 )
+from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
@@ -191,6 +192,7 @@ __all__ = [
     "entitled",
     "entitlement_changed",
     "finance",
+    "finance_policy",
     "freeze_month",
     "invoicing",
     "key_auth",

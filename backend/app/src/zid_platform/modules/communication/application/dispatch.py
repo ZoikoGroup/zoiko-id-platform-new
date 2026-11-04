@@ -296,12 +296,19 @@ async def _workload_registered(c: BuildContext) -> Merge | None:
 async def _approval_requested(c: BuildContext) -> Merge | None:
     """ZID-EM-074: a protected change now waits for its approvers. The mail names the change by its public action label and a short reference, never its payload,
     its reason or the requester, and says to decide in the approval centre, not from the mail."""
-    org, case, action = await _org(c), str(c.data.get("case_id", "")), str(c.data.get("action_id", ""))
+    org, case, action = (
+        await _org(c),
+        str(c.data.get("case_id", "")),
+        str(c.data.get("action_id", "")),
+    )
     if not org or not case or not action:
         return None
     return {
         "organization_name": org,
-        "action_public_label": action.replace("_", " ").replace(".", " ").replace("-", " ").capitalize(),
+        "action_public_label": action.replace("_", " ")
+        .replace(".", " ")
+        .replace("-", " ")
+        .capitalize(),
         "action_reference": case[:8],
         "trusted_approval_url": None,
     }

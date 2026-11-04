@@ -488,7 +488,9 @@ async def establish_claim_root(
             "fresh_until": fresh_until.isoformat(),
         },
     )
-    return EstablishedRoot(org, root_id, source_id, namespace, identifier, legal_name, jurisdiction, fresh_until)
+    return EstablishedRoot(
+        org, root_id, source_id, namespace, identifier, legal_name, jurisdiction, fresh_until
+    )
 
 
 async def establish_development_root(
@@ -550,8 +552,8 @@ async def establish_development_root(
 
 __all__ = [
     "EstablishedRoot",
-    "establish_claim_root",
     "NameMatcher",
+    "establish_claim_root",
     "establish_development_root",
     "establish_registry_root",
     "refresh_registry_roots",

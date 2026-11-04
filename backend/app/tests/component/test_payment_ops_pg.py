@@ -464,7 +464,7 @@ def test_the_webhook_opens_dispute_cases_and_links_our_own_refunds_but_leaves_st
     o = onboard(rt_url, extra_resources=["billable:*", "tenant:*"])
 
     async def run() -> None:
-        _, attempt, pi = await paid_invoice(rt_url, o, "40.00")
+        _, _attempt, pi = await paid_invoice(rt_url, o, "40.00")
         async with engine(rt_url) as eng:
             p = await cast(eng, "REVOPS", "CONTROLLER", "FINANCE_EXECUTOR")
             dref = f"dp_{uuid.uuid4().hex[:18]}"

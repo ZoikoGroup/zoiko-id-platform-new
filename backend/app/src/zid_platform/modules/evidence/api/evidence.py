@@ -53,6 +53,7 @@ from zid_platform.modules.evidence.domain.ledger import LedgerError, Partition
 from zid_platform.modules.evidence.domain.receipts import ANNOTATION_KINDS, EXPORT_MODES
 from zid_platform.modules.evidence.infrastructure import bulk_store, receipt_store, vault_store
 from zid_platform.protected import approved_by_second_admin, protected_action
+from zid_platform.step_up_hook import composed_step_up
 
 router = APIRouter(prefix="/v1/evidence", tags=["evidence"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -291,6 +292,18 @@ async def bulk_export(body: BulkBody, request: Request, caller: CallerDep) -> di
             await protected_action(
                 conn, caller, action="evidence.export", resource="evidence_export:bulk"
             )
+            await composed_step_up(
+                request,
+                conn,
+                caller,
+                action="export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii",
+                resource="evidence_export:bulk",
+                change={
+                    "mode": body.mode,
+                    "receipts": len(body.receipt_ids),
+                    "case_ref": body.case_ref,
+                },
+            )
             return await bulk.create(
                 conn,
                 _tenant(caller),
@@ -501,6 +514,14 @@ async def release_hold(
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
             await protected_action(
                 conn, caller, action=HOLD_ACTION, resource=f"legal_hold:{hold_id}"
+            )
+            await composed_step_up(
+                request,
+                conn,
+                caller,
+                action="delete-regulated-identity-records-or-alter-retention-holds",
+                resource=f"legal_hold:{hold_id}",
+                change={"operation": "RELEASE", "hold_id": str(hold_id)},
             )
             hold = await vault.release_hold(
                 conn,

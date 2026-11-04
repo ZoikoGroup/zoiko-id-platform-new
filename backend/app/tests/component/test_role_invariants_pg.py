@@ -138,7 +138,7 @@ def test_a_replayed_or_forged_role_never_creates_authority(rt_url: str) -> None:
                 scope=frozenset(
                     {"owner", "admin", "tenant.member.manage", "role:OWNER", "tenant:admin"}
                 ),
-            )  # fmt: skip
+            )
         }
         r = api.post("/v1/tenant/members", json={"role": "VIEWER"}, headers=forged)
         assert r.status_code in (401, 403), r.text
