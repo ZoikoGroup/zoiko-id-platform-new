@@ -191,6 +191,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/federation/sign-in-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign In Options
+         * @description The company sign-ins a workspace's sign-in page may offer: only the name people see and the connection to start, for connections that are ACTIVE. No endpoint, key, client id or
+         *     secret leaves here; an unknown client lists nothing, the same as a workspace with none.
+         */
+        get: operations["sign_in_options_federation_sign_in_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/federation/trust-anchors": {
         parameters: {
             query?: never;
@@ -722,6 +743,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_in_options_federation_sign_in_options_get: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
