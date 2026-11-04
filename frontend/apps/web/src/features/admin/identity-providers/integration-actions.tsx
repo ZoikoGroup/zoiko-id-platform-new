@@ -1,15 +1,119 @@
 "use client";
 
-import type { FederationIntegration, IdpInitiatedIn, RotateIn } from "@zoiko/api-client";
-import { Banner, Button, Code, CopyId, Dialog, Select, Switch, TextField } from "@zoiko/ui";
+import type { FederationIntegration, IdpInitiatedIn, IntegrationUpdateIn, RotateIn } from "@zoiko/api-client";
+import { Banner, Button, Checkbox, Code, CopyId, Dialog, Select, Switch, TextField } from "@zoiko/ui";
 import { useState } from "react";
 
 import { jsonInput, listInput, useCellMutation } from "@/lib/cell";
 
 import { INTEGRATIONS_KEY } from "./integration-form";
-import { FormDialog, certificatesInput, isoFromLocal, localDateTimeFromNow, optional, required } from "./shared";
+import { AlgorithmPicker, FormDialog, certificatesInput, isoFromLocal, localDateTimeFromNow, optional, required, type Alg } from "./shared";
 
 type ClientAuth = "private_key_jwt" | "client_secret_basic";
+
+/** Change what an integration is called and how it is used. Who is trusted (issuer, endpoints, keys, certificates) is not editable
+ * here: rotate handles keys, and a different provider is a new integration. */
+export function EditIntegrationDialog({ integration, onClose }: { integration: FederationIntegration; onClose: () => void }) {
+  const saml = integration.protocol === "SAML";
+  const [displayName, setDisplayName] = useState(integration.display_name);
+  const [linkPolicy, setLinkPolicy] = useState<"EXISTING_ONLY" | "JIT">(integration.link_policy);
+  const [trustAmr, setTrustAmr] = useState(integration.trust_amr);
+  const [acrLevels, setAcrLevels] = useState(Object.keys(integration.acr_levels).length ? JSON.stringify(integration.acr_levels) : "");
+  const [algorithms, setAlgorithms] = useState<Alg[]>(integration.algorithms as Alg[]);
+  const [scopes, setScopes] = useState((integration.scopes ?? []).join(", "));
+  const [spEntityId, setSpEntityId] = useState(integration.sp_entity_id ?? "");
+  const [encrypted, setEncrypted] = useState(integration.require_encrypted_assertions);
+  const [approvalId, setApprovalId] = useState("");
+  const [localError, setLocalError] = useState<unknown>(null);
+
+  const update = useCellMutation((api, body: IntegrationUpdateIn) => api.federation.updateIntegration(integration.connection_id, body), {
+    invalidate: [INTEGRATIONS_KEY],
+    success: (r) => `${r.display_name} updated (revision ${r.config_revision})`,
+    onSuccess: onClose,
+  });
+
+  function build(): IntegrationUpdateIn {
+    if (!algorithms.length) throw new Error("Choose at least one signing algorithm.");
+    const levels = jsonInput(acrLevels, "ACR levels") ?? {};
+    if (!Object.values(levels).every((v) => Number.isInteger(v) && (v as number) >= 0))
+      throw new Error("ACR levels map each acr value to a whole level, 0 or more (levels above 2 count as 2).");
+    const body: IntegrationUpdateIn = {
+      display_name: required(displayName, "Display name"),
+      link_policy: linkPolicy,
+      trust_amr: trustAmr,
+      acr_levels: levels as Record<string, number>,
+      algorithms,
+      approval_request_id: optional(approvalId),
+    };
+    if (saml) {
+      body.sp_entity_id = required(spEntityId, "SP entity ID");
+      if (encrypted !== integration.require_encrypted_assertions) body.require_encrypted_assertions = encrypted;
+    } else {
+      body.scopes = listInput(scopes);
+    }
+    return body;
+  }
+
+  function submit() {
+    setLocalError(null);
+    update.reset();
+    try {
+      update.mutate(build());
+    } catch (e) {
+      setLocalError(e);
+    }
+  }
+
+  return (
+    <FormDialog
+      isOpen
+      onClose={onClose}
+      title={`Edit ${integration.display_name}`}
+      description="Name and usage settings. The provider's address, keys and certificates are not edited here: use Rotate for keys."
+      submitLabel="Save changes"
+      pending={update.isPending}
+      error={localError ?? update.error}
+      onSubmit={submit}
+      risk="R3"
+    >
+      <TextField label="Name people will see" isRequired value={displayName} onChange={setDisplayName} />
+      <Select
+        label="Who may sign in with it?"
+        value={linkPolicy}
+        onChange={(v) => setLinkPolicy(v as "EXISTING_ONLY" | "JIT")}
+        options={[
+          { id: "EXISTING_ONLY", label: "Only people who already have an account" },
+          { id: "JIT", label: "Anyone from my company", description: "Their account is created the first time they sign in." },
+        ]}
+      />
+      {saml ? (
+        <>
+          <TextField label="Your entity id" isRequired mono value={spEntityId} onChange={setSpEntityId} description="The provider must be told if this changes." />
+          <Checkbox
+            isSelected={encrypted}
+            onChange={setEncrypted}
+            isDisabled={!integration.sp_decryption_key_ref && !integration.require_encrypted_assertions}
+            description={
+              integration.sp_decryption_key_ref
+                ? "Reject assertions that are not encrypted to this tenant's key."
+                : "Needs a decryption key reference, which is set when you rotate."
+            }
+          >
+            Require encrypted assertions
+          </Checkbox>
+        </>
+      ) : (
+        <TextField label="Scopes" mono value={scopes} onChange={setScopes} description="Comma separated; openid is always added." />
+      )}
+      <AlgorithmPicker legend="Accepted signing algorithms" value={algorithms} onChange={setAlgorithms} />
+      <Checkbox isSelected={trustAmr} onChange={setTrustAmr} description="Use the provider's authentication methods as evidence for session strength.">
+        Trust the provider&apos;s authentication methods
+      </Checkbox>
+      <TextField label="Assurance levels (optional)" multiline rows={2} mono value={acrLevels} onChange={setAcrLevels} placeholder='{"urn:example:mfa": 2}' />
+      <TextField label="Approval request ID (optional)" mono value={approvalId} onChange={setApprovalId} description="Only if your tenant policy requires a second administrator's approval for this change." />
+    </FormDialog>
+  );
+}
 
 /** New pinned trust material. The retired key or certificate stops verifying at once. */
 export function RotateDialog({ integration, onClose }: { integration: FederationIntegration; onClose: () => void }) {

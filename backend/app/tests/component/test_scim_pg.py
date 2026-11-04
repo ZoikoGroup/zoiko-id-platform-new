@@ -16,6 +16,7 @@ from typing import Any
 from admin_fixture import make_admin
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
+from scim_fixture import make_scim_client
 from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
@@ -62,6 +63,8 @@ def test_scim_lifecycle_and_deprovisioning(rt_url: str, owner_url: str) -> None:
             await make_admin(
                 c, tenant, admin, ["provisioning.source.manage"], ["provisioning_source:*"]
             )
+            for client_id in (scim_client, other_client):
+                await make_scim_client(c, tenant, client_id)
             sid, now = uid(), datetime.now(UTC)
             p, _ = await load_principal(c, admin)
             await create_session(

@@ -1,7 +1,7 @@
 "use client";
 
 import type { IntegrationIn } from "@zoiko/api-client";
-import { Banner, Button, Checkbox, RadioCards, Select, TextField } from "@zoiko/ui";
+import { Banner, Button, Checkbox, CopyId, Dialog, RadioCards, Select, TextField } from "@zoiko/ui";
 import { useState } from "react";
 
 import { jsonInput, listInput, useCellMutation, useCellQuery } from "@/lib/cell";
@@ -131,16 +131,19 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
   const [decryptionKeyRef, setDecryptionKeyRef] = useState("");
 
   const [localError, setLocalError] = useState<unknown>(null);
+  const [acsUrl, setAcsUrl] = useState<string | null>(null);
   const create = useCellMutation((api, body: IntegrationIn) => api.federation.createIntegration(body), {
     invalidate: [INTEGRATIONS_KEY],
     success: (r) => `Integration “${r.display_name}” created`,
-    onSuccess: onClose,
+    // a SAML provider's administrator must enter our sign-in address on their side: show it instead of closing
+    onSuccess: (r) => (r.acs_url ? setAcsUrl(r.acs_url) : onClose()),
   });
 
   function build(): IntegrationIn {
     if (!algorithms.length) throw new Error("Choose at least one signing algorithm.");
     const levels = jsonInput(acrLevels, "ACR levels");
-    if (levels && !Object.values(levels).every((v) => Number.isInteger(v))) throw new Error("ACR levels map each acr value to an integer level.");
+    if (levels && !Object.values(levels).every((v) => Number.isInteger(v) && (v as number) >= 0))
+      throw new Error("ACR levels map each acr value to a whole level, 0 or more (levels above 2 count as 2).");
     const base: IntegrationIn = {
       protocol,
       display_name: required(displayName, "Display name"),
@@ -183,7 +186,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
       ...base,
       sso_url: sso,
       idp_certificates: certs,
-      sp_entity_id: required(spEntityId, "SP entity ID"),
+      sp_entity_id: required(spEntityId || suggestedSpEntityId, "SP entity ID"),
       require_encrypted_assertions: encrypted,
       sp_decryption_key_ref: encrypted ? required(decryptionKeyRef, "SP decryption key reference") : optional(decryptionKeyRef),
     };
@@ -198,6 +201,8 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
       setLocalError(e);
     }
   }
+
+  const suggestedSpEntityId = connection.data ? `${connection.data.api_base}/saml/sp` : "";
 
   const anchorOptions = (anchors.data?.items ?? [])
     .filter((a) => a.status === "ACTIVE")
@@ -237,6 +242,20 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
     );
   };
   const canFind = protocol === "OIDC" ? issuer.trim().startsWith("https://") : metadataUrl.trim().startsWith("https://");
+
+  if (acsUrl) {
+    return (
+      <Dialog isOpen onOpenChange={(o) => !o && onClose()} title="Provider connected" size="md" footer={<Button onPress={onClose}>Done</Button>}>
+        <div className="space-y-3 text-sm text-ink-muted">
+          <p>Give your IT team this sign-in address (Assertion Consumer Service URL) and your entity id to enter at the provider:</p>
+          <div className="space-y-2 rounded-lg border border-border bg-canvas/60 p-3">
+            <CopyId value={acsUrl} short={false} label="ACS URL" />
+            <CopyId value={spEntityId || suggestedSpEntityId} short={false} label="SP entity ID" />
+          </div>
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <FormDialog

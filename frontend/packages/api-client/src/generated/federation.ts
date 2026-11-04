@@ -75,6 +75,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/federation/integrations/{connection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Integration
+         * @description Change what an integration is called and how it is used. A change to what the provider is trusted for (linking, auth
+         *     methods, assurance levels, the SP entity id, encryption) also needs fresh strong authentication. No change, no new revision.
+         */
+        patch: operations["update_integration_federation_integrations__connection_id__patch"];
+        trace?: never;
+    };
     "/federation/integrations/{connection_id}:disable": {
         parameters: {
             query?: never;
@@ -86,6 +107,26 @@ export interface paths {
         put?: never;
         /** Disable */
         post: operations["disable_federation_integrations__connection_id__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/federation/integrations/{connection_id}:enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable
+         * @description QUARANTINED -> ACTIVE. Restores trust, so it is an R3 change with fresh strong authentication; an active provider is left as it is.
+         */
+        post: operations["enable_federation_integrations__connection_id__enable_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -229,6 +270,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/federation/trust-anchors/{anchor_id}:enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Anchor
+         * @description Restores trust in a quarantined anchor: an R3 change with fresh strong authentication.
+         */
+        post: operations["enable_anchor_federation_trust_anchors__anchor_id__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -245,6 +306,11 @@ export interface components {
             jwks: {
                 [key: string]: unknown;
             };
+        };
+        /** ApprovalIn */
+        ApprovalIn: {
+            /** Approval Request Id */
+            approval_request_id?: string | null;
         };
         /** DiscoverIn */
         DiscoverIn: {
@@ -370,6 +436,32 @@ export interface components {
             metadata_expires_at: string;
             /** Sp Decryption Key Ref */
             sp_decryption_key_ref?: string | null;
+        };
+        /**
+         * UpdateIn
+         * @description Settings that do not change who is trusted. Issuer, endpoints, keys, certificates and anchors are never here: rotate handles keys.
+         */
+        UpdateIn: {
+            /** Acr Levels */
+            acr_levels?: {
+                [key: string]: number;
+            } | null;
+            /** Algorithms */
+            algorithms?: ("ES256" | "Ed25519" | "RS256" | "PS256")[] | null;
+            /** Approval Request Id */
+            approval_request_id?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Link Policy */
+            link_policy?: ("EXISTING_ONLY" | "JIT") | null;
+            /** Require Encrypted Assertions */
+            require_encrypted_assertions?: boolean | null;
+            /** Scopes */
+            scopes?: string[] | null;
+            /** Sp Entity Id */
+            sp_entity_id?: string | null;
+            /** Trust Amr */
+            trust_amr?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -542,6 +634,43 @@ export interface operations {
             };
         };
     };
+    update_integration_federation_integrations__connection_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     disable_federation_integrations__connection_id__disable_post: {
         parameters: {
             query?: never;
@@ -552,6 +681,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_federation_integrations__connection_id__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApprovalIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -802,6 +968,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_anchor_federation_trust_anchors__anchor_id__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                anchor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApprovalIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

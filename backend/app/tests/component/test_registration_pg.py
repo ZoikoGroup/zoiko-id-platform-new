@@ -481,8 +481,8 @@ def test_the_region_is_resolved_before_anything_about_the_person_is_stored(world
         and code(unavailable) == "REGION_UNAVAILABLE"
         and "Nothing has been stored" in unavailable.json()["error"]["message"]
     )
-    # the shipped table is GB only (owners, 2026-11-02): the EU and U.S. rows are switched off until those cells are ready
-    for off in ("DE", "FR", "US", "IE"):
+    # the shipped table lists the five wave 1 markets (GB, US, IE, DE, FR); every other country is refused with nothing stored
+    for off in ("IN", "JP", "NG", "AU"):
         r = w.start(f"{off.lower()}@example.com", country=off)
         assert r.status_code == 422 and code(r) == "REGION_UNAVAILABLE", off
     # a country the table assigns to another cell is routed there, with nothing stored (the table is patched for this check)
@@ -539,7 +539,7 @@ def test_the_region_is_resolved_before_anything_about_the_person_is_stored(world
         and "not available" in caps["message"]
     )
     assert (
-        w.http.get("/v1/registration/capabilities", params={"country": "DE"}).json()["country"][
+        w.http.get("/v1/registration/capabilities", params={"country": "IN"}).json()["country"][
             "account"
         ]
         == "NOT_AVAILABLE_YET"

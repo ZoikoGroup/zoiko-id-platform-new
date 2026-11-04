@@ -32,6 +32,7 @@ export type CommitBody = S<Authority, "CommitBody">;
 export type LockboxIn = S<AuthN, "LockboxIn">;
 export type IntegrationIn = S<Fed, "IntegrationIn">;
 export type RotateIn = S<Fed, "RotateIn">;
+export type IntegrationUpdateIn = S<Fed, "UpdateIn">;
 export type IdpInitiatedIn = S<Fed, "IdpInitiatedIn">;
 export type AnchorIn = S<Fed, "AnchorIn">;
 export type ConfigurationIn = S<Cred, "ConfigurationIn">;
@@ -197,10 +198,16 @@ export function createCellApi(t: Transport) {
       rotate: (id: string, body: RotateIn) => post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:rotate`, body),
       setIdpInitiated: (id: string, body: IdpInitiatedIn) =>
         post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:idp-initiated`, body),
+      updateIntegration: (id: string, body: IntegrationUpdateIn) =>
+        t.request<M.FederationIntegration>("PATCH", `/federation/integrations/${seg(id)}`, { body }),
       disable: (id: string) => post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:disable`),
+      enable: (id: string, approvalRequestId?: string) =>
+        post<M.FederationIntegration>(`/federation/integrations/${seg(id)}:enable`, { approval_request_id: approvalRequestId }),
       trustAnchors: () => get<M.Items<M.TrustAnchorItem>>("/federation/trust-anchors"),
       createTrustAnchor: (body: AnchorIn) => post<M.TrustAnchor>("/federation/trust-anchors", body),
       disableTrustAnchor: (id: string) => post<M.TrustAnchor>(`/federation/trust-anchors/${seg(id)}:disable`),
+      enableTrustAnchor: (id: string, approvalRequestId?: string) =>
+        post<M.TrustAnchor>(`/federation/trust-anchors/${seg(id)}:enable`, { approval_request_id: approvalRequestId }),
     },
 
     policies: {
@@ -465,8 +472,10 @@ export function createCellApi(t: Transport) {
 
     provisioning: {
       sources: () => get<M.Items<M.ProvisioningSourceItem>>("/provisioning/sources"),
-      createSource: (body: SourceIn) => post<M.ProvisioningSource>("/provisioning/sources", body),
+      createSource: (body: SourceIn) => post<M.ProvisioningSourceCreated>("/provisioning/sources", body),
       suspendSource: (id: string) => post<M.ProvisioningSource>(`/provisioning/sources/${seg(id)}:suspend`),
+      resumeSource: (id: string, approvalRequestId?: string | null) =>
+        post<M.ProvisioningSource>(`/provisioning/sources/${seg(id)}:resume`, approvalRequestId ? { approval_request_id: approvalRequestId } : undefined),
     },
 
     evidence: {

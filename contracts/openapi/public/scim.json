@@ -56,8 +56,27 @@
         "title": "LifecycleEvent",
         "type": "string"
       },
+      "ResumeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          }
+        },
+        "title": "ResumeIn",
+        "type": "object"
+      },
       "SourceIn": {
         "additionalProperties": false,
+        "description": "Exactly one way to name the connector's OAuth client: its public `jwks` (the platform creates the\nclient) or the `client_id` of one that already exists in this tenant.",
         "properties": {
           "approval_request_id": {
             "anyOf": [
@@ -71,20 +90,38 @@
             "title": "Approval Request Id"
           },
           "client_id": {
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Client Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
           },
           "display_name": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Display Name",
             "type": "string"
+          },
+          "jwks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jwks"
           }
         },
         "required": [
-          "client_id",
           "display_name"
         ],
         "title": "SourceIn",
@@ -241,6 +278,69 @@
           }
         },
         "summary": "Create Source",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
+    "/provisioning/sources/{source_id}:resume": {
+      "post": {
+        "description": "SUSPENDED -> ACTIVE. Restores a privilege, so it needs what registering needs: an approval when policy\nasks, the plan's room for one more source, and a fresh passkey check (the step-up route map covers\n`/provisioning/sources/*`). A source whose OAuth client was retired stays suspended.",
+        "operationId": "resume_source_provisioning_sources__source_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResumeIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Source Provisioning Sources  Source Id  Resume Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Source",
         "tags": [
           "scim"
         ]
@@ -438,6 +538,44 @@
           }
         },
         "summary": "Patch Group",
+        "tags": [
+          "scim"
+        ]
+      },
+      "put": {
+        "operationId": "put_group_scim_v2_Groups__resource_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Group",
         "tags": [
           "scim"
         ]

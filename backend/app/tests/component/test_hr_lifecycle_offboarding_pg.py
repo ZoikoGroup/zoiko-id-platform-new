@@ -17,6 +17,7 @@ from typing import Any
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, approval, onboard, uid
+from scim_fixture import KEY
 from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
@@ -66,10 +67,11 @@ def test_hr_lifecycle_freshness_and_offboarding(rt_url: str, owner_url: str) -> 
     with TestClient(app) as api:
         r = api.post(
             "/provisioning/sources",
-            json={"client_id": hris_client, "display_name": "Workday"},
+            json={"jwks": {"keys": [KEY]}, "display_name": "Workday"},
             headers=o.bearer(o.owner),
         )
         assert r.status_code == 201, r.text
+        hris_client = r.json()["client_id"]  # the platform created the connector's client
         source_ref = f"provisioning_source:{r.json()['source_id']}"
         r = api.post(
             "/v1/integration/connectors",

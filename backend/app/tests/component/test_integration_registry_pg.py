@@ -21,6 +21,7 @@ from typing import Any
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, approval, onboard, uid
+from scim_fixture import KEY
 from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
@@ -159,10 +160,11 @@ def test_domains_applications_connectors(rt_url: str, owner_url: str) -> None:
         asyncio.run(service_principal())
         r = api.post(
             "/provisioning/sources",
-            json={"client_id": scim_client, "display_name": "Workday"},
+            json={"jwks": {"keys": [KEY]}, "display_name": "Workday"},
             headers=a.bearer(a.owner),
         )
         assert r.status_code == 201, r.text
+        scim_client = r.json()["client_id"]
         source_ref = f"provisioning_source:{r.json()['source_id']}"
         r = api.post(
             "/v1/integration/connectors",
