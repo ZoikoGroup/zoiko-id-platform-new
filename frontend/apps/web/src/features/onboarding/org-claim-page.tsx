@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { AppealCard, TasksCard } from "./org-claim-review";
+import { AppealCard, EstablishCard, TasksCard } from "./org-claim-review";
 import { ProofsCard } from "./org-claim-proofs";
 import {
   CHECKS,
@@ -378,6 +378,7 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
               {withdraw.error ? <ApiErrorView error={withdraw.error} title="The claim could not be withdrawn" /> : null}
               {s.closed_at ? null : (
                 <>
+                  <EstablishCard claimId={s.claim_id} status={s} />
                   <TasksCard claimId={s.claim_id} status={s} />
                   <AppealCard claimId={s.claim_id} status={s} />
                   <ProofsCard claimId={s.claim_id} />

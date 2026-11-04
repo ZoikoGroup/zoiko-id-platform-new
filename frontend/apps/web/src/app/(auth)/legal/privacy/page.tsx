@@ -71,8 +71,8 @@ export default function PrivacyNoticePage() {
         </p>
       </section>
       <p>
-        <a href="/register" className="font-medium text-brand-700 hover:underline">
-          Back to registration
+        <a href="/sign-up" className="font-medium text-brand-700 hover:underline">
+          Back to sign-up
         </a>
       </p>
     </article>

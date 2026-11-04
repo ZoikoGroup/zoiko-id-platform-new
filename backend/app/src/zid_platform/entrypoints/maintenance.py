@@ -61,7 +61,7 @@ SWEEP: dict[str, str] = {
     "verify.verification_session": (
         "UPDATE verify.verification_session SET status = 'EXPIRED', updated_at = :now, "
         "row_version = row_version + 1 WHERE status IN ('CREATED', 'IN_PROGRESS', "
-        "'PENDING_EXTERNAL', 'MANUAL_REVIEW') AND expires_at <= :now"
+        "'PENDING_EXTERNAL', 'RESUBMISSION_REQUIRED', 'MANUAL_REVIEW') AND expires_at <= :now"
     ),
     "authn.recovery_case": (
         "UPDATE authn.recovery_case SET status = 'EXPIRED', completed_at = :now WHERE status NOT IN "

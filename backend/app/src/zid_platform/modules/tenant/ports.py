@@ -110,6 +110,14 @@ def matrix_gate(action_id: str, mode: Mode) -> Callable[..., Awaitable[None]]:
     return gate(action_id, mode)
 
 
+def route_guard() -> Callable[..., Awaitable[None]]:
+    """The central route check (see `api/gate.py`), handed to the authentication step at start-up. Imported on first use for the same reason
+    as `matrix_gate`."""
+    from zid_platform.modules.tenant.api.gate import route_matrix_guard
+
+    return route_matrix_guard
+
+
 def billing_permission_checker() -> Callable[..., Awaitable[None]]:
     """The billing permission decision (see `api/billing_access.py`), handed to the commercial module at start-up. Imported on first
     use for the same reason as `matrix_gate`."""
@@ -185,6 +193,7 @@ __all__ = [
     "register_executor",
     "register_invitation_hook",
     "roles_of_principal",
+    "route_guard",
     "self_signup",
     "set_fields",
     "tenant_roles",

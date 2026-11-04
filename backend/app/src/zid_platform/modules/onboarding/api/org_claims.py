@@ -134,14 +134,27 @@ async def _require_admin(conn: Any, caller: Caller) -> str:
     return me
 
 
+class _FixedKey:
+    """The development register simulator ignores its credential, but the adapter insists on one."""
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def get(self, name: str) -> str:
+        return self._value
+
+
 def _adapters(request: Request) -> dict[str, KybAdapter]:
     injected = getattr(request.app.state, "kyb_adapters", None)
     if injected is not None:
         return dict(injected)  # tests supply their own sources
-    return default_adapters(
-        getattr(request.app.state, "secret_broker", None),
-        getattr(request.app.state, "kyb_transport", None),
-    )
+    broker = getattr(request.app.state, "secret_broker", None)
+    override = getattr(
+        request.app.state, "kyb_key_override", None
+    )  # set only with the development simulators (local and test)
+    if override:
+        broker = _FixedKey(override)
+    return default_adapters(broker, getattr(request.app.state, "kyb_transport", None))
 
 
 def _gate(request: Request) -> Callable[[str], None]:
@@ -324,6 +337,56 @@ async def refresh_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep
             return await _status(conn, tenant, str(claim_id), now)
         except KybError as e:
             raise _kyb_error(e) from e
+
+
+@router.post(
+    "/org-claims/{claim_id}/establish",
+    dependencies=[Depends(matrix_gate("b.submit-refresh-organization-verification", Mode.PREPARE))],
+)
+async def establish_claim(
+    claim_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """The claim is VERIFIED (all four checks complete): create the organization from it, name the workspace after the register and activate the claimant as
+    owner. Refused with CLAIM_NOT_VERIFIED until then. A repeat answers as it stands (13B hands off to 13C; nothing here grants authority a check has not)."""
+    from zid_platform.modules.onboarding.application.organization import (
+        establish_from_verified_claim,
+    )
+    from zid_platform.modules.onboarding.domain.gates import OnboardingError
+    from zid_platform.protected import catalog
+
+    now = datetime.now(UTC)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _require_admin(conn, caller)
+        try:
+            result = await establish_from_verified_claim(
+                conn, tenant, str(claim_id), adapters=_adapters(request), catalog=catalog(), now=now
+            )
+        except OnboardingError as e:
+            status = (
+                409
+                if e.code in ("CLAIM_NOT_VERIFIED", "TENANT_STATE_INVALID")
+                else 503
+                if e.code == "SOURCE_UNAVAILABLE"
+                else 403
+                if e.code == "TENANT_OWNER_UNAUTHORIZED"
+                else 404
+            )
+            raise ZidError(
+                e.code,
+                getattr(e, "detail", e.code),
+                http_status=status,
+                retryable=e.code == "SOURCE_UNAVAILABLE",
+            ) from e
+        except KybError as e:
+            raise _kyb_error(e) from e
+    root = result.root
+    return {
+        "tenant_status": result.status,
+        "organization_id": root.organization_id if root else None,
+        "legal_name": root.legal_name if root else None,
+        "established": root is not None,
+    }
 
 
 @router.post(

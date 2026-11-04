@@ -404,9 +404,12 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: ${{ env.UV_VERSION }}
-      - name: Static DevSecOps control tests (policies, charts, workflows, Dockerfile, release gate)
+      - name: Static DevSecOps control tests (policies, charts, workflows, Dockerfile, release gate, ratification register)
         working-directory: backend
-        run: uv run --frozen --all-packages pytest app/tests/unit/test_devsecops_controls.py -q -p no:logging
+        run: uv run --frozen --all-packages pytest app/tests/unit/test_devsecops_controls.py app/tests/unit/test_ratification.py -q -p no:logging
+      # ZID-COM-RAT-011: the owners' go-live register must be consistent and may not claim a GO it cannot back. Default NO-GO; this never approves anything.
+      - name: Ratification register check (no-go conditions, policy flags, dispositions)
+        run: python3 tools/scripts/ratification.py --check
 
   # ------------------------------------------------------------------------------------------------ the gate
   # Green only when every check above is green. Always reported (even when a job above failed or was skipped).

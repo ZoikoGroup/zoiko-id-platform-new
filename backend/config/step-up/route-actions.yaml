@@ -1,0 +1,55 @@
+# Which route needs which step-up action (ZID-ENG-DEC-009; slice L-9, CR-046 addendum).
+#
+# Routes that already call `require_step_up` themselves (federation connection create, SCIM source create, authenticator revoke, residency, ownership,
+# role grants, billing grants, commitments, approval votes) are NOT listed: they bind the proof to their own change. A route listed here is checked
+# once, centrally, after authentication. The proof is bound to the route, its path parameters and the exact bytes of the request body, so the client
+# does not compute anything: the refusal names the action, the resource and the change to prove, and the client retries the same request.
+#
+# Rules are matched like route-map.yaml: "METHOD /path", each path parameter written {}, `*` matches any characters, first match wins.
+# `action` is an id of step-up-tiers.yaml; `critical: true` takes an "S1 or S2" action to S2. Enforcement follows the platform switch
+# (ZID_STEP_UP_ENFORCEMENT: off, shadow or enforce); in shadow a missing or bad proof is logged and the request goes through.
+version: "1"
+rules:
+  # ------------------------------------------------------------------ account security and sessions
+  - {match: "POST /sessions:revoke-all", action: revoke-own-sessions-or-all-other-sessions}
+  - {match: "POST /admin/principals/*/sessions:revoke", action: revoke-own-sessions-or-all-other-sessions}
+  - {match: "PUT /admin/recovery-policies/*", action: add-a-trusted-device-change-login-protection-or-recovery-policy}
+  - {match: "POST /admin/recovery-policies/*:lift", action: add-a-trusted-device-change-login-protection-or-recovery-policy}
+  - {match: "POST /authn/recovery-codes", action: enroll-remove-replace-passkey-mfa-or-recovery-factor}
+
+  # ------------------------------------------------------------------ trust, federation and sign-in policy
+  - {match: "POST /federation/integrations/*", action: change-sso-federation-trust-or-scim-privilege-mapping}
+  - {match: "POST /federation/trust-anchors*", action: change-sso-federation-trust-or-scim-privilege-mapping}
+  - {match: "POST /provisioning/sources/*", action: change-sso-federation-trust-or-scim-privilege-mapping}
+  - {match: "PUT /v1/settings/authentication", action: disable-required-sign-in-restrictions-security-rules-trust-policy}
+  - {match: "POST /v1/policy-releases/*:publish", action: disable-required-sign-in-restrictions-security-rules-trust-policy}
+  - {match: "POST /v1/tenant/domains/*:revoke", action: disable-required-sign-in-restrictions-security-rules-trust-policy}
+
+  # ------------------------------------------------------------------ credentials, relying parties and keys
+  - {match: "POST /credentials", action: issue-revoke-routine-low-risk-credentials}
+  - {match: "POST /credentials/*", action: issue-revoke-routine-low-risk-credentials}
+  - {match: "POST /credential-configurations*", action: issue-revoke-high-trust-organization-credentials}
+  - {match: "POST /credential-issuer-trust:rotate-keys", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}
+  - {match: "POST /credential-issuer-trust*", action: issue-revoke-high-trust-organization-credentials}
+  - {match: "POST /relying-party-registrations", action: authorize-new-high-risk-oauth-scopes-relying-party-trust}
+  - {match: "POST /v1/machine/blueprints", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/tools", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/workload-bindings*", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/environments/*", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}
+
+  # ------------------------------------------------------------------ delegated authority and agents
+  - {match: "POST /v1/authority-grants", action: grant-expand-transfer-or-revoke-high-impact-delegated-authority}
+  - {match: "POST /v1/authority-grants/*:revoke", action: grant-expand-transfer-or-revoke-high-impact-delegated-authority}
+  - {match: "POST /v1/mandates", action: create-expand-high-privilege-ai-agent-mandate}
+  - {match: "POST /v1/mandates/*:activate", action: create-expand-high-privilege-ai-agent-mandate}
+  - {match: "POST /v1/machine/agents/*:activate", action: create-expand-high-privilege-ai-agent-mandate}
+
+  # ------------------------------------------------------------------ evidence, privacy and retention
+  - {match: "POST /v1/evidence/bulk-exports", action: export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii}
+  - {match: "POST /v1/evidence/packages", action: export-ordinary-redacted-account-report}
+  - {match: "POST /v1/evidence/legal-holds*", action: delete-regulated-identity-records-or-alter-retention-holds}
+  - {match: "POST /v1/privacy/admin/retention-policies", action: delete-regulated-identity-records-or-alter-retention-holds}
+  - {match: "POST /v1/privacy/admin/restrictions/*:lift", action: delete-regulated-identity-records-or-alter-retention-holds}
+
+  # ------------------------------------------------------------------ the operator plane
+  - {match: "POST /operator/break-glass", action: activate-break-glass-privileged-support-access}

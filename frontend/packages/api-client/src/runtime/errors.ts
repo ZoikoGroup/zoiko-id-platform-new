@@ -111,3 +111,22 @@ function humanizeCode(code: string): string {
   const s = code.replace(/_/g, " ");
   return s.charAt(0).toUpperCase() + s.slice(1) + ".";
 }
+
+/** What a central route guard asks a client to prove: the action, the resource and the exact change the server derived from the request
+ * (the route, its parameters and a digest of the body). Null when the refusal is any other kind of step-up. */
+export type RouteStepUp = { action: string; resource: string; change: Record<string, unknown> };
+
+export function routeStepUp(e: unknown): RouteStepUp | null {
+  if (!(e instanceof ApiError) || !e.isStepUpRequired) return null;
+  const field = (name: string) => e.details.find((d) => d.field === name)?.issue;
+  const action = field("action");
+  const resource = field("resource");
+  const change = field("change");
+  if (field("binding") !== "route" || !action || !resource || !change) return null;
+  try {
+    const parsed: unknown = JSON.parse(change);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { action, resource, change: parsed as Record<string, unknown> } : null;
+  } catch {
+    return null;
+  }
+}

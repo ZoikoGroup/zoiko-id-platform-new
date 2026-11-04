@@ -35,6 +35,33 @@ pilot_credit:
     - {max_usd: 10000, roles: [CCO, CFO]}
     - {max_usd: null, roles: [CFO, FOUNDER]}
 
+# Refunds (ZID-UX-COM-009 F03): requested and approved in Zoiko iD, executed through the processor by a worker. Tiers are by the refund's exposure and the
+# refunds of the same organization within the window add up. A refund is limited to what the customer overpaid (paid, less what the invoice still owes after its
+# credit notes, less refunds already made or in flight), so a refund and a credit note for the same money are never both granted. With no `refund` section in the signed
+# policy nothing can be requested or approved. These numbers are PROPOSED like every other number in this file.
+refund:
+  window_days: 90
+  tiers:
+    - {max_usd: 500, roles: [CONTROLLER]}
+    - {max_usd: 5000, roles: [CFO]}
+    - {max_usd: 25000, roles: [CONTROLLER, CFO]}
+    - {max_usd: null, roles: [CFO, FOUNDER]}
+
+# Disputes (F03): a Disputes Specialist owns the case and its deadlines; a Controller or the CFO decides whether to accept or contest; only a separately appointed
+# processor operator (a Finance Executor) records the hand-off to the processor's dashboard. The outcome of a dispute is the processor's, never a person's.
+dispute:
+  owner_roles: [DISPUTES_SPECIALIST]
+  decide_roles: [CONTROLLER, CFO]
+  submit_roles: [FINANCE_EXECUTOR]
+
+# Reconciliation and period close (F04): the Controller closes (the maker), the CFO or the Group CFO checks, and never the same person. Reopening a closed period needs
+# two different people from these roles, neither the one who asked. A difference below `materiality_usd` does not by itself stop a close; an unmatched item always shows.
+reconciliation:
+  close_maker_roles: [CONTROLLER]
+  close_checker_roles: [CFO, GROUP_CFO]
+  reopen_roles: [CFO, FOUNDER]
+  materiality_usd: 1
+
 # Customer-side commitments (Closure 04 section 04): a NEW or INCREASED contractual obligation of a customer organization, by the HIGHER of its first-12-month
 # committed value and its whole non-cancelable term value, before tax, in USD at the pinned rate. Paying an invoice already authorized is not a commitment.
 #   up to tier1_max_usd    the Owner, or a Billing Admin the Owner gave a spend limit of at least the amount

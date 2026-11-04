@@ -31,6 +31,13 @@ describe("UX-02 role default: a Member sees no administration", () => {
     expect(seen).not.toContain("authority");
   });
 
+  it("shows Billing, and only Billing, to a Member the Owner gave billing access", () => {
+    const seen = ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, billingAccess: true }));
+    expect(seen).toContain("billing");
+    expect(seen).not.toContain("team");
+    expect(seen).not.toContain("settings");
+  });
+
   it("shows owners and administrators everything", () => {
     expect(visibleNav(NAV, { isAdmin: true, pendingOwner: false })).toEqual(NAV);
   });

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from zid_platform.modules.onboarding.application.claims import organization_state
 from zid_platform.modules.onboarding.application.deletion import (
     DeletionError,
     deletion_pass,
@@ -31,6 +32,7 @@ __all__ = [
     "deletion_status",
     "development_verification",
     "offboarding_pass",
+    "organization_state",
     "request_deletion",
     "require_owner_approval_ack",
     "seed_administrator_grant",

@@ -42,6 +42,7 @@ const CODE_HELP: Record<string, string> = {
   STEP_UP_REQUIRED: "This action needs a fresh, high-assurance passkey check.",
   BILLING_PERMISSION_REQUIRED: "Your account does not have billing access for this. Ask an Owner of the organization to give it to you.",
   BILLING_DELEGATION_OWNER_ONLY: "Only an Owner gives or takes away billing access.",
+  BILLING_GRANT_EXISTS: "That person already has this billing access with a different end date. Take it away first to change it.",
   BILLING_SELF_GRANT: "Nobody gives billing access to themselves. Ask another Owner.",
   BILLING_GRANTEE_NOT_MEMBER: "Billing access goes to an active member of the organization only.",
   BILLING_EXPIRY_PAST: "The end date is already past.",

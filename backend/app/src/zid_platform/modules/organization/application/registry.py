@@ -420,6 +420,79 @@ async def refresh_registry_roots(
     return out
 
 
+async def establish_claim_root(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    holder_principal_id: str,
+    legal_name: str,
+    jurisdiction: str,
+    source_id: str,
+    namespace: str,
+    identifier: str,
+    source_revision: str,
+    now: datetime,
+) -> EstablishedRoot:
+    """The organization a VERIFIED company claim establishes (ZID-UX-WF-013B, 13C entry contract). The four checks (the entity, the applicant's identity, the
+    authority and the screening) were each completed by their own service before this is called; this only records the result as the organization and its
+    authority root, named by the register's legal name and carrying the source's own revision."""
+    from zid_platform.modules.organization.domain.roots import (
+        Assurance,
+        Fact,
+        RootAssertion,
+        RootType,
+    )
+
+    org = str(uuid7())
+    await root_store.create_organization(
+        conn,
+        organization_id=org,
+        tenant_id=tenant_id,
+        legal_name=legal_name,
+        jurisdiction=jurisdiction,
+        valid_from=now,
+    )
+    root_id = str(uuid7())
+    fresh_until = now + timedelta(days=365)
+    await root_store.save_root(
+        conn,
+        tenant_id,
+        RootAssertion(
+            root_id=root_id,
+            organization_id=org,
+            holder_principal_id=holder_principal_id,
+            root_type=RootType.REGISTRY,
+            facts=frozenset({Fact.ENTITY_EXISTENCE, Fact.OFFICIAL_ROLE}),
+            assurance=Assurance.AR3,
+            status=RootStatus.ACTIVE,
+            jurisdiction=jurisdiction,
+            valid_from=now,
+            valid_to=None,
+            fresh_until=fresh_until,
+            source_revision=source_revision[:200],
+        ),
+    )
+    await emit(
+        conn,
+        name="authority_root.created",
+        tenant_id=tenant_id,
+        aggregate_type="authority_root",
+        aggregate_id=root_id,
+        aggregate_version=0,
+        data={
+            "root_assertion_id": root_id,
+            "organization_id": org,
+            "root_type": RootType.REGISTRY.value,
+            "assurance": Assurance.AR3.name,
+            "status": RootStatus.ACTIVE.value,
+            "fresh_until": fresh_until.isoformat(),
+        },
+    )
+    return EstablishedRoot(
+        org, root_id, source_id, namespace, identifier, legal_name, jurisdiction, fresh_until
+    )
+
+
 async def establish_development_root(
     conn: AsyncConnection,
     tenant_id: str,
@@ -480,6 +553,7 @@ async def establish_development_root(
 __all__ = [
     "EstablishedRoot",
     "NameMatcher",
+    "establish_claim_root",
     "establish_development_root",
     "establish_registry_root",
     "refresh_registry_roots",

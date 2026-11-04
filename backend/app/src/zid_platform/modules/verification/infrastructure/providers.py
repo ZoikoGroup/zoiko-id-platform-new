@@ -198,8 +198,12 @@ class SumsubClient:
         value = (token or {}).get("token")
         return Handoff(applicant_id, token=value if isinstance(value, str) else None)
 
+    async def applicant_doc(self, applicant_id: str) -> dict[str, Any] | None:
+        """The applicant as Sumsub holds it: its `info` (name and birth date, for the claims) and its `review` (status and answer), which is what a poll reads
+        when the webhook is late. The response shape is NOT confirmed against a live account (identity-suppliers owner pack): anything missing is no decision."""
+        return await self._signed("GET", f"/resources/applicants/{applicant_id}/one")
+
     async def applicant_info(self, applicant_id: str) -> dict[str, Any] | None:
         """The applicant's data, for the claims (the response shape is NOT confirmed: the name and birth date are read from `info`)."""
-        doc = await self._signed("GET", f"/resources/applicants/{applicant_id}/one")
-        info = (doc or {}).get("info")
+        info = ((await self.applicant_doc(applicant_id)) or {}).get("info")
         return info if isinstance(info, dict) else None

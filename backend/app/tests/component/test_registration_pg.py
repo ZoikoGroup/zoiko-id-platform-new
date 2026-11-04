@@ -196,6 +196,18 @@ def test_a_person_signs_up_into_an_active_account_that_is_not_verified(world: Wo
         r=ref,
     )[0]
     t, p = str(tenant.account_tenant_id), str(tenant.account_principal_id)
+
+    async def journey_of(c: Any) -> Any:
+        return (
+            await c.execute(
+                text("SELECT signup_journey FROM platform.tenant WHERE tenant_id = :t"),
+                {"t": uuid.UUID(t)},
+            )
+        ).scalar_one()
+
+    assert (
+        w.run(journey_of, t) == "PERSONAL"
+    )  # kept by the server from its own record of the request
     # no organizational privilege: a pending bootstrap role in a tenant that was never verified, and nothing more
     role = (
         w.rows(
@@ -265,7 +277,9 @@ def test_organization_intent_makes_no_verified_organization_and_no_owner(world: 
     async def facts(c: Any) -> tuple[Any, Any]:
         tenant = (
             await c.execute(
-                text("SELECT status, organization_id FROM platform.tenant WHERE tenant_id = :t"),
+                text(
+                    "SELECT status, organization_id, signup_journey FROM platform.tenant WHERE tenant_id = :t"
+                ),
                 {"t": uuid.UUID(t)},
             )
         ).one()
@@ -282,6 +296,7 @@ def test_organization_intent_makes_no_verified_organization_and_no_owner(world: 
     tenant, role = w.run(facts, t)
     assert (
         tenant.organization_id is None
+        and tenant.signup_journey == "ORGANIZATION"
         and tenant.status != "ACTIVE"
         and role.status == "PENDING_VERIFICATION"
     )

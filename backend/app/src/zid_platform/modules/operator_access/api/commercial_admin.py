@@ -950,6 +950,9 @@ class QuoteLineBody(BaseModel):
     plan: PlanCode
     quantity: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
     discount_pct: Decimal = Field(default=Decimal(0), ge=0, lt=1, max_digits=6, decimal_places=4)
+    promotions: list[Annotated[Decimal, Field(ge=0, lt=1, max_digits=6, decimal_places=4)]] = Field(
+        default_factory=list, max_length=5
+    )
 
 
 class QuoteBody(BaseModel):
@@ -1118,7 +1121,9 @@ async def create_quote(body: QuoteBody, request: Request, op: OperatorDep) -> di
                 region=body.region,
                 term_months=body.term_months,
                 lines=[
-                    QuoteLine(i, ln.sku, ln.plan, ln.quantity, ln.discount_pct)
+                    QuoteLine(
+                        i, ln.sku, ln.plan, ln.quantity, ln.discount_pct, tuple(ln.promotions)
+                    )
                     for i, ln in enumerate(body.lines, start=1)
                 ],
                 prepaid=body.prepaid,
