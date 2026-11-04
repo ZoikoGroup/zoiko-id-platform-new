@@ -32,6 +32,9 @@ Unit `test_payment_ops.py` (the overpayment rule, every refusal, the provider ou
 close signature rules) and component `test_payment_ops_pg.py` (limits, tiers, independent executor, one send under one key, UNKNOWN on no answer, dispute events and the refund block, the two-signature close,
 the database lock, reopen with two approvals, the webhook).
 
+## Reading the sources
+`domain/recon_import.py` reads a Stripe payout's balance transactions as PAYOUT_LINE legs (gross amount, keyed to the PaymentIntent or refund id) and an ISO 20022 camt.053 statement as BANK_LINE legs (signed, keyed by the payout id in the remittance text; an entry that names none stays unmatched). Operator routes `:import-stripe-payouts` and `:import-bank-statement`; the board has the two import boxes. The XML is read only through `defusedxml`. Tested on documented shapes: the Stripe test account has no bank account, so no live payout was available.
+
 ## Run against Stripe's test API
 `tools/scripts/stripe_test_mode_proof.py` (opt-in, test keys only) sent a refund twice under one idempotency key and got one refund, found it by the case id in its metadata, read its state and amount, saw an over-refund refused, and read a test dispute with its
 reason and deadline (2026-11-04). Live mode and real bank files have not been run.

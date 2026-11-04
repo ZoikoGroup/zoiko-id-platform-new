@@ -778,6 +778,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-bank-statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Bank Statement
+         * @description A bank statement in ISO 20022 camt.053 becomes BANK_LINE legs, keyed by the payout id its remittance text names. An entry that names none stays under its own bank reference
+         *     and so stays unmatched: it is never guessed onto a payout.
+         */
+        post: operations["import_bank_statement_v1_commercial_payments_reconciliation__issuing_entity__import_bank_statement_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/payments/reconciliation/{issuing_entity}:import-legs": {
         parameters: {
             query?: never;
@@ -789,6 +810,26 @@ export interface paths {
         put?: never;
         /** Import Recon Legs */
         post: operations["import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-stripe-payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Stripe Payouts
+         * @description Ask the processor for each payout's own detail and import it as PAYOUT_LINE legs. The processor is asked here, and its answer is never filled in from the platform's records.
+         */
+        post: operations["import_stripe_payouts_v1_commercial_payments_reconciliation__issuing_entity__import_stripe_payouts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2067,6 +2108,21 @@ export interface components {
             reason_code: string;
             /** To */
             to: string;
+        };
+        /** StatementBody */
+        StatementBody: {
+            /** Content */
+            content: string;
+            /**
+             * Format
+             * @constant
+             */
+            format: "camt053";
+        };
+        /** StripePayoutsBody */
+        StripePayoutsBody: {
+            /** Payout Ids */
+            payout_ids: string[];
         };
         /** SubmissionBody */
         SubmissionBody: {
@@ -3709,6 +3765,43 @@ export interface operations {
             };
         };
     };
+    import_bank_statement_v1_commercial_payments_reconciliation__issuing_entity__import_bank_statement_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatementBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post: {
         parameters: {
             query?: never;
@@ -3721,6 +3814,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LegsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_stripe_payouts_v1_commercial_payments_reconciliation__issuing_entity__import_stripe_payouts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StripePayoutsBody"];
             };
         };
         responses: {

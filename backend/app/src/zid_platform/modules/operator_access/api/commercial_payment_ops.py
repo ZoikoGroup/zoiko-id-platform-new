@@ -23,6 +23,7 @@ from zid_platform.modules.commercial.ports import (
     RecordingRefunds,
     disputes,
     recon,
+    recon_import,
     refunds,
 )
 from zid_platform.modules.operator_access.api.commercial_admin import OperatorDep, _require
@@ -118,6 +119,17 @@ class SubmissionBody(BaseModel):
 class LegsBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     legs: list[dict[str, Any]] = Field(min_length=1, max_length=5000)
+
+
+class StatementBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    format: Literal["camt053"]
+    content: str = Field(min_length=20, max_length=5_000_000)
+
+
+class StripePayoutsBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payout_ids: list[str] = Field(min_length=1, max_length=20)
 
 
 class SignCloseBody(BaseModel):
@@ -363,6 +375,67 @@ async def import_recon_legs(
             return await recon.import_legs(
                 conn, issuing_entity=issuing_entity, legs=body.legs, by=op.principal_id
             )
+        except (OpsError, FinanceError) as e:
+            raise _refuse(e) from e
+
+
+@router.post("/v1/commercial/payments/reconciliation/{issuing_entity}:import-bank-statement")
+async def import_bank_statement(
+    issuing_entity: str, body: StatementBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """A bank statement in ISO 20022 camt.053 becomes BANK_LINE legs, keyed by the payout id its remittance text names. An entry that names none stays under its own bank reference
+    and so stays unmatched: it is never guessed onto a payout."""
+    try:
+        legs, skipped = recon_import.legs_from_camt053(body.content.encode("utf-8"))
+    except recon_import.ImportError_ as e:
+        raise ZidError(e.code, e.detail, http_status=422) from e
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _gate(conn, op)
+        try:
+            return {
+                **await recon.import_legs(
+                    conn, issuing_entity=issuing_entity, legs=legs, by=op.principal_id
+                ),
+                "unreadable_entries": skipped,
+            }
+        except (OpsError, FinanceError) as e:
+            raise _refuse(e) from e
+
+
+@router.post("/v1/commercial/payments/reconciliation/{issuing_entity}:import-stripe-payouts")
+async def import_stripe_payouts(
+    issuing_entity: str, body: StripePayoutsBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Ask the processor for each payout's own detail and import it as PAYOUT_LINE legs. The processor is asked here, and its answer is never filled in from the platform's records."""
+    port = _port(request)
+    legs: list[dict[str, Any]] = []
+    skipped = 0
+    for payout_id in dict.fromkeys(body.payout_ids):
+        got = await port.payout_transactions(payout_id)
+        if got is None:
+            raise ZidError(
+                "PAYOUT_UNAVAILABLE",
+                f"the processor holds no payout {payout_id} or could not be reached",
+                http_status=502,
+                retryable=True,
+            )
+        try:
+            more, bad = recon_import.legs_from_payout(*got)
+        except recon_import.ImportError_ as e:
+            raise ZidError(e.code, e.detail, http_status=422) from e
+        legs += more
+        skipped += bad
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _gate(conn, op)
+        try:
+            if not legs:
+                return {"added": 0, "skipped": 0, "unreadable_transactions": skipped}
+            return {
+                **await recon.import_legs(
+                    conn, issuing_entity=issuing_entity, legs=legs, by=op.principal_id
+                ),
+                "unreadable_transactions": skipped,
+            }
         except (OpsError, FinanceError) as e:
             raise _refuse(e) from e
 

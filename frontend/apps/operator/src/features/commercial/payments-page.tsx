@@ -432,6 +432,18 @@ function Board({ entity, period }: { entity: string; period: string }) {
   const [resolution, setResolution] = useState<Record<string, string>>({});
   const parsed = parseLegs(csv);
   const done = { invalidate: [PAYMENTS_KEY] };
+  const [statement, setStatement] = useState("");
+  const [payouts, setPayouts] = useState("");
+  const importStatement = useCellMutation((api) => api.payments.importBankStatement(entity, statement), {
+    ...{ invalidate: [PAYMENTS_KEY] },
+    success: (x) => `${x.added} bank lines added, ${x.skipped} already there, ${x.unreadable_entries} not read`,
+    onSuccess: () => setStatement(""),
+  });
+  const importPayouts = useCellMutation((api) => api.payments.importStripePayouts(entity, payouts.split(/[\s,]+/).filter(Boolean)), {
+    ...{ invalidate: [PAYMENTS_KEY] },
+    success: (x) => `${x.added} payout lines added, ${x.skipped} already there, ${x.unreadable_transactions} not read`,
+    onSuccess: () => setPayouts(""),
+  });
   const importLegs = useCellMutation((api) => api.payments.importLegs(entity, parsed.legs), { ...done, success: (x) => `${x.added} added, ${x.skipped} already there`, onSuccess: () => setCsv("") });
   const prepare = useCellMutation((api) => api.payments.prepareClose(entity, period), { ...done, success: (x) => (x.state === "READY_FOR_CLOSE" ? "Ready for close. Two people now sign." : "It cannot close yet. The blockers are listed.") });
   const sign = useCellMutation((api, v: { role: string; hash: string }) => api.payments.signClose(entity, period, { role: v.role, snapshot_hash: v.hash }), {
@@ -489,6 +501,24 @@ function Board({ entity, period }: { entity: string; period: string }) {
                   <Button isDisabled={importLegs.isPending || !parsed.legs.length || parsed.errors.length > 0} onPress={() => importLegs.mutate(undefined as never)}>
                     Import {parsed.legs.length || ""} line{parsed.legs.length === 1 ? "" : "s"}
                   </Button>
+                </div>
+              </Card>
+            ) : null}
+            {!closed ? (
+              <Card title="Import from the source" description="The processor's own payout detail, and a bank statement in ISO 20022 camt.053. Each becomes its own kind of evidence; one is never filled in from the other.">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <TextField label="Stripe payout IDs (po_…), separated by spaces or commas" value={payouts} onChange={setPayouts} mono />
+                    <Button variant="secondary" isDisabled={importPayouts.isPending || !payouts.trim()} onPress={() => importPayouts.mutate(undefined as never)}>
+                      Read the payouts from the processor
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <TextField label="Bank statement (camt.053 XML)" value={statement} onChange={setStatement} multiline mono />
+                    <Button variant="secondary" isDisabled={importStatement.isPending || statement.trim().length < 20} onPress={() => importStatement.mutate(undefined as never)}>
+                      Import the statement
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ) : null}
@@ -551,7 +581,7 @@ function Board({ entity, period }: { entity: string; period: string }) {
                 </div>
               </Card>
             ) : null}
-            {[importLegs, prepare, sign, reopen, approve, resolve].map((m, i) => (
+            {[importLegs, importStatement, importPayouts, prepare, sign, reopen, approve, resolve].map((m, i) => (
               <Failure key={i} m={m} title="That was not recorded" />
             ))}
           </div>

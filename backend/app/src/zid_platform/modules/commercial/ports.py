@@ -79,6 +79,7 @@ from zid_platform.modules.commercial.application.stripe_webhook_service import (
     review_queue as payment_event_queue,
 )
 from zid_platform.modules.commercial.application.transfer_gate import plan_aware_transfer_gate
+from zid_platform.modules.commercial.domain import recon_import
 from zid_platform.modules.commercial.domain.billable import (
     METERS,
     BillableError,
@@ -204,6 +205,7 @@ __all__ = [
     "plan_aware_transfer_gate",
     "plan_requests",
     "recon",
+    "recon_import",
     "reconcile",
     "record_active_human",
     "record_billable",

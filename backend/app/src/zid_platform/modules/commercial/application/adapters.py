@@ -562,6 +562,10 @@ class RefundPort(Protocol):
 
     async def retrieve_dispute(self, dispute_ref: str) -> dict[str, Any] | None: ...
 
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None: ...
+
 
 @dataclass
 class RecordingRefunds:
@@ -573,6 +577,9 @@ class RecordingRefunds:
         default_factory=dict
     )  # by request_ref: what the processor holds
     disputes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    payouts: dict[str, tuple[dict[str, Any], list[dict[str, Any]]]] = field(
+        default_factory=dict
+    )  # payout id -> (payout, its balance transactions)
     sent: list[tuple[str, int, str, str]] = field(
         default_factory=list
     )  # payment_intent, amount, idempotency key, request ref
@@ -615,6 +622,11 @@ class RecordingRefunds:
 
     async def retrieve_dispute(self, dispute_ref: str) -> dict[str, Any] | None:
         return self.disputes.get(dispute_ref)
+
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        return self.payouts.get(payout_id)
 
 
 class StripeRefunds:
@@ -722,3 +734,31 @@ class StripeRefunds:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        """The payout and every balance transaction in it, each with its source expanded, so a Controller can import the processor's own payout detail. None when the processor
+        holds no such payout or cannot be reached."""
+        try:
+            head = await _send(self._client, "GET", f"/v1/payouts/{payout_id}")
+            if not head.is_success:
+                return None
+            rows: list[dict[str, Any]] = []
+            after: str | None = None
+            for _ in range(50):  # at most 5,000 transactions in one payout
+                params = {"payout": payout_id, "limit": "100", "expand[]": "data.source"}
+                if after:
+                    params["starting_after"] = after
+                page = await _send(self._client, "GET", "/v1/balance_transactions", params=params)
+                if not page.is_success:
+                    return None
+                body = page.json()
+                data = [r for r in body.get("data", []) if isinstance(r, dict)]
+                rows += data
+                if not body.get("has_more") or not data:
+                    break
+                after = str(data[-1]["id"])
+        except httpx.HTTPError:
+            return None
+        return head.json(), rows

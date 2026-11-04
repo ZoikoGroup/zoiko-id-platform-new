@@ -792,6 +792,10 @@ export function createOperatorApi(t: Transport) {
       verifySubmission: (id: string) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:verify-submission`),
       board: (entity: string, period: string) => get<M.ReconBoard>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}`),
       importLegs: (entity: string, legs: Record<string, unknown>[]) => post<{ added: number; skipped: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-legs`, { legs }),
+      importBankStatement: (entity: string, content: string) =>
+        post<{ added: number; skipped: number; unreadable_entries: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-bank-statement`, { format: "camt053", content }),
+      importStripePayouts: (entity: string, payoutIds: string[]) =>
+        post<{ added: number; skipped: number; unreadable_transactions: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-stripe-payouts`, { payout_ids: payoutIds }),
       exceptions: (entity: string, period: string) => get<M.Items<M.ReconException>>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}/exceptions`),
       resolveException: (id: string, resolution: string) =>
         post<{ exception_id: string; resolved: boolean }>(`/v1/commercial/payments/reconciliation/exceptions/${seg(id)}:resolve`, { resolution }),

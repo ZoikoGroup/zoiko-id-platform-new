@@ -1313,6 +1313,47 @@
         "title": "StateBody",
         "type": "object"
       },
+      "StatementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 5000000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "format": {
+            "const": "camt053",
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "content"
+        ],
+        "title": "StatementBody",
+        "type": "object"
+      },
+      "StripePayoutsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "payout_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Payout Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "payout_ids"
+        ],
+        "title": "StripePayoutsBody",
+        "type": "object"
+      },
       "SubmissionBody": {
         "additionalProperties": false,
         "properties": {
@@ -3925,6 +3966,61 @@
         ]
       }
     },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-bank-statement": {
+      "post": {
+        "description": "A bank statement in ISO 20022 camt.053 becomes BANK_LINE legs, keyed by the payout id its remittance text names. An entry that names none stays under its own bank reference\nand so stays unmatched: it is never guessed onto a payout.",
+        "operationId": "import_bank_statement_v1_commercial_payments_reconciliation__issuing_entity__import_bank_statement_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatementBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Bank Statement V1 Commercial Payments Reconciliation  Issuing Entity  Import Bank Statement Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Bank Statement",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
     "/v1/commercial/payments/reconciliation/{issuing_entity}:import-legs": {
       "post": {
         "operationId": "import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post",
@@ -3974,6 +4070,61 @@
           }
         },
         "summary": "Import Recon Legs",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-stripe-payouts": {
+      "post": {
+        "description": "Ask the processor for each payout's own detail and import it as PAYOUT_LINE legs. The processor is asked here, and its answer is never filled in from the platform's records.",
+        "operationId": "import_stripe_payouts_v1_commercial_payments_reconciliation__issuing_entity__import_stripe_payouts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StripePayoutsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Stripe Payouts V1 Commercial Payments Reconciliation  Issuing Entity  Import Stripe Payouts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Stripe Payouts",
         "tags": [
           "commercial-payment-ops"
         ]

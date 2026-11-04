@@ -22,8 +22,8 @@ environment refuses to request or approve a refund and to decide a customer comm
 - **Webhook events.** Subscribe the endpoint to `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated` and
   `charge.refunded`.
 - **Bank and ledger evidence.** The import takes lines of `leg_type` (PAYOUT_LINE, BANK_LINE, GL_JOURNAL), `ref`, `link_ref`, `amount_minor`, `currency` and `occurred_on`. A payout line links to a payment or a
-  refund by the processor's reference; a bank line to a payout by the payout's reference; a journal by the payout, the invoice number or the processor reference. Tell us the formats of your bank file and
-  your ERP export so an importer can read them; until then a Controller imports the lines.
+  refund by the processor's reference; a bank line to a payout by the payout's reference; a journal by the payout, the invoice number or the processor reference. The platform now reads two sources directly: the processor's own payout detail (a Controller gives the payout ids and the processor is asked) and a bank statement in ISO 20022 camt.053 (paste the XML). Tell us if your bank
+  uses another format (MT940, a CSV layout) or if your ERP export differs, so an importer can be added; until then a Controller pastes the lines. The Stripe test account has no bank account, so the payout read has only been run against Stripe's documented shapes, not a live payout.
 - **Statutory ledger.** This is controlled finance evidence, not the general ledger. It does not post revenue and no total on the board is revenue.
 
 ## 4. What was run, and what was not
