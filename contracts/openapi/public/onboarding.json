@@ -579,6 +579,22 @@
         "title": "SearchIn",
         "type": "object"
       },
+      "SignInWorkspaceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "SignInWorkspaceBody",
+        "type": "object"
+      },
       "StageBody": {
         "additionalProperties": false,
         "properties": {
@@ -2213,6 +2229,50 @@
           }
         },
         "summary": "Resend",
+        "tags": [
+          "registration"
+        ]
+      }
+    },
+    "/v1/registration/sign-in-workspace": {
+      "post": {
+        "description": "Which workspace to sign in to, from the address the account was made with. Ten asks per ten minutes per client; the answer is only a workspace name.",
+        "operationId": "sign_in_workspace_v1_registration_sign_in_workspace_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInWorkspaceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign In Workspace V1 Registration Sign In Workspace Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign In Workspace",
         "tags": [
           "registration"
         ]

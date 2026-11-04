@@ -264,6 +264,13 @@ async def set_fields(conn: AsyncConnection, tenant_id: str, **fields: Any) -> Te
     ).first()
     if row is None:
         raise TenantError("TENANT_NOT_FOUND")
+    if (
+        "display_name" in fields
+    ):  # the sign-in directory shows the name people know the workspace by
+        await conn.execute(
+            text("UPDATE platform.workspace_directory SET display_name = :n WHERE tenant_id = :t"),
+            {"n": fields["display_name"], "t": uuid.UUID(tenant_id)},
+        )
     return _tenant(row)
 
 

@@ -262,6 +262,21 @@ class Initiated:
     job: SendJob | None
 
 
+async def workspace_for_email(conn: AsyncConnection, env: Env, *, email: str) -> str | None:
+    """The workspace name this address's account lives in, so sign-in can start at the right place from any browser. It reveals nothing that signing in does not: the person still
+    needs their own passkey there. Callers rate-limit it hard (it does tell whether an address has an account, which the owners accepted for sign-in only; registration still answers every address
+    the same way)."""
+    address = canonical_email(email)
+    email_hash = await address_hash(address)
+    async with in_tenant(conn, env.registration_tenant):
+        found = await store.account_for(conn, env.registration_tenant, email_hash)
+    if found is None:
+        return None
+    async with in_tenant(conn, found[0]):
+        tenant = await load_tenant(conn, found[0])
+    return tenant.tenant_slug if tenant is not None else None
+
+
 async def initiate(
     conn: AsyncConnection,
     env: Env,

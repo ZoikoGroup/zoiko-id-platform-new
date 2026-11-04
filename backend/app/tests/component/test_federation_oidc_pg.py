@@ -236,6 +236,18 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         )
         assert r.status_code == 409 or r.status_code == 422  # profile CHECK: https endpoints only
 
+        # the sign-in page offers what the administrators connected (name and connection only), and nothing for an unknown client
+        offered = http.get("/federation/sign-in-options", params={"client_id": web}).json()["items"]
+        assert [x["id"] for x in offered if x["id"] == conn_id] == [conn_id]
+        assert set(next(x for x in offered if x["id"] == conn_id)) == {
+            "id",
+            "label",
+            "protocol",
+        }  # no endpoint, key or secret
+        assert http.get(
+            "/federation/sign-in-options", params={"client_id": "no-such-client"}
+        ).json() == {"items": []}
+
         def start(**params: str) -> str:
             r = http.get(
                 f"/federation/connections/{conn_id}/login", params={"client_id": web, **params}
@@ -386,6 +398,12 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         )
         r = http.get(f"/federation/connections/{conn_id}/login", params={"client_id": web})
         assert r.json()["error"]["code"] == "FEDERATION_CONNECTION_QUARANTINED"
+        assert conn_id not in [
+            x["id"]
+            for x in http.get("/federation/sign-in-options", params={"client_id": web}).json()[
+                "items"
+            ]
+        ]  # a quarantined connection is no longer offered
 
         # JIT provisioning on a JIT connection creates a fresh principal - never attaches to alice
         jit_idp = "https://login.partner.example"

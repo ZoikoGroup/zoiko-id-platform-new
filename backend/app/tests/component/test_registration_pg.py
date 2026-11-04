@@ -190,6 +190,21 @@ def test_a_person_signs_up_into_an_active_account_that_is_not_verified(world: Wo
         w.http.get("/v1/registration/status", params={"request_id": ref}).json()["next_step"]
         == "ENROLL_AUTHENTICATOR"
     )
+    # sign-in from any browser: the address finds the workspace it lives in; an unknown address finds nothing; the call is rate limited
+    found = w.http.post(
+        "/v1/registration/sign-in-workspace", json={"email": "Jane.Doe+x@Example.com"}
+    )
+    assert found.status_code == 200 and found.json()["workspace"] == body["workspace"]
+    unknown = w.http.post(
+        "/v1/registration/sign-in-workspace", json={"email": "nobody-here@example.com"}
+    )
+    assert unknown.status_code == 200 and unknown.json()["workspace"] is None
+    assert (
+        w.http.post(
+            "/v1/registration/sign-in-workspace", json={"email": "not an address"}
+        ).status_code
+        == 422
+    )
 
     tenant = w.rows(
         "SELECT account_tenant_id, account_principal_id FROM platform.registration_intent WHERE request_ref = :r",

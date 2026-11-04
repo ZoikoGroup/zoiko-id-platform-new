@@ -39,7 +39,14 @@ router = APIRouter(tags=["registration"])
 log = logging.getLogger("zid.registration")
 
 WINDOW_S = 600.0
-LIMITS = {"intents": 10, "confirm": 20, "resend": 10, "status": 120, "capabilities": 120}
+LIMITS = {
+    "intents": 10,
+    "confirm": 20,
+    "resend": 10,
+    "status": 120,
+    "capabilities": 120,
+    "sign_in_workspace": 10,
+}
 _buckets: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))
 TEMPLATE_VERIFY = "ZID-EM-001"
 _NAMESPACE = uuid.UUID("5c6f6f3e-3f5a-4d0a-9d4e-4f1d8b2a7c11")
@@ -230,6 +237,23 @@ async def create_intent(
 class ResendBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request_id: str = Field(min_length=1, max_length=64)
+
+
+class SignInWorkspaceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=3, max_length=254)
+
+
+@router.post("/v1/registration/sign-in-workspace")
+async def sign_in_workspace(body: SignInWorkspaceBody, request: Request) -> dict[str, Any]:
+    """Which workspace to sign in to, from the address the account was made with. Ten asks per ten minutes per client; the answer is only a workspace name."""
+    _limit(request, "sign_in_workspace")
+    try:
+        async with request_engine(request).begin() as conn:
+            workspace = await svc.workspace_for_email(conn, _env(request), email=body.email)
+    except RegistrationError as e:
+        raise _http(e) from e
+    return {"workspace": workspace}
 
 
 @router.post("/v1/registration/resend", status_code=202)

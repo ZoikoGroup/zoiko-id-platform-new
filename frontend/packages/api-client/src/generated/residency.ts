@@ -151,11 +151,8 @@ export interface components {
         ResidencyBody: {
             /** Approval Ref */
             approval_ref: string;
-            /**
-             * Approval Request Id
-             * Format: uuid
-             */
-            approval_request_id: string;
+            /** Approval Request Id */
+            approval_request_id?: string | null;
             /** Home Cell Id */
             home_cell_id: string;
             /** Jurisdiction Pack Id */

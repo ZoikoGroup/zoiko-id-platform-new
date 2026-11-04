@@ -510,6 +510,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/registration/sign-in-workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign In Workspace
+         * @description Which workspace to sign in to, from the address the account was made with. Ten asks per ten minutes per client; the answer is only a workspace name.
+         */
+        post: operations["sign_in_workspace_v1_registration_sign_in_workspace_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/registration/status": {
         parameters: {
             query?: never;
@@ -807,6 +827,11 @@ export interface components {
             country: string;
             /** Query */
             query: string;
+        };
+        /** SignInWorkspaceBody */
+        SignInWorkspaceBody: {
+            /** Email */
+            email: string;
         };
         /** StageBody */
         StageBody: {
@@ -1941,6 +1966,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_in_workspace_v1_registration_sign_in_workspace_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInWorkspaceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
