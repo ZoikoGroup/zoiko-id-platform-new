@@ -222,6 +222,21 @@
         "title": "ApproveQuoteBody",
         "type": "object"
       },
+      "AssignBody": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "format": "uuid",
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner"
+        ],
+        "title": "AssignBody",
+        "type": "object"
+      },
       "CollectBody": {
         "additionalProperties": false,
         "properties": {
@@ -377,6 +392,31 @@
         "title": "DeletionBody",
         "type": "object"
       },
+      "DisputeDecideBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "strategy": {
+            "enum": [
+              "ACCEPT",
+              "CONTEST"
+            ],
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy",
+          "reason"
+        ],
+        "title": "DisputeDecideBody",
+        "type": "object"
+      },
       "DraftBody": {
         "additionalProperties": false,
         "properties": {
@@ -528,6 +568,26 @@
           "payment_terms_days"
         ],
         "title": "IssueBody",
+        "type": "object"
+      },
+      "LegsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "legs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Legs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "legs"
+        ],
+        "title": "LegsBody",
         "type": "object"
       },
       "LineBody": {
@@ -860,6 +920,23 @@
             "title": "Plan",
             "type": "string"
           },
+          "promotions": {
+            "items": {
+              "anyOf": [
+                {
+                  "exclusiveMaximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 5,
+            "title": "Promotions",
+            "type": "array"
+          },
           "quantity": {
             "anyOf": [
               {
@@ -949,6 +1026,83 @@
         "title": "ReconcileBody",
         "type": "object"
       },
+      "RefundBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category": {
+            "enum": [
+              "DUPLICATE_PAYMENT",
+              "CORRECTION",
+              "CANCELLATION",
+              "CONTRACT_RIGHT",
+              "GOODWILL"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "credit_note_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Note Id"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "payment_attempt_id": {
+            "format": "uuid",
+            "title": "Payment Attempt Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_tenant_id": {
+            "format": "uuid",
+            "title": "Target Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_tenant_id",
+          "payment_attempt_id",
+          "amount",
+          "category",
+          "reason"
+        ],
+        "title": "RefundBody",
+        "type": "object"
+      },
       "RefundCreditBody": {
         "additionalProperties": false,
         "properties": {
@@ -971,6 +1125,49 @@
         "title": "RefundCreditBody",
         "type": "object"
       },
+      "RefundDecideBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "role": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Role",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "decision",
+          "snapshot_hash"
+        ],
+        "title": "RefundDecideBody",
+        "type": "object"
+      },
       "RegionBody": {
         "additionalProperties": false,
         "properties": {
@@ -990,6 +1187,45 @@
           "evidence_ref"
         ],
         "title": "RegionBody",
+        "type": "object"
+      },
+      "ReopenApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ReopenApproveBody",
+        "type": "object"
+      },
+      "ReopenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Impact",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "impact"
+        ],
+        "title": "ReopenBody",
         "type": "object"
       },
       "SafetyHoldBody": {
@@ -1034,6 +1270,28 @@
         "title": "SignBody",
         "type": "object"
       },
+      "SignCloseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Role",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "snapshot_hash"
+        ],
+        "title": "SignCloseBody",
+        "type": "object"
+      },
       "StateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1053,6 +1311,63 @@
           "reason_code"
         ],
         "title": "StateBody",
+        "type": "object"
+      },
+      "StatementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 5000000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "format": {
+            "const": "camt053",
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "content"
+        ],
+        "title": "StatementBody",
+        "type": "object"
+      },
+      "StripePayoutsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "payout_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Payout Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "payout_ids"
+        ],
+        "title": "StripePayoutsBody",
+        "type": "object"
+      },
+      "SubmissionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reference": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "SubmissionBody",
         "type": "object"
       },
       "ValidationError": {
@@ -1527,6 +1842,50 @@
           "reason"
         ],
         "title": "RequestBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_payment_ops__EvidenceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "enum": [
+              "terms_or_consent",
+              "transaction_proof",
+              "usage_proof",
+              "communications",
+              "cancellation_refund_chronology"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "ref": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "ref"
+        ],
+        "title": "EvidenceBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_payment_ops__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "resolution": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Resolution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resolution"
+        ],
+        "title": "ResolveBody",
         "type": "object"
       }
     }
@@ -2779,6 +3138,1291 @@
         "summary": "Resolve Payment Event Route",
         "tags": [
           "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes": {
+      "get": {
+        "operationId": "list_disputes_v1_commercial_payments_disputes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Disputes V1 Commercial Payments Disputes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Disputes",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}": {
+      "get": {
+        "operationId": "get_dispute_v1_commercial_payments_disputes__dispute_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Dispute V1 Commercial Payments Disputes  Dispute Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Dispute",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}:assign": {
+      "post": {
+        "operationId": "assign_dispute_v1_commercial_payments_disputes__dispute_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assign Dispute V1 Commercial Payments Disputes  Dispute Id  Assign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Dispute",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}:decide": {
+      "post": {
+        "operationId": "decide_dispute_v1_commercial_payments_disputes__dispute_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeDecideBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Dispute V1 Commercial Payments Disputes  Dispute Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Dispute",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}:evidence": {
+      "post": {
+        "operationId": "add_dispute_evidence_v1_commercial_payments_disputes__dispute_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_payment_ops__EvidenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Dispute Evidence V1 Commercial Payments Disputes  Dispute Id  Evidence Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Dispute Evidence",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}:record-submission": {
+      "post": {
+        "description": "Record that evidence was handed to the processor's dashboard. This is a record of a hand-off, never an outcome.",
+        "operationId": "record_dispute_submission_v1_commercial_payments_disputes__dispute_id__record_submission_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Dispute Submission V1 Commercial Payments Disputes  Dispute Id  Record Submission Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Dispute Submission",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/disputes/{dispute_id}:verify-submission": {
+      "post": {
+        "description": "Ask the processor what it holds for this dispute. Only what it reports moves the case.",
+        "operationId": "verify_dispute_submission_v1_commercial_payments_disputes__dispute_id__verify_submission_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dispute_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dispute Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Dispute Submission V1 Commercial Payments Disputes  Dispute Id  Verify Submission Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Dispute Submission",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/exceptions/{exception_id}:resolve": {
+      "post": {
+        "operationId": "resolve_recon_exception_v1_commercial_payments_reconciliation_exceptions__exception_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_payment_ops__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Recon Exception V1 Commercial Payments Reconciliation Exceptions  Exception Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Recon Exception",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}": {
+      "get": {
+        "operationId": "reconciliation_board_v1_commercial_payments_reconciliation__issuing_entity___period__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reconciliation Board V1 Commercial Payments Reconciliation  Issuing Entity   Period  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconciliation Board",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}/evidence-pack": {
+      "get": {
+        "operationId": "recon_evidence_pack_v1_commercial_payments_reconciliation__issuing_entity___period__evidence_pack_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recon Evidence Pack V1 Commercial Payments Reconciliation  Issuing Entity   Period  Evidence Pack Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recon Evidence Pack",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}/exceptions": {
+      "get": {
+        "operationId": "recon_exceptions_v1_commercial_payments_reconciliation__issuing_entity___period__exceptions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recon Exceptions V1 Commercial Payments Reconciliation  Issuing Entity   Period  Exceptions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recon Exceptions",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:approve-reopen": {
+      "post": {
+        "operationId": "approve_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__approve_reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReopenApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Recon Reopen V1 Commercial Payments Reconciliation  Issuing Entity   Period  Approve Reopen Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Recon Reopen",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:prepare-close": {
+      "post": {
+        "operationId": "prepare_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__prepare_close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Prepare Recon Close V1 Commercial Payments Reconciliation  Issuing Entity   Period  Prepare Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Recon Close",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:request-reopen": {
+      "post": {
+        "operationId": "request_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__request_reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReopenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Recon Reopen V1 Commercial Payments Reconciliation  Issuing Entity   Period  Request Reopen Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Recon Reopen",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:sign-close": {
+      "post": {
+        "operationId": "sign_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__sign_close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignCloseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Recon Close V1 Commercial Payments Reconciliation  Issuing Entity   Period  Sign Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Recon Close",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-bank-statement": {
+      "post": {
+        "description": "A bank statement in ISO 20022 camt.053 becomes BANK_LINE legs, keyed by the payout id its remittance text names. An entry that names none stays under its own bank reference\nand so stays unmatched: it is never guessed onto a payout.",
+        "operationId": "import_bank_statement_v1_commercial_payments_reconciliation__issuing_entity__import_bank_statement_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatementBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Bank Statement V1 Commercial Payments Reconciliation  Issuing Entity  Import Bank Statement Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Bank Statement",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-legs": {
+      "post": {
+        "operationId": "import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Recon Legs V1 Commercial Payments Reconciliation  Issuing Entity  Import Legs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Recon Legs",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-stripe-payouts": {
+      "post": {
+        "description": "Ask the processor for each payout's own detail and import it as PAYOUT_LINE legs. The processor is asked here, and its answer is never filled in from the platform's records.",
+        "operationId": "import_stripe_payouts_v1_commercial_payments_reconciliation__issuing_entity__import_stripe_payouts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issuing_entity",
+            "required": true,
+            "schema": {
+              "title": "Issuing Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StripePayoutsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Stripe Payouts V1 Commercial Payments Reconciliation  Issuing Entity  Import Stripe Payouts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Stripe Payouts",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/refunds": {
+      "get": {
+        "operationId": "list_refunds_v1_commercial_payments_refunds_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 30,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Refunds V1 Commercial Payments Refunds Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Refunds",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      },
+      "post": {
+        "operationId": "open_refund_v1_commercial_payments_refunds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Refund V1 Commercial Payments Refunds Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Refund",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/refunds/{refund_id}": {
+      "get": {
+        "operationId": "get_refund_v1_commercial_payments_refunds__refund_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refund_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Refund Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Refund V1 Commercial Payments Refunds  Refund Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Refund",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/refunds/{refund_id}:cancel": {
+      "post": {
+        "operationId": "cancel_refund_v1_commercial_payments_refunds__refund_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refund_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Refund Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Refund V1 Commercial Payments Refunds  Refund Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Refund",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/refunds/{refund_id}:decide": {
+      "post": {
+        "operationId": "decide_refund_v1_commercial_payments_refunds__refund_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refund_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Refund Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundDecideBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Refund V1 Commercial Payments Refunds  Refund Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Refund",
+        "tags": [
+          "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/payments/refunds/{refund_id}:execute": {
+      "post": {
+        "description": "Queue an approved refund for the worker. Nothing is sent to the processor by this request.",
+        "operationId": "execute_refund_v1_commercial_payments_refunds__refund_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refund_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Refund Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Execute Refund V1 Commercial Payments Refunds  Refund Id  Execute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Refund",
+        "tags": [
+          "commercial-payment-ops"
         ]
       }
     },

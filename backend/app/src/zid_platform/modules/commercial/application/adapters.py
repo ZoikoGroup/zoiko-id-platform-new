@@ -526,3 +526,239 @@ class StripeTax:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+# ------------------------------------------------------------------------------- refunds and disputes (ZID-UX-COM-009 F03)
+
+
+@dataclass(frozen=True, slots=True)
+class RefundResult:
+    """What the processor said about one refund. `UNAVAILABLE` is not a failure: the request may or may not have been accepted, so the case is UNKNOWN and is
+    resolved by asking the processor what it holds, never by sending again."""
+
+    outcome: str  # SENT (the processor answered) | REFUSED (it said no) | UNAVAILABLE (no answer)
+    refund_ref: str | None = None
+    status: str | None = (
+        None  # the processor's own word: pending, succeeded, failed, canceled, requires_action
+    )
+    amount_minor: int | None = None
+    failure_code: str | None = None
+
+
+class RefundPort(Protocol):
+    async def create(
+        self,
+        *,
+        payment_intent: str,
+        amount_minor: int,
+        currency: str,
+        idempotency_key: str,
+        request_ref: str,
+    ) -> RefundResult: ...
+
+    async def retrieve(self, refund_ref: str) -> RefundResult: ...
+
+    async def find(self, *, payment_intent: str, request_ref: str) -> RefundResult | None: ...
+
+    async def retrieve_dispute(self, dispute_ref: str) -> dict[str, Any] | None: ...
+
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None: ...
+
+
+@dataclass
+class RecordingRefunds:
+    """Local and test processor. Scripts what it answers (`next_create`, `next_retrieve`) and records what it was asked, so a test can prove a refund was sent once."""
+
+    next_create: list[RefundResult] = field(default_factory=list)
+    next_retrieve: list[RefundResult] = field(default_factory=list)
+    held: dict[str, RefundResult] = field(
+        default_factory=dict
+    )  # by request_ref: what the processor holds
+    disputes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    payouts: dict[str, tuple[dict[str, Any], list[dict[str, Any]]]] = field(
+        default_factory=dict
+    )  # payout id -> (payout, its balance transactions)
+    sent: list[tuple[str, int, str, str]] = field(
+        default_factory=list
+    )  # payment_intent, amount, idempotency key, request ref
+
+    async def create(
+        self,
+        *,
+        payment_intent: str,
+        amount_minor: int,
+        currency: str,
+        idempotency_key: str,
+        request_ref: str,
+    ) -> RefundResult:
+        self.sent.append((payment_intent, amount_minor, idempotency_key, request_ref))
+        if idempotency_key in {
+            k for _, _, k, _ in self.sent[:-1]
+        }:  # the processor remembers a key: the same one never refunds twice
+            return self.held.get(request_ref) or RefundResult(
+                "SENT", f"re_{len(self.sent):06d}", "pending", amount_minor
+            )
+        result = (
+            self.next_create.pop(0)
+            if self.next_create
+            else RefundResult("SENT", f"re_{len(self.sent):06d}", "pending", amount_minor)
+        )
+        if result.outcome == "SENT":
+            self.held[request_ref] = result
+        return result
+
+    async def retrieve(self, refund_ref: str) -> RefundResult:
+        if self.next_retrieve:
+            return self.next_retrieve.pop(0)
+        for r in self.held.values():
+            if r.refund_ref == refund_ref:
+                return r
+        return RefundResult("UNAVAILABLE")
+
+    async def find(self, *, payment_intent: str, request_ref: str) -> RefundResult | None:
+        return self.held.get(request_ref)
+
+    async def retrieve_dispute(self, dispute_ref: str) -> dict[str, Any] | None:
+        return self.disputes.get(dispute_ref)
+
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        return self.payouts.get(payout_id)
+
+
+class StripeRefunds:
+    """Refunds and the authoritative reads behind them (Stripe's Refunds and Disputes APIs; the Payments dispute workflow, never the Issuing one). A refund is a POST under an
+    `Idempotency-Key` that is the case's own, so a retry after a timeout cannot refund twice; the case id travels as metadata so the processor can be asked what it holds
+    for it. The API version and the merchant account are configuration and are verified against the approved ones before this is used with money (owner pack)."""
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = STRIPE_API,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._client = _client(api_key, base_url, transport)
+
+    @staticmethod
+    def _result(res: httpx.Response) -> RefundResult:
+        body: dict[str, Any] = res.json() if res.content else {}
+        if res.status_code >= 500 or res.status_code == 429:
+            return RefundResult("UNAVAILABLE")
+        if res.is_success:
+            amount = body.get("amount")
+            return RefundResult(
+                "SENT",
+                str(body["id"]) if body.get("id") else None,
+                str(body.get("status") or ""),
+                int(amount) if isinstance(amount, int) else None,
+                str(body["failure_reason"])[:60] if body.get("failure_reason") else None,
+            )
+        err = body.get("error", {})
+        return RefundResult(
+            "REFUSED",
+            failure_code=str(err.get("code") or err.get("type") or "PROVIDER_REFUSED").upper()[:60],
+        )
+
+    async def create(
+        self,
+        *,
+        payment_intent: str,
+        amount_minor: int,
+        currency: str,
+        idempotency_key: str,
+        request_ref: str,
+    ) -> RefundResult:
+        form = {
+            "payment_intent": payment_intent,
+            "amount": str(amount_minor),
+            "metadata[zid_refund]": request_ref,
+            "reason": "requested_by_customer",
+        }
+        try:
+            res = await _send(
+                self._client,
+                "POST",
+                "/v1/refunds",
+                data=form,
+                headers={"Idempotency-Key": idempotency_key},
+            )
+        except httpx.HTTPError:
+            log.warning("stripe refunds unreachable")
+            return RefundResult("UNAVAILABLE")
+        return self._result(res)
+
+    async def retrieve(self, refund_ref: str) -> RefundResult:
+        try:
+            res = await _send(self._client, "GET", f"/v1/refunds/{refund_ref}")
+        except httpx.HTTPError:
+            return RefundResult("UNAVAILABLE")
+        return self._result(res)
+
+    async def find(self, *, payment_intent: str, request_ref: str) -> RefundResult | None:
+        """What the processor already holds for this case, found by the metadata the case sent. None only when the processor answered and holds nothing."""
+        try:
+            res = await _send(
+                self._client,
+                "GET",
+                "/v1/refunds",
+                params={"payment_intent": payment_intent, "limit": "100"},
+            )
+        except httpx.HTTPError:
+            return RefundResult("UNAVAILABLE")
+        if res.status_code >= 500 or res.status_code == 429 or not res.is_success:
+            return RefundResult("UNAVAILABLE")
+        for row in (res.json() if res.content else {}).get("data", []):
+            if (
+                isinstance(row, dict)
+                and (row.get("metadata") or {}).get("zid_refund") == request_ref
+            ):
+                amount = row.get("amount")
+                return RefundResult(
+                    "SENT",
+                    str(row.get("id")),
+                    str(row.get("status") or ""),
+                    int(amount) if isinstance(amount, int) else None,
+                )
+        return None
+
+    async def retrieve_dispute(self, dispute_ref: str) -> dict[str, Any] | None:
+        try:
+            res = await _send(self._client, "GET", f"/v1/disputes/{dispute_ref}")
+        except httpx.HTTPError:
+            return None
+        return res.json() if res.is_success and res.content else None
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
+    async def payout_transactions(
+        self, payout_id: str
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        """The payout and every balance transaction in it, each with its source expanded, so a Controller can import the processor's own payout detail. None when the processor
+        holds no such payout or cannot be reached."""
+        try:
+            head = await _send(self._client, "GET", f"/v1/payouts/{payout_id}")
+            if not head.is_success:
+                return None
+            rows: list[dict[str, Any]] = []
+            after: str | None = None
+            for _ in range(50):  # at most 5,000 transactions in one payout
+                params = {"payout": payout_id, "limit": "100", "expand[]": "data.source"}
+                if after:
+                    params["starting_after"] = after
+                page = await _send(self._client, "GET", "/v1/balance_transactions", params=params)
+                if not page.is_success:
+                    return None
+                body = page.json()
+                data = [r for r in body.get("data", []) if isinstance(r, dict)]
+                rows += data
+                if not body.get("has_more") or not data:
+                    break
+                after = str(data[-1]["id"])
+        except httpx.HTTPError:
+            return None
+        return head.json(), rows

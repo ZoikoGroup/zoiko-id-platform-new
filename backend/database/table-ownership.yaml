@@ -1269,6 +1269,51 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "COM-001 §11 (CR-040)"
+  commercial.refund_case:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a refund asked for against one captured payment, with its tier, its approvals and what the processor said (CR-058)"
+  commercial.refund_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a signature on a refund, bound to the hash of what was read (CR-058)"
+  commercial.dispute_case:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a card dispute: owner, deadline, strategy, evidence checklist and the processor's outcome (CR-058)"
+  commercial.dispute_event:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: append-only history of a dispute, from the processor and from people (CR-058)"
+  commercial.recon_item:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a money event the platform says happened: payment, refund, or dispute withdrawal (CR-058)"
+  commercial.recon_leg:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a payout line, bank line or ledger journal a Controller imported; immutable (CR-058)"
+  commercial.recon_period:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: the state of one issuing entity's period: open, ready, closed, reopen requested (CR-058)"
+  commercial.recon_close_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: a close or reopen signature, bound to the digest that was read (CR-058)"
+  commercial.recon_exception:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-COM-009 F03/F04: an unmatched item that stays on the queue until a person explains it (CR-058)"
   agent.workload_attestation:
     role: cell
     module: machine

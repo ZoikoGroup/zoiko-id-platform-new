@@ -199,8 +199,16 @@ async def create_quote(
         "residency": residency_commitment,
         "pilot": pilot,
         "lines": [
-            [ln.seq, ln.sku, ln.plan_code, str(ln.quantity), str(ln.discount_pct)] for ln in lines
-        ],
+            [
+                ln.seq,
+                ln.sku,
+                ln.plan_code,
+                str(ln.quantity),
+                str(ln.discount_pct),
+                [str(x) for x in ln.promotions],
+            ]
+            for ln in lines
+        ],  # the promotions are part of what an approval binds
     }
     qid = uuid.uuid4()
     await conn.execute(
@@ -235,8 +243,8 @@ async def create_quote(
         p = priced.get(ln.seq)
         await conn.execute(
             text(
-                "INSERT INTO commercial.quote_line (quote_id, seq, sku_id, plan_code, quantity, discount_pct, list_price, "
-                "net_price) VALUES (:q, :s, :k, :p, :n, :d, :lp, :np)"
+                "INSERT INTO commercial.quote_line (quote_id, seq, sku_id, plan_code, quantity, discount_pct, promotions, list_price, "
+                "net_price) VALUES (:q, :s, :k, :p, :n, :d, :pr, :lp, :np)"
             ),
             {
                 "q": qid,
@@ -245,6 +253,7 @@ async def create_quote(
                 "p": ln.plan_code,
                 "n": ln.quantity,
                 "d": ln.discount_pct,
+                "pr": list(ln.promotions),
                 "lp": Decimal(p["list_unit_price"]) if p else None,
                 "np": Decimal(p["net_unit_price"]) if p else None,
             },
@@ -299,6 +308,7 @@ async def quote_view(conn: AsyncConnection, quote_id: str) -> dict[str, Any]:
                 "plan": ln["plan_code"],
                 "quantity": _d(ln["quantity"]),
                 "discount_pct": _d(ln["discount_pct"]),
+                "promotions": [_d(x) for x in ln["promotions"]],
                 "list_price": _d(ln["list_price"]),
                 "net_price": _d(ln["net_price"]),
             }

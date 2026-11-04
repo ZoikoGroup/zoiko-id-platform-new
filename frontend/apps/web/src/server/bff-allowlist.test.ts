@@ -22,6 +22,10 @@ describe("the proxy allowlist", () => {
     ["suspend, resume and offboard on the settings page", "/v1/tenant:suspend"],
     ["resume after a suspension", "/v1/tenant:resume"],
     ["offboard an organization", "/v1/tenant:offboard"],
+    ["the billing overview, profile, commitments and delegates", "/v1/billing/"],
+    ["billing grants and the caller's own permissions", "/v1/tenant/"],
+    ["the role gallery (the published role matrix)", "/v1/roles/"],
+    ["the verification level and what each tier asks for", "/v1/verification/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

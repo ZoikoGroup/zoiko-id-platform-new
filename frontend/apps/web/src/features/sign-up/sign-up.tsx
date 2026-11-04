@@ -11,6 +11,7 @@ import { TERMS } from "@/lib/legal";
 import { SignUpStatus } from "./status";
 import {
   canSubmit,
+  COUNTRY_CODES,
   countryState,
   filterCountries,
   GENERIC_MESSAGE,
@@ -45,8 +46,6 @@ export function SsoOptions({ providers }: { providers: string[] }) {
 
 /** WF-13A-01: country, journey and email, then one generic answer. The server derives everything else (region, tenant, role, status);
  * nothing on this page is an authorization decision. The default is unselected for the journey and the country. */
-const subscribeNever = () => () => {}; // nothing changes after hydration; the snapshot only tells hydration from the first server render
-
 export function SignUp() {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [country, setCountry] = useState("");
@@ -61,11 +60,23 @@ export function SignUp() {
 
   const caps = useQuery({ queryKey: ["registration", "capabilities", country], queryFn: () => loadCapabilities(country), retry: false });
   const state = countryState(caps.data, country);
-  // Country names come from the browser's own locale data, which differs from the server's (and between browsers), so the list is
-  // built only once the page has hydrated: the server and the first client render both leave it empty and always agree.
-  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
-  const locale = hydrated ? navigator.language || "en" : "en";
-  const countries = useMemo(() => (hydrated ? filterCountries(search, locale) : []), [hydrated, search, locale]);
+  // The server cannot know the browser's language: render in English first (so the HTML matches), then the browser's language once hydrated.
+  const locale = useSyncExternalStore(
+    () => () => undefined,
+    () => navigator.language || "en",
+    () => "en",
+  );
+  // Country names come from the runtime's ICU data, which differs between the server's Node and the browser (and between browsers), so the first render
+  // (server HTML and hydration) lists codes only, in a fixed order; the names appear once hydrated.
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const countries = useMemo(
+    () => (hydrated ? filterCountries(search, locale) : COUNTRY_CODES.map((code) => ({ code, name: code }))),
+    [hydrated, search, locale],
+  );
   const errorFor = (f: FieldError["field"]) => errors.find((e) => e.field === f)?.message;
 
   async function submit(e: FormEvent) {

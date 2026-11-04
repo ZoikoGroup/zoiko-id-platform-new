@@ -18,7 +18,7 @@ import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_app.resilience import budget_timeout
 from zid_context import RequestContext
 from zid_crypto import CryptoError, verify_external_jws
-from zid_db import tenant_transaction
+from zid_db import in_tenant, tenant_transaction
 from zid_outbox import emit
 
 from zid_platform.modules.commercial.ports import record_vendor_check
@@ -395,6 +395,13 @@ async def _normalize(
     )
 
 
+_AWAITING = (
+    SessionStatus.PENDING_EXTERNAL,
+    SessionStatus.IN_PROGRESS,
+    SessionStatus.RESUBMISSION_REQUIRED,
+)  # a provider result can still change these
+
+
 async def provider_callback(
     engine: AsyncEngine,
     *,
@@ -416,47 +423,156 @@ async def provider_callback(
         event_id, ref, result = await _normalize(
             adapter, adapter_id, body, headers or {}, secrets, transport, now
         )
-        s = await store.session_by_ref(conn, adapter_id, ref)
-        if s is not None and country_check is not None:
-            # EDR-001: a disabled country applies no result and records nothing
-            country_check(s.jurisdiction)
-        seen = await store.record_callback(
-            conn,
-            tenant_id=tenant_id,
-            adapter_id=adapter_id,
-            event_id=event_id,
-            body=body,
-            outcome="QUARANTINED_UNKNOWN_TRANSACTION" if s is None else "ACCEPTED",
+        return await _ingest(
+            conn, tenant_id=tenant_id, adapter_id=adapter_id, adapter=adapter, event_id=event_id,
+            ref=ref, result=result, body=body, country_check=country_check, now=now,
+        )  # fmt: skip
+
+
+async def _ingest(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    adapter_id: str,
+    adapter: Mapping[str, Any],
+    event_id: str,
+    ref: str,
+    result: ProviderResult,
+    body: bytes,
+    country_check: Callable[[str], None] | None,
+    now: datetime,
+) -> str:
+    """Apply one provider result to its session. Shared by the signed callback and by the poll that reconciles a delayed one."""
+    s = await store.session_by_ref(conn, adapter_id, ref)
+    if s is not None and country_check is not None:
+        # EDR-001: a disabled country applies no result and records nothing
+        country_check(s.jurisdiction)
+    seen = await store.record_callback(
+        conn,
+        tenant_id=tenant_id,
+        adapter_id=adapter_id,
+        event_id=event_id,
+        body=body,
+        outcome="QUARANTINED_UNKNOWN_TRANSACTION" if s is None else "ACCEPTED",
+    )
+    if seen == "CONFLICT":
+        raise VerificationError("CALLBACK_CONFLICT")
+    if seen == "DUPLICATE" or s is None:
+        return "DUPLICATE" if seen == "DUPLICATE" else "QUARANTINED"
+    if s.status not in _AWAITING:
+        return "IGNORED_TERMINAL"  # provider status never regresses a decided session
+    profile = await store.load_profile(conn, s.profile_id)
+    decision = decide(profile, result, jurisdiction=s.jurisdiction)
+    basis = decision_basis(
+        result,
+        adapter_id=adapter_id,
+        mapping_version=str(adapter["mapping_version"]),
+        salt=s.session_id,
+    )
+    await _apply(conn, s, profile, decision, adapter_id, result, now, basis)
+    # what this provider attempt cost Zoiko, charged to the customer or not (CR-029); never raises
+    await record_vendor_check(
+        conn,
+        tenant_id=tenant_id,
+        adapter_id=adapter_id,
+        supplier_ref=event_id,
+        check_type="IDENTITY_VERIFICATION",
+        country=s.jurisdiction,
+        decision_status=decision.status.value,
+        reasons=list(decision.reasons),
+        subject_ref=s.session_id,
+        at=now,
+    )
+    return decision.status.value
+
+
+RECONCILE_AFTER = timedelta(
+    minutes=10
+)  # a webhook that has not arrived by now is worth asking the provider about
+RECONCILE_EVERY = timedelta(minutes=10)  # how often one session is asked about
+_last_polled: dict[str, datetime] = {}
+
+
+async def reconcile_delayed(
+    conn: AsyncConnection,
+    now: datetime,
+    *,
+    secrets: Secrets | None,
+    transport: httpx.AsyncBaseTransport | None = None,
+    country_check: Callable[[str], None] | None = None,
+    limit: int = 25,
+    only_tenant: str | None = None,
+) -> dict[str, int]:
+    """The polling channel that reconciles a delayed webhook (ZID-EDR-005): for sessions still waiting on a Veriff decision after `RECONCILE_AFTER`,
+    ask the provider for it and apply it exactly as a signed callback would be. Nothing is recorded when the provider has no decision yet, a failed
+    call is never read as a pass, and a result already applied by the webhook is a duplicate or an ignored terminal. Sumsub is polled through the applicant
+    call the platform already makes; its response shape is not yet confirmed against a live account, so anything unrecognised is no decision."""
+    out = {"asked": 0, "applied": 0, "no_decision": 0, "unsupported": 0}
+    if secrets is None:
+        return out
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, adapter_id, provider_transaction_ref FROM verify.verification_session "
+                "WHERE status IN ('PENDING_EXTERNAL', 'IN_PROGRESS', 'RESUBMISSION_REQUIRED') AND provider_transaction_ref IS NOT NULL "
+                "AND adapter_id IS NOT NULL AND updated_at <= :cut AND expires_at > :now AND (CAST(:only AS uuid) IS NULL OR tenant_id = CAST(:only AS uuid)) "
+                "ORDER BY updated_at LIMIT :n"
+            ),
+            {"cut": now - RECONCILE_AFTER, "now": now, "n": limit, "only": only_tenant},
         )
-        if seen == "CONFLICT":
-            raise VerificationError("CALLBACK_CONFLICT")
-        if seen == "DUPLICATE" or s is None:
-            return "DUPLICATE" if seen == "DUPLICATE" else "QUARANTINED"
-        if s.status not in (SessionStatus.PENDING_EXTERNAL, SessionStatus.IN_PROGRESS):
-            return "IGNORED_TERMINAL"  # provider status never regresses a decided session
-        profile = await store.load_profile(conn, s.profile_id)
-        decision = decide(profile, result, jurisdiction=s.jurisdiction)
-        basis = decision_basis(
-            result,
-            adapter_id=adapter_id,
-            mapping_version=str(adapter["mapping_version"]),
-            salt=s.session_id,
-        )
-        await _apply(conn, s, profile, decision, adapter_id, result, now, basis)
-        # what this provider attempt cost Zoiko, charged to the customer or not (CR-029); never raises
-        await record_vendor_check(
-            conn,
-            tenant_id=tenant_id,
-            adapter_id=adapter_id,
-            supplier_ref=event_id,
-            check_type="IDENTITY_VERIFICATION",
-            country=s.jurisdiction,
-            decision_status=decision.status.value,
-            reasons=list(decision.reasons),
-            subject_ref=s.session_id,
-            at=now,
-        )
-        return decision.status.value
+    ).all()
+    for row in rows:
+        key = f"{row.adapter_id}:{row.provider_transaction_ref}"
+        if (last := _last_polled.get(key)) is not None and now - last < RECONCILE_EVERY:
+            continue
+        _last_polled[key] = now
+        tenant = str(row.tenant_id)
+        async with in_tenant(conn, tenant):
+            adapter = await store.load_adapter(conn, row.adapter_id)
+            if adapter is None or adapter["status"] in ("QUARANTINED", "RETIRED"):
+                continue
+            client = _provider_client(adapter, secrets, transport)
+            cfg = adapter.get("provider_config") or {}
+            if isinstance(client, VeriffClient):
+                out["asked"] += 1
+                doc = await client.decision(row.provider_transaction_ref)
+                if doc is None or veriff_ref(doc) != row.provider_transaction_ref:
+                    out["no_decision"] += 1
+                    continue
+                event_id, result = (
+                    f"poll:{veriff_event_id(doc)}",
+                    veriff_result(doc, uk_certified=bool(cfg.get("uk_certified"))),
+                )
+            elif isinstance(client, SumsubClient):
+                out["asked"] += 1
+                applicant = await client.applicant_doc(row.provider_transaction_ref)
+                review = (applicant or {}).get("review")
+                if not isinstance(review, dict) or not review.get("reviewStatus"):
+                    out["no_decision"] += (
+                        1  # no review on record, or a shape we do not recognise: never read as a pass
+                    )
+                    continue
+                doc = {
+                    "type": "applicantReviewed", "applicantId": row.provider_transaction_ref, "correlationId": "poll",
+                    "reviewStatus": review.get("reviewStatus"), "reviewResult": review.get("reviewResult") or {},
+                }  # fmt: skip
+                info = (applicant or {}).get("info")
+                event_id = f"poll:{sumsub_event_id(doc)}"
+                result = sumsub_result(
+                    doc,
+                    info=info if isinstance(info, dict) else None,
+                    biometric_level=bool(cfg.get("biometric_level")),
+                )
+            else:
+                out["unsupported"] += 1
+                continue
+            body = json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()
+            await _ingest(
+                conn, tenant_id=tenant, adapter_id=row.adapter_id, adapter=adapter, event_id=event_id,
+                ref=row.provider_transaction_ref, result=result, body=body, country_check=country_check, now=now,
+            )  # fmt: skip
+            out["applied"] += 1
+    return out
 
 
 async def _apply(
@@ -470,6 +586,19 @@ async def _apply(
     basis: dict[str, Any],
 ) -> None:
     if d.status is SessionStatus.PENDING_EXTERNAL:
+        return
+    if d.status is SessionStatus.RESUBMISSION_REQUIRED:
+        if (
+            s.status is not SessionStatus.RESUBMISSION_REQUIRED
+        ):  # a repeat of the same request changes nothing
+            await store.update_session(
+                conn,
+                s,
+                status=transition(s.status, d.status),
+                now=now,
+                outcome=d.outcome,
+                basis=basis,
+            )
         return
     if "FRAUD_SUSPECTED" in d.reasons:
         await _event(conn, "verification.fraud_signal", s, 50, signals=list(result.fraud_signals))

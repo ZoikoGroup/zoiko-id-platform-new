@@ -18,33 +18,39 @@ export async function addVirtualPasskey(context: BrowserContext, page: Page): Pr
 
 export type Company = { workspace: string; name: string };
 
+const MAIL = process.env.E2E_MAIL_API ?? "http://localhost:8025";
+
+/** The verification mail for an address, read from the local mail sink. */
+export async function mailFor(address: string): Promise<string> {
+  for (let i = 0; i < 40; i++) {
+    const found = await fetch(`${MAIL}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`).then((r) => r.json()).catch(() => ({ messages: [] }));
+    const id = found.messages?.[0]?.ID as string | undefined;
+    if (id) return (await fetch(`${MAIL}/api/v1/message/${id}`).then((r) => r.json())).Text as string;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`no mail arrived for ${address}`);
+}
+
 /**
- * Registers a throwaway workspace, creates its first passkey and lands signed in on the overview.
- * Numbers starting 99 are answered by the local register simulator as a fresh synthetic company
- * (ZID_DEV_SIMULATORS, local/test only), so runs never collide.
+ * Signs up a throwaway person the way a real one does (ZID-UX-WF-013A): country, journey and email on /sign-up, the single-use link from the mail, a first passkey, then
+ * the overview. The person is signed in with a personal workspace and a pending owner role; no company exists until a claim is verified (13B), so a spec that needs an
+ * administrator's pages must verify a claim first. The old company-first /register page no longer exists.
  */
-export async function registerCompany(page: Page): Promise<Company> {
-  const suffix = Math.random().toString(36).slice(2, 8);
-  const company: Company = { workspace: `e2e-${suffix}`, name: `E2E Company ${suffix}` };
-  const number = `99${String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0")}`;
-
-  await page.goto("/register");
-  await page.getByLabel("Company name").fill(company.name);
-  await page.getByLabel("Workspace name").fill(company.workspace);
-  await page.getByLabel("Company number").fill(number);
-  await page.getByLabel("Your name").fill("E2E Admin");
-  // The first request after a cold start can arrive before the page hydrates: retry until the box really is checked.
-  const consent = page.getByRole("checkbox");
-  await expect(async () => {
-    if (!(await consent.isChecked())) await consent.click({ force: true });
-    await expect(consent).toBeChecked({ timeout: 1_000 });
-  }).toPass({ timeout: 15_000 });
-  const submit = page.getByRole("button", { name: "Create workspace" });
-  await expect(submit).toBeEnabled({ timeout: 15_000 });
-  await submit.click();
-
-  await page.waitForURL(/\/enroll\?/, { timeout: 20_000 });
-  await page.getByRole("button", { name: /create passkey/i }).click();
+export async function registerCompany(page: Page, journey: "For myself" | "For an organization" = "For an organization"): Promise<Company> {
+  const email = `e2e.${Date.now()}.${Math.random().toString(36).slice(2, 6)}@example.com`;
+  await page.goto("/sign-up");
+  await page.waitForLoadState("networkidle");
+  await page.locator("label", { hasText: journey }).click();
+  await page.getByRole("combobox").first().selectOption({ value: "GB" });
+  await page.getByLabel("Email address").fill(email);
+  await page.getByRole("button", { name: "Continue securely" }).click();
+  await expect(page.getByText("If this address can be used, check your inbox for next steps.").first()).toBeVisible();
+  const link = (await mailFor(email)).match(/https?:\/\/[^\s]+\/sign-up\/verify\?t=[A-Za-z0-9_-]+/)?.[0];
+  if (!link) throw new Error("the verification mail carried no link");
+  await page.goto(link);
+  await page.getByRole("button", { name: "Create passkey" }).click();
+  await expect(page.getByText(/Your account is ready/i)).toBeVisible({ timeout: 30_000 });
+  await page.goto("/overview");
   await page.waitForURL(/\/overview/, { timeout: 30_000 });
-  return company;
+  return { workspace: "Personal workspace", name: email };
 }

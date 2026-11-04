@@ -62,6 +62,7 @@ from zid_platform.modules.organization.application.kyb import (
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
     NameMatcher,
+    establish_claim_root,
     establish_development_root,
     establish_registry_root,
     refresh_registry_roots,
@@ -144,6 +145,7 @@ __all__ = [
     "check_identifier",
     "check_proof",
     "default_adapters",
+    "establish_claim_root",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",

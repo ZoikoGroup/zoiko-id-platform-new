@@ -109,7 +109,9 @@ async def login(
     request: Request,
     client_id: Annotated[str, Query(min_length=1, max_length=256)],
     return_to: Annotated[str | None, Query(max_length=2048)] = None,
+    reauth: Annotated[bool, Query()] = False,
 ) -> Response:
+    """`reauth=true` makes the person authenticate again at the provider (OIDC `max_age=0`, SAML `ForceAuthn`) and refuses a cached answer."""
     settings = _settings(request)
     tenant = await client_tenant(request_engine(request), client_id)
     if tenant is None:
@@ -127,6 +129,7 @@ async def login(
                 return_to=_return_to(return_to),
                 link_principal_id=None,
                 now=now,
+                force_reauth=reauth,
             )
     except FederationError as e:
         raise _fail(e) from e
@@ -200,6 +203,7 @@ async def link(connection_id: uuid.UUID, body: LinkIn, request: Request) -> dict
                 return_to=None,
                 link_principal_id=session.principal_id,
                 now=now,
+                force_reauth=True,  # linking an identity provider to an account is a trust change: the person proves themselves there again
             )
     except FederationError as e:
         raise _fail(e) from e

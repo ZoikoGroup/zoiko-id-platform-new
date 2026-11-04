@@ -1,0 +1,127 @@
+{
+  "_about": "Commercial ratification and production go-live register (ZID-COM-RAT-011). This is the owners' instrument, not engineering's: engineering built the register and the checks (tools/scripts/ratification.py), the owners fill in the decisions. Default NO-GO. Every blank stays blank until a named person completes it; nothing here is pre-approved.",
+  "disposition": "NO-GO",
+  "release": {
+    "release_id": null,
+    "policy_version": null,
+    "approved_countries": [],
+    "approved_products": [],
+    "approved_issuers": [],
+    "environment": null,
+    "date": null
+  },
+  "ratifications": [
+    {"id": "CL-001", "name": "Commercial roles", "spec": "ZID-COM-CL-001", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null},
+    {"id": "CL-002", "name": "Billing rights", "spec": "ZID-COM-CL-002", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null},
+    {"id": "CL-003", "name": "Discount bands and delegated commercial authority", "spec": "ZID-COM-CL-003", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null},
+    {"id": "CL-004", "name": "Authority thresholds (commitment, credit note, pilot credit)", "spec": "ZID-COM-CL-004", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null},
+    {"id": "CL-005", "name": "Finance console", "spec": "ZID-COM-CL-005", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null},
+    {"id": "CL-006", "name": "Availability", "spec": "ZID-COM-CL-006", "decision": null, "decision_record": null, "policy_version": null, "owner": null, "effective_date": null}
+  ],
+  "gates": [
+    {"id": "G0", "name": "Ratification", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G1", "name": "As-built inventory", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G2", "name": "Commercial eligibility", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G3", "name": "Security engineering", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G4", "name": "Money evidence", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G5", "name": "UX and QA", "status": "PENDING", "reviewer": null, "evidence_ref": null},
+    {"id": "G6", "name": "Controlled release", "status": "PENDING", "reviewer": null, "evidence_ref": null}
+  ],
+  "evidence": [
+    {"id": "E01", "ref": null},
+    {"id": "E02", "ref": null},
+    {"id": "E03", "ref": null},
+    {"id": "E04", "ref": null},
+    {"id": "E05", "ref": null},
+    {"id": "E06", "ref": null},
+    {"id": "E07", "ref": null}
+  ],
+  "signatories": [
+    {"role": "Founder", "name": null, "date": null, "decision": null},
+    {"role": "CFO", "name": null, "date": null, "decision": null},
+    {"role": "CCO", "name": null, "date": null, "decision": null},
+    {"role": "CTO", "name": null, "date": null, "decision": null},
+    {"role": "Security and Privacy", "name": null, "date": null, "decision": null},
+    {"role": "Finance Controller", "name": null, "date": null, "decision": null},
+    {"role": "Legal", "name": null, "date": null, "decision": null}
+  ],
+  "no_go": [
+    {
+      "id": "NG-01",
+      "text": "Unratified monetary authority: discount bands, commitment, credit-note or pilot thresholds in force without a signed policy.",
+      "p0": true,
+      "closes_when": {"ratified": ["CL-003", "CL-004"], "finance_policy_lock": true}
+    },
+    {
+      "id": "NG-02",
+      "text": "Unsigned catalog, or a missing jurisdiction or merchant approval.",
+      "p0": true,
+      "closes_when": {"gates_pass": ["G2"]}
+    },
+    {
+      "id": "NG-03",
+      "text": "A critical tenant-isolation or authorization flaw, a wrong-issuer charge path or unsafe card handling.",
+      "p0": true,
+      "closes_when": {"gates_pass": ["G3"], "ci_jobs": ["unit", "component", "sast", "secret-scan", "python-audit"]}
+    },
+    {
+      "id": "NG-04",
+      "text": "A failing replay, double-refund, double-charge, reconciliation, evidence or rollback test.",
+      "p0": true,
+      "closes_when": {"gates_pass": ["G4"], "rows_verified": ["CL04-C14", "WF09-OP-05", "WF09-OP-09", "WF09-OP-10"]}
+    },
+    {
+      "id": "NG-05",
+      "text": "Incomplete approver assignment, or an untested dual-signature rule.",
+      "p0": true,
+      "closes_when": {"rows_verified": ["CL04-C12", "WF09-OP-03", "WF10-C00-11"]}
+    }
+  ],
+  "flags": [
+    {
+      "id": "FLAG-commitment-enforcement",
+      "file": "backend/config/commercial/finance-policy.yaml",
+      "key": "enforcement",
+      "shipped": "REPORT_ONLY",
+      "off_until_ratified": "CL-004",
+      "off_values": ["OFF", "REPORT_ONLY"],
+      "why": "Refusing an activation for want of an approved commitment is a new restriction on customers; it stays report-only until the thresholds are ratified."
+    },
+    {
+      "id": "FLAG-band-matrix-enforcement",
+      "file": "backend/config/entitlements/capability-bands.yaml",
+      "key": "band_matrix_enforcement",
+      "shipped": "REPORT_ONLY",
+      "off_until_ratified": "CL-001",
+      "off_values": ["REPORT_ONLY"],
+      "why": "The capability bands do not decide what a customer may use until the owners rule; the Commercial Estate still decides."
+    },
+    {
+      "id": "FLAG-readiness-enforcement",
+      "file": "backend/config/onboarding/readiness-policy.yaml",
+      "key": "enforcement",
+      "shipped": "REPORT_ONLY",
+      "off_until_ratified": null,
+      "off_values": [],
+      "why": "Tracked so a change of the shipped value needs a register change; owner pack organization-readiness items 2 and 7 own the switch."
+    },
+    {
+      "id": "FLAG-billing-access-enforcement",
+      "file": "backend/config/roles/role-policy.yaml",
+      "key": "billing_access_enforcement",
+      "shipped": "ENFORCED",
+      "off_until_ratified": null,
+      "off_values": [],
+      "why": "Restrictive by default (CL-002 rule: no implicit billing access); tracked so loosening it needs a register change."
+    }
+  ],
+  "money_flags": [
+    {
+      "id": "FLAG-bill-on-commit",
+      "file": "backend/config/entitlements/meter-register.yaml",
+      "key": "bill_on_commit",
+      "shipped": "false",
+      "why": "A usage reservation never bills until the owners switch it on, per meter."
+    }
+  ]
+}

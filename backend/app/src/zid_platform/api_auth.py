@@ -147,7 +147,7 @@ async def authenticated_caller(request: Request) -> Caller:
         if auth.auth_time is not None
         else auth.aal
     )
-    return Caller(
+    caller = Caller(
         auth.ctx,
         AuthnFact(int(level), auth_time),
         security_state=security_state,
@@ -160,6 +160,11 @@ async def authenticated_caller(request: Request) -> Caller:
         certificate_thumbprint=auth.claims.cnf_x5t,
         session_id=auth.claims.session_id,
     )
+    # The role matrix as one central check for every mapped route (slice L-7); handed in at start-up because this module cannot import tenant.
+    route_guard = getattr(request.app.state, "route_guard", None)
+    if route_guard is not None:
+        await route_guard(request, caller)
+    return caller
 
 
 async def _require_home_cell(

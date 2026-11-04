@@ -170,27 +170,28 @@ export function OverviewPage({ welcome, carry }: { welcome: boolean; carry: stri
               <PendingInvitation autoJoin={welcome} />
               <RecoveryPrompt />
               {welcome && carry.includes("org=dev") ? <DevelopmentNotice /> : null}
-              {welcome && me.pendingOwner ? (
+              {welcome && me.pendingOwner && !me.personal ? (
                 <Banner tone="ok" icon={PartyPopper} title="Your passkey is set up">
-                  Next, verify your company so you become its owner.
+                  Next, verify your organization so you become its owner.
                 </Banner>
               ) : null}
-              {me.pendingOwner ? (
-                <Card title="Verify your company" description="Before anything is trusted, the company is checked against its official register.">
+              {me.personal ? <PersonalWorkspace /> : null}
+              {me.pendingOwner && !me.personal ? (
+                <Card title="Verify your organization" description="Your account is active. The organization is not established until it is verified against its official register.">
                   <div className="space-y-3">
                     <p className="text-sm text-ink-muted">
-                      You registered {t.display_name}. Confirm the company with its Companies House number and verify your identity so we can match
-                      you to one of its officers. Then you become its owner and can set it up.
+                      Find the organization in its register, show how you act for it and complete your identity check. Each check is tracked on its own, and you
+                      become the owner only when all of them are complete.
                     </p>
                     <ButtonLink href={`/admin/organization${carry ? `?${carry}` : ""}`} icon={<Building2 aria-hidden className="size-4" />}>
-                      Verify company
+                      Start verification
                     </ButtonLink>
                   </div>
                 </Card>
               ) : null}
               {me.isAdmin ? <ApprovalsWaiting compact /> : null}
               {me.isAdmin ? <AdminOverview tenant={t} /> : null}
-              {!me.isAdmin && !me.pendingOwner && !me.invited ? (
+              {!me.isAdmin && (!me.pendingOwner || me.personal) && !me.invited ? (
                 <>
                   <Lifecycle tenant={t} />
                   <Card title="Your account">
@@ -209,5 +210,31 @@ export function OverviewPage({ welcome, carry }: { welcome: boolean; carry: stri
         }}
       </QueryView>
     </div>
+  );
+}
+
+/** WF-13A S5: a personal workspace. The account is active; identity is not verified and nothing here asks for it. An organization can be added later, from the claim flow. */
+function PersonalWorkspace() {
+  return (
+    <Card title="Your personal workspace" description="Your account is active. It is not identity verified, and nothing here requires it.">
+      <div className="space-y-3">
+        <ul className="space-y-1 text-sm text-ink-muted">
+          <li>Manage your passkeys, sessions and privacy under My account.</li>
+          <li>Verify your identity only when something asks for it (a verified-person badge, or to claim an organization).</li>
+          <li>If you are invited to an organization, the invitation appears here for you to accept or decline.</li>
+        </ul>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/account" variant="secondary" icon={<KeyRound aria-hidden className="size-4" />}>
+            My account
+          </ButtonLink>
+          <ButtonLink href="/account/verification" variant="secondary" icon={<CheckCircle2 aria-hidden className="size-4" />}>
+            Verify my identity
+          </ButtonLink>
+          <ButtonLink href="/admin/organization" variant="ghost" icon={<Building2 aria-hidden className="size-4" />}>
+            Add an organization
+          </ButtonLink>
+        </div>
+      </div>
+    </Card>
   );
 }

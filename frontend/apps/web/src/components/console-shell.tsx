@@ -149,11 +149,14 @@ export function ConsoleShell({
   const criticalOpen = (openAlerts.data?.items ?? []).filter((a) => a.severity === "CRITICAL" && a.state !== "RESOLVED");
   const openCount = openAlerts.data?.items.length ?? 0;
   const me = standing(tenant);
+  // A person the Owner gave billing access (Billing Admin, Billing Viewer, Invoice reader) is not an administrator but needs the Billing page.
+  const billing = useCellQuery(["billing", "access", "shell"], (api) => api.billing.access(), { enabled: Boolean(tenant) && !me.isAdmin });
+  const billingAccess = !me.isAdmin && (billing.data?.permissions.length ?? 0) > 0;
   // While the company loads the full navigation is drawn, so the sidebar does not reflow when the role arrives (a
   // layout shift, UX-30); a person who is not an administrator then loses the administration links, which only ever
   // led to pages the cell refuses them. Once it is known, the navigation follows the role (UX-02).
   const roleKnown = !company.isLoading;
-  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner }) : NAV).map((g) => ({
+  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess }) : NAV).map((g) => ({
     ...g,
     items: g.items.map((i) =>
       i.id === "alerts" && openCount > 0 ? { ...i, badge: openCount, badgeTone: criticalOpen.length ? ("danger" as const) : ("warn" as const) } : i,

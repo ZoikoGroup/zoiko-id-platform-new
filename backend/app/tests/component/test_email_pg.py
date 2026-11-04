@@ -693,6 +693,7 @@ def test_coverage_says_which_templates_an_emitted_event_can_trigger() -> None:
         "ZID-EM-030",
         "ZID-EM-036",
         "ZID-EM-039",
+        "ZID-EM-074",
         "ZID-EM-077",
         "ZID-EM-078",
         "ZID-EM-082",
@@ -857,6 +858,7 @@ def test_account_recovery_proofing_membership_evidence_and_agent_events_send_the
                 ("evidence.integrity.failed", {"partition_id": "part-3"}),
                 ("agent.registered", {"agent_principal_id": uid()}),
                 ("machine.workload.registered", {"logical_principal_id": uid()}),
+                ("governance.approval.case_created", {"case_id": "0194a2b3-aaaa-7bbb-8ccc-ddddeeeeffff", "action_id": "billing.grant.give", "reason": "private reason", "payload": {"secret": "x"}}),
                 ("recovery.started", {"recovery_id": "no-principal"}),  # no recipient: nothing
             ):  # fmt: skip
                 await handle(event(name, data))
@@ -875,9 +877,16 @@ def test_account_recovery_proofing_membership_evidence_and_agent_events_send_the
             ("sec@example.com", "ZID-EM-116"),
             ("own@example.com", "ZID-EM-078"),
             ("own@example.com", "ZID-EM-077"),
+            ("own@example.com", "ZID-EM-074"),
+            ("sec@example.com", "ZID-EM-074"),
         ]
         by = {r.template_id: r for _, r, _ in sender.sent}
         assert "rec-1" in by["ZID-EM-016"].text and "pkg-9" in by["ZID-EM-115"].text
         assert "part-3" in by["ZID-EM-116"].text and "Acme" in by["ZID-EM-036"].text
+        approval = by[
+            "ZID-EM-074"
+        ].text  # the change by its public label and a short reference, never its reason or payload
+        assert "Billing grant give" in approval and "0194a2b3" in approval
+        assert "private reason" not in approval and "secret" not in approval
 
     asyncio.run(run())

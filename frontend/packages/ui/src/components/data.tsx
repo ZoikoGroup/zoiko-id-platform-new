@@ -227,7 +227,8 @@ export function DataTable<T>({
                           )}
                         </button>
                       ) : (
-                        c.header
+                        // an actions column has no visible title, but its header is never empty for a screen reader (axe: empty-table-header)
+                        c.header || <span className="sr-only">Actions</span>
                       )}
                     </th>
                   );
@@ -346,7 +347,7 @@ function ColumnChooser<T>({
               isDisabled={c.pinned}
               onChange={() => onToggle(c.key)}
             >
-              {c.header}
+              {c.header || "Actions"}
             </Checkbox>
           ))}
         </AriaDialog>

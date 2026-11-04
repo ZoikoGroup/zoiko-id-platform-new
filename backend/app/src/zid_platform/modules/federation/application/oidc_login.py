@@ -22,7 +22,7 @@ import secrets
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -143,6 +143,7 @@ async def begin(
     return_to: str | None,
     link_principal_id: str | None,
     now: datetime,
+    force_reauth: bool = False,
 ) -> str:
     usable(c, now)
     if c.protocol != "OIDC":
@@ -159,6 +160,7 @@ async def begin(
         return_to=return_to,
         link_principal_id=link_principal_id,
         expires_at=now + LOGIN_TTL,
+        force_reauth=force_reauth,
     )
     query = {
         "response_type": "code",
@@ -170,8 +172,26 @@ async def begin(
         "code_challenge": _b64(hashlib.sha256(verifier.encode()).digest()),
         "code_challenge_method": "S256",
     }
+    if (
+        force_reauth
+    ):  # the person must authenticate again at the provider, whatever session it holds (T07)
+        query["max_age"] = "0"
+        query["prompt"] = "login"
     endpoint = c.authorization_endpoint or ""
     return endpoint + ("&" if "?" in endpoint else "?") + urlencode(query)
+
+
+REAUTH_SKEW = timedelta(seconds=60)
+
+
+def require_fresh_reauth(login: store.Login, authenticated_at: datetime | None) -> None:
+    """A forced re-authentication is satisfied only by a response that says the person authenticated after the request was made. A provider that
+    ignores `max_age` and answers from a cached session, or says nothing about when, does not satisfy it."""
+    if not login.force_reauth:
+        return
+    started = login.expires_at - LOGIN_TTL
+    if authenticated_at is None or authenticated_at < started - REAUTH_SKEW:
+        raise FederationError("FEDERATION_REAUTH_NOT_FRESH")
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +297,7 @@ async def complete(
     except CryptoError as e:
         raise FederationError("ID_TOKEN_SIGNATURE_INVALID", e.code) from e
     ident = validate_id_token(claims, c, nonce=login.nonce, now=now)
+    require_fresh_reauth(login, ident.auth_time)
     return await establish(engine, settings, c, ident, login, ctx=ctx, now=now)
 
 

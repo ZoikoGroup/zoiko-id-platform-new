@@ -9,6 +9,7 @@ import {
   createTransport,
   type CellApi,
   type FlowApi,
+  type RouteStepUp,
   type StepUpChallenge,
   type StepUpDraft,
 } from "@zoiko/api-client";
@@ -163,10 +164,16 @@ function RuntimeInner({
     ? sessionQuery.data.csrf
     : undefined;
 
+  // The cell's central step-up guard names the change to prove; the proof is made here and the same request is retried once (ZID-ENG-DEC-009).
+  const routeProver = useRef<((need: RouteStepUp) => Promise<string | undefined>) | null>(null);
   const api = useMemo(
     () =>
       createCellApi(
-        createTransport({ baseUrl: "/api/bff", csrf: () => csrfRef.current }),
+        createTransport({
+          baseUrl: "/api/bff",
+          csrf: () => csrfRef.current,
+          onRouteStepUp: (need) => routeProver.current?.(need) ?? Promise.resolve(undefined),
+        }),
       ),
     [],
   );
@@ -241,6 +248,7 @@ function RuntimeInner({
     },
     [api],
   );
+  routeProver.current = (need) => proveAction({ action: need.action, resource: need.resource, change: need.change });
 
   function closeAction(reason?: unknown) {
     if (action) {

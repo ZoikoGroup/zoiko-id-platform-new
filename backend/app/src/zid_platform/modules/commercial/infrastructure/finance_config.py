@@ -17,9 +17,11 @@ import yaml
 
 from zid_platform.modules.commercial.domain.finance import (
     CommitmentPolicy,
+    DisputePolicy,
     FinanceError,
     FinancePolicy,
     Instrument,
+    ReconPolicy,
     Tier,
     to_minor,
     validate_policy,
@@ -53,6 +55,25 @@ def _commitment(doc: dict[str, Any]) -> CommitmentPolicy:
     )
 
 
+def _dispute(doc: dict[str, Any]) -> DisputePolicy:
+    return DisputePolicy(
+        tuple(str(r) for r in doc["owner_roles"]),
+        tuple(str(r) for r in doc["decide_roles"]),
+        tuple(str(r) for r in doc["submit_roles"]),
+    )
+
+
+def _recon(doc: dict[str, Any]) -> ReconPolicy:
+    return ReconPolicy(
+        tuple(str(r) for r in doc["close_maker_roles"]),
+        tuple(str(r) for r in doc["close_checker_roles"]),
+        tuple(str(r) for r in doc["reopen_roles"]),
+        to_minor(Decimal(str(doc["materiality_usd"])))
+        if Decimal(str(doc["materiality_usd"])) > 0
+        else 0,
+    )
+
+
 def parse(raw: bytes) -> FinancePolicy:
     doc = yaml.safe_load(raw.decode("utf-8")) or {}
     if doc.get("unit") != "USD":
@@ -68,6 +89,9 @@ def parse(raw: bytes) -> FinancePolicy:
         credit_note=_instrument(doc["credit_note"]),
         pilot_credit=_instrument(doc["pilot_credit"]),
         commitment=_commitment(doc["commitment"]),
+        refund=_instrument(doc["refund"]) if doc.get("refund") else None,
+        dispute=_dispute(doc["dispute"]) if doc.get("dispute") else None,
+        recon=_recon(doc["reconciliation"]) if doc.get("reconciliation") else None,
     )
     validate_policy(policy)
     return policy

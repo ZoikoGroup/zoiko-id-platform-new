@@ -1,0 +1,173 @@
+# Which role-matrix action each tenant-facing route needs (ZID-ENG-DEC-007 section on every channel; slice L-7, CR-044 addendum).
+#
+# Every authenticated route is exactly one of: gated inline in its router (matrix_gate), MAPPED here to a matrix action and mode, or EXEMPT here
+# with a reason. A test lists every route of the cell and fails on one that is none of the three, so a new route cannot appear without a decision.
+#
+# Rules are matched top to first match against "METHOD /path", where each path parameter is written {}; `*` matches any characters.
+#   gate:   action (an id of role-matrix.yaml) and mode (X execute, S prepare or request, A approve, R read), checked after authentication
+#           with the caller's live roles in the tenant. Enforcement follows `route_matrix_enforcement` in role-policy.yaml.
+#   exempt: reason, one of the kinds below, and why.
+#
+# Exempt kinds
+#   OWN_ACCOUNT      the caller's own account, sessions, passkeys, consents or alerts (matrix rows are "own account only" for every role)
+#   OPERATOR_PLANE   Zoiko's operator plane: JIT capabilities and operator sessions, not tenant roles
+#   PROTOCOL         a protocol endpoint for a client or a source (SCIM, SSF, OID4VP, the decision API): authorised by the client's own credential
+#   APPROVAL_ENGINE  the approval service decides who may open, vote on and run each action by its own registry (ZID-ENG-DEC-010 to 012)
+#   COMMERCIAL       billing routes are gated by the billing permission layer (ZID-COM-CL-002), not by a role
+#   INLINE_EVALUATION the handler evaluates the matrix itself because the decision needs the request body or the object
+#   NO_MATRIX_ACTION the matrices A to F have no row for it; it stays under its protected action and the owners decide whether to add a row
+version: "1"
+rules:
+  # ------------------------------------------------------------------ the caller's own account and the published catalogues
+  - {match: "* /authn/*", exempt: OWN_ACCOUNT, why: "own passkeys, recovery codes and recovery cancel"}
+  - {match: "* /v1/step-up/*", exempt: OWN_ACCOUNT, why: "the caller proves their own action"}
+  - {match: "* /sessions*", exempt: OWN_ACCOUNT, why: "own sessions"}
+  - {match: "* /oauth2/*", exempt: OWN_ACCOUNT, why: "own consents and the user-info of the caller's own token"}
+  - {match: "PUT /v1/account/contact", exempt: OWN_ACCOUNT, why: "own contact"}
+  - {match: "* /v1/alerts*", exempt: OWN_ACCOUNT, why: "the caller's own alert inbox"}
+  - {match: "GET /v1/privacy/consent*", exempt: OWN_ACCOUNT, why: "own consents"}
+  - {match: "POST /v1/privacy/consents*", exempt: OWN_ACCOUNT, why: "own consents"}
+  - {match: "* /v1/privacy/preferences*", exempt: OWN_ACCOUNT, why: "own preferences"}
+  - {match: "GET /v1/privacy/purposes", exempt: OWN_ACCOUNT, why: "published purposes for the consent screen"}
+  - {match: "POST /v1/privacy/rights-requests", exempt: OWN_ACCOUNT, why: "a data subject request about oneself (matrix F, own account)"}
+  - {match: "GET /v1/privacy/rights-requests/*", exempt: OWN_ACCOUNT, why: "own data subject request"}
+  - {match: "GET /v1/verification/*", exempt: OWN_ACCOUNT, why: "the caller's own verification tier and the published requirements"}
+  - {match: "GET /v1/roles/matrix", exempt: OWN_ACCOUNT, why: "the published catalogue, a navigation aid"}
+  - {match: "GET /v1/tenant/me/permissions", exempt: OWN_ACCOUNT, why: "the caller's own projected rights"}
+  - {match: "GET /v1/tenant/billing-access/me", exempt: OWN_ACCOUNT, why: "the caller's own billing keys"}
+  - {match: "POST /v1/tenant/members/me:accept", exempt: OWN_ACCOUNT, why: "accepting one's own invitation; the caller has no role yet"}
+
+  # ------------------------------------------------------------------ Zoiko's operator plane and platform operations
+  - {match: "* /operator/*", exempt: OPERATOR_PLANE, why: "operator sessions and JIT access requests"}
+  - {match: "* /ops/*", exempt: OPERATOR_PLANE, why: "service operations console"}
+  - {match: "* /platform/*", exempt: OPERATOR_PLANE, why: "cell, restore and recovery-readiness operations"}
+  - {match: "* /v1/commercial/*", exempt: OPERATOR_PLANE, why: "the commercial and finance consoles need operator capabilities"}
+  - {match: "* /v1/lockbox-requests*", exempt: OPERATOR_PLANE, why: "customer-data access by Zoiko staff"}
+  - {match: "* /v1/operator-access-policy", exempt: OPERATOR_PLANE, why: "the operator access policy"}
+  - {match: "* /v1/containment-actions", exempt: OPERATOR_PLANE, why: "platform containment (A-tier containment, no vote)"}
+  - {match: "* /v1/tenants*", exempt: OPERATOR_PLANE, why: "creating and listing tenants is a platform operation"}
+  - {match: "POST /v1/tenant:*", exempt: NO_MATRIX_ACTION, why: "suspend, resume and offboard are owner steps under their protected actions; the matrices have no row"}
+  - {match: "* /v1/reviews/*", exempt: OPERATOR_PLANE, why: "Zoiko reviewers decide company verification and screening cases"}
+  - {match: "* /admin/recovery-*", exempt: APPROVAL_ENGINE, why: "recovery is a governed case (ZID-ENG-DEC-012)"}
+  - {match: "* /v1/recovery-cases", exempt: APPROVAL_ENGINE, why: "recovery is a governed case (ZID-ENG-DEC-012)"}
+
+  # ------------------------------------------------------------------ the approval engine and delegation
+  - {match: "* /v1/approval-cases*", exempt: APPROVAL_ENGINE, why: "the approval service checks the action registry and the voter's role"}
+  - {match: "* /v1/approval-policy*", exempt: APPROVAL_ENGINE, why: "the registry as published"}
+  - {match: "* /v1/governance/*", exempt: APPROVAL_ENGINE, why: "reviewer appointments are an approval case"}
+  - {match: "* /v1/organizations/*", exempt: APPROVAL_ENGINE, why: "the organization approvals center is gated by the approval engine and the organization state"}
+  - {match: "GET /v1/approval-requests*", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "POST /v1/approval-requests", gate: {action: d.create-scoped-delegation-request, mode: S}}
+  - {match: "POST /v1/approval-requests/*/decisions", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "GET /v1/authority-grants*", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "POST /v1/authority-grants", gate: {action: d.create-scoped-delegation-request, mode: S}}
+  - {match: "POST /v1/authority-grants/*:revoke", gate: {action: d.revoke-authorized-ordinary-delegation, mode: X}}
+  - {match: "GET /v1/mandates*", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "POST /v1/mandates", gate: {action: d.create-scoped-delegation-request, mode: S}}
+  - {match: "POST /v1/mandates/*:activate", gate: {action: d.approve-authority-delegation, mode: A}}
+  - {match: "POST /v1/mandates/*:revoke", gate: {action: d.revoke-authorized-ordinary-delegation, mode: X}}
+  - {match: "POST /v1/mandates/*:pause", gate: {action: d.revoke-authorized-ordinary-delegation, mode: X}}
+  - {match: "POST /v1/mandates/*/reservations", exempt: PROTOCOL, why: "an agent or workload reserves against its own mandate"}
+  - {match: "POST /v1/mandate-reservations/*", exempt: PROTOCOL, why: "an agent or workload commits or releases its own reservation"}
+  - {match: "GET /v1/policy-releases*", gate: {action: d.propose-approval-workflow-policies, mode: R}}
+  - {match: "POST /v1/policy-releases", gate: {action: d.propose-approval-workflow-policies, mode: S}}
+  - {match: "PUT /v1/policy-releases/*", gate: {action: d.propose-approval-workflow-policies, mode: S}}
+  - {match: "POST /v1/policy-releases/*:validate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
+  - {match: "POST /v1/policy-releases/*:simulate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
+  - {match: "POST /v1/policy-releases/*:review", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "POST /v1/policy-releases/*:publish", gate: {action: d.change-role-taxonomy-permission-catalog, mode: A}}
+
+  # ------------------------------------------------------------------ people, security and account administration
+  - {match: "GET /v1/tenant", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "GET /v1/tenant/configuration-revisions", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "GET /v1/tenant/transitions", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "* /v1/tenant/billing-grants*", exempt: COMMERCIAL, why: "billing delegation is the Owner's alone (ZID-COM-CL-002), decided by the billing permission layer"}
+  - {match: "* /v1/invoices*", exempt: COMMERCIAL, why: "invoices are gated by the billing permission layer"}
+  - {match: "* /v1/billing/*", exempt: COMMERCIAL, why: "the billing permission layer"}
+  - {match: "* /v1/usage*", exempt: COMMERCIAL, why: "usage reservations need the usage:write scope; reads are not in the billing key list"}
+  - {match: "* /v1/budgets*", exempt: COMMERCIAL, why: "budgets are not in the billing key list"}
+  - {match: "GET /v1/entitlements/*", exempt: COMMERCIAL, why: "the entitlement read the console renders"}
+  - {match: "GET /v1/tenant/domains", gate: {action: c.view-organization-security-posture, mode: R}}
+  - {match: "POST /v1/tenant/domains*", gate: {action: c.change-trusted-domains-session-restrictions, mode: S}}
+  - {match: "* /v1/tenant/owners*", exempt: APPROVAL_ENGINE, why: "owner changes are an approval case with their own two-person rules"}
+  - {match: "POST /v1/tenant/role-grants", exempt: INLINE_EVALUATION, why: "the handler evaluates matrix A rows a.request-admin-approver-role-grant and a.approve-privileged-role-grant itself"}
+  - {match: "* /v1/tenant/members*", exempt: INLINE_EVALUATION, why: "the handlers evaluate matrix A rows a.invite, a.disable and a.list themselves"}
+  - {match: "GET /v1/tenant/residency*", gate: {action: f.view-authorized-audit-and-ledger-entries, mode: R}}
+  - {match: "PUT /v1/tenant/residency", gate: {action: f.request-change-to-tenant-data-residency, mode: S}}
+  - {match: "GET /v1/tenant/transfer-rules", gate: {action: f.view-authorized-audit-and-ledger-entries, mode: R}}
+  - {match: "POST /v1/tenant/transfer-rules*", gate: {action: f.request-change-to-tenant-data-residency, mode: S}}
+  - {match: "POST /v1/tenant/cross-cell-transfers:authorize", exempt: APPROVAL_ENGINE, why: "a cross-cell transfer is an approval case"}
+  - {match: "GET /v1/tenant/contacts", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "PUT /v1/tenant/contacts", gate: {action: a.edit-ordinary-organization-profile, mode: X}}
+  - {match: "DELETE /v1/tenant/contacts/*", gate: {action: a.edit-ordinary-organization-profile, mode: X}}
+  - {match: "GET /v1/settings*", gate: {action: c.view-organization-security-posture, mode: R}}
+  - {match: "PUT /v1/settings/*", gate: {action: c.propose-changes-to-sso-mfa-enforcement, mode: S}}
+  - {match: "POST /admin/principals/*/sessions:revoke", gate: {action: c.revoke-ordinary-user-sessions, mode: X}}
+  - {match: "GET /admin/principals", gate: {action: a.list-active-members-and-assigned-roles, mode: R}}
+  - {match: "GET /v1/search", exempt: NO_MATRIX_ACTION, why: "search returns only what the caller's own scopes and the entities' own reads allow; no matrix row exists"}
+  - {match: "GET /v1/onboarding/*", exempt: NO_MATRIX_ACTION, why: "onboarding gates are gated inline where they change something"}
+  - {match: "POST /v1/onboarding/*", exempt: NO_MATRIX_ACTION, why: "onboarding steps are gated inline"}
+
+  # ------------------------------------------------------------------ verification, credentials and trust
+  - {match: "GET /credentials", gate: {action: b.view-verification-state-expiration, mode: R}}
+  - {match: "POST /credentials", gate: {action: b.draft-routine-credential-issuance, mode: X}}
+  - {match: "POST /credentials/*", gate: {action: b.revoke-ordinary-scoped-credential, mode: X}}
+  - {match: "GET /credential-configurations", gate: {action: b.view-verification-state-expiration, mode: R}}
+  - {match: "POST /credential-configurations*", gate: {action: b.change-credential-template-assurance-policy, mode: S}}
+  - {match: "GET /credential-issuer-trust", gate: {action: b.view-verification-state-expiration, mode: R}}
+  - {match: "POST /credential-issuer-trust*", gate: {action: b.change-credential-template-assurance-policy, mode: S}}
+  - {match: "GET /relying-party-registrations", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /relying-party-registrations", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "* /presentations*", exempt: PROTOCOL, why: "OID4VP: the verifier's own client credential"}
+  - {match: "* /verifications*", exempt: PROTOCOL, why: "a client asks the proofing service about its own subject"}
+  - {match: "* /verified-claims*", exempt: PROTOCOL, why: "a client reads claims it was granted"}
+  - {match: "* /verification-*", exempt: OPERATOR_PLANE, why: "verification adapters, profiles, reliance decisions and review cases are platform configuration"}
+  - {match: "* /principals/*", exempt: PROTOCOL, why: "a relying party reads assurance it was granted"}
+  - {match: "* /security-state/*", exempt: PROTOCOL, why: "the shared-signals consumer and the decision engine read and re-evaluate state"}
+  - {match: "* /access/v1/*", exempt: PROTOCOL, why: "the decision API (AuthZEN) is called by relying services with their own credential"}
+
+  # ------------------------------------------------------------------ integrations, agents, workloads, provisioning and signals
+  - {match: "GET /federation/*", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /federation/integrations/*:disable", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /federation/trust-anchors/*:disable", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /federation/*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "GET /provisioning/sources", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /provisioning/sources/*:suspend", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /provisioning/sources", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /provisioning/lifecycle-events", exempt: PROTOCOL, why: "the provisioning source's own credential"}
+  - {match: "* /scim/v2/*", exempt: PROTOCOL, why: "SCIM is authorised by the source's bearer token"}
+  - {match: "* /ssf/*", exempt: PROTOCOL, why: "Shared Signals streams carry their own receiver credential"}
+  - {match: "POST /signals", exempt: PROTOCOL, why: "an authenticated signal producer"}
+  - {match: "GET /v1/machine/*", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /v1/machine/agents", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/children", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*:submit", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*:attest", exempt: PROTOCOL, why: "the workload attests itself (CR-042)"}
+  - {match: "POST /v1/machine/agents/*:activate", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/agents/*:suspend", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agents/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agents/*:retire", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/blueprints", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "POST /v1/machine/blueprints/*:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/blueprints/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/tools", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "POST /v1/machine/tools/*:activate", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/tools/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/environments/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/workload-bindings*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /v1/machine/attestations:verify", exempt: PROTOCOL, why: "a workload proves itself"}
+  - {match: "POST /v1/machine/workload-token", exempt: PROTOCOL, why: "a workload exchanges its attestation"}
+  - {match: "POST /v1/integration/routes:resolve", exempt: PROTOCOL, why: "a service resolves a route with its own credential"}
+  - {match: "GET /v1/webhooks/*", gate: {action: e.inspect-assigned-api-event-metadata, mode: R}}
+  - {match: "POST /v1/webhooks/deliveries/*:replay", gate: {action: e.rotate-assigned-nonprivileged-api-credential, mode: X}}
+  - {match: "POST /v1/webhooks/endpoints", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /v1/webhooks/endpoints/*:retire", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/webhooks/endpoints/*", gate: {action: e.rotate-assigned-nonprivileged-api-credential, mode: X}}
+
+  # ------------------------------------------------------------------ audit, evidence and privacy administration
+  - {match: "GET /v1/evidence/*", gate: {action: f.view-authorized-audit-and-ledger-entries, mode: R}}
+  - {match: "POST /v1/evidence/packages", gate: {action: f.request-sensitive-evidence-export, mode: S}}
+  - {match: "POST /v1/evidence/bulk-exports", gate: {action: f.request-sensitive-evidence-export, mode: S}}
+  - {match: "POST /v1/evidence/legal-holds/*:release", gate: {action: f.release-legal-hold-override-retention, mode: X}}
+  - {match: "POST /v1/evidence/*", gate: {action: f.view-authorized-audit-and-ledger-entries, mode: R}}
+  - {match: "* /v1/privacy/admin/*", exempt: NO_MATRIX_ACTION, why: "data-protection administration has no row in matrices A to F; it stays under its protected action until the owners add one"}
