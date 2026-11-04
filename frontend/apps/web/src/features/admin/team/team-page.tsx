@@ -15,12 +15,16 @@ import {
   RelativeTime,
   StatusBadge,
   SummaryStrip,
+  Tabs,
   type Column,
 } from "@zoiko/ui";
 import { AlertTriangle, Check, CheckCircle2, Circle, Copy, Fingerprint, LogIn, Mail, RefreshCw, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+
+import { DelegationsTab } from "./delegations-tab";
+import { RolesTab } from "./roles-tab";
 
 const MEMBERS_KEY = ["tenant", "members"];
 const TENANT_KEY = ["tenant", "me"];
@@ -216,17 +220,7 @@ export function TeamPage() {
     },
   ];
 
-  return (
-    <>
-      <PageHeader
-        title="Team & invitations"
-        description="Invite people into this tenant. Each person gets a single-use link to create their own passkey; you can follow them through to their first sign-in."
-        actions={
-          <Button icon={<UserPlus aria-hidden className="size-4" />} onPress={() => setInviting(true)}>
-            Invite person
-          </Button>
-        }
-      />
+  const people = (
       <div className="space-y-5">
         {tenant.data ? (
           <SummaryStrip
@@ -275,6 +269,27 @@ export function TeamPage() {
           </ol>
         </Card>
       </div>
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="Team & invitations"
+        description="Invite people into this tenant. Each person gets a single-use link to create their own passkey; you can follow them through to their first sign-in."
+        actions={
+          <Button icon={<UserPlus aria-hidden className="size-4" />} onPress={() => setInviting(true)}>
+            Invite person
+          </Button>
+        }
+      />
+      <Tabs
+        label="Team"
+        tabs={[
+          { id: "people", label: "People", content: people },
+          { id: "roles", label: "Roles and permissions", content: <RolesTab /> },
+          { id: "delegations", label: "Delegations", content: <DelegationsTab /> },
+        ]}
+      />
 
       <Dialog
         isOpen={inviting}

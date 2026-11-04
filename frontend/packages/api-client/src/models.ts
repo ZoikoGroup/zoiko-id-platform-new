@@ -815,6 +815,16 @@ export type TenantRole = {
   created_at: Iso;
   activated_at: Iso | null;
 };
+/** X execute, S prepare or request, A independent approval, R scoped read, T own account only, - none. */
+export type RoleMode = "X" | "S" | "A" | "R" | "T" | "-";
+export type RoleMatrixRow = { action: string; feature: string; permissions: Record<string, RoleMode>; rule: string };
+export type RoleMatrix = {
+  version: string;
+  policy_hash: string;
+  roles: string[];
+  matrices: { matrix: string; title: string; actions: RoleMatrixRow[] }[];
+};
+export type MyPermissions = { roles: string[]; policy_hash: string; enforcement: boolean; rights: Record<string, RoleMode[]> };
 /** Where an invitee is: link sent -> passkey created -> signed in -> accepted (ACTIVE). */
 export type MemberProgress = "INVITED" | "PASSKEY_CREATED" | "SIGNED_IN" | "ACTIVE" | "PENDING_VERIFICATION" | "REVOKED";
 export type TenantMember = TenantRole & {

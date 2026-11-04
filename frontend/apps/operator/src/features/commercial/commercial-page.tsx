@@ -5,6 +5,7 @@ import { Banner, PageHeader, Tabs } from "@zoiko/ui";
 
 import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
+import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequestsView } from "./finance-page";
 import { useDirectMode } from "./mode";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView } from "./views";
 
@@ -86,6 +87,21 @@ export function CommercialPage() {
                 <PaymentEventsView />
                 <Actions group="payments" />
               </div>
+            ),
+          },
+          {
+            id: "finance",
+            label: "Finance",
+            content: (
+              <Tabs
+                label="Finance"
+                tabs={[
+                  { id: "f-overview", label: "Overview", content: <FinanceOverviewView /> },
+                  { id: "f-requests", label: "Credits", content: <FinanceRequestsView /> },
+                  { id: "f-authority", label: "Policy and roles", content: <FinanceAuthorityView /> },
+                  { id: "f-eligibility", label: "Eligibility", content: <EligibilityView /> },
+                ]}
+              />
             ),
           },
           { id: "audit", label: "Audit and reports", content: <AuditView /> },

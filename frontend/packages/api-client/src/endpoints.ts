@@ -350,6 +350,10 @@ export function createCellApi(t: Transport) {
     tenant: {
       me: () => get<M.TenantView>("/v1/tenant"),
       members: () => get<M.Items<M.TenantMember>>("/v1/tenant/members"),
+      /** The published permission matrices: a catalogue for navigation, never an enforcement control. The server decides every request. */
+      roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
+      /** What the caller's live roles could do if every other condition held. */
+      myPermissions: () => get<M.MyPermissions>("/v1/tenant/me/permissions"),
       invite: (role: M.InvitableRole) => post<M.Invitation>("/v1/tenant/members", { role }),
       reissue: (assignmentId: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:reissue`),
       revoke: (assignmentId: string) => post<M.TenantRole>(`/v1/tenant/members/${seg(assignmentId)}:revoke`),
@@ -637,9 +641,10 @@ export function createCellApi(t: Transport) {
         post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:${decision}`, { snapshot_hash: snapshotHash, reason: reason?.trim() || null }, withProof(proof)),
       cancelCommitment: (id: string) => post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:cancel`),
       delegates: () => get<M.Items<M.CommitmentDelegate>>("/v1/billing/commitment-delegates"),
-      giveDelegate: (body: { principal_id: string; kind: M.CommitmentDelegateKind; cap_usd: string; effective_to?: string | null }) =>
-        post<{ delegate_id: string }>("/v1/billing/commitment-delegates", body),
-      revokeDelegate: (id: string) => post<{ delegate_id: string; revoked: boolean }>(`/v1/billing/commitment-delegates/${seg(id)}:revoke`),
+      giveDelegate: (body: { principal_id: string; kind: M.CommitmentDelegateKind; cap_usd: string; effective_to?: string | null }, proof?: string) =>
+        post<{ delegate_id: string }>("/v1/billing/commitment-delegates", body, withProof(proof)),
+      revokeDelegate: (id: string, proof?: string) =>
+        post<{ delegate_id: string; revoked: boolean }>(`/v1/billing/commitment-delegates/${seg(id)}:revoke`, undefined, withProof(proof)),
     },
 
     settings: {
