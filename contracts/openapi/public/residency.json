@@ -24,9 +24,16 @@
             "type": "string"
           },
           "approval_request_id": {
-            "format": "uuid",
-            "title": "Approval Request Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
           },
           "home_cell_id": {
             "pattern": "^[a-z0-9-]{1,40}$",
@@ -77,8 +84,7 @@
           "residency_profile_id",
           "home_cell_id",
           "jurisdiction_pack_id",
-          "approval_ref",
-          "approval_request_id"
+          "approval_ref"
         ],
         "title": "ResidencyBody",
         "type": "object"

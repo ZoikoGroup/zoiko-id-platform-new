@@ -3,7 +3,7 @@
     GET  /v1/cells                                  cell catalog: regions, jurisdictions, profiles
     GET  /v1/residency-offers                       the four offers and where Regional can be taken (public, EDR-002)
     GET  /v1/tenant/residency                       tenant.residency.manage (R3; read)
-    PUT  /v1/tenant/residency                       tenant.residency.manage + second admin
+    PUT  /v1/tenant/residency                       tenant.residency.manage; a CHANGE needs a second admin, the FIRST baseline (below) does not
     GET  /v1/tenant/residency-matrix                subsystem placement for the tenant's profile
     GET  /v1/tenant/transfer-rules                  tenant.residency.manage
     POST /v1/tenant/transfer-rules                  tenant.residency.manage + second admin
@@ -37,6 +37,7 @@ from zid_platform.modules.tenant.domain.residency import (
 from zid_platform.modules.tenant.infrastructure import residency_store as store
 from zid_platform.modules.tenant.infrastructure.catalog import catalog
 from zid_platform.modules.tenant.infrastructure.offers import offers
+from zid_platform.modules.tenant.infrastructure.tenant_store import load_tenant
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(tags=["residency"])
@@ -138,7 +139,9 @@ class ResidencyBody(BaseModel):
     )
     jurisdiction_pack_id: str
     approval_ref: str = Field(min_length=3, max_length=200)  # legal/compliance mapping approval
-    approval_request_id: uuid.UUID
+    approval_request_id: uuid.UUID | None = (
+        None  # needed for a change; the first baseline of a one-person organization needs none
+    )
 
     def change(self) -> str:
         return (
@@ -160,6 +163,15 @@ async def residency_offers(request: Request) -> dict[str, Any]:
     }
 
 
+async def _is_first_baseline(conn: Any, caller: Caller, body: ResidencyBody) -> bool:
+    """True only for the very first residency record of a workspace, kept on the home cell it was created on, with no recovery cell added."""
+    tenant = caller.ctx.tenant_id or ""
+    if await store.load(conn, tenant) is not None or body.permitted_recovery_cells:
+        return False
+    home = await load_tenant(conn, tenant)
+    return home is not None and home.home_cell_id == body.home_cell_id
+
+
 @router.put("/v1/tenant/residency")
 async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
@@ -172,14 +184,27 @@ async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep
             )
         except ResidencyError as e:
             raise http(e) from e
-        await approved_by_second_admin(
-            conn,
-            caller,
-            action=ACTION,
-            resource="tenant_residency",
-            change=body.change(),
-            approval_request_id=str(body.approval_request_id),
-        )
+        if await _is_first_baseline(conn, caller, body):
+            # ZID-ENG-DEC-010 and the 13C solo variant: confirming where the organization already lives is the owner's own baseline, not a change to a boundary. Nothing
+            # moves (same home cell, no recovery cells), the permission and the fresh passkey proof still apply, and every later change needs a second administrator.
+            await protected_action(
+                conn, caller, action=ACTION, resource="tenant_residency", change=body.change()
+            )
+        else:
+            if body.approval_request_id is None:
+                raise ZidError(
+                    "APPROVAL_REQUIRED",
+                    "Changing residency needs an independent second administrator to approve.",
+                    http_status=403,
+                )
+            await approved_by_second_admin(
+                conn,
+                caller,
+                action=ACTION,
+                resource="tenant_residency",
+                change=body.change(),
+                approval_request_id=str(body.approval_request_id),
+            )
         await require_step_up(
             request,
             conn,
