@@ -59,6 +59,7 @@ class Tenant:
     state_changed_at: datetime
     closed_at: datetime | None
     row_version: int
+    signup_journey: str | None = None
 
 
 def _tenant(r: Row[Any]) -> Tenant:
@@ -84,6 +85,7 @@ def _tenant(r: Row[Any]) -> Tenant:
         state_changed_at=m["state_changed_at"],
         closed_at=m["closed_at"],
         row_version=int(m["row_version"]),
+        signup_journey=m.get("signup_journey"),
     )
 
 
@@ -235,7 +237,14 @@ async def transitions(conn: AsyncConnection, limit: int = 100) -> list[dict[str,
 
 _UUID_FIELDS = frozenset({"organization_id", "mapping_release_id", "onboarding_plan_id"})
 _TEXT_FIELDS = frozenset(
-    {"display_name", "tenant_slug", "deployment_mode", "security_profile_id", "home_cell_id"}
+    {
+        "display_name",
+        "tenant_slug",
+        "deployment_mode",
+        "security_profile_id",
+        "home_cell_id",
+        "signup_journey",
+    }
 )
 
 

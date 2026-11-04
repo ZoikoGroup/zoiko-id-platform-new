@@ -45,6 +45,8 @@ export type Standing = {
   isAdmin: boolean; // OWNER or ADMIN, ACTIVE
   pendingOwner: boolean; // the bootstrap OWNER before the organization gate
   invited: boolean;
+  /** Signed up "For myself" and has no organization: a personal workspace, with nothing pending to verify. */
+  personal: boolean;
 };
 
 export function standing(t: TenantView | null | undefined): Standing {
@@ -55,6 +57,7 @@ export function standing(t: TenantView | null | undefined): Standing {
     isAdmin: active("OWNER") || active("ADMIN"),
     pendingOwner: roles.some((x) => x.role === "OWNER" && x.status === "PENDING_VERIFICATION"),
     invited: roles.some((x) => x.status === "INVITED"),
+    personal: t?.signup_journey === "PERSONAL" && !t.organization_id,
   };
 }
 

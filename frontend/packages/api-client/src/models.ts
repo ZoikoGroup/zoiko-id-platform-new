@@ -845,6 +845,8 @@ export type TenantView = {
   configuration_revision: number;
   security_revision: number;
   organization_id: string | null;
+  /** What the person chose at sign-up; it only decides what the dashboard offers first and grants nothing. Absent on workspaces made before it was kept. */
+  signup_journey?: "PERSONAL" | "ORGANIZATION" | null;
   onboarding_plan_id: string | null;
   created_at: Iso;
   state_changed_at: Iso | null;

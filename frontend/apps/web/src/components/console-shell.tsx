@@ -156,7 +156,7 @@ export function ConsoleShell({
   // layout shift, UX-30); a person who is not an administrator then loses the administration links, which only ever
   // led to pages the cell refuses them. Once it is known, the navigation follows the role (UX-02).
   const roleKnown = !company.isLoading;
-  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner, billingAccess }) : NAV).map((g) => ({
+  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess }) : NAV).map((g) => ({
     ...g,
     items: g.items.map((i) =>
       i.id === "alerts" && openCount > 0 ? { ...i, badge: openCount, badgeTone: criticalOpen.length ? ("danger" as const) : ("warn" as const) } : i,
