@@ -296,6 +296,11 @@ def _placement_client(
 
     monkeypatch.setattr(residency_api, "_session", session)
     monkeypatch.setattr(residency_api, "approved_by_second_admin", approval)
+
+    async def not_a_baseline(*args: object, **kwargs: object) -> bool:
+        return False  # these tests are about placement and readiness; the baseline rule has its own tests (test_residency_baseline_pg.py)
+
+    monkeypatch.setattr(residency_api, "_is_first_baseline", not_a_baseline)
     monkeypatch.setattr(residency_api.service, "set_residency", set_residency)
     app = FastAPI()
 
