@@ -2,12 +2,47 @@
 
 import { ApiError, type OrgClaimAppealKind, type OrgClaimStatus } from "@zoiko/api-client";
 import { Banner, Button, ButtonLink, Card, Select, TextField } from "@zoiko/ui";
-import { MessageSquareWarning } from "lucide-react";
+import { CheckCircle2, MessageSquareWarning } from "lucide-react";
 import { useState } from "react";
 
 import { useCellMutation } from "@/lib/cell";
 
 import { APPEAL_LABELS, MAX_STATEMENT, appealKinds, appealMessage, statementProblem } from "./org-claim";
+
+/** WF-13B to WF-13C: a VERIFIED claim (all four checks complete) is turned into the organization, named by the register, with the claimant as its owner. Nothing
+ * but a VERIFIED outcome offers this, and the server refuses it otherwise. */
+export function EstablishCard({ claimId, status }: { claimId: string; status: OrgClaimStatus }) {
+  const establish = useCellMutation((api) => api.orgClaims.establish(claimId), {
+    invalidate: [["org-claims"], ["tenant"], ["onboarding"]],
+    success: "Your organization is established.",
+  });
+  if (status.outcome !== "VERIFIED") return null;
+  return (
+    <Card title="Your organization is verified" description="All four checks are complete. Create the organization from the official register record.">
+      {establish.data ? (
+        <div className="space-y-3">
+          <Banner tone="ok" icon={CheckCircle2} title={`${establish.data.legal_name ?? "Your organization"} is established`}>
+            You are now its owner. Finish the setup next.
+          </Banner>
+          <ButtonLink className="min-h-11" href="/organizations/current/setup">
+            Continue to organization setup
+          </ButtonLink>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <Button className="min-h-11" isDisabled={establish.isPending} onPress={() => establish.mutate(undefined as never)}>
+            Create the organization
+          </Button>
+          {establish.isError ? (
+            <p role="alert" className="text-sm text-danger-fg">
+              {establish.error instanceof ApiError ? establish.error.message : "It could not be created. Try again."}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 /** What the customer can do next, as the screening named it (ZID-ED-04 section 04: missing evidence is an explicit task). The
  * tasks are words and counts; nothing here ever names a person or says what a watchlist held. */

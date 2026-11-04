@@ -19,6 +19,10 @@ describe("the proxy allowlist", () => {
     ["step-up challenges and proofs", "/v1/step-up/"],
     ["company claims", "/v1/org-claims"],
     ["plan features and downgrade impact", "/v1/entitlements"],
+    ["the billing overview, profile, commitments and delegates", "/v1/billing/"],
+    ["billing grants and the caller's own permissions", "/v1/tenant/"],
+    ["the role gallery (the published role matrix)", "/v1/roles/"],
+    ["the verification level and what each tier asks for", "/v1/verification/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

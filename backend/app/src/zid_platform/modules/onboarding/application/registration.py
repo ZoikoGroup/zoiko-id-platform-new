@@ -66,6 +66,7 @@ from zid_platform.modules.tenant.ports import (
     load_tenant,
     roles_of_principal,
     self_signup,
+    set_fields,
 )
 from zid_platform.modules.verification.ports import Capability, CountryError, registry, require
 
@@ -518,6 +519,9 @@ async def confirm(
             await set_principal_contact(
                 conn, account_tenant, account_principal, address, actor=None
             )
+            await set_fields(
+                conn, account_tenant, signup_journey=rec.journey.value
+            )  # what the dashboard offers first; it grants nothing
     async with in_tenant(conn, env.registration_tenant):
         if not await store.insert_account(
             conn,

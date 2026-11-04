@@ -149,6 +149,16 @@ async def give(
             now=now,
         )
         raise
+    # A repeat is not a second grant (a double click, a retry, two administrators at once): the same bundle for the same person that is still in force is
+    # the same grant, and one that differs only in its end date is a conflict the Owner resolves by taking the first away.
+    for held in await grants_store.grants_of(conn, grantee_principal_id):
+        if held.bundle is chosen and held.live(now):
+            if held.expires_at == expires_at:
+                return held.grant_id
+            raise BillingAccessError(
+                "BILLING_GRANT_EXISTS",
+                "That person already holds this billing access with a different end date. Take it away first to change it.",
+            )
     grant_id = await grants_store.insert_grant(
         conn,
         tenant_id=tenant_id,

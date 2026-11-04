@@ -32,3 +32,10 @@ Status: open (built). The decision record is proposed and awaits founder approva
 - **Links are written only by the platform entrypoint.** Identity proofing, an enterprise directory or a tenant route could write them too; who may, and from what evidence, is for the owners.
 - **Delegation** is read from authority grants; the delegation request and approval workflow is L-10.
 - **MEMBER** holds no matrix permission and is not one of the five roles; whether to retire it is an owner decision.
+
+## Addendum: the route map (slice L-7, second part)
+- **One central check.** `backend/config/roles/route-map.yaml` decides, for every authenticated route of the cell, whether it is gated inline (`matrix_gate`), mapped to a matrix action and mode, or exempt with a kind and a reason (own account, operator plane, protocol, approval engine, billing layer, inline evaluation, no matrix action). The check runs once, in the authentication step (`api_auth.authenticated_caller`, handed `tenant.ports.route_guard()` at start-up because the module cannot import tenant), with the caller's live roles; no router is edited.
+- **Complete by test.** `tests/unit/test_route_map.py` lists every route of the cell and fails on one that is none of the three, so a new route cannot appear without a decision. A bad map does not load: an unknown action, a mode no role holds, an exemption without a kind and a reason, a rule listed twice or an empty map.
+- **Switch:** `route_matrix_enforcement` in `role-policy.yaml`. REPORT_ONLY (default) records the decision and its evidence (`tenant.access.decision`, object `route:METHOD rule`) and lets the request through; only an explicit ENFORCED refuses (403 `ROLE_NOT_PERMITTED`). A failure to decide is a 503 when enforced and a log line when not.
+- **Tests:** `test_route_map.py` (22): the matcher, the refusals, the shipped map, the coverage of every authenticated route, and the guard in both modes. EDR07-09 now has a coverage test as well as the gate test.
+- **Not changed:** the five roles and the matrices; the existing inline gates; the billing permission layer.

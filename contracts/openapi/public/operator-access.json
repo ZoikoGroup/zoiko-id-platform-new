@@ -260,46 +260,6 @@
         "title": "EntryBody",
         "type": "object"
       },
-      "EvidenceBody": {
-        "additionalProperties": false,
-        "properties": {
-          "artifacts": {
-            "items": {
-              "enum": [
-                "DECISION_RECEIPTS",
-                "AUDIT_RECORDS",
-                "LOGS",
-                "FORENSIC_IMAGE",
-                "CUSTODY_RECORD"
-              ],
-              "type": "string"
-            },
-            "maxItems": 5,
-            "minItems": 1,
-            "title": "Artifacts",
-            "type": "array"
-          },
-          "custody_ref": {
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "Custody Ref",
-            "type": "string"
-          },
-          "note": {
-            "maxLength": 2000,
-            "minLength": 4,
-            "title": "Note",
-            "type": "string"
-          }
-        },
-        "required": [
-          "artifacts",
-          "custody_ref",
-          "note"
-        ],
-        "title": "EvidenceBody",
-        "type": "object"
-      },
       "ExerciseBody": {
         "additionalProperties": false,
         "properties": {
@@ -849,6 +809,46 @@
           }
         },
         "title": "CloseBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operations__api__ops__EvidenceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "enum": [
+                "DECISION_RECEIPTS",
+                "AUDIT_RECORDS",
+                "LOGS",
+                "FORENSIC_IMAGE",
+                "CUSTODY_RECORD"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "custody_ref": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Custody Ref",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 4,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifacts",
+          "custody_ref",
+          "note"
+        ],
+        "title": "EvidenceBody",
         "type": "object"
       },
       "zid_platform__modules__operations__api__ops__ResolveBody": {
@@ -1969,7 +1969,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EvidenceBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operations__api__ops__EvidenceBody"
               }
             }
           },

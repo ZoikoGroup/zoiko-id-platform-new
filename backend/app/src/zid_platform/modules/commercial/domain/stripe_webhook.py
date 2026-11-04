@@ -31,6 +31,8 @@ class StripeEvent:
     amount_minor: int | None
     currency: str | None
     data: dict[str, Any]
+    livemode: bool = False
+    merchant_ref: str = ""
 
 
 def verify_signature(
@@ -89,6 +91,8 @@ def parse_event(raw: bytes) -> StripeEvent:
         amount_minor=int(amount) if isinstance(amount, int) else None,
         currency=str(obj["currency"]).upper() if obj.get("currency") else None,
         data=obj,
+        livemode=bool(body.get("livemode")),
+        merchant_ref=str(body.get("account") or ""),
     )
 
 

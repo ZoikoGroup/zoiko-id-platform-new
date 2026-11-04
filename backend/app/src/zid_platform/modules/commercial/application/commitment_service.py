@@ -396,7 +396,10 @@ async def decide(
     r = await _lapse(conn, await _load(conn, request_id, lock=True), now)
     if r["state"] != "PENDING_APPROVAL":
         raise CommitmentError("NOT_PENDING", f"a request that is {r['state']} is not decided")
-    await finance.require_effective(conn, environment)
+    try:
+        await finance.require_effective(conn, environment)
+    except fin_rules.FinanceError as e:  # the customer's approval tiers have no authority until the policy is signed (ZID-UX-COM-008 UI-13)
+        raise CommitmentError(e.code, e.detail) from e
     decided = {
         str(a["principal_id"]): a["authority"]
         for a in await _approvals(conn, request_id)

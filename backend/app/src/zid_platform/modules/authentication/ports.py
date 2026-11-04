@@ -42,6 +42,14 @@ async def require_step_up(
     return await guard(request, conn, caller, **command)
 
 
+def route_step_up_guard() -> Any:
+    """The central step-up check (see `api/step_up.py`), handed to the authentication step at start-up. Imported on first use for the same reason as
+    `require_step_up`."""
+    from zid_platform.modules.authentication.api.step_up import route_step_up_guard as guard
+
+    return guard
+
+
 async def issue_enrollment_ticket(
     conn: AsyncConnection,
     *,

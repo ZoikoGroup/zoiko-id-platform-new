@@ -7,5 +7,5 @@
 export { createCellApi, createFlowApi, createOperatorApi, type CellApi, type FlowApi, type OperatorApi } from "./endpoints";
 export type * from "./endpoints";
 export type * from "./models";
-export { ApiError, type FieldIssue } from "./runtime/errors";
+export { ApiError, routeStepUp, type FieldIssue, type RouteStepUp } from "./runtime/errors";
 export { createTransport, newCorrelationId, seg, type RequestOptions, type Transport, type TransportConfig } from "./runtime/transport";

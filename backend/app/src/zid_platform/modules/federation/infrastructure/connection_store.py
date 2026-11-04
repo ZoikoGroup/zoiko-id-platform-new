@@ -203,6 +203,7 @@ class Login:
     return_to: str | None
     link_principal_id: str | None
     expires_at: datetime
+    force_reauth: bool = False
 
 
 async def start_login(
@@ -217,6 +218,7 @@ async def start_login(
     return_to: str | None,
     link_principal_id: str | None,
     expires_at: datetime,
+    force_reauth: bool = False,
 ) -> str:
     """Returns the `state` / RelayState: `<tenant>.<random>` (the callback needs the tenant for RLS)."""
     state = f"{tenant_id}.{secrets.token_urlsafe(32)}"
@@ -224,8 +226,8 @@ async def start_login(
         text(
             "INSERT INTO authn.federation_login (state_hash, tenant_id, connection_id, "
             "config_revision, nonce, code_verifier, request_id, client_id, return_to, "
-            "link_principal_id, expires_at) VALUES (:h, :t, :c, :rev, :n, :v, :rid, :cid, :rt, :lp, "
-            ":exp)"
+            "link_principal_id, expires_at, force_reauth) VALUES (:h, :t, :c, :rev, :n, :v, :rid, :cid, :rt, :lp, "
+            ":exp, :fr)"
         ),
         {
             "h": sha256(state),
@@ -239,6 +241,7 @@ async def start_login(
             "rt": return_to,
             "lp": uuid.UUID(link_principal_id) if link_principal_id else None,
             "exp": expires_at,
+            "fr": force_reauth,
         },
     )
     return state
@@ -250,7 +253,7 @@ async def finish_login(conn: AsyncConnection, state: str, now: datetime) -> Logi
             text(
                 "UPDATE authn.federation_login SET used_at = :now WHERE state_hash = :h "
                 "AND used_at IS NULL AND expires_at > :now RETURNING connection_id, config_revision, "
-                "nonce, code_verifier, request_id, client_id, return_to, link_principal_id, expires_at"
+                "nonce, code_verifier, request_id, client_id, return_to, link_principal_id, expires_at, force_reauth"
             ),
             {"h": sha256(state), "now": now},
         )
@@ -267,6 +270,7 @@ async def finish_login(conn: AsyncConnection, state: str, now: datetime) -> Logi
         return_to=row.return_to,
         link_principal_id=str(row.link_principal_id) if row.link_principal_id else None,
         expires_at=row.expires_at,
+        force_reauth=bool(row.force_reauth),
     )
 
 

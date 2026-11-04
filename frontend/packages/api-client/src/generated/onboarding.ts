@@ -304,6 +304,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/org-claims/{claim_id}/establish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Establish Claim
+         * @description The claim is VERIFIED (all four checks complete): create the organization from it, name the workspace after the register and activate the claimant as
+         *     owner. Refused with CLAIM_NOT_VERIFIED until then. A repeat answers as it stands (13B hands off to 13C; nothing here grants authority a check has not).
+         */
+        post: operations["establish_claim_v1_org_claims__claim_id__establish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org-claims/{claim_id}/proofs": {
         parameters: {
             query?: never;
@@ -1473,6 +1494,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    establish_claim_v1_org_claims__claim_id__establish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

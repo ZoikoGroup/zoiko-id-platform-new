@@ -49,8 +49,9 @@ export function DevSetup() {
  * its "documents" would show, then answers through the cell's signed provider-callback path.
  */
 export function DevProvider({ verificationId, adapterId, onDone }: { verificationId: string; adapterId?: string | null; onDone: () => void }) {
-  const [name, setName] = useState("");
-  const [birthdate, setBirthdate] = useState("");
+  // Every synthetic company in the test catalogue lists this director, so one pre-filled identity can claim any of them (change it to test a mismatch).
+  const [name, setName] = useState("Jane Mary Doe");
+  const [birthdate, setBirthdate] = useState("1985-06-15");
   const [outcome, setOutcome] = useState<"VERIFIED" | "FAILED" | "FRAUD">("VERIFIED");
   const complete = useCellMutation(
     (api) => api.dev.simulatorComplete(verificationId, { legal_name: name.trim(), birthdate: birthdate || null, outcome }),
@@ -64,7 +65,7 @@ export function DevProvider({ verificationId, adapterId, onDone }: { verificatio
       </div>
       <p className="text-xs text-ink-muted">
         Not a real check. Enter what the identity document would show. To become the owner of a simulated company, use a director&apos;s name
-        from the register (for company 01234567: <span className="font-mono">Jane Mary Doe</span>).
+        from the register. The form is pre-filled with the director every test company lists (<span className="font-mono">Jane Mary Doe</span>).
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label="Legal name on the document" isRequired value={name} onChange={setName} />

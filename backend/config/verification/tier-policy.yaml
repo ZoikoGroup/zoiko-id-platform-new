@@ -1,0 +1,53 @@
+# Progressive verification: which checks each risk tier needs, and when (ZID-EDR-006; slice L-6, CR-056). Versioned configuration, validated on load.
+# The tiers are operational risk tiers, not NIST levels. Not every check is asked at registration: a person is asked for what the next thing they want to do needs.
+version: "ZID-EDR-006-proposal-v1"
+
+tiers:
+  R0:
+    label: "Not identity verified"
+    meaning: "A basic account: the person proved they control the email address. No ID, selfie, address or phone is asked."
+    needs: [EMAIL]
+  R1:
+    label: "Identity verified"
+    meaning: "A proofed person: a validated document and a live selfie (or an approved equivalent), by an approved proofing policy."
+    needs: [EMAIL, GOVERNMENT_ID, SELFIE_LIVENESS]
+  R2:
+    label: "Verified authority"
+    meaning: "R1, plus a separate company check, evidence of the person's mandate, and strong authentication."
+    needs: [EMAIL, GOVERNMENT_ID, SELFIE_LIVENESS, COMPANY_CHECK, MANDATE_EVIDENCE, STRONG_AUTHENTICATION]
+  R3:
+    label: "Critical operations"
+    meaning: "R2, plus a fresh strong sign-in and independent approval for the action."
+    needs: [EMAIL, GOVERNMENT_ID, SELFIE_LIVENESS, COMPANY_CHECK, MANDATE_EVIDENCE, STRONG_AUTHENTICATION, FRESH_STRONG_SIGN_IN, INDEPENDENT_APPROVAL]
+
+# Optional checks and the only reasons that make them required. A check with no stated reason is never required, anywhere.
+optional_checks:
+  ADDRESS:
+    required_for: [STATUTORY, REGULATED, CONTRACT, DOCUMENTED_RISK]
+    label_when_entered: "Entered by you, not verified"
+    label_when_verified: "Verified"
+  PHONE:
+    required_for: [WORKFLOW_POSSESSION]
+    never_proves_identity: true
+
+# What is never proof of a verified person, a legal entity or a representative, whatever else is claimed.
+never_identity_proof: [PHONE_OTP, SMS, EMAIL_CONFIRMATION, SSO, SELFIE_ALONE, DOMAIN_CONTROL]
+never_authorizes_critical_change: [PHONE_OTP, SMS]
+
+# Approved ways to be verified without a camera, a phone or a standard ID. An alternative never lowers what a tier means: until it is completed the person stays at
+# the tier they have, and it is a separate, named process (a person is involved), not a quieter version of the remote check.
+alternatives:
+  - id: ASSISTED_PROOFING
+    for: [NO_CAMERA, NO_PHONE]
+    effect: "A trained person checks the document in a scheduled session; completing it gives the same tier as the remote route."
+    status: PROCESS_REQUIRED
+  - id: EQUIVALENT_CREDENTIAL
+    for: [NO_CAMERA, NO_STANDARD_ID]
+    effect: "A government eID or verifiable credential accepted by an explicit trust-policy mapping (issuer, validity, revocation, binding, jurisdiction)."
+    status: PROCESS_REQUIRED
+
+# The states a check can be in. They are distinct and never collapsed into each other.
+states: [NOT_STARTED, PENDING, ACTION_REQUIRED, IN_REVIEW, APPROVED, DECLINED, UNAVAILABLE, EXPIRED, CANCELLED, REVOKED]
+
+# What every claim carries so a later trust decision can be explained.
+claim_fields: [method, source, policy, scope, issued_at, valid_until, revocation]

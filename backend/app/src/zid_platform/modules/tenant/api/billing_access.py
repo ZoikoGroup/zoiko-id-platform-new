@@ -59,7 +59,11 @@ async def check_permission(request: Request, caller: Caller, permission: str) ->
 
 
 def _error(e: BillingAccessError) -> ZidError:
-    status = {"BILLING_GRANT_NOT_FOUND": 404, "BILLING_DELEGATION_OWNER_ONLY": 403}.get(e.code, 422)
+    status = {
+        "BILLING_GRANT_NOT_FOUND": 404,
+        "BILLING_DELEGATION_OWNER_ONLY": 403,
+        "BILLING_GRANT_EXISTS": 409,
+    }.get(e.code, 422)
     return ZidError(e.code, e.detail, http_status=status)
 
 

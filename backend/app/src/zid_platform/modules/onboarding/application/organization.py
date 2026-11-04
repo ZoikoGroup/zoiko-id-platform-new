@@ -287,6 +287,96 @@ async def _seed_and_advance(
     return OrganizationResult(tenant.status.value, (gate,), root, grant_id)
 
 
+async def establish_from_verified_claim(
+    conn: AsyncConnection,
+    tenant_id: str,
+    claim_id: str,
+    *,
+    adapters: Mapping[str, Any],
+    catalog: Mapping[str, Mapping[str, Any]],
+    now: datetime | None = None,
+) -> OrganizationResult:
+    """ZID-UX-WF-013B to 13C: the organization exists only once its claim is VERIFIED, which is only when all four checks (the entity, the applicant's
+    identity, the authority and the screening) are complete, each by its own service. Then, and only then, the claimant's pending OWNER becomes active,
+    the workspace takes the register's legal name (never the name the applicant typed) and the organization moves on to setup. Idempotent: a workspace that
+    already has its organization is answered as it stands. Nothing here reads a registry match or a declaration as the claim being verified."""
+    from zid_platform.modules.onboarding.application import claims
+    from zid_platform.modules.organization.ports import establish_claim_root, kyb_get_case
+
+    now = now or datetime.now(UTC)
+    tenant = await load_tenant(conn, tenant_id, lock=True)
+    if tenant is None:
+        raise OnboardingError("TENANT_NOT_FOUND")
+    if tenant.organization_id:
+        return OrganizationResult(
+            tenant.status.value, (_gate(GateStatus.PASS, detail="established"),), None, None
+        )
+    seen = await claims.status(conn, tenant_id, claim_id, now)
+    if seen["outcome"] != "VERIFIED":
+        raise OnboardingError(
+            "CLAIM_NOT_VERIFIED", "The claim is not verified: every check must be complete first."
+        )
+    case = await kyb_get_case(conn, tenant_id, claim_id, now=now)
+    pending = [
+        a
+        for a in await live_roles(conn, case.requested_by)
+        if a.role is Role.OWNER and a.status is RoleStatus.PENDING_VERIFICATION
+    ]
+    if not pending:
+        raise OnboardingError(
+            "TENANT_OWNER_UNAUTHORIZED",
+            "Only the claimant's pending OWNER role is activated by a verified claim.",
+        )
+    facts = None
+    for adapter in adapters.values():
+        countries = adapter.capabilities.countries
+        if case.jurisdiction not in countries and "*" not in countries:
+            continue
+        try:
+            facts = await adapter.get(case.registration_number, case.jurisdiction, now)
+        except Exception:  # noqa: BLE001 - an unreadable source is "not now", never a pass
+            facts = None
+        if facts is not None and facts.active:
+            break
+        facts = None
+    if facts is None:
+        raise OnboardingError(
+            "SOURCE_UNAVAILABLE",
+            "The official source could not be read just now. Nothing was changed; try again.",
+        )
+    if tenant.status is TenantStatus.DRAFT:
+        await transition(
+            conn,
+            tenant_id,
+            Move.ADVANCE,
+            reason_code="ORGANIZATION_SUBMITTED",
+            actor=case.requested_by,
+            now=now,
+        )
+    root = await establish_claim_root(
+        conn,
+        tenant_id,
+        holder_principal_id=case.requested_by,
+        legal_name=facts.legal_name,
+        jurisdiction=facts.jurisdiction,
+        source_id=facts.adapter_id,
+        namespace=facts.registry_authority,
+        identifier=facts.registration_number,
+        source_revision=facts.response_hash,
+        now=now,
+    )
+    await set_fields(conn, tenant_id, display_name=facts.legal_name)
+    return await _seed_and_advance(
+        conn,
+        tenant_id,
+        principal_id=case.requested_by,
+        root=root,
+        catalog=catalog,
+        detail=f"claim:{claim_id}",
+        now=now,
+    )
+
+
 async def development_verification(
     conn: AsyncConnection,
     tenant_id: str,

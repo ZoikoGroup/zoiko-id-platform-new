@@ -90,6 +90,30 @@ function Detail({ invoice: i, onClose }: { invoice: Invoice; onClose: () => void
           ))}
         </tbody>
       </table>
+      {i.credit_notes?.length ? (
+        <div className="mt-4">
+          <h3 className="mb-1 text-sm font-medium text-ink">Credit notes against this invoice</h3>
+          <table className="w-full text-sm">
+            <caption className="sr-only">Credit notes</caption>
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase text-ink-subtle">
+                <th scope="col" className="py-2">Credit note</th>
+                <th scope="col" className="py-2">Reason</th>
+                <th scope="col" className="py-2 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {i.credit_notes.map((c) => (
+                <tr key={c.number} className="border-b border-border last:border-0">
+                  <th scope="row" className="py-2 text-left font-mono text-xs font-normal">{c.number}</th>
+                  <td className="py-2">{c.reason_code.replace(/_/g, " ").toLowerCase()} · {new Date(c.issued_at).toLocaleDateString("en-GB")}</td>
+                  <td className="tabular py-2 text-right">{money(c.amount, i.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       <p className="mt-4 text-sm">
         <a className="font-medium text-brand-700 underline" href={`/api/bff/v1/invoices/${i.invoice_id}/document`} download>
           Download the invoice document

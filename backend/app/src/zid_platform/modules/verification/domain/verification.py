@@ -48,6 +48,7 @@ class SessionStatus(StrEnum):
     CREATED = "CREATED"
     IN_PROGRESS = "IN_PROGRESS"
     PENDING_EXTERNAL = "PENDING_EXTERNAL"
+    RESUBMISSION_REQUIRED = "RESUBMISSION_REQUIRED"  # the provider needs the person to send the evidence again; not a decision
     MANUAL_REVIEW = "MANUAL_REVIEW"
     VERIFIED = "VERIFIED"
     FAILED = "FAILED"
@@ -66,6 +67,7 @@ _NEXT = {
     },
     SessionStatus.IN_PROGRESS: {
         SessionStatus.PENDING_EXTERNAL,
+        SessionStatus.RESUBMISSION_REQUIRED,
         SessionStatus.MANUAL_REVIEW,
         SessionStatus.VERIFIED,
         SessionStatus.FAILED,
@@ -74,6 +76,16 @@ _NEXT = {
     },
     SessionStatus.PENDING_EXTERNAL: {
         SessionStatus.IN_PROGRESS,
+        SessionStatus.RESUBMISSION_REQUIRED,
+        SessionStatus.MANUAL_REVIEW,
+        SessionStatus.VERIFIED,
+        SessionStatus.FAILED,
+        SessionStatus.CANCELED,
+        SessionStatus.EXPIRED,
+    },
+    SessionStatus.RESUBMISSION_REQUIRED: {  # the person resubmits (the provider's next event), or gives up, or time runs out
+        SessionStatus.IN_PROGRESS,
+        SessionStatus.PENDING_EXTERNAL,
         SessionStatus.MANUAL_REVIEW,
         SessionStatus.VERIFIED,
         SessionStatus.FAILED,
@@ -200,7 +212,7 @@ class ProviderResult:
 
 @dataclass(frozen=True, slots=True)
 class Decision:
-    status: SessionStatus  # VERIFIED | FAILED | MANUAL_REVIEW | PENDING_EXTERNAL
+    status: SessionStatus  # VERIFIED | FAILED | MANUAL_REVIEW | PENDING_EXTERNAL | RESUBMISSION_REQUIRED
     outcome: str  # §23 code
     verified_claims: tuple[ClaimResult, ...] = ()
     reasons: tuple[str, ...] = field(default_factory=tuple)
@@ -217,6 +229,14 @@ def source_conflicts(profile: Profile, result: ProviderResult) -> tuple[str, ...
 
 def decide(profile: Profile, result: ProviderResult, *, jurisdiction: str) -> Decision:
     if result.status == "PENDING":
+        if (
+            "RESUBMISSION_REQUIRED" in result.reason_codes
+        ):  # the provider asked for the evidence again: say so, never approve or fail on it
+            return Decision(
+                SessionStatus.RESUBMISSION_REQUIRED,
+                "RESUBMISSION_REQUIRED",
+                reasons=("RESUBMISSION_REQUIRED",),
+            )
         return Decision(SessionStatus.PENDING_EXTERNAL, "PENDING_EXTERNAL")
     if result.status != "COMPLETED":
         return Decision(SessionStatus.FAILED, "EVIDENCE_INVALID", reasons=result.reason_codes)

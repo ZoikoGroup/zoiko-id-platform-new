@@ -16,3 +16,5 @@ A checklist for the owners. It approves nothing, and every reference below is bl
 | 10 | Governed recovery for a person with no passkey, and the support escalation path the record asks for | A people and process decision | |
 | 11 | Session timeout baselines for privileged workforce contexts (the record proposes 12 hours overall and 30 minutes idle, pending security sign-off) | Security sign-off | |
 | 12 | Q10 to Q12: independent approver eligibility, thresholds and solo-tenant exceptions, which S2 combines with | Separate decisions | |
+| 13 | The route to action list in `backend/config/step-up/route-actions.yaml` (about 35 routes) is engineering's reading of the table; confirm or change each, in particular which sign-in settings area is a trust policy (`PUT /v1/settings/authentication` only), and session bulk revoke at S1 | The record names actions, not routes | |
+| 14 | Switch the platform from shadow to enforce (`ZID_STEP_UP_ENFORCEMENT`) once the owners have read the shadow log; the web client already proves and retries, the operator console does not | Changes what every admin must do | |

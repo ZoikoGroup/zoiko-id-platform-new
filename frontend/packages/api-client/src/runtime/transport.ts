@@ -1,6 +1,6 @@
 /** Minimal JSON transport over fetch. Every non-2xx becomes a thrown ApiError so query/mutation
  * libraries see real failures; nothing is retried here (mutations must never be replayed blindly). */
-import { ApiError } from "./errors";
+import { ApiError, routeStepUp, type RouteStepUp } from "./errors";
 
 export type RequestOptions = {
   query?: Record<string, string | number | boolean | undefined | null>;
@@ -23,6 +23,9 @@ export type TransportConfig = {
   /** CSRF token for state-changing calls through the BFF. */
   csrf?: () => string | undefined;
   fetchImpl?: typeof fetch;
+  /** Called once when the cell's central step-up guard refuses a request and names the change to prove. Resolves the proof to send with the same
+   * request, or undefined to give up (the original refusal is then thrown). Never called for any other refusal. */
+  onRouteStepUp?: (need: RouteStepUp) => Promise<string | undefined>;
 };
 
 export function newCorrelationId(): string {
@@ -50,14 +53,24 @@ export function createTransport(config: TransportConfig): Transport {
         const csrf = config.csrf?.();
         if (csrf) headers["x-zid-csrf"] = csrf;
       }
-      const res = await doFetch(url, {
-        method,
-        headers,
-        body: opts.raw ? opts.raw.data : opts.body === undefined ? undefined : JSON.stringify(opts.body),
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: opts.signal,
-      });
+      const body = opts.raw ? opts.raw.data : opts.body === undefined ? undefined : JSON.stringify(opts.body);
+      const send = (extra?: Record<string, string>) =>
+        doFetch(url, {
+          method,
+          headers: extra ? { ...headers, ...extra } : headers,
+          body, // the same bytes on a retry: the proof is bound to a digest of them
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: opts.signal,
+        });
+      let res = await send();
+      if (!res.ok) {
+        const refusal = await ApiError.from(res);
+        const need = headers["x-step-up-proof"] === undefined ? routeStepUp(refusal) : null;
+        const proof = need && config.onRouteStepUp ? await config.onRouteStepUp(need) : undefined;
+        if (!proof) throw refusal;
+        res = await send({ "x-step-up-proof": proof }); // one retry, with the proof made for exactly this request
+      }
       if (!res.ok) throw await ApiError.from(res);
       if (res.status === 204) return undefined as T;
       const text = await res.text();

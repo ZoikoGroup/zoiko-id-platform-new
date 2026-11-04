@@ -119,8 +119,8 @@ export function SignIn({
       </Card>
 
       <div className="flex flex-col items-center gap-1">
-        <ButtonLink href="/register" variant="ghost" size="sm" icon={<Building2 aria-hidden className="size-4" />}>
-          New company? Register your workspace
+        <ButtonLink href="/sign-up" variant="ghost" size="sm" icon={<Building2 aria-hidden className="size-4" />}>
+          New here? Create your account
         </ButtonLink>
         <ButtonLink href="/recover" variant="ghost" size="sm" icon={<LifeBuoy aria-hidden className="size-4" />}>
           Lost your passkey? Recover your account

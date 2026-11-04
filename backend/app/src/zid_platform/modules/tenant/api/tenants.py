@@ -93,6 +93,7 @@ def tenant_view(t: Tenant) -> dict[str, Any]:
         "deployment_mode": t.deployment_mode,
         "home_cell_id": t.home_cell_id,
         "organization_id": t.organization_id,
+        "signup_journey": t.signup_journey,
         "security_profile_id": t.security_profile_id,
         "configuration_revision": t.configuration_revision,
         "security_revision": t.security_revision,

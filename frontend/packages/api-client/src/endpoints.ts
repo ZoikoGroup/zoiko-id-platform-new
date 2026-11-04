@@ -235,6 +235,8 @@ export function createCellApi(t: Transport) {
       get: (id: string) => get<M.VerificationSession>(`/verifications/${seg(id)}`),
       cancel: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:cancel`),
       reverify: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:reverify`),
+      /** Where the caller is on the risk tiers R0 to R3 and what the next one needs. `cannot` (NO_CAMERA, NO_PHONE, NO_STANDARD_ID) shows the approved alternatives. */
+      tier: (cannot: string[] = []) => get<M.VerificationTier>(`/v1/verification/tier${cannot.length ? `?${cannot.map((c) => `cannot=${encodeURIComponent(c)}`).join("&")}` : ""}`),
       assertions: (principalId: string) => get<M.Items<M.VerificationAssertion>>(`/principals/${seg(principalId)}/verification-assertions`),
       assurance: (principalId: string) => get<M.Assurance>(`/principals/${seg(principalId)}/assurance`),
       revokeAssertion: (id: string) => post<{ assertion_id: string; status: "REVOKED" }>(`/verification-assertions/${seg(id)}:revoke`),
@@ -350,6 +352,10 @@ export function createCellApi(t: Transport) {
     tenant: {
       me: () => get<M.TenantView>("/v1/tenant"),
       members: () => get<M.Items<M.TenantMember>>("/v1/tenant/members"),
+      /** The published permission matrices: a catalogue for navigation, never an enforcement control. The server decides every request. */
+      roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
+      /** What the caller's live roles could do if every other condition held. */
+      myPermissions: () => get<M.MyPermissions>("/v1/tenant/me/permissions"),
       invite: (role: M.InvitableRole) => post<M.Invitation>("/v1/tenant/members", { role }),
       reissue: (assignmentId: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:reissue`),
       revoke: (assignmentId: string) => post<M.TenantRole>(`/v1/tenant/members/${seg(assignmentId)}:revoke`),
@@ -411,6 +417,8 @@ export function createCellApi(t: Transport) {
       screening: (id: string, body: M.OrgClaimScreening) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/screening`, body),
       /** Say the claim is complete and ready for review. Accepted, not decided (202); once, and a repeat changes nothing. */
       submit: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/submit`),
+      /** Only a VERIFIED claim (all four checks complete) creates the organization; the server refuses anything else. */
+      establish: (id: string) => post<M.OrgClaimEstablished>(`/v1/org-claims/${seg(id)}/establish`),
       /** Withdraw a claim that is not verified. Nothing is deleted; the applicant may start a new claim. */
       withdraw: (id: string) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/withdraw`),
       /** Declare again while the case is waiting for details; the earlier declaration stays. */
@@ -637,9 +645,10 @@ export function createCellApi(t: Transport) {
         post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:${decision}`, { snapshot_hash: snapshotHash, reason: reason?.trim() || null }, withProof(proof)),
       cancelCommitment: (id: string) => post<M.CommitmentRequest>(`/v1/billing/commitment-requests/${seg(id)}:cancel`),
       delegates: () => get<M.Items<M.CommitmentDelegate>>("/v1/billing/commitment-delegates"),
-      giveDelegate: (body: { principal_id: string; kind: M.CommitmentDelegateKind; cap_usd: string; effective_to?: string | null }) =>
-        post<{ delegate_id: string }>("/v1/billing/commitment-delegates", body),
-      revokeDelegate: (id: string) => post<{ delegate_id: string; revoked: boolean }>(`/v1/billing/commitment-delegates/${seg(id)}:revoke`),
+      giveDelegate: (body: { principal_id: string; kind: M.CommitmentDelegateKind; cap_usd: string; effective_to?: string | null }, proof?: string) =>
+        post<{ delegate_id: string }>("/v1/billing/commitment-delegates", body, withProof(proof)),
+      revokeDelegate: (id: string, proof?: string) =>
+        post<{ delegate_id: string; revoked: boolean }>(`/v1/billing/commitment-delegates/${seg(id)}:revoke`, undefined, withProof(proof)),
     },
 
     settings: {
@@ -698,6 +707,13 @@ export function createOperatorApi(t: Transport) {
   const get = <T>(path: string, query?: Record<string, string | number | undefined>) => t.request<T>("GET", path, { query });
   const post = <T>(path: string, body?: unknown) => t.request<T>("POST", path, { body: body ?? {} });
   return {
+    /** Action-bound step-up proofs (ZID-ENG-DEC-009), the same calls the customer console makes: the console proves exactly what the cell asks for. */
+    stepUp: {
+      challenge: (draft: M.StepUpDraft) =>
+        post<M.StepUpChallenge>("/v1/step-up/challenges", { action: draft.action, resource: draft.resource, change: draft.change ?? {}, critical: draft.critical ?? false }),
+      verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
+      cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
+    },
     capabilities: () => get<M.OperatorCapabilities>("/operator/capabilities"),
     requests: (view: "mine" | "pending" | "all" = "mine", state?: string) =>
       get<M.Items<M.JitGrant>>("/operator/access-requests", { view, state }),
@@ -756,6 +772,41 @@ export function createOperatorApi(t: Transport) {
       reviewCommitment: (tenantId: string, requestId: string) =>
         post<M.CommitmentRequest>(`/v1/commercial/finance/commitments/${seg(tenantId)}/${seg(requestId)}:review`),
       eligibility: (tenantId: string) => get<M.Eligibility>(`/v1/commercial/finance/eligibility/${seg(tenantId)}`),
+    },
+
+    /** Refunds, disputes and reconciliation (ZID-UX-COM-009 F03, F04; CR-058). No request here sends a refund: the worker does. */
+    payments: {
+      refunds: (state?: string) => get<M.Items<M.RefundCase>>("/v1/commercial/payments/refunds", { state }),
+      refund: (id: string) => get<M.RefundCase>(`/v1/commercial/payments/refunds/${seg(id)}`),
+      openRefund: (body: M.RefundOpenIn) => post<M.RefundCase>("/v1/commercial/payments/refunds", body),
+      decideRefund: (id: string, body: { role: string; decision: "APPROVE" | "REJECT"; snapshot_hash: string; reason?: string | null }) =>
+        post<M.RefundCase>(`/v1/commercial/payments/refunds/${seg(id)}:decide`, body),
+      executeRefund: (id: string) => post<M.RefundCase>(`/v1/commercial/payments/refunds/${seg(id)}:execute`),
+      cancelRefund: (id: string) => post<M.RefundCase>(`/v1/commercial/payments/refunds/${seg(id)}:cancel`),
+      disputes: (openOnly?: boolean) => get<M.Items<M.DisputeCase>>("/v1/commercial/payments/disputes", { open_only: openOnly ? "true" : undefined }),
+      dispute: (id: string) => get<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}`),
+      assignDispute: (id: string, owner: string) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:assign`, { owner }),
+      addEvidence: (id: string, body: { item: M.DisputeEvidenceItem; ref: string }) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:evidence`, body),
+      decideDispute: (id: string, body: { strategy: "ACCEPT" | "CONTEST"; reason: string }) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:decide`, body),
+      recordSubmission: (id: string, reference: string) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:record-submission`, { reference }),
+      verifySubmission: (id: string) => post<M.DisputeCase>(`/v1/commercial/payments/disputes/${seg(id)}:verify-submission`),
+      board: (entity: string, period: string) => get<M.ReconBoard>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}`),
+      importLegs: (entity: string, legs: Record<string, unknown>[]) => post<{ added: number; skipped: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-legs`, { legs }),
+      importBankStatement: (entity: string, content: string) =>
+        post<{ added: number; skipped: number; unreadable_entries: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-bank-statement`, { format: "camt053", content }),
+      importStripePayouts: (entity: string, payoutIds: string[]) =>
+        post<{ added: number; skipped: number; unreadable_transactions: number }>(`/v1/commercial/payments/reconciliation/${seg(entity)}:import-stripe-payouts`, { payout_ids: payoutIds }),
+      exceptions: (entity: string, period: string) => get<M.Items<M.ReconException>>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}/exceptions`),
+      resolveException: (id: string, resolution: string) =>
+        post<{ exception_id: string; resolved: boolean }>(`/v1/commercial/payments/reconciliation/exceptions/${seg(id)}:resolve`, { resolution }),
+      prepareClose: (entity: string, period: string) => post<M.ReconBoard>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}:prepare-close`),
+      signClose: (entity: string, period: string, body: { role: string; snapshot_hash: string }) =>
+        post<M.ReconBoard>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}:sign-close`, body),
+      requestReopen: (entity: string, period: string, body: { reason: string; impact: string }) =>
+        post<{ state: string }>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}:request-reopen`, body),
+      approveReopen: (entity: string, period: string, role: string) =>
+        post<{ state: string }>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}:approve-reopen`, { role }),
+      evidencePack: (entity: string, period: string) => get<Record<string, unknown>>(`/v1/commercial/payments/reconciliation/${seg(entity)}/${seg(period)}/evidence-pack`),
     },
 
     /** Cells and governed recovery operations (RESILIENCE-001 sections 15-20, 25-30). */

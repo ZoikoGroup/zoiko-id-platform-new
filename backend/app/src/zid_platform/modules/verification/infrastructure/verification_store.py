@@ -478,7 +478,8 @@ async def assertions_for(conn: AsyncConnection, principal_id: str) -> list[dict[
             text(
                 "SELECT a.assertion_id, a.claim_type, a.verification_method, a.evidence_types, "
                 "a.assurance_level, a.status, a.performed_at, a.valid_until, a.jurisdiction, "
-                "a.reason_codes, a.claim_value_commitment, p.requirements_json -> 'reliance_purposes' AS purposes "
+                "a.reason_codes, a.claim_value_commitment, a.provider_id, a.revoked_at, p.profile_name, p.profile_version, "
+                "p.requirements_json -> 'reliance_purposes' AS purposes "
                 "FROM verify.verification_assertion a JOIN verify.assurance_profile p "
                 "USING (assurance_profile_id) WHERE a.subject_principal_id = :s "
                 "ORDER BY a.performed_at DESC"

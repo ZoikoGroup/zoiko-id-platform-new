@@ -874,15 +874,6 @@ export interface components {
             /** Note */
             note: string;
         };
-        /** EvidenceBody */
-        EvidenceBody: {
-            /** Artifacts */
-            artifacts: ("DECISION_RECEIPTS" | "AUDIT_RECORDS" | "LOGS" | "FORENSIC_IMAGE" | "CUSTODY_RECORD")[];
-            /** Custody Ref */
-            custody_ref: string;
-            /** Note */
-            note: string;
-        };
         /** ExerciseBody */
         ExerciseBody: {
             /**
@@ -1050,6 +1041,15 @@ export interface components {
         zid_platform__modules__operations__api__ops__CloseBody: {
             /** Pir Ref */
             pir_ref?: string | null;
+        };
+        /** EvidenceBody */
+        zid_platform__modules__operations__api__ops__EvidenceBody: {
+            /** Artifacts */
+            artifacts: ("DECISION_RECEIPTS" | "AUDIT_RECORDS" | "LOGS" | "FORENSIC_IMAGE" | "CUSTODY_RECORD")[];
+            /** Custody Ref */
+            custody_ref: string;
+            /** Note */
+            note: string;
         };
         /** ResolveBody */
         zid_platform__modules__operations__api__ops__ResolveBody: {
@@ -1795,7 +1795,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EvidenceBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operations__api__ops__EvidenceBody"];
             };
         };
         responses: {

@@ -35,11 +35,13 @@ import {
 import { useRuntime } from "@/lib/runtime";
 
 import { DevProvider, DevSetup } from "./dev-provider";
+import { VerificationTierCard } from "./verification-tier-card";
 
 const PENDING: ReadonlySet<string> = new Set([
   "CREATED",
   "IN_PROGRESS",
   "PENDING_EXTERNAL",
+  "RESUBMISSION_REQUIRED",
   "MANUAL_REVIEW",
 ]);
 const POLL_MS = 4000;
@@ -81,6 +83,8 @@ const STATUS_COPY: Record<string, string> = {
   IN_PROGRESS: "The verification provider is checking your evidence.",
   PENDING_EXTERNAL:
     "Waiting for the verification provider. Complete any steps the provider sent you; this page updates on its own.",
+  RESUBMISSION_REQUIRED:
+    "The verification provider needs you to send your evidence again. Open the provider's link from your email or this page and repeat the step it asks for.",
   MANUAL_REVIEW:
     "A reviewer is looking at your check. This can take a while; you can leave this page.",
   VERIFIED:
@@ -267,6 +271,10 @@ export function VerificationPage() {
         title="Identity verification"
         description="How strongly your identity has been verified, and the checks behind it. Only levels and dates are shown here, never your documents or provider data."
       />
+
+      <div className="mb-5">
+        <VerificationTierCard />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card

@@ -12,6 +12,8 @@ switch it on. A proof arrives in the `X-Step-Up-Proof` header, never in a body t
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -27,6 +29,7 @@ from zid_platform.modules.authentication.application.webauthn import WebAuthnSet
 from zid_platform.modules.authentication.domain.authenticator import AuthnError
 from zid_platform.modules.authentication.domain.step_up import StepUpError, Tier, classify
 from zid_platform.modules.authentication.infrastructure.step_up_config import step_up_catalogue
+from zid_platform.modules.authentication.infrastructure.step_up_routes import route_actions
 
 router = APIRouter(tags=["step-up"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -210,6 +213,7 @@ async def require_step_up(
     change: dict[str, Any],
     critical: bool = False,
     force_enforce: bool = False,
+    bind_route: bool = False,
 ) -> dict[str, Any] | None:
     """Call inside the transaction that executes the command. S0 needs nothing. Otherwise the proof in `X-Step-Up-Proof` must be fresh,
     bound to exactly this command and (for S2) unused; it is spent in this transaction. In `shadow` a missing or bad proof is logged and
@@ -273,5 +277,43 @@ async def require_step_up(
             ErrorDetail(field="tier", issue=cls.tier.value),
             ErrorDetail(field="action", issue=action),
             ErrorDetail(field="reason", issue=failure.code),
+            *(
+                [  # a client that cannot know the change names it back: the central route guard binds the proof to the request itself
+                    ErrorDetail(field="binding", issue="route"),
+                    ErrorDetail(field="resource", issue=resource),
+                    ErrorDetail(
+                        field="change",
+                        issue=json.dumps(change, sort_keys=True, separators=(",", ":")),
+                    ),
+                ]
+                if bind_route
+                else []
+            ),
         ],
     )
+
+
+async def route_step_up_guard(request: Request, caller: Caller) -> None:
+    """The central step-up check (slice L-9): a route that `config/step-up/route-actions.yaml` names needs the proof of its action, bound to the
+    route, its path parameters and the exact bytes of its body. A route that is not listed, or that guards itself, is not judged here. The proof is
+    spent in its own short transaction; enforcement follows the platform switch exactly as for an inline guard."""
+    if _enforcement(request) == "off":
+        return
+    route = request.scope.get("route")
+    path_format = getattr(route, "path_format", request.url.path)
+    rule = route_actions().classify(request.method, path_format)
+    if rule is None:
+        return
+    tenant = caller.ctx.tenant_id or ""
+    body = await request.body()
+    change = {
+        "operation": rule.action,
+        "route": f"{request.method} {path_format}",
+        "params": {k: str(v) for k, v in sorted(request.path_params.items())},
+        "body_sha256": hashlib.sha256(body).hexdigest(),
+    }
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await require_step_up(
+            request, conn, caller, action=rule.action, resource=f"tenant:{tenant}" if tenant else "platform",
+            change=change, critical=rule.critical, bind_route=True,
+        )  # fmt: skip

@@ -9,14 +9,18 @@ import {
   createTransport,
   type OperatorApi,
   type FlowApi,
+  type RouteStepUp,
+  type StepUpChallenge,
+  type StepUpDraft,
 } from "@zoiko/api-client";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, ErrorState, ToastProvider } from "@zoiko/ui";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { RouterProvider } from "react-aria-components";
 
+import { TIER_COPY, StepUpCancelled, clock, isActionBound, refusalText, secondsLeft, whyRequired } from "./step-up";
 import { completeAppSession, getPasskey, passkeyErrorMessage } from "./webauthn";
 
 export type Subject = { sub: string; tenantId?: string; acr?: string; authTime?: number };
@@ -28,6 +32,8 @@ type Runtime = {
   clientId: string;
   session: SessionInfo | undefined;
   refreshSession: () => Promise<void>;
+  /** Asks the cell whether this command needs its own confirmation; if so shows exactly what will happen, checks the passkey and resolves the proof. */
+  proveAction: (draft: StepUpDraft) => Promise<string | undefined>;
   /** Runs a cell call; on STEP_UP_REQUIRED asks for a passkey, refreshes tokens and retries once. */
   protect: <T>(run: () => Promise<T>) => Promise<T>;
   signOut: () => Promise<void>;
@@ -100,7 +106,19 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
   const csrfRef = useRef<string | undefined>(undefined);
   csrfRef.current = sessionQuery.data?.authenticated ? sessionQuery.data.csrf : undefined;
 
-  const api = useMemo(() => createOperatorApi(createTransport({ baseUrl: "/api/bff", csrf: () => csrfRef.current })), []);
+  // The cell's central step-up guard names the change to prove; the proof is made here and the same request is retried once (ZID-ENG-DEC-009).
+  const routeProver = useRef<((need: RouteStepUp) => Promise<string | undefined>) | null>(null);
+  const api = useMemo(
+    () =>
+      createOperatorApi(
+        createTransport({
+          baseUrl: "/api/bff",
+          csrf: () => csrfRef.current,
+          onRouteStepUp: (need) => routeProver.current?.(need) ?? Promise.resolve(undefined),
+        }),
+      ),
+    [],
+  );
   const flow = useMemo(() => createFlowApi(createTransport({ baseUrl: "" }), clientId), [clientId]);
 
   const [stepUp, setStepUp] = useState<null | { resolve: (ok: boolean) => void; reason?: string }>(null);
@@ -117,7 +135,7 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
       try {
         return await run();
       } catch (e) {
-        if (!(e instanceof ApiError) || !e.isStepUpRequired) throw e;
+        if (!(e instanceof ApiError) || !e.isStepUpRequired || isActionBound(e)) throw e; // a command's own proof is not a fresh sign-in
         // Calls failing together (e.g. a page's queries) share one passkey prompt.
         pendingStepUp.current ??= new Promise<boolean>((resolve) => setStepUp({ resolve, reason: e.message })).finally(() => {
           pendingStepUp.current = null;
@@ -129,6 +147,56 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
     },
     [],
   );
+
+  type Pending = { challenge: Extract<StepUpChallenge, { required: true }>; resolve: (proof: string) => void; reject: (e: unknown) => void };
+  const [action, setAction] = useState<Pending | null>(null);
+  const [actionError, setActionError] = useState<unknown>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!action) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [action]);
+
+  const proveAction = useCallback(
+    async (draft: StepUpDraft): Promise<string | undefined> => {
+      const challenge = await api.stepUp.challenge(draft);
+      if (!challenge.required) return undefined;
+      return new Promise<string>((resolve, reject) => {
+        setActionError(null);
+        setAction({ challenge, resolve, reject });
+      });
+    },
+    [api],
+  );
+  routeProver.current = (need) => proveAction({ action: need.action, resource: need.resource, change: need.change });
+
+  function closeAction(reason?: unknown) {
+    if (action) {
+      void api.stepUp.cancel(action.challenge.challenge_id).catch(() => undefined); // best effort: it grants nothing either way
+      action.reject(reason ?? new StepUpCancelled());
+    }
+    setAction(null);
+    setActionError(null);
+  }
+
+  async function performAction() {
+    if (!action) return;
+    setActionPending(true);
+    setActionError(null);
+    try {
+      const credential = await getPasskey(action.challenge.public_key);
+      const proof = await api.stepUp.verify(action.challenge.challenge_id, credential);
+      action.resolve(proof.proof_id);
+      setAction(null);
+    } catch (e) {
+      setActionError(e instanceof ApiError ? new Error(refusalText(e.code)) : new Error(passkeyErrorMessage(e)));
+    } finally {
+      setActionPending(false);
+    }
+  }
 
   const signOut = useCallback(async () => {
     await fetch("/api/auth/logout", {
@@ -159,8 +227,8 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
   }
 
   const value = useMemo<Runtime>(
-    () => ({ api, flow, clientId, session: sessionQuery.data, refreshSession, protect, signOut }),
-    [api, flow, clientId, sessionQuery.data, refreshSession, protect, signOut],
+    () => ({ api, flow, clientId, session: sessionQuery.data, refreshSession, protect, proveAction, signOut }),
+    [api, flow, clientId, sessionQuery.data, refreshSession, protect, proveAction, signOut],
   );
 
   return (
@@ -200,6 +268,52 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
           <p>This action needs a fresh, high-assurance sign-in. Your entries on this page are kept.</p>
           {stepUpError ? <ErrorState error={stepUpError} title="Verification failed" /> : null}
         </div>
+      </Dialog>
+      <Dialog
+        isOpen={action !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionPending) closeAction();
+        }}
+        title={action ? TIER_COPY[action.challenge.tier].title : "Confirm"}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" isDisabled={actionPending} onPress={() => closeAction()}>
+              Cancel
+            </Button>
+            <Button
+              pending={actionPending}
+              isDisabled={action ? secondsLeft(action.challenge.expires_at, now) === 0 : true}
+              icon={<Fingerprint aria-hidden className="size-4" />}
+              onPress={() => void performAction()}
+            >
+              Use my passkey
+            </Button>
+          </>
+        }
+      >
+        {action ? (
+          <div className="space-y-3 text-sm">
+            <p className="text-ink-muted">{TIER_COPY[action.challenge.tier].body}</p>
+            <div className="rounded-md border border-line p-3">
+              <p className="flex items-center gap-2 font-medium">
+                <ShieldCheck aria-hidden className="size-4" />
+                What will happen
+              </p>
+              <p className="mt-1">{action.challenge.summary}</p>
+            </div>
+            <p role="timer" aria-live="off" className="text-xs text-ink-muted">
+              Time left to confirm: {clock(secondsLeft(action.challenge.expires_at, now))}
+            </p>
+            <details className="text-xs text-ink-muted">
+              <summary className="cursor-pointer">Why this is required</summary>
+              <p className="mt-1">{whyRequired(action.challenge.tier, action.challenge.why)}</p>
+            </details>
+            <div role="status" aria-live="polite">
+              {actionError ? <ErrorState error={actionError} title="Confirmation failed" /> : null}
+            </div>
+          </div>
+        ) : null}
       </Dialog>
     </RuntimeContext.Provider>
   );

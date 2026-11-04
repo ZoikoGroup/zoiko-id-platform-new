@@ -44,7 +44,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Login */
+        /**
+         * Login
+         * @description `reauth=true` makes the person authenticate again at the provider (OIDC `max_age=0`, SAML `ForceAuthn`) and refuses a cached answer.
+         */
         get: operations["login_federation_connections__connection_id__login_get"];
         put?: never;
         post?: never;
@@ -452,6 +455,7 @@ export interface operations {
             query: {
                 client_id: string;
                 return_to?: string | null;
+                reauth?: boolean;
             };
             header?: never;
             path: {
