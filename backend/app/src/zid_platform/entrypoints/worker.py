@@ -226,6 +226,24 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             country_gate=gate,
         )
 
+    async def claim_housekeeping(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: close the claims nobody submitted in time (abandoned), so no half-made claim watches people for ever."""
+        from zid_platform.modules.onboarding.application.claims import abandon_drafts
+
+        return await abandon_drafts(conn, now)
+
+    async def claim_outcomes(conn: AsyncConnection, now: datetime) -> object:
+        """WF-13B: follow every open claim and announce, once, whatever changed since the last pass (a ruling, a refresh, a lapse)."""
+        from zid_platform.modules.onboarding.application.claims import sync_outcomes
+
+        return await sync_outcomes(conn, now)
+
+    async def approval_reminders(conn: AsyncConnection, now: datetime) -> object:
+        """WF-013C: remind, once, about approval requests that are about to expire (an in-app alert)."""
+        from zid_platform.modules.tenant.application.reminders import remind_due
+
+        return await remind_due(conn, now)
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -242,6 +260,9 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_watch", register_watch),
         ("screening", screening),
         ("company_refresh", company_refresh),
+        ("claim_housekeeping", claim_housekeeping),
+        ("claim_outcomes", claim_outcomes),
+        ("approval_reminders", approval_reminders),
     ]
 
 
@@ -279,7 +300,9 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
 
     configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
-    register_privacy_stores()  # the retention sweep disposes through the owning modules
+    register_privacy_stores(
+        settings.registration_tenant_id
+    )  # the retention sweep and every erasure dispose through the owning modules
     engine = create_async_engine(database_url(settings), pool_size=2, max_overflow=0)
     interval = float(os.environ.get("ZID_WORKER_INTERVAL_S", "10"))
     try:

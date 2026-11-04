@@ -194,6 +194,19 @@ TEMPLATES: dict[str, Template] = {
         H, "A tenant migration failed", "/admin/residency", "Contact Zoiko iD support.", True
     ),
     # --- MEDIUM: drift, upcoming expiry, review queue
+    "governance.approval.reminder_due": _t(
+        M,
+        "An approval request is about to expire",
+        "/admin/approvals",
+        "Review it before it lapses; an expired request has to be asked for again.",
+        True,
+    ),
+    "governance.approval.expired": _t(
+        M,
+        "An approval request expired",
+        "/admin/approvals",
+        "Nothing was applied. Ask again if the change is still needed.",
+    ),
     "mandate.exhausted": _t(
         M,
         "A mandate budget is exhausted",

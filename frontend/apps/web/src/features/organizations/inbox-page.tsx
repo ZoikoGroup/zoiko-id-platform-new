@@ -21,6 +21,7 @@ import {
   tabLabel,
   type InboxFilters,
 } from "./logic";
+import { NewRequestDialog } from "./new-request";
 import { RequestCard } from "./parts";
 import { useOrgId } from "./shared";
 
@@ -32,6 +33,7 @@ export function InboxPage({ orgParam }: { orgParam: string }) {
   const [draft, setDraft] = useState<InboxFilters>(noFilters);
   const [filters, setFilters] = useState<InboxFilters>(noFilters);
   const [more, setMore] = useState<{ key: string; items: OrgApprovalSummary[]; cursor: string | null } | null>(null);
+  const [asking, setAsking] = useState(false);
   const key = `${scope}|${JSON.stringify(filters)}`;
 
   const first = useCellQuery(["org-approvals", orgId, key], (api) => api.org.approvals(orgId as string, inboxQuery(scope, filters)), {
@@ -95,7 +97,10 @@ export function InboxPage({ orgParam }: { orgParam: string }) {
         description="Sensitive and critical changes need independent people. A critical change needs two people other than the one who asked. Nothing changes until an approved request is applied."
         breadcrumbs={[{ label: "Company" }, { label: "Approvals" }]}
         actions={
-          <span className="flex flex-wrap gap-3 text-sm">
+          <span className="flex flex-wrap items-center gap-3 text-sm">
+            <Button className="min-h-11" onPress={() => setAsking(true)}>
+              New request
+            </Button>
             <Link className="inline-flex min-h-11 items-center text-brand-700 underline-offset-2 hover:underline" href={GOVERNANCE_HREF}>
               Governance and reviewers
             </Link>
@@ -137,6 +142,7 @@ export function InboxPage({ orgParam }: { orgParam: string }) {
           </div>
         </form>
       </Card>
+      <NewRequestDialog orgId={orgId} isOpen={asking} onOpenChange={setAsking} />
       <Tabs
         label="Approval requests"
         selectedTab={scope}

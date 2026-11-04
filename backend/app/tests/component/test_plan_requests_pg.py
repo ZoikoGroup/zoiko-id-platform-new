@@ -9,6 +9,7 @@ import pytest
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, onboard
+from test_role_matrix_pg import _seed_role
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.commercial.ports import PlanRequestError, operator_scope, plan_requests
@@ -69,11 +70,28 @@ def test_a_company_can_ask_for_a_plan_once_and_see_it(company) -> None:  # type:
     )
 
 
-def test_a_request_must_make_sense(company) -> None:  # type: ignore[no-untyped-def]
+def test_a_request_must_make_sense(rt_url: str, company) -> None:  # type: ignore[no-untyped-def]
     o, api = company
     h = o.bearer(
         o.second
     )  # the other administrator; nothing is open for them to collide with the owner's
+    # an administrator has no billing access by being one (CL-02): the Owner gives it before they can ask for a plan
+    _seed_role(rt_url, o.tenant, o.second, "ADMIN", create=False)
+    denied = api.post("/v1/billing/plan-requests", json={"plan": "SCALE"}, headers=h)
+    assert (
+        denied.status_code == 403
+        and denied.json()["error"]["code"] == "BILLING_PERMISSION_REQUIRED"
+    )
+    given = api.post(
+        "/v1/tenant/billing-grants",
+        json={
+            "grantee_principal_id": o.second,
+            "bundle": "BILLING_ADMIN",
+            "reason": "plan changes",
+        },
+        headers=o.bearer(o.owner),
+    )
+    assert given.status_code == 201, given.text
     # the plan the company is already on, and a plan that is not offered
     cur = api.get(f"/v1/tenants/{o.tenant}/entitlements", headers=h).json()["plan"]
     same = api.post("/v1/billing/plan-requests", json={"plan": cur}, headers=h)

@@ -16,10 +16,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
+from zid_platform.modules.commercial.application import commitment_service as commitments
 from zid_platform.modules.commercial.application import events, vendor_service
+from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import orders as rules
 from zid_platform.modules.commercial.infrastructure import catalogue_store
+from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
 
 QUOTE_VALIDITY = timedelta(days=30)
 CONNECTION_SKUS = {"ZID-FED": "saml_sso", "ZID-SCIM": "scim"}
@@ -97,7 +100,9 @@ async def holds_role(conn: AsyncConnection, principal: str, role: str) -> bool:
         (
             await conn.execute(
                 text(
-                    "SELECT 1 FROM commercial.commercial_role_holder WHERE principal_id = :p AND role = :r"
+                    "SELECT 1 FROM commercial.commercial_role_holder WHERE principal_id = :p AND role = :r "
+                    "AND revoked_at IS NULL AND effective_from <= now() "
+                    "AND (effective_to IS NULL OR effective_to > now())"
                 ),
                 {"p": uuid.UUID(principal), "r": role},
             )
@@ -310,10 +315,14 @@ async def approve_quote(
     approver: str,
     now: datetime | None = None,
     direct: bool = False,
+    policy_lock: bool = False,
 ) -> dict[str, Any]:
     """Record one role's approval of this exact quote digest; the quote becomes APPROVED when every required
     role is held by a different person, none of them its author. Direct mode (one operator runs the platform)
-    approves every required role at once as the direct approver; a hard pricing reason still blocks the quote."""
+    approves every required role at once as the direct approver; a hard pricing reason still blocks the quote.
+    With `policy_lock` (a deployed environment) the discount bands have authority only while the Founder and the
+    CFO have signed the finance policy (ZID-COM-CL-004, slice L-14b); direct mode, whose one operator cannot give two
+    signatures, is its own explicitly acknowledged stand-in and is not locked."""
     now = now or datetime.now(UTC)
     q = (
         (
@@ -333,6 +342,11 @@ async def approve_quote(
         raise rules.OrderError("QUOTE_EXPIRED")
     if role not in q["approvers_required"]:
         raise rules.OrderError("APPROVAL_ROLE_NOT_REQUIRED")
+    if policy_lock and not direct and not (await finance.policy_state(conn))["effective"]:
+        raise rules.OrderError(
+            "POLICY_NOT_SIGNED",
+            "the finance policy is not signed by the Founder and the CFO, so the discount bands have no authority",
+        )
     if not direct:
         if str(q["created_by"]) == approver:
             raise rules.OrderError(
@@ -503,6 +517,24 @@ async def activate(
     if not direct and str(o["created_by"]) == actor:
         raise rules.OrderError("ORDER_SELF_ACTIVATION", "a second person activates the order")
     tenant = str(o["tenant_id"])
+    mode = finance_policy().commitment.enforcement
+    if (
+        mode != "OFF"
+    ):  # the customer's own authority approved this obligation (ZID-COM-CL-004 section 04), or the owners' switch says what happens
+        problem = await commitments.activation_problem(
+            conn, order_id=order_id, tenant_id=tenant, now=now
+        )
+        if problem is not None:
+            if mode == "ENFORCED":
+                raise rules.OrderError("COMMITMENT_REQUIRED", problem)
+            await log_change(
+                conn,
+                kind="COMMITMENT_UNAPPROVED_ACTIVATION",
+                ref=order_id,
+                tenant_id=tenant,
+                actor=actor,
+                reason=problem,
+            )
     lines = (
         await conn.execute(
             text("SELECT sku_id, quantity FROM commercial.sales_order_line WHERE order_id = :o"),

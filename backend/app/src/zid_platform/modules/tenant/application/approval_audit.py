@@ -4,6 +4,7 @@ apart from the module that emits events: the event-catalogue guard reads every d
 REFUSED = "governance.approval.refused"
 VOTE_DENIED = "governance.approval.vote_denied"
 EXECUTION_REFUSED = "governance.approval.execution_refused"
+READINESS_REPORT = "governance.approval.readiness_report"
 CONTAINMENT_REFUSED = "governance.containment.refused"
 AUTHORIZATION_CONSUMED = "governance.authorization.consumed"
 AUTHORIZATION_REFUSED = "governance.authorization.refused"

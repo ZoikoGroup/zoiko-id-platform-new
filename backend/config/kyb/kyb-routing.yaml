@@ -20,6 +20,7 @@ version: 0.1.0
 policy:
   validity_days: 365
   refresh_lead_days: 30
+  draft_days: 30                      # a claim nobody submits within this long is closed as abandoned (engineering proposal; the owners decide)
   name_threshold: 0.85
 
 adapters:

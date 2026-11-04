@@ -138,3 +138,19 @@ def test_nothing_about_payment_or_plans_can_reach_the_decision() -> None:
     assert set(inspect.signature(Setup).parameters) == {
         "controls_accepted", "privileged_accounts_secured", "region_policy_confirmed", "independent_approvers", "privileged_without_passkey",
     }  # fmt: skip
+
+
+def test_a_lapsed_check_needs_action_and_a_restricted_one_is_restricted_never_verified() -> None:
+    from zid_platform.modules.onboarding.domain.readiness import (
+        NEEDS_ACTION,
+        RESTRICTED,
+        VERIFIED,
+        TrustFact,
+    )
+
+    assert TrustFact("company", "STALE").word == NEEDS_ACTION
+    assert TrustFact("risk", "RESTRICTED").word == RESTRICTED
+    assert TrustFact("authority", "COMPLETED").word == VERIFIED
+    assert (
+        TrustFact("authority", "SOMETHING_NEW").word != VERIFIED
+    )  # an unknown state is never verified

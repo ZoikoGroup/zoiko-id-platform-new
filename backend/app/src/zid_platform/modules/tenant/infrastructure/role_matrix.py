@@ -38,4 +38,12 @@ def direct_admin_invitation_allowed() -> bool:
     return str(doc.get("direct_admin_invitation", "REFUSED")).upper() == "ALLOWED"
 
 
-__all__ = ["direct_admin_invitation_allowed", "parse", "role_matrix"]
+@lru_cache(maxsize=1)
+def billing_access_enforced() -> bool:
+    """Owner-ruled (CL-02): is billing limited to the Owner and the Owner's grants? Anything but an explicit REPORT_ONLY is
+    enforcement, so a missing or misspelt setting never opens billing to every administrator."""
+    doc = _yaml(CONFIG / "roles" / "role-policy.yaml")
+    return str(doc.get("billing_access_enforcement", "ENFORCED")).upper() != "REPORT_ONLY"
+
+
+__all__ = ["billing_access_enforced", "direct_admin_invitation_allowed", "parse", "role_matrix"]

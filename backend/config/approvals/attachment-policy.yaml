@@ -1,0 +1,24 @@
+# Documents attached to an approval request (WF-013C AT-12). Versioned configuration, not tenant data.
+# status: PROPOSED (founder, Legal and Privacy approval pending)
+#
+# An attachment is evidence for the people who decide a request; it never changes what the request asks for and never decides it.
+# types: media types accepted, as the file own bytes show them (never the file name). kinds: what the requester says a document is.
+# per_case_limit: how many documents one request may hold. max_bytes: the largest file (10 MiB is a proposal).
+# retention_days: how long the evidence vault keeps the document. Unset (null) keeps it until Privacy and Legal decide a period;
+#   nothing here invents one. Access is shorter and fixed by the request itself: nobody opens a document after the request expires.
+# A file is refused before anything is stored if the organization residency does not allow this cell to hold it, and it is scanned before
+# it is stored: a deployed environment without a scanner refuses uploads (nothing is stored unscanned).
+
+version: 0.1.0
+max_bytes: 10485760
+per_case_limit: 10
+retention_days: null
+types:
+  - application/pdf
+  - image/png
+  - image/jpeg
+kinds:
+  - SUPPORTING_DOCUMENT
+  - AUTHORITY_DOCUMENT
+  - IDENTITY_REPROOF_RECORD
+  - OTHER

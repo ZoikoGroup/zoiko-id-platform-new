@@ -214,6 +214,7 @@ def create_app(
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
+        from .modules.commercial.api.billing_workspace import router as billing_workspace_router
         from .modules.commercial.api.commercial import router as commercial_router
         from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
@@ -228,6 +229,9 @@ def create_app(
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
         from .modules.notification.api.alerts import router as alerts_router
+        from .modules.onboarding.api.approval_attachments import (
+            router as approval_attachments_router,
+        )
         from .modules.onboarding.api.onboarding import router as onboarding_router
         from .modules.onboarding.api.org_claim_proofs import router as org_claim_proofs_router
         from .modules.onboarding.api.org_claim_screening import router as org_claim_screening_router
@@ -237,6 +241,9 @@ def create_app(
         from .modules.onboarding.api.signup import router as signup_router
         from .modules.operations.api.ops import router as operations_router
         from .modules.operator_access.api.commercial_admin import router as commercial_admin_router
+        from .modules.operator_access.api.commercial_finance import (
+            router as commercial_finance_router,
+        )
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.policy_authoring.api.policies import router as policy_router
@@ -249,6 +256,8 @@ def create_app(
         from .modules.session.api.sessions import router as sessions_router
         from .modules.signals.api.signals import router as signals_router
         from .modules.tenant.api.approvals import router as approval_cases_router
+        from .modules.tenant.api.billing_access import router as billing_access_router
+        from .modules.tenant.api.commitments import router as commitments_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.org_approvals import router as org_approvals_router
         from .modules.tenant.api.residency import router as residency_router
@@ -282,6 +291,9 @@ def create_app(
             tenants_router,
             approval_cases_router,
             org_approvals_router,
+            approval_attachments_router,
+            billing_access_router,
+            commitments_router,
             onboarding_router,
             org_claims_router,
             org_claim_proofs_router,
@@ -302,8 +314,10 @@ def create_app(
             settings_router,
             usage_router,
             commercial_router,
+            billing_workspace_router,
             stripe_webhook_router,
             commercial_admin_router,
+            commercial_finance_router,
             communication_router,
         ):
             app.include_router(router)
@@ -511,9 +525,13 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     else:
         configure_runtime(runtime_from_settings(settings))
     register_evidence_replayer(catalog())
-    register_privacy_stores()
+    register_privacy_stores(settings.registration_tenant_id)
     _plan_aware_sharing(settings)
     _register_invitation_hooks()
+    _billing_access()
+    _approval_standing_check(settings)
+    _approval_forms()
+    _readiness_policy()
     from .modules.privacy.ports import configure_enforcement
 
     configure_enforcement(settings.privacy_enforcement)
@@ -554,6 +572,62 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     )
 
 
+def _eligibility_org_state() -> None:
+    """The organization's readiness state belongs to onboarding; the commercial eligibility check is handed it (it must not import onboarding)."""
+    from datetime import UTC, datetime
+
+    from .modules.commercial.ports import configure_org_state
+    from .modules.onboarding.application.claims import organization_state
+
+    async def state(conn, tenant_id):  # type: ignore[no-untyped-def]
+        return await organization_state(conn, tenant_id, datetime.now(UTC))
+
+    configure_org_state(state)
+
+
+def _readiness_policy() -> None:
+    """What an organization's readiness refuses is checked against the approval registry at start-up, and the onboarding module's view of the
+    state is handed to the approval service (which must not import it)."""
+    from datetime import UTC, datetime
+
+    from .modules.onboarding.application.claims import organization_state
+    from .modules.tenant.infrastructure.readiness_policy import readiness_policy
+    from .modules.tenant.ports import configure_readiness_check
+
+    readiness_policy()
+
+    async def state(conn, tenant_id):  # type: ignore[no-untyped-def]
+        return await organization_state(conn, tenant_id, datetime.now(UTC))
+
+    configure_readiness_check(state)
+
+
+def _approval_forms() -> None:
+    """The forms behind "New request" are checked against the approval registry at start-up: a file that offers something a customer cannot
+    request, or leaves a requestable action with no way to ask, stops the process."""
+    from .modules.tenant.infrastructure.approval_forms import request_forms
+
+    request_forms()
+
+
+def _approval_standing_check(settings: Settings) -> None:
+    """An approved change is applied only if the organization's country still allows it when it runs (Decision 11, Decision 12 test 07)."""
+    from .country_gate import tenant_standing_check
+    from .modules.tenant.ports import configure_standing_check
+
+    configure_standing_check(tenant_standing_check(settings.environment))
+
+
+def _billing_access() -> None:
+    """Billing authority belongs to the tenant module (roles and grants); commercial is handed its decision, never the module."""
+    from .modules.commercial.ports import configure_billing_gate, configure_commitment_authority
+    from .modules.tenant.ports import billing_permission_checker, owner_checker
+
+    configure_billing_gate(billing_permission_checker())
+    configure_commitment_authority(owner_checker())
+    _eligibility_org_state()
+
+
 def _register_invitation_hooks() -> None:
     """An Administrator who accepts an invitation receives the owner's delegated tenant administration, which is
     what lets a company have a second approver (OVERLAY §4)."""
@@ -574,7 +648,7 @@ def _register_invitation_hooks() -> None:
     register_acceptance_hook("administrator-grant", administrator_joined)
 
 
-def register_privacy_stores() -> None:
+def register_privacy_stores(registration_tenant: str | None = None) -> None:
     """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
     data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
     from .modules.authentication.infrastructure import privacy_adapter as authentication
@@ -585,6 +659,12 @@ def register_privacy_stores() -> None:
 
     for adapter in (principal, authentication, session, verification, credential):
         adapter.register()
+    if (
+        registration_tenant
+    ):  # sign-up records follow an erased account (PRIV-001 §17); a cell with sign-up off has none
+        from .modules.onboarding.infrastructure import privacy_adapter as registration
+
+        registration.register(registration_tenant)
 
     # An erased subject leaves nothing cached behind (PRIV-10).
     from .modules.privacy.ports import register_erasure_hook

@@ -20,7 +20,7 @@ from zid_db import tenant_transaction
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.onboarding.api.org_claims import _status as claim_status
+from zid_platform.modules.onboarding.api.org_claims import _peek as claim_status
 from zid_platform.modules.onboarding.application import readiness as svc
 from zid_platform.modules.onboarding.domain.readiness import Item
 from zid_platform.modules.organization.ports import latest_kyb_case_id

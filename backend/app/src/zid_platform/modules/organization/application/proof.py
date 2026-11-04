@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_evidence import hash_bytes
 from zid_outbox import emit
 
+from zid_platform.modules.organization.domain.kyb import KybError
 from zid_platform.modules.organization.domain.proof import (
     ProofError,
     ProofPolicy,
@@ -119,9 +120,11 @@ async def add_proof(
     """Returns (proof, created). A repeat is (the same proof, False)."""
     from zid_platform.modules.evidence.ports import store_object
 
-    await kyb_store.load_case(
+    claim = await kyb_store.load_case(
         conn, tenant_id, case_id
     )  # CASE_NOT_FOUND for another tenant's claim, same as one that never was
+    if claim.closed_at is not None:
+        raise KybError("CLAIM_CLOSED", claim.closed_reason or "")
     content_hash = str(hash_bytes(content, alg="sha-256"))
     again = await proof_store.by_key(conn, tenant_id, idempotency_key)
     if again is not None:
