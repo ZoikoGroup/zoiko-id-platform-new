@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { RegistrationCapabilities } from "@zoiko/api-client";
 import { Banner, Button, ButtonLink, Card, RadioCards, TextField } from "@zoiko/ui";
 import { ShieldCheck } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { TERMS } from "@/lib/legal";
 
@@ -45,6 +45,8 @@ export function SsoOptions({ providers }: { providers: string[] }) {
 
 /** WF-13A-01: country, journey and email, then one generic answer. The server derives everything else (region, tenant, role, status);
  * nothing on this page is an authorization decision. The default is unselected for the journey and the country. */
+const subscribeNever = () => () => {}; // nothing changes after hydration; the snapshot only tells hydration from the first server render
+
 export function SignUp() {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [country, setCountry] = useState("");
@@ -59,8 +61,11 @@ export function SignUp() {
 
   const caps = useQuery({ queryKey: ["registration", "capabilities", country], queryFn: () => loadCapabilities(country), retry: false });
   const state = countryState(caps.data, country);
-  const locale = typeof navigator === "undefined" ? "en" : navigator.language || "en";
-  const countries = useMemo(() => filterCountries(search, locale), [search, locale]);
+  // Country names come from the browser's own locale data, which differs from the server's (and between browsers), so the list is
+  // built only once the page has hydrated: the server and the first client render both leave it empty and always agree.
+  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
+  const locale = hydrated ? navigator.language || "en" : "en";
+  const countries = useMemo(() => (hydrated ? filterCountries(search, locale) : []), [hydrated, search, locale]);
   const errorFor = (f: FieldError["field"]) => errors.find((e) => e.field === f)?.message;
 
   async function submit(e: FormEvent) {

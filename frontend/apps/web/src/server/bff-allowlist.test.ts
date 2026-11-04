@@ -19,6 +19,9 @@ describe("the proxy allowlist", () => {
     ["step-up challenges and proofs", "/v1/step-up/"],
     ["company claims", "/v1/org-claims"],
     ["plan features and downgrade impact", "/v1/entitlements"],
+    ["suspend, resume and offboard on the settings page", "/v1/tenant:suspend"],
+    ["resume after a suspension", "/v1/tenant:resume"],
+    ["offboard an organization", "/v1/tenant:offboard"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

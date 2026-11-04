@@ -257,10 +257,10 @@ def test_registration_follows_the_country_registry_and_a_sandbox_never_counts_wh
         Env("t", "uk-1", "n", "local", None, {}),
         Env("t", "uk-1", "n", "production", None, {}),
     )
-    assert registration_open(local, "GB", NOW) and not registration_open(
-        deployed, "GB", NOW
-    )  # a sandbox is for development only
-    for country in ("US", "IE", "DE", "BR", "ZZ"):
+    for country in ("GB", "US", "IE", "DE", "FR"):  # the five wave 1 markets
+        assert registration_open(local, country, NOW), country
+        assert not registration_open(deployed, country, NOW), country  # a sandbox is for development only
+    for country in ("BR", "IN", "ZZ"):
         assert not registration_open(local, country, NOW), (
             country
         )  # discovery is open, registration is not
