@@ -85,6 +85,11 @@ class RegistrySimulator(httpx.AsyncBaseTransport):
         if request.url.host != CH_HOST:
             return httpx.Response(502, request=request)
         parts = request.url.path.strip("/").split("/")
+        if parts == ["search", "companies"]:
+            return httpx.Response(200, json={"items": _search(request.url.params.get("q", ""))}, request=request)
+        if len(parts) == 3 and parts[0] == "company" and parts[2] == "persons-with-significant-control":
+            known = parts[1] in COMPANIES or _synthetic(parts[1])
+            return httpx.Response(200 if known else 404, json={"items": [], "total_results": 0}, request=request)
         company = COMPANIES.get(parts[1]) if len(parts) >= 2 and parts[0] == "company" else None
         if company is None and len(parts) >= 2 and parts[0] == "company" and _synthetic(parts[1]):
             company = _synthetic_company(parts[1])
@@ -95,6 +100,20 @@ class RegistrySimulator(httpx.AsyncBaseTransport):
                 200, json=company[0], headers={"etag": f"sim-{parts[1]}"}, request=request
             )
         return httpx.Response(200, json={"items": company[1]}, request=request)
+
+
+def _search(query: str) -> list[dict[str, Any]]:
+    """`/search/companies?q=`: the fixed synthetic companies whose name or number contains the query, and a synthetic company for a 99xxxxxx number."""
+    q = query.strip().lower()
+    found = [
+        {"company_number": number, "title": doc["company_name"], "company_status": doc["company_status"]}
+        for number, (doc, _) in COMPANIES.items()
+        if q and (q in doc["company_name"].lower() or q == number)
+    ]
+    if _synthetic(query.strip()) and query.strip() not in COMPANIES:
+        synthetic = _synthetic_company(query.strip())[0]
+        found.append({"company_number": query.strip(), "title": synthetic["company_name"], "company_status": synthetic["company_status"]})
+    return found
 
 
 SIMULATOR_KEY = "development-simulator"  # the adapter needs a credential; the simulator ignores it

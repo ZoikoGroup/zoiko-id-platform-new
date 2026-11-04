@@ -134,14 +134,25 @@ async def _require_admin(conn: Any, caller: Caller) -> str:
     return me
 
 
+class _FixedKey:
+    """The development register simulator ignores its credential, but the adapter insists on one."""
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def get(self, name: str) -> str:
+        return self._value
+
+
 def _adapters(request: Request) -> dict[str, KybAdapter]:
     injected = getattr(request.app.state, "kyb_adapters", None)
     if injected is not None:
         return dict(injected)  # tests supply their own sources
-    return default_adapters(
-        getattr(request.app.state, "secret_broker", None),
-        getattr(request.app.state, "kyb_transport", None),
-    )
+    broker = getattr(request.app.state, "secret_broker", None)
+    override = getattr(request.app.state, "kyb_key_override", None)  # set only with the development simulators (local and test)
+    if override:
+        broker = _FixedKey(override)
+    return default_adapters(broker, getattr(request.app.state, "kyb_transport", None))
 
 
 def _gate(request: Request) -> Callable[[str], None]:

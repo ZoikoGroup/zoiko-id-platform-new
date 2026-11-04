@@ -506,6 +506,8 @@ def _configure_simulators(app: FastAPI) -> None:
     app.state.dev_simulator = ProviderSimulator()
     app.state.verification_transport = SimulatorTransport(app)
     app.state.registry_transport = RegistrySimulator()
+    app.state.kyb_transport = app.state.registry_transport  # company claims read the same synthetic register
+    app.state.kyb_key_override = SIMULATOR_KEY
     app.state.registry_simulator = True
     app.state.registry_credential_override = SIMULATOR_KEY
     app.include_router(simulator_router)
