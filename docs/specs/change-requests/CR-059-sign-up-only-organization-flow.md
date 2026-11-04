@@ -18,6 +18,13 @@ Status: open (built). Follows the second-wireframe documents: an account is made
 - The step-up confirmation dialog has its component test (focus held, Escape cancels, named buttons, a timer, no structural WCAG violation); EDR09-T12 is linked.
 - The browser end-to-end helper `registerCompany` now signs a person up through the real form and mail link (a personal workspace with a pending owner). Specs that need an administrator's pages must first verify a claim.
 
+## Close-out tooling (what the owners, counsel, suppliers and testers need to finish the open rows)
+- `tools/scripts/go_live_board.py` (`docs/signoff/go-live-board.md`): one board of every country against the six ZID-EDR-001 approvals, and the ZID-COM-RAT-011 ratifications, gates, evidence and signatories. It decides nothing; a cell reads "open" until the
+  owners record a reference, and a referenced file that changed since it was attached reads CHANGED.
+- `tools/scripts/record_evidence.py`: records a file's SHA-256, who attached it and which rows it is offered for in `deploy/release/evidence-manifest.json`. It approves nothing.
+- `tools/scripts/supplier_sandbox_proof.py`: drives the platform's Veriff or Sumsub client with sandbox credentials from the environment and writes what the supplier did (names and shapes only), as the EDR05-01 evidence the day an account exists.
+- `docs/qa/device-accessibility-test-pack.md`: the scripted half-day for screen readers, keyboard, zoom, responsive and performance rows, with its results table.
+
 ## Tests
 `test_org_claim_establish_pg.py` (the establishment, its repeat, and each refusal), `runtime-step-up.test.tsx`, `nav-access.test.ts`, and the coverage list in `test_email_pg.py`.
 
