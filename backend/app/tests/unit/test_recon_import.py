@@ -8,6 +8,7 @@ import pytest
 from zid_platform.modules.commercial.domain import payment_ops as ops
 from zid_platform.modules.commercial.domain import recon_import as ri
 from zid_platform.modules.commercial.domain.payment_ops import Item, Leg, MatchState
+from zid_platform.modules.commercial.infrastructure import bank_statement as bs
 
 ARRIVAL = 1_773_273_600  # 2026-03-12 00:00:00 UTC
 
@@ -67,7 +68,7 @@ def test_a_payout_becomes_one_gross_leg_per_payment_and_refund_and_says_what_it_
 def test_a_statement_becomes_signed_bank_lines_keyed_by_the_payout_it_names_and_skips_what_is_not_booked() -> (
     None
 ):
-    legs, skipped = ri.legs_from_camt053(CAMT)
+    legs, skipped = bs.legs_from_camt053(CAMT)
     assert skipped == 1  # the pending entry is not settlement
     assert [(x["ref"], x["amount_minor"]) for x in legs] == [
         ("po_1ABCdefGHI", 4000),
@@ -83,7 +84,7 @@ def test_a_statement_with_a_doctype_or_that_is_not_a_statement_is_refused() -> N
         b"<Document><Other/></Document>",
     ):
         with pytest.raises(ri.ImportError_):
-            ri.legs_from_camt053(bad)
+            bs.legs_from_camt053(bad)
 
 
 def test_amounts_follow_the_currency_exponent_and_refuse_extra_decimals() -> None:
@@ -102,7 +103,7 @@ def test_the_processor_and_the_bank_together_match_the_platforms_payment_but_the
     None
 ):
     payout_legs, _ = ri.legs_from_payout(PAYOUT, TRANSACTIONS)
-    bank_legs, _ = ri.legs_from_camt053(CAMT)
+    bank_legs, _ = bs.legs_from_camt053(CAMT)
 
     def as_legs(rows: list[dict]) -> list[Leg]:
         return [

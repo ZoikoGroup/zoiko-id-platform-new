@@ -106,7 +106,11 @@ from zid_platform.modules.commercial.domain.payment_ops import OpsError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
 from zid_platform.modules.commercial.domain.rating import Credit, RatingError
 from zid_platform.modules.commercial.domain.vendor import VendorError
-from zid_platform.modules.commercial.infrastructure import billable_store, catalogue_store
+from zid_platform.modules.commercial.infrastructure import (
+    bank_statement,
+    billable_store,
+    catalogue_store,
+)
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
@@ -171,6 +175,7 @@ __all__ = [
     "TaxPort",
     "VendorError",
     "assurance",
+    "bank_statement",
     "billable_event_adjusted",
     "billable_store",
     "budgets",

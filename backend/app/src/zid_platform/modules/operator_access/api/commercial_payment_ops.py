@@ -21,6 +21,7 @@ from zid_platform.modules.commercial.ports import (
     FinanceError,
     OpsError,
     RecordingRefunds,
+    bank_statement,
     disputes,
     recon,
     recon_import,
@@ -386,7 +387,7 @@ async def import_bank_statement(
     """A bank statement in ISO 20022 camt.053 becomes BANK_LINE legs, keyed by the payout id its remittance text names. An entry that names none stays under its own bank reference
     and so stays unmatched: it is never guessed onto a payout."""
     try:
-        legs, skipped = recon_import.legs_from_camt053(body.content.encode("utf-8"))
+        legs, skipped = bank_statement.legs_from_camt053(body.content.encode("utf-8"))
     except recon_import.ImportError_ as e:
         raise ZidError(e.code, e.detail, http_status=422) from e
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
