@@ -112,6 +112,7 @@ export type VerificationStatus =
   | "CREATED"
   | "IN_PROGRESS"
   | "PENDING_EXTERNAL"
+  | "RESUBMISSION_REQUIRED"
   | "MANUAL_REVIEW"
   | "VERIFIED"
   | "FAILED"
@@ -2450,5 +2451,32 @@ export type Eligibility = {
   blockers: string[];
   schedule: { order_id: string; quote_hash: string; effective_from: string; pilot_ends_at: string | null } | null;
   commitment_state: string | null;
+  note: string;
+};
+
+/* Progressive verification (ZID-EDR-006). The tier a person is at, what the next one needs, and their claims with how each was made. */
+export type VerificationTierName = "NONE" | "R0" | "R1" | "R2" | "R3";
+export type VerificationClaimView = {
+  claim: string;
+  method: string;
+  source: string | null;
+  policy: { level: string; profile: string | null; version: number | null };
+  scope: string[];
+  issued_at: string | null;
+  valid_until: string | null;
+  revocation: { state: string; revoked_at: string | null; assertion_id: string };
+};
+export type VerificationTier = {
+  policy_version: string;
+  tier: VerificationTierName;
+  label: string;
+  meaning: string;
+  next_tier: Exclude<VerificationTierName, "NONE"> | null;
+  missing: { check: string; why: string }[];
+  reasons: string[];
+  facts: { email_proved: boolean; identity_proofed: boolean; company_verified: boolean; strong_authentication: boolean; fresh_strong_sign_in: boolean };
+  claims: VerificationClaimView[];
+  alternatives: { id: string; for: string[]; effect: string; status: string }[];
+  never_identity_proof: string[];
   note: string;
 };

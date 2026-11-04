@@ -67,7 +67,7 @@ function Progress({ member }: { member: TenantMember }) {
           </li>
         );
       })}
-      <span className="ml-1 text-xs text-ink-muted">{STEPS[Math.max(at, 0)]?.label}</span>
+      <li className="ml-1 text-xs text-ink-muted">{STEPS[Math.max(at, 0)]?.label}</li>
     </ol>
   );
 }

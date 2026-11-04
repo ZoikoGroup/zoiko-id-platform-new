@@ -860,6 +860,23 @@
             "title": "Plan",
             "type": "string"
           },
+          "promotions": {
+            "items": {
+              "anyOf": [
+                {
+                  "exclusiveMaximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 5,
+            "title": "Promotions",
+            "type": "array"
+          },
           "quantity": {
             "anyOf": [
               {

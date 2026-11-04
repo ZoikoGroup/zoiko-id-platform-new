@@ -9,3 +9,6 @@ direct_admin_invitation: ALLOWED
 # REPORT_ONLY: any administrator still gets through, as before, and every decision that would have been refused is recorded.
 #           A setting for the weeks before the owners rule; a deployed environment should not stay on it.
 billing_access_enforcement: ENFORCED
+# REPORT_ONLY: a route that route-map.yaml maps to a matrix action records the decision and its evidence and lets the request through, so the owners can
+#              read what would be refused before it is. ENFORCED: the matrix refuses it (403 ROLE_NOT_PERMITTED). Only an explicit ENFORCED enforces.
+route_matrix_enforcement: REPORT_ONLY

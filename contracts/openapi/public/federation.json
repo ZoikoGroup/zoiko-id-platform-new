@@ -583,6 +583,7 @@
     },
     "/federation/connections/{connection_id}/login": {
       "get": {
+        "description": "`reauth=true` makes the person authenticate again at the provider (OIDC `max_age=0`, SAML `ForceAuthn`) and refuses a cached answer.",
         "operationId": "login_federation_connections__connection_id__login_get",
         "parameters": [
           {
@@ -621,6 +622,16 @@
                 }
               ],
               "title": "Return To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reauth",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Reauth",
+              "type": "boolean"
             }
           }
         ],

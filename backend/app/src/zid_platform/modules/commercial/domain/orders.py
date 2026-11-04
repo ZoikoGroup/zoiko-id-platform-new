@@ -68,6 +68,16 @@ class QuoteLine:
     plan_code: str
     quantity: Decimal
     discount_pct: Decimal = Decimal(0)
+    promotions: tuple[Decimal, ...] = ()  # stacked on top of the quoted discount; judged together with it
+
+
+def effective_discount(ln: QuoteLine) -> Decimal:
+    """The discount a customer actually gets from the quoted discount and every promotion on the line: 1 - product of (1 - each). Approval authority
+    follows this, so splitting one concession into several promotions never moves it into a band that approves less."""
+    keep = Decimal(1) - ln.discount_pct
+    for p in ln.promotions:
+        keep *= Decimal(1) - p
+    return Decimal(1) - keep
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,9 +174,10 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
         add("PLAN_LINE_MISSING")  # add-ons are sold only on top of a plan (§6)
     max_discount = Decimal(0)
     for ln in quote.lines:
-        if not Decimal(0) <= ln.discount_pct < 1:
+        if not Decimal(0) <= ln.discount_pct < 1 or any(not Decimal(0) <= p < 1 for p in ln.promotions):
             add("DISCOUNT_INVALID")
             continue
+        eff = effective_discount(ln)
         consumption = cat.sku_consumption.get(ln.sku)
         if consumption is None:
             add("SKU_UNKNOWN")
@@ -176,7 +187,7 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
         if ln.sku != "ZID-BASE" and ln.plan_code not in plans:
             add("ADDON_WITHOUT_PARENT")
         if consumption == "PASSTHROUGH":
-            if ln.discount_pct > 0:
+            if eff > 0:
                 add(
                     "PASSTHROUGH_DISCOUNT"
                 )  # §12: no unallocated discount on third-party pass-through
@@ -188,14 +199,14 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
             if consumption != "CONTRACT":
                 add("PRICE_MISSING")
             continue
-        net = price * (1 - ln.discount_pct)
+        net = price * (1 - eff)
         floor = cat.floors.get((ln.sku, quote.region))
         if floor is not None and net < floor:
             add("BELOW_FLOOR")
             approvers |= {
                 "CFO"
             }  # §12: the system rejects a quote below the floor without CFO risk acceptance
-        max_discount = max(max_discount, ln.discount_pct)
+        max_discount = max(max_discount, eff)
         priced.append(
             {
                 "seq": str(ln.seq),
@@ -204,6 +215,8 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
                 "quantity": _money(ln.quantity),
                 "list_unit_price": _money(price),
                 "discount_pct": _money(ln.discount_pct),
+                "promotions": [_money(x) for x in ln.promotions],
+                "effective_discount_pct": _money(eff),
                 "net_unit_price": _money(net),
             }
         )

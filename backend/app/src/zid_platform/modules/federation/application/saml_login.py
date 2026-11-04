@@ -44,6 +44,7 @@ from zid_platform.modules.federation.application.oidc_login import (
     FederationSettings,
     LoggedIn,
     establish,
+    require_fresh_reauth,
 )
 from zid_platform.modules.federation.application.saml_decrypt import decrypt_assertion, load_key
 from zid_platform.modules.federation.domain.connection import (
@@ -102,6 +103,7 @@ async def begin_saml(
     return_to: str | None,
     link_principal_id: str | None,
     now: datetime,
+    force_reauth: bool = False,
 ) -> str:
     usable(c, now)
     if c.protocol != "SAML":
@@ -118,6 +120,7 @@ async def begin_saml(
         return_to=return_to,
         link_principal_id=link_principal_id,
         expires_at=now + LOGIN_TTL,
+        force_reauth=force_reauth,
     )
     root = etree.Element(
         f"{{{NS['samlp']}}}AuthnRequest",
@@ -129,6 +132,8 @@ async def begin_saml(
         AssertionConsumerServiceURL=acs_url(settings),
         ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
     )
+    if force_reauth:  # the person must authenticate again at the provider (T07)
+        root.set("ForceAuthn", "true")
     issuer = etree.SubElement(root, f"{{{NS['saml']}}}Issuer")
     issuer.text = c.sp_entity_id
     etree.SubElement(
@@ -304,6 +309,7 @@ async def complete_saml(
         request_id=login.request_id,
         now=now,
     )
+    require_fresh_reauth(login, facts.authn_instant)
     return await _finish(engine, settings, c, facts, valid_until, login, ctx, now)
 
 

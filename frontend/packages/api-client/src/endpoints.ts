@@ -59,7 +59,7 @@ export type PackageIn = S<Ev, "PackageBody">;
 export type HoldIn = S<Ev, "HoldBody">;
 export type HoldReleaseIn = S<Ev, "zid_platform__modules__evidence__api__evidence__ReleaseBody">;
 export type ResolveIn = S<Ev, "zid_platform__modules__evidence__api__evidence__ResolveBody">;
-export type LockboxDecisionIn = S<Op, "DecisionBody">;
+export type LockboxDecisionIn = S<Op, "zid_platform__modules__operator_access__api__lockbox__DecisionBody">;
 export type OperatorPolicyIn = S<Op, "PolicyBody">;
 export type AccessRequestIn = S<Op, "AccessBody">;
 export type BreakGlassIn = S<Op, "BreakGlassBody">;
@@ -235,6 +235,8 @@ export function createCellApi(t: Transport) {
       get: (id: string) => get<M.VerificationSession>(`/verifications/${seg(id)}`),
       cancel: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:cancel`),
       reverify: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:reverify`),
+      /** Where the caller is on the risk tiers R0 to R3 and what the next one needs. `cannot` (NO_CAMERA, NO_PHONE, NO_STANDARD_ID) shows the approved alternatives. */
+      tier: (cannot: string[] = []) => get<M.VerificationTier>(`/v1/verification/tier${cannot.length ? `?${cannot.map((c) => `cannot=${encodeURIComponent(c)}`).join("&")}` : ""}`),
       assertions: (principalId: string) => get<M.Items<M.VerificationAssertion>>(`/principals/${seg(principalId)}/verification-assertions`),
       assurance: (principalId: string) => get<M.Assurance>(`/principals/${seg(principalId)}/assurance`),
       revokeAssertion: (id: string) => post<{ assertion_id: string; status: "REVOKED" }>(`/verification-assertions/${seg(id)}:revoke`),
@@ -703,6 +705,13 @@ export function createOperatorApi(t: Transport) {
   const get = <T>(path: string, query?: Record<string, string | number | undefined>) => t.request<T>("GET", path, { query });
   const post = <T>(path: string, body?: unknown) => t.request<T>("POST", path, { body: body ?? {} });
   return {
+    /** Action-bound step-up proofs (ZID-ENG-DEC-009), the same calls the customer console makes: the console proves exactly what the cell asks for. */
+    stepUp: {
+      challenge: (draft: M.StepUpDraft) =>
+        post<M.StepUpChallenge>("/v1/step-up/challenges", { action: draft.action, resource: draft.resource, change: draft.change ?? {}, critical: draft.critical ?? false }),
+      verify: (challengeId: string, credential: unknown) => post<M.StepUpProof>(`/v1/step-up/challenges/${seg(challengeId)}/verify`, { credential }),
+      cancel: (challengeId: string) => post<{ challenge_id: string; status: string; grants_nothing: boolean }>(`/v1/step-up/challenges/${seg(challengeId)}/cancel`),
+    },
     capabilities: () => get<M.OperatorCapabilities>("/operator/capabilities"),
     requests: (view: "mine" | "pending" | "all" = "mine", state?: string) =>
       get<M.Items<M.JitGrant>>("/operator/access-requests", { view, state }),

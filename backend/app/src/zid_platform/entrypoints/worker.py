@@ -226,6 +226,23 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             country_gate=gate,
         )
 
+    async def verification_reconcile(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-EDR-005: ask the provider for a decision whose webhook is late, and apply it exactly as the signed callback would be."""
+        from zid_platform.main import _secret_broker
+        from zid_platform.modules.verification.ports import reconcile_delayed
+
+        broker = _secret_broker(settings)
+
+        def secrets(name: str) -> str | None:
+            if broker is None:
+                return None
+            try:
+                return str(broker.get(name))  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001 - a missing secret is "not available", never a crash or a pass
+                return None
+
+        return await reconcile_delayed(conn, now, secrets=secrets)
+
     async def claim_housekeeping(conn: AsyncConnection, now: datetime) -> object:
         """WF-13B: close the claims nobody submitted in time (abandoned), so no half-made claim watches people for ever."""
         from zid_platform.modules.onboarding.application.claims import abandon_drafts
@@ -260,6 +277,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_watch", register_watch),
         ("screening", screening),
         ("company_refresh", company_refresh),
+        ("verification_reconcile", verification_reconcile),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("approval_reminders", approval_reminders),
