@@ -61,3 +61,19 @@ A national adapter is added when an owner obtains a lawful, licensed route; the 
 | The refresh lead time (30 days before a verification lapses, proposed): set `refresh_lead_days` in `config/kyb/kyb-routing.yaml` | Trust operations | ______ |
 | The proof retention period: set `retention_days` in `config/kyb/proof-policy.yaml` (unset keeps documents until a period is decided) | Privacy / Legal | ______ |
 | Where the scanner runs and its address: set `ZID_PROOF_SCANNER_ADDRESS` (a cell without it refuses uploads) | Security / SRE | ______ |
+
+
+## 5. A company claim over its life (WF-13B; CR-052): engineering decisions to confirm
+
+1. **A delegated mandate proves nothing until a person confirms it.** For a delegated employee or an outside representative, the document the applicant uploads is
+   evidence for a reviewer. Say who may confirm one (today: whoever holds the screening review action, who is never the applicant), whether a second person must,
+   and what a reviewer must check in the document.
+2. **The end date of a mandate bounds the verification.** A clear outcome never outlives the mandate it rests on, and an expired mandate is unproven even if it was
+   once confirmed. Confirm the rule, and whether a mandate may be open-ended (today an end date is required).
+3. **Draft period.** A claim nobody submits within 30 days (`draft_days` in `backend/config/kyb/kyb-routing.yaml`) is closed as abandoned. The number is an
+   engineering proposal. Submitted claims are never abandoned by the clock.
+4. **Withdrawing.** An applicant may withdraw any claim that is not verified; nothing is deleted and the watching stops. Say whether the screened persons' records of a
+   withdrawn or abandoned claim are kept for the retention schedule or disposed of earlier (today they stay, closed, and the retention schedule decides).
+5. **Outcome words.** STALE (a check that was complete has lapsed) and RESTRICTED (a review suspended the screening) are shown as such. Confirm the wording the
+   applicant sees and what a restricted company may still do.
+6. **Document kinds that can stand as a mandate:** letter of authority, board resolution and signing matrix. A verified legal-entity credential is not built.

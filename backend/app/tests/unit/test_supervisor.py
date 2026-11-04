@@ -1,5 +1,5 @@
 import pytest
-from zid_platform.entrypoints.supervisor import ROLE_SCOPED, plan
+from zid_platform.entrypoints.supervisor import ROLE_SCOPED, plan, uvicorn_command
 from zid_platform.roles import Role
 
 BASE = {
@@ -49,3 +49,25 @@ def test_invalid_role_lists_are_rejected(roles: str) -> None:
 def test_port_clash_is_rejected() -> None:
     with pytest.raises(ValueError):
         plan({**BASE, "ZID_GLOBAL_PORT": "8000"})
+
+
+def test_the_ingress_is_trusted_only_when_named_so_sign_up_limits_see_the_real_client() -> None:
+    """Behind an ingress every caller shares its address unless the proxy is trusted: named addresses are passed to uvicorn, nothing is
+    passed when none is set, and believing any sender's X-Forwarded-For is allowed only locally."""
+    (only,) = plan({**BASE, "ZID_ROLES": "cell"})
+    plain = uvicorn_command(only, BASE)
+    assert "--forwarded-allow-ips" not in plain and "--no-access-log" in plain
+    named = uvicorn_command(only, {**BASE, "ZID_FORWARDED_ALLOW_IPS": "10.0.0.7,10.0.0.8"})
+    assert (
+        named[named.index("--forwarded-allow-ips") + 1] == "10.0.0.7,10.0.0.8"
+        and "--proxy-headers" in named
+    )
+    assert "--forwarded-allow-ips" in uvicorn_command(
+        only, {**BASE, "ZID_FORWARDED_ALLOW_IPS": "*", "ZID_ENVIRONMENT": "local"}
+    )
+    with pytest.raises(ValueError):
+        uvicorn_command(only, {**BASE, "ZID_FORWARDED_ALLOW_IPS": "*", "ZID_ENVIRONMENT": "prod"})
+    with pytest.raises(ValueError):  # an environment that is not named is not local
+        uvicorn_command(
+            only, {**BASE, "ZID_FORWARDED_ALLOW_IPS": "*", "ZID_ENVIRONMENT": "preprod"}
+        )

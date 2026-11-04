@@ -10,6 +10,8 @@ Configuration (environment):
   ZID_CELL_PORT / ZID_GLOBAL_PORT                 default 8000 / 8100
   ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL database per role
   ZID_CELL_ID               cell identity for the cell role (the global role is always "global")
+  ZID_FORWARDED_ALLOW_IPS   addresses of the proxies whose X-Forwarded-For is believed (the ingress), comma-separated or "*"; unset
+                            trusts only 127.0.0.1, so behind an ingress every caller looks like the ingress to the sign-up limits
 """
 
 from __future__ import annotations
@@ -67,20 +69,34 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
     return out
 
 
+def uvicorn_command(rp: RoleProcess, environ: Mapping[str, str]) -> list[str]:
+    """The command that runs one role (pure; unit-tested). The forwarded-address list is passed only when it is set, and `*` is refused
+    outside the local and test environments: believing any sender's X-Forwarded-For would let a caller choose their own address."""
+    cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "zid_platform.entrypoints.api:app",
+        "--host",
+        environ.get("ZID_BIND_HOST", "0.0.0.0"),
+        "--port",
+        str(rp.port),
+        "--no-access-log",
+    ]
+    trusted = environ.get("ZID_FORWARDED_ALLOW_IPS", "").strip()
+    if trusted:
+        if trusted == "*" and environ.get("ZID_ENVIRONMENT", "local") not in ("local", "test"):
+            raise ValueError(
+                "ZID_FORWARDED_ALLOW_IPS=* is allowed only in local and test; name the ingress addresses"
+            )
+        cmd += ["--proxy-headers", "--forwarded-allow-ips", trusted]
+    return cmd
+
+
 def main() -> int:
     processes = []
     for rp in plan(os.environ):
-        cmd = [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "zid_platform.entrypoints.api:app",
-            "--host",
-            os.environ.get("ZID_BIND_HOST", "0.0.0.0"),
-            "--port",
-            str(rp.port),
-            "--no-access-log",
-        ]
+        cmd = uvicorn_command(rp, os.environ)
         processes.append((rp, subprocess.Popen(cmd, env=rp.env)))
         print(f'{{"msg":"role started","role":"{rp.role.value}","port":{rp.port}}}', flush=True)
 

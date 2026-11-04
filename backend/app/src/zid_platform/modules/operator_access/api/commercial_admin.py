@@ -991,6 +991,7 @@ def _order_fail(e: OrderError) -> ZidError:
         "QUOTE_SELF_APPROVAL": 403,
         "APPROVER_ROLE_MISSING": 403,
         "ORDER_SELF_ACTIVATION": 403,
+        "POLICY_NOT_SIGNED": 403,
     }.get(e.code, 409)
     return ZidError(e.code, e.detail or e.code, http_status=status)
 
@@ -1149,7 +1150,13 @@ async def approve_quote(
         await _sales(conn, op)
         try:
             return await orders.approve_quote(
-                conn, str(quote_id), role=body.role, approver=_approver(op), direct=direct_mode()
+                conn,
+                str(quote_id),
+                role=body.role,
+                approver=_approver(op),
+                direct=direct_mode(),
+                policy_lock=str(getattr(request.app.state, "environment", "production"))
+                not in ("local", "test"),
             )
         except OrderError as e:
             raise _order_fail(e) from e

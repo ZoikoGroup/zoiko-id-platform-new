@@ -33,6 +33,7 @@ from zid_platform.modules.tenant.api.approvals import (
 )
 from zid_platform.modules.tenant.application import approvals as svc
 from zid_platform.modules.tenant.domain.approvals import ApprovalError, State, Tier
+from zid_platform.modules.tenant.infrastructure import approval_forms as forms
 from zid_platform.modules.tenant.infrastructure import approvals as store
 
 router = APIRouter(tags=["approvals"])
@@ -163,6 +164,14 @@ async def create(
         ),
     )  # fmt: skip
     return _item(v, mine=(), me=me)
+
+
+@router.get("/v1/organizations/{org_id}/approvals/forms")
+async def request_forms(org_id: uuid.UUID, caller: CallerDep) -> dict[str, Any]:
+    """What "New request" asks for, per action: the same for everyone in the organization. It collects; the server still classifies the
+    action, checks who may ask and decides who must approve."""
+    _org(org_id, caller)
+    return {"forms": [forms.view(f) for f in forms.request_forms()]}
 
 
 @router.get("/v1/organizations/{org_id}/approvals/{request_id}")

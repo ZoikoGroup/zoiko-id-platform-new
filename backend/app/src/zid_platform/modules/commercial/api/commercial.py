@@ -42,6 +42,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.application import (
+    billing_gate,
     budget_service,
     entitlement_resolver,
     invoicing_service,
@@ -319,14 +320,17 @@ def _invoice_error(e: InvoicingError) -> ZidError:
     return ZidError(e.code, e.detail or e.code, http_status=status)
 
 
-@router.get("/v1/invoices")
+@router.get("/v1/invoices", dependencies=[Depends(billing_gate.permission("billing.invoice.read"))])
 async def invoices(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="commercial.read", resource="billable:*")
         return {"items": await invoicing_service.list_invoices(conn)}
 
 
-@router.get("/v1/invoices/{invoice_id}")
+@router.get(
+    "/v1/invoices/{invoice_id}",
+    dependencies=[Depends(billing_gate.permission("billing.invoice.read"))],
+)
 async def invoice(invoice_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="commercial.read", resource="billable:*")
@@ -341,7 +345,10 @@ async def invoice(invoice_id: uuid.UUID, request: Request, caller: CallerDep) ->
     return out
 
 
-@router.get("/v1/invoices/{invoice_id}/document")
+@router.get(
+    "/v1/invoices/{invoice_id}/document",
+    dependencies=[Depends(billing_gate.permission("billing.invoice.download"))],
+)
 async def invoice_document(invoice_id: uuid.UUID, request: Request, caller: CallerDep) -> Response:
     """The issued invoice document. Its SHA-256 equals the invoice's `document_digest`."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -353,7 +360,9 @@ async def invoice_document(invoice_id: uuid.UUID, request: Request, caller: Call
     return Response(doc, media_type="text/plain; charset=utf-8")
 
 
-@router.get("/v1/billing/state")
+@router.get(
+    "/v1/billing/state", dependencies=[Depends(billing_gate.permission("billing.overview.read"))]
+)
 async def billing_state(request: Request, caller: CallerDep) -> dict[str, Any]:
     """The account's billing state, what it restricts and, explicitly, what it never restricts."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -361,7 +370,9 @@ async def billing_state(request: Request, caller: CallerDep) -> dict[str, Any]:
         return await invoicing_service.billing_state(conn)
 
 
-@router.get("/v1/billing/orders")
+@router.get(
+    "/v1/billing/orders", dependencies=[Depends(billing_gate.permission("billing.overview.read"))]
+)
 async def my_orders(request: Request, caller: CallerDep) -> dict[str, Any]:
     """The signed orders behind this tenant's entitlement, by its server-derived tenant id."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -381,7 +392,9 @@ def _counts(request: Request) -> Any:
     return getattr(request.app.state, "commercial_counters", {})
 
 
-@router.get("/v1/billing/preview")
+@router.get(
+    "/v1/billing/preview", dependencies=[Depends(billing_gate.permission("billing.overview.read"))]
+)
 async def billing_preview(request: Request, caller: CallerDep) -> dict[str, Any]:
     """The bill so far and a projected month-end bill: an estimate with its assumptions, never a quotation."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -414,7 +427,10 @@ def plan_request_error(e: PlanRequestError) -> ZidError:
     )
 
 
-@router.get("/v1/billing/plan-requests")
+@router.get(
+    "/v1/billing/plan-requests",
+    dependencies=[Depends(billing_gate.permission("billing.overview.read"))],
+)
 async def my_plan_requests(request: Request, caller: CallerDep) -> dict[str, Any]:
     """The company's own requests for a different plan, newest first, with the commercial team's answer."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -422,7 +438,11 @@ async def my_plan_requests(request: Request, caller: CallerDep) -> dict[str, Any
         return {"items": await plan_requests.my_requests(conn)}
 
 
-@router.post("/v1/billing/plan-requests", status_code=201)
+@router.post(
+    "/v1/billing/plan-requests",
+    status_code=201,
+    dependencies=[Depends(billing_gate.permission("billing.subscription.request_change"))],
+)
 async def request_a_plan(
     body: PlanRequestBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -443,7 +463,10 @@ async def request_a_plan(
             raise plan_request_error(e) from e
 
 
-@router.post("/v1/billing/plan-requests/{request_id}:withdraw")
+@router.post(
+    "/v1/billing/plan-requests/{request_id}:withdraw",
+    dependencies=[Depends(billing_gate.permission("billing.subscription.request_change"))],
+)
 async def withdraw_plan_request(
     request_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -554,7 +577,10 @@ def _method_json(m: Any) -> dict[str, Any]:
     return {"brand": m.brand, "last4": m.last4, "exp_month": m.exp_month, "exp_year": m.exp_year}
 
 
-@router.get("/v1/billing/payment")
+@router.get(
+    "/v1/billing/payment",
+    dependencies=[Depends(billing_gate.permission("billing.payment_method.read_masked"))],
+)
 async def billing_payment(request: Request, caller: CallerDep) -> dict[str, Any]:
     """What this company owes now (open issued invoices, per currency) and its saved card, if any. The card is read
     from the processor after the database transaction closes, and only its brand, last four and expiry come back."""
@@ -628,7 +654,10 @@ async def billing_payment(request: Request, caller: CallerDep) -> dict[str, Any]
     }
 
 
-@router.post("/v1/billing/payment/setup")
+@router.post(
+    "/v1/billing/payment/setup",
+    dependencies=[Depends(billing_gate.permission("billing.payment_method.manage"))],
+)
 async def billing_payment_setup(request: Request, caller: CallerDep) -> dict[str, Any]:
     """Start saving (or replacing) the company's card: returns the address of Stripe's hosted page. The company's
     Stripe customer is created on first use and recorded against its commercial account."""
@@ -678,7 +707,10 @@ async def billing_payment_setup(request: Request, caller: CallerDep) -> dict[str
     return {"url": url}
 
 
-@router.post("/v1/billing/payment/complete")
+@router.post(
+    "/v1/billing/payment/complete",
+    dependencies=[Depends(billing_gate.permission("billing.payment_method.manage"))],
+)
 async def billing_payment_complete(
     body: PaymentCompleteBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -717,7 +749,10 @@ class OnlinePayCompleteBody(BaseModel):
     session_id: str = Field(min_length=10, max_length=200, pattern=r"^cs_[A-Za-z0-9_]+$")
 
 
-@router.post("/v1/invoices/{invoice_id}/pay-online")
+@router.post(
+    "/v1/invoices/{invoice_id}/pay-online",
+    dependencies=[Depends(billing_gate.permission("billing.payment.initiate"))],
+)
 async def pay_invoice_online(
     invoice_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -767,7 +802,10 @@ async def pay_invoice_online(
     return {"url": url}
 
 
-@router.post("/v1/billing/payment/online-complete")
+@router.post(
+    "/v1/billing/payment/online-complete",
+    dependencies=[Depends(billing_gate.permission("billing.payment.initiate"))],
+)
 async def pay_invoice_online_complete(
     body: OnlinePayCompleteBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -811,7 +849,10 @@ class PayBody(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
-@router.post("/v1/invoices/{invoice_id}/pay")
+@router.post(
+    "/v1/invoices/{invoice_id}/pay",
+    dependencies=[Depends(billing_gate.permission("billing.payment.initiate"))],
+)
 async def pay_invoice(
     invoice_id: uuid.UUID, body: PayBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:

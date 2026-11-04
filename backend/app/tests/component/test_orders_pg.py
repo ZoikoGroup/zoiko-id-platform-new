@@ -336,3 +336,50 @@ def test_orders_over_http(rt_url: str, owner_url: str) -> None:
         assert [i["order_id"] for i in items] == [oid] and items[0]["plan"] == "SCALE"
         ent = http.get(f"/v1/tenants/{o.tenant}/entitlements", headers=adm).json()
         assert ent["plan"] == "SCALE" and ent["source"] == "ORDER"
+
+
+def test_discount_bands_have_no_authority_in_a_deployed_environment_until_the_policy_is_signed(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ae, cco = uid(), uid()
+
+    async def run() -> None:
+        book = await setup(rt_url, owner_url, cco=cco, cfo=uid(), founder=uid())
+
+        async def unsigned(_conn: Any) -> dict[str, Any]:
+            return {"effective": False}
+
+        async with engine(rt_url) as eng, eng.begin() as c:
+            account = await orders.create_account(
+                c,
+                legal_name="Lock Ltd",
+                kind="DIRECT",
+                country="GB",
+                currency="USD",
+                reseller_of=None,
+                actor=ae,
+            )
+            quote = await orders.create_quote(
+                c,
+                account_id=account,
+                price_book_id=book,
+                region="uk-1",
+                term_months=12,
+                prepaid=False,
+                prepaid_discount=D(0),
+                liability_capped=True,
+                residency_commitment=None,
+                pilot=False,
+                actor=ae,
+                lines=[QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.08"))],
+            )
+            monkeypatch.setattr(orders.finance, "policy_state", unsigned)
+            with pytest.raises(OrderError) as e:
+                await orders.approve_quote(
+                    c, quote["quote_id"], role="CCO", approver=cco, policy_lock=True
+                )
+            assert e.value.code == "POLICY_NOT_SIGNED"
+            done = await orders.approve_quote(c, quote["quote_id"], role="CCO", approver=cco)
+            assert done["status"] == "APPROVED"
+
+    asyncio.run(run())

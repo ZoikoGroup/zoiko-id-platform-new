@@ -31,6 +31,7 @@ from zid_platform.modules.onboarding.api.org_claims import (
     _gate,
     _kyb_error,
     _me,
+    _open_claim,
     _require_admin,
     _screening_error,
     _sign,
@@ -40,6 +41,7 @@ from zid_platform.modules.onboarding.application.monitoring import register_evid
 from zid_platform.modules.organization.ports import (
     KybError,
     kyb_get_case,
+    proof_service,
     usable_root_for,
 )
 from zid_platform.modules.organization.ports import kyb_register_people as read_register
@@ -99,8 +101,20 @@ class HoldingIn(BaseModel):
     ] = Field(default_factory=list)
 
 
+RELATIONSHIPS = ("DIRECTOR_OR_OFFICER", "DELEGATED_EMPLOYEE", "EXTERNAL_REPRESENTATIVE")
+MANDATE_PROOF_KINDS = frozenset({"LETTER_OF_AUTHORITY", "BOARD_RESOLUTION", "SIGNING_MATRIX"})
+
+
 class ScreeningIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    # How the person acts for the company (WF-13B-02). An officer is what the register says, found by the server. A delegated employee or an
+    # outside representative acts under a mandate: a document uploaded to this claim, with its own end date, that a person at Zoiko iD reads
+    # and confirms before it counts. What the applicant says never proves it.
+    relationship: Literal[
+        "DIRECTOR_OR_OFFICER", "DELEGATED_EMPLOYEE", "EXTERNAL_REPRESENTATIVE"
+    ] = "DIRECTOR_OR_OFFICER"
+    mandate_proof_id: uuid.UUID | None = None
+    mandate_expires_at: datetime | None = None
     representative: PartyIn
     directors: list[PartyIn] = Field(default_factory=list, max_length=50)
     owners: list[PartyIn] = Field(default_factory=list, max_length=100)
@@ -180,6 +194,54 @@ async def _audit_refusal(
     )
 
 
+async def _authority_evidence(
+    conn: Any, tenant: str, claim_id: str, kyb: Any, body: ScreeningIn, me: str, now: datetime
+) -> AuthorityEvidence:
+    if body.relationship == "DIRECTOR_OR_OFFICER":
+        if body.mandate_proof_id is not None or body.mandate_expires_at is not None:
+            raise ZidError(
+                "VALIDATION_FAILED",
+                "An officer acts on the register, not on a mandate.",
+                http_status=422,
+            )
+        t = await load_tenant(conn, tenant)
+        root_id = (
+            await usable_root_for(conn, tenant, t.organization_id or "", me, now)
+            if t is not None and t.organization_id
+            else None
+        )
+        if root_id:
+            return AuthorityEvidence(
+                AuthorityKind.REGISTER_OFFICER, root_id, None, body.relationship
+            )
+        return AuthorityEvidence(AuthorityKind.NONE, None, None, body.relationship)
+    if body.mandate_proof_id is None:
+        raise ZidError(
+            "AUTHORITY_PROOF_REQUIRED",
+            "Upload the document that gives you authority to act for the company, then choose it.",
+            http_status=422,
+        )
+    if body.mandate_expires_at is None or body.mandate_expires_at <= now:
+        raise ZidError(
+            "MANDATE_EXPIRY_INVALID",
+            "A mandate needs an end date in the future.",
+            http_status=422,
+        )
+    proofs = {p.proof_id: p.kind for p in await proof_service.list_proofs(conn, tenant, claim_id)}
+    if proofs.get(str(body.mandate_proof_id)) not in MANDATE_PROOF_KINDS:
+        raise ZidError(
+            "AUTHORITY_PROOF_REQUIRED",
+            "Choose a letter of authority, a board resolution or a signing matrix uploaded to this claim.",
+            http_status=422,
+        )
+    return AuthorityEvidence(
+        AuthorityKind.DELEGATED_MANDATE,
+        str(body.mandate_proof_id),
+        body.mandate_expires_at,
+        body.relationship,
+    )
+
+
 async def _declare(
     request: Request, caller: Caller, claim_id: uuid.UUID, body: ScreeningIn, *, amend: bool
 ) -> dict[str, Any]:
@@ -190,22 +252,14 @@ async def _declare(
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         me = await _require_admin(conn, caller)
         try:
+            await _open_claim(conn, tenant, str(claim_id), now)
             kyb = await kyb_get_case(conn, tenant, str(claim_id), now=now)
         except KybError as e:
             raise _kyb_error(e) from e
-        # Authority is what the server finds, not what the applicant says: an authority root this person holds, which exists only when
-        # the person was matched to a current officer of the register. No root, no verified authority.
-        t = await load_tenant(conn, tenant)
-        root_id = (
-            await usable_root_for(conn, tenant, t.organization_id or "", me, now)
-            if t is not None and t.organization_id
-            else None
-        )
-        authority = (
-            AuthorityEvidence(AuthorityKind.REGISTER_OFFICER, root_id)
-            if root_id
-            else AuthorityEvidence(AuthorityKind.NONE)
-        )
+        # Authority is what the server finds, not what the applicant says. An officer: an authority root this person holds, which exists
+        # only when the person was matched to a current officer of the register; no root, no verified authority. A delegated employee or an
+        # outside representative: a mandate document on this claim with an end date, which counts only after a person confirms it.
+        authority = await _authority_evidence(conn, tenant, str(claim_id), kyb, body, me, now)
         subjects = [
             (Role.ENTITY, Party("company", PartyKind.ENTITY, kyb.legal_name or "")),
             (Role.REPRESENTATIVE, _party(body.representative)),
@@ -308,6 +362,7 @@ async def appeal(
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         me = await _require_admin(conn, caller)
         try:
+            await _open_claim(conn, tenant, str(claim_id), now)
             case = await _case_of(conn, tenant, str(claim_id), now)
             await request_appeal(
                 conn, tenant, case, kind=body.kind, statement=body.statement, requested_by=me, cfg=screening_config(),

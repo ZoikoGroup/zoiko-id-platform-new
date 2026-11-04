@@ -510,8 +510,50 @@ events:
     source_status: "proposed"
   onboarding.registration.abandoned:
     cloudevents_type: com.zoiko.id.onboarding.registration.abandoned.v1
-    meaning: "A sign-up request expired unused; its token and its copy of the address were dropped (request id)."
+    meaning: "A sign-up request ended unused, because it expired or because the person gave another address; its token and its copy of the address were dropped (request id and, when the person changed address, the coarse reason ADDRESS_CHANGED)."
     source: ZID-UX-WF-013A section 07; CR-048
+    lane: domain
+    source_status: "proposed"
+  organization.claim.source_verified:
+    cloudevents_type: com.zoiko.id.organization.claim.source_verified.v1
+    meaning: "A source answered for a company claim and its company check changed state (claim id, the check, its new and previous state; never a name or a number)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.authority_evaluated:
+    cloudevents_type: com.zoiko.id.organization.claim.authority_evaluated.v1
+    meaning: "The authority check of a company claim changed state: an officer found on the register, a delegated mandate waiting for a person, confirmed, or lapsed (claim id, the check, its new and previous state)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.risk_assessed:
+    cloudevents_type: com.zoiko.id.organization.claim.risk_assessed.v1
+    meaning: "The risk screening of a company claim changed state (claim id, the check, its new and previous state; never a name, an alert or a score)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.decision_issued:
+    cloudevents_type: com.zoiko.id.organization.claim.decision_issued.v1
+    meaning: "A company claim reached a decision: VERIFIED, DECLINED or RESTRICTED (claim id, the outcome and the one before it)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.submitted:
+    cloudevents_type: com.zoiko.id.organization.claim.submitted.v1
+    meaning: "The applicant said a company claim is complete and ready for review (claim id)."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  organization.claim.closed:
+    cloudevents_type: com.zoiko.id.organization.claim.closed.v1
+    meaning: "A company claim was withdrawn by the applicant or abandoned as an unsubmitted draft (claim id and the reason); nothing was deleted."
+    source: ZID-UX-WF-013B section 09; CR-052
+    lane: domain
+    source_status: "proposed"
+  governance.approval.reminder_due:
+    cloudevents_type: com.zoiko.id.governance.approval.reminder_due.v1
+    meaning: "An approval request inside a reminder window is about to expire (case id, level, state, the window and the hours left; no person, payload or reason). Raised once per request and window."
+    source: ZID-UX-WF-013C section 05; CR-053
     lane: domain
     source_status: "proposed"
   governance.approval.changes_requested:

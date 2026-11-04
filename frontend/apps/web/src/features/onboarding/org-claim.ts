@@ -1,4 +1,5 @@
 import type {
+  OrgClaimRelationship,
   OrgClaimCheckState,
   OrgClaimHolding,
   OrgClaimAppealKind,
@@ -14,7 +15,7 @@ import type {
 export const CHECKS: { key: keyof OrgClaimStatus["checks"]; label: string; help: string }[] = [
   { key: "company", label: "Company and legal status", help: "The company exists and is active in an official source." },
   { key: "person_assurance", label: "Your identity", help: "Your identity is verified in its own step; signing up or a matching email is not proof." },
-  { key: "authority", label: "Your authority to act for it", help: "You are a current officer of the company, or hold a valid delegation." },
+  { key: "authority", label: "Your authority to act for it", help: "You are a current officer of the company, or hold a delegation that a person at Zoiko iD has read and confirmed." },
   { key: "risk", label: "Risk and ownership review", help: "Directors, owners and sanctions checks the country requires." },
 ];
 
@@ -23,6 +24,8 @@ export const CHECK_TONE: Record<OrgClaimCheckState, "ok" | "info" | "warn" | "da
   PENDING: "info",
   NEEDS_ACTION: "warn",
   HELD: "warn",
+  STALE: "warn",
+  RESTRICTED: "danger",
   DECLINED: "danger",
 };
 
@@ -31,6 +34,8 @@ export const CHECK_WORDS: Record<OrgClaimCheckState, string> = {
   PENDING: "Pending",
   NEEDS_ACTION: "Needs action",
   HELD: "In review",
+  STALE: "Out of date",
+  RESTRICTED: "Restricted",
   DECLINED: "Declined",
 };
 
@@ -46,9 +51,13 @@ export function outcomeCopy(outcome: OrgClaimOutcome): { title: string; body: st
     case "DECLINED":
       return { title: "Declined", body: "This claim could not be verified. You can ask for a review or start a new claim.", tone: "danger" };
     case "STALE":
-      return { title: "Out of date", body: "The evidence has expired and must be refreshed.", tone: "warn" };
+      return { title: "Out of date", body: "A check that was complete has run out and must be refreshed. Check again, or add the evidence marked Out of date.", tone: "warn" };
     case "RESTRICTED":
-      return { title: "Restricted", body: "Verified privileges are paused while a review is open.", tone: "warn" };
+      return { title: "Restricted", body: "Verified privileges are paused while a review is open. A person at Zoiko iD will contact you if they need anything.", tone: "warn" };
+    case "WITHDRAWN":
+      return { title: "Withdrawn", body: "You withdrew this claim. Nothing was deleted and nobody is being checked for it. You can start a new claim.", tone: "info" };
+    case "ABANDONED":
+      return { title: "Closed", body: "This claim was not sent for review in time, so it was closed. Nothing was deleted. You can start a new claim.", tone: "info" };
     default:
       return {
         title: "Provisional",
@@ -87,7 +96,9 @@ export function ownerRowErrors(r: OwnerRow): string[] {
 
 /** The screening request. Each person gets an id of this form's own; holdings are what the applicant declares, and the server
  * treats them as unverified until a source confirms them, so a declaration never clears anyone. */
-export function buildScreening(representativeName: string, owners: OwnerRow[]): OrgClaimScreening {
+export type AuthorityChoice = { relationship: OrgClaimRelationship; proofId: string; expires: string };
+
+export function buildScreening(representativeName: string, owners: OwnerRow[], authority?: AuthorityChoice): OrgClaimScreening {
   const party = (ref: string, name: string, birthYear?: string): OrgClaimParty => ({
     ref,
     kind: "PERSON",
@@ -101,7 +112,11 @@ export function buildScreening(representativeName: string, owners: OwnerRow[]): 
     votes_pct: o.votesPct.trim() || null,
     controls: o.boardControl ? ["APPOINT_BOARD_MAJORITY"] : [],
   }));
-  return { representative: party("rep", representativeName), owners: people, holdings };
+  const mandate =
+    authority && authority.relationship !== "DIRECTOR_OR_OFFICER"
+      ? { mandate_proof_id: authority.proofId, mandate_expires_at: new Date(`${authority.expires}T23:59:59`).toISOString() }
+      : {};
+  return { relationship: authority?.relationship ?? "DIRECTOR_OR_OFFICER", ...mandate, representative: party("rep", representativeName), owners: people, holdings };
 }
 
 /** One id per opening of the search page: a double click is one claim, and coming back later is a new attempt. */
@@ -121,6 +136,7 @@ export const PROOF_KINDS: { id: OrgClaimProofKind; label: string }[] = [
   { id: "LETTER_OF_AUTHORITY", label: "Letter of authority" },
   { id: "OWNERSHIP_CHART", label: "Ownership chart" },
   { id: "BOARD_RESOLUTION", label: "Board resolution" },
+  { id: "SIGNING_MATRIX", label: "Signing matrix" },
   { id: "OTHER", label: "Another document" },
 ];
 export const PROOF_ACCEPT = "application/pdf,image/png,image/jpeg";
@@ -146,6 +162,7 @@ const PROOF_MESSAGES: Record<string, string> = {
   PROOF_SCAN_UNAVAILABLE: "Uploads are paused for a moment. Nothing was stored; try again shortly.",
   PROOF_RESIDENCY_DENIED: "This organization's data region does not allow the document to be stored here.",
   PROOF_LIMIT_REACHED: "This claim already holds the most documents it can.",
+  CLAIM_CLOSED: "This claim is closed, so it takes no more documents. Start a new claim.",
 };
 
 export function proofMessage(code: string | undefined): string {
@@ -203,9 +220,30 @@ export function appealMessage(code: string | undefined): string {
   return (code && APPEAL_MESSAGES[code]) || "That request could not be sent.";
 }
 
-/** What the next step is, from the checks alone. */
-export function nextStep(status: OrgClaimStatus): "authority" | "wait" | "done" {
-  if (status.outcome === "VERIFIED") return "done";
+/** What the next step is, from the claim alone. A closed or verified claim has none; a claim that has said who to screen and has not been
+ * sent is ready to submit. */
+export function nextStep(status: OrgClaimStatus): "authority" | "submit" | "wait" | "done" {
+  if (status.closed_at !== null || status.outcome === "VERIFIED") return "done";
   if (status.screening === null && status.checks.company === "COMPLETED") return "authority";
+  if (status.screening !== null && status.submitted_at === null) return "submit";
   return "wait";
+}
+
+/** How the person acts for the company, in the words of the design. An officer is read from the register; the others act under a document. */
+export const RELATIONSHIPS: { id: OrgClaimRelationship; label: string; help: string }[] = [
+  { id: "DIRECTOR_OR_OFFICER", label: "I am a director or officer of the company", help: "We check the official register. You upload nothing for this." },
+  { id: "DELEGATED_EMPLOYEE", label: "I work for the company and have been given authority", help: "Upload the letter, board resolution or signing matrix that gives it to you." },
+  { id: "EXTERNAL_REPRESENTATIVE", label: "I represent the company from outside (an agent, adviser or lawyer)", help: "Upload the letter, board resolution or signing matrix that gives it to you." },
+];
+
+/** The documents that can stand as a mandate: the ones that say who may act for the company. */
+export const MANDATE_KINDS: OrgClaimProofKind[] = ["LETTER_OF_AUTHORITY", "BOARD_RESOLUTION", "SIGNING_MATRIX"];
+
+/** What the browser can say before sending about a mandate; the server judges the document and the date again. */
+export function mandateProblem(relationship: OrgClaimRelationship, proofId: string, expires: string, today: Date): string | null {
+  if (relationship === "DIRECTOR_OR_OFFICER") return null;
+  if (!proofId) return "Choose the document that gives you authority. Upload it first if it is not listed.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) return "Enter the date the authority ends.";
+  if (new Date(`${expires}T23:59:59`).getTime() <= today.getTime()) return "The end date must be in the future.";
+  return null;
 }

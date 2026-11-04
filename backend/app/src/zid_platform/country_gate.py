@@ -6,6 +6,7 @@ same question the same way: is this capability open for this country, here, now?
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 from fastapi import Request
@@ -73,3 +74,32 @@ async def enforce_tenant(
             http_status=422,
         )
     enforce(request, country, capability)
+
+
+def tenant_standing_check(
+    environment: str,
+) -> Callable[[AsyncConnection, str], Awaitable[str | None]]:
+    """What an approved change must still find true of the organization's country when it runs (Decision 11, Decision 12 test 07).
+
+    It is the same question `enforce_tenant` asks at the door, answered with a reason code instead of a refusal: a deployed environment
+    refuses an organization whose country is unknown, and any environment refuses one whose country has closed the capability since the
+    vote. Two valid votes cannot reopen a country the registry closed."""
+
+    async def check(conn: AsyncConnection, tenant_id: str) -> str | None:
+        declared = await declared_registration(conn, tenant_id)
+        country = NAMESPACE_COUNTRY.get(declared.register_namespace) if declared else None
+        if country is None:
+            return None if environment in SANDBOX_ENVIRONMENTS else "COUNTRY_NOT_DECLARED"
+        try:
+            require(
+                registry(),
+                country,
+                Capability.ENTERPRISE_USE,
+                now=datetime.now(UTC),
+                environment=environment,
+            )
+        except CountryError as e:
+            return e.code
+        return None
+
+    return check

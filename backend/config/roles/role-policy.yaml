@@ -4,3 +4,8 @@ version: "1"
 # REFUSED: an Administrator is granted only through POST /v1/tenant/role-grants, which an independent Owner or Approver approves,
 #          as matrix A requires. Flip this once the owners have ruled; no code change is needed.
 direct_admin_invitation: ALLOWED
+# ENFORCED: billing is open to the Owner and to people the Owner gave a billing grant (ZID-COM-CL-002). An Administrator has no
+#           implicit billing access, a developer or member none at all.
+# REPORT_ONLY: any administrator still gets through, as before, and every decision that would have been refused is recorded.
+#           A setting for the weeks before the owners rule; a deployed environment should not stay on it.
+billing_access_enforcement: ENFORCED

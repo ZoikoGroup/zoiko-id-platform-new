@@ -45,13 +45,31 @@ TEMPLATE_VERIFY = "ZID-EM-001"
 _NAMESPACE = uuid.UUID("5c6f6f3e-3f5a-4d0a-9d4e-4f1d8b2a7c11")
 
 
+MAX_TRACKED_CLIENTS = (
+    50_000  # per bucket: a spray of addresses can never grow the process without bound
+)
+
+
+def _sweep(table: dict[str, deque[float]], now: float) -> None:
+    """Forget clients whose window has passed, then (only if every one is still live) the oldest, so the table stays bounded."""
+    for key in [k for k, q in table.items() if not q or now - q[-1] > WINDOW_S]:
+        del table[key]
+    while len(table) > MAX_TRACKED_CLIENTS:
+        del table[next(iter(table))]
+
+
 def _limit(request: Request, bucket: str) -> None:
-    """In-process per-address bound (the edge rate limiter is the production control, DEC-G1). Always answers the same way."""
+    """In-process per-address bound, a backstop behind the edge rate limiter (DEC-G1) and the per-address caps kept in the database.
+    The address is the real client's only when the proxy in front is trusted (`ZID_FORWARDED_ALLOW_IPS`, see the supervisor); without
+    that, every caller behind one ingress would share one bucket. Always answers the same way."""
     key = request.client.host if request.client else "unknown"
-    q = _buckets[bucket][key]
+    table = _buckets[bucket]
+    q = table[key]
     now = time.monotonic()
     while q and now - q[0] > WINDOW_S:
         q.popleft()
+    if len(table) > MAX_TRACKED_CLIENTS:
+        _sweep(table, now)
     if len(q) >= LIMITS[bucket]:
         raise ZidError(
             "RATE_LIMITED",
@@ -170,6 +188,8 @@ class IntentBody(BaseModel):
     notice_version: str = Field(min_length=1, max_length=40)
     nonce: str | None = Field(default=None, max_length=200)
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
+    # the request this browser already holds, when the person is changing the address: ends it, names nothing else
+    replaces: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 @router.post("/v1/registration/intents", status_code=202)
@@ -194,6 +214,7 @@ async def create_intent(
                 nonce=body.nonce,
                 idempotency_key=idempotency_key or body.idempotency_key,
                 now=datetime.now(UTC),
+                replaces=body.replaces,
             )
     except RegistrationError as e:
         raise _http(e) from e

@@ -20,7 +20,7 @@ function wrap(node: ReactNode) {
 }
 
 const capsFor = (country: object | null, providers: string[] = []) => ({
-  notice_version: "2026-10-22",
+  notice_version: "2026-11-03",
   locale: "und",
   nonce: "nonce-1",
   journeys: ["PERSONAL", "ORGANIZATION"],
@@ -75,7 +75,8 @@ describe("the sign-up form", () => {
     expect(document.querySelectorAll("input[type=checkbox]").length).toBe(0); // no prechecked or bundled consent
     expect(screen.getByRole("link", { name: "Already have a Zoiko iD? Sign in" }).getAttribute("href")).toBe("/sign-in");
     expect(screen.getByRole("link", { name: "Privacy Notice" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Terms of Service" })).toBeTruthy();
+    // no Terms text has been approved, so no link to it (lib/legal.ts); the link appears when Legal publishes
+    expect(screen.queryByRole("link", { name: "Terms of Service" })).toBeNull();
     expect(screen.getByRole("button", { name: "Continue securely" })).toBeTruthy();
     await waitFor(() => expect(calls.some((c) => c.url.startsWith("/api/registration/capabilities"))).toBe(true));
   });
@@ -114,7 +115,7 @@ describe("the sign-up form", () => {
     expect(await screen.findByRole("heading", { name: "Check your email" })).toBeTruthy();
     expect(screen.getAllByText("If this address can be used, check your inbox for next steps.").length).toBeGreaterThan(0);
     const sent = calls.find((c) => c.url.includes("/intents"))!;
-    expect(JSON.parse(String(sent.init?.body))).toMatchObject({ country: "GB", journey: "PERSONAL", email: "jane@example.com", notice_version: "2026-10-22", nonce: "nonce-1" });
+    expect(JSON.parse(String(sent.init?.body))).toMatchObject({ country: "GB", journey: "PERSONAL", email: "jane@example.com", notice_version: "2026-11-03", nonce: "nonce-1" });
     expect((sent.init?.headers as Record<string, string>)["idempotency-key"]).toMatch(/[0-9a-f-]{36}/);
     expect(JSON.stringify(sent.init?.body)).not.toMatch(/tenant|role|assurance|home_cell/); // nothing the server derives is sent
     expect(screen.getByRole("button", { name: "Use a different email address" })).toBeTruthy();

@@ -895,6 +895,9 @@
         "governance_approval_failed": {
           "$ref": "#/components/messages/governance_approval_failed"
         },
+        "governance_approval_reminder_due": {
+          "$ref": "#/components/messages/governance_approval_reminder_due"
+        },
         "governance_approval_vote_recorded": {
           "$ref": "#/components/messages/governance_approval_vote_recorded"
         },
@@ -1356,6 +1359,24 @@
     "organization.domain": {
       "address": "zid.{env}.{region}.organization.domain",
       "messages": {
+        "organization_claim_authority_evaluated": {
+          "$ref": "#/components/messages/organization_claim_authority_evaluated"
+        },
+        "organization_claim_closed": {
+          "$ref": "#/components/messages/organization_claim_closed"
+        },
+        "organization_claim_decision_issued": {
+          "$ref": "#/components/messages/organization_claim_decision_issued"
+        },
+        "organization_claim_risk_assessed": {
+          "$ref": "#/components/messages/organization_claim_risk_assessed"
+        },
+        "organization_claim_source_verified": {
+          "$ref": "#/components/messages/organization_claim_source_verified"
+        },
+        "organization_claim_submitted": {
+          "$ref": "#/components/messages/organization_claim_submitted"
+        },
         "organization_control_changed": {
           "$ref": "#/components/messages/organization_control_changed"
         },
@@ -3575,6 +3596,17 @@
         "x-zid-source": "ZID-ENG-DEC-010 section 04-06, ZID-ENG-DEC-011 section 06, ZID-ENG-DEC-012 section 04; CR-047",
         "x-zid-status": "proposed"
       },
+      "governance_approval_reminder_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.governance.approval.reminder_due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approval request inside a reminder window is about to expire (case id, level, state, the window and the hours left; no person, payload or reason). Raised once per request and window.",
+        "title": "governance.approval.reminder_due",
+        "x-zid-source": "ZID-UX-WF-013C section 05; CR-053",
+        "x-zid-status": "proposed"
+      },
       "governance_approval_vote_recorded": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.governance.approval.vote_recorded.v1",
@@ -4032,7 +4064,7 @@
         "payload": {
           "$ref": "#/components/schemas/CloudEvent"
         },
-        "summary": "A sign-up request expired unused; its token and its copy of the address were dropped (request id).",
+        "summary": "A sign-up request ended unused, because it expired or because the person gave another address; its token and its copy of the address were dropped (request id and, when the person changed address, the coarse reason ADDRESS_CHANGED).",
         "title": "onboarding.registration.abandoned",
         "x-zid-source": "ZID-UX-WF-013A section 07; CR-048",
         "x-zid-status": "proposed"
@@ -4443,6 +4475,72 @@
         "title": "ops.slo.budget_state_changed",
         "x-zid-source": "ZID-SRE-001",
         "x-zid-status": "catalogued"
+      },
+      "organization_claim_authority_evaluated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.authority_evaluated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The authority check of a company claim changed state: an officer found on the register, a delegated mandate waiting for a person, confirmed, or lapsed (claim id, the check, its new and previous state).",
+        "title": "organization.claim.authority_evaluated",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
+      },
+      "organization_claim_closed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.closed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company claim was withdrawn by the applicant or abandoned as an unsubmitted draft (claim id and the reason); nothing was deleted.",
+        "title": "organization.claim.closed",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
+      },
+      "organization_claim_decision_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.decision_issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company claim reached a decision: VERIFIED, DECLINED or RESTRICTED (claim id, the outcome and the one before it).",
+        "title": "organization.claim.decision_issued",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
+      },
+      "organization_claim_risk_assessed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.risk_assessed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The risk screening of a company claim changed state (claim id, the check, its new and previous state; never a name, an alert or a score).",
+        "title": "organization.claim.risk_assessed",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
+      },
+      "organization_claim_source_verified": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.source_verified.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A source answered for a company claim and its company check changed state (claim id, the check, its new and previous state; never a name or a number).",
+        "title": "organization.claim.source_verified",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
+      },
+      "organization_claim_submitted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.claim.submitted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The applicant said a company claim is complete and ready for review (claim id).",
+        "title": "organization.claim.submitted",
+        "x-zid-source": "ZID-UX-WF-013B section 09; CR-052",
+        "x-zid-status": "proposed"
       },
       "organization_control_changed": {
         "contentType": "application/cloudevents+json",

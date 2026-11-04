@@ -27,10 +27,19 @@ from zid_platform.modules.organization.application.kyb import (
     CaseView as KybCaseView,
 )
 from zid_platform.modules.organization.application.kyb import (
+    close_claim as kyb_close,
+)
+from zid_platform.modules.organization.application.kyb import (
+    drafts_before as kyb_drafts_before,
+)
+from zid_platform.modules.organization.application.kyb import (
     get_case as kyb_get_case,
 )
 from zid_platform.modules.organization.application.kyb import (
     history as kyb_history,
+)
+from zid_platform.modules.organization.application.kyb import (
+    open_claims as kyb_open_claims,
 )
 from zid_platform.modules.organization.application.kyb import (
     refresh as kyb_refresh,
@@ -46,6 +55,9 @@ from zid_platform.modules.organization.application.kyb import (
 )
 from zid_platform.modules.organization.application.kyb import (
     search as kyb_search,
+)
+from zid_platform.modules.organization.application.kyb import (
+    submit_claim as kyb_submit,
 )
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
@@ -66,7 +78,12 @@ from zid_platform.modules.organization.domain.kyb import (
 from zid_platform.modules.organization.domain.kyb import (
     Review as KybReview,
 )
-from zid_platform.modules.organization.domain.proof import ProofError
+from zid_platform.modules.organization.domain.proof import (
+    ProofError,
+    ProofPolicy,
+    check_proof,
+    sanitize_name,
+)
 from zid_platform.modules.organization.domain.registry import RegistryError, check_identifier
 from zid_platform.modules.organization.infrastructure.kyb_adapters import (
     CompaniesHouseKyb,
@@ -80,7 +97,14 @@ from zid_platform.modules.organization.infrastructure.kyb_config import routing 
 from zid_platform.modules.organization.infrastructure.kyb_store import (
     latest_case_id as latest_kyb_case_id,
 )
+from zid_platform.modules.organization.infrastructure.proof_config import (
+    parse as parse_proof_policy,
+)
 from zid_platform.modules.organization.infrastructure.proof_config import proof_policy
+from zid_platform.modules.organization.infrastructure.proof_scan import (
+    Scanner,
+    ScanStatus,
+)
 from zid_platform.modules.organization.infrastructure.proof_scan import (
     from_address as proof_scanner_from_address,
 )
@@ -107,31 +131,40 @@ __all__ = [
     "KybStatus",
     "NameMatcher",
     "ProofError",
+    "ProofPolicy",
     "RegisterRead",
     "RegistryAdapter",
     "RegistryError",
     "RootReader",
     "RootView",
+    "ScanStatus",
+    "Scanner",
     "SireneKyb",
     "adapter_for",
     "check_identifier",
+    "check_proof",
     "default_adapters",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",
     "identifiers_of",
+    "kyb_close",
+    "kyb_drafts_before",
     "kyb_get_case",
     "kyb_history",
+    "kyb_open_claims",
     "kyb_refresh",
     "kyb_register_people",
     "kyb_request_verification",
     "kyb_review",
     "kyb_routing",
     "kyb_search",
+    "kyb_submit",
     "latest_kyb_case_id",
     "legal_name_history",
     "link_identifier",
     "organization_exists",
+    "parse_proof_policy",
     "proof_policy",
     "proof_scanner_from_address",
     "proof_service",
@@ -141,6 +174,7 @@ __all__ = [
     "release_source",
     "request_registry_refresh",
     "resolve_organization",
+    "sanitize_name",
     "source_is_quarantined",
     "usable_root_for",
 ]

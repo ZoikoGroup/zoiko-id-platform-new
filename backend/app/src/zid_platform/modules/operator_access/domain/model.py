@@ -321,6 +321,18 @@ CAPABILITIES: dict[str, Capability] = {
             break_glass=False,
         ),
         _cap(
+            "commercial.finance.manage",
+            "Finance authority: appoint approvers, sign the finance policy, open, decide and run credit and pilot-credit requests; "
+            "approving also needs the named appointment (COM-CL-003, COM-CL-004; CR-054)",
+            risk=3,
+            evidence=3,
+            scope=Scope.PLATFORM,
+            customer_data=False,
+            two_person=False,
+            minutes=240,
+            break_glass=False,
+        ),
+        _cap(
             "prod.db.breakglass",
             "Captured, JIT-only database session (breakglass_dba)",
             risk=3,

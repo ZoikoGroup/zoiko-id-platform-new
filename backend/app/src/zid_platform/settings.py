@@ -138,7 +138,7 @@ class Settings(ServiceSettings):
     # ZID_DEV_SIMULATORS: development identity-provider and register simulators (local/test only)
     dev_simulators: bool = False
     # ZID_TENANT_SIGNUP_NOTICE_VERSION: the privacy notice a registrant must acknowledge (PRIV-001)
-    tenant_signup_notice_version: str = "2026-10-22"
+    tenant_signup_notice_version: str = "2026-11-03"
     # ZID_REGISTRATION_TENANT_ID: this cell's registration tenant (WF-013A): where person-first sign-up requests and their email log
     # sit before an account exists. Unset means person-first sign-up is off. Seed it with `entrypoints.seed_registration_tenant`.
     registration_tenant_id: str | None = None

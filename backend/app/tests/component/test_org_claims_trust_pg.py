@@ -10,7 +10,7 @@ import asyncio
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from conftest import engine
@@ -21,6 +21,8 @@ from test_approvals_pg import OWNER_TRANSFER, World, code, world  # noqa: F401  
 from test_org_claims_api_pg import REVIEW_ACTIONS, REVIEW_RESOURCES, Register, error
 from zid_platform.main import create_app
 from zid_platform.modules.organization.domain.kyb import CompanyFacts
+from zid_platform.modules.verification.domain.verification import ClaimResult, SessionStatus
+from zid_platform.modules.verification.infrastructure import verification_store as vstore
 from zid_platform.settings import Settings
 
 CLAIM = {"country": "GB", "registration_number": "00123456", "legal_name": "Acme Widgets Limited"}
@@ -311,3 +313,61 @@ def test_a_company_that_is_dissolved_at_its_next_refresh_drops_out_of_every_view
             )
 
     assert asyncio.run(lost()) == 1
+
+
+def give_identity(w: World, principal: str, *, performed_at: datetime) -> None:
+    """One identity check result for a person: a profile, a verified session and its assertion, as the verification service writes them."""
+
+    async def work(c: Any) -> None:
+        pid, _ = await vstore.create_profile(
+            c, tenant_id=w.o.tenant, name=f"kyc-{uuid.uuid4().hex[:8]}", level="IAL-Z2",
+            requirements={"required_claims": ["legal_name"], "accepted_evidence": ["GOVERNMENT_ID"], "binding_required": True, "jurisdictions": ["GB"]},
+        )  # fmt: skip
+        profile = await vstore.load_profile(c, pid)
+        s = vstore.VSession(
+            str(uuid.uuid4()), w.o.tenant, pid, principal, "onboarding", "GB", SessionStatus.VERIFIED, "sim",
+            f"tx-{uuid.uuid4().hex[:8]}", (), "VERIFIED", None, 1, performed_at, performed_at + timedelta(days=1),
+        )  # fmt: skip
+        await vstore.create_session(c, s)
+        await vstore.insert_assertions(
+            c, s, profile, (ClaimResult("legal_name", True, "Jane Mary Doe", "doc", ("GOVERNMENT_ID",)),),
+            adapter_id="sim", reasons=("VERIFIED",), evidence_commitment=None, now=performed_at,
+        )  # fmt: skip
+
+    w.run(work)
+
+
+def test_the_applicants_identity_check_completes_only_from_their_own_valid_identity_check(
+    world: World,  # noqa: F811
+) -> None:
+    """WF-13B-03 'Your identity': read from the verification service for the person who made the claim. A registry match, a declaration, someone
+    else's check or an expired one completes nothing, and on its own it never makes the company VERIFIED."""
+    w = world
+    w.http.app.state.kyb_adapters = {"companies-house": Register()}
+    claim = w.http.post(
+        "/v1/org-claims", headers={**w.h(w.o.owner), **key("identity")}, json=CLAIM
+    ).json()["claim_id"]
+
+    def status() -> dict[str, Any]:
+        r = w.http.get(f"/v1/org-claims/{claim}/status", headers=w.h(w.o.owner))
+        assert r.status_code == 200, r.text
+        return dict(r.json())
+
+    assert status()["checks"]["person_assurance"] == "PENDING"
+    give_identity(
+        w, w.person("ADMIN"), performed_at=datetime.now(UTC)
+    )  # another person's identity check is not the applicant's
+    assert status()["checks"]["person_assurance"] == "PENDING"
+    give_identity(
+        w, w.o.owner, performed_at=datetime.now(UTC) - timedelta(days=3650)
+    )  # an expired one is not current
+    assert status()["checks"]["person_assurance"] == "PENDING"
+
+    give_identity(
+        w, w.o.owner, performed_at=datetime.now(UTC)
+    )  # the applicant's own, valid and unexpired
+    done = status()
+    assert done["checks"]["person_assurance"] == "COMPLETED"
+    assert (
+        done["checks"]["authority"] == "PENDING" and done["outcome"] == "PROVISIONAL"
+    )  # identity alone verifies no company

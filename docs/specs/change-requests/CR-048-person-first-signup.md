@@ -36,3 +36,29 @@ Status: open (built). The wireframe is proposed and awaits founder approval; its
 - **A held request is silent.** Support has a read-only lookup (`registration_hold`); nothing releases a held request.
 - **Legal-notice evidence** is the notice version recorded on the request; consent records beyond it, and marketing consent, are not collected.
 - **Local mail sink:** `ZID_SMTP_INSECURE_LOCAL` lets a local stack send to a mail sink without TLS; it is refused outside the local and test environments.
+
+## Completed later (2026-11-03): change the address (state S3) and the event list
+- **Change the address.** `POST /v1/registration/intents` takes an optional `replaces`: the request this browser already holds. If it is still open
+  (INITIATED or VERIFICATION_SENT) it ends there: its link stops working on every device, its copy of the address is dropped, and one coarse
+  `onboarding.registration.abandoned` event says `ADDRESS_CHANGED` (a request id and a reason, never an address). Anything else it names (unknown, malformed, already
+  verified, held or ended) is ignored without a word, so it cannot be used to learn whether a request exists, and a confirmed account is never undone by naming it. The
+  web proxy fills `replaces` only from this browser's own HttpOnly cookie; what the page body says is ignored.
+- **`signup_intent_selected` is not a separate event.** The intent (for myself or for an organization) is chosen in the same submission that starts the request, so
+  `onboarding.registration.started` already carries it (`journey`). A second event would say nothing the first does not. Seven events are published for the eight the
+  design lists; an owner who wants the eighth as its own name can ask for it.
+- Tests: `test_giving_another_address_ends_the_earlier_request_and_drops_its_copy_of_the_address`, `registration.test.ts` (4). AC-10 is linked to the Chromium run
+  (`frontend/tests/e2e/signup-a11y.spec.ts`: 320 px, landscape, 200 percent zoom, keyboard order, announced error summary); the screen-reader run on real devices stays QA's.
+
+## Production hardening (2026-11-03)
+- **Erasure follows the person.** The account index, the sign-up requests and the invitation routes of an erased account are found, exported without the address hash and
+  removed by the privacy erasure (`onboarding/infrastructure/privacy_adapter.py`, registered at start-up in the cell and the worker when a registration tenant is configured).
+  Onboarding migration `0007`: the account index gets its own guard and the request guard learns the same exception, so a delete succeeds only inside a transaction
+  that the erasure marked (`app.registration_erasure`), which the adapter clears at once; every other delete is still refused, even for the worker, and updates always are.
+  The runtime role still has no delete. Before this, an erased person left a pseudonymous link behind and their address could never register again.
+- **Rate limits that hold behind an ingress.** The supervisor passes `ZID_FORWARDED_ALLOW_IPS` to uvicorn so the real client address is believed only from named
+  proxies (`*` is refused outside local and test); without it every caller behind one ingress shared one bucket. The in-process limiter now forgets clients whose window
+  passed and is capped per bucket, so a spray of addresses cannot grow the process without bound.
+- **Documents for the people who run it:** `docs/threat-model/signup.md` and `docs/runbooks/signup-operations.md`.
+- **Decisions made by engineering for the owners to ratify** (owner pack items 6, 8, 9, 10, 12, 13): no fallback to a passkey weaker than governed recovery; support wording for
+  held requests; erasure removes the account index; the nonce is time-limited, not single-use.
+- Tests: `test_an_erased_account_takes_its_sign_up_records_with_it_and_only_erasure_may_do_that`, `test_registration_limits.py` (3), a supervisor test.

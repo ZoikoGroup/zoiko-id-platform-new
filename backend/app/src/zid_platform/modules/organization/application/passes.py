@@ -40,7 +40,7 @@ async def refresh_pass(
         await conn.execute(
             text(
                 "SELECT tenant_id, case_id, jurisdiction FROM org.kyb_case "
-                "WHERE status = 'VERIFIED' AND expiry_at IS NOT NULL AND expiry_at <= :horizon "
+                "WHERE status = 'VERIFIED' AND closed_at IS NULL AND expiry_at IS NOT NULL AND expiry_at <= :horizon "
                 "ORDER BY tenant_id, expiry_at"
             ),
             {"horizon": now + (lead if lead is not None else routing.policy.refresh_lead)},

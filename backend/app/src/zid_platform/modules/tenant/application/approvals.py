@@ -52,6 +52,7 @@ from zid_platform.modules.tenant.domain.lifecycle import (
 from zid_platform.modules.tenant.domain.role_matrix import Mode
 from zid_platform.modules.tenant.infrastructure import approvals as store
 from zid_platform.modules.tenant.infrastructure import tenant_store
+from zid_platform.modules.tenant.infrastructure.readiness_policy import readiness_policy
 
 log = logging.getLogger("zid.approvals")
 
@@ -108,6 +109,54 @@ def register_executor(executor: Executor) -> None:
 
 def executor_names() -> frozenset[str]:
     return frozenset(_EXECUTORS)
+
+
+# What must still be true of the organization when a customer case runs, whatever the votes say (Decision 11 order: "revalidate at
+# execution"; Decision 12 test 07: execute rechecks country and data controls). It returns a reason code when the organization may not
+# act now, or None. Composition supplies it (the country registry is not the tenant module's); without one nothing is refused, which
+# is the earlier behaviour, and `standing_check_configured` lets a deployed process refuse to start without it.
+StandingCheck = Callable[[AsyncConnection, str], Awaitable[str | None]]
+_STANDING: StandingCheck | None = None
+
+
+def configure_standing_check(check: StandingCheck | None) -> None:
+    global _STANDING
+    _STANDING = check
+
+
+# The organization's readiness state, composed at start-up (the onboarding module computes it; this module must not import it). What each state
+# refuses is `config/onboarding/readiness-policy.yaml`; without a check composed in, nothing is refused.
+ReadinessState = Callable[[AsyncConnection, str], Awaitable[str]]
+_READINESS: ReadinessState | None = None
+
+
+def configure_readiness_check(check: ReadinessState | None) -> None:
+    global _READINESS
+    _READINESS = check
+
+
+async def _readiness_gate(
+    conn: AsyncConnection, tenant_id: str, actor: str, action_id: str, now: datetime
+) -> str | None:
+    """A reason code when the organization's readiness refuses this governed action, else None. Under REPORT_ONLY a refusal that would
+    have happened is written to the audit record and the action goes through; under OFF nothing is looked at."""
+    policy = readiness_policy()
+    if _READINESS is None or policy.enforcement == "OFF":
+        return None
+    state = await _READINESS(conn, tenant_id)
+    if not policy.refuses(state, action_id):
+        return None
+    if policy.enforcement == "REPORT_ONLY":
+        await _audit(
+            conn, tenant_id, actor, approval_audit.READINESS_REPORT, None, "SUCCESS", "ORGANIZATION_NOT_READY",
+            {"action_id": action_id, "readiness": state, "policy": policy.version}, now, target=action_id,
+        )  # fmt: skip
+        return None
+    return "ORGANIZATION_NOT_READY"
+
+
+def standing_check_configured() -> bool:
+    return _STANDING is not None
 
 
 # ------------------------------------------------------------------------------------------------ evidence
@@ -415,6 +464,13 @@ async def create_case(
     tenant = await tenant_store.load_tenant(conn, tenant_id)
     if tenant is None:
         raise ApprovalError("TENANT_NOT_FOUND")
+    if policy.scope is Scope.CUSTOMER:
+        held = await _readiness_gate(conn, tenant_id, actor, action_id, now)
+        if held:  # the organization is not in a state to ask for this: no case
+            raise await _refuse_audited(
+                conn, tenant_id, actor, approval_audit.REFUSED, held, action_id, now,
+                "the organization's readiness does not allow this change right now",
+            )  # fmt: skip
     if not target_id or not reason.strip():
         raise ApprovalError("VALIDATION_FAILED", "a target and a reason are required")
     payload_json = canonical_payload(payload)
@@ -931,6 +987,18 @@ async def execute_case(
         )
     ctx = ExecContext(conn, case, tenant_id, actor, approvers, now)
     attempt = len(prior) + 1
+    if _STANDING is not None and policy.scope is Scope.CUSTOMER:
+        standing = await _STANDING(conn, tenant_id)
+        if standing:  # the country (or its data controls) closed after the vote; two valid votes cannot reopen it
+            return await _record_failure(
+                conn, case, policy, actor, idempotency_key, attempt, standing, quorum, now
+            )
+    if policy.scope is Scope.CUSTOMER:
+        held = await _readiness_gate(conn, tenant_id, actor, case.action_id, now)
+        if held:  # the organization is no longer in a state for this change; the approval stands and the run can be tried again
+            return await _record_failure(
+                conn, case, policy, actor, idempotency_key, attempt, held, quorum, now
+            )
     if ex.check is not None:
         failed = next(
             (g for g in await ex.check(conn, tenant_id, case.payload) if g.blocking and not g.ok),
@@ -1243,6 +1311,40 @@ async def can_view(
     if any(v.approver_person_id == person for v in await store.votes(conn, case.case_id)):
         return True
     return _is_governor(await _governor(conn, case.tenant_id, actor, case.region, now))
+
+
+@dataclass(frozen=True, slots=True)
+class CaseAccess:
+    """What one caller may do with the documents on one request (WF-013C AT-12). Built for the attachment service, which lives in
+    another module and must not read approval tables."""
+
+    case_id: str
+    state: str
+    expires_at: datetime
+    may_attach: bool  # the requester or an editor, while the request is open and no vote has been cast on it
+    may_open: bool  # someone who holds or was appointed to an approving role, or who has voted
+
+
+async def case_access(
+    conn: AsyncConnection, case_id: str, actor: str, now: datetime | None = None
+) -> CaseAccess | None:
+    """None when the case does not exist for this organization or the caller may not see it: the same answer for both."""
+    now = now or datetime.now(UTC)
+    case = await store.load_case(conn, case_id)
+    if case is None or not await can_view(conn, case, actor, now):
+        return None
+    person = await tenant_store.person_of(conn, actor)
+    votes = await store.votes(conn, case.case_id)
+    mine = person == case.requester_person_id or person in case.editor_persons
+    voted = any(v.approver_person_id == person for v in votes)
+    governor = _is_governor(await _governor(conn, case.tenant_id, actor, case.region, now))
+    return CaseAccess(
+        case_id=case.case_id,
+        state=case.state.value,
+        expires_at=case.expires_at,
+        may_attach=mine and case.state is State.PENDING_APPROVAL and not votes,
+        may_open=voted or governor,
+    )
 
 
 def _cursor(case: store.Case) -> str:

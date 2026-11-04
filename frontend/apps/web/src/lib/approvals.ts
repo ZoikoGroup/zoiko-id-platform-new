@@ -21,6 +21,15 @@ const REFUSALS: Record<string, string> = {
   APPROVAL_STATE_INVALID: "This request is no longer open for a vote.",
   APPROVAL_CASE_REQUIRED: "This is a critical change. Request it for approval by two independent people.",
   STEP_UP_REQUIRED: "Confirm with your passkey for this exact request.",
+  ORGANIZATION_NOT_READY: "Your organization is not in a state to make this change right now. Open Organization setup to see what needs attention.",
+  APPROVAL_PAYLOAD_INVALID: "The details do not fit this request. Check them and try again.",
+  APPROVAL_WOULD_ORPHAN_TENANT: "The last Owner cannot be removed. Add the successor first.",
+  INCOMING_OWNER_STRONG_AUTHENTICATOR: "The new Owner needs a passkey before ownership can move to them.",
+  OWNER_REMAINS: "Another Owner must remain after this change.",
+  REMAINING_OWNER_STRONG_AUTHENTICATOR: "An Owner who stays needs a passkey, so someone can still confirm sensitive actions.",
+  RECOVERY_TARGET_ACTIVE_PERSON: "That account is not an active person in this organization.",
+  RECOVERY_TARGET_PRIVILEGED: "That account holds no privileged role. Use ordinary recovery instead.",
+  APPROVAL_REQUESTER_NOT_PERMITTED: "You do not have the right to ask for this change.",
 };
 
 export function approvalRefusalText(code: string | undefined | null): string {

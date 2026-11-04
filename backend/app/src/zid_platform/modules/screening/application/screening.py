@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -33,6 +33,7 @@ from zid_platform.modules.screening.domain.decision import (
     ScreeningInput,
     ScreeningStatus,
     Subject,
+    bounded_expiry,
     check_appeal,
     check_appeal_reviewer,
     check_ruling,
@@ -129,6 +130,8 @@ class CaseView:
     version: int
     expiry_at: datetime | None
     tasks: tuple[dict[str, Any], ...] = ()
+    authority_state: str = "PENDING"  # COMPLETED, HELD (a mandate waits for a person), STALE (the mandate lapsed) or PENDING
+    relationship: str | None = None  # how the person says they act for the company
 
 
 def _view(case: store.CaseRow, now: datetime) -> CaseView:
@@ -143,12 +146,14 @@ def _view(case: store.CaseRow, now: datetime) -> CaseView:
     )
 
 
-def _authority(d: Mapping[str, Any]) -> AuthorityEvidence:
+def _authority(d: Mapping[str, Any], *, confirmed: bool = False) -> AuthorityEvidence:
     expires = d.get("expires_at")
     return AuthorityEvidence(
         AuthorityKind(d.get("kind", "NONE")),
         d.get("reference"),
         datetime.fromisoformat(expires) if expires else None,
+        d.get("relationship"),
+        confirmed,
     )
 
 
@@ -156,11 +161,16 @@ async def _input(
     conn: AsyncConnection, tenant_id: str, case: store.CaseRow, cfg: ScreeningConfig, now: datetime
 ) -> ScreeningInput:
     parties = await store.load_parties(conn, tenant_id, case.case_id)
+    history = await store.history(conn, tenant_id, case.case_id)
+    reference = case.authority.get("reference")
+    confirmed = bool(
+        history and reference and history[-1].body.get("mandate_confirmed_reference") == reference
+    )  # a confirmation belongs to the mandate it was given for: a new mandate starts unconfirmed
     return ScreeningInput(
         country=case.country,
         subjects=tuple(Subject(role, party) for role, party in parties),
         graph=await store.load_graph(conn, tenant_id, case.case_id),
-        authority=_authority(case.authority),
+        authority=_authority(case.authority, confirmed=confirmed),
         elevated_risk=case.elevated_risk,
         snapshots=await store.snapshots(conn),
         pack=cfg.pack(case.country),
@@ -299,6 +309,7 @@ async def open_case(
             "kind": authority.kind.value,
             "reference": authority.reference,
             "expires_at": authority.expires_at.isoformat() if authority.expires_at else None,
+            "relationship": authority.relationship,
         },
         requested_by=requested_by,
         now=now,
@@ -397,7 +408,7 @@ async def due_for_rescreen(
             text(
                 "SELECT c.case_id, c.status, c.expiry_at, e.body, e.created_at FROM verify.screening_case c "
                 "JOIN verify.screening_evidence e ON e.case_id = c.case_id AND e.version = c.current_version "
-                "WHERE c.tenant_id = :t AND c.status IN ('VERIFIED', 'REVIEW_REQUIRED', 'UNAVAILABLE')"
+                "WHERE c.tenant_id = :t AND c.closed_at IS NULL AND c.status IN ('VERIFIED', 'REVIEW_REQUIRED', 'UNAVAILABLE')"
             ),
             {"t": uuid.UUID(tenant_id)},
         )
@@ -463,16 +474,36 @@ async def review(
     if _appeal_open(case, last):  # an independent second look: not whoever decided before
         check_appeal_reviewer(ruling.reviewer_id, [h.decided_by for h in hist if h.decided_by])
     validity = cfg.policy.validity_elevated if case.elevated_risk else cfg.policy.validity
+    if (
+        ruling.confirm_mandate
+    ):  # the reviewer read the mandate (an audited read of the proof) and confirms it
+        if (
+            inp.authority.kind is not AuthorityKind.DELEGATED_MANDATE
+            or not inp.authority.reference
+            or (inp.authority.expires_at is not None and inp.authority.expires_at <= now)
+        ):
+            raise ScreeningError("MANDATE_NOT_CONFIRMABLE", inp.authority.kind.value)
+        inp = replace(inp, authority=replace(inp.authority, confirmed=True))
     decision = Decision(
         status=ruling.outcome,
-        reasons=tuple(dict.fromkeys([*last.reasons, "REVIEWER_RULING"])),
+        reasons=tuple(
+            dict.fromkeys(
+                [
+                    *last.reasons,
+                    "REVIEWER_RULING",
+                    *(("MANDATE_CONFIRMED",) if ruling.confirm_mandate else ()),
+                ]
+            )
+        ),
         matches=(),
         ownership=None,
-        authority_verified=bool(last.body.get("authority_verified")),
+        authority_verified=bool(last.body.get("authority_verified")) or ruling.confirm_mandate,
         lists=tuple(
             (x["list_id"], x["version"], x["content_hash"]) for x in last.body.get("lists", [])
         ),
-        expiry_at=now + validity if ruling.outcome is ScreeningStatus.VERIFIED else None,
+        expiry_at=bounded_expiry(now + validity, inp.authority)
+        if ruling.outcome is ScreeningStatus.VERIFIED
+        else None,
     )
     carry: dict[str, Any] = {k: last.body[k] for k in ("matches", "ownership") if k in last.body}
     return await _record(
@@ -506,9 +537,9 @@ async def live_kyb_cases(conn: AsyncConnection) -> list[tuple[str, str, str, str
         await conn.execute(
             text(
                 "SELECT tenant_id, case_id, kyb_case_id, country FROM ("
-                " SELECT DISTINCT ON (kyb_case_id) tenant_id, case_id, kyb_case_id, country, status FROM verify.screening_case"
+                " SELECT DISTINCT ON (kyb_case_id) tenant_id, case_id, kyb_case_id, country, status, closed_at FROM verify.screening_case"
                 " WHERE kyb_case_id IS NOT NULL ORDER BY kyb_case_id, created_at DESC) latest "
-                "WHERE status IN ('VERIFIED', 'REVIEW_REQUIRED', 'UNAVAILABLE')"
+                "WHERE closed_at IS NULL AND status IN ('VERIFIED', 'REVIEW_REQUIRED', 'UNAVAILABLE')"
             )
         )
     ).all()
@@ -664,7 +695,21 @@ async def case_for_kyb(
     if case is None:
         return None
     hist = await store.history(conn, tenant_id, case.case_id)
-    return _view(case, now), bool(hist and hist[-1].body.get("authority_verified"))
+    verified = bool(hist and hist[-1].body.get("authority_verified"))
+    authority = _authority(case.authority)
+    mandate = authority.kind is AuthorityKind.DELEGATED_MANDATE
+    lapsed = mandate and authority.expires_at is not None and authority.expires_at <= now
+    if verified and not lapsed:
+        state = "COMPLETED"
+    elif verified:
+        state = "STALE"  # the mandate it rested on has run out
+    elif mandate and "AUTHORITY_MANDATE_REVIEW" in case.reasons:
+        state = "HELD"
+    else:
+        state = "PENDING"
+    return replace(
+        _view(case, now), authority_state=state, relationship=authority.relationship
+    ), verified
 
 
 async def get_case(
@@ -751,3 +796,18 @@ async def case_countries(conn: AsyncConnection, case_ids: list[str]) -> dict[str
         )
     ).all()
     return {str(r.case_id): str(r.country).strip() for r in rows}
+
+
+async def close_for_kyb(
+    conn: AsyncConnection, tenant_id: str, kyb_case_id: str, now: datetime
+) -> int:
+    """The claim this case belongs to was withdrawn or abandoned: nobody is watched for it any more. The case and its evidence stay as they
+    were, for the retention schedule to decide; only the watching stops (no register read, no rescreen)."""
+    result = await conn.execute(
+        text(
+            "UPDATE verify.screening_case SET closed_at = :now, updated_at = :now "
+            "WHERE tenant_id = :t AND kyb_case_id = :k AND closed_at IS NULL"
+        ),
+        {"t": uuid.UUID(tenant_id), "k": uuid.UUID(kyb_case_id), "now": now},
+    )
+    return int(result.rowcount)

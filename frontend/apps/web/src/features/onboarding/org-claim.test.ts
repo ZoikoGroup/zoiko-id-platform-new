@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 import {
   APPEAL_LABELS,
   CHECKS,
+  CHECK_TONE,
+  CHECK_WORDS,
+  MANDATE_KINDS,
   MAX_PROOF_BYTES,
+  RELATIONSHIPS,
   PROOF_KINDS,
   appealKinds,
   appealMessage,
@@ -12,6 +16,7 @@ import {
   buildScreening,
   claimKey,
   emptyOwner,
+  mandateProblem,
   nextStep,
   outcomeCopy,
   ownerRowErrors,
@@ -28,7 +33,11 @@ const base: OrgClaimStatus = {
   claim_id: "c1",
   jurisdiction: "GB",
   registration_number: "00123456",
+  state: "DRAFT",
   outcome: "PROVISIONAL",
+  relationship: null,
+  submitted_at: null,
+  closed_at: null,
   checks: { company: "COMPLETED", person_assurance: "PENDING", authority: "PENDING", risk: "PENDING" },
   company: { status: "VERIFIED", review_reason: null, reasons: [], expires_at: null },
   screening: null,
@@ -49,7 +58,7 @@ describe("outcome wording", () => {
     expect(p.body).toMatch(/no owner or approver rights/);
   });
   it("names every outcome and promises no completion time", () => {
-    for (const o of ["VERIFIED", "PROVISIONAL", "NEEDS_EVIDENCE", "IN_REVIEW", "RESTRICTED", "DECLINED", "STALE"] as const) {
+    for (const o of ["VERIFIED", "PROVISIONAL", "NEEDS_EVIDENCE", "IN_REVIEW", "RESTRICTED", "DECLINED", "STALE", "WITHDRAWN", "ABANDONED"] as const) {
       const c = outcomeCopy(o);
       expect(c.title).toBeTruthy();
       expect(c.body).not.toMatch(/\b\d+\s*(hours?|days?|minutes?)\b/i);
@@ -99,7 +108,9 @@ describe("keys and next steps", () => {
   it("asks for the authority details only once the company is found, then waits, then is done", () => {
     expect(nextStep(base)).toBe("authority");
     expect(nextStep({ ...base, checks: { ...base.checks, company: "PENDING" } })).toBe("wait");
-    expect(nextStep({ ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null, tasks: [] } })).toBe("wait");
+    const declared = { ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null, tasks: [] } };
+    expect(nextStep(declared)).toBe("submit"); // whom to screen is said, and it has not been sent
+    expect(nextStep({ ...declared, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
     expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
   });
 });
@@ -168,5 +179,56 @@ describe("appeals and corrections", () => {
     }
     expect(appealMessage("SOMETHING_NEW")).toBe("That request could not be sent.");
     expect(appealMessage(undefined)).toBe("That request could not be sent.");
+  });
+});
+
+describe("states a claim can be in", () => {
+  it("says out of date and restricted in their own words, never as verified or merely pending", () => {
+    expect(CHECK_WORDS.STALE).toBe("Out of date");
+    expect(CHECK_WORDS.RESTRICTED).toBe("Restricted");
+    expect(CHECK_TONE.STALE).toBe("warn");
+    expect(CHECK_TONE.RESTRICTED).toBe("danger");
+    expect(outcomeCopy("STALE").title).toBe("Out of date");
+    expect(outcomeCopy("RESTRICTED").body).toMatch(/paused/);
+  });
+  it("tells a withdrawn or closed claim apart, with a way to start again and nothing promised about the past", () => {
+    for (const o of ["WITHDRAWN", "ABANDONED"] as const) {
+      expect(outcomeCopy(o).body).toMatch(/Nothing was deleted/);
+      expect(outcomeCopy(o).body).toMatch(/start a new claim/);
+    }
+  });
+  it("offers submitting once whom to screen is said, and nothing once a claim is closed or verified", () => {
+    const declared = { ...base, screening: { status: "SCREENING", next_action: "", expires_at: null, tasks: [] } };
+    expect(nextStep(base)).toBe("authority");
+    expect(nextStep(declared)).toBe("submit");
+    expect(nextStep({ ...declared, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
+    expect(nextStep({ ...declared, state: "WITHDRAWN", outcome: "WITHDRAWN", closed_at: "2026-11-03T10:00:00Z" })).toBe("done");
+    expect(nextStep({ ...declared, outcome: "VERIFIED" })).toBe("done");
+  });
+});
+
+describe("how the person acts for the company", () => {
+  const today = new Date("2026-11-03T12:00:00");
+  it("offers the three relationships of the design, and only an officer needs no document", () => {
+    expect(RELATIONSHIPS.map((r) => r.id)).toEqual(["DIRECTOR_OR_OFFICER", "DELEGATED_EMPLOYEE", "EXTERNAL_REPRESENTATIVE"]);
+    expect(MANDATE_KINDS).toEqual(["LETTER_OF_AUTHORITY", "BOARD_RESOLUTION", "SIGNING_MATRIX"]);
+    expect(PROOF_KINDS.some((k) => k.id === "SIGNING_MATRIX")).toBe(true);
+    expect(mandateProblem("DIRECTOR_OR_OFFICER", "", "", today)).toBeNull();
+  });
+  it("asks a delegate for the document and a future end date before sending", () => {
+    expect(mandateProblem("DELEGATED_EMPLOYEE", "", "2027-01-01", today)).toMatch(/Choose the document/);
+    expect(mandateProblem("EXTERNAL_REPRESENTATIVE", "p1", "", today)).toMatch(/Enter the date/);
+    expect(mandateProblem("DELEGATED_EMPLOYEE", "p1", "2026-11-02", today)).toMatch(/future/);
+    expect(mandateProblem("DELEGATED_EMPLOYEE", "p1", "2027-01-01", today)).toBeNull();
+  });
+  it("sends the mandate only for a delegate, and never the officer's", () => {
+    const owners = [{ ...emptyOwner(), name: "Olivia Owner", sharesPct: "60" }];
+    const officer = buildScreening("Alice Smith", owners, { relationship: "DIRECTOR_OR_OFFICER", proofId: "ignored", expires: "2027-01-01" });
+    expect(officer.relationship).toBe("DIRECTOR_OR_OFFICER");
+    expect(officer.mandate_proof_id).toBeUndefined();
+    const delegate = buildScreening("Alice Smith", owners, { relationship: "DELEGATED_EMPLOYEE", proofId: "p1", expires: "2027-01-01" });
+    expect(delegate.mandate_proof_id).toBe("p1");
+    expect(delegate.mandate_expires_at).toMatch(/^2027-01-01T/);
+    expect(buildScreening("Alice Smith", owners).relationship).toBe("DIRECTOR_OR_OFFICER"); // the default is the register
   });
 });

@@ -62,6 +62,10 @@ class CaseView:
     jurisdiction: str
     registration_number: str
     legal_name: str  # the name the applicant gave, never a register's
+    requested_by: str  # the principal who made the claim: whose identity check counts for it (internal; never shown to anyone)
+    submitted_at: datetime | None = None
+    closed_at: datetime | None = None
+    closed_reason: str | None = None
 
 
 def _covers(adapter: KybAdapter, country: str) -> bool:
@@ -174,6 +178,10 @@ def _view(
         jurisdiction=case.jurisdiction,
         registration_number=case.registration_number,
         legal_name=case.applicant_name,
+        requested_by=case.requested_by,
+        submitted_at=case.submitted_at,
+        closed_at=case.closed_at,
+        closed_reason=case.closed_reason,
     )
 
 
@@ -457,6 +465,8 @@ async def refresh(
     A scheduled refresh sets `keep_valid_on_outage`: a verification that still stands is not replaced by an outage, which says
     nothing about the company; the next pass asks again, and the verification lapses on its own date if the sources stay down."""
     case = await store.load_case(conn, tenant_id, case_id, lock=True)
+    if case.closed_at is not None:  # a withdrawn or abandoned claim is never read again
+        raise KybError("CLAIM_CLOSED", case.closed_reason or "")
     if country_gate is not None:
         country_gate(case.jurisdiction)
     applicant = _applicant(case)
@@ -485,6 +495,8 @@ async def review(
 ) -> CaseView:
     """A reviewer's ruling on a case in review: a new signed evidence row with the rationale; history is kept."""
     case = await store.load_case(conn, tenant_id, case_id, lock=True)
+    if case.closed_at is not None:
+        raise KybError("CLAIM_CLOSED", case.closed_reason or "")
     check_review(case.status, ruling, requester_id=case.requested_by)
     history = await store.evidence_history(conn, tenant_id, case_id)
     last = history[-1]
@@ -518,3 +530,35 @@ async def get_case(
 
 async def history(conn: AsyncConnection, tenant_id: str, case_id: str) -> list[store.EvidenceRow]:
     return await store.evidence_history(conn, tenant_id, case_id)
+
+
+async def submit_claim(
+    conn: AsyncConnection, tenant_id: str, case_id: str, *, now: datetime
+) -> tuple[CaseView, bool]:
+    """The applicant says the claim is complete and ready for review. Returns (the claim, whether this call submitted it): a repeat is
+    the same answer and changes nothing. A closed claim cannot be submitted."""
+    case = await store.load_case(conn, tenant_id, case_id, lock=True)
+    if case.closed_at is not None:
+        raise KybError("CLAIM_CLOSED", case.closed_reason or "")
+    done = await store.mark_submitted(conn, tenant_id, case_id, now)
+    return await get_case(conn, tenant_id, case_id, now=now), done
+
+
+async def close_claim(
+    conn: AsyncConnection, tenant_id: str, case_id: str, reason: str, *, now: datetime
+) -> tuple[CaseView, bool]:
+    """WITHDRAWN (the applicant) or ABANDONED (a draft nobody submitted in time). Returns (the claim, whether this call closed it). The
+    history stays; nothing is deleted. Whether a claim may be withdrawn at all (a verified one may not) is the caller's rule."""
+    if reason not in ("WITHDRAWN", "ABANDONED"):
+        raise KybError("CLOSE_REASON_INVALID", reason)
+    await store.load_case(conn, tenant_id, case_id, lock=True)
+    done = await store.close_case(conn, tenant_id, case_id, reason, now)
+    return await get_case(conn, tenant_id, case_id, now=now), done
+
+
+async def open_claims(conn: AsyncConnection) -> list[tuple[str, str]]:
+    return await store.open_cases(conn)
+
+
+async def drafts_before(conn: AsyncConnection, cutoff: datetime) -> list[tuple[str, str]]:
+    return await store.draft_cases_before(conn, cutoff)

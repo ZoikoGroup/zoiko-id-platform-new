@@ -1,0 +1,8 @@
+# Reminders about approval requests that are about to expire (ZID-UX-WF-013C section 05; slice L-13, CR-053). Versioned configuration.
+# An in-app alert (the alerts centre), raised once per request and window; no email goes out, because the email templates have no approval notice.
+# `windows_hours` is how long before a request expires each reminder is raised. One reminder a day ahead, on the default lifetime of three days
+# (action policy default_ttl_seconds), is an engineering proposal for the owners; an empty list, or enabled: false, raises none.
+# The alert says only that a request is about to lapse: no name, no payload, no reason.
+version: "ZID-UX-WF-013C-reminders-v1"
+enabled: true
+windows_hours: [24]
