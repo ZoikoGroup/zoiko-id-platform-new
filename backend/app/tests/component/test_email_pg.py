@@ -693,6 +693,7 @@ def test_coverage_says_which_templates_an_emitted_event_can_trigger() -> None:
         "ZID-EM-030",
         "ZID-EM-036",
         "ZID-EM-039",
+        "ZID-EM-074",
         "ZID-EM-077",
         "ZID-EM-078",
         "ZID-EM-082",

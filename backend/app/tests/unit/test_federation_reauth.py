@@ -56,9 +56,22 @@ def _record(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return seen
 
 
-def test_an_oidc_request_that_forces_reauthentication_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_oidc_request_that_forces_reauthentication_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen = _record(monkeypatch)
-    url = asyncio.run(oidc_login.begin(object(), _Settings(), _conn("OIDC"), client_id=None, return_to=None, link_principal_id=None, now=NOW, force_reauth=True))  # type: ignore[arg-type]
+    url = asyncio.run(
+        oidc_login.begin(
+            object(),
+            _Settings(),
+            _conn("OIDC"),
+            client_id=None,
+            return_to=None,
+            link_principal_id=None,
+            now=NOW,
+            force_reauth=True,
+        )
+    )  # type: ignore[arg-type]
     q = parse_qs(urlparse(url).query)
     assert q["max_age"] == ["0"] and q["prompt"] == ["login"]
     assert seen[0]["force_reauth"] is True
@@ -66,7 +79,17 @@ def test_an_oidc_request_that_forces_reauthentication_says_so(monkeypatch: pytes
 
 def test_an_ordinary_oidc_request_does_not(monkeypatch: pytest.MonkeyPatch) -> None:
     seen = _record(monkeypatch)
-    url = asyncio.run(oidc_login.begin(object(), _Settings(), _conn("OIDC"), client_id=None, return_to=None, link_principal_id=None, now=NOW))  # type: ignore[arg-type]
+    url = asyncio.run(
+        oidc_login.begin(
+            object(),
+            _Settings(),
+            _conn("OIDC"),
+            client_id=None,
+            return_to=None,
+            link_principal_id=None,
+            now=NOW,
+        )
+    )  # type: ignore[arg-type]
     q = parse_qs(urlparse(url).query)
     assert "max_age" not in q and "prompt" not in q
     assert seen[0]["force_reauth"] is False
@@ -77,12 +100,35 @@ def _saml_request(url: str) -> Any:
     return etree.fromstring(zlib.decompress(raw, -15))
 
 
-def test_a_saml_request_that_forces_reauthentication_carries_force_authn(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_saml_request_that_forces_reauthentication_carries_force_authn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen = _record(monkeypatch)
     settings = type("S", (), {"callback": _Settings.callback, "acs": _Settings.acs})()
     monkeypatch.setattr(saml_login, "acs_url", lambda s: _Settings.acs)
-    on = asyncio.run(saml_login.begin_saml(object(), settings, _conn("SAML"), client_id=None, return_to=None, link_principal_id=None, now=NOW, force_reauth=True))  # type: ignore[arg-type]
-    off = asyncio.run(saml_login.begin_saml(object(), settings, _conn("SAML"), client_id=None, return_to=None, link_principal_id=None, now=NOW))  # type: ignore[arg-type]
+    on = asyncio.run(
+        saml_login.begin_saml(
+            object(),
+            settings,
+            _conn("SAML"),
+            client_id=None,
+            return_to=None,
+            link_principal_id=None,
+            now=NOW,
+            force_reauth=True,
+        )
+    )  # type: ignore[arg-type]
+    off = asyncio.run(
+        saml_login.begin_saml(
+            object(),
+            settings,
+            _conn("SAML"),
+            client_id=None,
+            return_to=None,
+            link_principal_id=None,
+            now=NOW,
+        )
+    )  # type: ignore[arg-type]
     assert _saml_request(on).get("ForceAuthn") == "true"
     assert _saml_request(off).get("ForceAuthn") is None
     assert [s["force_reauth"] for s in seen] == [True, False]
@@ -98,7 +144,9 @@ def _login(force: bool) -> store.Login:
 def test_a_forced_reauthentication_needs_an_authentication_after_the_request() -> None:
     started = NOW
     oidc_login.require_fresh_reauth(_login(True), started + timedelta(seconds=5))
-    oidc_login.require_fresh_reauth(_login(True), started - timedelta(seconds=30))  # inside the clock skew
+    oidc_login.require_fresh_reauth(
+        _login(True), started - timedelta(seconds=30)
+    )  # inside the clock skew
     for stale in (started - timedelta(minutes=10), started - timedelta(hours=8), None):
         with pytest.raises(FederationError) as e:
             oidc_login.require_fresh_reauth(_login(True), stale)

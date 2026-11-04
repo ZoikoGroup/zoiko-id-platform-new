@@ -517,6 +517,373 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/payments/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Disputes */
+        get: operations["list_disputes_v1_commercial_payments_disputes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Dispute */
+        get: operations["get_dispute_v1_commercial_payments_disputes__dispute_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}:assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Dispute */
+        post: operations["assign_dispute_v1_commercial_payments_disputes__dispute_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}:decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Dispute */
+        post: operations["decide_dispute_v1_commercial_payments_disputes__dispute_id__decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}:evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Dispute Evidence */
+        post: operations["add_dispute_evidence_v1_commercial_payments_disputes__dispute_id__evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}:record-submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Dispute Submission
+         * @description Record that evidence was handed to the processor's dashboard. This is a record of a hand-off, never an outcome.
+         */
+        post: operations["record_dispute_submission_v1_commercial_payments_disputes__dispute_id__record_submission_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/disputes/{dispute_id}:verify-submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Dispute Submission
+         * @description Ask the processor what it holds for this dispute. Only what it reports moves the case.
+         */
+        post: operations["verify_dispute_submission_v1_commercial_payments_disputes__dispute_id__verify_submission_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/exceptions/{exception_id}:resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Recon Exception */
+        post: operations["resolve_recon_exception_v1_commercial_payments_reconciliation_exceptions__exception_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reconciliation Board */
+        get: operations["reconciliation_board_v1_commercial_payments_reconciliation__issuing_entity___period__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}/evidence-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recon Evidence Pack */
+        get: operations["recon_evidence_pack_v1_commercial_payments_reconciliation__issuing_entity___period__evidence_pack_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recon Exceptions */
+        get: operations["recon_exceptions_v1_commercial_payments_reconciliation__issuing_entity___period__exceptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:approve-reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Recon Reopen */
+        post: operations["approve_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__approve_reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:prepare-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare Recon Close */
+        post: operations["prepare_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__prepare_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:request-reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Recon Reopen */
+        post: operations["request_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__request_reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}/{period}:sign-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign Recon Close */
+        post: operations["sign_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__sign_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/reconciliation/{issuing_entity}:import-legs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Recon Legs */
+        post: operations["import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Refunds */
+        get: operations["list_refunds_v1_commercial_payments_refunds_get"];
+        put?: never;
+        /** Open Refund */
+        post: operations["open_refund_v1_commercial_payments_refunds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/refunds/{refund_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Refund */
+        get: operations["get_refund_v1_commercial_payments_refunds__refund_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/refunds/{refund_id}:cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Refund */
+        post: operations["cancel_refund_v1_commercial_payments_refunds__refund_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/refunds/{refund_id}:decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Refund */
+        post: operations["decide_refund_v1_commercial_payments_refunds__refund_id__decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/payments/refunds/{refund_id}:execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Refund
+         * @description Queue an approved refund for the worker. Nothing is sent to the processor by this request.
+         */
+        post: operations["execute_refund_v1_commercial_payments_refunds__refund_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/plan-requests": {
         parameters: {
             query?: never;
@@ -1327,6 +1694,14 @@ export interface components {
              */
             role: "AE" | "CCO" | "CFO" | "FOUNDER" | "GROUP_CFO";
         };
+        /** AssignBody */
+        AssignBody: {
+            /**
+             * Owner
+             * Format: uuid
+             */
+            owner: string;
+        };
         /** CollectBody */
         CollectBody: {
             /** Idempotency Key */
@@ -1368,6 +1743,16 @@ export interface components {
         DeletionBody: {
             /** Reason Ref */
             reason_ref: string;
+        };
+        /** DisputeDecideBody */
+        DisputeDecideBody: {
+            /** Reason */
+            reason: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "ACCEPT" | "CONTEST";
         };
         /** DraftBody */
         DraftBody: {
@@ -1435,6 +1820,13 @@ export interface components {
             allow_zero_tax: boolean;
             /** Payment Terms Days */
             payment_terms_days: number;
+        };
+        /** LegsBody */
+        LegsBody: {
+            /** Legs */
+            legs: {
+                [key: string]: unknown;
+            }[];
         };
         /** LineBody */
         LineBody: {
@@ -1586,10 +1978,50 @@ export interface components {
              */
             period_start: string;
         };
+        /** RefundBody */
+        RefundBody: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "DUPLICATE_PAYMENT" | "CORRECTION" | "CANCELLATION" | "CONTRACT_RIGHT" | "GOODWILL";
+            /** Credit Note Id */
+            credit_note_id?: string | null;
+            /** Evidence Ref */
+            evidence_ref?: string | null;
+            /**
+             * Payment Attempt Id
+             * Format: uuid
+             */
+            payment_attempt_id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Target Tenant Id
+             * Format: uuid
+             */
+            target_tenant_id: string;
+        };
         /** RefundCreditBody */
         RefundCreditBody: {
             /** Amount */
             amount: number | string;
+        };
+        /** RefundDecideBody */
+        RefundDecideBody: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT";
+            /** Reason */
+            reason?: string | null;
+            /** Role */
+            role: string;
+            /** Snapshot Hash */
+            snapshot_hash: string;
         };
         /** RegionBody */
         RegionBody: {
@@ -1597,6 +2029,18 @@ export interface components {
             evidence_ref: string;
             /** Sre Gate Passed */
             sre_gate_passed: boolean;
+        };
+        /** ReopenApproveBody */
+        ReopenApproveBody: {
+            /** Role */
+            role: string;
+        };
+        /** ReopenBody */
+        ReopenBody: {
+            /** Impact */
+            impact: string;
+            /** Reason */
+            reason: string;
         };
         /** SafetyHoldBody */
         SafetyHoldBody: {
@@ -1610,12 +2054,24 @@ export interface components {
             /** Content Hash */
             content_hash: string;
         };
+        /** SignCloseBody */
+        SignCloseBody: {
+            /** Role */
+            role: string;
+            /** Snapshot Hash */
+            snapshot_hash: string;
+        };
         /** StateBody */
         StateBody: {
             /** Reason Code */
             reason_code: string;
             /** To */
             to: string;
+        };
+        /** SubmissionBody */
+        SubmissionBody: {
+            /** Reference */
+            reference: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1763,6 +2219,21 @@ export interface components {
              * Format: uuid
              */
             target_tenant_id: string;
+        };
+        /** EvidenceBody */
+        zid_platform__modules__operator_access__api__commercial_payment_ops__EvidenceBody: {
+            /**
+             * Item
+             * @enum {string}
+             */
+            item: "terms_or_consent" | "transaction_proof" | "usage_proof" | "communications" | "cancellation_refund_chronology";
+            /** Ref */
+            ref: string;
+        };
+        /** ResolveBody */
+        zid_platform__modules__operator_access__api__commercial_payment_ops__ResolveBody: {
+            /** Resolution */
+            resolution: string;
         };
     };
     responses: never;
@@ -2680,6 +3151,783 @@ export interface operations {
                 "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ResolveBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_disputes_v1_commercial_payments_disputes_get: {
+        parameters: {
+            query?: {
+                open_only?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dispute_v1_commercial_payments_disputes__dispute_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_dispute_v1_commercial_payments_disputes__dispute_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_dispute_v1_commercial_payments_disputes__dispute_id__decide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeDecideBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_dispute_evidence_v1_commercial_payments_disputes__dispute_id__evidence_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_payment_ops__EvidenceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_dispute_submission_v1_commercial_payments_disputes__dispute_id__record_submission_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_dispute_submission_v1_commercial_payments_disputes__dispute_id__verify_submission_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dispute_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_recon_exception_v1_commercial_payments_reconciliation_exceptions__exception_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exception_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_payment_ops__ResolveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconciliation_board_v1_commercial_payments_reconciliation__issuing_entity___period__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recon_evidence_pack_v1_commercial_payments_reconciliation__issuing_entity___period__evidence_pack_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recon_exceptions_v1_commercial_payments_reconciliation__issuing_entity___period__exceptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__approve_reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenApproveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__prepare_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_recon_reopen_v1_commercial_payments_reconciliation__issuing_entity___period__request_reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_recon_close_v1_commercial_payments_reconciliation__issuing_entity___period__sign_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignCloseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_recon_legs_v1_commercial_payments_reconciliation__issuing_entity__import_legs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issuing_entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_refunds_v1_commercial_payments_refunds_get: {
+        parameters: {
+            query?: {
+                state?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_refund_v1_commercial_payments_refunds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_refund_v1_commercial_payments_refunds__refund_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_refund_v1_commercial_payments_refunds__refund_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_refund_v1_commercial_payments_refunds__refund_id__decide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundDecideBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_refund_v1_commercial_payments_refunds__refund_id__execute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

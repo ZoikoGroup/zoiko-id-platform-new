@@ -229,8 +229,14 @@ def source_conflicts(profile: Profile, result: ProviderResult) -> tuple[str, ...
 
 def decide(profile: Profile, result: ProviderResult, *, jurisdiction: str) -> Decision:
     if result.status == "PENDING":
-        if "RESUBMISSION_REQUIRED" in result.reason_codes:  # the provider asked for the evidence again: say so, never approve or fail on it
-            return Decision(SessionStatus.RESUBMISSION_REQUIRED, "RESUBMISSION_REQUIRED", reasons=("RESUBMISSION_REQUIRED",))
+        if (
+            "RESUBMISSION_REQUIRED" in result.reason_codes
+        ):  # the provider asked for the evidence again: say so, never approve or fail on it
+            return Decision(
+                SessionStatus.RESUBMISSION_REQUIRED,
+                "RESUBMISSION_REQUIRED",
+                reasons=("RESUBMISSION_REQUIRED",),
+            )
         return Decision(SessionStatus.PENDING_EXTERNAL, "PENDING_EXTERNAL")
     if result.status != "COMPLETED":
         return Decision(SessionStatus.FAILED, "EVIDENCE_INVALID", reasons=result.reason_codes)

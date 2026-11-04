@@ -395,7 +395,11 @@ async def _normalize(
     )
 
 
-_AWAITING = (SessionStatus.PENDING_EXTERNAL, SessionStatus.IN_PROGRESS, SessionStatus.RESUBMISSION_REQUIRED)  # a provider result can still change these
+_AWAITING = (
+    SessionStatus.PENDING_EXTERNAL,
+    SessionStatus.IN_PROGRESS,
+    SessionStatus.RESUBMISSION_REQUIRED,
+)  # a provider result can still change these
 
 
 async def provider_callback(
@@ -482,7 +486,9 @@ async def _ingest(
     return decision.status.value
 
 
-RECONCILE_AFTER = timedelta(minutes=10)  # a webhook that has not arrived by now is worth asking the provider about
+RECONCILE_AFTER = timedelta(
+    minutes=10
+)  # a webhook that has not arrived by now is worth asking the provider about
 RECONCILE_EVERY = timedelta(minutes=10)  # how often one session is asked about
 _last_polled: dict[str, datetime] = {}
 
@@ -533,13 +539,18 @@ async def reconcile_delayed(
                 if doc is None or veriff_ref(doc) != row.provider_transaction_ref:
                     out["no_decision"] += 1
                     continue
-                event_id, result = f"poll:{veriff_event_id(doc)}", veriff_result(doc, uk_certified=bool(cfg.get("uk_certified")))
+                event_id, result = (
+                    f"poll:{veriff_event_id(doc)}",
+                    veriff_result(doc, uk_certified=bool(cfg.get("uk_certified"))),
+                )
             elif isinstance(client, SumsubClient):
                 out["asked"] += 1
                 applicant = await client.applicant_doc(row.provider_transaction_ref)
                 review = (applicant or {}).get("review")
                 if not isinstance(review, dict) or not review.get("reviewStatus"):
-                    out["no_decision"] += 1  # no review on record, or a shape we do not recognise: never read as a pass
+                    out["no_decision"] += (
+                        1  # no review on record, or a shape we do not recognise: never read as a pass
+                    )
                     continue
                 doc = {
                     "type": "applicantReviewed", "applicantId": row.provider_transaction_ref, "correlationId": "poll",
@@ -547,7 +558,11 @@ async def reconcile_delayed(
                 }  # fmt: skip
                 info = (applicant or {}).get("info")
                 event_id = f"poll:{sumsub_event_id(doc)}"
-                result = sumsub_result(doc, info=info if isinstance(info, dict) else None, biometric_level=bool(cfg.get("biometric_level")))
+                result = sumsub_result(
+                    doc,
+                    info=info if isinstance(info, dict) else None,
+                    biometric_level=bool(cfg.get("biometric_level")),
+                )
             else:
                 out["unsupported"] += 1
                 continue
@@ -573,9 +588,16 @@ async def _apply(
     if d.status is SessionStatus.PENDING_EXTERNAL:
         return
     if d.status is SessionStatus.RESUBMISSION_REQUIRED:
-        if s.status is not SessionStatus.RESUBMISSION_REQUIRED:  # a repeat of the same request changes nothing
+        if (
+            s.status is not SessionStatus.RESUBMISSION_REQUIRED
+        ):  # a repeat of the same request changes nothing
             await store.update_session(
-                conn, s, status=transition(s.status, d.status), now=now, outcome=d.outcome, basis=basis
+                conn,
+                s,
+                status=transition(s.status, d.status),
+                now=now,
+                outcome=d.outcome,
+                basis=basis,
             )
         return
     if "FRAUD_SUSPECTED" in d.reasons:

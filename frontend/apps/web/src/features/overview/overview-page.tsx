@@ -172,18 +172,18 @@ export function OverviewPage({ welcome, carry }: { welcome: boolean; carry: stri
               {welcome && carry.includes("org=dev") ? <DevelopmentNotice /> : null}
               {welcome && me.pendingOwner ? (
                 <Banner tone="ok" icon={PartyPopper} title="Your passkey is set up">
-                  Next, verify your company so you become its owner.
+                  Next, verify your organization so you become its owner.
                 </Banner>
               ) : null}
               {me.pendingOwner ? (
-                <Card title="Verify your company" description="Before anything is trusted, the company is checked against its official register.">
+                <Card title="Verify your organization" description="Your account is active. The organization is not established until it is verified against its official register.">
                   <div className="space-y-3">
                     <p className="text-sm text-ink-muted">
-                      You registered {t.display_name}. Confirm the company with its Companies House number and verify your identity so we can match
-                      you to one of its officers. Then you become its owner and can set it up.
+                      Find the organization in its register, show how you act for it and complete your identity check. Each check is tracked on its own, and you
+                      become the owner only when all of them are complete.
                     </p>
                     <ButtonLink href={`/admin/organization${carry ? `?${carry}` : ""}`} icon={<Building2 aria-hidden className="size-4" />}>
-                      Verify company
+                      Start verification
                     </ButtonLink>
                   </div>
                 </Card>

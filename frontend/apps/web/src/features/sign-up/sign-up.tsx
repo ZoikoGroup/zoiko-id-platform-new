@@ -4,13 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { RegistrationCapabilities } from "@zoiko/api-client";
 import { Banner, Button, ButtonLink, Card, RadioCards, TextField } from "@zoiko/ui";
 import { ShieldCheck } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { TERMS } from "@/lib/legal";
 
 import { SignUpStatus } from "./status";
 import {
   canSubmit,
+  COUNTRY_CODES,
   countryState,
   filterCountries,
   GENERIC_MESSAGE,
@@ -59,8 +60,23 @@ export function SignUp() {
 
   const caps = useQuery({ queryKey: ["registration", "capabilities", country], queryFn: () => loadCapabilities(country), retry: false });
   const state = countryState(caps.data, country);
-  const locale = typeof navigator === "undefined" ? "en" : navigator.language || "en";
-  const countries = useMemo(() => filterCountries(search, locale), [search, locale]);
+  // The server cannot know the browser's language: render in English first (so the HTML matches), then the browser's language once hydrated.
+  const locale = useSyncExternalStore(
+    () => () => undefined,
+    () => navigator.language || "en",
+    () => "en",
+  );
+  // Country names come from the runtime's ICU data, which differs between the server's Node and the browser (and between browsers), so the first render
+  // (server HTML and hydration) lists codes only, in a fixed order; the names appear once hydrated.
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const countries = useMemo(
+    () => (hydrated ? filterCountries(search, locale) : COUNTRY_CODES.map((code) => ({ code, name: code }))),
+    [hydrated, search, locale],
+  );
   const errorFor = (f: FieldError["field"]) => errors.find((e) => e.field === f)?.message;
 
   async function submit(e: FormEvent) {

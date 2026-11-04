@@ -68,7 +68,9 @@ class QuoteLine:
     plan_code: str
     quantity: Decimal
     discount_pct: Decimal = Decimal(0)
-    promotions: tuple[Decimal, ...] = ()  # stacked on top of the quoted discount; judged together with it
+    promotions: tuple[
+        Decimal, ...
+    ] = ()  # stacked on top of the quoted discount; judged together with it
 
 
 def effective_discount(ln: QuoteLine) -> Decimal:
@@ -174,7 +176,9 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
         add("PLAN_LINE_MISSING")  # add-ons are sold only on top of a plan (§6)
     max_discount = Decimal(0)
     for ln in quote.lines:
-        if not Decimal(0) <= ln.discount_pct < 1 or any(not Decimal(0) <= p < 1 for p in ln.promotions):
+        if not Decimal(0) <= ln.discount_pct < 1 or any(
+            not Decimal(0) <= p < 1 for p in ln.promotions
+        ):
             add("DISCOUNT_INVALID")
             continue
         eff = effective_discount(ln)

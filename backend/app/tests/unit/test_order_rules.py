@@ -114,7 +114,10 @@ def test_each_hard_rule_rejects_on_its_own(change: dict[str, object], code: str)
         ),
         ((QuoteLine(1, "ZID-BASE", "LAUNCH", D(1)),), "PRICE_MISSING"),
         ((QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("1.2")),), "DISCOUNT_INVALID"),
-        ((QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("1")),), "DISCOUNT_INVALID"),  # a 100% coupon is not a discount (CL03-T12)
+        (
+            (QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("1")),),
+            "DISCOUNT_INVALID",
+        ),  # a 100% coupon is not a discount (CL03-T12)
     ],
 )
 def test_each_line_rule_reports_its_own_reason(lines: tuple[QuoteLine, ...], code: str) -> None:
@@ -195,7 +198,12 @@ def test_approvals_bind_the_digest_and_people_not_roles() -> None:
 
 def test_a_fractional_discount_is_never_rounded_down_into_a_lower_band() -> None:
     """CL03-T02: the band is chosen on the exact fraction, so no rounding can move a discount to an authority tier that approves less."""
-    for pct, roles in (("0.0500001", {"CCO"}), ("0.05000000001", {"CCO"}), ("0.1200001", {"CFO", "FOUNDER"}), ("0.0499999", {"AE"})):
+    for pct, roles in (
+        ("0.0500001", {"CCO"}),
+        ("0.05000000001", {"CCO"}),
+        ("0.1200001", {"CFO", "FOUNDER"}),
+        ("0.0499999", {"AE"}),
+    ):
         assert approvers_for(D(pct), BANDS) == roles, pct
     q = quote(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.0500001")))
     v = validate(q, CAT, BANDS)
@@ -208,9 +216,14 @@ def test_stacked_promotions_are_judged_on_their_combined_economics() -> None:
 
     both = QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.05"), (D("0.05"),))
     assert effective_discount(both) == D("0.0975")
-    assert effective_discount(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("0.05"), D("0.05")))) == D("0.0975")
+    assert effective_discount(
+        QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("0.05"), D("0.05")))
+    ) == D("0.0975")
     assert effective_discount(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1))) == D(0)
-    for alone in (QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.05")), QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("0.05"),))):
+    for alone in (
+        QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.05")),
+        QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("0.05"),)),
+    ):
         assert validate(quote(alone), CAT, BANDS).approvers_required == {"AE"}
     v = validate(quote(both), CAT, BANDS)
     assert v.status == "NEEDS_APPROVAL" and v.approvers_required == {"CCO"}
@@ -222,12 +235,19 @@ def test_stacked_promotions_are_judged_on_their_combined_economics() -> None:
 
 def test_a_promotion_cannot_be_hidden_on_a_pass_through_line_or_be_a_free_ride() -> None:
     bad = (
-        (QuoteLine(1, "ZID-BASE", "BUSINESS", D(1)), QuoteLine(2, "ZID-IDV", "BUSINESS", D(9), D(0), (D("0.05"),))),
+        (
+            QuoteLine(1, "ZID-BASE", "BUSINESS", D(1)),
+            QuoteLine(2, "ZID-IDV", "BUSINESS", D(9), D(0), (D("0.05"),)),
+        ),
         (QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("1"),)),),
         (QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D(0), (D("-0.1"),)),),
     )
     codes = [validate(quote(*lines), CAT, BANDS).reasons for lines in bad]
-    assert "PASSTHROUGH_DISCOUNT" in codes[0] and "DISCOUNT_INVALID" in codes[1] and "DISCOUNT_INVALID" in codes[2]
+    assert (
+        "PASSTHROUGH_DISCOUNT" in codes[0]
+        and "DISCOUNT_INVALID" in codes[1]
+        and "DISCOUNT_INVALID" in codes[2]
+    )
 
 
 def test_an_approval_binds_the_promotions_too() -> None:
@@ -237,15 +257,32 @@ def test_an_approval_binds_the_promotions_too() -> None:
     assert plain != stacked
 
 
-def test_a_floor_reason_adds_its_own_approver_that_the_percentage_approvers_cannot_replace() -> None:
+def test_a_floor_reason_adds_its_own_approver_that_the_percentage_approvers_cannot_replace() -> (
+    None
+):
     """CL03-T11: a quote below the price floor needs the CFO's risk acceptance on top of the discount band, so the people who approve the percentage
     cannot release it alone, and one person cannot fill both; a hard limit blocks the quote whoever signs."""
     # an 8% discount on a price whose floor is higher than the discounted price
-    cat = replace(CAT, floors={("ZID-BASE", "uk-1"): D(1400)})  # 8% off 1,499 is 1,379: below the floor
+    cat = replace(
+        CAT, floors={("ZID-BASE", "uk-1"): D(1400)}
+    )  # 8% off 1,499 is 1,379: below the floor
     v = validate(quote(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.08"))), cat, BANDS)
-    assert v.status == "NEEDS_APPROVAL" and "BELOW_FLOOR" in v.reasons and v.approvers_required == {"CCO", "CFO"}
+    assert (
+        v.status == "NEEDS_APPROVAL"
+        and "BELOW_FLOOR" in v.reasons
+        and v.approvers_required == {"CCO", "CFO"}
+    )
     assert missing_approvals(v.approvers_required, {"CCO": "cora"}, creator="alice") == {"CFO"}
-    assert missing_approvals(v.approvers_required, {"CCO": "cora", "CFO": "cora"}, creator="alice") == {"CFO"}  # one person, one role
-    assert missing_approvals(v.approvers_required, {"CCO": "cora", "CFO": "carol"}, creator="alice") == frozenset()
-    hard = validate(quote(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.08")), liability_capped=False), CAT, BANDS)
+    assert missing_approvals(
+        v.approvers_required, {"CCO": "cora", "CFO": "cora"}, creator="alice"
+    ) == {"CFO"}  # one person, one role
+    assert (
+        missing_approvals(v.approvers_required, {"CCO": "cora", "CFO": "carol"}, creator="alice")
+        == frozenset()
+    )
+    hard = validate(
+        quote(QuoteLine(1, "ZID-BASE", "BUSINESS", D(1), D("0.08")), liability_capped=False),
+        CAT,
+        BANDS,
+    )
     assert hard.status == "REJECTED"  # no approval set can release it

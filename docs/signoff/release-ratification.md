@@ -4,7 +4,7 @@ Generated 2026-11-04 by `tools/scripts/ratification.py` from `deploy/release/rat
 
 - Recorded disposition: **NO-GO**
 - What the register supports today: **NO-GO** (39 open items)
-- Acceptance rows: IN_PROGRESS 826, NOT_STARTED 180
+- Acceptance rows: IN_PROGRESS 902, NOT_STARTED 104
 
 ## Ratification register
 
@@ -36,7 +36,7 @@ Generated 2026-11-04 by `tools/scripts/ratification.py` from `deploy/release/rat
 | NG-01 | Unratified monetary authority: discount bands, commitment, credit-note or pilot thresholds in force without a signed policy. | OPEN | CL-003 is not Approved; CL-004 is not Approved |
 | NG-02 | Unsigned catalog, or a missing jurisdiction or merchant approval. | OPEN | gate G2 is not PASS |
 | NG-03 | A critical tenant-isolation or authorization flaw, a wrong-issuer charge path or unsafe card handling. | OPEN | gate G3 is not PASS |
-| NG-04 | A failing replay, double-refund, double-charge, reconciliation, evidence or rollback test. | OPEN | gate G4 is not PASS; acceptance row CL04-C14 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-05 is NOT_STARTED, not VERIFIED; acceptance row WF09-OP-09 is NOT_STARTED, not VERIFIED; acceptance row WF09-OP-10 is NOT_STARTED, not VERIFIED |
+| NG-04 | A failing replay, double-refund, double-charge, reconciliation, evidence or rollback test. | OPEN | gate G4 is not PASS; acceptance row CL04-C14 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-05 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-09 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-10 is IN_PROGRESS, not VERIFIED |
 | NG-05 | Incomplete approver assignment, or an untested dual-signature rule. | OPEN | acceptance row CL04-C12 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-03 is IN_PROGRESS, not VERIFIED; acceptance row WF10-C00-11 is IN_PROGRESS, not VERIFIED |
 
 ## Policy flags
@@ -124,5 +124,5 @@ Generated 2026-11-04 by `tools/scripts/ratification.py` from `deploy/release/rat
 - NG-01 is open (CL-003 is not Approved; CL-004 is not Approved)
 - NG-02 is open (gate G2 is not PASS)
 - NG-03 is open (gate G3 is not PASS)
-- NG-04 is open (gate G4 is not PASS; acceptance row CL04-C14 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-05 is NOT_STARTED, not VERIFIED; acceptance row WF09-OP-09 is NOT_STARTED, not VERIFIED; acceptance row WF09-OP-10 is NOT_STARTED, not VERIFIED)
+- NG-04 is open (gate G4 is not PASS; acceptance row CL04-C14 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-05 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-09 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-10 is IN_PROGRESS, not VERIFIED)
 - NG-05 is open (acceptance row CL04-C12 is IN_PROGRESS, not VERIFIED; acceptance row WF09-OP-03 is IN_PROGRESS, not VERIFIED; acceptance row WF10-C00-11 is IN_PROGRESS, not VERIFIED)

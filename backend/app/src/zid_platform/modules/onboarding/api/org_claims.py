@@ -327,6 +327,37 @@ async def refresh_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep
 
 
 @router.post(
+    "/org-claims/{claim_id}/establish",
+    dependencies=[Depends(matrix_gate("b.submit-refresh-organization-verification", Mode.PREPARE))],
+)
+async def establish_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The claim is VERIFIED (all four checks complete): create the organization from it, name the workspace after the register and activate the claimant as
+    owner. Refused with CLAIM_NOT_VERIFIED until then. A repeat answers as it stands (13B hands off to 13C; nothing here grants authority a check has not)."""
+    from zid_platform.modules.onboarding.application.organization import establish_from_verified_claim
+    from zid_platform.modules.onboarding.domain.gates import OnboardingError
+    from zid_platform.protected import catalog
+
+    now = datetime.now(UTC)
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _require_admin(conn, caller)
+        try:
+            result = await establish_from_verified_claim(conn, tenant, str(claim_id), adapters=_adapters(request), catalog=catalog(), now=now)
+        except OnboardingError as e:
+            status = 409 if e.code in ("CLAIM_NOT_VERIFIED", "TENANT_STATE_INVALID") else 503 if e.code == "SOURCE_UNAVAILABLE" else 403 if e.code == "TENANT_OWNER_UNAUTHORIZED" else 404
+            raise ZidError(e.code, getattr(e, "detail", e.code), http_status=status, retryable=e.code == "SOURCE_UNAVAILABLE") from e
+        except KybError as e:
+            raise _kyb_error(e) from e
+    root = result.root
+    return {
+        "tenant_status": result.status,
+        "organization_id": root.organization_id if root else None,
+        "legal_name": root.legal_name if root else None,
+        "established": root is not None,
+    }
+
+
+@router.post(
     "/org-claims/{claim_id}/submit",
     status_code=202,
     dependencies=[Depends(matrix_gate("b.submit-refresh-organization-verification", Mode.PREPARE))],

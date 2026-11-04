@@ -1,7 +1,7 @@
 import type { NavGroup } from "@zoiko/ui";
 
 /** What the signed-in person is to the company (see `standing` in the onboarding feature). */
-export type NavStanding = { isAdmin: boolean; pendingOwner: boolean };
+export type NavStanding = { isAdmin: boolean; pendingOwner: boolean; billingAccess?: boolean };
 
 /** Company administration. A person without an administrator role is not shown these controls (UX-02): the cell still
  * refuses the calls by itself (UX-03), so hiding is courtesy, never the protection. */
@@ -12,14 +12,14 @@ const ADMIN_ITEMS = new Set([
 const SETUP_ITEMS = new Set(["onboarding", "organization", "setup"]);
 
 /** The navigation this person should see. A Member sees Overview, Alerts and their own account; a pending owner also
- * sees the two pages that confirm the company; owners and administrators see everything. */
+ * sees the two pages that confirm the company; a person the Owner gave billing access sees Billing (the page then shows only the tabs they may use); owners and administrators see everything. */
 export function visibleNav(groups: NavGroup[], who: NavStanding): NavGroup[] {
   if (who.isAdmin) return groups;
   return groups
     .filter((g) => g.label !== "Administration")
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => !ADMIN_ITEMS.has(i.id) || (who.pendingOwner && SETUP_ITEMS.has(i.id))),
+      items: g.items.filter((i) => !ADMIN_ITEMS.has(i.id) || (who.pendingOwner && SETUP_ITEMS.has(i.id)) || (who.billingAccess === true && i.id === "billing")),
     }))
     .filter((g) => g.items.length > 0);
 }

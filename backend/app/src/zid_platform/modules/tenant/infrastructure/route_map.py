@@ -84,11 +84,15 @@ def parse(doc: dict[str, Any], matrix: Matrix) -> tuple[Rule, ...]:
             if all(c is Mode.DENIED for c in row.cells.values()):
                 pass  # a reserved row: the gate refuses everyone, which is what the record says
             elif mode not in row.cells.values():
-                raise RouteMapError(f"{match}: no role holds {action} at {mode_key}, so it could never allow")
+                raise RouteMapError(
+                    f"{match}: no role holds {action} at {mode_key}, so it could never allow"
+                )
             rules.append(Rule(match, _pattern(match), action=action, mode=mode))
         else:
             if str(exempt) not in EXEMPT_KINDS:
-                raise RouteMapError(f"{match}: exemption kind {exempt!r} is not one of {sorted(EXEMPT_KINDS)}")
+                raise RouteMapError(
+                    f"{match}: exemption kind {exempt!r} is not one of {sorted(EXEMPT_KINDS)}"
+                )
             if not str(raw.get("why", "")).strip():
                 raise RouteMapError(f"{match}: an exemption says why")
             rules.append(Rule(match, _pattern(match), exempt=str(exempt), why=str(raw["why"])))
@@ -122,4 +126,13 @@ def route_matrix_enforced() -> bool:
     return str(doc.get("route_matrix_enforcement", "REPORT_ONLY")).upper() == "ENFORCED"
 
 
-__all__ = ["EXEMPT_KINDS", "Rule", "RouteMap", "RouteMapError", "normalise", "parse", "route_map", "route_matrix_enforced"]
+__all__ = [
+    "EXEMPT_KINDS",
+    "RouteMap",
+    "RouteMapError",
+    "Rule",
+    "normalise",
+    "parse",
+    "route_map",
+    "route_matrix_enforced",
+]

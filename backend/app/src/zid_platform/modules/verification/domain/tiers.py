@@ -48,7 +48,9 @@ class Facts:
     proofed: bool = False  # a valid, unexpired identity assertion from an approved proofing policy (remote route, alternative or accepted equivalent)
     company_verified: bool = False  # a separate organization check
     mandate_evidence: bool = False  # evidence of the person's authority for that organization
-    strong_authentication: bool = False  # a phishing-resistant authenticator is registered and was used
+    strong_authentication: bool = (
+        False  # a phishing-resistant authenticator is registered and was used
+    )
     fresh_strong_sign_in: bool = False
     independent_approval: bool = False
 
@@ -73,33 +75,55 @@ def parse(doc: dict[str, Any]) -> TierPolicy:
     tiers: dict[Tier, dict[str, Any]] = {}
     for key, body in (doc.get("tiers") or {}).items():
         try:
-            tiers[Tier(str(key))] = {"label": str(body["label"]), "meaning": str(body.get("meaning", "")), "needs": tuple(str(n) for n in body["needs"])}
+            tiers[Tier(str(key))] = {
+                "label": str(body["label"]),
+                "meaning": str(body.get("meaning", "")),
+                "needs": tuple(str(n) for n in body["needs"]),
+            }
         except (ValueError, KeyError) as e:
             raise TierError("POLICY_INVALID", f"tier {key}") from e
     if set(tiers) != {Tier.R0, Tier.R1, Tier.R2, Tier.R3}:
         raise TierError("POLICY_INVALID", "the policy names R0 to R3")
     r0 = tiers[Tier.R0]["needs"]
     if r0 != ("EMAIL",):
-        raise TierError("POLICY_INVALID", "R0 needs the email address and nothing else: no ID, selfie, address or phone at registration")
+        raise TierError(
+            "POLICY_INVALID",
+            "R0 needs the email address and nothing else: no ID, selfie, address or phone at registration",
+        )
     for lower, higher in ((Tier.R0, Tier.R1), (Tier.R1, Tier.R2), (Tier.R2, Tier.R3)):
         if not set(tiers[lower]["needs"]) <= set(tiers[higher]["needs"]):
-            raise TierError("POLICY_INVALID", f"{higher.value} must need at least what {lower.value} needs")
+            raise TierError(
+                "POLICY_INVALID", f"{higher.value} must need at least what {lower.value} needs"
+            )
     optional = {str(k): dict(v) for k, v in (doc.get("optional_checks") or {}).items()}
     for name, body in optional.items():
         reasons = body.get("required_for") or []
         if not reasons:
-            raise TierError("POLICY_INVALID", f"{name} is required for nothing, so it is never required; remove it")
+            raise TierError(
+                "POLICY_INVALID",
+                f"{name} is required for nothing, so it is never required; remove it",
+            )
         for r in reasons:
             try:
                 Need(str(r))
             except ValueError as e:
-                raise TierError("POLICY_INVALID", f"{name}: {r} is not a reason a check may be required") from e
-    if {"PHONE_OTP", "EMAIL_CONFIRMATION", "SSO", "SELFIE_ALONE", "DOMAIN_CONTROL"} - set(doc.get("never_identity_proof") or []):
-        raise TierError("POLICY_INVALID", "a phone code, an email confirmation, single sign-on, a selfie alone and domain control are never identity proof")
+                raise TierError(
+                    "POLICY_INVALID", f"{name}: {r} is not a reason a check may be required"
+                ) from e
+    if {"PHONE_OTP", "EMAIL_CONFIRMATION", "SSO", "SELFIE_ALONE", "DOMAIN_CONTROL"} - set(
+        doc.get("never_identity_proof") or []
+    ):
+        raise TierError(
+            "POLICY_INVALID",
+            "a phone code, an email confirmation, single sign-on, a selfie alone and domain control are never identity proof",
+        )
     alts = tuple(dict(a) for a in doc.get("alternatives") or [])
     for a in alts:
         if "downgrade" in str(a.get("effect", "")).lower() or not a.get("effect"):
-            raise TierError("POLICY_INVALID", f"alternative {a.get('id')} says what it gives, and never a lower tier")
+            raise TierError(
+                "POLICY_INVALID",
+                f"alternative {a.get('id')} says what it gives, and never a lower tier",
+            )
     return TierPolicy(
         str(doc.get("version", "")), tiers, optional, frozenset(doc.get("never_identity_proof") or []),
         frozenset(doc.get("never_authorizes_critical_change") or []), alts, tuple(doc.get("states") or []), tuple(doc.get("claim_fields") or []),
@@ -136,11 +160,26 @@ def tier_of(facts: Facts, policy: TierPolicy) -> TierResult:
             achieved = tier
         else:
             break
-    nxt = {Tier.NONE: Tier.R0, Tier.R0: Tier.R1, Tier.R1: Tier.R2, Tier.R2: Tier.R3, Tier.R3: None}[achieved]
+    nxt = {Tier.NONE: Tier.R0, Tier.R0: Tier.R1, Tier.R1: Tier.R2, Tier.R2: Tier.R3, Tier.R3: None}[
+        achieved
+    ]
     missing = (
-        tuple(sorted({n for n in policy.needs(nxt) if not getattr(facts, _FACT_FOR_CHECK[n])}, key=policy.needs(nxt).index)) if nxt else ()
+        tuple(
+            sorted(
+                {n for n in policy.needs(nxt) if not getattr(facts, _FACT_FOR_CHECK[n])},
+                key=policy.needs(nxt).index,
+            )
+        )
+        if nxt
+        else ()
     )
-    body = policy.tiers.get(achieved, {"label": "Email not yet confirmed", "meaning": "Confirm your email address to have an account."})
+    body = policy.tiers.get(
+        achieved,
+        {
+            "label": "Email not yet confirmed",
+            "meaning": "Confirm your email address to have an account.",
+        },
+    )
     reasons = ("EMAIL_NOT_PROVED",) if achieved is Tier.NONE else ()
     return TierResult(achieved, str(body["label"]), str(body["meaning"]), nxt, missing, reasons)
 
@@ -155,7 +194,13 @@ class CheckRequirement:
     reason: str | None  # why it is required, or None when it is not
 
 
-def required_checks(target: Tier, policy: TierPolicy, *, needs: frozenset[Need] = frozenset(), alternative: str | None = None) -> tuple[CheckRequirement, ...]:
+def required_checks(
+    target: Tier,
+    policy: TierPolicy,
+    *,
+    needs: frozenset[Need] = frozenset(),
+    alternative: str | None = None,
+) -> tuple[CheckRequirement, ...]:
     """The checks to ask for to reach `target`, and, for each optional check, whether a stated reason makes it required.
 
     Address is required only for a statutory, regulated, contract or documented-risk need; a phone only when a workflow depends on possession. Asking
@@ -187,13 +232,18 @@ def check_optional_request(check: str, need: Need | None, policy: TierPolicy) ->
     if body is None:
         raise TierError("CHECK_UNKNOWN", check)
     if need is None or need.value not in body["required_for"]:
-        raise TierError(f"{check}_NEEDS_REASON", f"{check.lower()} is required only for {', '.join(body['required_for'])}")
+        raise TierError(
+            f"{check}_NEEDS_REASON",
+            f"{check.lower()} is required only for {', '.join(body['required_for'])}",
+        )
 
 
 # -------------------------------------------------------------------------------------------------------------- no false assurance
 
 
-PROOF_SOURCES = frozenset({"PROOFING_RESULT", "ASSISTED_PROOFING_RESULT", "ACCEPTED_EQUIVALENT_CREDENTIAL"})
+PROOF_SOURCES = frozenset(
+    {"PROOFING_RESULT", "ASSISTED_PROOFING_RESULT", "ACCEPTED_EQUIVALENT_CREDENTIAL"}
+)
 
 
 def counts_as_identity_proof(signal: str, policy: TierPolicy) -> bool:
@@ -205,7 +255,10 @@ def counts_as_identity_proof(signal: str, policy: TierPolicy) -> bool:
 
 def may_authorize_critical_change(signal: str, policy: TierPolicy) -> bool:
     """A phone code or an SMS can never authorize a critical change on its own; only a strong authenticator can."""
-    return signal.upper() not in policy.never_authorizes_critical_change and signal.upper() in {"PASSKEY", "STRONG_AUTHENTICATOR"}
+    return signal.upper() not in policy.never_authorizes_critical_change and signal.upper() in {
+        "PASSKEY",
+        "STRONG_AUTHENTICATOR",
+    }
 
 
 def address_label(*, entered: bool, verified: bool, policy: TierPolicy) -> str:
@@ -225,14 +278,28 @@ def claim_view(row: dict[str, Any], policy: TierPolicy, now: Any) -> dict[str, A
     """One claim with everything a later decision needs to explain it: method, source, policy, scope, issue and expiry times, and its revocation."""
     valid_until = row.get("valid_until")
     revoked_at = row.get("revoked_at")
-    state = "REVOKED" if revoked_at or row.get("status") == "REVOKED" else "EXPIRED" if valid_until and valid_until <= now else str(row.get("status", "UNKNOWN"))
+    state = (
+        "REVOKED"
+        if revoked_at or row.get("status") == "REVOKED"
+        else "EXPIRED"
+        if valid_until and valid_until <= now
+        else str(row.get("status", "UNKNOWN"))
+    )
     return {
         "claim": row["claim_type"],
         "method": row["verification_method"],
         "source": row.get("provider_id"),
-        "policy": {"level": row["assurance_level"], "profile": row.get("profile_name"), "version": row.get("profile_version")},
+        "policy": {
+            "level": row["assurance_level"],
+            "profile": row.get("profile_name"),
+            "version": row.get("profile_version"),
+        },
         "scope": list(row.get("purposes") or []),
         "issued_at": row["performed_at"].isoformat() if row.get("performed_at") else None,
         "valid_until": valid_until.isoformat() if valid_until else None,
-        "revocation": {"state": state, "revoked_at": revoked_at.isoformat() if revoked_at else None, "assertion_id": str(row.get("assertion_id", ""))},
+        "revocation": {
+            "state": state,
+            "revoked_at": revoked_at.isoformat() if revoked_at else None,
+            "assertion_id": str(row.get("assertion_id", "")),
+        },
     }

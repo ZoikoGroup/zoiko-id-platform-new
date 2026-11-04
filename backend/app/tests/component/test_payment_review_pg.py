@@ -137,11 +137,11 @@ def test_a_refund_is_credited_once_and_leaves_the_queue(rt_url: str) -> None:
             api.post(credit, json={"amount": "15.00"}, headers=ops.bearer(dave)).status_code == 404
         )
 
-        # a stray payment can be closed with a note but not credited
+        # a stray payment can be closed with a note but not credited (a dispute is now a case of its own, see test_payment_ops_pg)
         stray = {**charge, "id": "ch_stray", "metadata": {}}
         api.post(
             "/v1/provider-events/stripe",
-            **signed("charge.dispute.created", stray, event_id="evt_review002", secret=SECRET),
+            **signed("charge.refunded", stray, event_id="evt_review002", secret=SECRET),
         )
         assert (
             api.post(
@@ -153,7 +153,7 @@ def test_a_refund_is_credited_once_and_leaves_the_queue(rt_url: str) -> None:
         )
         closed = api.post(
             "/v1/commercial/payment-events/evt_review002:resolve",
-            json={"resolution": "Dispute answered in the Stripe dashboard"},
+            json={"resolution": "Refund made in the Stripe dashboard"},
             headers=ops.bearer(alice),
         )
         assert closed.status_code == 200 and closed.json()["status"] == "RESOLVED"

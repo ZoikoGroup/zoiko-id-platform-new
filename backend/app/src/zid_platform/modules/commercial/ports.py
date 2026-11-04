@@ -19,11 +19,14 @@ from zid_platform.modules.commercial.application import assurance_service as ass
 from zid_platform.modules.commercial.application import billing_gate, usage_reservations
 from zid_platform.modules.commercial.application import budget_service as budgets
 from zid_platform.modules.commercial.application import commitment_service as commitments
+from zid_platform.modules.commercial.application import dispute_service as disputes
 from zid_platform.modules.commercial.application import eligibility_service as eligibility
 from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
+from zid_platform.modules.commercial.application import recon_service as recon
+from zid_platform.modules.commercial.application import refund_service as refunds
 from zid_platform.modules.commercial.application import vendor_service as vendors
 from zid_platform.modules.commercial.application.adapters import (
     NoTaxConfigured,
@@ -33,8 +36,11 @@ from zid_platform.modules.commercial.application.adapters import (
     PaymentResult,
     PaymentSetupError,
     RecordingPayments,
+    RecordingRefunds,
+    RefundPort,
     StripeCustomers,
     StripePayments,
+    StripeRefunds,
     StripeTax,
     TaxLine,
     TaxPort,
@@ -95,6 +101,7 @@ from zid_platform.modules.commercial.domain.finance import FinanceError
 from zid_platform.modules.commercial.domain.finance import Kind as FinanceKind
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError, verify_chain
 from zid_platform.modules.commercial.domain.orders import OrderError, QuoteLine
+from zid_platform.modules.commercial.domain.payment_ops import OpsError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
 from zid_platform.modules.commercial.domain.rating import Credit, RatingError
 from zid_platform.modules.commercial.domain.vendor import VendorError
@@ -143,6 +150,7 @@ __all__ = [
     "InvoicingError",
     "NoTaxConfigured",
     "OnlinePayment",
+    "OpsError",
     "OrderError",
     "PaymentMethodSummary",
     "PaymentPort",
@@ -152,8 +160,11 @@ __all__ = [
     "QuoteLine",
     "RatingError",
     "RecordingPayments",
+    "RecordingRefunds",
+    "RefundPort",
     "StripeCustomers",
     "StripePayments",
+    "StripeRefunds",
     "StripeTax",
     "TaxLine",
     "TaxPort",
@@ -169,6 +180,7 @@ __all__ = [
     "configure_ledger",
     "configure_org_state",
     "decide_feature_entitlement",
+    "disputes",
     "eligibility",
     "entitled",
     "entitlement_changed",
@@ -191,11 +203,13 @@ __all__ = [
     "payment_event_queue",
     "plan_aware_transfer_gate",
     "plan_requests",
+    "recon",
     "reconcile",
     "record_active_human",
     "record_billable",
     "record_identity_merge",
     "record_vendor_check",
+    "refunds",
     "require_entitlement",
     "require_feature",
     "resolve_payment_event",

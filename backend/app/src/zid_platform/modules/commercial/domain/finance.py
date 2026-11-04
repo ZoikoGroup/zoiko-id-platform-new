@@ -74,6 +74,26 @@ class CommitmentPolicy:
 
 
 @dataclass(frozen=True)
+class DisputePolicy:
+    """Who owns a dispute, who may accept or contest it (a finance decision), who may hand it to the processor (a separate appointment)."""
+
+    owner_roles: tuple[str, ...]
+    decide_roles: tuple[str, ...]
+    submit_roles: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ReconPolicy:
+    """Who closes a period (a maker and a checker, different people), who reopens one (two different people, neither the one who asked), and the amount in USD
+    minor units below which an unmatched difference is not material enough to block a close."""
+
+    close_maker_roles: tuple[str, ...]
+    close_checker_roles: tuple[str, ...]
+    reopen_roles: tuple[str, ...]
+    materiality_minor: int
+
+
+@dataclass(frozen=True)
 class FinancePolicy:
     version: str
     content_hash: str
@@ -85,6 +105,11 @@ class FinancePolicy:
     credit_note: Instrument
     pilot_credit: Instrument
     commitment: CommitmentPolicy
+    refund: Instrument | None = (
+        None  # no refund tiers in the signed policy means no refund can be requested or approved
+    )
+    dispute: DisputePolicy | None = None
+    recon: ReconPolicy | None = None
 
     def instrument(self, kind: Kind) -> Instrument:
         return self.credit_note if kind is Kind.CREDIT_NOTE else self.pilot_credit
@@ -120,7 +145,10 @@ def tier_for(instrument: Instrument, exposure_usd_minor: int) -> Tier:
 def validate_policy(p: FinancePolicy) -> None:
     """A policy that cannot place every amount, names a role twice in a tier (one person in two slots is the thing it exists to stop), or lets
     a lower limit follow a higher one does not load."""
-    for name, inst in (("credit_note", p.credit_note), ("pilot_credit", p.pilot_credit)):
+    instruments = [("credit_note", p.credit_note), ("pilot_credit", p.pilot_credit)]
+    if p.refund is not None:
+        instruments.append(("refund", p.refund))
+    for name, inst in instruments:
         if not inst.tiers or inst.tiers[-1].max_minor is not None:
             raise FinanceError("POLICY_INVALID", f"{name}: the last tier must have no limit")
         last = 0
@@ -142,6 +170,31 @@ def validate_policy(p: FinancePolicy) -> None:
         raise FinanceError(
             "POLICY_INVALID", "commitment enforcement is OFF, REPORT_ONLY or ENFORCED"
         )
+    if p.dispute is not None and not (
+        p.dispute.owner_roles and p.dispute.decide_roles and p.dispute.submit_roles
+    ):
+        raise FinanceError(
+            "POLICY_INVALID",
+            "a dispute names who owns it, who decides it and who hands it to the processor",
+        )
+    if p.dispute is not None and set(p.dispute.decide_roles) & set(p.dispute.submit_roles):
+        raise FinanceError(
+            "POLICY_INVALID", "deciding a dispute and submitting it are different permissions"
+        )
+    if p.recon is not None:
+        r = p.recon
+        if (
+            not (r.close_maker_roles and r.close_checker_roles and len(set(r.reopen_roles)) >= 2)
+            or r.materiality_minor < 0
+        ):
+            raise FinanceError(
+                "POLICY_INVALID",
+                "a close names a maker and a checker, and a reopen names at least two roles",
+            )
+        if set(r.close_maker_roles) & set(r.close_checker_roles):
+            raise FinanceError(
+                "POLICY_INVALID", "the maker and the checker of a close are different roles"
+            )
     if not p.request_roles or not p.execute_roles:
         raise FinanceError("POLICY_INVALID", "who may open and who may run must be named")
     if set(p.request_roles) & set(p.execute_roles):

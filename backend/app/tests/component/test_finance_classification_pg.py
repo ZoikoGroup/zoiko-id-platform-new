@@ -23,7 +23,11 @@ def test_the_request_kinds_are_credit_note_and_pilot_credit_and_never_a_refund()
     kinds = set(typing.get_args(routes.RequestBody.model_fields["kind"].annotation))
     assert kinds == {"CREDIT_NOTE", "PILOT_CREDIT"}
     assert {k.value for k in Kind} == {"CREDIT_NOTE", "PILOT_CREDIT"}
-    assert set(typing.get_args(routes.RequestBody.model_fields["category"].annotation)) == {"CORRECTION", "GOODWILL", "PILOT"}
+    assert set(typing.get_args(routes.RequestBody.model_fields["category"].annotation)) == {
+        "CORRECTION",
+        "GOODWILL",
+        "PILOT",
+    }
 
 
 def test_one_kind_cannot_be_opened_or_executed_as_another(rt_url: str) -> None:
@@ -72,16 +76,36 @@ def test_one_kind_cannot_be_opened_or_executed_as_another(rt_url: str) -> None:
                 pilot_req = await open_pilot()
                 await sign(c, pilot_req, "CCO", p["CCO"])
                 await sign(c, pilot_req, "FINANCE_OPS_LEAD", p["FINANCE_OPS_LEAD"])
-                ran = await finance.execute(c, pilot_req["request_id"], executor=p["FINANCE_EXECUTOR"], idempotency_key="pilot-run-0001", environment="test")
-                assert ran["state"] == "APPLIED" and "credit_note" not in (ran["result"] or {}) and ran["result"].get("pilot_credit_id")
+                ran = await finance.execute(
+                    c,
+                    pilot_req["request_id"],
+                    executor=p["FINANCE_EXECUTOR"],
+                    idempotency_key="pilot-run-0001",
+                    environment="test",
+                )
+                assert (
+                    ran["state"] == "APPLIED"
+                    and "credit_note" not in (ran["result"] or {})
+                    and ran["result"].get("pilot_credit_id")
+                )
 
                 note_req = await finance.open_request(
                     c, kind=Kind.CREDIT_NOTE, tenant_id=tenant, invoice_id=invoice, amount=D("10.00"), currency="USD", category="GOODWILL",
                     reason="goodwill", requested_by=p["REVOPS"], environment="test",
                 )  # fmt: skip
                 await sign(c, note_req, "FINANCE_OPS_LEAD", p["FINANCE_OPS_LEAD"])
-                done = await finance.execute(c, note_req["request_id"], executor=p["FINANCE_EXECUTOR"], idempotency_key="note-run-0001", environment="test")
-                assert done["state"] == "APPLIED" and done["result"]["credit_note"] and not done["result"].get("pilot_credit_id")
+                done = await finance.execute(
+                    c,
+                    note_req["request_id"],
+                    executor=p["FINANCE_EXECUTOR"],
+                    idempotency_key="note-run-0001",
+                    environment="test",
+                )
+                assert (
+                    done["state"] == "APPLIED"
+                    and done["result"]["credit_note"]
+                    and not done["result"].get("pilot_credit_id")
+                )
                 assert done["result"]["refund"] is None  # money is never moved by a credit note
 
     asyncio.run(run())

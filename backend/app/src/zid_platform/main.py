@@ -216,12 +216,16 @@ def create_app(
 
         async def route_guards(request: Any, caller: Any) -> None:
             await matrix_guard(request, caller)  # the role matrix on every mapped route (L-7)
-            await step_up_guard(request, caller)  # fresh strong authentication on every listed route (L-9)
+            await step_up_guard(
+                request, caller
+            )  # fresh strong authentication on every listed route (L-9)
 
         app.state.route_guard = route_guards
         from .modules.onboarding.ports import organization_state
 
-        app.state.organization_state = organization_state  # read by verification (it cannot import onboarding)
+        app.state.organization_state = (
+            organization_state  # read by verification (it cannot import onboarding)
+        )
         from .modules.authentication.api.recovery import router as recovery_router
         from .modules.authentication.api.step_up import router as step_up_router
         from .modules.authentication.api.webauthn import router as webauthn_router
@@ -256,6 +260,9 @@ def create_app(
         from .modules.operator_access.api.commercial_admin import router as commercial_admin_router
         from .modules.operator_access.api.commercial_finance import (
             router as commercial_finance_router,
+        )
+        from .modules.operator_access.api.commercial_payment_ops import (
+            router as commercial_payment_ops_router,
         )
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
@@ -333,6 +340,7 @@ def create_app(
             stripe_webhook_router,
             commercial_admin_router,
             commercial_finance_router,
+            commercial_payment_ops_router,
             communication_router,
         ):
             app.include_router(router)
@@ -388,6 +396,7 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    app.state.refund_port = build_refund_port(settings)
     if settings.attestor_keys_file:
         import json as _json
         from pathlib import Path as _Path
@@ -500,6 +509,20 @@ def _configure_simulators(app: FastAPI) -> None:
     app.state.registry_simulator = True
     app.state.registry_credential_override = SIMULATOR_KEY
     app.include_router(simulator_router)
+
+
+def build_refund_port(settings: Settings) -> Any:
+    """The processor behind refunds and the authoritative dispute reads. Local and test cells record what they were asked; a deployed cell without a processor key has
+    none (its refunds stay queued and are said to be waiting, never sent to nothing)."""
+    from pathlib import Path
+
+    from .modules.commercial.ports import RecordingRefunds, StripeRefunds
+
+    if settings.stripe_secret_key_file:
+        key = Path(settings.stripe_secret_key_file).read_text(encoding="utf-8").strip()
+        if key:
+            return StripeRefunds(key, base_url=settings.stripe_api_base)
+    return RecordingRefunds() if settings.environment in ("local", "test") else None
 
 
 def _secret_broker(settings: Settings) -> object | None:

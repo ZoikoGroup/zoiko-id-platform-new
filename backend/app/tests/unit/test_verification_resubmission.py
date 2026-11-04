@@ -8,10 +8,12 @@ import pytest
 from zid_platform.modules.verification.domain.verification import (
     Profile,
     ProviderResult,
-    SessionStatus as S,
     VerificationError,
     decide,
     transition,
+)
+from zid_platform.modules.verification.domain.verification import (
+    SessionStatus as S,
 )
 
 
@@ -28,7 +30,11 @@ def _pending(*codes: str) -> ProviderResult:
 
 def test_a_request_to_resubmit_is_its_own_open_state() -> None:
     d = decide(_profile(), _pending("RESUBMISSION_REQUIRED"), jurisdiction="GB")
-    assert d.status is S.RESUBMISSION_REQUIRED and d.outcome == "RESUBMISSION_REQUIRED" and not d.verified_claims
+    assert (
+        d.status is S.RESUBMISSION_REQUIRED
+        and d.outcome == "RESUBMISSION_REQUIRED"
+        and not d.verified_claims
+    )
 
 
 def test_any_other_pending_result_stays_pending_external() -> None:
@@ -39,7 +45,15 @@ def test_any_other_pending_result_stays_pending_external() -> None:
 def test_the_session_can_be_asked_again_and_can_still_end() -> None:
     for start in (S.IN_PROGRESS, S.PENDING_EXTERNAL):
         assert transition(start, S.RESUBMISSION_REQUIRED) is S.RESUBMISSION_REQUIRED
-    for end in (S.IN_PROGRESS, S.PENDING_EXTERNAL, S.MANUAL_REVIEW, S.VERIFIED, S.FAILED, S.CANCELED, S.EXPIRED):
+    for end in (
+        S.IN_PROGRESS,
+        S.PENDING_EXTERNAL,
+        S.MANUAL_REVIEW,
+        S.VERIFIED,
+        S.FAILED,
+        S.CANCELED,
+        S.EXPIRED,
+    ):
         assert transition(S.RESUBMISSION_REQUIRED, end) is end
 
 

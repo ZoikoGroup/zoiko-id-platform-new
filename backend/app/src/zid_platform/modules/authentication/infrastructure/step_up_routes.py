@@ -13,7 +13,10 @@ from typing import Any
 import yaml
 
 from zid_platform.modules.authentication.domain.step_up import Catalogue, StepUpError
-from zid_platform.modules.authentication.infrastructure.step_up_config import CONFIG, step_up_catalogue
+from zid_platform.modules.authentication.infrastructure.step_up_config import (
+    CONFIG,
+    step_up_catalogue,
+)
 
 _PARAM = re.compile(r"\{[^}]*\}")
 
@@ -44,10 +47,14 @@ def parse(doc: dict[str, Any], catalogue: Catalogue) -> tuple[RouteAction, ...]:
     for raw in doc.get("rules") or []:
         match, action = str(raw.get("match", "")), str(raw.get("action", ""))
         if match in seen:
-            raise StepUpError("ROUTE_MAP_INVALID", f"{match}: listed twice, and the second could never match")
+            raise StepUpError(
+                "ROUTE_MAP_INVALID", f"{match}: listed twice, and the second could never match"
+            )
         seen.add(match)
         if action not in catalogue.actions:
-            raise StepUpError("ROUTE_MAP_INVALID", f"{match}: {action} is not an action of the step-up catalogue")
+            raise StepUpError(
+                "ROUTE_MAP_INVALID", f"{match}: {action} is not an action of the step-up catalogue"
+            )
         out.append(RouteAction(match, _pattern(match), action, bool(raw.get("critical", False))))
     if not out:
         raise StepUpError("ROUTE_MAP_INVALID", "an empty route map guards nothing")

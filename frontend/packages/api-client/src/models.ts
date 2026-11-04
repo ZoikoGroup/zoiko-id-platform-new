@@ -2198,6 +2198,7 @@ export type OrgClaimOutcome = "VERIFIED" | "PROVISIONAL" | "NEEDS_EVIDENCE" | "I
 export type OrgClaimState = "DRAFT" | "SUBMITTED" | "WITHDRAWN" | "ABANDONED";
 /** How the person says they act for the company (WF-13B-02). Only an officer is what the register says; the others rest on a mandate. */
 export type OrgClaimRelationship = "DIRECTOR_OR_OFFICER" | "DELEGATED_EMPLOYEE" | "EXTERNAL_REPRESENTATIVE";
+export type OrgClaimEstablished = { tenant_status: string; organization_id: string | null; legal_name: string | null; established: boolean };
 export type OrgClaimStatus = {
   claim_id: string;
   jurisdiction: string;
@@ -2480,3 +2481,100 @@ export type VerificationTier = {
   never_identity_proof: string[];
   note: string;
 };
+
+// ---- Payment operations (ZID-UX-COM-009 F03, F04; CR-058)
+export type RefundState = "REQUESTED" | "APPROVED" | "EXECUTION_PENDING" | "PROCESSOR_PENDING" | "PARTIAL" | "SUCCEEDED" | "FAILED" | "UNKNOWN" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type RefundCategory = "DUPLICATE_PAYMENT" | "CORRECTION" | "CANCELLATION" | "CONTRACT_RIGHT" | "GOODWILL";
+export type RefundCase = {
+  refund_id: string;
+  tenant_id: string;
+  invoice_id: string;
+  payment_attempt_id: string;
+  issuing_entity: string;
+  currency: string;
+  amount_minor: number;
+  usd_minor: number;
+  exposure_usd_minor: number;
+  category: RefundCategory;
+  reason: string;
+  evidence_ref: string | null;
+  credit_note_id: string | null;
+  snapshot_hash: string;
+  policy_version: string;
+  required_roles: string[];
+  state: RefundState;
+  label: string;
+  never_claim: string;
+  requested_by: string;
+  created_at: string;
+  expires_at: string;
+  approved_at: string | null;
+  approval_expires_at: string | null;
+  approvals: { role: string; principal_id: string; decision: "APPROVE" | "REJECT"; decided_at: string }[];
+  processor: { refund_ref: string | null; state: string | null; amount_minor: number | null; last_verified_at: string | null; failure_code: string | null; attempts: number };
+  overlap: { open_dispute: boolean; credited_minor: number; refunded_other_minor: number; refundable_minor: number };
+};
+export type RefundOpenIn = {
+  target_tenant_id: string;
+  payment_attempt_id: string;
+  amount: string;
+  category: RefundCategory;
+  reason: string;
+  evidence_ref?: string | null;
+  credit_note_id?: string | null;
+};
+export type DisputeEvidenceItem = "terms_or_consent" | "transaction_proof" | "usage_proof" | "communications" | "cancellation_refund_chronology";
+export type DisputeCase = {
+  dispute_id: string;
+  provider_dispute_ref: string;
+  merchant_ref: string;
+  livemode: boolean;
+  tenant_id: string | null;
+  invoice_id: string | null;
+  issuing_entity: string | null;
+  payment_intent_ref: string | null;
+  reason: string | null;
+  amount_minor: number;
+  currency: string;
+  provider_status: string;
+  deadline: { due_by: string | null; zone: string; seconds_left: number | null; status: "OK" | "NEAR" | "PASSED" | "NO_DEADLINE_FROM_PROCESSOR" };
+  state: string;
+  owner: string | null;
+  strategy: "ACCEPT" | "CONTEST" | null;
+  strategy_reason: string | null;
+  evidence: { version: number; items: Record<DisputeEvidenceItem, { present: boolean; ref: string | null }>; complete: boolean };
+  submission: { reference: string | null; recorded_at: string | null; verified_at: string | null };
+  outcome: { provider_status: string | null; fee_minor: number | null; funds_withdrawn_minor: number };
+  overlap: { refunds: { state: string; amount_minor: number }[] };
+  timeline: { kind: string; actor: string | null; detail: Record<string, unknown>; at: string }[];
+  last_synced_at: string;
+};
+export type ReconRow = {
+  kind: "PAYMENT" | "REFUND" | "DISPUTE";
+  item_id: string;
+  ref: string;
+  amount_minor: number;
+  currency: string;
+  occurred_on: string;
+  state: "UNMATCHED" | "PROVISIONALLY_MATCHED" | "MATCHED";
+  reason: string | null;
+  difference_minor: number;
+  payout_ref: string | null;
+  legs: string[];
+  resolved: boolean;
+};
+export type ReconBoard = {
+  issuing_entity: string;
+  period: string;
+  state: "OPEN" | "READY_FOR_CLOSE" | "CLOSED" | "REOPEN_REQUESTED";
+  rows: ReconRow[];
+  summary: { UNMATCHED: number; PROVISIONALLY_MATCHED: number; MATCHED: number; items: number };
+  settlement_note: string;
+  totals_minor: Record<string, { payments: number; refunds: number; disputes: number }>;
+  blockers: string[];
+  ready: boolean;
+  snapshot_hash: string;
+  signed_roles?: string[];
+  receipt?: Record<string, unknown>;
+};
+export type ReconException = { exception_id: string; source_kind: string; source_id: string; reason: string; owner: string | null; resolution: string | null; resolved_at: string | null };

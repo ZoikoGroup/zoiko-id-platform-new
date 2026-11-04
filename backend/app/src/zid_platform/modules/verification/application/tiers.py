@@ -14,7 +14,9 @@ from zid_platform.modules.verification.domain import tiers as t
 from zid_platform.modules.verification.infrastructure import verification_store as store
 
 
-async def email_proved(conn: AsyncConnection, principal_id: str, registration_tenant: str | None) -> bool:
+async def email_proved(
+    conn: AsyncConnection, principal_id: str, registration_tenant: str | None
+) -> bool:
     """Did this person prove control of an inbox at sign-up? The sign-up record is the only proof kept; an account made another way has none on
     record, and says so rather than being assumed."""
     if not registration_tenant:
@@ -22,7 +24,9 @@ async def email_proved(conn: AsyncConnection, principal_id: str, registration_te
     async with in_tenant(conn, registration_tenant):
         row = (
             await conn.execute(
-                text("SELECT 1 FROM platform.registration_account WHERE account_principal_id = :p LIMIT 1"),
+                text(
+                    "SELECT 1 FROM platform.registration_account WHERE account_principal_id = :p LIMIT 1"
+                ),
                 {"p": principal_id},
             )
         ).first()
@@ -40,10 +44,13 @@ async def facts_for(
 ) -> t.Facts:
     held = await service.assurance(conn, principal_id, now)
     ial = int(str(held["identity_proofing"]["level"]).rsplit("Z", 1)[-1])
-    org_verified = organization_state == "VERIFIED"  # a verified organization has its representative's authority confirmed by a reviewer (CR-052)
+    org_verified = (
+        organization_state == "VERIFIED"
+    )  # a verified organization has its representative's authority confirmed by a reviewer (CR-052)
     return t.Facts(
         email_proved=await email_proved(conn, principal_id, registration_tenant),
-        proofed=ial >= 2,  # IAL-Z2 is the profile that needs a binding and liveness (or an accepted equivalent)
+        proofed=ial
+        >= 2,  # IAL-Z2 is the profile that needs a binding and liveness (or an accepted equivalent)
         company_verified=org_verified,
         mandate_evidence=org_verified,
         strong_authentication=authn_level >= 2,
@@ -69,7 +76,11 @@ async def tier_view(
         "label": result.label,
         "meaning": result.meaning,
         "next_tier": result.next_tier.value if result.next_tier else None,
-        "missing": [{"check": c, "why": f"NEEDED_FOR_{result.next_tier.value}"} for c in result.missing] if result.next_tier else [],
+        "missing": [
+            {"check": c, "why": f"NEEDED_FOR_{result.next_tier.value}"} for c in result.missing
+        ]
+        if result.next_tier
+        else [],
         "reasons": list(result.reasons),
         "facts": {
             "email_proved": facts.email_proved,
@@ -80,7 +91,13 @@ async def tier_view(
         },
         "claims": [t.claim_view(r, policy, now) for r in rows],
         "alternatives": [
-            {"id": a["id"], "for": list(a.get("for") or []), "effect": a["effect"], "status": a["status"]} for a in t.alternatives_for(needs or set(), policy)
+            {
+                "id": a["id"],
+                "for": list(a.get("for") or []),
+                "effect": a["effect"],
+                "status": a["status"],
+            }
+            for a in t.alternatives_for(needs or set(), policy)
         ],
         "never_identity_proof": sorted(policy.never_identity_proof),
         "note": "Not identity verified means exactly that. A phone code, an email confirmation, single sign-on, a selfie alone or control of a domain is never proof of who a person is.",

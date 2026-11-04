@@ -261,6 +261,19 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await remind_due(conn, now)
 
+    async def refunds(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""
+        from zid_platform.main import build_refund_port
+        from zid_platform.modules.commercial.ports import refunds as refund_service
+
+        port = build_refund_port(settings)
+        if port is None:
+            return "no processor configured"
+        return {
+            "sent": await refund_service.send_pending(conn, port, now),
+            "verified": await refund_service.verify_open(conn, port, now),
+        }
+
     return [
         ("evidence", evidence),
         ("operator_access", operator),
@@ -281,6 +294,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("approval_reminders", approval_reminders),
+        ("refunds", refunds),
     ]
 
 

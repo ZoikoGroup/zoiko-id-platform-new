@@ -172,7 +172,9 @@ async def begin(
         "code_challenge": _b64(hashlib.sha256(verifier.encode()).digest()),
         "code_challenge_method": "S256",
     }
-    if force_reauth:  # the person must authenticate again at the provider, whatever session it holds (T07)
+    if (
+        force_reauth
+    ):  # the person must authenticate again at the provider, whatever session it holds (T07)
         query["max_age"] = "0"
         query["prompt"] = "login"
     endpoint = c.authorization_endpoint or ""

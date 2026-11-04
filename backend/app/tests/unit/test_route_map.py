@@ -27,7 +27,10 @@ def _rules(*items: dict[str, Any]) -> tuple[rm.Rule, ...]:
 def test_the_first_matching_rule_wins_and_parameters_are_written_empty() -> None:
     rules = rm.RouteMap(
         _rules(
-            {"match": "POST /v1/x/{}:revoke", "gate": {"action": "a.disable-remove-ordinary-member", "mode": "X"}},
+            {
+                "match": "POST /v1/x/{}:revoke",
+                "gate": {"action": "a.disable-remove-ordinary-member", "mode": "X"},
+            },
             {"match": "* /v1/x/*", "exempt": "OWN_ACCOUNT", "why": "own"},
         )
     )
@@ -39,7 +42,12 @@ def test_the_first_matching_rule_wins_and_parameters_are_written_empty() -> None
 
 
 def test_a_method_star_matches_every_method_and_a_literal_method_only_itself() -> None:
-    rules = rm.RouteMap(_rules({"match": "GET /a", "exempt": "PROTOCOL", "why": "x"}, {"match": "* /b", "exempt": "PROTOCOL", "why": "x"}))
+    rules = rm.RouteMap(
+        _rules(
+            {"match": "GET /a", "exempt": "PROTOCOL", "why": "x"},
+            {"match": "* /b", "exempt": "PROTOCOL", "why": "x"},
+        )
+    )
     assert rules.classify("GET", "/a") and rules.classify("POST", "/a") is None
     assert rules.classify("DELETE", "/b")
 
@@ -47,17 +55,36 @@ def test_a_method_star_matches_every_method_and_a_literal_method_only_itself() -
 @pytest.mark.parametrize(
     ("rule", "message"),
     [
-        ({"match": "GET /a", "gate": {"action": "a.nope", "mode": "R"}}, "not an action of the role matrix"),
-        ({"match": "GET /a", "gate": {"action": "a.view-organization-dashboard", "mode": "Z"}}, "not one of X, S, A, R"),
-        ({"match": "GET /a", "gate": {"action": "a.invite-operator-or-viewer", "mode": "A"}}, "could never allow"),
+        (
+            {"match": "GET /a", "gate": {"action": "a.nope", "mode": "R"}},
+            "not an action of the role matrix",
+        ),
+        (
+            {"match": "GET /a", "gate": {"action": "a.view-organization-dashboard", "mode": "Z"}},
+            "not one of X, S, A, R",
+        ),
+        (
+            {"match": "GET /a", "gate": {"action": "a.invite-operator-or-viewer", "mode": "A"}},
+            "could never allow",
+        ),
         ({"match": "GET /a", "exempt": "WHATEVER", "why": "x"}, "exemption kind"),
         ({"match": "GET /a", "exempt": "PROTOCOL", "why": " "}, "says why"),
         ({"match": "GET /a"}, "gates or exempts"),
-        ({"match": "GET /a", "gate": {"action": "a.view-organization-dashboard", "mode": "R"}, "exempt": "PROTOCOL", "why": "x"}, "gates or exempts"),
+        (
+            {
+                "match": "GET /a",
+                "gate": {"action": "a.view-organization-dashboard", "mode": "R"},
+                "exempt": "PROTOCOL",
+                "why": "x",
+            },
+            "gates or exempts",
+        ),
         ({"match": "nonsense", "exempt": "PROTOCOL", "why": "x"}, "METHOD /path"),
     ],
 )
-def test_a_map_that_could_say_less_than_it_appears_to_does_not_load(rule: dict[str, Any], message: str) -> None:
+def test_a_map_that_could_say_less_than_it_appears_to_does_not_load(
+    rule: dict[str, Any], message: str
+) -> None:
     with pytest.raises(rm.RouteMapError, match=message):
         _rules(rule)
 
@@ -71,7 +98,12 @@ def test_a_rule_listed_twice_and_an_empty_map_are_refused() -> None:
 
 
 def test_a_reserved_row_may_be_mapped_and_refuses_everyone() -> None:
-    (rule,) = _rules({"match": "POST /a", "gate": {"action": "f.release-legal-hold-override-retention", "mode": "X"}})
+    (rule,) = _rules(
+        {
+            "match": "POST /a",
+            "gate": {"action": "f.release-legal-hold-override-retention", "mode": "X"},
+        }
+    )
     assert rule.gates
 
 
@@ -96,9 +128,15 @@ def test_the_default_is_report_only_and_only_an_explicit_enforced_enforces() -> 
 
 def test_a_few_decisions_the_owners_should_see() -> None:
     m = rm.route_map()
-    assert m.classify("POST", "/v1/evidence/legal-holds/{hold_id}:release").action == "f.release-legal-hold-override-retention"
+    assert (
+        m.classify("POST", "/v1/evidence/legal-holds/{hold_id}:release").action
+        == "f.release-legal-hold-override-retention"
+    )
     assert m.classify("POST", "/v1/machine/agents/{agent_id}:activate").mode is Mode.APPROVE
-    assert m.classify("PUT", "/v1/settings/{area}").action == "c.propose-changes-to-sso-mfa-enforcement"
+    assert (
+        m.classify("PUT", "/v1/settings/{area}").action
+        == "c.propose-changes-to-sso-mfa-enforcement"
+    )
     assert m.classify("GET", "/v1/privacy/admin/purposes").exempt == "NO_MATRIX_ACTION"
     assert m.classify("POST", "/v1/billing/commitment-requests").exempt == "COMMERCIAL"
     assert m.classify("POST", "/v1/not-a-route") is None
@@ -202,13 +240,17 @@ class _Tx:
         return None
 
 
-def _guard(monkeypatch: pytest.MonkeyPatch, *, enforced: bool, outcome: Any) -> tuple[Any, list[tuple[str, str]]]:
+def _guard(
+    monkeypatch: pytest.MonkeyPatch, *, enforced: bool, outcome: Any
+) -> tuple[Any, list[tuple[str, str]]]:
     """The real guard with the database replaced: `outcome` is a Decision, or an exception to raise."""
     from zid_platform.modules.tenant.api import gate
 
     calls: list[tuple[str, str]] = []
 
-    async def evaluate(conn: object, tenant: str, actor: str, action: str, mode: Mode, **kw: Any) -> Any:
+    async def evaluate(
+        conn: object, tenant: str, actor: str, action: str, mode: Mode, **kw: Any
+    ) -> Any:
         calls.append((action, mode.value))
         if isinstance(outcome, Exception):
             raise outcome
@@ -224,10 +266,19 @@ def _guard(monkeypatch: pytest.MonkeyPatch, *, enforced: bool, outcome: Any) -> 
 def _decision(allowed: bool) -> Any:
     from zid_platform.modules.tenant.domain.role_matrix import Decision, Outcome
 
-    return Decision(Outcome.ALLOW if allowed else Outcome.DENY, () if allowed else ("ROLE_DOES_NOT_HOLD_PERMISSION",), "x", "R", "OWNER" if allowed else None, "h")
+    return Decision(
+        Outcome.ALLOW if allowed else Outcome.DENY,
+        () if allowed else ("ROLE_DOES_NOT_HOLD_PERMISSION",),
+        "x",
+        "R",
+        "OWNER" if allowed else None,
+        "h",
+    )
 
 
-def test_report_only_records_what_would_be_refused_and_lets_the_request_through(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_report_only_records_what_would_be_refused_and_lets_the_request_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     guard, calls = _guard(monkeypatch, enforced=False, outcome=_decision(False))
     asyncio.run(guard(_Request("GET", "/v1/evidence/receipts"), _Caller()))  # no exception
     assert calls == [("f.view-authorized-audit-and-ledger-entries", "R")]
@@ -249,7 +300,9 @@ def test_an_allowed_decision_passes_in_both_modes(monkeypatch: pytest.MonkeyPatc
         assert calls == [("c.propose-changes-to-sso-mfa-enforcement", "S")]
 
 
-def test_a_failure_to_decide_is_a_refusal_when_enforced_and_a_log_line_when_not(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_failure_to_decide_is_a_refusal_when_enforced_and_a_log_line_when_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from zid_errors import ZidError
 
     guard, _ = _guard(monkeypatch, enforced=False, outcome=RuntimeError("db down"))
@@ -260,10 +313,18 @@ def test_a_failure_to_decide_is_a_refusal_when_enforced_and_a_log_line_when_not(
     assert e.value.http_status == 503 and e.value.code == "ROLE_DECISION_UNAVAILABLE"
 
 
-def test_exempt_unmapped_and_non_member_calls_are_not_judged(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exempt_unmapped_and_non_member_calls_are_not_judged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     guard, calls = _guard(monkeypatch, enforced=True, outcome=_decision(False))
-    asyncio.run(guard(_Request("GET", "/v1/billing/overview"), _Caller()))  # exempt: the billing layer decides
-    asyncio.run(guard(_Request("GET", "/v1/not-a-route"), _Caller()))  # unmapped: the coverage test keeps this list empty
-    asyncio.run(guard(_Request("GET", "/v1/evidence/receipts"), _Caller(principal=None)))  # no member
+    asyncio.run(
+        guard(_Request("GET", "/v1/billing/overview"), _Caller())
+    )  # exempt: the billing layer decides
+    asyncio.run(
+        guard(_Request("GET", "/v1/not-a-route"), _Caller())
+    )  # unmapped: the coverage test keeps this list empty
+    asyncio.run(
+        guard(_Request("GET", "/v1/evidence/receipts"), _Caller(principal=None))
+    )  # no member
     asyncio.run(guard(_Request("GET", "/v1/evidence/receipts"), _Caller(tenant=None)))
     assert calls == []

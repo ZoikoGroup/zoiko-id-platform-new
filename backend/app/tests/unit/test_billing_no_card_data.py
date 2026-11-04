@@ -9,12 +9,20 @@ import re
 from typing import Any
 
 from zid_platform.main import create_app
+from zid_platform.modules.commercial.api.commercial import (
+    OnlinePayCompleteBody,
+    PayBody,
+    PaymentCompleteBody,
+)
 from zid_platform.settings import Settings
 
-from zid_platform.modules.commercial.api.commercial import OnlinePayCompleteBody, PayBody, PaymentCompleteBody
-
-CARD_FIELD = re.compile(r"(^|_)(pan|cvc|cvv|cvn|card_?number|card_?no|card_?num|primary_account|exp_?month|exp_?year|expiry|security_code)($|_)", re.IGNORECASE)
-MONEY_FIELD = re.compile(r"(^|_)(amount|total|price|currency|outstanding|balance)($|_)", re.IGNORECASE)
+CARD_FIELD = re.compile(
+    r"(^|_)(pan|cvc|cvv|cvn|card_?number|card_?no|card_?num|primary_account|exp_?month|exp_?year|expiry|security_code)($|_)",
+    re.IGNORECASE,
+)
+MONEY_FIELD = re.compile(
+    r"(^|_)(amount|total|price|currency|outstanding|balance)($|_)", re.IGNORECASE
+)
 
 
 def _request_fields(doc: dict[str, Any]) -> dict[str, set[str]]:
@@ -50,7 +58,12 @@ def _request_fields(doc: dict[str, Any]) -> dict[str, set[str]]:
 
     for path, item in doc.get("paths", {}).items():
         for method, op in item.items():
-            body = (op.get("requestBody") or {}).get("content", {}).get("application/json", {}).get("schema")
+            body = (
+                (op.get("requestBody") or {})
+                .get("content", {})
+                .get("application/json", {})
+                .get("schema")
+            )
             if body:
                 out[f"{method.upper()} {path}"] = props(body)
     return out
@@ -69,7 +82,11 @@ def _cell_requests() -> dict[str, set[str]]:
 def test_no_request_the_cell_accepts_has_a_field_for_a_card() -> None:
     requests = _cell_requests()
     assert len(requests) > 150, "the test is not looking at the cell's routes"
-    offenders = {route: sorted(f for f in fields if CARD_FIELD.search(f)) for route, fields in requests.items() if any(CARD_FIELD.search(f) for f in fields)}
+    offenders = {
+        route: sorted(f for f in fields if CARD_FIELD.search(f))
+        for route, fields in requests.items()
+        if any(CARD_FIELD.search(f) for f in fields)
+    }
     assert not offenders, f"a request accepts something that looks like card data: {offenders}"
 
 
@@ -79,13 +96,22 @@ def test_a_payment_request_has_no_field_for_an_amount_a_currency_or_a_card() -> 
     assert set(OnlinePayCompleteBody.model_fields) == {"session_id"}
     assert set(PaymentCompleteBody.model_fields) == {"session_id"}
     for model in (PayBody, OnlinePayCompleteBody, PaymentCompleteBody):
-        assert model.model_config.get("extra") == "forbid", model.__name__  # an extra amount or card field is refused, not ignored
+        assert model.model_config.get("extra") == "forbid", (
+            model.__name__
+        )  # an extra amount or card field is refused, not ignored
         assert not [f for f in model.model_fields if CARD_FIELD.search(f) or MONEY_FIELD.search(f)]
 
 
 def test_the_routes_that_collect_money_take_no_money() -> None:
     # the customer's own payment routes; an operator's credit note after a refund is another thing and names its amount
-    paying = {route: f for route, f in _cell_requests().items() if re.search(r"/v1/invoices/.+/pay|/v1/billing/payment", route)}
+    paying = {
+        route: f
+        for route, f in _cell_requests().items()
+        if re.search(r"/v1/invoices/.+/pay|/v1/billing/payment", route)
+    }
     assert len(paying) >= 3, sorted(paying)
     for route, names in paying.items():
-        assert not [n for n in names if MONEY_FIELD.search(n) or CARD_FIELD.search(n)], (route, names)
+        assert not [n for n in names if MONEY_FIELD.search(n) or CARD_FIELD.search(n)], (
+            route,
+            names,
+        )

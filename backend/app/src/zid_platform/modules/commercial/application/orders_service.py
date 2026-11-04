@@ -199,7 +199,15 @@ async def create_quote(
         "residency": residency_commitment,
         "pilot": pilot,
         "lines": [
-            [ln.seq, ln.sku, ln.plan_code, str(ln.quantity), str(ln.discount_pct), [str(x) for x in ln.promotions]] for ln in lines
+            [
+                ln.seq,
+                ln.sku,
+                ln.plan_code,
+                str(ln.quantity),
+                str(ln.discount_pct),
+                [str(x) for x in ln.promotions],
+            ]
+            for ln in lines
         ],  # the promotions are part of what an approval binds
     }
     qid = uuid.uuid4()

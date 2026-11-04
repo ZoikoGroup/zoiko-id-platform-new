@@ -61,6 +61,38 @@ async def _apply(
     customer's account, so a review item never points an operator at somebody else's invoice."""
     tenants = await _tenants_of(conn, ev.customer_ref) if ev.customer_ref else []
     kind = ev.event_type
+    if kind.startswith("charge.dispute."):
+        # A dispute is a case with an owner and a deadline: it is opened (or moved) here, and its outcome is only ever the processor's.
+        from zid_platform.modules.commercial.application import dispute_service
+
+        await _in_tenant(conn, "")
+        case_id, _ = await dispute_service.ingest(
+            conn,
+            event_type=kind,
+            obj=ev.data,
+            livemode=ev.livemode,
+            merchant_ref=ev.merchant_ref,
+            now=now,
+        )
+        return "APPLIED", None, f"dispute case {case_id}", None
+    if kind == "charge.refunded":
+        from zid_platform.modules.commercial.application import refund_service
+
+        refunds = (ev.data.get("refunds") or {}).get("data") or []
+        newest = refunds[0] if refunds and isinstance(refunds[0], dict) else {}
+        meta = newest.get("metadata") if isinstance(newest.get("metadata"), dict) else {}
+        await _in_tenant(conn, "")
+        linked = await refund_service.note_provider_refund(
+            conn,
+            refund_ref=str(newest["id"]) if newest.get("id") else None,
+            case_ref=str(meta["zid_refund"]) if meta.get("zid_refund") else None,
+            payment_intent=ev.data.get("payment_intent")
+            if isinstance(ev.data.get("payment_intent"), str)
+            else None,
+            now=now,
+        )
+        if linked:
+            return "APPLIED", None, f"refund case {linked}", None
     if kind in hook.REVIEW_TYPES:
         what = f"{kind} {ev.object_id or ''}".strip()
         tenant = await _invoice_tenant(conn, tenants, ev.invoice_id) if ev.invoice_id else None

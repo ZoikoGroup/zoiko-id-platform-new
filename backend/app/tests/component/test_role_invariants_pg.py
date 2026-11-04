@@ -31,14 +31,22 @@ def _app(rt_url: str, o: Any) -> Any:
 def _grants(rt_url: str, tenant: str) -> int:
     async def run() -> int:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-            return int((await c.execute(text("SELECT count(*) FROM platform.billing_grant"))).scalar_one())
+            return int(
+                (await c.execute(text("SELECT count(*) FROM platform.billing_grant"))).scalar_one()
+            )
 
     return asyncio.run(run())
 
 
-def test_a_sensitive_grant_needs_a_strong_proof_and_a_failed_proof_activates_nothing(rt_url: str) -> None:
+def test_a_sensitive_grant_needs_a_strong_proof_and_a_failed_proof_activates_nothing(
+    rt_url: str,
+) -> None:
     """C00-10: where step-up is enforced a billing grant without a proof, or with one that is not valid, is refused and no grant exists afterwards."""
-    o = onboard(rt_url, extra_actions=["commercial.read", "commercial.payment.manage"], extra_resources=["billable:*"])
+    o = onboard(
+        rt_url,
+        extra_actions=["commercial.read", "commercial.payment.manage"],
+        extra_resources=["billable:*"],
+    )
     _seed_role(rt_url, o.tenant, o.second, "ADMIN", create=False)
     app = _app(rt_url, o)
     app.state.step_up_enforcement = "enforce"
@@ -46,17 +54,27 @@ def test_a_sensitive_grant_needs_a_strong_proof_and_a_failed_proof_activates_not
         own = o.bearer(o.owner)
         body = {"grantee_principal_id": o.second, "bundle": "BILLING_ADMIN", "reason": "billing"}
         refused = api.post("/v1/tenant/billing-grants", json=body, headers=own)
-        assert refused.status_code == 403 and refused.json()["error"]["code"] == "STEP_UP_REQUIRED", refused.text
+        assert (
+            refused.status_code == 403 and refused.json()["error"]["code"] == "STEP_UP_REQUIRED"
+        ), refused.text
         for bad in ("not-a-proof", str(uuid.uuid4())):
-            r = api.post("/v1/tenant/billing-grants", json=body, headers={**own, "x-step-up-proof": bad})
+            r = api.post(
+                "/v1/tenant/billing-grants", json=body, headers={**own, "x-step-up-proof": bad}
+            )
             assert r.status_code == 403 and r.json()["error"]["code"].startswith("STEP_UP"), r.text
         assert _grants(rt_url, o.tenant) == 0, "a refused grant must leave nothing behind"
-        assert api.get("/v1/invoices", headers=o.bearer(o.second)).status_code == 403  # and the person gained no access
+        assert (
+            api.get("/v1/invoices", headers=o.bearer(o.second)).status_code == 403
+        )  # and the person gained no access
 
 
 def test_a_repeated_grant_is_one_grant_and_a_different_end_date_is_a_conflict(rt_url: str) -> None:
     """C00-13: a double click, a retry or two administrators at once do not create two grants; changing an end date is explicit."""
-    o = onboard(rt_url, extra_actions=["commercial.read", "commercial.payment.manage"], extra_resources=["billable:*"])
+    o = onboard(
+        rt_url,
+        extra_actions=["commercial.read", "commercial.payment.manage"],
+        extra_resources=["billable:*"],
+    )
     _seed_role(rt_url, o.tenant, o.second, "ADMIN", create=False)
     with TestClient(_app(rt_url, o)) as api:
         own = o.bearer(o.owner)
@@ -67,13 +85,29 @@ def test_a_repeated_grant_is_one_grant_and_a_different_end_date_is_a_conflict(rt
         assert first.json()["grant_id"] == again.json()["grant_id"]
         assert _grants(rt_url, o.tenant) == 1
 
-        different = api.post("/v1/tenant/billing-grants", json={**body, "expires_at": "2099-01-01T00:00:00+00:00"}, headers=own)
-        assert different.status_code == 409 and different.json()["error"]["code"] == "BILLING_GRANT_EXISTS", different.text
+        different = api.post(
+            "/v1/tenant/billing-grants",
+            json={**body, "expires_at": "2099-01-01T00:00:00+00:00"},
+            headers=own,
+        )
+        assert (
+            different.status_code == 409
+            and different.json()["error"]["code"] == "BILLING_GRANT_EXISTS"
+        ), different.text
         assert _grants(rt_url, o.tenant) == 1
 
         # taking it away makes the next grant a new one, not the old one
-        assert api.post(f"/v1/tenant/billing-grants/{first.json()['grant_id']}:revoke", headers=own).status_code == 200
-        renewed = api.post("/v1/tenant/billing-grants", json={**body, "expires_at": "2099-01-01T00:00:00+00:00"}, headers=own)
+        assert (
+            api.post(
+                f"/v1/tenant/billing-grants/{first.json()['grant_id']}:revoke", headers=own
+            ).status_code
+            == 200
+        )
+        renewed = api.post(
+            "/v1/tenant/billing-grants",
+            json={**body, "expires_at": "2099-01-01T00:00:00+00:00"},
+            headers=own,
+        )
         assert renewed.status_code == 201 and renewed.json()["grant_id"] != first.json()["grant_id"]
         assert _grants(rt_url, o.tenant) == 2
 
@@ -86,23 +120,39 @@ def test_a_replayed_or_forged_role_never_creates_authority(rt_url: str) -> None:
     stranger = str(uuid.uuid4())
     with TestClient(_app(rt_url, o)) as api:
         own, adm = o.bearer(o.owner), o.bearer(o.second)
-        assert api.post("/v1/tenant/members", json={"role": "VIEWER"}, headers=adm).status_code == 201  # the Administrator may invite a Viewer
+        assert (
+            api.post("/v1/tenant/members", json={"role": "VIEWER"}, headers=adm).status_code == 201
+        )  # the Administrator may invite a Viewer
 
         # a stranger holding a token for this tenant, whose scope claims every role by name, is still nobody: roles are not read from the token
         forged = {
             "Authorization": "Bearer "
             + issue_access_token(
-                o.ring, issuer=ISS, audience=AUD, subject=stranger, tenant_id=o.tenant, client_id="onboarding", now=datetime.now(UTC),
-                scope=frozenset({"owner", "admin", "tenant.member.manage", "role:OWNER", "tenant:admin"}),
+                o.ring,
+                issuer=ISS,
+                audience=AUD,
+                subject=stranger,
+                tenant_id=o.tenant,
+                client_id="onboarding",
+                now=datetime.now(UTC),
+                scope=frozenset(
+                    {"owner", "admin", "tenant.member.manage", "role:OWNER", "tenant:admin"}
+                ),
             )  # fmt: skip
         }
         r = api.post("/v1/tenant/members", json={"role": "VIEWER"}, headers=forged)
         assert r.status_code in (401, 403), r.text
-        assert api.post("/v1/tenant/members", json={"role": "ADMIN"}, headers=forged).status_code in (401, 403)
+        assert api.post(
+            "/v1/tenant/members", json={"role": "ADMIN"}, headers=forged
+        ).status_code in (401, 403)
 
         # the Administrator is removed; the same token, replayed, no longer does anything privileged
         members = api.get("/v1/tenant/members", headers=own).json()["items"]
-        assignment = next(m["assignment_id"] for m in members if m["principal_id"] == o.second and m["status"] == "ACTIVE")
+        assignment = next(
+            m["assignment_id"]
+            for m in members
+            if m["principal_id"] == o.second and m["status"] == "ACTIVE"
+        )
         assert api.post(f"/v1/tenant/members/{assignment}:revoke", headers=own).status_code == 200
         replay = api.post("/v1/tenant/members", json={"role": "VIEWER"}, headers=adm)
         assert replay.status_code == 403, replay.text

@@ -44,7 +44,9 @@ async def my_tier(
             registration_tenant=getattr(request.app.state, "registration_tenant", None),
             organization_state=await org_state(conn, tenant, now) if org_state else None, now=now,
         )  # fmt: skip
-        return await service.tier_view(conn, policy, facts, principal_id=principal, now=now, needs=set(cannot or []))
+        return await service.tier_view(
+            conn, policy, facts, principal_id=principal, now=now, needs=set(cannot or [])
+        )
 
 
 @router.get("/v1/verification/requirements")
@@ -61,7 +63,11 @@ async def requirements(
         needs = frozenset(t.Need(n.upper()) for n in need or [])
         checks = t.required_checks(t.Tier(target), policy, needs=needs, alternative=alternative)
     except (ValueError, t.TierError) as e:
-        raise ZidError("REQUIREMENT_INVALID", "That is not a recognised target, reason or alternative.", http_status=422) from e
+        raise ZidError(
+            "REQUIREMENT_INVALID",
+            "That is not a recognised target, reason or alternative.",
+            http_status=422,
+        ) from e
     return {
         "policy_version": policy.version,
         "target": target,

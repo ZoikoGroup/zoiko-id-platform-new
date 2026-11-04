@@ -7,6 +7,7 @@ import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
 import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequestsView } from "./finance-page";
 import { useDirectMode } from "./mode";
+import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
@@ -98,6 +99,9 @@ export function CommercialPage() {
                 tabs={[
                   { id: "f-overview", label: "Overview", content: <FinanceOverviewView /> },
                   { id: "f-requests", label: "Credits", content: <FinanceRequestsView /> },
+                  { id: "f-refunds", label: "Refunds", content: <RefundsView /> },
+                  { id: "f-disputes", label: "Disputes", content: <DisputesView /> },
+                  { id: "f-recon", label: "Reconciliation", content: <ReconciliationView /> },
                   { id: "f-authority", label: "Policy and roles", content: <FinanceAuthorityView /> },
                   { id: "f-eligibility", label: "Eligibility", content: <EligibilityView /> },
                 ]}

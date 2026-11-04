@@ -45,7 +45,9 @@ def test_the_shipped_register_is_consistent_and_says_no_go() -> None:
     assert reg["disposition"] == "NO-GO"
     state, why = rat.verdict(reg)
     assert state == "NO-GO" and why
-    assert all(r["decision"] is None for r in reg["ratifications"]), "engineering never fills an owner's decision"
+    assert all(r["decision"] is None for r in reg["ratifications"]), (
+        "engineering never fills an owner's decision"
+    )
     assert all(g["status"] == "PENDING" and g["reviewer"] is None for g in reg["gates"])
     assert all(s["name"] is None and s["decision"] is None for s in reg["signatories"])
 
@@ -111,7 +113,10 @@ def test_a_gate_passes_only_with_a_named_reviewer_and_evidence_that_resolves() -
     reg = _real()
     reg["gates"][3].update(status="PASS")
     text = "\n".join(rat.validate(reg))
-    assert "G3: PASS needs a named reviewer" in text and "G3: PASS needs an evidence reference that resolves" in text
+    assert (
+        "G3: PASS needs a named reviewer" in text
+        and "G3: PASS needs an evidence reference that resolves" in text
+    )
     reg["gates"][3].update(reviewer="A. Reviewer", evidence_ref="docs/signoff/does-not-exist.md")
     assert any("G3: PASS needs an evidence reference" in p for p in rat.validate(reg))
     reg["gates"][3].update(evidence_ref="tools/scripts/release_gate.py")
@@ -135,21 +140,47 @@ def test_the_register_keeps_its_closures_gates_evidence_and_signatories() -> Non
 # --------------------------------------------------------------------------------------------------------------- policy flags
 
 
-def _tree(tmp: Path, *, commitment: str = "REPORT_ONLY", bands: str = "REPORT_ONLY", bill: str = "false", sandbox: str = '"local", "test"') -> Path:
+def _tree(
+    tmp: Path,
+    *,
+    commitment: str = "REPORT_ONLY",
+    bands: str = "REPORT_ONLY",
+    bill: str = "false",
+    sandbox: str = '"local", "test"',
+) -> Path:
     """A repository the checks can read, with every file the register names."""
+
     def put(rel: str, text: str) -> None:
         f = tmp / rel
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(text, encoding="utf-8")
 
-    put("backend/config/commercial/finance-policy.yaml", f"commitment:\n  valid_days: 14\n  enforcement: {commitment}\n")
-    put("backend/config/entitlements/capability-bands.yaml", f"# note\nband_matrix_enforcement: {bands}\n")
+    put(
+        "backend/config/commercial/finance-policy.yaml",
+        f"commitment:\n  valid_days: 14\n  enforcement: {commitment}\n",
+    )
+    put(
+        "backend/config/entitlements/capability-bands.yaml",
+        f"# note\nband_matrix_enforcement: {bands}\n",
+    )
     put("backend/config/onboarding/readiness-policy.yaml", "enforcement: REPORT_ONLY\n")
     put("backend/config/roles/role-policy.yaml", "billing_access_enforcement: ENFORCED\n")
-    put("backend/config/entitlements/meter-register.yaml", f"meters:\n  a:\n    bill_on_commit: {bill}\n  b:\n    bill_on_commit: {bill}\n")
-    put("backend/app/src/zid_platform/modules/commercial/application/finance_service.py", f"SANDBOX = frozenset({{{sandbox}}})\n")
-    put(".github/workflows/ci.yml", "jobs:\n  unit:\n    x: 1\n  component:\n    x: 1\n  sast:\n    x: 1\n  secret-scan:\n    x: 1\n  python-audit:\n    x: 1\n  checks:\n    needs:\n      - unit\n      - component\n      - sast\n      - secret-scan\n      - python-audit\n    runs-on: x\n")
-    put("docs/traceability/acceptance-tests.csv", "test_id,test_status\nCL04-C14,VERIFIED\nWF09-OP-05,VERIFIED\nWF09-OP-09,VERIFIED\nWF09-OP-10,VERIFIED\nCL04-C12,VERIFIED\nWF09-OP-03,VERIFIED\nWF10-C00-11,VERIFIED\n")
+    put(
+        "backend/config/entitlements/meter-register.yaml",
+        f"meters:\n  a:\n    bill_on_commit: {bill}\n  b:\n    bill_on_commit: {bill}\n",
+    )
+    put(
+        "backend/app/src/zid_platform/modules/commercial/application/finance_service.py",
+        f"SANDBOX = frozenset({{{sandbox}}})\n",
+    )
+    put(
+        ".github/workflows/ci.yml",
+        "jobs:\n  unit:\n    x: 1\n  component:\n    x: 1\n  sast:\n    x: 1\n  secret-scan:\n    x: 1\n  python-audit:\n    x: 1\n  checks:\n    needs:\n      - unit\n      - component\n      - sast\n      - secret-scan\n      - python-audit\n    runs-on: x\n",
+    )
+    put(
+        "docs/traceability/acceptance-tests.csv",
+        "test_id,test_status\nCL04-C14,VERIFIED\nWF09-OP-05,VERIFIED\nWF09-OP-09,VERIFIED\nWF09-OP-10,VERIFIED\nCL04-C12,VERIFIED\nWF09-OP-03,VERIFIED\nWF10-C00-11,VERIFIED\n",
+    )
     put("docs/evidence.md", "evidence\n")
     return tmp
 
@@ -170,7 +201,9 @@ def test_a_flag_that_drifted_from_the_register_is_refused(tmp_path: Path) -> Non
 
 def test_a_money_flag_that_was_switched_on_is_refused(tmp_path: Path) -> None:
     root = _tree(tmp_path, bill="true")
-    assert any("money flag is not at its shipped value" in p for p in rat.validate(_real(), root=root))
+    assert any(
+        "money flag is not at its shipped value" in p for p in rat.validate(_real(), root=root)
+    )
 
 
 def test_the_shipped_files_agree_with_every_flag_in_the_register() -> None:
@@ -187,19 +220,35 @@ def _complete(root: Path) -> dict[str, Any]:
     reg = copy.deepcopy(_real())
     reg["disposition"] = "GO"
     for r in reg["ratifications"]:
-        r.update(decision="Approve", owner="Owner", decision_record="DR-1", policy_version="1", effective_date="2026-12-01")
+        r.update(
+            decision="Approve",
+            owner="Owner",
+            decision_record="DR-1",
+            policy_version="1",
+            effective_date="2026-12-01",
+        )
     for g in reg["gates"]:
         g.update(status="PASS", reviewer="Reviewer", evidence_ref="docs/evidence.md")
     for e in reg["evidence"]:
         e["ref"] = "docs/evidence.md"
-    reg["release"].update(release_id="R-1", policy_version="1", approved_countries=["GB"], approved_products=["Core"], approved_issuers=["Zoiko Ltd"], environment="production", date="2026-12-01")
+    reg["release"].update(
+        release_id="R-1",
+        policy_version="1",
+        approved_countries=["GB"],
+        approved_products=["Core"],
+        approved_issuers=["Zoiko Ltd"],
+        environment="production",
+        date="2026-12-01",
+    )
     names = ["A", "B", "C", "D", "E", "F", "G"]
     for s, n in zip(reg["signatories"], names, strict=True):
         s.update(name=n, date="2026-12-01", decision="GO")
     return reg
 
 
-def test_go_is_reachable_only_when_everything_the_document_asks_for_is_present(tmp_path: Path) -> None:
+def test_go_is_reachable_only_when_everything_the_document_asks_for_is_present(
+    tmp_path: Path,
+) -> None:
     root = _tree(tmp_path)
     reg = _complete(root)
     assert rat.validate(reg, root=root) == []
@@ -209,15 +258,29 @@ def test_go_is_reachable_only_when_everything_the_document_asks_for_is_present(t
 @pytest.mark.parametrize(
     ("mutate", "reason"),
     [
-        (lambda r: r["ratifications"][2].update(decision="Defer", decision_record="DR", policy_version="2", owner="O", effective_date="2027-01-01"), "CL-003 is Defer"),
+        (
+            lambda r: r["ratifications"][2].update(
+                decision="Defer",
+                decision_record="DR",
+                policy_version="2",
+                owner="O",
+                effective_date="2027-01-01",
+            ),
+            "CL-003 is Defer",
+        ),
         (lambda r: r["gates"][4].update(status="FAIL"), "gate G4 is FAIL"),
         (lambda r: r["evidence"][6].update(ref=None), "evidence E07 is not referenced"),
-        (lambda r: r["release"].update(approved_countries=[]), "release field approved_countries is blank"),
+        (
+            lambda r: r["release"].update(approved_countries=[]),
+            "release field approved_countries is blank",
+        ),
         (lambda r: r["signatories"][6].update(decision="NO-GO"), "Legal has not signed GO"),
         (lambda r: r["signatories"][3].update(name=None), "CTO has not signed GO"),
     ],
 )
-def test_one_missing_piece_returns_the_register_to_no_go(tmp_path: Path, mutate: Any, reason: str) -> None:
+def test_one_missing_piece_returns_the_register_to_no_go(
+    tmp_path: Path, mutate: Any, reason: str
+) -> None:
     root = _tree(tmp_path)
     reg = _complete(root)
     mutate(reg)
@@ -227,7 +290,10 @@ def test_one_missing_piece_returns_the_register_to_no_go(tmp_path: Path, mutate:
 
 def test_a_no_go_stays_open_when_an_acceptance_row_is_only_in_progress(tmp_path: Path) -> None:
     root = _tree(tmp_path)
-    (root / "docs/traceability/acceptance-tests.csv").write_text("test_id,test_status\nCL04-C14,IN_PROGRESS\nWF09-OP-05,VERIFIED\nWF09-OP-09,VERIFIED\nWF09-OP-10,VERIFIED\nCL04-C12,VERIFIED\nWF09-OP-03,VERIFIED\nWF10-C00-11,VERIFIED\n", encoding="utf-8")
+    (root / "docs/traceability/acceptance-tests.csv").write_text(
+        "test_id,test_status\nCL04-C14,IN_PROGRESS\nWF09-OP-05,VERIFIED\nWF09-OP-09,VERIFIED\nWF09-OP-10,VERIFIED\nCL04-C12,VERIFIED\nWF09-OP-03,VERIFIED\nWF10-C00-11,VERIFIED\n",
+        encoding="utf-8",
+    )
     state, why = rat.verdict(_complete(root), root=root)
     assert state == "NO-GO" and any("NG-04 is open" in w and "CL04-C14" in w for w in why)
 
@@ -240,15 +306,25 @@ def test_a_no_go_stays_open_when_a_required_ci_job_is_not_in_the_gate(tmp_path: 
     assert state == "NO-GO" and any("sast is not required by the checks gate" in w for w in why)
 
 
-def test_the_finance_lock_that_skips_a_deployed_environment_reopens_the_monetary_no_go(tmp_path: Path) -> None:
+def test_the_finance_lock_that_skips_a_deployed_environment_reopens_the_monetary_no_go(
+    tmp_path: Path,
+) -> None:
     root = _tree(tmp_path, sandbox='"local", "test", "production"')
     state, why = rat.verdict(_complete(root), root=root)
-    assert state == "NO-GO" and any("finance policy lock is no longer sandbox-only" in w for w in why)
-    assert rat.finance_lock_is_sandbox_only((REPO / "backend/app/src/zid_platform/modules/commercial/application/finance_service.py").read_text(encoding="utf-8"))
+    assert state == "NO-GO" and any(
+        "finance policy lock is no longer sandbox-only" in w for w in why
+    )
+    assert rat.finance_lock_is_sandbox_only(
+        (
+            REPO / "backend/app/src/zid_platform/modules/commercial/application/finance_service.py"
+        ).read_text(encoding="utf-8")
+    )
 
 
 def test_the_machine_signals_read_the_real_ci_and_acceptance_files() -> None:
-    defined, needed = rat.required_ci_jobs((REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    defined, needed = rat.required_ci_jobs(
+        (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    )
     assert {"unit", "component", "sast", "secret-scan", "python-audit"} <= defined & needed
     assert {"CL04-C14", "WF09-OP-05", "CL04-C12"} <= set(rat.acceptance_status())
 
@@ -273,4 +349,6 @@ def test_ci_runs_the_register_check_and_its_tests_in_the_devsecops_job() -> None
 def test_production_promotion_needs_the_owners_go_before_the_supply_chain_gate() -> None:
     run = (REPO / ".github/workflows/release.yml").read_text(encoding="utf-8")
     assert "ratification.py --require-go" in run
-    assert run.index("ratification.py --require-go") < run.index("python3 tools/scripts/release_gate.py")
+    assert run.index("ratification.py --require-go") < run.index(
+        "python3 tools/scripts/release_gate.py"
+    )

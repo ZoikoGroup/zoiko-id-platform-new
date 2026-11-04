@@ -281,7 +281,10 @@ async def require_step_up(
                 [  # a client that cannot know the change names it back: the central route guard binds the proof to the request itself
                     ErrorDetail(field="binding", issue="route"),
                     ErrorDetail(field="resource", issue=resource),
-                    ErrorDetail(field="change", issue=json.dumps(change, sort_keys=True, separators=(",", ":"))),
+                    ErrorDetail(
+                        field="change",
+                        issue=json.dumps(change, sort_keys=True, separators=(",", ":")),
+                    ),
                 ]
                 if bind_route
                 else []

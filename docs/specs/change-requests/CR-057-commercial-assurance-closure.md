@@ -27,5 +27,5 @@ replayed and forged role claims), `test_discount_authority_pg.py` (who may relea
 About 50 rows across CL02, CL03, CL04, WF08 to WF10 and EDR09, all as in progress (none verified).
 
 ## Still open, and why
-Refund execution, disputes and reconciliation and period close (WF09-OP-05 to 10, CL04-C15: Closure 05 and a bank and ERP feed are not supplied); keyboard and screen-reader runs of the operator finance
+Refund execution, disputes and reconciliation and period close were built afterwards in [CR-058](CR-058-refunds-disputes-reconciliation-and-period-close.md) from Wireframe 09; keyboard and screen-reader runs of the operator finance
 console and of the step-up dialog on real devices (CL03-T18, CL04-C18, WF09-OP-12, EDR09-T12); supplier and counsel items (EDR04-07, EDR05-01, EDR05-04, EDR06-07).

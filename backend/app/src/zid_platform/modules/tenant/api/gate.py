@@ -65,7 +65,9 @@ async def route_matrix_guard(request: Request, caller: Caller) -> None:
     ENFORCED refuses it. A route the map exempts, or does not map, is not judged here (the coverage test keeps that list complete).
     A failure to decide is a refusal when enforced and a log line when not, never a silent allow of an enforced route."""
     route = request.scope.get("route")
-    rule = routes.route_map().classify(request.method, getattr(route, "path_format", request.url.path))
+    rule = routes.route_map().classify(
+        request.method, getattr(route, "path_format", request.url.path)
+    )
     if rule is None or not rule.gates:
         return
     tenant, principal = caller.ctx.tenant_id or "", caller.ctx.principal_id
@@ -78,15 +80,22 @@ async def route_matrix_guard(request: Request, caller: Caller) -> None:
             decision = await access.evaluate(
                 conn, tenant, principal, rule.action, rule.mode, object_id=f"route:{request.method} {rule.match}"[:128], session_ok=True
             )  # fmt: skip
-    except Exception:  # noqa: BLE001 - a failure to decide must not become an allow on an enforced route
+    except Exception:
         log.exception("route matrix could not decide %s %s", request.method, rule.match)
         if enforced:
-            raise ZidError("ROLE_DECISION_UNAVAILABLE", "The role decision could not be made.", http_status=503) from None
+            raise ZidError(
+                "ROLE_DECISION_UNAVAILABLE", "The role decision could not be made.", http_status=503
+            ) from None
         return
     if decision.allowed:
         return
     if enforced:
         raise refusal(decision)
     log.warning(
-        "route matrix would refuse %s %s: %s %s %s", request.method, rule.match, rule.action, rule.mode.value if rule.mode else "", ",".join(decision.reasons)
+        "route matrix would refuse %s %s: %s %s %s",
+        request.method,
+        rule.match,
+        rule.action,
+        rule.mode.value if rule.mode else "",
+        ",".join(decision.reasons),
     )
