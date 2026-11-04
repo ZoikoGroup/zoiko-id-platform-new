@@ -8,8 +8,8 @@ A checklist for the owners. It approves nothing, and every reference below is bl
 | 2 | Switch `step_up_enforcement` from `shadow` to `enforce`, per environment, once the web flows are tested with real users | It blocks sensitive changes without a proof | |
 | 3 | Approve an assurance policy for an S1 enterprise-MFA fallback (TOTP plus a protected password and session), or keep S1 passkey-only (`s1_fallback_mfa`) | The record allows it only under an approved policy | |
 | 4 | The challenge lifetime (120 seconds) and confirm the freshness windows (10 and 5 minutes) as Zoiko policy | The record states windows but not the challenge wait | |
-| 5 | Which of the unguarded S2 actions move onto the guard first (exports, break-glass, credential and agent changes, OAuth scopes, key rotation, recovery completion, legal-entity changes) | Sequencing and risk | |
-| 6 | Where the session bulk-revoke guard is composed (the session module cannot import authentication) | An architecture choice | |
+| 5 | The rule for what counts as "high-impact" delegated authority, "high-privilege" agent mandates and "high-trust" credentials, and a caller model for break-glass; then the remaining S2 actions (authority grants, mandates, credential issue and revoke, recovery completion, legal-entity changes, OAuth client scopes) can be guarded | The record names the tiers but not what makes an action high-impact | |
+| 6 | (Closed by engineering: the session and evidence guards are composed in at start-up through `step_up_hook`.) Confirm the arrangement | An architecture choice | |
 | 7 | Password and primary-email change: where they live, and the notify-and-review gate the record asks for | No such flow exists yet | |
 | 8 | Federation: request fresh authentication at login (`max_age=0`, `acr_values`, SAML `ForceAuthn`) for each connected provider, and say which providers can supply verifiable freshness | Provider capability and contract | |
 | 9 | Risk signals beyond the existing security states (new device, impossible travel, recent recovery, suspect token): sources, privacy review and thresholds | Privacy and signal governance | |

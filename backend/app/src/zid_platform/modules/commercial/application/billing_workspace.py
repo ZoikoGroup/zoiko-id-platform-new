@@ -173,6 +173,7 @@ async def overview(
             "reason": "Nothing needs your attention.",
         }
 
+    pilot_ends = pilot.ends_at if pilot else (order["pilot_ends_at"] if order else None)
     return {
         "as_of": now.isoformat(), "state": kind,
         "message": MESSAGES[kind] if kind != "PAST_DUE" or not overdue else f"{len(overdue)} invoice(s) are past their due date.",
@@ -188,7 +189,7 @@ async def overview(
             "currency": account["currency"] if account else None,
             "issuer": (invoices[0]["number"] or "").rsplit("-", 1)[0] or None if invoices else None,
         },
-        "pilot": {"ends_at": (pilot.ends_at if pilot else order["pilot_ends_at"]).isoformat() if (pilot or (order and order["pilot_ends_at"])) else None, "automatic_conversion": False} if kind == "PILOT" else None,
+        "pilot": {"ends_at": pilot_ends.isoformat() if pilot_ends else None, "automatic_conversion": False} if kind == "PILOT" else None,
         "recent_activity": [
             {"kind": "INVOICE", "ref": i["number"], "invoice_id": i["invoice_id"], "at": i["issued_at"], "amount": i["gross"], "currency": i["currency"],
              "status": "PAID" if i["outstanding"] is not None and Decimal(i["outstanding"]) == 0 else "OPEN"}
