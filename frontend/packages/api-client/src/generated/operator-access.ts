@@ -841,14 +841,6 @@ export interface components {
          * @enum {string}
          */
         ChangeClass: "STANDARD" | "RISKY" | "FIX" | "SECURITY";
-        /** DecisionBody */
-        DecisionBody: {
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
-        };
         /** DeclareBody */
         DeclareBody: {
             /** Cells */
@@ -1072,6 +1064,14 @@ export interface components {
             release_ref: string;
             /** Service Id */
             service_id: string;
+        };
+        /** DecisionBody */
+        zid_platform__modules__operator_access__api__lockbox__DecisionBody: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** ReasonBody */
         zid_platform__modules__operator_access__api__operator__ReasonBody: {
@@ -2710,7 +2710,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecisionBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__lockbox__DecisionBody"];
             };
         };
         responses: {
@@ -2747,7 +2747,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecisionBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__lockbox__DecisionBody"];
             };
         };
         responses: {

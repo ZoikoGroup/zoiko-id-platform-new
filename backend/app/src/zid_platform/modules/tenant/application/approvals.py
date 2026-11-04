@@ -994,10 +994,10 @@ async def execute_case(
                 conn, case, policy, actor, idempotency_key, attempt, standing, quorum, now
             )
     if policy.scope is Scope.CUSTOMER:
-        held = await _readiness_gate(conn, tenant_id, actor, case.action_id, now)
-        if held:  # the organization is no longer in a state for this change; the approval stands and the run can be tried again
+        not_ready = await _readiness_gate(conn, tenant_id, actor, case.action_id, now)
+        if not_ready:  # the organization is no longer in a state for this change; the approval stands and the run can be tried again
             return await _record_failure(
-                conn, case, policy, actor, idempotency_key, attempt, held, quorum, now
+                conn, case, policy, actor, idempotency_key, attempt, not_ready, quorum, now
             )
     if ex.check is not None:
         failed = next(
