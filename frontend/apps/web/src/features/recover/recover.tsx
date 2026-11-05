@@ -6,6 +6,8 @@ import { ArrowLeft, Check, Copy, Fingerprint, LifeBuoy, RefreshCw } from "lucide
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
 import { useRuntime } from "@/lib/runtime";
+
+import { EmailRecovery } from "./email-recovery";
 import { browserSupportsWebAuthn, completeAppSession, createPasskey, getPasskey, passkeyErrorMessage } from "@/lib/webauthn";
 
 const noSubscribe = () => () => {};
@@ -351,9 +353,15 @@ export function Recover() {
     <div className="space-y-5">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Recover your account</h1>
-        <p className="mt-1 text-sm text-ink-muted">Lost your passkeys? Use one of the recovery codes you saved to set up a new one.</p>
+        <p className="mt-1 text-sm text-ink-muted">Lost your passkey or forgot how to sign in? Get an emailed link, or use a recovery code you saved, to set up a new one.</p>
       </div>
       {failureBanner}
+      <EmailRecovery />
+      <div className="flex items-center gap-3 py-1 text-xs text-ink-subtle">
+        <span className="h-px flex-1 bg-border" />
+        or use a recovery code
+        <span className="h-px flex-1 bg-border" />
+      </div>
       <Card>
         <form onSubmit={startWithCode} className="space-y-4">
           <TextField

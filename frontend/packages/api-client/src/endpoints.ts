@@ -46,6 +46,7 @@ export type SubjectIn = S<Sig, "SubjectIn">;
 export type SignalIn = S<Sig, "SignalIn">;
 export type OverrideIn = S<Sig, "OverrideIn">;
 export type SourceIn = S<Scim, "SourceIn">;
+export type DirectorySyncIn = S<Scim, "DirectorySyncIn">;
 export type ProfileIn = S<Ver, "ProfileIn">;
 export type AdapterIn = S<Ver, "AdapterIn">;
 export type RelianceIn = S<Ver, "RelianceIn">;
@@ -239,6 +240,7 @@ export function createCellApi(t: Transport) {
       createAdapter: (body: AdapterIn) => post<M.VerificationAdapter>("/verification-adapters", body),
       quarantineAdapter: (id: string) => post<M.VerificationAdapter>(`/verification-adapters/${seg(id)}:quarantine`),
       start: (body: VerificationStartIn) => post<M.VerificationSession>("/verifications", body),
+      startBulk: (body: M.BulkVerificationIn) => post<M.BulkVerificationResult>("/verifications:bulk", body),
       get: (id: string) => get<M.VerificationSession>(`/verifications/${seg(id)}`),
       cancel: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:cancel`),
       reverify: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:reverify`),
@@ -270,6 +272,22 @@ export function createCellApi(t: Transport) {
       presentation: (id: string) => get<M.Presentation>(`/presentations/${seg(id)}`),
     },
 
+    serviceRequests: {
+      list: () => get<M.Items<M.ServiceRequest>>("/v1/service-requests"),
+      create: (body: M.ServiceRequestIn) => post<M.ServiceRequest>("/v1/service-requests", body),
+      withdraw: (id: string) => post<{ request_id: string; status: string }>(`/v1/service-requests/${seg(id)}:withdraw`, {}),
+    },
+    insights: {
+      risk: (days: number, unit?: string) => get<M.RiskInsights>(`/v1/insights/risk?days=${days}${unit ? `&unit_id=${seg(unit)}` : ""}`),
+      assurance: (days: number, unit?: string) => get<M.AssuranceReport>(`/v1/insights/assurance?days=${days}${unit ? `&unit_id=${seg(unit)}` : ""}`),
+    },
+    delegationTemplates: {
+      list: () => get<M.Items<M.DelegationTemplate>>("/v1/delegation-templates"),
+      create: (body: M.DelegationTemplateIn) => post<M.DelegationTemplate>("/v1/delegation-templates", body),
+      retire: (id: string) => post<{ template_id: string; status: string }>(`/v1/delegation-templates/${seg(id)}:retire`, {}),
+      apply: (id: string, body: M.DelegationTemplateApply) =>
+        post<{ authority_grant_id: string; valid_to: string }>(`/v1/delegation-templates/${seg(id)}:apply`, body),
+    },
     authority: {
       /** Newest first. `next_cursor` continues the list after the last row; pass it back as `cursor`. */
       grants: (q: { status?: M.GrantStatus; grantee_principal_id?: string; limit?: number; cursor?: string } = {}) =>
@@ -359,6 +377,19 @@ export function createCellApi(t: Transport) {
     tenant: {
       me: () => get<M.TenantView>("/v1/tenant"),
       members: () => get<M.Items<M.TenantMember>>("/v1/tenant/members"),
+      orgUnits: () => get<M.Items<M.OrgUnit> & { max_depth: number }>("/v1/tenant/org-units"),
+      addOrgUnit: (body: M.OrgUnitIn) => post<{ unit_id: string; depth: number }>("/v1/tenant/org-units", body),
+      retireOrgUnit: (id: string) => post<{ unit_id: string }>(`/v1/tenant/org-units/${seg(id)}:retire`, {}),
+      addOrgUnitMember: (id: string, principal_id: string, title: string) => post<{ unit_id: string }>(`/v1/tenant/org-units/${seg(id)}/members`, { principal_id, title }),
+      customRoles: () => get<M.Items<M.CustomRole>>("/v1/tenant/custom-roles"),
+      customRoleActions: (base: string, kind: "NARROW" | "EXTEND" = "NARROW") =>
+        get<{ base_role: string; kind: string; actions: M.CustomRoleAction[] }>(`/v1/tenant/custom-roles/actions?base_role=${seg(base)}&kind=${kind}`),
+      createCustomRole: (body: M.CustomRoleIn) => post<M.CustomRole>("/v1/tenant/custom-roles", body),
+      retireCustomRole: (id: string) => post<{ role_id: string; status: string }>(`/v1/tenant/custom-roles/${seg(id)}:retire`, {}),
+      customRoleMembers: (id: string) => get<M.Items<M.CustomRoleMember>>(`/v1/tenant/custom-roles/${seg(id)}/members`),
+      giveCustomRole: (id: string, principal_id: string) => post<{ role_id: string }>(`/v1/tenant/custom-roles/${seg(id)}/members`, { principal_id }),
+      takeCustomRole: (id: string, principal_id: string) =>
+        post<{ revoked: boolean }>(`/v1/tenant/custom-roles/${seg(id)}/members/${seg(principal_id)}:revoke`, {}),
       /** The published permission matrices: a catalogue for navigation, never an enforcement control. The server decides every request. */
       roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
       /** What the caller's live roles could do if every other condition held. */
@@ -388,6 +419,10 @@ export function createCellApi(t: Transport) {
       createApplication: (body: M.ApplicationCreate) => post<M.IntegrationApplication>("/v1/integration/applications", body),
       moveApplication: (id: string, status: M.AppStatus) =>
         post<M.IntegrationApplication>(`/v1/integration/applications/${seg(id)}:transition`, { status }),
+      sandboxIdentities: () => get<M.Items<M.SandboxIdentity> & { max_live: number }>("/v1/integration/sandbox-identities"),
+      createSandboxIdentities: (body: M.SandboxIdentitiesIn) => post<M.Items<M.SandboxIdentity>>("/v1/integration/sandbox-identities", body),
+      retireSandboxIdentity: (id: string) =>
+        post<{ principal_id: string; status: string }>(`/v1/integration/sandbox-identities/${seg(id)}:retire`, {}),
       oauthClients: () => get<M.Items<M.OAuthClientRecord>>("/v1/integration/oauth-clients"),
       createOauthClient: (body: M.OAuthClientCreate) => post<M.OAuthClientRecord>("/v1/integration/oauth-clients", body),
       retireOauthClient: (id: string) =>
@@ -476,9 +511,21 @@ export function createCellApi(t: Transport) {
       suspendSource: (id: string) => post<M.ProvisioningSource>(`/provisioning/sources/${seg(id)}:suspend`),
       resumeSource: (id: string, approvalRequestId?: string | null) =>
         post<M.ProvisioningSource>(`/provisioning/sources/${seg(id)}:resume`, approvalRequestId ? { approval_request_id: approvalRequestId } : undefined),
+      /** A company's own directory (Auth0 first) read by the worker into one of its sources. The secret is write-only: it is never returned. */
+      directorySyncs: () => get<M.Items<M.DirectorySync>>("/provisioning/directory-syncs"),
+      createDirectorySync: (body: DirectorySyncIn) => post<M.DirectorySync>("/provisioning/directory-syncs", body),
+      runDirectorySync: (id: string) => post<{ sync_id: string; status: string }>(`/provisioning/directory-syncs/${seg(id)}:run`, {}),
+      pauseDirectorySync: (id: string) => post<M.DirectorySync>(`/provisioning/directory-syncs/${seg(id)}:pause`, {}),
+      resumeDirectorySync: (id: string) => post<M.DirectorySync>(`/provisioning/directory-syncs/${seg(id)}:resume`, {}),
+      setDirectorySyncSecret: (id: string, secret: string) =>
+        t.request<{ sync_id: string; version: number }>("PUT", `/provisioning/directory-syncs/${seg(id)}/credential`, { body: { secret } }),
     },
 
     evidence: {
+      /** Several receipts in one signed package that expires; creating one needs a fresh strong sign-in. */
+      bulkExports: (limit?: number) => get<M.Items<M.BulkExport>>("/v1/evidence/bulk-exports", { limit }),
+      createBulkExport: (body: M.BulkExportIn) => post<Record<string, unknown>>("/v1/evidence/bulk-exports", body),
+      bulkExport: (id: string) => get<Record<string, unknown>>(`/v1/evidence/bulk-exports/${seg(id)}`),
       keys: () => get<{ keys: Record<string, unknown>[] }>("/v1/evidence/keys"),
       receipts: (q: { action?: string; outcome?: string; evidence_class?: string; before?: string; limit?: number } = {}) =>
         get<M.Items<M.ReceiptSummary>>("/v1/evidence/receipts", q),
@@ -742,11 +789,20 @@ export function createOperatorApi(t: Transport) {
     commercial: {
       books: () => get<M.Items<M.PriceBookSummary>>("/v1/commercial/price-books"),
       book: (id: string) => get<M.PriceBookDetail>(`/v1/commercial/price-books/${seg(id)}`),
+      /** What a price book still lacks before it is approved: unpriced SKU and plan pairs, and lines chosen as free. */
+      bookReadiness: (id: string) =>
+        get<{ price_book_id: string; lines: number; ready: boolean; missing: { sku: string; plan: string; what: string }[]; free: { sku: string; plan: string }[] }>(
+          `/v1/commercial/price-books/${seg(id)}/readiness`,
+        ),
       /** Every company's open requests for a different plan, oldest first. */
       planRequests: () => get<M.Items<M.PlanRequest & { tenant_id: string; company: string | null }>>("/v1/commercial/plan-requests"),
       /** ACCEPTED: the team will raise the order. DECLINED: the company is told why. The entitlement is untouched. */
       answerPlanRequest: (id: string, decision: "ACCEPTED" | "DECLINED", note?: string) =>
         post<{ request_id: string; status: M.PlanRequestStatus; tenant_id: string }>(`/v1/commercial/plan-requests/${seg(id)}:answer`, { decision, note: note?.trim() || null }),
+      /** Every company's open requests for a contracted service (dedicated isolation, sovereign service, key custody, named support), oldest first. */
+      serviceRequests: () => get<M.Items<M.ServiceRequest & { tenant_id: string }>>("/v1/commercial/service-requests"),
+      moveServiceRequest: (id: string, status: "IN_PROGRESS" | "ACTIVE" | "DECLINED", note?: string) =>
+        post<{ request_id: string; status: string; tenant_id: string }>(`/v1/commercial/service-requests/${seg(id)}:move`, { status, note: note?.trim() || null }),
       exceptions: () => get<M.Items<M.AssuranceException>>("/v1/commercial/exceptions"),
       /** What the payment provider reported that needs a person, oldest first. `resolved` also lists the closed ones. */
       paymentEvents: (resolved = false) => get<M.Items<M.PaymentEvent>>("/v1/commercial/payment-events", resolved ? { resolved: "true" } : undefined),

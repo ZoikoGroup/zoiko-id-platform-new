@@ -3,6 +3,7 @@
 import { PageHeader, Tabs } from "@zoiko/ui";
 
 import { AuditSection } from "./audit";
+import { BulkExportsSection } from "./bulk-exports";
 import { CasesSection } from "./cases";
 import { HoldsSection } from "./holds";
 import { KeysSection, ResolveHandleSection } from "./keys-identity";
@@ -20,6 +21,7 @@ export function EvidencePage() {
         label="Evidence"
         tabs={[
           { id: "receipts", label: "Receipts", content: <ReceiptsSection /> },
+          { id: "bulk", label: "Bulk exports", content: <BulkExportsSection /> },
           { id: "audit", label: "Audit & integrity", content: <AuditSection /> },
           { id: "holds", label: "Legal holds", content: <HoldsSection /> },
           { id: "cases", label: "Cases", content: <CasesSection /> },

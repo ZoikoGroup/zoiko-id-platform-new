@@ -9,6 +9,7 @@ import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/ce
 
 import { ConnectionDetails } from "./connection-details";
 import { CreateSourceDialog, SOURCES_KEY, SourceError } from "./create-source-dialog";
+import { DirectorySyncSection } from "./directory-sync";
 
 export function ProvisioningPage() {
   const sources = useCellQuery(SOURCES_KEY, (api) => api.provisioning.sources());
@@ -98,6 +99,7 @@ export function ProvisioningPage() {
             )}
           </QueryView>
         </Card>
+        <DirectorySyncSection sources={sources.data?.items ?? []} />
         <Card title="Connecting a SCIM client" description="Every source uses the same endpoint; the OAuth client decides which source it acts for.">
           <ConnectionDetails />
         </Card>

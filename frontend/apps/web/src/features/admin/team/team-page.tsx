@@ -24,6 +24,8 @@ import { useMemo, useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { DelegationsTab } from "./delegations-tab";
+import { OrgStructureTab } from "./org-structure-tab";
+import { CustomRolesTab } from "./custom-roles-tab";
 import { RolesTab } from "./roles-tab";
 
 const MEMBERS_KEY = ["tenant", "members"];
@@ -287,6 +289,8 @@ export function TeamPage() {
         tabs={[
           { id: "people", label: "People", content: people },
           { id: "roles", label: "Roles and permissions", content: <RolesTab /> },
+          { id: "structure", label: "Structure", content: <OrgStructureTab /> },
+          { id: "custom-roles", label: "Custom roles", content: <CustomRolesTab /> },
           { id: "delegations", label: "Delegations", content: <DelegationsTab /> },
         ]}
       />

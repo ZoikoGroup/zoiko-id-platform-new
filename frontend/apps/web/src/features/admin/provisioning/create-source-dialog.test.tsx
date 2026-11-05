@@ -59,12 +59,23 @@ vi.mock("@zoiko/ui", () => ({
 }));
 vi.mock("./connection-details", () => ({ ConnectionDetails: () => null }));
 
+const made = vi.hoisted(() => ({
+  publicKeys: JSON.stringify({ keys: [{ kty: "EC", crv: "P-256", kid: "scim-made1", alg: "ES256", use: "sig", x: "px", y: "py" }] }),
+  privateKey: JSON.stringify({ kty: "EC", crv: "P-256", kid: "scim-made1", x: "px", y: "py", d: "SECRET-D" }),
+  download: vi.fn(),
+}));
+vi.mock("@/lib/keypair", () => ({
+  generateKeyPair: vi.fn(async () => ({ publicKeys: made.publicKeys, privateKey: made.privateKey })),
+  downloadText: made.download,
+}));
+
 import { CLIENT_MAX, CreateSourceDialog, NAME_MAX } from "./create-source-dialog";
 
 afterEach(() => {
   cleanup();
   shared.error = null;
   shared.mutate.mockReset();
+  made.download.mockReset();
 });
 
 const KEYS = JSON.stringify({ keys: [{ kty: "EC", crv: "P-256", kid: "scim-1", x: "x", y: "y" }] });
@@ -124,6 +135,49 @@ describe("CreateSourceDialog", () => {
     expect(screen.getByText(`Use at most ${NAME_MAX} characters.`)).toBeTruthy();
     expect(screen.getByText(`Use at most ${CLIENT_MAX} characters.`)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Register source" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("makes a key pair in the browser, fills the public keys and sends only those", async () => {
+    render(<CreateSourceDialog isOpen onClose={() => undefined} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/Display name/), "HR");
+    await user.click(screen.getByRole("button", { name: "Make a key pair for me" }));
+    expect((screen.getByLabelText(/Public keys/) as HTMLInputElement).value).toBe(made.publicKeys);
+    expect(screen.getByText("Save the private key now")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Register source" }));
+    const sent = JSON.stringify(shared.mutate.mock.calls[0]?.[0]);
+    expect(sent).toContain("scim-made1");
+    expect(sent).not.toContain("SECRET-D"); // the private half never leaves the browser
+    await user.click(screen.getByRole("button", { name: "Download private key" }));
+    expect(made.download).toHaveBeenCalledWith("HR-private-key.json", made.privateKey);
+  });
+
+  it("drops the private key notice once the keys box no longer holds the key that was made", async () => {
+    render(<CreateSourceDialog isOpen onClose={() => undefined} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Make a key pair for me" }));
+    expect(screen.getByText("Save the private key now")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Public keys/), { target: { value: KEYS } });
+    expect(screen.queryByText("Save the private key now")).toBeNull();
+  });
+
+  it("keeps the private key on screen after the source is registered, so it can still be saved", async () => {
+    render(<CreateSourceDialog isOpen onClose={() => undefined} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Make a key pair for me" }));
+    act(() =>
+      shared.onSuccess?.({
+        source_id: "s-1",
+        client_id: "hr-1",
+        display_name: "HR",
+        status: "ACTIVE",
+        client_created: true,
+        scim_base_url: "https://id.example/scim/v2",
+        token_endpoint: "https://id.example/oauth2/token",
+      }),
+    );
+    expect(screen.getByText("HR is active")).toBeTruthy();
+    expect(screen.getByText("Save the private key now")).toBeTruthy();
   });
 
   it("explains a plan without SCIM instead of a bare code", () => {

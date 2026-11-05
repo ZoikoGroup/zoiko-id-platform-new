@@ -6,6 +6,7 @@ import { CheckCircle2, PackageX } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, useCellMutation } from "@/lib/cell";
+import { downloadText, generateKeyPair } from "@/lib/keypair";
 
 import { ConnectionDetails } from "./connection-details";
 import { parseJwks } from "./jwks";
@@ -17,6 +18,26 @@ export const NAME_MAX = 128;
 export const CLIENT_MAX = 256;
 
 type Mode = "jwks" | "client";
+
+/** The private half of a key pair this browser just made: shown once, kept only in this dialog's memory, never sent to Zoiko iD. */
+function PrivateKeyNotice({ privateKey, name }: { privateKey: string; name: string }) {
+  return (
+    <div className="space-y-2">
+      <Banner tone="warn" title="Save the private key now">
+        You will see it only once. Give it to whoever runs the connector and keep it somewhere safe, such as a secrets manager. Anyone with it can act as this
+        connector, and Zoiko iD never keeps a copy.
+      </Banner>
+      <div className="flex flex-wrap gap-2">
+        <Button size="xs" variant="secondary" onPress={() => void navigator.clipboard?.writeText(privateKey)}>
+          Copy private key
+        </Button>
+        <Button size="xs" variant="secondary" onPress={() => downloadText(`${name.trim() || "scim-connector"}-private-key.json`, privateKey)}>
+          Download private key
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /** A plan without SCIM (or with its sources used up) is a 402; anything else reads through the shared error view. */
 export function SourceError({ error }: { error: unknown }) {
@@ -38,6 +59,10 @@ export function CreateSourceDialog({ isOpen, onClose }: { isOpen: boolean; onClo
   const [name, setName] = useState("");
   const [mode, setMode] = useState<Mode>("jwks");
   const [keys, setKeys] = useState("");
+  const [generated, setGenerated] = useState(""); // the public keys this browser made, so a later edit of the box drops the private key that no longer matches
+  const [privateKey, setPrivateKey] = useState("");
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [clientId, setClientId] = useState("");
   const [approval, setApproval] = useState("");
   const [created, setCreated] = useState<ProvisioningSourceCreated | null>(null);
@@ -53,11 +78,34 @@ export function CreateSourceDialog({ isOpen, onClose }: { isOpen: boolean; onClo
     setName("");
     setMode("jwks");
     setKeys("");
+    setGenerated("");
+    setPrivateKey("");
+    setKeyError(null);
     setClientId("");
     setApproval("");
     setCreated(null);
     create.reset();
     onClose();
+  }
+
+  async function makeKey() {
+    setKeyBusy(true);
+    setKeyError(null);
+    try {
+      const k = await generateKeyPair("scim");
+      setKeys(k.publicKeys);
+      setGenerated(k.publicKeys);
+      setPrivateKey(k.privateKey);
+    } catch {
+      setKeyError("This browser could not make a key. Paste the connector's public keys instead.");
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+
+  function editKeys(v: string) {
+    setKeys(v);
+    if (v !== generated) setPrivateKey(""); // the box no longer holds the key that was made here
   }
 
   const nameTooLong = name.trim().length > NAME_MAX;
@@ -103,6 +151,7 @@ export function CreateSourceDialog({ isOpen, onClose }: { isOpen: boolean; onClo
           <Banner tone="ok" icon={CheckCircle2} title={`${created.display_name} is active`} live="polite">
             Configure your identity provider&apos;s SCIM connector with these details.
           </Banner>
+          {privateKey ? <PrivateKeyNotice privateKey={privateKey} name={name} /> : null}
           <ConnectionDetails
             sourceId={created.source_id}
             clientId={created.client_id}
@@ -135,12 +184,23 @@ export function CreateSourceDialog({ isOpen, onClose }: { isOpen: boolean; onClo
               {
                 id: "jwks",
                 label: "Create the connector's OAuth client (paste its public keys, JWKS)",
-                description: "The cell creates the client and its service identity. Paste public keys only; there is no secret to copy and a private key is refused.",
+                description: "The cell creates the client and its service identity. Make a key pair here or paste the connector's public keys; there is no secret to copy and a private key pasted below is refused.",
               },
               { id: "client", label: "Use an existing OAuth client ID", description: "The client must already exist in this tenant, be active, and hold client_credentials with scim:provision." },
             ]}
           />
           {mode === "jwks" ? (
+            <div className="space-y-3">
+              <div className="space-y-2 rounded-card border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="secondary" pending={keyBusy} onPress={() => void makeKey()}>
+                    {privateKey ? "Make a different key pair" : "Make a key pair for me"}
+                  </Button>
+                  <span className="text-xs text-ink-subtle">Made in this browser. The private half never leaves it. Already have the connector&apos;s keys? Paste them below instead.</span>
+                </div>
+                {keyError ? <p className="text-sm text-danger-700">{keyError}</p> : null}
+                {privateKey ? <PrivateKeyNotice privateKey={privateKey} name={name} /> : null}
+              </div>
             <TextField
               label="Public keys (JWKS)"
               isRequired
@@ -148,11 +208,12 @@ export function CreateSourceDialog({ isOpen, onClose }: { isOpen: boolean; onClo
               rows={6}
               mono
               value={keys}
-              onChange={setKeys}
+              onChange={editKeys}
               placeholder='{"keys": [{"kty": "EC", "crv": "P-256", "kid": "scim-1", "x": "...", "y": "..."}]}'
               description="A JWK Set with 1 to 5 public keys, each with a kid."
               errorMessage={parsed?.error}
             />
+            </div>
           ) : (
             <TextField
               label="OAuth client ID"
