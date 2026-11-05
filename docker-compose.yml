@@ -47,13 +47,12 @@ services:
         condition: service_healthy
     command:
       - python
-      - -c
-      - |
-        import os
-        from zid_platform.migrations import upgrade
-        upgrade(os.environ["ZID_CELL_DATABASE_URL"])
-        upgrade(os.environ["ZID_GLOBAL_DATABASE_URL"], role="global")
-        print("migrations applied")
+      - -m
+      - zid_platform.entrypoints.migrate
+    # Operator account settings (ZID_OPERATOR_*): the step creates the operator after the schema, when they are set.
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       ZID_ENVIRONMENT: local
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell

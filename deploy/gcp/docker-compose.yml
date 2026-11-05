@@ -92,13 +92,8 @@ services:
       ZID_GLOBAL_DATABASE_URL: ${ZID_OWNER_GLOBAL_DATABASE_URL}
     command:
       - python
-      - -c
-      - |
-        import os
-        from zid_platform.migrations import upgrade
-        upgrade(os.environ["ZID_CELL_DATABASE_URL"])
-        upgrade(os.environ["ZID_GLOBAL_DATABASE_URL"], role="global")
-        print("migrations applied")
+      - -m
+      - zid_platform.entrypoints.migrate
     healthcheck: {disable: true}
 
   cell:

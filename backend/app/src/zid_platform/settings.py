@@ -109,6 +109,18 @@ class Settings(ServiceSettings):
     operator_jurisdiction: str = "GB"
     operator_bootstrap_roles: tuple[str, ...] = ("REQUESTER", "APPROVER", "REVIEWER")
     operator_bootstrap_ticket_minutes: int = 60
+    # Operator Console email + password sign-in (the only password sign-in; authentication/api/operator_password.py).
+    # ZID_OPERATOR_PASSWORD_LOGINS (JSON) and/or ZID_OPERATOR_LOGINS_FILE (path to a JSON file, e.g. a mounted secret):
+    # operator email -> {"principal_id": <uuid of an operator-tenant principal>, "password_hash": <scrypt hash from
+    # entrypoints/hash_operator_password.py>}. A plain "password" is accepted in local/test only. Empty = no password route.
+    operator_password_logins: dict[str, dict[str, str]] = {}  # noqa: RUF012 - pydantic copies defaults
+    operator_logins_file: str | None = None
+    # ZID_OPERATOR_EMAIL + ZID_OPERATOR_PASSWORD: the first operator's sign-in, straight from the environment. The
+    # password is hashed in memory when the cell starts (never stored or logged), and `entrypoints/migrate.py` creates
+    # the operator principal from the same two values after the schema migration. The principal is
+    # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID when set, otherwise one derived from the operator tenant and the email.
+    operator_email: str | None = None
+    operator_password: str | None = None
     # --- Onboarding approvals (CR-036) ---------------------------------------------------------------------------
     # ZID_ONBOARDING_APPROVAL: second_admin (default: approving a plan, starting a pilot, activating the company and
     # activating a pilot scope each need an independent second administrator) | owner (the company's OWNER approves

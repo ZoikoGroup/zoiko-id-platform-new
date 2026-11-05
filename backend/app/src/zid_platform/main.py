@@ -67,6 +67,8 @@ def create_app(
         raise RuntimeError("ZID_TENANT_SIGNUP_DEV_VERIFY is for local/test only")
     if settings.dev_simulators and settings.environment not in ("local", "test"):
         raise RuntimeError("ZID_DEV_SIMULATORS is for local/test only")
+    app.state.operator_password_logins = _operator_password_logins(settings)
+    app.state.operator_origins = _operator_origins(settings)
     app.state.registry_simulator = False
     app.state.registry_credential_override = None
     app.state.dev_simulator = None
@@ -344,7 +346,80 @@ def create_app(
             communication_router,
         ):
             app.include_router(router)
+        if app.state.operator_password_logins:
+            from .modules.authentication.api.operator_password import router as operator_password_router
+
+            app.include_router(operator_password_router)
     return app
+
+
+def _operator_password_logins(settings: Settings) -> dict[str, dict[str, str]]:
+    """The Operator Console's password logins, checked at start-up: a deployed cell takes hashes only."""
+    import json
+    import logging
+    import uuid
+
+    from .modules.authentication.domain.operator_password import (
+        MIN_LENGTH,
+        hash_password,
+        operator_principal_id,
+        valid_hash,
+    )
+
+    raw = dict(settings.operator_password_logins)
+    if settings.operator_email and settings.operator_password:
+        if not settings.operator_tenant_id:
+            raise RuntimeError("ZID_OPERATOR_EMAIL needs ZID_OPERATOR_TENANT_ID")
+        if len(settings.operator_password) < MIN_LENGTH:
+            logging.getLogger("zid.operator").warning(
+                "ZID_OPERATOR_PASSWORD is shorter than %d characters; use a longer one", MIN_LENGTH
+            )
+        raw[settings.operator_email] = {
+            "principal_id": operator_principal_id(
+                settings.operator_tenant_id,
+                settings.operator_email,
+                settings.operator_bootstrap_principal_id,
+            ),
+            "password_hash": hash_password(settings.operator_password, min_length=1),
+        }
+    if settings.operator_logins_file:
+        with open(settings.operator_logins_file, encoding="utf-8") as f:
+            raw.update(json.load(f))
+    if raw and not settings.operator_tenant_id:
+        raise RuntimeError("operator password logins need ZID_OPERATOR_TENANT_ID")
+    local = settings.environment in ("local", "test")
+    logins: dict[str, dict[str, str]] = {}
+    for email, entry in raw.items():
+        key = email.strip().lower()
+        try:
+            uuid.UUID(entry["principal_id"])
+        except (KeyError, ValueError) as e:
+            raise RuntimeError(f"operator login {key}: principal_id must be a uuid") from e
+        stored = entry.get("password_hash")
+        if stored is None and local and entry.get("password"):
+            stored = hash_password(entry["password"], min_length=1)  # local convenience; never a deployed cell
+        if stored is None or not valid_hash(stored):
+            raise RuntimeError(
+                f"operator login {key}: a scrypt password_hash is required (entrypoints/hash_operator_password.py)"
+            )
+        logins[key] = {"principal_id": entry["principal_id"], "password_hash": stored}
+    return logins
+
+
+def _operator_origins(settings: Settings) -> frozenset[str]:
+    """The Operator Console's own origins (the configured origin and redirect origins, a loopback IP also as localhost)."""
+    from urllib.parse import urlparse
+
+    found: set[str] = set()
+    for url in (settings.operator_origin, *settings.operator_redirect_uris):
+        parsed = urlparse(url or "")
+        if not parsed.scheme or not parsed.hostname:
+            continue
+        port = f":{parsed.port}" if parsed.port else ""
+        found.add(f"{parsed.scheme}://{parsed.hostname}{port}")
+        if parsed.hostname in ("127.0.0.1", "::1"):
+            found.add(f"{parsed.scheme}://localhost{port}")
+    return frozenset(found)
 
 
 def _configure_commercial(app: FastAPI, settings: Settings) -> None:

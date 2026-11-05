@@ -15,8 +15,8 @@ import Valkey from "iovalkey";
  * reaches only the operator plane. Customer administration lives in the web app, never here. */
 const API_PATH_PREFIXES = ["/operator/", "/platform/", "/ops/", "/v1/commercial/"];
 
-/** Passkey sign-in and step-up on this origin (operators always act at AAL-Z3). */
-const PASSTHROUGH_PREFIXES = ["/authn/webauthn/", "/authn/step-up", "/oauth2/authorize", "/.well-known/webauthn"];
+/** Passkey sign-in and step-up, and the operator email + password sign-in, on this origin. */
+const PASSTHROUGH_PREFIXES = ["/authn/webauthn/", "/authn/operator/password", "/authn/step-up", "/oauth2/authorize", "/.well-known/webauthn"];
 
 type Globals = { __zidOperatorBff?: { bff: Bff; env: RuntimeEnv } };
 

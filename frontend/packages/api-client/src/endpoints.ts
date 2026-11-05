@@ -885,6 +885,9 @@ export function createFlowApi(t: Transport, clientId: string) {
     passkeyOptions: () => post<PublicKeyCredentialRequestOptionsJSONLike>("/authn/webauthn/authentication/options", { client_id: clientId }),
     passkeyVerify: (credential: unknown) =>
       post<M.SignInResult>("/authn/webauthn/authentication/verify", { client_id: clientId, credential }),
+    /** Operator Console email + password (the cell serves it only when operator password logins are configured). */
+    operatorPasswordSignIn: (email: string, password: string) =>
+      post<M.SignInResult>("/authn/operator/password", { client_id: clientId, email, password }),
     stepUpOptions: () => post<PublicKeyCredentialRequestOptionsJSONLike>("/authn/step-up", { client_id: clientId }),
     registrationOptions: (body: Omit<RegistrationOptionsIn, "client_id">) =>
       post<PublicKeyCredentialCreationOptionsJSONLike>("/authn/webauthn/registration/options", { client_id: clientId, ...body }),
