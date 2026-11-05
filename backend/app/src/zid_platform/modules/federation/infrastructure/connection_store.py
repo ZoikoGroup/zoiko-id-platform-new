@@ -175,7 +175,8 @@ async def replace(conn: AsyncConnection, old: Connection, new: Connection, chang
     p = _params(new)
     result = await conn.execute(
         text(
-            "UPDATE authn.federation_connection SET status = :status, config_revision = :rev, "
+            "UPDATE authn.federation_connection SET display_name = :name, sp_entity_id = :sp, "
+            "status = :status, config_revision = :rev, "
             "metadata_expires_at = :exp, acr_levels = CAST(:acr AS jsonb), trust_amr = :amr, "
             "link_policy = :lp, client_auth = :cauth, client_secret_ref = :sref, "
             "authorization_endpoint = :authz, token_endpoint = :token, jwks = CAST(:jwks AS jsonb), "
@@ -357,6 +358,17 @@ async def list_anchors(conn: AsyncConnection) -> list[dict[str, object]]:
 
 
 async def set_anchor_status(conn: AsyncConnection, anchor_id: str, status: str) -> int | None:
+    current = (
+        await conn.execute(
+            text(
+                "SELECT status, revision FROM authn.federation_trust_anchor WHERE anchor_id = :a "
+                "FOR UPDATE"
+            ),
+            {"a": uuid.UUID(anchor_id)},
+        )
+    ).first()
+    if current is not None and current.status == status:
+        return int(current.revision)  # already there: no second revision, no second event
     row = (
         await conn.execute(
             text(

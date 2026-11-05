@@ -122,6 +122,23 @@ async def source_for_client(conn: AsyncConnection, client_id: str) -> Source | N
     )
 
 
+async def get_source(conn: AsyncConnection, source_id: str) -> Source | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT source_id, tenant_id, client_id, display_name, status "
+                "FROM platform.provisioning_source WHERE source_id = :s"
+            ),
+            {"s": uuid.UUID(source_id)},
+        )
+    ).first()
+    if row is None:
+        return None
+    return Source(
+        str(row.source_id), str(row.tenant_id), row.client_id, row.display_name, row.status
+    )
+
+
 async def list_sources(conn: AsyncConnection) -> list[Source]:
     rows = (
         await conn.execute(
@@ -346,3 +363,34 @@ async def set_members(
             ),
             {"g": uuid.UUID(group_id), "m": uuid.UUID(m), "t": uuid.UUID(tenant_id)},
         )
+
+
+async def members_detail(conn: AsyncConnection, group_id: str) -> list[tuple[str, str | None]]:
+    """Live members of a group as (user resource id, userName)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT m.member_id, r.user_name FROM platform.scim_group_member m "
+                "JOIN platform.scim_resource r ON r.resource_id = m.member_id "
+                "WHERE m.group_id = :g AND m.removed_at IS NULL ORDER BY m.added_at, m.member_id"
+            ),
+            {"g": uuid.UUID(group_id)},
+        )
+    ).all()
+    return [(str(r.member_id), r.user_name) for r in rows]
+
+
+async def groups_of(conn: AsyncConnection, user_id: str) -> list[tuple[str, str | None]]:
+    """Live groups a user belongs to as (group resource id, displayName)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT m.group_id, g.display_name FROM platform.scim_group_member m "
+                "JOIN platform.scim_resource g ON g.resource_id = m.group_id "
+                "WHERE m.member_id = :u AND m.removed_at IS NULL AND g.deleted_at IS NULL "
+                "ORDER BY m.added_at, m.group_id"
+            ),
+            {"u": uuid.UUID(user_id)},
+        )
+    ).all()
+    return [(str(r.group_id), r.display_name) for r in rows]

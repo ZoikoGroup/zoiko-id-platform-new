@@ -18,6 +18,7 @@ dedupe key and is evidenced (`provisioning.lifecycle.changed`).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from enum import StrEnum
 
@@ -27,7 +28,7 @@ from zid_outbox import emit
 from zid_platform.modules.authority.ports import on_person_authority_ended
 from zid_platform.modules.principal.ports import bump_security_revision
 from zid_platform.modules.provisioning.infrastructure import scim_store as store
-from zid_platform.modules.provisioning.infrastructure.scim_store import ScimError, Source
+from zid_platform.modules.provisioning.infrastructure.scim_store import Resource, ScimError, Source
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
 from zid_platform.modules.tenant.ports import ensure_member
 
@@ -61,6 +62,15 @@ async def _signal(
     )
 
 
+async def _sync_active(conn: AsyncConnection, r: Resource, active: bool, now: datetime) -> None:
+    """Keep the SCIM User's `active` (and version/ETag) in step with what the HR event did to the
+    principal, so the source reads back the state it caused."""
+    if r.active != active:
+        await store.update(
+            conn, r, replace(r, active=active, version=r.version + 1, updated_at=now)
+        )
+
+
 async def apply_event(
     conn: AsyncConnection,
     src: Source,
@@ -70,7 +80,7 @@ async def apply_event(
     effective_at: datetime,
     now: datetime,
 ) -> dict[str, object]:
-    r = await store.load(conn, src.source_id, "User", user_id)
+    r = await store.load(conn, src.source_id, "User", user_id, lock=True)
     if r.principal_id is None:
         raise ScimError(404, None, "resource not found")
     principal = r.principal_id
@@ -84,12 +94,15 @@ async def apply_event(
         )
     elif event is LifecycleEvent.LEAVER:
         await _signal(conn, src, principal, key, "account.disabled", effective_at)
+        await _sync_active(conn, r, False, now)
         revoked = await on_person_authority_ended(conn, principal)
         effects["grants_revoked"] = len(revoked)
     elif event is LifecycleEvent.LEAVE_START:
         await _signal(conn, src, principal, key, "account.disabled", effective_at)
+        await _sync_active(conn, r, False, now)
     else:
         await _signal(conn, src, principal, key, "account.enabled", effective_at)
+        await _sync_active(conn, r, True, now)
     await emit(
         conn,
         name="provisioning.lifecycle.changed",

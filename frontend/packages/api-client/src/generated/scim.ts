@@ -38,6 +38,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provisioning/sources/{source_id}:resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Source
+         * @description SUSPENDED -> ACTIVE. Restores a privilege, so it needs what registering needs: an approval when policy
+         *     asks, the plan's room for one more source, and a fresh passkey check (the step-up route map covers
+         *     `/provisioning/sources/*`). A source whose OAuth client was retired stays suspended.
+         */
+        post: operations["resume_source_provisioning_sources__source_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/provisioning/sources/{source_id}:suspend": {
         parameters: {
             query?: never;
@@ -82,7 +104,8 @@ export interface paths {
         };
         /** Get Group */
         get: operations["get_group_scim_v2_Groups__resource_id__get"];
-        put?: never;
+        /** Put Group */
+        put: operations["put_group_scim_v2_Groups__resource_id__put"];
         post?: never;
         /** Delete Group */
         delete: operations["delete_group_scim_v2_Groups__resource_id__delete"];
@@ -206,14 +229,27 @@ export interface components {
          * @enum {string}
          */
         LifecycleEvent: "JOINER" | "MOVER" | "LEAVER" | "LEAVE_START" | "LEAVE_END";
-        /** SourceIn */
+        /** ResumeIn */
+        ResumeIn: {
+            /** Approval Request Id */
+            approval_request_id?: string | null;
+        };
+        /**
+         * SourceIn
+         * @description Exactly one way to name the connector's OAuth client: its public `jwks` (the platform creates the
+         *     client) or the `client_id` of one that already exists in this tenant.
+         */
         SourceIn: {
             /** Approval Request Id */
             approval_request_id?: string | null;
             /** Client Id */
-            client_id: string;
+            client_id?: string | null;
             /** Display Name */
             display_name: string;
+            /** Jwks */
+            jwks?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -329,6 +365,43 @@ export interface operations {
             };
         };
     };
+    resume_source_provisioning_sources__source_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResumeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     suspend_source_provisioning_sources__source_id__suspend_post: {
         parameters: {
             query?: never;
@@ -403,6 +476,37 @@ export interface operations {
         };
     };
     get_group_scim_v2_Groups__resource_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_group_scim_v2_Groups__resource_id__put: {
         parameters: {
             query?: never;
             header?: never;

@@ -4,10 +4,11 @@
     POST /scim/v2/Users            GET /scim/v2/Users?filter=userName eq "x"
     GET|PUT|PATCH|DELETE /scim/v2/Users/{id}
     POST /scim/v2/Groups           GET /scim/v2/Groups
-    GET|PATCH|DELETE /scim/v2/Groups/{id}
+    GET|PUT|PATCH|DELETE /scim/v2/Groups/{id}
     GET  /provisioning/sources               list connectors        (provisioning.source.read, R1)
     POST /provisioning/sources               register a connector   (provisioning.source.manage, R3)
     POST /provisioning/sources/{id}:suspend  stop it at once        (R3)
+    POST /provisioning/sources/{id}:resume   restore a suspended one (R3; approval, plan limit, step-up)
 
 The SCIM client is an OAuth client (client_credentials, scope `scim:provision`) bound to exactly one
 ACTIVE provisioning source of its tenant; it sees and changes only that source's resources.
@@ -23,7 +24,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, StringConstraints, model_validator
 from scim2_models import Group, User
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import tenant_transaction
@@ -31,7 +32,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
 from zid_platform.modules.authentication.ports import require_step_up
-from zid_platform.modules.commercial.ports import require_entitlement, require_feature
+from zid_platform.modules.commercial.ports import Enforcement, require_entitlement, require_feature
 from zid_platform.modules.integration.ports import record_interaction
 from zid_platform.modules.provisioning.application import scim
 from zid_platform.modules.provisioning.application.lifecycle import LifecycleEvent
@@ -39,11 +40,18 @@ from zid_platform.modules.provisioning.application.lifecycle import apply_event 
 from zid_platform.modules.provisioning.infrastructure import scim_store as store
 from zid_platform.modules.provisioning.infrastructure.scim_store import ScimError, Source
 from zid_platform.modules.provisioning.ports import count_active_sources
+from zid_platform.modules.session.ports import (
+    ClientRegistrationError,
+    check_public_jwks,
+    register_service_client,
+    usable_service_client,
+)
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["scim"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 SCIM_JSON = "application/scim+json"
+SCIM_SCOPE = "scim:provision"
 FILTER = re.compile(
     r'^\s*(userName|externalId|displayName)\s+eq\s+"([^"]{1,256})"\s*$', re.IGNORECASE
 )
@@ -135,6 +143,11 @@ async def resource_types() -> JSONResponse:
             "name": name,
             "endpoint": f"/{name}s",
             "schema": f"urn:ietf:params:scim:schemas:core:2.0:{name}",
+            **(
+                {"schemaExtensions": [{"schema": scim.ENTERPRISE, "required": False}]}
+                if name == "User"
+                else {}
+            ),
         }
 
     return _out(
@@ -151,9 +164,10 @@ async def schemas() -> JSONResponse:
     return _out(
         {
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-            "totalResults": 2,
+            "totalResults": 3,
             "Resources": [
                 User.to_schema().model_dump(mode="json", exclude_none=True),
+                scim.EnterpriseUser.to_schema().model_dump(mode="json", exclude_none=True),
                 Group.to_schema().model_dump(mode="json", exclude_none=True),
             ],
         }
@@ -168,7 +182,7 @@ async def create_user(request: Request, caller: CallerDep) -> Response:
         r = await scim.create_user(
             conn, src, await _body(request), home_cell=home, now=datetime.now(UTC)
         )
-        return _out(scim.to_scim_user(r, _base(request)), 201, r.version)
+        return _out(await scim.render_user(conn, r, _base(request)), 201, r.version)
 
     return await _guard(request, caller, run)
 
@@ -204,7 +218,7 @@ async def _list(request: Request, caller: Caller, resource_type: str) -> Respons
         )
         base = _base(request)
         resources = (
-            [scim.to_scim_user(r, base) for r in items]
+            [await scim.render_user(conn, r, base) for r in items]
             if resource_type == "User"
             else [await scim.to_scim_group(conn, r, base) for r in items]
         )
@@ -235,7 +249,7 @@ async def list_groups(request: Request, caller: CallerDep) -> Response:
 async def get_user(resource_id: str, request: Request, caller: CallerDep) -> Response:
     async def run(conn: AsyncConnection, src: Source) -> Response:
         r = await store.load(conn, src.source_id, "User", resource_id)
-        return _out(scim.to_scim_user(r, _base(request)), 200, r.version)
+        return _out(await scim.render_user(conn, r, _base(request)), 200, r.version)
 
     return await _guard(request, caller, run)
 
@@ -251,7 +265,7 @@ async def put_user(resource_id: str, request: Request, caller: CallerDep) -> Res
             if_match=request.headers.get("if-match"),
             now=datetime.now(UTC),
         )
-        return _out(scim.to_scim_user(r, _base(request)), 200, r.version)
+        return _out(await scim.render_user(conn, r, _base(request)), 200, r.version)
 
     return await _guard(request, caller, run)
 
@@ -267,7 +281,7 @@ async def patch_user(resource_id: str, request: Request, caller: CallerDep) -> R
             if_match=request.headers.get("if-match"),
             now=datetime.now(UTC),
         )
-        return _out(scim.to_scim_user(r, _base(request)), 200, r.version)
+        return _out(await scim.render_user(conn, r, _base(request)), 200, r.version)
 
     return await _guard(request, caller, run)
 
@@ -275,7 +289,14 @@ async def patch_user(resource_id: str, request: Request, caller: CallerDep) -> R
 @router.delete("/scim/v2/Users/{resource_id}")
 async def delete_user(resource_id: str, request: Request, caller: CallerDep) -> Response:
     async def run(conn: AsyncConnection, src: Source) -> Response:
-        await scim.delete_resource(conn, src, "User", resource_id, now=datetime.now(UTC))
+        await scim.delete_resource(
+            conn,
+            src,
+            "User",
+            resource_id,
+            now=datetime.now(UTC),
+            if_match=request.headers.get("if-match"),
+        )
         return Response(status_code=204)
 
     return await _guard(request, caller, run)
@@ -303,7 +324,28 @@ async def get_group(resource_id: str, request: Request, caller: CallerDep) -> Re
 async def patch_group(resource_id: str, request: Request, caller: CallerDep) -> Response:
     async def run(conn: AsyncConnection, src: Source) -> Response:
         r = await scim.patch_group(
-            conn, src, resource_id, await _body(request), now=datetime.now(UTC)
+            conn,
+            src,
+            resource_id,
+            await _body(request),
+            if_match=request.headers.get("if-match"),
+            now=datetime.now(UTC),
+        )
+        return _out(await scim.to_scim_group(conn, r, _base(request)), 200, r.version)
+
+    return await _guard(request, caller, run)
+
+
+@router.put("/scim/v2/Groups/{resource_id}")
+async def put_group(resource_id: str, request: Request, caller: CallerDep) -> Response:
+    async def run(conn: AsyncConnection, src: Source) -> Response:
+        r = await scim.replace_group(
+            conn,
+            src,
+            resource_id,
+            await _body(request),
+            if_match=request.headers.get("if-match"),
+            now=datetime.now(UTC),
         )
         return _out(await scim.to_scim_group(conn, r, _base(request)), 200, r.version)
 
@@ -313,17 +355,47 @@ async def patch_group(resource_id: str, request: Request, caller: CallerDep) -> 
 @router.delete("/scim/v2/Groups/{resource_id}")
 async def delete_group(resource_id: str, request: Request, caller: CallerDep) -> Response:
     async def run(conn: AsyncConnection, src: Source) -> Response:
-        await scim.delete_resource(conn, src, "Group", resource_id, now=datetime.now(UTC))
+        await scim.delete_resource(
+            conn,
+            src,
+            "Group",
+            resource_id,
+            now=datetime.now(UTC),
+            if_match=request.headers.get("if-match"),
+        )
         return Response(status_code=204)
 
     return await _guard(request, caller, run)
 
 
+Trimmed = StringConstraints(strip_whitespace=True)
+
+
 class SourceIn(BaseModel):
+    """Exactly one way to name the connector's OAuth client: its public `jwks` (the platform creates the
+    client) or the `client_id` of one that already exists in this tenant."""
+
     model_config = ConfigDict(extra="forbid")
-    client_id: str = Field(min_length=1, max_length=256)
-    display_name: str = Field(min_length=1, max_length=128)
-    approval_request_id: str | None = None
+    display_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+    ]
+    client_id: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]
+        | None
+    ) = None
+    jwks: dict[str, Any] | None = None
+    approval_request_id: Annotated[str, Trimmed] | None = None
+
+    @model_validator(mode="after")
+    def _one_client(self) -> SourceIn:
+        if (self.client_id is None) == (self.jwks is None):
+            raise ValueError("give exactly one of client_id or jwks")
+        return self
+
+
+class ResumeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approval_request_id: Annotated[str, Trimmed] | None = None
 
 
 def _source_view(s: Source) -> dict[str, Any]:
@@ -345,43 +417,89 @@ async def list_sources(request: Request, caller: CallerDep) -> dict[str, Any]:
         return {"items": [_source_view(s) for s in await store.list_sources(conn)]}
 
 
+def _connection(request: Request, view: dict[str, Any]) -> dict[str, Any]:
+    """What the connector's operator configures: the SCIM base URL and the token endpoint."""
+    base = _base(request)
+    return {**view, "scim_base_url": f"{base}/scim/v2", "token_endpoint": f"{base}/oauth2/token"}
+
+
+def _invalid_client() -> ZidError:
+    # One answer for unknown, foreign, retired or wrongly-granted clients, so ids cannot be probed.
+    return ZidError(
+        "PROVISIONING_CLIENT_INVALID",
+        "The OAuth client must exist in this tenant, be active, and hold the client_credentials "
+        f"grant and the {SCIM_SCOPE} scope.",
+        http_status=422,
+    )
+
+
+async def _plan_allows_source(conn: AsyncConnection, request: Request) -> None:
+    """A paid extra: a directory connection beyond the plan (CR-024). Never on a SCIM request path."""
+    enforcement: Enforcement = getattr(request.app.state, "commercial_enforcement", "shadow")
+    await require_entitlement(
+        conn, "scim", used=await count_active_sources(conn), enforcement=enforcement
+    )
+    await require_feature(conn, "advanced.scim-automated-provisioning", enforcement=enforcement)
+
+
 @router.post("/provisioning/sources", status_code=201)
 async def create_source(body: SourceIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     source_id = str(uuid.uuid4())
+    tenant_id = caller.ctx.tenant_id or ""
+    keys: dict[str, Any] | None = None
+    if body.jwks is not None:
+        try:
+            keys = check_public_jwks(body.jwks)
+        except ClientRegistrationError as e:
+            raise ZidError(e.code, e.detail, http_status=422) from e
+    # The approval binds to the client being named, or to the key ids when the platform creates it.
+    named = (
+        body.client_id
+        if body.client_id is not None
+        else "jwks:" + ",".join(sorted(str(k["kid"]) for k in (keys or {}).get("keys", [])))
+    )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn,
             caller,
             action="provisioning.source.manage",
             resource=f"provisioning_source:{source_id}",
-            change=f"create:{body.client_id}",
+            change=f"create:{named}",
             approval_request_id=body.approval_request_id,
         )
-        # A paid extra: a directory connection beyond the plan (CR-024). Never on a SCIM request path.
-        await require_entitlement(
-            conn,
-            "scim",
-            used=await count_active_sources(conn),
-            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
-        )
-        await require_feature(
-            conn,
-            "advanced.scim-automated-provisioning",
-            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
-        )
+        await _plan_allows_source(conn, request)
         await require_step_up(
             request,
             conn,
             caller,
             action="change-sso-federation-trust-or-scim-privilege-mapping",
             resource=f"provisioning_source:{source_id}",
-            change={"operation": "CREATE", "client_id": body.client_id},
+            change={"operation": "CREATE", "client": named},
         )
-        s = Source(
-            source_id, caller.ctx.tenant_id or "", body.client_id, body.display_name, "ACTIVE"
-        )
+        if body.client_id is not None:
+            client_id = body.client_id
+            if not await usable_service_client(conn, client_id, scope=SCIM_SCOPE):
+                raise _invalid_client()
+            # One OAuth client backs one source for good: a suspended source keeps its client.
+            if await store.source_for_client(conn, client_id) is not None:
+                raise http_error(
+                    "PROVISIONING_SOURCE_EXISTS",
+                    "A provisioning source is already bound to this OAuth client. Use a new client.",
+                )
+        else:
+            client = await register_service_client(
+                conn,
+                tenant_id=tenant_id,
+                name=body.display_name,
+                jwks=keys or {},
+                scopes=[SCIM_SCOPE],
+                audience=str(request.app.state.token_audience),
+                home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+            )
+            client_id = str(client["client_id"])
+        s = Source(source_id, tenant_id, client_id, body.display_name, "ACTIVE")
         await store.create_source(conn, s)
-    return {"source_id": source_id, "client_id": body.client_id, "status": "ACTIVE"}
+    return _connection(request, {**_source_view(s), "client_created": body.client_id is None})
 
 
 @router.post("/provisioning/sources/{source_id}:suspend")
@@ -399,7 +517,42 @@ async def suspend_source(
         s = await store.set_source_status(conn, str(source_id), "SUSPENDED")
     if s is None:
         raise http_error("PROVISIONING_SOURCE_NOT_FOUND")
-    return {"source_id": s.source_id, "status": s.status}
+    return _source_view(s)
+
+
+@router.post("/provisioning/sources/{source_id}:resume")
+async def resume_source(
+    source_id: uuid.UUID, request: Request, caller: CallerDep, body: ResumeIn | None = None
+) -> dict[str, Any]:
+    """SUSPENDED -> ACTIVE. Restores a privilege, so it needs what registering needs: an approval when policy
+    asks, the plan's room for one more source, and a fresh passkey check (the step-up route map covers
+    `/provisioning/sources/*`). A source whose OAuth client was retired stays suspended."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action="provisioning.source.manage",
+            resource=f"provisioning_source:{source_id}",
+            change="resume",
+            approval_request_id=body.approval_request_id if body else None,
+        )
+        current = await store.get_source(conn, str(source_id))
+        if current is None:
+            raise http_error("PROVISIONING_SOURCE_NOT_FOUND")
+        if current.status == "ACTIVE":
+            return _source_view(current)
+        if current.status != "SUSPENDED":
+            raise http_error("PROVISIONING_SOURCE_RETIRED", "A retired source cannot be resumed.")
+        if not await usable_service_client(conn, current.client_id, scope=SCIM_SCOPE):
+            raise http_error(
+                "PROVISIONING_CLIENT_RETIRED",
+                "The source's OAuth client is retired or no longer allowed; register a new source.",
+            )
+        await _plan_allows_source(conn, request)
+        s = await store.set_source_status(conn, str(source_id), "ACTIVE")
+    if s is None:
+        raise http_error("PROVISIONING_SOURCE_NOT_FOUND")
+    return _source_view(s)
 
 
 # ---------------------------------------------------------------- HR lifecycle events (G-W5)
@@ -409,7 +562,7 @@ class LifecycleBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     user_id: uuid.UUID  # the SCIM User resource id this source provisioned
     event: LifecycleEvent
-    effective_at: datetime | None = None
+    effective_at: AwareDatetime | None = None  # a naive time is ambiguous across zones
 
 
 @router.post("/provisioning/lifecycle-events")

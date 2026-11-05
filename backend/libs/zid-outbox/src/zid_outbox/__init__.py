@@ -251,7 +251,7 @@ async def relay_once(
                 SELECT * FROM events.outbox_event
                 WHERE published_at IS NULL AND quarantined_reason IS NULL AND lane = ANY(:lanes)
                   AND (lease_until IS NULL OR lease_until < now())
-                ORDER BY (lane = 'priority') DESC, created_at
+                ORDER BY (lane = 'priority') DESC, created_at, aggregate_version
                 LIMIT :n FOR UPDATE SKIP LOCKED
             """),
             {"lanes": list(lanes), "n": batch},

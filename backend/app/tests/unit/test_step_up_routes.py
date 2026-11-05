@@ -9,6 +9,7 @@ import json
 from typing import Any
 
 import pytest
+from logcapture import capture
 from zid_errors import ZidError
 from zid_platform.modules.authentication.api import step_up as su
 from zid_platform.modules.authentication.domain.step_up import StepUpError, Tier
@@ -236,19 +237,17 @@ def test_the_refusal_names_the_action_the_resource_and_the_change_so_a_client_ca
     assert fields["action"] == "create-expand-high-privilege-ai-agent-mandate"
 
 
-def test_shadow_logs_and_lets_the_request_through(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_shadow_logs_and_lets_the_request_through(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Who:
         security_state = "NORMAL"
 
     monkeypatch.setattr(su, "who_of", lambda caller: _Who())
     monkeypatch.setattr(su, "tenant_transaction", lambda *a, **k: _Tx())
     monkeypatch.setattr(su, "request_engine", lambda r: object())
-    with caplog.at_level("WARNING"):
+    with capture("WARNING", "zid.step_up") as logged:
         asyncio.run(
             su.route_step_up_guard(
                 _Request("POST", "/v1/mandates", b"{}", mode="shadow"), _Caller()
             )
         )
-    assert any("step-up shadow" in r.message for r in caplog.records)
+    assert any("step-up shadow" in r.getMessage() for r in logged.records)

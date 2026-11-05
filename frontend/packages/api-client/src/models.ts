@@ -101,7 +101,25 @@ export type FederationIntegration = {
   allow_idp_initiated: boolean;
   idp_initiated_targets: string[];
   require_encrypted_assertions: boolean;
-  /** Returned for SAML connections after create / IdP-initiated changes. */
+  trust_amr: boolean;
+  acr_levels: Record<string, number>;
+  algorithms: string[];
+  /** OIDC only. Secret and key references are names in the secret store, never values. */
+  client_id?: string | null;
+  client_auth?: "private_key_jwt" | "client_secret_basic" | null;
+  client_secret_ref?: string | null;
+  scopes?: string[];
+  authorization_endpoint?: string | null;
+  token_endpoint?: string | null;
+  pinned_keys?: number;
+  trust_anchor_id?: string | null;
+  federation_entity_id?: string | null;
+  /** SAML only. */
+  sso_url?: string | null;
+  sp_entity_id?: string | null;
+  pinned_certificates?: number;
+  sp_decryption_key_ref?: string | null;
+  /** SAML: the address the provider's administrator enters (list, create); with IdP-initiated SSO on, the connection-specific one. */
   acs_url?: string;
 };
 export type TrustAnchor = { anchor_id: string; entity_id: string; status: string };
@@ -331,7 +349,9 @@ export type StreamPropagation = {
 
 /* ---------------------------------------------------------------- provisioning */
 
-export type ProvisioningSource = { source_id: string; client_id: string; status: string };
+export type ProvisioningSource = { source_id: string; client_id: string; display_name: string; status: string };
+/** Returned once by register: the connector's operator configures these; `client_created` says the cell made the OAuth client from the pasted public keys. */
+export type ProvisioningSourceCreated = ProvisioningSource & { client_created: boolean; scim_base_url: string; token_endpoint: string };
 
 /* ---------------------------------------------------------------- admin lists (CR-010) */
 

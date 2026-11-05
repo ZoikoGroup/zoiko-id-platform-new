@@ -1,14 +1,14 @@
 "use client";
 
 import type { ProvisioningSourceItem } from "@zoiko/api-client";
-import { Button, Card, CopyId, DataTable, Dialog, EmptyState, PageHeader, RiskBadge, StatusBadge, type Column } from "@zoiko/ui";
-import { Plus, Users } from "lucide-react";
+import { Button, Card, CopyId, DataTable, Dialog, EmptyState, PageHeader, RiskBadge, StatusBadge, TextField, type Column } from "@zoiko/ui";
+import { Play, Plus, Users } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { ConnectionDetails } from "./connection-details";
-import { CreateSourceDialog, SOURCES_KEY } from "./create-source-dialog";
+import { CreateSourceDialog, SOURCES_KEY, SourceError } from "./create-source-dialog";
 
 export function ProvisioningPage() {
   const sources = useCellQuery(SOURCES_KEY, (api) => api.provisioning.sources());
@@ -20,6 +20,19 @@ export function ProvisioningPage() {
     success: "Provisioning source suspended",
     onSuccess: () => setSuspending(null),
   });
+  const [resuming, setResuming] = useState<ProvisioningSourceItem | null>(null);
+  const [approval, setApproval] = useState("");
+  const resume = useCellMutation((api, v: { id: string; approval: string }) => api.provisioning.resumeSource(v.id, v.approval.trim() || null), {
+    invalidate: [SOURCES_KEY],
+    success: "Provisioning source resumed",
+    onSuccess: () => closeResume(true),
+  });
+  function closeResume(force = false) {
+    if (resume.isPending && !force) return;
+    setResuming(null);
+    setApproval("");
+    resume.reset();
+  }
   const cancelSuspend = () => {
     if (suspend.isPending) return;
     setSuspending(null);
@@ -39,6 +52,10 @@ export function ProvisioningPage() {
         s.status === "ACTIVE" ? (
           <Button size="xs" variant="danger-outline" onPress={() => setSuspending(s)}>
             Suspend
+          </Button>
+        ) : s.status === "SUSPENDED" ? (
+          <Button size="xs" variant="secondary" icon={<Play aria-hidden className="size-3.5" />} onPress={() => setResuming(s)}>
+            Resume
           </Button>
         ) : null,
     },
@@ -109,9 +126,43 @@ export function ProvisioningPage() {
           <RiskBadge risk="R3" />
           <p>
             <strong className="text-ink">{suspending?.display_name}</strong> stops at once: its SCIM requests are refused. Accounts it already
-            provisioned stay as they are. The cell has no resume action, so a new source is needed to reconnect.
+            provisioned stay as they are. You can resume it later; its OAuth client stays bound to it.
           </p>
           {suspend.error ? <ApiErrorView error={suspend.error} /> : null}
+        </div>
+      </Dialog>
+
+      <Dialog
+        isOpen={resuming !== null}
+        onOpenChange={(o) => !o && closeResume()}
+        title="Resume this provisioning source?"
+        size="sm"
+        role="alertdialog"
+        footer={
+          <>
+            <Button variant="secondary" isDisabled={resume.isPending} onPress={() => closeResume()}>
+              Cancel
+            </Button>
+            <Button pending={resume.isPending} onPress={() => resuming && resume.mutate({ id: resuming.source_id, approval })}>
+              Resume source
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-ink-muted">
+          <RiskBadge risk="R3" />
+          <p>
+            <strong className="text-ink">{resuming?.display_name}</strong> can create, change and suspend its accounts again as soon as it is resumed. It needs a
+            fresh passkey check, room for another source in your plan, and an active OAuth client.
+          </p>
+          <TextField
+            label="Approval request ID (optional)"
+            value={approval}
+            onChange={setApproval}
+            mono
+            description="Needed when tenant policy requires a second administrator. The approval binds to the change “resume”."
+          />
+          {resume.error ? <SourceError error={resume.error} /> : null}
         </div>
       </Dialog>
     </>
