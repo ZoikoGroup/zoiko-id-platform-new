@@ -97,7 +97,15 @@ def ensure_dev_keys() -> None:
     print("generated development signing keys into backend/.env (restart the backend to use them)")
 
 
-async def ensure_admin(c: object) -> None:
+async def ensure_admin(
+    c: object,
+    *,
+    tenant_id: str = TENANT_ID,
+    principal_id: str = PRINCIPAL_ID,
+    org_id: str = ORG_ID,
+    root_id: str = ROOT_ID,
+    holder_id: str = ROOT_HOLDER_ID,
+) -> None:
     """Make the local user a tenant administrator the way production does (no role flag):
     an organization with a registry root, an authority grant from the root holder covering every
     platform administration action, and an ACTIVE policy release permitting an action exactly when
@@ -134,22 +142,22 @@ async def ensure_admin(c: object) -> None:
     now = datetime.now(UTC)
     # Every catalogued action the platform itself owns (customer PEP actions are left out).
     actions = sorted(a for a, spec in catalog().items() if "customer-application" not in spec["owner"])
-    if await load_root(c, ROOT_ID) is None:
+    if await load_root(c, root_id) is None:
         await create_organization(
             c,
-            organization_id=ORG_ID,
-            tenant_id=TENANT_ID,
+            organization_id=org_id,
+            tenant_id=tenant_id,
             legal_name="Local Development Org",
             jurisdiction="GB",
             valid_from=now - timedelta(days=400),
         )
         await save_root(
             c,
-            TENANT_ID,
+            tenant_id,
             RootAssertion(
-                root_id=ROOT_ID,
-                organization_id=ORG_ID,
-                holder_principal_id=ROOT_HOLDER_ID,
+                root_id=root_id,
+                organization_id=org_id,
+                holder_principal_id=holder_id,
                 root_type=RootType.REGISTRY,
                 facts=frozenset({Fact.ENTITY_EXISTENCE, Fact.OFFICIAL_ROLE}),
                 assurance=Assurance.AR3,
@@ -163,8 +171,8 @@ async def ensure_admin(c: object) -> None:
         print("local organization and root of trust created")
     held = [
         g
-        for g in await load_grants_for_grantee(c, PRINCIPAL_ID)
-        if g.status is GrantStatus.ACTIVE and g.grantor_principal_id == ROOT_HOLDER_ID
+        for g in await load_grants_for_grantee(c, principal_id)
+        if g.status is GrantStatus.ACTIVE and g.grantor_principal_id == holder_id
     ]
     wanted = {f"{t}:*" for t in ADMIN_RESOURCE_TYPES}
     covered = any(
@@ -177,11 +185,11 @@ async def ensure_admin(c: object) -> None:
             c,
             Grant(
                 str(uuid.uuid4()),
-                TENANT_ID,
+                tenant_id,
                 GrantType.ROLE_ISSUED,
-                ROOT_HOLDER_ID,
-                PRINCIPAL_ID,
-                ORG_ID,
+                holder_id,
+                principal_id,
+                org_id,
                 Authority(
                     actions=scope(*actions),
                     resources=scope(*(f"{t}:*" for t in ADMIN_RESOURCE_TYPES)),
@@ -190,7 +198,7 @@ async def ensure_admin(c: object) -> None:
                 ContinuityMode.ROLE_CONTINUOUS,
                 GrantStatus.ACTIVE,
                 now - timedelta(hours=1),
-                root_id=ROOT_ID,
+                root_id=root_id,
                 delegation_allowed=True,
                 max_delegation_depth=3,
             ),
@@ -198,7 +206,7 @@ async def ensure_admin(c: object) -> None:
             now=now,
         )
         print(f"administrator grant issued for {len(actions)} actions")
-    if await release_store.active_release(c, TENANT_ID) is None:
+    if await release_store.active_release(c, tenant_id) is None:
         rid = str(uuid.uuid4())
         ok = {
             "tenant_match": True,
@@ -212,7 +220,7 @@ async def ensure_admin(c: object) -> None:
             c,
             PolicyRelease(
                 rid,
-                TENANT_ID,
+                tenant_id,
                 ADMIN_POLICY,
                 "1",
                 ReleaseStatus.DRAFT,
@@ -220,14 +228,14 @@ async def ensure_admin(c: object) -> None:
                     PolicyCase("ok", "p", actions[0], "r", ok, True),
                     PolicyCase("no authority", "p", actions[0], "r", {**ok, "authority_valid": False}),
                 ),
-                author=PRINCIPAL_ID,
+                author=principal_id,
             ),
             policy_name="admin",
             version=1,
         )
         for target in (ReleaseStatus.VALIDATING, ReleaseStatus.REVIEW):
             await release_store.move(c, rid, target, catalog=catalog(), now=now)
-        await release_store.add_reviewer(c, rid, ROOT_HOLDER_ID)
+        await release_store.add_reviewer(c, rid, holder_id)
         await release_store.move(c, rid, ReleaseStatus.ACTIVE, catalog=catalog(), now=now)
         print("policy release activated")
 
