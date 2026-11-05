@@ -4,6 +4,11 @@ from zid_platform.modules.decision.application.pdp_service import action_spec, e
 from zid_platform.modules.decision.application.receipts import (
     register as register_evidence_replayer,
 )
+from zid_platform.modules.decision.application.subjects import (
+    DIRECTORY_SUBJECT,
+    register_subject_resolver,
+)
+from zid_platform.modules.decision.application.unit_scope import register_unit_lookup
 from zid_platform.modules.decision.domain.pdp import (
     AuthnFact,
     Decision,
@@ -13,6 +18,9 @@ from zid_platform.modules.decision.domain.pdp import (
 from zid_platform.modules.decision.domain.risk import RiskClass
 
 __all__ = [
+    "DIRECTORY_SUBJECT",
+    "register_subject_resolver",
+    "register_unit_lookup",
     "AuthnFact",
     "Decision",
     "DecisionRequest",

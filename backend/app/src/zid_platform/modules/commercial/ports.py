@@ -25,6 +25,8 @@ from zid_platform.modules.commercial.application import finance_service as finan
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
+from zid_platform.modules.commercial.application import service_request_service as service_requests
+from zid_platform.modules.commercial.application.service_request_service import ServiceRequestError
 from zid_platform.modules.commercial.application import recon_service as recon
 from zid_platform.modules.commercial.application import refund_service as refunds
 from zid_platform.modules.commercial.application import vendor_service as vendors
@@ -42,6 +44,8 @@ from zid_platform.modules.commercial.application.adapters import (
     StripePayments,
     StripeRefunds,
     StripeTax,
+    FallbackTax,
+    RateTableTax,
     TaxLine,
     TaxPort,
 )
@@ -112,6 +116,7 @@ from zid_platform.modules.commercial.infrastructure import (
     catalogue_store,
 )
 from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
+from zid_platform.modules.commercial.infrastructure import enforcement_store
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
@@ -142,6 +147,36 @@ async def require_entitlement(
     return result
 
 
+def plan_throughput_status() -> str:
+    """CONFIRMED, or ENGINEERING_DEFAULT while Commercial & Finance have not signed the request-allowance multipliers off."""
+    from zid_platform.modules.commercial.infrastructure.bands import plan_throughput_status as status
+
+    return status()
+
+
+async def plan_request_limit(conn: AsyncConnection, base: int) -> int:
+    """The company's request allowance per minute from its plan (0 = unlimited); see `plan-throughput.yaml`."""
+    from zid_platform.modules.commercial.application.service import request_limit
+
+    return await request_limit(conn, base)
+
+
+async def require_production_environment(
+    conn: AsyncConnection, *, used: int, enforcement: Enforcement = "shadow"
+) -> None:
+    """The plan's number of production environments: one more is refused (402) when the plan is full and enforcement is on."""
+    from zid_platform.modules.commercial.application.service import production_environments_check
+
+    allowed, plan, limit = await production_environments_check(conn, used=used, enforcement=enforcement)
+    if not allowed:
+        raise ZidError(
+            "ENTITLEMENT_REQUIRED",
+            f"Your plan allows {limit} production environment{'' if limit == 1 else 's'}. Contact your account manager to change plan.",
+            http_status=402,
+            details=[ErrorDetail(field="production_environments", issue="PLAN_LIMIT"), ErrorDetail(field="plan", issue=plan)],
+        )
+
+
 __all__ = [
     "METERS",
     "PLAN_CODES",
@@ -157,6 +192,9 @@ __all__ = [
     "NoTaxConfigured",
     "OnlinePayment",
     "OpsError",
+    "plan_request_limit",
+    "plan_throughput_status",
+    "require_production_environment",
     "OrderError",
     "PaymentMethodSummary",
     "PaymentPort",
@@ -172,6 +210,8 @@ __all__ = [
     "StripePayments",
     "StripeRefunds",
     "StripeTax",
+    "FallbackTax",
+    "RateTableTax",
     "TaxLine",
     "TaxPort",
     "VendorError",
@@ -210,7 +250,10 @@ __all__ = [
     "orders",
     "payment_event_queue",
     "plan_aware_transfer_gate",
+    "ServiceRequestError",
+    "enforcement_store",
     "plan_requests",
+    "service_requests",
     "recon",
     "recon_import",
     "reconcile",

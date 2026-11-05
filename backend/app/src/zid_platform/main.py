@@ -271,6 +271,7 @@ def create_app(
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
+        from .modules.provisioning.api.directory import router as directory_sync_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.resilience.api.platform import router as resilience_router
         from .modules.search.api.search import router as search_router
@@ -280,6 +281,11 @@ def create_app(
         from .modules.tenant.api.approvals import router as approval_cases_router
         from .modules.tenant.api.billing_access import router as billing_access_router
         from .modules.tenant.api.commitments import router as commitments_router
+        from .modules.authority.api.templates import router as delegation_templates_router
+        from .modules.decision.api.insights import router as insights_router
+        from .modules.commercial.api.service_requests import router as service_requests_router
+        from .modules.tenant.api.custom_roles import router as custom_roles_router
+        from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.org_approvals import router as org_approvals_router
         from .modules.tenant.api.residency import router as residency_router
@@ -301,6 +307,7 @@ def create_app(
             signals_router,
             federation_router,
             scim_router,
+            directory_sync_router,
             verification_router,
             verification_tiers_router,
             countries_router,
@@ -317,6 +324,11 @@ def create_app(
             org_approvals_router,
             approval_attachments_router,
             billing_access_router,
+            custom_roles_router,
+            service_requests_router,
+            org_units_router,
+            insights_router,
+            delegation_templates_router,
             commitments_router,
             onboarding_router,
             org_claims_router,
@@ -423,11 +435,20 @@ def _operator_origins(settings: Settings) -> frozenset[str]:
 
 
 def _configure_commercial(app: FastAPI, settings: Settings) -> None:
+    from .modules.commercial.ports import plan_throughput_status
+
+    if settings.environment not in ("local", "test") and plan_throughput_status() != "CONFIRMED":
+        import logging
+
+        logging.getLogger("zid.commercial").warning(
+            "plan request allowances are an ENGINEERING DEFAULT, not signed off by Commercial and Finance (config/entitlements/plan-throughput.yaml); "
+            "do not quote them to a customer"
+        )
     """Plan enforcement mode and the usage counters behind each capped capability (CR-024).
 
     The counters are wired here, at the composition root, so the commercial module never imports the modules
     whose rows it counts."""
-    from .modules.commercial.ports import configure_ledger
+    from .modules.commercial.ports import configure_ledger, require_feature
     from .modules.federation.ports import count_active_connections
     from .modules.provisioning.ports import count_active_sources
 
@@ -475,6 +496,14 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    # The built-in rate table answers only when Stripe Tax cannot, and only once Finance has approved it (config/commercial/tax-rate-table.yaml).
+    import os
+    from pathlib import Path as _Path
+
+    from .modules.commercial.ports import FallbackTax, RateTableTax
+
+    config_root = _Path(os.environ.get("ZID_PLATFORM_CONFIG") or _Path(__file__).resolve().parents[3] / "config")
+    app.state.tax_port = FallbackTax(app.state.tax_port, RateTableTax.from_file(config_root / "commercial" / "tax-rate-table.yaml"))
     app.state.refund_port = build_refund_port(settings)
     if settings.attestor_keys_file:
         import json as _json
@@ -511,6 +540,11 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         "AUTH_EVENT": (sessions_created_between, key_auth, "HUMAN"),
         "VC_ISSUED": (credentials_issued_between, key_vc_issued, "HUMAN"),
     }
+    async def plan_feature_gate(conn: Any, feature_id: str) -> None:
+        """The plan check for a feature, for the modules that must not import commercial (they find it on app.state)."""
+        await require_feature(conn, feature_id, enforcement=getattr(app.state, "commercial_enforcement", "shadow"))
+
+    app.state.plan_feature_gate = plan_feature_gate
     app.state.commercial_counters = {
         "saml_sso": count_active_connections,
         "scim": count_active_sources,
@@ -523,6 +557,34 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
     from .modules.metering.domain.usage import RateLimiter
 
     app.state.rate_limiter = RateLimiter(settings.api_rate_limit_per_minute)
+
+    # A company's request allowance follows its plan (config/entitlements/plan-throughput.yaml). The plan is read at most once a minute per company, so a
+    # plan change reaches the limiter within a minute and an ordinary request costs nothing extra.
+    plan_limits: dict[str, tuple[float, int]] = {}
+
+    async def plan_request_limit(engine: Any, ctx: Any) -> int | None:
+        import logging
+        from time import monotonic
+
+        from zid_db import tenant_transaction
+
+        from .modules.commercial.ports import plan_request_limit as limit_for
+
+        tenant = ctx.tenant_id or ""
+        now = monotonic()
+        hit = plan_limits.get(tenant)
+        if hit is not None and hit[0] > now:
+            return hit[1]
+        try:
+            async with tenant_transaction(engine, ctx) as conn:
+                limit = await limit_for(conn, settings.api_rate_limit_per_minute)
+        except Exception:  # noqa: BLE001 - the limit never becomes a reason to refuse a call; the base allowance applies
+            logging.getLogger("zid.commercial").exception("plan request limit unavailable")
+            return None
+        plan_limits[tenant] = (now + 60.0, limit)
+        return limit
+
+    app.state.plan_request_limit = plan_request_limit
     recorder = UsageRecorder(lambda: getattr(app.state, "engine", None), settings.cell_id)
     app.state.usage_recorder = recorder
 
@@ -767,6 +829,24 @@ def _register_invitation_hooks() -> None:
             )
 
     register_acceptance_hook("administrator-grant", administrator_joined)
+
+    # A person the company's own directory sync provisioned attaches to that account at first sign-in (federation never imports provisioning).
+    from .modules.federation.ports import register_provisioned_lookup
+    from .modules.provisioning.ports import directory_person
+
+    register_provisioned_lookup(directory_person)
+
+    # A relying system may name a person by the id its own directory gave them (decision must not import provisioning).
+    from .modules.decision.ports import register_subject_resolver
+    from .modules.provisioning.ports import directory_principal
+
+    register_subject_resolver(directory_principal)
+
+    # Reporting by organization unit: decision asks which people a unit holds without importing tenant.
+    from .modules.decision.ports import register_unit_lookup
+    from .modules.tenant.ports import unit_principals
+
+    register_unit_lookup(unit_principals)
 
 
 def register_privacy_stores(registration_tenant: str | None = None) -> None:

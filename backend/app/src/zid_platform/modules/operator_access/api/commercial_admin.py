@@ -6,12 +6,17 @@ the module dependency graph acyclic: commercial imports no other module.
 
     GET  /v1/commercial/price-books                       all versions, newest first
     GET  /v1/commercial/price-books/{id}                  one book with its lines
+    GET  /v1/commercial/price-books/{id}/readiness        what it still lacks before it is approved
     POST /v1/commercial/price-books                       a new DRAFT, optionally a copy       (commercial.catalog.manage)
     PUT  /v1/commercial/price-books/{id}/lines            set one line of a DRAFT              (commercial.catalog.manage)
     POST /v1/commercial/price-books/{id}:approve          a different operator approves        (commercial.catalog.manage)
     GET  /v1/commercial/plan-requests                     every company's open plan requests
     POST /v1/commercial/plan-requests/{id}:answer         accept (we will raise the order) or decline, with a reason
+    GET  /v1/commercial/service-requests                  every company's open requests for a contracted service
+    POST /v1/commercial/service-requests/{id}:move        start it, finish it (ACTIVE) or decline it, with a note the company reads
     PUT  /v1/commercial/tenants/{tenant_id}/entitlement   move a tenant to a plan from now     (tenant.config.change)
+    GET  /v1/commercial/tenants/{tenant_id}/enforcement   whether this company's plan limits are enforced or only reported
+    PUT  /v1/commercial/tenants/{tenant_id}/enforcement   set it to ENFORCE or SHADOW, with a reason (tenant.config.change)
     POST /v1/commercial/tenants/{tenant_id}/overrides     a contracted addition, second approver
     POST /v1/commercial/tenants/{tenant_id}/data-deletion  delete a closed tenant's data (tenant.data.delete)
     GET  /v1/commercial/tenants/{tenant_id}/data-deletion  what was deleted, what is held, what is still owed
@@ -44,10 +49,12 @@ from zid_platform.modules.commercial.ports import (
     InvoicingError,
     OrderError,
     PlanRequestError,
+    ServiceRequestError,
     QuoteLine,
     RatingError,
     VendorError,
     assurance,
+    enforcement_store,
     billable_event_adjusted,
     billable_store,
     entitlement_changed,
@@ -64,6 +71,7 @@ from zid_platform.modules.commercial.ports import (
     plan_requests,
     reconcile,
     resolve_payment_event,
+    service_requests,
     run_rating,
     vendors,
     verify_chain,
@@ -180,6 +188,15 @@ async def _require(conn: Any, op: Any, capability: str, tenant: str | None, reso
 async def list_books(request: Request, op: OperatorDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         return {"items": [_book_view(b) for b in await store.price_books(conn)]}
+
+
+@router.get("/v1/commercial/price-books/{price_book_id}/readiness")
+async def book_readiness(price_book_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """What this price book still lacks before it is approved: unpriced SKU and plan pairs, and lines chosen as free."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        if await store.price_book(conn, str(price_book_id)) is None:
+            raise _fail(CommercialError("PRICE_BOOK_NOT_FOUND"))
+        return await store.readiness(conn, str(price_book_id))
 
 
 @router.get("/v1/commercial/price-books/{price_book_id}")
@@ -347,6 +364,61 @@ async def answer_plan_request(
             ) from e
 
 
+class ServiceRequestMove(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["IN_PROGRESS", "ACTIVE", "DECLINED"]
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.get("/v1/commercial/service-requests")
+async def open_service_requests(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Every company's open requests for dedicated isolation, sovereign service, key custody or named support, oldest first."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        return {"items": await service_requests.open_requests(conn)}
+
+
+async def notify_service_move(conn: Any, moved: dict[str, Any]) -> None:
+    """Tell the company, in its own Alerts, where its request stands. Raised in the company's tenant context, never the operator's."""
+    from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
+
+    words = {"IN_PROGRESS": "has been started", "ACTIVE": "is now in place", "DECLINED": "was declined"}[moved["status"]]
+    service = str(moved["service"]).replace("_", " ").lower()
+    draft = AlertDraft(
+        severity=Severity.INFO,
+        kind="commercial.service_request.moved",
+        title=f"Your request for {service} {words}",
+        body=moved.get("note") or "",
+        object_type="service_request",
+        object_ref=moved["request_id"],
+        href="/settings",
+        recommended_action="Open Settings, Enterprise services, to see the request.",
+        is_task=False,
+        mandatory=False,
+        correlation_key=f"service_request.moved:{moved['request_id']}:{moved['status']}",
+    )
+    async with in_tenant(conn, moved["tenant_id"]):
+        await raise_alert(conn, moved["tenant_id"], draft, now=datetime.now(UTC))
+
+
+@router.post("/v1/commercial/service-requests/{request_id}:move")
+async def move_service_request(
+    request_id: uuid.UUID, body: ServiceRequestMove, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        try:
+            moved = await service_requests.move(conn, str(request_id), target=body.status, operator_id=op.principal_id, note=body.note)
+            await notify_service_move(conn, moved)
+            return moved
+        except ServiceRequestError as e:
+            raise ZidError(e.code, e.detail, http_status=404 if e.code.endswith("NOT_FOUND") else 409 if "REFUSED" in e.code else 422) from e
+
+
 class DeletionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason_ref: str = Field(
@@ -396,6 +468,38 @@ async def data_deletion_status(
             http_status=404,
         )
     return dict(row)
+
+
+class EnforcementBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["ENFORCE", "SHADOW"]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/enforcement")
+async def get_enforcement(tenant_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        return await enforcement_store.read(conn, str(tenant_id), getattr(request.app.state, "commercial_enforcement", "shadow"))
+
+
+@router.put("/v1/commercial/tenants/{tenant_id}/enforcement")
+async def set_enforcement(
+    tenant_id: uuid.UUID, body: EnforcementBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """ENFORCE: this company's plan limits refuse for real, ahead of the deployment default. SHADOW: they only report. A deployment that
+    enforces for everyone still enforces for this company either way; the setting can only make one company stricter, never looser."""
+    tenant = str(tenant_id)
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
+        await enforcement_store.write(conn, tenant, mode=body.mode, reason=body.reason.strip(), actor=op.principal_id)
+        await log_change(conn, kind=f"ENFORCEMENT_{body.mode}", ref=tenant, tenant_id=tenant, actor=op.principal_id, reason=body.reason.strip(), detail={})
+        return await enforcement_store.read(conn, tenant, getattr(request.app.state, "commercial_enforcement", "shadow"))
 
 
 @router.put("/v1/commercial/tenants/{tenant_id}/entitlement")

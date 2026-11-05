@@ -49,6 +49,7 @@ from zid_platform.modules.credential.domain.credentials import (
 from zid_platform.modules.credential.domain.vcdm import VCDM_ADAPTER
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.modules.verification.ports import Capability
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["credentials"])
@@ -478,6 +479,11 @@ async def create_trust(body: TrustIn, request: Request, caller: CallerDep) -> di
             caller,
             action="credential.trust.manage",
             resource=f"credential_issuer:{body.issuer_identifier}",
+        )
+        await require_feature(
+            conn,
+            "advanced.custom-credential-schemas-trust-policies",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
         data = body.model_dump()
         data["trust_anchor_id"] = str(body.trust_anchor_id) if body.trust_anchor_id else None

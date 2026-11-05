@@ -1,0 +1,19 @@
+# The built-in tax rate table: a fallback tax engine for when Stripe Tax is not available (not set up, or unreachable).
+#
+# It is OFF until Finance approves it. While `approved` is false the engine answers "not configured" exactly as before, so an invoice still cannot
+# be issued without an explicit zero-tax override. Tax rates are law, not engineering: fill `rates` from the advice Finance relies on, then set
+# `approved: true` with who approved it and when. Each invoice line taxed from this table carries a TABLE_ code so an auditor can tell it from a
+# Stripe Tax line.
+#
+# rates:   buyer country (ISO 3166-1 alpha-2) -> the tax and its rate on the net amount (a fraction: 0.20 is 20%).
+# exempt:  kinds of line the table never taxes (the invoice line `kind`).
+version: "1"
+approved: false
+approved_by: null
+approved_on: null
+exempt: []
+rates: {}
+# Example, for Finance to confirm and not applied while `approved` is false:
+# rates:
+#   GB: {tax: VAT, rate: "0.20"}
+#   IE: {tax: VAT, rate: "0.23"}

@@ -13,6 +13,8 @@ Same image as the API, separate process. Each pass, in its own transaction per s
   tenants are drained (integrations, sessions) and CLOSED (G-W5);
 - directory: changed tenant records are signed and published to the global locator (G-W6);
 - webhooks: due deliveries are sent, signed and retried (H-1);
+- sandbox_identities: developer test identities past their expiry are retired;
+- directory_sync: each connected company directory (Auth0 first) is read and its SCIM source brought in step with it;
 - sanctions_lists / screening: lists with a verified address are fetched and loaded, and cases a list change or an expiry has
   made stale are screened again (ED-04).
 A failing step is logged and retried on the next pass; it never stops the others.
@@ -92,6 +94,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await stale_sweep(conn, now)
 
+    async def sandbox_identities(conn: AsyncConnection, now: datetime) -> object:
+        """Integration: retire the developer test identities whose time is up."""
+        from zid_platform.modules.integration.application.sandbox import expire_due
+
+        return await expire_due(conn, now)
+
     async def offboarding(conn: AsyncConnection, now: datetime) -> object:
         from zid_platform.modules.onboarding.ports import offboarding_pass
 
@@ -144,6 +152,15 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             return await deliver_due(
                 conn, client=client, resolve=system_resolver, sign=signer.sign, now=now
             )
+
+    async def directory_sync(conn: AsyncConnection, now: datetime) -> object:
+        """Provisioning: read each connected company directory (Auth0 first) and bring its SCIM source in step with it."""
+        import httpx
+
+        from zid_platform.modules.provisioning.ports import directory_sync_pass
+
+        async with httpx.AsyncClient(timeout=30, follow_redirects=False) as http:
+            return await directory_sync_pass(conn, now, http=http, home_cell=settings.cell_id)
 
     async def sanctions_lists(conn: AsyncConnection, now: datetime) -> object:
         """ED-04 section 07: fetch and load the sanctions lists that have a verified address."""
@@ -282,10 +299,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("domains", domains),
         ("connector_credentials", credentials),
         ("stale_connectors", stale_connectors),
+        ("sandbox_identities", sandbox_identities),
         ("offboarding", offboarding),
         ("deletion", deletion),
         ("directory", directory),
         ("webhooks", webhooks),
+        ("directory_sync", directory_sync),
         ("sanctions_lists", sanctions_lists),
         ("register_watch", register_watch),
         ("screening", screening),

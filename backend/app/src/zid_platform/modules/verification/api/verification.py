@@ -33,6 +33,7 @@ from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.verification.application import service
 from zid_platform.modules.verification.domain.countries import Capability
 from zid_platform.modules.verification.domain.providers import (
@@ -169,6 +170,55 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
             out.handoff
         )  # the applicant's short-lived link or token: shown once, never stored
     return started
+
+
+class BulkStartIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile_id: uuid.UUID
+    subject_principal_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    purpose: str = Field(min_length=1, max_length=128)
+    jurisdiction: str = Field(pattern=r"^[A-Z]{2}$")
+    required_level: Literal["IAL-Z1", "IAL-Z2", "IAL-Z3"] | None = None
+
+
+@router.post("/verifications:bulk", status_code=207)
+async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Start the same verification for up to 50 people in one request (plan feature advanced.bulk-identity-company-verification).
+    Each person is started on its own, exactly as POST /verifications would: one person's failure never stops or hides another's, and each
+    result says started or why not. A person's short-lived handoff link is returned once, here, and never stored."""
+    _scope(caller, "verification:execute")
+    _country_gate(request, body.jurisdiction)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await require_feature(
+            conn,
+            "advanced.bulk-identity-company-verification",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+    results: list[dict[str, Any]] = []
+    for subject in dict.fromkeys(body.subject_principal_ids):
+        try:
+            out = await service.start(
+                request_engine(request),
+                ctx=caller.ctx,
+                profile_id=str(body.profile_id),
+                subject_principal_id=str(subject),
+                purpose=body.purpose,
+                jurisdiction=body.jurisdiction,
+                floor=body.required_level,
+                transport=_transport(request),
+                now=datetime.now(UTC),
+                country_registry_version=registry().version,
+                secrets=_secrets(request),
+            )
+        except VerificationError as e:
+            results.append({"subject_principal_id": str(subject), "started": False, "code": e.code})
+            continue
+        item: dict[str, Any] = {"subject_principal_id": str(subject), "started": True, "verification_id": out.session_id, "status": out.status}
+        if out.handoff:
+            item["handoff"] = out.handoff
+        results.append(item)
+    started = sum(1 for r in results if r["started"])
+    return {"requested": len(results), "started": started, "failed": len(results) - started, "items": results}
 
 
 @router.get("/verifications/{verification_id}")

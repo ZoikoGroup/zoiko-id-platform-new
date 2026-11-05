@@ -46,9 +46,13 @@ LIMITS = {
     "status": 120,
     "capabilities": 120,
     "sign_in_workspace": 10,
+    "recovery": 10,
+    "recovery_confirm": 20,
 }
 _buckets: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))
 TEMPLATE_VERIFY = "ZID-EM-001"
+TEMPLATE_SIGN_IN_LINK = "ZID-EM-010"  # a single-use link to create a new passkey and sign in
+TEMPLATE_RECOVERY_STARTED = "ZID-EM-013"  # an administrator's recovery keeps its gates: the email is only a notice
 _NAMESPACE = uuid.UUID("5c6f6f3e-3f5a-4d0a-9d4e-4f1d8b2a7c11")
 
 
@@ -168,6 +172,36 @@ async def _send(request: Request, env: svc.Env, job: svc.SendJob) -> None:
         log.warning("registration email failed for request %s", job.request_ref[:6], exc_info=False)
 
 
+async def _send_recovery(request: Request, env: svc.Env, job: svc.RecoveryJob) -> None:
+    """After the response, like `_send`: the same for every request, and a delivery problem never changes what the caller was told."""
+    cfg = getattr(request.app.state, "email_config", None)
+    sender = getattr(request.app.state, "email_sender", None)
+    if cfg is None or sender is None:
+        log.warning("recovery email not sent: email is not configured")
+        return
+    now = datetime.now(UTC)
+    link = job.token is not None
+    try:
+        await send_email(
+            request_engine(request),
+            cfg,
+            sender,
+            cell_id=env.here,
+            template_id=TEMPLATE_SIGN_IN_LINK if link else TEMPLATE_RECOVERY_STARTED,
+            event_id=str(uuid.uuid4()),
+            event_type="authentication.recovery.email_requested",
+            tenant_id=job.tenant_id,
+            recipient=Recipient(job.address, await address_hash(job.address), None, "UTC", job.locale),
+            merge=(
+                {"single_use_signin_url": job.token, "expires_at_local": job.expires_at}
+                if link
+                else {"event_at_local": now}
+            ),
+        )
+    except Exception:  # noqa: BLE001 - delivery must not change the response; the person can ask again
+        log.warning("recovery email failed", exc_info=False)
+
+
 # ------------------------------------------------------------------------------------------- capabilities
 
 
@@ -254,6 +288,53 @@ async def sign_in_workspace(body: SignInWorkspaceBody, request: Request) -> dict
     except RegistrationError as e:
         raise _http(e) from e
     return {"workspace": workspace}
+
+
+class RecoveryBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=3, max_length=254)
+
+
+@router.post("/v1/registration/recovery", status_code=202)
+async def recovery(body: RecoveryBody, request: Request, background: BackgroundTasks) -> dict[str, Any]:
+    """"I can't sign in": email the account's own address a way back. Ten asks per ten minutes per client, and the answer is the same
+    whether or not the address has an account."""
+    _limit(request, "recovery")
+    env = _env(request)
+    async with request_engine(request).begin() as conn:
+        job = await svc.recovery_request(conn, env, email=body.email, now=datetime.now(UTC))
+    if job is not None:
+        background.add_task(_send_recovery, request, env, job)
+    return {"status": "RECOVERY_REQUESTED", "message": GENERIC_MESSAGE}
+
+
+class RecoveryConfirmBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/v1/registration/recovery/confirm")
+async def recovery_confirm(body: RecoveryConfirmBody, request: Request) -> dict[str, Any]:
+    """The emailed recovery link: which workspace, and the one-passkey enrollment ticket (shown once). Every failure is the same message."""
+    _limit(request, "recovery_confirm")
+    try:
+        async with request_engine(request).begin() as conn:
+            out = await svc.recovery_confirm(conn, _env(request), body.token, now=datetime.now(UTC))
+    except RegistrationError as e:
+        raise _http(e) from e
+    return {
+        "request_id": out.request_ref,
+        "account": out.account,
+        "identity": out.identity,
+        "next_step": "ENROLL_AUTHENTICATOR",
+        "then": out.route,
+        "enrollment_ticket": out.enrollment_ticket,
+        "enrollment_ticket_expires_at": out.ticket_expires_at.isoformat(),
+        "console_client_id": out.console_client_id,
+        "workspace": out.workspace,
+        "address": out.masked_address,
+        "authenticator_fallback": "GOVERNED_RECOVERY",
+    }
 
 
 @router.post("/v1/registration/resend", status_code=202)

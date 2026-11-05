@@ -120,3 +120,21 @@ __all__ = [
     "step_up_needed",
     "touch_external_link",
 ]
+
+
+async def start_email_recovery(
+    conn: AsyncConnection, *, tenant_id: str, principal_id: str, now: datetime
+) -> Any:
+    """Recovery by the account's own email: a `Progress` whose `enrollment_ticket` is set for an ordinary member (one passkey, 15
+    minutes) and None for an administrator or lockbox account, whose case keeps its gates; None when one started moments ago."""
+    from zid_platform.modules.authentication.application.recovery import start_with_email
+
+    return await start_with_email(conn, tenant_id=tenant_id, principal_id=principal_id, now=now)
+
+
+async def live_recovery_ticket(conn: AsyncConnection, ticket: str, now: datetime) -> str | None:
+    """The principal a live RECOVERY enrollment ticket is for, without spending it (the passkey registration spends it)."""
+    from zid_platform.modules.authentication.infrastructure.authenticator_store import peek_ticket
+
+    found = await peek_ticket(conn, ticket, now)
+    return found.principal_id if found is not None and found.purpose == "RECOVERY" else None

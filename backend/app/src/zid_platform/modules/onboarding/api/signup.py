@@ -40,6 +40,7 @@ from zid_platform.modules.tenant.ports import (
     self_signup,
     workspace,
 )
+from zid_platform.modules.session.ports import client_tenant
 from zid_platform.modules.verification.ports import Capability
 from zid_platform.protected import catalog
 
@@ -263,6 +264,21 @@ async def signup(body: SignupBody, request: Request) -> dict[str, Any]:
         "home_cell_id": here,
         "registration_recorded": declaration is not None,
     }
+
+
+@router.get("/v1/workspace-brand")
+async def workspace_brand(request: Request, client_id: str) -> dict[str, Any]:
+    """The presentation a workspace chose for its sign-in page, looked up by its console client: colours, welcome text and logo only, nothing about security.
+    An unknown client gets the platform defaults, the same as a workspace that chose nothing."""
+    plain = {"accent": "blue", "accent_hex": "", "welcome_text": "", "logo": "", "support_url": ""}
+    if not 1 <= len(client_id) <= 256:
+        return plain
+    tenant = await client_tenant(request_engine(request), client_id)
+    if tenant is None:
+        return plain
+    async with request_engine(request).connect() as conn, in_tenant(conn, tenant):
+        b = await public_branding(conn)
+    return {k: b.get(k, plain[k]) or plain[k] for k in plain}
 
 
 @router.get("/v1/workspaces/{name}")

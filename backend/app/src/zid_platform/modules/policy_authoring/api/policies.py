@@ -26,6 +26,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.policy_authoring.application import service
 from zid_platform.modules.policy_authoring.infrastructure import release_store
 from zid_platform.modules.policy_runtime.ports import PolicyError, PolicyRelease
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import catalog, protected_action
 
 router = APIRouter(prefix="/v1/policy-releases", tags=["policy"])
@@ -135,6 +136,11 @@ async def read_release(
 async def create(body: DraftIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=DRAFT, resource=f"policy_release:{body.name}")
+        await require_feature(
+            conn,
+            "advanced.tenant-policy-automation-approval-routing",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         try:
             r = await service.create_draft(
                 conn,
