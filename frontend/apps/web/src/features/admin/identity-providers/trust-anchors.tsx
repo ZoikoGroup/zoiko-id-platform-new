@@ -90,10 +90,15 @@ export function TrustAnchorsSection() {
   const anchors = useCellQuery(ANCHORS_KEY, (api) => api.federation.trustAnchors());
   const [creating, setCreating] = useState(false);
   const [target, setTarget] = useState<TrustAnchorItem | null>(null);
+  const [reenable, setReenable] = useState<TrustAnchorItem | null>(null);
 
   const disable = useCellMutation((api, id: string) => api.federation.disableTrustAnchor(id), {
     invalidate: [ANCHORS_KEY],
     success: "Trust anchor quarantined",
+  });
+  const enable = useCellMutation((api, id: string) => api.federation.enableTrustAnchor(id), {
+    invalidate: [ANCHORS_KEY],
+    success: "Trust anchor enabled",
   });
 
   const columns: Column<TrustAnchorItem>[] = [
@@ -124,6 +129,10 @@ export function TrustAnchorsSection() {
         a.status === "ACTIVE" ? (
           <Button size="xs" variant="danger-outline" onPress={() => setTarget(a)}>
             Disable
+          </Button>
+        ) : a.status === "QUARANTINED" ? (
+          <Button size="xs" variant="secondary" onPress={() => setReenable(a)}>
+            Enable
           </Button>
         ) : null,
     },
@@ -159,6 +168,24 @@ export function TrustAnchorsSection() {
       </Card>
 
       {creating ? <CreateAnchorDialog onClose={() => setCreating(false)} /> : null}
+      {reenable ? (
+        <R3ActionDialog
+          isOpen
+          onClose={() => setReenable(null)}
+          title="Enable trust anchor"
+          intent={<p>The anchor is trusted again at once. Integrations resolved through it can validate and sign people in again.</p>}
+          scope={[
+            ["Entity ID", <span key="e" className="break-all font-mono text-xs">{reenable.entity_id}</span>],
+            ["Anchor", <CopyId key="a" value={reenable.anchor_id} label="trust anchor" />],
+          ]}
+          reversibility="reversible"
+          commitLabel="Enable trust anchor"
+          run={async () => {
+            const r = await enable.mutateAsync(reenable.anchor_id);
+            return { outcome: r.status, objectId: r.anchor_id };
+          }}
+        />
+      ) : null}
       {target ? (
         <R3ActionDialog
           isOpen
@@ -174,7 +201,7 @@ export function TrustAnchorsSection() {
             ["Entity ID", <span key="e" className="break-all font-mono text-xs">{target.entity_id}</span>],
             ["Anchor", <CopyId key="a" value={target.anchor_id} label="trust anchor" />],
           ]}
-          reversibility="irreversible"
+          reversibility="reversible-with-effort"
           dependents={[{ label: "Integrations resolved through this anchor", effect: "Sign-in fails" }]}
           commitLabel="Disable trust anchor"
           run={async () => {

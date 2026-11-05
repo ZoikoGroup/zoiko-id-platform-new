@@ -19,15 +19,19 @@ open redirect (§6.2). Errors before a session exists never echo upstream detail
 
 from __future__ import annotations
 
+import base64
+import binascii
+import re
 import uuid
 from dataclasses import replace as dc_replace
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import parse_qsl, urlsplit
 
+from cryptography import x509
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import DBAPIError
 from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
@@ -46,6 +50,7 @@ from zid_platform.modules.federation.application.oidc_login import (
     complete,
 )
 from zid_platform.modules.federation.application.saml_login import (
+    acs_url,
     begin_saml,
     complete_saml,
     complete_unsolicited_saml,
@@ -354,12 +359,30 @@ async def our_entity_configuration(request: Request) -> Response:
     return Response(token, media_type="application/entity-statement+jwt")
 
 
+_DOMAIN = re.compile(
+    r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+)
+
+
+class ApprovalIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approval_request_id: str | None = None
+
+
 class AnchorIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    entity_id: str = Field(pattern=r"^https://", max_length=512)
+    entity_id: str = Field(pattern=r"^https://\S+$", max_length=512)
     jwks: dict[str, Any]
     allowed_domains: list[str] = Field(min_length=1, max_length=20)
     approval_request_id: str | None = None
+
+    @field_validator("allowed_domains")
+    @classmethod
+    def _domains(cls, v: list[str]) -> list[str]:
+        out = sorted({d.strip().lower() for d in v})
+        if not all(_DOMAIN.match(d) for d in out):
+            raise ValueError("allowed_domains are plain DNS names such as example.org")
+        return out
 
 
 def _anchor_view(a: dict[str, Any]) -> dict[str, Any]:
@@ -385,8 +408,7 @@ async def list_anchors(request: Request, caller: CallerDep) -> dict[str, Any]:
 @router.post("/federation/trust-anchors", status_code=201)
 async def create_anchor(body: AnchorIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     """Configured, pinned trust: a federation can only be joined through an anchor added here."""
-    if not isinstance(body.jwks.get("keys"), list) or not body.jwks["keys"]:
-        raise http_error("VALIDATION_FAILED", "an anchor pins at least one key")
+    _keys(body.jwks, "an anchor pins at least one key")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn,
@@ -396,14 +418,53 @@ async def create_anchor(body: AnchorIn, request: Request, caller: CallerDep) -> 
             change=f"anchor:{body.entity_id}",
             approval_request_id=body.approval_request_id,
         )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource="federation_trust_anchor:*",
+            change={"operation": "ANCHOR_CREATE", "entity_id": body.entity_id},
+        )
+        if any(a["entity_id"] == body.entity_id for a in await store.list_anchors(conn)):
+            raise http_error(
+                "TRUST_ANCHOR_EXISTS", "a trust anchor with this entity ID already exists"
+            )
         aid = await store.create_anchor(
             conn,
             tenant_id=caller.ctx.tenant_id or "",
             entity_id=body.entity_id,
             jwks=body.jwks,
-            allowed_domains=[d.lower() for d in body.allowed_domains],
+            allowed_domains=body.allowed_domains,
         )
     return {"anchor_id": aid, "entity_id": body.entity_id, "status": "ACTIVE"}
+
+
+@router.post("/federation/trust-anchors/{anchor_id}:enable")
+async def enable_anchor(
+    anchor_id: uuid.UUID, request: Request, caller: CallerDep, body: ApprovalIn | None = None
+) -> dict[str, Any]:
+    """Restores trust in a quarantined anchor: an R3 change with fresh strong authentication."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=ADMIN_ACTION,
+            resource="federation_trust_anchor:*",
+            change="enable",
+            approval_request_id=body.approval_request_id if body else None,
+        )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource=f"federation_trust_anchor:{anchor_id}",
+            change={"operation": "ENABLE_ANCHOR"},
+        )
+        if await store.set_anchor_status(conn, str(anchor_id), "ACTIVE") is None:
+            raise http_error("TRUST_ANCHOR_NOT_FOUND")
+    return {"anchor_id": str(anchor_id), "status": "ACTIVE"}
 
 
 @router.post("/federation/trust-anchors/{anchor_id}:disable")
@@ -433,13 +494,24 @@ def _default_algs() -> list[Alg]:
     return ["ES256", "RS256"]
 
 
+def _clean_scopes(v: list[str]) -> list[str]:
+    out = list(dict.fromkeys(s.strip() for s in v if s.strip()))
+    if any(len(s) > 128 or any(ch.isspace() for ch in s) for s in out):
+        raise ValueError("a scope is one token without spaces")
+    return out
+
+
+def _with_openid(scopes: list[str]) -> tuple[str, ...]:
+    return tuple(scopes) if "openid" in scopes else ("openid", *scopes)
+
+
 class IntegrationIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     protocol: Literal["OIDC", "SAML"]
     display_name: str = Field(min_length=1, max_length=128)
     issuer: str = Field(min_length=1, max_length=512)
     metadata_expires_at: datetime
-    acr_levels: dict[str, int] = Field(default_factory=dict)
+    acr_levels: dict[str, Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     trust_amr: bool = True
     link_policy: Literal["EXISTING_ONLY", "JIT"] = "EXISTING_ONLY"
     client_id: str | None = None
@@ -448,8 +520,8 @@ class IntegrationIn(BaseModel):
     authorization_endpoint: str | None = None
     token_endpoint: str | None = None
     jwks: dict[str, Any] | None = None
-    algorithms: list[Alg] = Field(default_factory=_default_algs)
-    scopes: list[str] = Field(default_factory=lambda: ["openid"])
+    algorithms: list[Alg] = Field(default_factory=_default_algs, min_length=1)
+    scopes: list[str] = Field(default_factory=lambda: ["openid"], max_length=50)
     sso_url: str | None = None
     idp_certificates: list[str] = Field(default_factory=list)
     sp_entity_id: str | None = None
@@ -457,8 +529,48 @@ class IntegrationIn(BaseModel):
     require_encrypted_assertions: bool = False
     allow_idp_initiated: bool = False
     trust_anchor_id: uuid.UUID | None = None
-    federation_entity_id: str | None = Field(default=None, pattern=r"^https://")
+    federation_entity_id: str | None = Field(default=None, pattern=r"^https://\S+$", max_length=512)
     approval_request_id: str | None = None
+
+    @field_validator("display_name", "issuer", mode="before")
+    @classmethod
+    def _trim(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator(
+        "client_id",
+        "client_secret_ref",
+        "authorization_endpoint",
+        "token_endpoint",
+        "sso_url",
+        "sp_entity_id",
+        "sp_decryption_key_ref",
+        "federation_entity_id",
+        "approval_request_id",
+        mode="before",
+    )
+    @classmethod
+    def _blank_is_absent(cls, v: Any) -> Any:
+        """A form's empty box arrives as "": the same as not sent, never a stored empty string."""
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
+        return v
+
+    @field_validator("scopes")
+    @classmethod
+    def _scopes(cls, v: list[str]) -> list[str]:
+        return _clean_scopes(v)
+
+    @field_validator("algorithms")
+    @classmethod
+    def _algs(cls, v: list[Alg]) -> list[Alg]:
+        return list(dict.fromkeys(v))
+
+    @field_validator("idp_certificates")
+    @classmethod
+    def _certs(cls, v: list[str]) -> list[str]:
+        return [c.strip() for c in v if c.strip()]
 
 
 class RotateIn(BaseModel):
@@ -467,9 +579,62 @@ class RotateIn(BaseModel):
     jwks: dict[str, Any] | None = None
     idp_certificates: list[str] | None = None
     client_auth: Literal["private_key_jwt", "client_secret_basic"] | None = None
-    client_secret_ref: str | None = None
+    client_secret_ref: str | None = Field(default=None, max_length=128)
     sp_decryption_key_ref: str | None = Field(default=None, max_length=128)
     approval_request_id: str | None = None
+
+    @field_validator(
+        "client_secret_ref", "sp_decryption_key_ref", "approval_request_id", mode="before"
+    )
+    @classmethod
+    def _blank_is_absent(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
+        return v
+
+    @field_validator("idp_certificates")
+    @classmethod
+    def _certs(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else [c.strip() for c in v if c.strip()]
+
+
+class UpdateIn(BaseModel):
+    """Settings that do not change who is trusted. Issuer, endpoints, keys, certificates and anchors are never here: rotate handles keys."""
+
+    model_config = ConfigDict(extra="forbid")
+    display_name: str | None = Field(default=None, min_length=1, max_length=128)
+    link_policy: Literal["EXISTING_ONLY", "JIT"] | None = None
+    trust_amr: bool | None = None
+    acr_levels: dict[str, Annotated[int, Field(ge=0)]] | None = None
+    scopes: list[str] | None = Field(default=None, max_length=50)  # OIDC
+    algorithms: list[Alg] | None = Field(default=None, min_length=1)
+    sp_entity_id: str | None = Field(default=None, max_length=512)  # SAML
+    require_encrypted_assertions: bool | None = None  # SAML
+    approval_request_id: str | None = None
+
+    @field_validator("sp_entity_id", "approval_request_id", mode="before")
+    @classmethod
+    def _trim(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
+        return v
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def _name(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("scopes")
+    @classmethod
+    def _scopes(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else _clean_scopes(v)
+
+    @field_validator("algorithms")
+    @classmethod
+    def _algs(cls, v: list[Alg] | None) -> list[Alg] | None:
+        return None if v is None else list(dict.fromkeys(v))
 
 
 class IdpInitiatedIn(BaseModel):
@@ -491,8 +656,9 @@ def idp_initiated_change(enabled: bool, targets: list[str]) -> str:
     return f"idp_initiated:{'on' if enabled else 'off'}:{','.join(sorted(targets))}"
 
 
-def _view(c: Connection) -> dict[str, Any]:
-    return {
+def _view(c: Connection, *, acs: str | None = None) -> dict[str, Any]:
+    """What the screens show. Pinned keys and certificates are counted; secret and key references are names, never values."""
+    out: dict[str, Any] = {
         "connection_id": c.connection_id,
         "protocol": c.protocol,
         "display_name": c.display_name,
@@ -501,16 +667,130 @@ def _view(c: Connection) -> dict[str, Any]:
         "config_revision": c.config_revision,
         "metadata_expires_at": c.metadata_expires_at.isoformat(),
         "link_policy": c.link_policy,
+        "trust_amr": c.trust_amr,
+        "acr_levels": dict(c.acr_levels),
+        "algorithms": list(c.algorithms),
         "allow_idp_initiated": c.allow_idp_initiated,
         "idp_initiated_targets": list(c.idp_initiated_targets),
         "require_encrypted_assertions": c.require_encrypted_assertions,
     }
+    if c.protocol == "OIDC":
+        out |= {
+            "client_id": c.client_id,
+            "client_auth": c.client_auth,
+            "client_secret_ref": c.client_secret_ref,
+            "scopes": list(c.scopes),
+            "authorization_endpoint": c.authorization_endpoint,
+            "token_endpoint": c.token_endpoint,
+            "pinned_keys": len((c.jwks or {}).get("keys") or []),
+            "trust_anchor_id": c.trust_anchor_id,
+            "federation_entity_id": c.federation_entity_id,
+        }
+    else:
+        out |= {
+            "sso_url": c.sso_url,
+            "sp_entity_id": c.sp_entity_id,
+            "pinned_certificates": len(c.idp_certificates),
+            "sp_decryption_key_ref": c.sp_decryption_key_ref,
+        }
+    if acs:
+        out["acs_url"] = acs
+    return out
 
 
 def _validity(expires: datetime) -> None:
+    if expires.tzinfo is None:
+        raise http_error(
+            "VALIDATION_FAILED", "metadata validity needs a time zone (for example a trailing Z)"
+        )
     now = datetime.now(UTC)
     if not now < expires <= now + MAX_METADATA_VALIDITY:
         raise http_error("VALIDATION_FAILED", "metadata validity must be in the future and bounded")
+
+
+def _keys(jwks: dict[str, Any] | None, message: str) -> dict[str, Any]:
+    keys = jwks.get("keys") if jwks else None
+    if not isinstance(keys, list) or not keys or not all(isinstance(k, dict) for k in keys):
+        raise http_error("VALIDATION_FAILED", message)
+    return jwks or {}
+
+
+def _certificate(value: str) -> None:
+    """A pinned SAML certificate is a PEM block or one base64 DER certificate; anything else could never verify a signature."""
+    try:
+        if "BEGIN CERTIFICATE" in value:
+            x509.load_pem_x509_certificate(value.encode())
+        else:
+            x509.load_der_x509_certificate(base64.b64decode(value, validate=True))
+    except (ValueError, binascii.Error) as e:
+        raise http_error("VALIDATION_FAILED", "idp_certificates must be X.509 certificates") from e
+
+
+def _profile(b: IntegrationIn) -> None:
+    """The federation profile (migration CHECKs) as readable errors, and no field silently dropped for the wrong protocol."""
+    if b.allow_idp_initiated:
+        raise http_error(
+            "VALIDATION_FAILED", "IdP-initiated SAML is enabled only by a separate R3 change"
+        )
+    if b.protocol == "OIDC":
+        if (
+            b.sso_url
+            or b.idp_certificates
+            or b.sp_entity_id
+            or b.sp_decryption_key_ref
+            or b.require_encrypted_assertions
+        ):
+            raise http_error(
+                "VALIDATION_FAILED",
+                "sso_url, idp_certificates, sp_entity_id and encryption are SAML settings",
+            )
+        if not b.issuer.startswith("https://") or any(ch.isspace() for ch in b.issuer):
+            raise http_error("VALIDATION_FAILED", "an OIDC issuer is an https:// URL")
+        if not b.client_id or not b.client_auth:
+            raise http_error("VALIDATION_FAILED", "client_id and client_auth are required for OIDC")
+        if b.client_auth == "client_secret_basic" and not b.client_secret_ref:
+            raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret_ref")
+        if bool(b.trust_anchor_id) != bool(b.federation_entity_id):
+            raise http_error(
+                "VALIDATION_FAILED", "trust_anchor_id and federation_entity_id go together"
+            )
+        if b.federation_entity_id:
+            if b.authorization_endpoint or b.token_endpoint or b.jwks:
+                raise http_error(
+                    "VALIDATION_FAILED",
+                    "a federation-resolved provider has no pinned endpoints or keys",
+                )
+        else:
+            if not (b.authorization_endpoint and b.token_endpoint):
+                raise http_error(
+                    "VALIDATION_FAILED", "authorization_endpoint and token_endpoint are required"
+                )
+            _keys(b.jwks, "jwks must pin at least one key")
+        return
+    if (
+        b.client_id
+        or b.client_auth
+        or b.client_secret_ref
+        or b.authorization_endpoint
+        or b.token_endpoint
+        or b.jwks
+        or b.trust_anchor_id
+        or b.federation_entity_id
+    ):
+        raise http_error(
+            "VALIDATION_FAILED",
+            "client settings, endpoints, jwks and trust anchors are OIDC settings",
+        )
+    if not b.sso_url or not b.sso_url.startswith("https://"):
+        raise http_error("VALIDATION_FAILED", "sso_url is required and must be https://")
+    if not b.idp_certificates:
+        raise http_error("VALIDATION_FAILED", "at least one idp_certificate is required")
+    for pem in b.idp_certificates:
+        _certificate(pem)
+    if not b.sp_entity_id:
+        raise http_error("VALIDATION_FAILED", "sp_entity_id is required for SAML")
+    if b.require_encrypted_assertions and not b.sp_decryption_key_ref:
+        raise http_error("VALIDATION_FAILED", "encrypted assertions need sp_decryption_key_ref")
 
 
 def _endpoints_safe(*urls: str | None) -> None:
@@ -555,11 +835,17 @@ async def discover_provider(
             raise ZidError(e.code, e.detail, http_status=422) from e
 
 
+def _acs(request: Request, c: Connection) -> str | None:
+    """The sign-in (ACS) address a SAML provider's administrator enters on their side."""
+    s: FederationSettings | None = getattr(request.app.state, "federation_settings", None)
+    return acs_url(s) if s is not None and c.protocol == "SAML" else None
+
+
 @router.get("/federation/integrations")
 async def list_integrations(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as c:
         await protected_action(c, caller, action=ADMIN_ACTION, resource="federation_connection:*")
-        return {"items": [_view(x) for x in await store.list_all(c)]}
+        return {"items": [_view(x, acs=_acs(request, x)) for x in await store.list_all(c)]}
 
 
 @router.post("/federation/integrations", status_code=201)
@@ -567,11 +853,10 @@ async def create_integration(
     body: IntegrationIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _validity(body.metadata_expires_at)
-    _endpoints_safe(body.authorization_endpoint, body.token_endpoint)
-    if body.allow_idp_initiated:
-        raise http_error(
-            "VALIDATION_FAILED", "IdP-initiated SAML is enabled only by a separate R3 change"
-        )
+    _profile(body)
+    _endpoints_safe(
+        body.authorization_endpoint, body.token_endpoint, body.sso_url, body.federation_entity_id
+    )
     cid = str(uuid.uuid4())
     c = Connection(
         connection_id=cid,
@@ -582,7 +867,7 @@ async def create_integration(
         status="ACTIVE",
         config_revision=1,
         metadata_expires_at=body.metadata_expires_at,
-        acr_levels={k: min(v, 2) for k, v in body.acr_levels.items()},
+        acr_levels={k: min(v, 2) for k, v in body.acr_levels.items()},  # never above Z2
         trust_amr=body.trust_amr,
         link_policy=body.link_policy,
         client_id=body.client_id,
@@ -592,7 +877,7 @@ async def create_integration(
         token_endpoint=body.token_endpoint,
         jwks=body.jwks,
         algorithms=tuple(body.algorithms),
-        scopes=tuple(body.scopes) if "openid" in body.scopes else ("openid", *body.scopes),
+        scopes=_with_openid(body.scopes),
         sso_url=body.sso_url,
         idp_certificates=tuple(body.idp_certificates),
         sp_entity_id=body.sp_entity_id,
@@ -630,6 +915,16 @@ async def create_integration(
             resource=f"federation_connection:{cid}",
             change={"operation": "CREATE", "issuer": body.issuer},
         )
+        if await store.by_issuer(conn, body.issuer) is not None:
+            raise http_error(
+                "FEDERATION_ISSUER_EXISTS", "a provider with this issuer already exists"
+            )
+        if c.trust_anchor_id:
+            anchor = await store.load_anchor(conn, c.trust_anchor_id)
+            if anchor is None or anchor["status"] != "ACTIVE":
+                raise http_error(
+                    "VALIDATION_FAILED", "trust_anchor_id is not an active trust anchor"
+                )
         try:
             async with conn.begin_nested():
                 await store.create(conn, c)
@@ -637,7 +932,77 @@ async def create_integration(
             raise http_error(
                 "VALIDATION_FAILED", "integration violates the federation profile"
             ) from e
-    return _view(c)
+    return _view(c, acs=_acs(request, c))
+
+
+@router.patch("/federation/integrations/{connection_id}")
+async def update_integration(
+    connection_id: uuid.UUID, body: UpdateIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Change what an integration is called and how it is used. A change to what the provider is trusted for (linking, auth
+    methods, assurance levels, the SP entity id, encryption) also needs fresh strong authentication. No change, no new revision."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=ADMIN_ACTION,
+            resource=f"federation_connection:{connection_id}",
+            change="update",
+            approval_request_id=body.approval_request_id,
+        )
+        old = await store.load(conn, str(connection_id), lock=True)
+        if old is None:
+            raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
+        if old.status != "ACTIVE":
+            raise http_error(
+                "FEDERATION_CONNECTION_QUARANTINED", "a disabled integration cannot be changed"
+            )
+        saml = old.protocol == "SAML"
+        if saml and body.scopes is not None:
+            raise http_error("VALIDATION_FAILED", "scopes are an OIDC setting")
+        if not saml and (body.sp_entity_id is not None or body.require_encrypted_assertions):
+            raise http_error("VALIDATION_FAILED", "sp_entity_id and encryption are SAML settings")
+        changes: dict[str, Any] = {}
+        if body.display_name is not None:
+            changes["display_name"] = body.display_name
+        if body.link_policy is not None:
+            changes["link_policy"] = body.link_policy
+        if body.trust_amr is not None:
+            changes["trust_amr"] = body.trust_amr
+        if body.acr_levels is not None:
+            changes["acr_levels"] = {k: min(v, 2) for k, v in body.acr_levels.items()}
+        if body.scopes is not None:
+            changes["scopes"] = _with_openid(body.scopes)
+        if body.algorithms is not None:
+            changes["algorithms"] = tuple(body.algorithms)
+        if body.sp_entity_id is not None:
+            changes["sp_entity_id"] = body.sp_entity_id
+        if body.require_encrypted_assertions is not None:
+            if body.require_encrypted_assertions and not old.sp_decryption_key_ref:
+                raise http_error(
+                    "VALIDATION_FAILED",
+                    "encrypted assertions need sp_decryption_key_ref (rotate sets it)",
+                )
+            changes["require_encrypted_assertions"] = body.require_encrypted_assertions
+        changes = {k: v for k, v in changes.items() if getattr(old, k) != v}
+        if not changes:
+            return _view(old, acs=_acs(request, old))
+        if changes.keys() - {"display_name", "scopes", "algorithms"}:
+            await require_step_up(
+                request,
+                conn,
+                caller,
+                action="change-sso-federation-trust-or-scim-privilege-mapping",
+                resource=f"federation_connection:{connection_id}",
+                change={"operation": "UPDATE", "fields": sorted(changes)},
+            )
+        new = dc_replace(old, config_revision=old.config_revision + 1, **changes)
+        try:
+            async with conn.begin_nested():
+                await store.replace(conn, old, new, "updated")
+        except DBAPIError as e:
+            raise http_error("VALIDATION_FAILED", "update violates the federation profile") from e
+    return _view(new, acs=_acs(request, new))
 
 
 @router.post("/federation/integrations/{connection_id}:rotate")
@@ -655,9 +1020,39 @@ async def rotate(
             change="rotate",
             approval_request_id=body.approval_request_id,
         )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource=f"federation_connection:{connection_id}",
+            change={"operation": "ROTATE"},
+        )
         old = await store.load(conn, str(connection_id), lock=True)
         if old is None:
             raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
+        if old.status != "ACTIVE":
+            raise http_error(
+                "FEDERATION_CONNECTION_QUARANTINED", "a disabled integration cannot be rotated"
+            )
+        if old.protocol == "SAML":
+            if body.jwks is not None or body.client_auth or body.client_secret_ref:
+                raise http_error("VALIDATION_FAILED", "jwks and client settings are OIDC settings")
+            if body.idp_certificates is not None and not body.idp_certificates:
+                raise http_error("VALIDATION_FAILED", "at least one idp_certificate is required")
+            for pem in body.idp_certificates or ():
+                _certificate(pem)
+        else:
+            if body.idp_certificates is not None or body.sp_decryption_key_ref:
+                raise http_error(
+                    "VALIDATION_FAILED", "certificates and decryption keys are SAML settings"
+                )
+            if body.jwks is not None:
+                _keys(body.jwks, "jwks must pin at least one key")
+            if (body.client_auth or old.client_auth) == "client_secret_basic" and not (
+                body.client_secret_ref or old.client_secret_ref
+            ):
+                raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret_ref")
         new = dc_replace(
             old,
             config_revision=old.config_revision + 1,
@@ -697,6 +1092,15 @@ async def set_idp_initiated(
             approval_request_id=body.approval_request_id,
             require_approval=body.enabled,
         )
+        if body.enabled:
+            await require_step_up(
+                request,
+                conn,
+                caller,
+                action="change-sso-federation-trust-or-scim-privilege-mapping",
+                resource=f"federation_connection:{connection_id}",
+                change={"operation": "IDP_INITIATED", "targets": targets},
+            )
         old = await store.load(conn, str(connection_id), lock=True)
         if old is None:
             raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
@@ -711,10 +1115,45 @@ async def set_idp_initiated(
         await store.replace(
             conn, old, new, "idp_initiated_enabled" if body.enabled else "idp_initiated_disabled"
         )
-    out = _view(new)
-    if new.allow_idp_initiated:
-        out["acs_url"] = connection_acs_url(_settings(request), new)
-    return out
+    return _view(
+        new, acs=connection_acs_url(_settings(request), new) if new.allow_idp_initiated else None
+    )
+
+
+@router.post("/federation/integrations/{connection_id}:enable")
+async def enable(
+    connection_id: uuid.UUID, request: Request, caller: CallerDep, body: ApprovalIn | None = None
+) -> dict[str, Any]:
+    """QUARANTINED -> ACTIVE. Restores trust, so it is an R3 change with fresh strong authentication; an active provider is left as it is."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn,
+            caller,
+            action=ADMIN_ACTION,
+            resource=f"federation_connection:{connection_id}",
+            change="enable",
+            approval_request_id=body.approval_request_id if body else None,
+        )
+        old = await store.load(conn, str(connection_id), lock=True)
+        if old is None:
+            raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
+        if old.status == "ACTIVE":
+            return _view(old, acs=_acs(request, old))
+        if old.status != "QUARANTINED":
+            raise http_error(
+                "FEDERATION_CONNECTION_QUARANTINED", "this integration cannot be enabled"
+            )
+        await require_step_up(
+            request,
+            conn,
+            caller,
+            action="change-sso-federation-trust-or-scim-privilege-mapping",
+            resource=f"federation_connection:{connection_id}",
+            change={"operation": "ENABLE", "issuer": old.issuer},
+        )
+        new = dc_replace(old, status="ACTIVE", config_revision=old.config_revision + 1)
+        await store.replace(conn, old, new, "enabled")
+    return _view(new, acs=_acs(request, new))
 
 
 @router.post("/federation/integrations/{connection_id}:disable")
@@ -730,6 +1169,8 @@ async def disable(connection_id: uuid.UUID, request: Request, caller: CallerDep)
         old = await store.load(conn, str(connection_id), lock=True)
         if old is None:
             raise http_error("FEDERATION_CONNECTION_NOT_FOUND")
+        if old.status == "QUARANTINED":
+            return _view(old)  # already off: no second revision, no second event
         new = dc_replace(old, status="QUARANTINED", config_revision=old.config_revision + 1)
         await store.replace(conn, old, new, "quarantined")
     return _view(new)

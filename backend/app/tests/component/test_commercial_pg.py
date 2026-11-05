@@ -18,6 +18,7 @@ import pytest
 from conftest import CELL, ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, onboard
+from scim_fixture import KEY
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from zid_db import tenant_transaction
@@ -473,7 +474,7 @@ def test_plan_limits_over_http_and_security_paths_are_never_gated(rt_url: str) -
         r = http.post(
             "/provisioning/sources",
             headers=adm,
-            json={"client_id": f"hr-{uid()[:8]}", "display_name": "HR"},
+            json={"jwks": {"keys": [KEY]}, "display_name": "HR"},
         )
         assert r.status_code == 201, r.text
 

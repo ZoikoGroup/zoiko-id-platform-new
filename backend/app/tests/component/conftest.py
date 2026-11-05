@@ -107,6 +107,24 @@ def owner_url(pg_urls: tuple[str, str]) -> str:
     return pg_urls[0]
 
 
+@pytest.fixture(autouse=True)
+def _own_sanction_lists(request: pytest.FixtureRequest) -> None:
+    """The public lists are one set for the whole database, and a list that shrinks is refused. A test that loads its own
+    lists must not meet the ones another test left, so the modules that load their own start each test with none."""
+    if not any(
+        part in request.module.__name__
+        for part in ("screening", "org_claims_api", "org_claims_lifecycle")
+    ):
+        return
+    owner = request.getfixturevalue("owner_url")
+
+    async def clear() -> None:
+        async with engine(owner) as eng, eng.begin() as c:
+            await c.execute(text("DELETE FROM verify.sanction_list_version"))
+
+    asyncio.run(clear())
+
+
 def ctx(tenant: str | uuid.UUID) -> RequestContext:
     return RequestContext("req_t", "cor_t", "test", CELL, tenant_id=str(tenant), principal_id=None)
 

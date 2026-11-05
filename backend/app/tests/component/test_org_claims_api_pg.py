@@ -145,7 +145,7 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
             r.status_code == 403 and error(r) == "ROLE_NOT_PERMITTED"
         )  # a grant is not a tenant role
         r = api.post(
-            "/v1/org-claims/search", headers=owner, json={"country": "FR", "query": "Acme"}
+            "/v1/org-claims/search", headers=owner, json={"country": "BR", "query": "Acme"}
         )
         assert r.status_code == 422 and error(r) == "COUNTRY_CAPABILITY_UNAVAILABLE"
 

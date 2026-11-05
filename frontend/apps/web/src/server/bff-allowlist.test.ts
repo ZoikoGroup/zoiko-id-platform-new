@@ -19,12 +19,20 @@ describe("the proxy allowlist", () => {
     ["step-up challenges and proofs", "/v1/step-up/"],
     ["company claims", "/v1/org-claims"],
     ["plan features and downgrade impact", "/v1/entitlements"],
+    ["suspend, resume and offboard on the settings page", "/v1/tenant:suspend"],
+    ["resume after a suspension", "/v1/tenant:resume"],
+    ["offboard an organization", "/v1/tenant:offboard"],
     ["the billing overview, profile, commitments and delegates", "/v1/billing/"],
     ["billing grants and the caller's own permissions", "/v1/tenant/"],
     ["the role gallery (the published role matrix)", "/v1/roles/"],
     ["the verification level and what each tier asks for", "/v1/verification/"],
+    ["provisioning sources (list, register, suspend)", "/provisioning/sources"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
+  });
+
+  it("keeps the SCIM service and HR events off the browser proxy: external clients call the cell directly", () => {
+    for (const closed of ['"/scim/', '"/provisioning/lifecycle-events']) expect(block).not.toContain(closed);
   });
 
   it("does not open the reviewer, operator or sign-up relays through the bearer proxy", () => {

@@ -30,6 +30,7 @@ import httpx
 from conftest import CELL, ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import AUD, ISS, onboard
+from scim_fixture import KEY
 from sqlalchemy import text
 from test_federation_oidc_pg import COOKIE, IDP, ORIGIN, FakeIdP
 from zid_db import tenant_transaction
@@ -87,7 +88,7 @@ def test_overlay_proof_external_idp_user_and_agent_without_directory_migration(
     o = onboard(rt_url)
     tenant = o.tenant
     cfo, svc, agent = uid(), uid(), uid()
-    web, hris_client = f"web-{uid()}", f"hris-{uid()[:8]}"
+    web = f"web-{uid()}"
     idp = FakeIdP(o.ring, "zoiko-at-acme")
 
     async def seed_actors() -> None:
@@ -295,17 +296,15 @@ def test_overlay_proof_external_idp_user_and_agent_without_directory_migration(
 
     with TestClient(app, base_url=ISS, follow_redirects=False) as api:
         owner = o.bearer(o.owner)  # the company administrator; also the PEP's service credential
-        hris = o.bearer(svc, scope="scim:provision", client=hris_client)
 
         # --- 1. the HRIS provisions the person: an identifier and a membership, nothing migrated
-        assert (
-            api.post(
-                "/provisioning/sources",
-                json={"client_id": hris_client, "display_name": "Workday"},
-                headers=owner,
-            ).status_code
-            == 201
+        r = api.post(
+            "/provisioning/sources",
+            json={"jwks": {"keys": [KEY]}, "display_name": "Workday"},
+            headers=owner,
         )
+        assert r.status_code == 201, r.text
+        hris = o.bearer(svc, scope="scim:provision", client=r.json()["client_id"])
         r = api.post(
             "/scim/v2/Users",
             json={
