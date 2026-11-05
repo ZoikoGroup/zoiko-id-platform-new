@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -78,9 +79,10 @@ async def _apply(
     if kind == "charge.refunded":
         from zid_platform.modules.commercial.application import refund_service
 
-        refunds = (ev.data.get("refunds") or {}).get("data") or []
-        newest = refunds[0] if refunds and isinstance(refunds[0], dict) else {}
-        meta = newest.get("metadata") if isinstance(newest.get("metadata"), dict) else {}
+        refunds: list[Any] = (ev.data.get("refunds") or {}).get("data") or []
+        newest: dict[str, Any] = refunds[0] if refunds and isinstance(refunds[0], dict) else {}
+        raw_meta = newest.get("metadata")
+        meta: dict[str, Any] = raw_meta if isinstance(raw_meta, dict) else {}
         await _in_tenant(conn, "")
         linked = await refund_service.note_provider_refund(
             conn,
