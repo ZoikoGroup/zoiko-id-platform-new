@@ -46,28 +46,6 @@ OPERATOR_TENANT_ID = "00000000-0000-4000-8000-0000000000e1"
 OPERATOR_PRINCIPAL_ID = "00000000-0000-4000-8000-0000000000e2"
 # Scopes the web app requests (verification and presentation APIs check them).
 WEB_SCOPES = frozenset({"openid", "verification:read", "verification:execute", "presentation:request"})
-# Resource types the protected administration endpoints name (`type:*` covers every id).
-ADMIN_RESOURCE_TYPES = (
-    "approval_request",
-    "authority_grant",
-    "credential",
-    "credential_configuration",
-    "credential_issuer",
-    "federation_connection",
-    "federation_trust_anchor",
-    "mandate",
-    "principal",
-    "provisioning_source",
-    "recovery_case",
-    "rp_registration",
-    "security_state",
-    "ssf_stream",
-    "tenant",
-    "verification_adapter",
-    "verification_assertion",
-    "verification_profile",
-    "verification_review_case",
-)
 ADMIN_POLICY = '@id("admin") permit (principal, action, resource) when { context.authority_valid };'
 
 
@@ -174,13 +152,13 @@ async def ensure_admin(
         for g in await load_grants_for_grantee(c, principal_id)
         if g.status is GrantStatus.ACTIVE and g.grantor_principal_id == holder_id
     ]
-    wanted = {f"{t}:*" for t in ADMIN_RESOURCE_TYPES}
+    # Like a real owner's grant (onboarding), it is not limited by resource: the routes name many resource types and the list grows.
     covered = any(
         (g.authority.actions is ANY or set(actions) <= g.authority.actions)  # type: ignore[operator]
-        and (g.authority.resources is ANY or wanted <= g.authority.resources)  # type: ignore[operator]
+        and g.authority.resources is ANY
         for g in held
     )
-    if not covered:  # first run, or the catalog gained actions since the last grant
+    if not covered:  # first run, the catalog gained actions, or the grant was limited to a list of resources
         await issue_grant(
             c,
             Grant(
@@ -192,7 +170,6 @@ async def ensure_admin(
                 org_id,
                 Authority(
                     actions=scope(*actions),
-                    resources=scope(*(f"{t}:*" for t in ADMIN_RESOURCE_TYPES)),
                     window=Window(now - timedelta(days=1), now + timedelta(days=300)),
                 ),
                 ContinuityMode.ROLE_CONTINUOUS,
