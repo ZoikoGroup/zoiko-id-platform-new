@@ -120,6 +120,9 @@ def test_an_invoice_is_issued_by_a_second_person_taxed_by_the_port_and_never_cha
     async def run() -> None:
         await rated_month(rt_url, tenant)
         await rated_month(rt_url, other, mah=10_000)
+        # other test modules issue into this same series (they import ENTITY), so count only what this test adds
+        async with engine(rt_url) as eng, eng.begin() as c:
+            baseline = len(await inv.chain_entries(c, ENTITY))
         async with engine(rt_url) as eng:
             async with tenant_transaction(eng, ctx(tenant)) as c:
                 d = await inv.create_draft(
@@ -230,7 +233,7 @@ def test_an_invoice_is_issued_by_a_second_person_taxed_by_the_port_and_never_cha
         # the chain over this issuing entity is whole: two invoices and one credit note
         async with engine(rt_url) as eng, eng.begin() as c:
             entries = await inv.chain_entries(c, ENTITY)
-        assert len(entries) == 3 and verify_chain(entries) is None
+        assert len(entries) - baseline == 3 and verify_chain(entries) is None
 
         # the database refuses to edit an issued invoice, its lines, the chain or a credit note
         async with engine(owner_url) as eng:

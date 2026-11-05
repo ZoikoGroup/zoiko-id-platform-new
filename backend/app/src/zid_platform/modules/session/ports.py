@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import uuid
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.principal.ports import (
+    Principal,
+    PrincipalStatus,
+    PrincipalType,
+    create_principal,
+)
 from zid_platform.modules.session.application.authenticate import (
     Authenticated,
     TokenSettings,
@@ -21,6 +28,8 @@ from zid_platform.modules.session.application.client_auth import (
 from zid_platform.modules.session.application.issue import issue_access_token
 from zid_platform.modules.session.application.oauth_server import ServerSettings
 from zid_platform.modules.session.domain.client_registration import (
+    ClientRegistrationError,
+    check_public_jwks,
     check_registration,
     new_client_id,
 )
@@ -115,8 +124,61 @@ class OAuthClientGateway:
         return [_client_view(c) for c in await list_clients(conn)]
 
 
+async def register_service_client(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    name: str,
+    jwks: Mapping[str, Any],
+    scopes: Sequence[str],
+    audience: str,
+    home_cell: str,
+) -> dict[str, Any]:
+    """A machine client for a connector (a SCIM source): CONFIDENTIAL, `client_credentials` only, proving itself
+    with `private_key_jwt` over the PUBLIC keys given (a private key is refused, never stored). It acts as its own
+    service principal, created here in the same transaction. Raises `ClientRegistrationError` for bad keys."""
+    keys = check_public_jwks(jwks)
+    principal_id = str(uuid.uuid4())
+    await create_principal(
+        conn,
+        Principal(
+            principal_id, tenant_id, PrincipalType.APPLICATION, PrincipalStatus.ACTIVE, home_cell
+        ),
+    )
+    client = OAuthClient(
+        client_id=new_client_id(name),
+        tenant_id=tenant_id,
+        client_type="CONFIDENTIAL",
+        profile="STANDARD",
+        redirect_uris=(),
+        grant_types=frozenset({"client_credentials"}),
+        scopes=frozenset(scopes),
+        audiences=(audience,),
+        token_auth_method="private_key_jwt",
+        dpop_bound=False,
+        status="ACTIVE",
+        jwks=keys,
+        service_principal_id=principal_id,
+        require_par=False,
+    )
+    await register_client(conn, client)
+    return _client_view(client)
+
+
+async def usable_service_client(conn: AsyncConnection, client_id: str, *, scope: str) -> bool:
+    """True when the caller's tenant (RLS) has this client ACTIVE with `client_credentials` and `scope`."""
+    c = await load_client(conn, client_id)
+    return (
+        c is not None
+        and c.status == "ACTIVE"
+        and "client_credentials" in c.grant_types
+        and scope in c.scopes
+    )
+
+
 __all__ = [
     "Authenticated",
+    "ClientRegistrationError",
     "OAuthClient",
     "OAuthClientGateway",
     "ServerSettings",
@@ -127,6 +189,7 @@ __all__ = [
     "TokenSettings",
     "authenticate",
     "cert_thumbprint",
+    "check_public_jwks",
     "client_tenant",
     "create_session",
     "issue_access_token",
@@ -138,10 +201,12 @@ __all__ = [
     "load_session_by_handle",
     "parse_client_cert",
     "register_client",
+    "register_service_client",
     "revoke_principal_sessions",
     "revoke_tenant_sessions",
     "set_client_status",
     "set_session_status",
+    "usable_service_client",
 ]
 
 

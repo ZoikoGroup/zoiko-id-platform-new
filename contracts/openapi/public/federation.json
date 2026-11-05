@@ -26,7 +26,7 @@
           },
           "entity_id": {
             "maxLength": 512,
-            "pattern": "^https://",
+            "pattern": "^https://\\S+$",
             "title": "Entity Id",
             "type": "string"
           },
@@ -42,6 +42,24 @@
           "allowed_domains"
         ],
         "title": "AnchorIn",
+        "type": "object"
+      },
+      "ApprovalIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          }
+        },
+        "title": "ApprovalIn",
         "type": "object"
       },
       "DiscoverIn": {
@@ -120,6 +138,7 @@
         "properties": {
           "acr_levels": {
             "additionalProperties": {
+              "minimum": 0.0,
               "type": "integer"
             },
             "title": "Acr Levels",
@@ -135,6 +154,7 @@
               ],
               "type": "string"
             },
+            "minItems": 1,
             "title": "Algorithms",
             "type": "array"
           },
@@ -212,7 +232,8 @@
           "federation_entity_id": {
             "anyOf": [
               {
-                "pattern": "^https://",
+                "maxLength": 512,
+                "pattern": "^https://\\S+$",
                 "type": "string"
               },
               {
@@ -277,6 +298,7 @@
             "items": {
               "type": "string"
             },
+            "maxItems": 50,
             "title": "Scopes",
             "type": "array"
           },
@@ -400,6 +422,7 @@
           "client_secret_ref": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -456,6 +479,138 @@
           "metadata_expires_at"
         ],
         "title": "RotateIn",
+        "type": "object"
+      },
+      "UpdateIn": {
+        "additionalProperties": false,
+        "description": "Settings that do not change who is trusted. Issuer, endpoints, keys, certificates and anchors are never here: rotate handles keys.",
+        "properties": {
+          "acr_levels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "minimum": 0.0,
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acr Levels"
+          },
+          "algorithms": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "ES256",
+                    "Ed25519",
+                    "RS256",
+                    "PS256"
+                  ],
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithms"
+          },
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "link_policy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "EXISTING_ONLY",
+                  "JIT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Policy"
+          },
+          "require_encrypted_assertions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Encrypted Assertions"
+          },
+          "scopes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scopes"
+          },
+          "sp_entity_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Entity Id"
+          },
+          "trust_amr": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Amr"
+          }
+        },
+        "title": "UpdateIn",
         "type": "object"
       },
       "ValidationError": {
@@ -725,6 +880,62 @@
         ]
       }
     },
+    "/federation/integrations/{connection_id}": {
+      "patch": {
+        "description": "Change what an integration is called and how it is used. A change to what the provider is trusted for (linking, auth\nmethods, assurance levels, the SP entity id, encryption) also needs fresh strong authentication. No change, no new revision.",
+        "operationId": "update_integration_federation_integrations__connection_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Integration Federation Integrations  Connection Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Integration",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
     "/federation/integrations/{connection_id}:disable": {
       "post": {
         "operationId": "disable_federation_integrations__connection_id__disable_post",
@@ -765,6 +976,69 @@
           }
         },
         "summary": "Disable",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
+    "/federation/integrations/{connection_id}:enable": {
+      "post": {
+        "description": "QUARANTINED -> ACTIVE. Restores trust, so it is an R3 change with fresh strong authentication; an active provider is left as it is.",
+        "operationId": "enable_federation_integrations__connection_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApprovalIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enable Federation Integrations  Connection Id  Enable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable",
         "tags": [
           "federation"
         ]
@@ -1138,6 +1412,69 @@
           }
         },
         "summary": "Disable Anchor",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
+    "/federation/trust-anchors/{anchor_id}:enable": {
+      "post": {
+        "description": "Restores trust in a quarantined anchor: an R3 change with fresh strong authentication.",
+        "operationId": "enable_anchor_federation_trust_anchors__anchor_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "anchor_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Anchor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApprovalIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enable Anchor Federation Trust Anchors  Anchor Id  Enable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Anchor",
         "tags": [
           "federation"
         ]

@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.commercial.application import finance_service as finance
@@ -122,7 +122,7 @@ async def ingest(
     due = (obj.get("evidence_details") or {}).get("due_by")
     due_by = datetime.fromtimestamp(int(due), UTC) if isinstance(due, int) else None
     pay = await _payment(conn, pi)
-    existing = (
+    existing: RowMapping | dict[str, Any] | None = (
         (
             await conn.execute(
                 text(

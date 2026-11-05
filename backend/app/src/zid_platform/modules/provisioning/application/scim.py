@@ -14,10 +14,20 @@ from __future__ import annotations
 import uuid
 from dataclasses import replace
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import ValidationError
-from scim2_models import Context, Group, PatchOp, SCIMException, User
+from scim2_models import (
+    URN,
+    ComplexAttribute,
+    Context,
+    Extension,
+    Group,
+    Mutability,
+    PatchOp,
+    SCIMException,
+    User,
+)
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.principal.ports import (
@@ -30,8 +40,47 @@ from zid_platform.modules.provisioning.infrastructure import scim_store as store
 from zid_platform.modules.provisioning.infrastructure.scim_store import Resource, ScimError, Source
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
 
-ScimUser = User[Any]  # core User; enterprise extensions are not accepted
-USER_ATTRIBUTES = ("name", "emails")  # the minimum SCIM must echo back; nothing else is kept
+ENTERPRISE = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+
+
+class _Manager(ComplexAttribute):
+    """Only the manager's id is kept: the SCIM client has no `$ref` to give before it knows our ids."""
+
+    value: str | None = None
+    display_name: Annotated[str | None, Mutability.read_only] = None
+
+
+class EnterpriseUser(Extension):
+    """The enterprise extension (RFC 7643 §4.3) with the attributes an HR system sends."""
+
+    __schema__ = URN(ENTERPRISE)
+
+    employee_number: str | None = None
+    cost_center: str | None = None
+    organization: str | None = None
+    division: str | None = None
+    department: str | None = None
+    manager: _Manager | None = None
+
+
+ScimUser = User[EnterpriseUser]  # core User plus the enterprise extension
+# What is kept and echoed (SCIM names). Profile data only: `roles`, `entitlements`, `groups`,
+# `x509Certificates`, `password` and the rest are never stored, so SCIM cannot grant authority.
+PROFILE_ATTRIBUTES = (
+    "name",
+    "emails",
+    "phoneNumbers",
+    "addresses",
+    "nickName",
+    "title",
+    "userType",
+    "preferredLanguage",
+    "locale",
+    "timezone",
+    "profileUrl",
+)
+USER_ATTRIBUTES = (*PROFILE_ATTRIBUTES, ENTERPRISE)
+MAX_MULTI = 20  # entries in a multi-valued attribute (emails, phoneNumbers, addresses)
 
 
 def _invalid(e: ValidationError) -> ScimError:
@@ -49,9 +98,53 @@ def parse_user(payload: dict[str, Any], ctx: Context) -> ScimUser:
         raise _invalid(e) from e
 
 
+MAX_TEXT = 256  # the width of the scim_resource text columns
+
+
+def _fit(**values: str | None) -> None:
+    """A value wider than its column is a client error (400), not a database CHECK failure."""
+    for name, v in values.items():
+        if v is not None and len(v) > MAX_TEXT:
+            raise ScimError(400, "invalidValue", f"{name} is longer than {MAX_TEXT} characters")
+
+
+def _bounded(name: str, value: Any, depth: int = 0) -> None:
+    """Every kept string fits MAX_TEXT and every list MAX_MULTI; nesting stays shallow (400 invalidValue)."""
+    if depth > 3:
+        raise ScimError(400, "invalidValue", f"{name} is nested too deeply")
+    if isinstance(value, str):
+        _fit(**{name: value})
+    elif isinstance(value, list):
+        if len(value) > MAX_MULTI:
+            raise ScimError(400, "invalidValue", f"{name} has more than {MAX_MULTI} values")
+        for v in value:
+            _bounded(name, v, depth + 1)
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            _bounded(f"{name}.{k}", v, depth + 1)
+
+
 def _attrs(user: ScimUser) -> dict[str, Any]:
-    dumped = user.model_dump(scim_ctx=Context.RESOURCE_CREATION_REQUEST)
-    return {k: dumped[k] for k in USER_ATTRIBUTES if dumped.get(k) is not None}
+    dumped = user.model_dump(scim_ctx=Context.RESOURCE_CREATION_REQUEST, mode="json")
+    kept = {k: dumped[k] for k in USER_ATTRIBUTES if dumped.get(k) not in (None, {}, [])}
+    manager = (kept.get(ENTERPRISE) or {}).get("manager")
+    if isinstance(manager, dict):  # the id is all that is stored; `$ref` and the name are derived
+        kept[ENTERPRISE]["manager"] = {"value": manager.get("value")}
+    for k, v in kept.items():
+        _bounded(k, v)
+    return kept
+
+
+async def _check_manager(conn: AsyncConnection, src: Source, attrs: dict[str, Any]) -> None:
+    """A manager is another live User of this source."""
+    manager = (attrs.get(ENTERPRISE) or {}).get("manager") or {}
+    if manager.get("value"):
+        try:
+            await store.load(conn, src.source_id, "User", str(manager["value"]))
+        except ScimError as e:
+            raise ScimError(
+                400, "invalidValue", "manager.value is not a user of this source"
+            ) from e
 
 
 async def _lifecycle(
@@ -84,6 +177,7 @@ async def create_user(
     user = parse_user(payload, Context.RESOURCE_CREATION_REQUEST)
     if not user.user_name:
         raise ScimError(400, "invalidValue", "userName is required")
+    _fit(userName=user.user_name, externalId=user.external_id, displayName=user.display_name)
     principal_id = str(uuid.uuid4())
     await create_principal(
         conn,
@@ -106,6 +200,7 @@ async def create_user(
         created_at=now,
         updated_at=now,
     )
+    await _check_manager(conn, src, r.attributes)
     await store.insert(conn, r)
     if not r.active:
         await _lifecycle(conn, src, r, active=False, now=now)
@@ -113,23 +208,31 @@ async def create_user(
 
 
 def _check_version(r: Resource, if_match: str | None) -> None:
-    if if_match is not None and if_match.strip() not in (f'W/"{r.version}"', "*"):
+    """RFC 7644 §3.14: `If-Match` carries one or more entity tags (weak or strong) or `*`."""
+    if if_match is None:
+        return
+    tags = [t.strip().removeprefix("W/") for t in if_match.split(",")]
+    if "*" not in tags and f'"{r.version}"' not in tags:
         raise ScimError(412, None, "version mismatch")
 
 
 async def _apply_user(
     conn: AsyncConnection, src: Source, old: Resource, user: ScimUser, now: datetime
 ) -> Resource:
+    # `user` is the complete new state (a PUT body, or the patched copy of the stored resource), so
+    # an omitted or removed externalId / displayName / name / emails is cleared, not kept.
+    _fit(userName=user.user_name, externalId=user.external_id, displayName=user.display_name)
     new = replace(
         old,
-        external_id=user.external_id if user.external_id is not None else old.external_id,
+        external_id=user.external_id,
         user_name=user.user_name or old.user_name,
-        display_name=user.display_name if user.display_name is not None else old.display_name,
+        display_name=user.display_name,
         active=old.active if user.active is None else bool(user.active),
-        attributes={**old.attributes, **_attrs(user)},
+        attributes=_attrs(user),
         version=old.version + 1,
         updated_at=now,
     )
+    await _check_manager(conn, src, new.attributes)
     await store.update(conn, old, new)
     if new.active != old.active:
         await _lifecycle(conn, src, new, active=new.active, now=now)
@@ -177,15 +280,28 @@ async def patch_user(
 
 
 async def delete_resource(
-    conn: AsyncConnection, src: Source, resource_type: str, resource_id: str, *, now: datetime
+    conn: AsyncConnection,
+    src: Source,
+    resource_type: str,
+    resource_id: str,
+    *,
+    now: datetime,
+    if_match: str | None = None,
 ) -> None:
     r = await store.load(conn, src.source_id, resource_type, resource_id, lock=True)
+    _check_version(r, if_match)
     await store.mark_deleted(conn, r, now)
     if resource_type == "User" and r.active:
         await _lifecycle(conn, src, replace(r, version=r.version + 1), active=False, now=now)
 
 
-def to_scim_user(r: Resource, base: str, *, include_meta: bool = True) -> dict[str, Any]:
+def to_scim_user(
+    r: Resource,
+    base: str,
+    *,
+    include_meta: bool = True,
+    groups: list[tuple[str, str | None]] | None = None,
+) -> dict[str, Any]:
     out: dict[str, Any] = {
         "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
         "id": r.resource_id,
@@ -193,10 +309,28 @@ def to_scim_user(r: Resource, base: str, *, include_meta: bool = True) -> dict[s
         "active": r.active,
         **{k: v for k, v in r.attributes.items() if k in USER_ATTRIBUTES},
     }
+    manager = (out.get(ENTERPRISE) or {}).get("manager")
+    if manager and manager.get("value"):  # echo the manager as a reference to that user
+        out[ENTERPRISE] = {
+            **out[ENTERPRISE],
+            "manager": {**manager, "$ref": f"{base}/scim/v2/Users/{manager['value']}"},
+        }
+    if ENTERPRISE in out:
+        out["schemas"].append(ENTERPRISE)
     if r.external_id is not None:
         out["externalId"] = r.external_id
     if r.display_name is not None:
         out["displayName"] = r.display_name
+    if groups:  # read-only: the groups this user is a member of, from the membership facts
+        out["groups"] = [
+            {
+                "value": gid,
+                "$ref": f"{base}/scim/v2/Groups/{gid}",
+                **({"display": name} if name else {}),
+                "type": "direct",
+            }
+            for gid, name in groups
+        ]
     if include_meta:
         out["meta"] = {
             "resourceType": "User",
@@ -206,6 +340,11 @@ def to_scim_user(r: Resource, base: str, *, include_meta: bool = True) -> dict[s
             "location": f"{base}/scim/v2/Users/{r.resource_id}",
         }
     return out
+
+
+async def render_user(conn: AsyncConnection, r: Resource, base: str) -> dict[str, Any]:
+    """The SCIM User with its read-only `groups`."""
+    return to_scim_user(r, base, groups=await store.groups_of(conn, r.resource_id))
 
 
 # ------------------------------------------------------------------------------------------ groups
@@ -232,6 +371,7 @@ async def create_group(
     g = parse_group(payload, Context.RESOURCE_CREATION_REQUEST)
     if not g.display_name:
         raise ScimError(400, "invalidValue", "displayName is required")
+    _fit(displayName=g.display_name, externalId=g.external_id)
     r = Resource(
         resource_id=str(uuid.uuid4()),
         tenant_id=src.tenant_id,
@@ -259,10 +399,36 @@ async def create_group(
     return r
 
 
+def _values(value: Any) -> list[str]:
+    items = value if isinstance(value, list) else [value]
+    return [str(v["value"] if isinstance(v, dict) else getattr(v, "value", v)) for v in items]
+
+
+def _operations(patch: PatchOp[Group]) -> list[tuple[str, str, Any]]:
+    """(op, path, value); a pathless add/replace carrying an object is split per attribute."""
+    out: list[tuple[str, str, Any]] = []
+    for op in patch.operations or []:
+        kind = str(getattr(op.op, "value", op.op)).lower()
+        path = (op.path or "").strip()
+        value = op.value
+        if not path and kind in ("add", "replace") and isinstance(value, dict):
+            out += [(kind, k, v) for k, v in value.items()]
+        else:
+            out.append((kind, path, value))
+    return out
+
+
 async def patch_group(
-    conn: AsyncConnection, src: Source, resource_id: str, payload: dict[str, Any], *, now: datetime
+    conn: AsyncConnection,
+    src: Source,
+    resource_id: str,
+    payload: dict[str, Any],
+    *,
+    if_match: str | None = None,
+    now: datetime,
 ) -> Resource:
     old = await store.load(conn, src.source_id, "Group", resource_id, lock=True)
+    _check_version(old, if_match)
     try:
         patch = PatchOp[Group].model_validate(payload, scim_ctx=Context.RESOURCE_PATCH_REQUEST)
     except ValidationError as e:
@@ -270,23 +436,25 @@ async def patch_group(
     add: list[str] = []
     remove: list[str] = []
     display_name = old.display_name
-    for op in patch.operations or []:
-        path = (op.path or "").strip()
-        if path == "members" and op.op in ("add", "replace"):
-            values = op.value if isinstance(op.value, list) else [op.value]
-            add += [
-                str(v["value"] if isinstance(v, dict) else getattr(v, "value", v)) for v in values
-            ]
-            if op.op == "replace":
-                remove += [m for m in await store.members(conn, resource_id)]
-        elif path.startswith("members[value eq ") and op.op == "remove":
+    external_id = old.external_id
+    for kind, path, value in _operations(patch):
+        if path == "members" and kind in ("add", "replace"):
+            add += _values(value)
+            if kind == "replace":
+                remove += await store.members(conn, resource_id)
+        elif path.startswith("members[value eq ") and kind == "remove":
             remove.append(path.split('"')[1])
-        elif path == "members" and op.op == "remove":
-            remove += await store.members(conn, resource_id)
-        elif path == "displayName" and op.op in ("add", "replace"):
-            display_name = str(op.value)
+        elif path == "members" and kind == "remove":
+            remove += _values(value) if value else await store.members(conn, resource_id)
+        elif path == "displayName" and kind in ("add", "replace"):
+            display_name = str(value) if value else None
+        elif path == "externalId" and kind in ("add", "replace", "remove"):
+            external_id = str(value) if value and kind != "remove" else None
         else:
-            raise ScimError(400, "invalidPath", f"unsupported group operation {op.op} {path}")
+            raise ScimError(400, "invalidPath", f"unsupported group operation {kind} {path}")
+    if not display_name:
+        raise ScimError(400, "invalidValue", "displayName is required")
+    _fit(displayName=display_name, externalId=external_id)
     await store.set_members(
         conn,
         tenant_id=src.tenant_id,
@@ -294,7 +462,48 @@ async def patch_group(
         add=await _member_ids(conn, src, add),
         remove=[m for m in remove if m not in add],
     )
-    new = replace(old, display_name=display_name, version=old.version + 1, updated_at=now)
+    new = replace(
+        old,
+        display_name=display_name,
+        external_id=external_id,
+        version=old.version + 1,
+        updated_at=now,
+    )
+    await store.update(conn, old, new)
+    return new
+
+
+async def replace_group(
+    conn: AsyncConnection,
+    src: Source,
+    resource_id: str,
+    payload: dict[str, Any],
+    *,
+    if_match: str | None,
+    now: datetime,
+) -> Resource:
+    old = await store.load(conn, src.source_id, "Group", resource_id, lock=True)
+    _check_version(old, if_match)
+    g = parse_group(payload, Context.RESOURCE_REPLACEMENT_REQUEST)
+    if not g.display_name:
+        raise ScimError(400, "invalidValue", "displayName is required")
+    _fit(displayName=g.display_name, externalId=g.external_id)
+    wanted = [m.value for m in (g.members or []) if m.value]
+    current = await store.members(conn, resource_id)
+    await store.set_members(
+        conn,
+        tenant_id=src.tenant_id,
+        group_id=resource_id,
+        add=await _member_ids(conn, src, wanted),
+        remove=[m for m in current if m not in wanted],
+    )
+    new = replace(
+        old,
+        display_name=g.display_name,
+        external_id=g.external_id,
+        version=old.version + 1,
+        updated_at=now,
+    )
     await store.update(conn, old, new)
     return new
 
@@ -306,8 +515,13 @@ async def to_scim_group(conn: AsyncConnection, r: Resource, base: str) -> dict[s
         "displayName": r.display_name,
         **({"externalId": r.external_id} if r.external_id else {}),
         "members": [
-            {"value": m, "$ref": f"{base}/scim/v2/Users/{m}", "type": "User"}
-            for m in await store.members(conn, r.resource_id)
+            {
+                "value": m,
+                "$ref": f"{base}/scim/v2/Users/{m}",
+                **({"display": name} if name else {}),
+                "type": "User",
+            }
+            for m, name in await store.members_detail(conn, r.resource_id)
         ],
         "meta": {
             "resourceType": "Group",

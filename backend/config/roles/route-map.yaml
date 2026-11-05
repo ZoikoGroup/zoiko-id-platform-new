@@ -131,8 +131,10 @@ rules:
   - {match: "POST /federation/integrations/*:disable", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /federation/trust-anchors/*:disable", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /federation/*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "PATCH /federation/integrations/*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "GET /provisioning/sources", gate: {action: e.view-integration-directory-status, mode: R}}
   - {match: "POST /provisioning/sources/*:suspend", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /provisioning/sources/*:resume", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "POST /provisioning/sources", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "POST /provisioning/lifecycle-events", exempt: PROTOCOL, why: "the provisioning source's own credential"}
   - {match: "* /scim/v2/*", exempt: PROTOCOL, why: "SCIM is authorised by the source's bearer token"}

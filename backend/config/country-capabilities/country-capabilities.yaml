@@ -19,6 +19,11 @@ countries:
     contact: "support@zoikogroup.com"
     capabilities:
       DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+      REGISTRATION: {status: SANDBOX, provider: simulator}
+      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}
+      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
+      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
+      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
   GB:
     name: "United Kingdom"
     wave: 1
@@ -36,12 +41,22 @@ countries:
     contact: "support@zoikogroup.com"
     capabilities:
       DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+      REGISTRATION: {status: SANDBOX, provider: simulator}
+      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}
+      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
+      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
+      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
   DE:
     name: "Germany"
     wave: 1
     contact: "support@zoikogroup.com"
     capabilities:
       DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
+      REGISTRATION: {status: SANDBOX, provider: simulator}
+      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}
+      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
+      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
+      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
   FR:
     name: "France"
     wave: 1
@@ -49,6 +64,10 @@ countries:
     capabilities:
       DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
       INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}   # exercises the per-country biometric rule in tests
+      REGISTRATION: {status: SANDBOX, provider: simulator}
+      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
+      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
+      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
   CA:
     name: "Canada"
     wave: 2

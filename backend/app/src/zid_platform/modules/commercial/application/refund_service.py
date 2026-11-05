@@ -166,7 +166,7 @@ def _refundable(f: dict[str, Any]) -> int:
         credited_minor=f["credited_minor"],
         refunded_minor=f["refunded_invoice_minor"],
     )
-    return max(min(by_invoice, f["payment_minor"] - f["refunded_payment_minor"]), 0)
+    return int(max(min(by_invoice, f["payment_minor"] - f["refunded_payment_minor"]), 0))
 
 
 async def open_refund(
@@ -545,6 +545,8 @@ async def _apply_result(
 ) -> RefundState:
     """Record what the processor said. A recognised, completed answer is the only success; an answer nobody recognises is UNKNOWN; no answer is UNKNOWN too."""
     current = RefundState(row["state"])
+    code: str | None
+    verified: datetime | None
     if res.outcome == "UNAVAILABLE":
         target, code, verified = RefundState.UNKNOWN, "PROVIDER_UNAVAILABLE", None
     elif res.outcome == "REFUSED":
