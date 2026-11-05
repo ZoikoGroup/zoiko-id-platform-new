@@ -108,6 +108,26 @@ def _return_to(value: str | None) -> str | None:
     return value
 
 
+@router.get("/federation/sign-in-options")
+async def sign_in_options(
+    request: Request, client_id: Annotated[str, Query(min_length=1, max_length=256)]
+) -> dict[str, Any]:
+    """The company sign-ins a workspace's sign-in page may offer: only the name people see and the connection to start, for connections that are ACTIVE. No endpoint, key, client id or
+    secret leaves here; an unknown client lists nothing, the same as a workspace with none."""
+    tenant = await client_tenant(request_engine(request), client_id)
+    if tenant is None:
+        return {"items": []}
+    async with tenant_transaction(request_engine(request), _ctx().with_identity(tenant, None)) as c:
+        rows = await store.list_all(c)
+    return {
+        "items": [
+            {"id": x.connection_id, "label": x.display_name, "protocol": x.protocol}
+            for x in rows
+            if x.status == "ACTIVE"
+        ]
+    }
+
+
 @router.get("/federation/connections/{connection_id}/login")
 async def login(
     connection_id: uuid.UUID,

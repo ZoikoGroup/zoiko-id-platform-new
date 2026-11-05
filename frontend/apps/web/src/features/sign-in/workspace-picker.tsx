@@ -7,7 +7,8 @@ import { useState, type FormEvent } from "react";
 /** Which company you are signing in to. Switching reloads the page so the sign-in uses that
  * company's console client; it chooses where you authenticate, it grants nothing. */
 export function WorkspacePicker({ current }: { current: string | null }) {
-  const [editing, setEditing] = useState(false);
+  // With no workspace chosen yet the form is open: most people arrive from a new browser and only know their email address.
+  const [editing, setEditing] = useState(current === null);
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,8 @@ export function WorkspacePicker({ current }: { current: string | null }) {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ workspace: name.trim().toLowerCase() }),
+      // An address finds the workspace by itself; anything else is taken as the workspace name.
+      body: JSON.stringify(name.includes("@") ? { email: name.trim() } : { workspace: name.trim().toLowerCase() }),
     }).catch(() => null);
     if (res?.ok) {
       window.location.reload();
@@ -67,18 +69,19 @@ export function WorkspacePicker({ current }: { current: string | null }) {
   return (
     <form className="space-y-3 rounded-card border border-border bg-surface p-4" onSubmit={(e) => void choose(e)}>
       <TextField
-        label="Company workspace name"
+        label="Your email address or workspace name"
         isRequired
-        mono
         value={name}
         onChange={setName}
         errorMessage={error ?? undefined}
-        description="The name your administrator gave the workspace, e.g. acme."
+        description="We find your workspace from the email address you signed up with. You can also type the workspace name an administrator gave you."
       />
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" size="sm" onPress={() => setEditing(false)}>
-          Cancel
-        </Button>
+        {current !== null ? (
+          <Button variant="secondary" size="sm" onPress={() => setEditing(false)}>
+            Cancel
+          </Button>
+        ) : null}
         <Button type="submit" size="sm" pending={pending} isDisabled={!name.trim()}>
           Continue
         </Button>

@@ -8,10 +8,28 @@ const NAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 /** Choose the company workspace to sign in to, by its workspace name. */
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return errorJson(403, "CSRF_REJECTED", "The request could not be verified.");
-  const body = (await req.json().catch(() => ({}))) as { workspace?: unknown };
-  const name = typeof body.workspace === "string" ? body.workspace.trim().toLowerCase() : "";
-  if (!NAME.test(name)) return errorJson(422, "VALIDATION_FAILED", "Enter your company's workspace name.");
+  const body = (await req.json().catch(() => ({}))) as { workspace?: unknown; email?: unknown };
   const { env } = server();
+  let name = typeof body.workspace === "string" ? body.workspace.trim().toLowerCase() : "";
+  if (typeof body.email === "string" && body.email.trim()) {
+    // Sign-in from an email address: the cell says which workspace that account lives in. The person still needs their own passkey there.
+    let found: Response;
+    try {
+      found = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/v1/registration/sign-in-workspace`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: body.email.trim() }),
+        cache: "no-store",
+      });
+    } catch {
+      return errorJson(503, "SERVICE_UNAVAILABLE", "The service is temporarily unavailable.");
+    }
+    if (found.status === 429) return errorJson(429, "RATE_LIMITED", "Too many tries. Wait a few minutes and try again.");
+    const hit = found.ok ? ((await found.json().catch(() => ({}))) as { workspace?: string | null }) : {};
+    if (!hit.workspace) return errorJson(404, "WORKSPACE_NOT_FOUND", "We couldn't find an account for that address. Check it, or enter your workspace name instead.");
+    name = hit.workspace;
+  }
+  if (!NAME.test(name)) return errorJson(422, "VALIDATION_FAILED", "Enter your email address or your workspace name.");
   let res: Response;
   try {
     res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/v1/workspaces/${encodeURIComponent(name)}`, { cache: "no-store" });

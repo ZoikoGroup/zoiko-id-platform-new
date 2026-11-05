@@ -1260,6 +1260,53 @@
         ]
       }
     },
+    "/federation/sign-in-options": {
+      "get": {
+        "description": "The company sign-ins a workspace's sign-in page may offer: only the name people see and the connection to start, for connections that are ACTIVE. No endpoint, key, client id or\nsecret leaves here; an unknown client lists nothing, the same as a workspace with none.",
+        "operationId": "sign_in_options_federation_sign_in_options_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Client Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign In Options Federation Sign In Options Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign In Options",
+        "tags": [
+          "federation"
+        ]
+      }
+    },
     "/federation/trust-anchors": {
       "get": {
         "operationId": "list_anchors_federation_trust_anchors_get",

@@ -127,6 +127,7 @@ function packFor(zone: string | null | undefined): string {
 function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const tenant = useTenant();
   const cells = useCellQuery([...RES_KEY, "cells"], (api) => api.residency.cells());
+  const existing = useCellQuery([...RES_KEY, "current"], (api) => api.residency.current());
   // A company's profile is placed on the cell that serves it. Moving to another cell is a migration, not a profile
   // change, so only the company's own cell is offered.
   const ownCell = tenant.data?.home_cell_id;
@@ -159,7 +160,7 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
   const summary = `Set the company's residency to ${PROFILE_LABELS[profile] ?? profile}, home cell ${home}, ${PACKS.find((p) => p.id === pack)?.label ?? pack}${recoveryCells.length ? `, recovery in ${recoveryCells.join(", ")}` : ""}.`;
 
   const save = useCellMutation(
-    (api, approvalRequestId: string) =>
+    (api, approvalRequestId: string | null) =>
       api.residency.set({
         residency_profile_id: profile as "SRP-0" | "SRP-1" | "SRP-2" | "SRP-3",
         home_cell_id: home.trim(),
@@ -169,17 +170,19 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         key_profile: "PLATFORM_MANAGED",
         jurisdiction_pack_id: pack.trim(),
         approval_ref: legal.trim(),
-        approval_request_id: approvalRequestId,
+        ...(approvalRequestId ? { approval_request_id: approvalRequestId } : {}),
       }),
     { invalidate: [RES_KEY], success: "Residency profile updated", onSuccess: onClose },
   );
   const ready = legal.trim().length >= 3 && home.length > 0;
+  // The very first record, on the company's own cell and with no recovery cell, is the owner's own baseline (ZID-ENG-DEC-010, 13C solo variant). Anything else is a change.
+  const baseline = existing.isSuccess && existing.data.residency === null && home === ownCell && recoveryCells.length === 0;
   return (
     <Dialog
       isOpen={isOpen}
       onOpenChange={(o) => !o && onClose()}
-      title="Change the residency profile"
-      description="Where your company's data is kept. A second administrator has to approve this exact change."
+      title={baseline ? "Confirm your residency" : "Change the residency profile"}
+      description={baseline ? "Where your company's data is kept. This is your starting point, so you can confirm it yourself; any later change needs a second administrator." : "Where your company's data is kept. A second administrator has to approve this exact change."}
       size="lg"
       footer={
         <Button variant="secondary" onPress={onClose}>
@@ -225,7 +228,11 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         />
       </div>
       <div className="mt-5">
-        {ready ? (
+        {ready && baseline ? (
+          <Button pending={save.isPending} onPress={() => save.mutate(null)}>
+            Confirm residency
+          </Button>
+        ) : ready ? (
           <GuidedApproval action="tenant.residency.manage" resource="tenant_residency" change={change} summary={summary} label="Apply profile">
             {(id) => (
               <Button pending={save.isPending} onPress={() => save.mutate(id)}>

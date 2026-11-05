@@ -52,3 +52,20 @@ export function errorJson(status: number, code: string, message: string): Respon
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 }
+
+/** The company sign-ins to offer on the sign-in page: those the workspace's administrators connected and that are active (asked of the cell, which lists only names), plus any the
+ * deployment lists in ZID_FEDERATION_CONNECTIONS. A failed read offers only the latter: passkey sign-in never depends on it. */
+export async function signInConnections(cookieHeader: string | null): Promise<{ id: string; label: string }[]> {
+  const { bff, env } = server();
+  const fixed = env.federationConnections;
+  try {
+    const clientId = bff.clientFor(cookieHeader);
+    const res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/federation/sign-in-options?client_id=${encodeURIComponent(clientId)}`, { cache: "no-store" });
+    if (!res.ok) return fixed;
+    const body = (await res.json()) as { items?: { id: string; label: string }[] };
+    const dynamic = (body.items ?? []).filter((c) => typeof c.id === "string" && typeof c.label === "string");
+    return [...fixed, ...dynamic.filter((d) => !fixed.some((f) => f.id === d.id))];
+  } catch {
+    return fixed;
+  }
+}

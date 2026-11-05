@@ -18,6 +18,11 @@ Status: open (built). Follows the second-wireframe documents: an account is made
 - The step-up confirmation dialog has its component test (focus held, Escape cancels, named buttons, a timer, no structural WCAG violation); EDR09-T12 is linked.
 - The browser end-to-end helper `registerCompany` now signs a person up through the real form and mail link (a personal workspace with a pending owner). Specs that need an administrator's pages must first verify a claim.
 
+- **The first residency baseline is the owner's own** (`tenant/api/residency.py`, `ZID-ENG-DEC-010`, 13C solo variant). `PUT /v1/tenant/residency` no longer asks for a second administrator when the workspace has no residency record yet, the profile is placed on
+  the home cell the workspace was created on, and no recovery cell is added: confirming where the organization already lives moves nothing, and a one-person organization has nobody to ask. The permission, the fresh passkey proof and the audit record still apply.
+  Every other residency write is a change and still needs an independent second administrator (`APPROVAL_REQUIRED` without one). The Residency screen shows "Confirm residency" for the baseline and the guided approval for a change.
+  Decision 10 is still proposed for founder approval; the owners may restore the stricter rule by deleting `_is_first_baseline`.
+
 ## Close-out tooling (what the owners, counsel, suppliers and testers need to finish the open rows)
 - `tools/scripts/go_live_board.py` (`docs/signoff/go-live-board.md`): one board of every country against the six ZID-EDR-001 approvals, and the ZID-COM-RAT-011 ratifications, gates, evidence and signatories. It decides nothing; a cell reads "open" until the
   owners record a reference, and a referenced file that changed since it was attached reads CHANGED.
