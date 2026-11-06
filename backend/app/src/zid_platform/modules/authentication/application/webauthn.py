@@ -43,10 +43,10 @@ from zid_outbox import emit
 
 from zid_platform.modules.authentication.domain.authenticator import (
     CHALLENGE_TTL,
-    STRONG_TYPES,
     Authenticator,
     AuthenticatorStatus,
     AuthnError,
+    credential_allow_list,
     passkey_assurance,
     sign_count_anomaly,
 )
@@ -266,11 +266,7 @@ async def authentication_options(
     allow: list[PublicKeyCredentialDescriptor] = []
     if step_up_session is not None:
         mine = await store.for_principal(conn, step_up_session.principal_id, active_only=True)
-        allow = [
-            PublicKeyCredentialDescriptor(id=a.credential_id)
-            for a in mine
-            if a.credential_id and a.authenticator_type in STRONG_TYPES
-        ]
+        allow = [PublicKeyCredentialDescriptor(id=cid) for cid in credential_allow_list(mine)]
         if not allow:
             raise AuthnError("NO_STRONG_AUTHENTICATOR")
     options = generate_authentication_options(

@@ -41,8 +41,8 @@ def legs_from_camt053(xml: bytes) -> tuple[list[dict[str, Any]], int]:
         raise ImportError_("STATEMENT_TOO_LARGE", "at most 5 MB")
     try:
         root = ET.fromstring(xml)
-    except ET.ParseError as e:
-        raise ImportError_("XML_INVALID", "the statement is not well-formed XML") from e
+    except ET.ParseError as exc:
+        raise ImportError_("XML_INVALID", "the statement is not well-formed XML") from exc
     entries = [n for n in root.iter() if _local(n.tag) == "Ntry"]
     if not entries and not any(_local(n.tag) == "BkToCstmrStmt" for n in root.iter()):
         raise ImportError_("NOT_CAMT053", "no bank-to-customer statement found")

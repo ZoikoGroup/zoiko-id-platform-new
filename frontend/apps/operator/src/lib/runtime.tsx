@@ -93,14 +93,16 @@ export function RuntimeProvider({ clientId, children }: { clientId: string; chil
   );
 }
 
+const loadSession = async (): Promise<SessionInfo> => {
+  const res = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+  return (await res.json()) as SessionInfo;
+};
+
 function RuntimeInner({ clientId, children }: { clientId: string; children: ReactNode }) {
   const queryClient = useQueryClient();
   const sessionQuery = useQuery({
     queryKey: ["session"],
-    queryFn: async (): Promise<SessionInfo> => {
-      const res = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
-      return (await res.json()) as SessionInfo;
-    },
+    queryFn: loadSession,
     staleTime: 60_000,
   });
   const csrfRef = useRef<string | undefined>(undefined);
@@ -113,11 +115,16 @@ function RuntimeInner({ clientId, children }: { clientId: string; children: Reac
       createOperatorApi(
         createTransport({
           baseUrl: "/api/bff",
-          csrf: () => csrfRef.current,
+          // a write sent before the session has loaded would carry no token and be refused ("could not be verified"): wait for it
+          csrf: async () => {
+            if (csrfRef.current) return csrfRef.current;
+            const s = await queryClient.fetchQuery({ queryKey: ["session"], queryFn: loadSession, staleTime: 0 });
+            return s.authenticated ? s.csrf : undefined;
+          },
           onRouteStepUp: (need) => routeProver.current?.(need) ?? Promise.resolve(undefined),
         }),
       ),
-    [],
+    [queryClient],
   );
   const flow = useMemo(() => createFlowApi(createTransport({ baseUrl: "" }), clientId), [clientId]);
 

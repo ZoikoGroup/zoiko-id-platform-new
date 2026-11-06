@@ -108,3 +108,18 @@ def can_remove(target: Authenticator, others_active_strong: int) -> None:
         raise AuthnError("AUTHENTICATOR_NOT_ACTIVE")
     if target.authenticator_type in STRONG_TYPES and others_active_strong == 0:
         raise AuthnError("LAST_STRONG_AUTHENTICATOR", "use account recovery to replace it")
+
+
+# WebAuthn's `allowCredentials` may name at most 64 credentials in the major browsers; a longer list makes the browser
+# refuse the whole ceremony ("The `allowCredentials` attribute exceeds the maximum allowed size (64)").
+MAX_ALLOWED_CREDENTIALS = 64
+
+
+def credential_allow_list(
+    authenticators: list[Authenticator], limit: int = MAX_ALLOWED_CREDENTIALS
+) -> list[bytes]:
+    """Credential ids a step-up may be answered with: the strong ones, the most recently used or registered first,
+    at most `limit` so the browser accepts the request even for a person who holds a very long list of passkeys."""
+    strong = [a for a in authenticators if a.credential_id and a.authenticator_type in STRONG_TYPES]
+    strong.sort(key=lambda a: a.last_used_at or a.registered_at, reverse=True)
+    return [a.credential_id for a in strong[:limit] if a.credential_id]

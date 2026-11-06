@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { jsonInput, listInput, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { parseProviderKeys } from "./provider-keys";
 import {
   AlgorithmPicker,
   FormDialog,
@@ -27,7 +28,17 @@ type Protocol = "OIDC" | "SAML";
 type ProviderKey = "ENTRA" | "OKTA" | "GOOGLE" | "OIDC" | "SAML";
 const PROVIDERS: Record<
   ProviderKey,
-  { label: string; description: string; protocol: Protocol; name: string; issuer: string; discovery?: (issuer: string) => string; steps: string[] }
+  {
+    label: string;
+    description: string;
+    protocol: Protocol;
+    name: string;
+    issuer: string;
+    discovery?: (issuer: string) => string;
+    steps: string[];
+    /** How Zoiko iD proves itself when the provider cannot check a signed key (Google can only check a shared secret). */
+    clientAuth?: ClientAuth;
+  }
 > = {
   ENTRA: {
     label: "Microsoft Entra ID",
@@ -65,8 +76,10 @@ const PROVIDERS: Record<
     steps: [
       "In Google Cloud Console open APIs & Services, then Credentials, then Create OAuth client ID (Web application).",
       "Add the redirect address shown below as an Authorized redirect URI.",
-      "Copy the Client ID. The issuer is https://accounts.google.com.",
+      "Copy the Client ID and the Client secret. The issuer is https://accounts.google.com.",
+      "Google checks a shared secret, not a signed key: under Advanced settings choose \"A shared secret\" and give the name the secret is stored under.",
     ],
+    clientAuth: "client_secret_basic",
   },
   OIDC: {
     label: "Another OpenID Connect provider",
@@ -174,9 +187,9 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
       const authz = required(authzEndpoint, "Authorization endpoint");
       const token = required(tokenEndpoint, "Token endpoint");
       if (!authz.startsWith("https://") || !token.startsWith("https://")) throw new Error("Endpoints must be https:// URLs.");
-      const keys = jsonInput(jwks, "JWKS");
-      if (!keys || !Array.isArray(keys.keys) || !keys.keys.length) throw new Error('JWKS must be a JSON object with a non-empty "keys" array.');
-      return { ...oidc, authorization_endpoint: authz, token_endpoint: token, jwks: keys };
+      const parsed = parseProviderKeys(jwks);
+      if (parsed.error) throw new Error(parsed.error);
+      return { ...oidc, authorization_endpoint: authz, token_endpoint: token, jwks: parsed.keys };
     }
     const sso = required(ssoUrl, "SSO URL");
     if (!sso.startsWith("https://")) throw new Error("SSO URL must be an https:// URL.");
@@ -277,6 +290,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
           const key = v as ProviderKey;
           setProvider(key);
           setProtocol(PROVIDERS[key].protocol);
+          setClientAuth(PROVIDERS[key].clientAuth ?? "private_key_jwt");
           setFound(null);
           // a provider with one fixed address (Google) needs no typing; the others need the company's own
           if (!/YOUR|example/i.test(PROVIDERS[key].issuer)) setIssuer(PROVIDERS[key].issuer);
@@ -381,7 +395,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
                 value={jwks}
                 onChange={setJwks}
                 placeholder='{"keys": [ … ]}'
-                description="Public and safe to paste, from the provider's key list page."
+                description="Public keys only, from the provider's key list page. One key or a full list both work. Never paste a private key."
                 className="sm:col-span-2"
               />
             </div>

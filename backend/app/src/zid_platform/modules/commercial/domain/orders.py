@@ -18,6 +18,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 HARD = "HARD"
 APPROVAL = "APPROVAL"
@@ -143,7 +144,7 @@ def _money(v: Decimal) -> str:
 def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
     reasons: list[str] = []
     approvers: set[str] = set()
-    priced: list[dict[str, str]] = []
+    priced: list[dict[str, Any]] = []
 
     def add(code: str) -> None:
         if code not in reasons:
