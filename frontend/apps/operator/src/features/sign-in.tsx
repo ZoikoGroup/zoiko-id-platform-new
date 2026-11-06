@@ -7,7 +7,7 @@ import { useRuntime } from "@/lib/runtime";
 import { completeAppSession, passkeyErrorMessage } from "@/lib/webauthn";
 
 function safePath(v: string | undefined) {
-  return v && v.startsWith("/") && !v.startsWith("//") && !v.includes("\\") ? v : "/requests";
+  return v && v.startsWith("/") && !v.startsWith("//") && !v.includes("\\") ? v : "/";
 }
 
 /** Operators sign in with an email and password only (the cell must have operator logins configured): no passkey on this page,

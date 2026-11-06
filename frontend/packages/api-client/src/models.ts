@@ -2325,8 +2325,9 @@ export type UsageBudget = { budget_id: string; meter: string | null; monthly_lim
 export type BudgetIn = { meter: string | null; monthly_limit: string; currency: string | null; thresholds: number[] };
 
 /* Operator commercial surface (ZID-COM-001; CR-024 to CR-030). */
+export type ActivationRefund = { order_id: string; tenant_id: string; amount: string; currency: string; payment_ref: string | null; reason: string | null; decided_at: string | null };
 export type PriceBookSummary = { price_book_id: string; version: number; currency: string; status: string; effective_from: string | null; approved_at: string | null; note: string | null };
-export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null };
+export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null; minimum_amount?: string | null; unit?: string | null };
 export type PriceBookDetail = PriceBookSummary & { lines: PriceBookLine[] };
 export type AssuranceException = { exception_id: string; kind: string; ref: string; tenant_id: string | null; detail: unknown; status: string; raised_at: string };
 /** Something the payment provider reported that needs a person: a refund, a dispute, or a payment that names no invoice of the customer. */

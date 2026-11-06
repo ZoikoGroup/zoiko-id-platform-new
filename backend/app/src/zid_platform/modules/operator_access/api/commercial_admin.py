@@ -218,6 +218,9 @@ async def get_book(price_book_id: uuid.UUID, request: Request, op: OperatorDep) 
                 "unit_rate": format(ln["unit_rate"].normalize(), "f"),
                 "unit_divisor": ln["unit_divisor"],
                 "included_quantity": ln["included_quantity"],
+                # a line edited in the console is written back whole, so the minimum must be read here or an edit would erase it
+                "minimum_amount": format(ln["minimum_amount"].normalize(), "f") if ln["minimum_amount"] is not None else None,
+                "unit": ln["unit"],
             }
             for ln in lines
         ],

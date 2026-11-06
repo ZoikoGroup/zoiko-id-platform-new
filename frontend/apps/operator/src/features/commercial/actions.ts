@@ -119,6 +119,17 @@ export const ACTIONS: Action[] = [
     ],
   },
   {
+    id: "tenant-data-deletion",
+    group: "plans",
+    title: "Delete a closed company's data",
+    description: "Only for a company that is already closed. The worker erases what no legal hold protects and reports what it kept. Give the case or legal reference that asks for it.",
+    method: "POST",
+    path: "/v1/commercial/tenants/{tenant_id}/data-deletion",
+    capability: "tenant.data.delete",
+    confirm: "delete this closed company's data",
+    fields: [tenant, { key: "reason_ref", label: "Case or legal reference", required: true, placeholder: "Ticket or legal reference" }],
+  },
+  {
     id: "override-add",
     group: "plans",
     title: "Contracted override",

@@ -805,6 +805,10 @@ export function createOperatorApi(t: Transport) {
         get<{ price_book_id: string; lines: number; ready: boolean; missing: { sku: string; plan: string; what: string }[]; free: { sku: string; plan: string }[] }>(
           `/v1/commercial/price-books/${seg(id)}/readiness`,
         ),
+      /** First-month plan payments an operator marked to be returned, with the processor reference to refund (CR-062). */
+      activationRefunds: () => get<M.Items<M.ActivationRefund>>("/v1/commercial/activation-refunds"),
+      /** What was deleted for a closed company, what is held and what is still owed. */
+      dataDeletion: (tenantId: string) => get<Record<string, unknown>>(`/v1/commercial/tenants/${seg(tenantId)}/data-deletion`),
       /** Every company's open requests for a different plan, oldest first. */
       planRequests: () => get<M.Items<M.PlanRequest & { tenant_id: string; company: string | null }>>("/v1/commercial/plan-requests"),
       /** ACCEPTED: the team will raise the order. DECLINED: the company is told why. The entitlement is untouched. */
