@@ -48,6 +48,7 @@ export async function registerCompany(page: Page, journey: "For myself" | "For a
   const link = (await mailFor(email)).match(/https?:\/\/[^\s]+\/sign-up\/verify\?t=[A-Za-z0-9_-]+/)?.[0];
   if (!link) throw new Error("the verification mail carried no link");
   await page.goto(link);
+  await page.waitForLoadState("networkidle"); // a click before the page has hydrated does nothing, and the passkey is never created
   await page.getByRole("button", { name: "Create passkey" }).click();
   await expect(page.getByText(/Your account is ready/i)).toBeVisible({ timeout: 30_000 });
   await page.goto("/overview");
