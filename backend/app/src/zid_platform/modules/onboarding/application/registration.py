@@ -31,7 +31,12 @@ from zid_crypto.handles import handle
 from zid_db import in_tenant
 from zid_outbox import emit, next_version
 
-from zid_platform.modules.authentication.ports import issue_enrollment_ticket, passkey_summary
+from zid_platform.modules.authentication.ports import (
+    issue_enrollment_ticket,
+    live_recovery_ticket,
+    passkey_summary,
+    start_email_recovery,
+)
 from zid_platform.modules.communication.ports import address_hash, set_principal_contact
 from zid_platform.modules.evidence.ports import current_runtime
 from zid_platform.modules.onboarding.domain.registration import (
@@ -260,6 +265,81 @@ async def _event(
 class Initiated:
     request_ref: str
     job: SendJob | None
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryJob:
+    """What to email after a recovery request: a sign-in link (`token` set) for an ordinary member, or a notice (no token) for an
+    administrator or lockbox account, whose recovery still needs its gates."""
+
+    address: str
+    token: str | None
+    expires_at: datetime
+    locale: str
+    tenant_id: str
+
+
+_RECOVERY_TOKEN_TENANT = 32  # the link's token is the tenant id (32 hex digits) followed by the one-time enrollment ticket
+
+
+async def recovery_request(
+    conn: AsyncConnection, env: Env, *, email: str, now: datetime
+) -> RecoveryJob | None:
+    """The person says they cannot sign in and gives the address their account was made with. The caller answers every address the same
+    way; only the inbox of a real account receives anything. An ordinary member gets a single-use link to create a new passkey; an
+    administrator's or lockbox account's recovery keeps its re-proofing and approval gates, so for those the email is only a notice."""
+    address = canonical_email(email)
+    email_hash = await address_hash(address)
+    async with in_tenant(conn, env.registration_tenant):
+        found = await store.account_for(conn, env.registration_tenant, email_hash)
+    if found is None:
+        return None
+    account_tenant, principal = found
+    async with in_tenant(conn, account_tenant):
+        tenant = await load_tenant(conn, account_tenant)
+        if tenant is None or tenant.status.value in ("SUSPENDED", "CLOSED"):
+            return None
+        progress = await start_email_recovery(
+            conn, tenant_id=account_tenant, principal_id=principal, now=now
+        )
+    if progress is None:
+        return None
+    token = (
+        uuid.UUID(account_tenant).hex + progress.enrollment_ticket
+        if progress.enrollment_ticket
+        else None
+    )
+    return RecoveryJob(address, token, now + timedelta(minutes=15), "en-US", account_tenant)
+
+
+async def recovery_confirm(
+    conn: AsyncConnection, env: Env, token: str, *, now: datetime
+) -> Confirmed:
+    """The emailed link: shows this browser which workspace the account is in and hands it the live one-passkey enrollment ticket (the
+    ticket is spent when the passkey is registered). Every way the link can fail is the same message."""
+    if not token_shaped(token) or len(token) <= _RECOVERY_TOKEN_TENANT:
+        raise _invalid()
+    try:
+        tenant_id = str(uuid.UUID(token[:_RECOVERY_TOKEN_TENANT]))
+    except ValueError:
+        raise _invalid() from None
+    ticket = token[_RECOVERY_TOKEN_TENANT:]
+    async with in_tenant(conn, tenant_id):
+        principal = await live_recovery_ticket(conn, ticket, now)
+        tenant = await load_tenant(conn, tenant_id)
+        if principal is None or tenant is None or tenant.status.value in ("SUSPENDED", "CLOSED"):
+            raise _invalid()
+        client = await console_client_for(conn, tenant_id)
+    return Confirmed(
+        request_ref="",
+        route="RECOVERY",
+        enrollment_ticket=ticket,
+        ticket_expires_at=now + timedelta(minutes=15),
+        console_client_id=client,
+        workspace=tenant.tenant_slug,
+        masked_address="",
+        invitation=False,
+    )
 
 
 async def workspace_for_email(conn: AsyncConnection, env: Env, *, email: str) -> str | None:

@@ -9,7 +9,8 @@ BEGIN
     FOREACH s IN ARRAY ARRAY['agent','core','org','authz','events','platform','authn','signals','verify','cred',
                              'evidence','privacy','metering','commercial','notification','configuration',
                              'zid_migrations','machine','tenant','federation','integration','webhook','provisioning','operations',
-                             'operator','locator','search','relationship','policy','session','decision','mandate']
+                             'operator','locator','search','relationship','policy','session','decision','mandate',
+                             'keys', 'global_directory']  -- the last is the global plane's only schema (zid_global)
     LOOP
         IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
             EXECUTE format('GRANT USAGE ON SCHEMA %I TO zid_runtime, zid_worker', s);
@@ -19,4 +20,13 @@ BEGIN
             EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE zid_owner IN SCHEMA %I GRANT USAGE, SELECT ON SEQUENCES TO zid_runtime, zid_worker', s);
         END IF;
     END LOOP;
+END $$;
+
+-- The one DELETE the platform needs outside the worker: the global locator drops a tenant's retired routing aliases when its
+-- directory record is republished. The global plane holds no personal data; nothing else gets DELETE (the cell runtime never does).
+DO $$
+BEGIN
+    IF to_regclass('global_directory.routing_alias') IS NOT NULL THEN
+        GRANT DELETE ON global_directory.routing_alias TO zid_runtime;
+    END IF;
 END $$;

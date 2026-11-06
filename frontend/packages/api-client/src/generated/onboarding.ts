@@ -493,6 +493,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/registration/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recovery
+         * @description "I can't sign in": email the account's own address a way back. Ten asks per ten minutes per client, and the answer is the same
+         *     whether or not the address has an account.
+         */
+        post: operations["recovery_v1_registration_recovery_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/registration/recovery/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recovery Confirm
+         * @description The emailed recovery link: which workspace, and the one-passkey enrollment ticket (shown once). Every failure is the same message.
+         */
+        post: operations["recovery_confirm_v1_registration_recovery_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/registration/resend": {
         parameters: {
             query?: never;
@@ -770,6 +811,16 @@ export interface components {
             name: string;
             /** Ref */
             ref: string;
+        };
+        /** RecoveryBody */
+        RecoveryBody: {
+            /** Email */
+            email: string;
+        };
+        /** RecoveryConfirmBody */
+        RecoveryConfirmBody: {
+            /** Token */
+            token: string;
         };
         /** ResendBody */
         ResendBody: {
@@ -1931,6 +1982,76 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recovery_v1_registration_recovery_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recovery_confirm_v1_registration_recovery_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryConfirmBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -124,6 +124,14 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
                 await create_principal(
                     c, Principal(p, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
                 )
+            await c.execute(  # a real tenant record: people created by signing in become its members
+                text(
+                    "INSERT INTO platform.tenant (tenant_id, display_name, tenant_slug, status, deployment_mode, "
+                    "home_cell_id, creator_tenant_id, creator_principal_id, created_at, state_changed_at) "
+                    "VALUES (:t, 'Acme', :s, 'ACTIVE', 'O0', 'local-1', :t, :p, now(), now())"
+                ),
+                {"t": uuid.UUID(tenant), "s": f"acme-{tenant[:8]}", "p": uuid.UUID(admin)},
+            )
             await create_client(
                 c,
                 OAuthClient(
@@ -426,8 +434,77 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         r = callback(idp.authorize(r.headers["location"]).replace(f"iss={IDP}", f"iss={jit_idp}"))
         assert r.status_code == 200, r.text
         assert r.json()["linked"] is True and r.json()["principal_id"] not in (alice, bob, admin)
+        jit_principal = r.json()["principal_id"]
+
+        async def roles_held() -> list[tuple[str, str]]:
+            async with engine(owner_url) as eng, eng.begin() as c:
+                rows = await c.execute(
+                    text(
+                        "SELECT role, status FROM platform.tenant_role_assignment WHERE principal_id = :p"
+                    ),
+                    {"p": uuid.UUID(jit_principal)},
+                )
+                return [(str(a), str(b)) for a, b in rows.all()]
+
+        # a person created by signing in is a plain MEMBER and never more: ADMIN only comes from an owner's invitation
+        assert asyncio.run(roles_held()) == [("MEMBER", "ACTIVE")]
         listed = http.get("/federation/integrations", headers=adm).json()["items"]
         assert {i["issuer"] for i in listed} == {IDP, jit_idp}
+
+        # A person the company's own directory sync provisioned attaches to THAT account at first sign-in (matched on the provider's id, never on
+        # e-mail), even on a connection that accepts no strangers; someone the directory never provisioned is still refused.
+        dir_idp, prov_principal, prov_source = "https://login.directory.example", uid(), uid()
+
+        async def provision() -> None:
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+                await create_principal(c, Principal(prov_principal, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+                t = uuid.UUID(tenant)
+                await c.execute(
+                    text("INSERT INTO platform.provisioning_source (source_id, tenant_id, client_id, display_name, status) VALUES (:s, :t, :c, 'HR', 'ACTIVE')"),
+                    {"s": uuid.UUID(prov_source), "t": t, "c": f"hr-{prov_source[:8]}"},
+                )
+                await c.execute(
+                    text(
+                        "INSERT INTO platform.scim_resource (resource_id, tenant_id, source_id, resource_type, external_id, principal_id, user_name, active, "
+                        "attributes, version, created_at, updated_at) VALUES (:r, :t, :s, 'User', 'auth0|prov-1', :p, 'prov1@acme.example', true, '{}', 1, now(), now())"
+                    ),
+                    {"r": uuid.uuid4(), "t": t, "s": uuid.UUID(prov_source), "p": uuid.UUID(prov_principal)},
+                )
+                await c.execute(
+                    text(
+                        "INSERT INTO platform.directory_sync (sync_id, tenant_id, source_id, connector_id, provider, display_name, settings) "
+                        "VALUES (:i, :t, :s, :k, 'AUTH0', 'Directory', CAST(:cfg AS jsonb))"
+                    ),
+                    {"i": uuid.uuid4(), "t": t, "s": uuid.UUID(prov_source), "k": uuid.uuid4(), "cfg": '{"domain": "login.directory.example"}'},
+                )
+
+        asyncio.run(provision())
+        r = http.post(
+            "/federation/integrations",
+            headers=adm,
+            json={
+                **spec,
+                "issuer": dir_idp,
+                "display_name": "Directory",
+                "link_policy": "EXISTING_ONLY",
+                "jwks": idp.jwks(),
+                "authorization_endpoint": IDP + "/authorize",
+                "token_endpoint": IDP + "/token",
+            },
+        )
+        dir_id = r.json()["connection_id"]
+
+        def directory_login(subject: str) -> Any:
+            idp.subject, idp.claims = subject, {"iss": dir_idp}
+            r = http.get(f"/federation/connections/{dir_id}/login", params={"client_id": web})
+            return callback(idp.authorize(r.headers["location"]).replace(f"iss={IDP}", f"iss={dir_idp}"))
+
+        first = directory_login("auth0|prov-1")
+        assert first.status_code == 200, first.text
+        assert first.json()["principal_id"] == prov_principal and first.json()["linked"] is True
+        again = directory_login("auth0|prov-1")
+        assert again.json()["principal_id"] == prov_principal and again.json()["linked"] is False
+        assert directory_login("auth0|stranger").status_code != 200
 
     async def facts() -> dict[str, int]:
         async with engine(owner_url) as eng, eng.begin() as c:
@@ -443,7 +520,7 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         return dict(rows)
 
     f = asyncio.run(facts())
-    assert f["com.zoiko.id.federation.link.created.v1"] == 2  # alice (explicit) + JIT principal
+    assert f["com.zoiko.id.federation.link.created.v1"] == 3  # alice (explicit) + JIT principal + the provisioned person
     assert (
-        f["com.zoiko.id.federation.metadata.changed.v1"] == 5
-    )  # 2 created, 2 rotated, 1 quarantined
+        f["com.zoiko.id.federation.metadata.changed.v1"] == 6
+    )  # 3 created, 2 rotated, 1 quarantined

@@ -45,5 +45,5 @@ dev = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["aiokafka", "aiokafka.*"]  # no type stubs published
+module = ["aiokafka", "aiokafka.*", "pyasn1", "pyasn1.*", "pyasn1_modules", "pyasn1_modules.*"]  # no type stubs published
 ignore_missing_imports = true

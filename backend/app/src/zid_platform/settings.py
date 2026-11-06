@@ -45,7 +45,14 @@ class Settings(ServiceSettings):
     billing_return_origin: str | None = None
     # --- Keys and secrets (DEC-F5; zid_crypto broker, see crypto_runtime.py) ---------------------
     # ZID_KEY_PROVIDER: local (development KEKs; local/test only) | aws-kms | gcp-kms (deployed cells)
-    key_provider: Literal["local", "aws-kms", "gcp-kms"] = "local"
+    # db = software keys held in the database, wrapped by a master key outside it (CR-057; standard assurance, not FIPS-validated)
+    key_provider: Literal["local", "aws-kms", "gcp-kms", "db"] = "local"
+    # ZID_KEY_MASTER_FILE (db): file of master keys, one `<id> <base64 32 bytes>` per line, first is current; root-only, never in the database
+    key_master_file: str | None = None
+    # ZID_KEY_PROVIDER_DB_ACK (db, deployed): must equal "accept-software-keys"; the operator accepts that a host compromise exposes keys
+    key_provider_db_ack: str | None = None
+    # ZID_KEY_STORE_DATABASE_URL (db): override for the key store connection (default: this process's database)
+    key_store_database_url: str | None = None
     # ZID_LOCAL_KEYSTORE (local only): JSON file so local processes share development KEKs;
     # unset = in-memory keys, regenerated on every start.
     local_keystore: str | None = None
@@ -76,6 +83,10 @@ class Settings(ServiceSettings):
     evidence_checkpoint_e3_interval: timedelta = timedelta(seconds=30)
     # ZID_EVIDENCE_TSA_URL: optional RFC 3161 TSA; ZID_EVIDENCE_TSA_REQUIRED blocks sealing without it
     evidence_tsa_url: str | None = None
+    # ZID_EVIDENCE_TSA_TRUST_FILE: PEM file of the TSA root certificates a timestamp must chain to; required whenever a TSA URL is set
+    evidence_tsa_trust_file: str | None = None
+    # ZID_EVIDENCE_TSA_REVOCATION: off | if_available (a revoked TSA certificate fails; a missing CRL is noted) | required (a missing CRL fails too)
+    evidence_tsa_revocation: Literal["off", "if_available", "required"] = "if_available"
     # ZID_EVIDENCE_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
     # unset classes are kept (the ledger entry is never purged, only the record body)
     evidence_retention_days: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
@@ -109,6 +120,18 @@ class Settings(ServiceSettings):
     operator_jurisdiction: str = "GB"
     operator_bootstrap_roles: tuple[str, ...] = ("REQUESTER", "APPROVER", "REVIEWER")
     operator_bootstrap_ticket_minutes: int = 60
+    # Operator Console email + password sign-in (the only password sign-in; authentication/api/operator_password.py).
+    # ZID_OPERATOR_PASSWORD_LOGINS (JSON) and/or ZID_OPERATOR_LOGINS_FILE (path to a JSON file, e.g. a mounted secret):
+    # operator email -> {"principal_id": <uuid of an operator-tenant principal>, "password_hash": <scrypt hash from
+    # entrypoints/hash_operator_password.py>}. A plain "password" is accepted in local/test only. Empty = no password route.
+    operator_password_logins: dict[str, dict[str, str]] = {}  # noqa: RUF012 - pydantic copies defaults
+    operator_logins_file: str | None = None
+    # ZID_OPERATOR_EMAIL + ZID_OPERATOR_PASSWORD: the first operator's sign-in, straight from the environment. The
+    # password is hashed in memory when the cell starts (never stored or logged), and `entrypoints/migrate.py` creates
+    # the operator principal from the same two values after the schema migration. The principal is
+    # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID when set, otherwise one derived from the operator tenant and the email.
+    operator_email: str | None = None
+    operator_password: str | None = None
     # --- Onboarding approvals (CR-036) ---------------------------------------------------------------------------
     # ZID_ONBOARDING_APPROVAL: second_admin (default: approving a plan, starting a pilot, activating the company and
     # activating a pilot scope each need an independent second administrator) | owner (the company's OWNER approves

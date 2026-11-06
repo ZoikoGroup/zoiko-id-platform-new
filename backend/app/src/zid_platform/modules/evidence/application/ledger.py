@@ -20,7 +20,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequenc
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -56,8 +56,17 @@ from zid_platform.modules.evidence.domain.ledger import (
     check_record_type,
 )
 from zid_platform.modules.evidence.infrastructure import ledger_store as store
+from zid_platform.modules.evidence.infrastructure.tsa import TimestampError
 
 ENTRY_SIGNATURE_TYP = "zid-evidence-entry+jws"
+
+
+class TimestampChecker(Protocol):
+    """Proves a stored RFC 3161 timestamp over a digest or raises `TimestampError` (`tsa_token.TimestampVerifier`)."""
+
+    async def verify_ref(self, ref: str, digest: Digest) -> object: ...
+
+
 RecordLoader = Callable[[AsyncConnection, str], Awaitable[Mapping[str, Any] | None]]
 _LOADERS: dict[str, RecordLoader] = {}
 from zid_telemetry.metrics import REGISTRY
@@ -336,6 +345,10 @@ class PartitionReport:
     entries: int = 0
     checkpoints: int = 0
     sealed_through: int = 0
+    timestamps_verified: int = 0
+    timestamps_unverified: int = (
+        0  # anchored, but no TSA trust list was given to check them against
+    )
     problems: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -357,6 +370,8 @@ class PartitionReport:
             "entries": self.entries,
             "checkpoints": self.checkpoints,
             "sealed_through": self.sealed_through,
+            "timestamps_verified": self.timestamps_verified,
+            "timestamps_unverified": self.timestamps_unverified,
             "unsealed": self.entries - self.sealed_through,
             "first_broken_sequence": self.first_broken_sequence,
             "problems": self.problems,
@@ -370,10 +385,13 @@ async def verify_partition(
     keys: Sequence[Mapping[str, Any]],
     emit_incident: bool = True,
     compromised: Mapping[str, datetime] | None = None,
+    timestamps: TimestampChecker | None = None,
 ) -> PartitionReport:
-    """Recompute the hash chain and every checkpoint (root, link, signature) of a partition.
+    """Recompute the hash chain and every checkpoint (root, link, signature, external timestamp) of a partition.
 
     `keys`: trusted public keys of the evidence signing purpose, historic ones included.
+    `timestamps`: checks an anchored checkpoint's RFC 3161 timestamp against the TSA trust list; without one, anchored
+    checkpoints are counted as unverified, never as verified.
     `compromised`: kid -> compromise time; a signature by that key at or after it is a failure, one before it is not."""
     partition = Partition.parse(partition_id)
     compromised = compromised or {}
@@ -454,6 +472,17 @@ async def verify_partition(
                 "signed_by_compromised_key", first, f"key {row.signer_key_id} was compromised",
                 checkpoint_id=str(row.checkpoint_id),
             )  # fmt: skip
+        if row.external_timestamp_ref is not None:
+            if timestamps is None:
+                report.timestamps_unverified += 1
+            else:
+                try:
+                    await timestamps.verify_ref(row.external_timestamp_ref, own)
+                    report.timestamps_verified += 1
+                except TimestampError as e:
+                    report.problem(
+                        "checkpoint_timestamp", first, str(e), checkpoint_id=str(row.checkpoint_id)
+                    )
         expected_first, previous = last + 1, manifest
         report.sealed_through = last
     if not report.ok:

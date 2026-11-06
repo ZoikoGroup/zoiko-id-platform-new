@@ -4,6 +4,7 @@ import { PageHeader, Tabs } from "@zoiko/ui";
 
 import { DeliveriesSection } from "./deliveries";
 import { EndpointsSection } from "./endpoints";
+import { SandboxSection } from "./sandbox";
 import { RateLimitsSection } from "./rate-limits";
 import { UsageSection } from "./usage";
 import { VerifyGuideSection } from "./verify-guide";
@@ -22,6 +23,7 @@ export function DevelopersPage() {
           { id: "deliveries", label: "Delivery log", content: <DeliveriesSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
           { id: "limits", label: "Rate limits", content: <RateLimitsSection /> },
+          { id: "sandbox", label: "Test identities", content: <SandboxSection /> },
           { id: "verify", label: "Verify signatures", content: <VerifyGuideSection /> },
         ]}
       />

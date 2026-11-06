@@ -47,7 +47,21 @@ export type Standing = {
   invited: boolean;
   /** Signed up "For myself" and has no organization: a personal workspace, with nothing pending to verify. */
   personal: boolean;
+  /** An ACTIVE plain member with no administrator role: the person who signed in through the company's login, or accepted a member invitation. */
+  isMember: boolean;
+  /** The person's highest active role in words ("Owner", "Administrator", "Member"...), or null when they hold none. */
+  roleLabel: string | null;
 };
+
+/** Highest first: what the person is called in the shell and on the home page. */
+const ROLE_LABELS: [string, string][] = [
+  ["OWNER", "Owner"],
+  ["ADMIN", "Administrator"],
+  ["APPROVER", "Approver"],
+  ["OPERATOR", "Operator"],
+  ["VIEWER", "Viewer"],
+  ["MEMBER", "Member"],
+];
 
 export function standing(t: TenantView | null | undefined): Standing {
   const roles = t?.my_roles ?? [];
@@ -58,6 +72,8 @@ export function standing(t: TenantView | null | undefined): Standing {
     pendingOwner: roles.some((x) => x.role === "OWNER" && x.status === "PENDING_VERIFICATION"),
     invited: roles.some((x) => x.status === "INVITED"),
     personal: t?.signup_journey === "PERSONAL" && !t.organization_id,
+    isMember: active("MEMBER") && !(active("OWNER") || active("ADMIN")),
+    roleLabel: ROLE_LABELS.find(([role]) => active(role))?.[1] ?? null,
   };
 }
 

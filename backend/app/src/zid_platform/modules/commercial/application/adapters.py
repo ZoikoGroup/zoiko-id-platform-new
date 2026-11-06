@@ -18,7 +18,7 @@ import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Protocol
 
 import httpx
@@ -56,6 +56,65 @@ class NoTaxConfigured:
         self, *, currency: str, region: str, country: str | None, lines: Sequence[TaxableLine]
     ) -> dict[int, TaxLine] | None:
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class RateTableTax:
+    """Tax from a rate table Finance approved: the buyer's country picks a rate, applied to each line's net amount.
+
+    Only an approved table answers; an unapproved or empty one answers None, so nothing is ever taxed from a table nobody signed off. A country the
+    table does not list also answers None for the whole invoice, never a guess. Each line's code starts with TABLE_."""
+
+    rates: dict[str, tuple[str, Decimal]]
+    exempt: frozenset[str]
+    approved: bool
+
+    @classmethod
+    def from_file(cls, path: Any) -> RateTableTax:
+        import yaml
+
+        try:
+            doc = yaml.safe_load(open(path, encoding="utf-8").read()) or {}
+        except OSError:
+            return cls({}, frozenset(), False)
+        rates: dict[str, tuple[str, Decimal]] = {}
+        for country, spec in (doc.get("rates") or {}).items():
+            rate = Decimal(str(spec["rate"]))
+            if not Decimal(0) <= rate < Decimal(1):
+                raise ValueError(f"tax rate for {country} must be at least 0 and below 1")
+            rates[str(country).upper()] = (str(spec["tax"]).upper().replace(" ", "_"), rate)
+        approved = bool(doc.get("approved")) and bool(doc.get("approved_by")) and bool(doc.get("approved_on"))
+        return cls(rates, frozenset(str(k) for k in doc.get("exempt") or []), approved)
+
+    async def lines_for(
+        self, *, currency: str, region: str, country: str | None, lines: Sequence[TaxableLine]
+    ) -> dict[int, TaxLine] | None:
+        if not self.approved or not country or country.upper() not in self.rates:
+            return None
+        tax, rate = self.rates[country.upper()]
+        code = f"TABLE_{tax}_{format(rate * 100, 'f').rstrip('0').rstrip('.')}"[:40]
+        out: dict[int, TaxLine] = {}
+        for ln in lines:
+            taxed = ln.net > 0 and ln.kind not in self.exempt
+            amount = (ln.net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if taxed else Decimal("0.00")
+            out[ln.seq] = TaxLine(code if taxed else f"TABLE_{tax}_0", amount)
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class FallbackTax:
+    """The first engine that can answer: Stripe Tax when it does, else the approved rate table, else None (still needs a zero-tax override)."""
+
+    primary: TaxPort
+    fallback: TaxPort
+
+    async def lines_for(
+        self, *, currency: str, region: str, country: str | None, lines: Sequence[TaxableLine]
+    ) -> dict[int, TaxLine] | None:
+        got = await self.primary.lines_for(currency=currency, region=region, country=country, lines=lines)
+        if got is not None:
+            return got
+        return await self.fallback.lines_for(currency=currency, region=region, country=country, lines=lines)
 
 
 @dataclass(frozen=True, slots=True)

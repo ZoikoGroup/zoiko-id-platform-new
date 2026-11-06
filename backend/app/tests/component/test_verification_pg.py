@@ -286,6 +286,16 @@ def test_verification_profiles_providers_review_reliance(
         assert {c["country"]: c["capabilities"]["INDIVIDUAL_VERIFICATION"] for c in listed}[
             "NG"
         ] == "DISABLED"
+        # plan feature "bulk verification": the same country gate and scope, one result per person, nobody's failure hides another's
+        bulk = {"profile_id": pid, "subject_principal_ids": [uid(), uid()], "purpose": "onboarding", "jurisdiction": "GB"}
+        assert http.post("/verifications:bulk", headers=app_client, json={**bulk, "jurisdiction": "NG"}).status_code == 422
+        assert http.post("/verifications:bulk", headers=bearer(admin), json=bulk).status_code == 403
+        assert http.post("/verifications:bulk", headers=app_client, json={**bulk, "subject_principal_ids": []}).status_code == 422
+        many = http.post("/verifications:bulk", headers=app_client, json=bulk)
+        assert many.status_code == 207, many.text
+        got = many.json()
+        assert got["requested"] == 2 and len(got["items"]) == 2 and got["started"] + got["failed"] == 2
+        assert all(("verification_id" in i) if i["started"] else ("code" in i) for i in got["items"])
         assert (
             http.post(
                 "/verifications",

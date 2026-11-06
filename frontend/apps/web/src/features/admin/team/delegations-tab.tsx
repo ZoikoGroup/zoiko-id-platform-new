@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
+import { DelegationTemplates } from "./delegation-templates";
 import { delegateRevokeStepUp } from "../billing/commitment-logic";
 import { DELEGATION_STATE, NEVER_CONFERRED, fromBillingGrant, fromCommitmentDelegate, register, type Delegation } from "./roles-logic";
 
@@ -30,6 +31,7 @@ export function DelegationsTab() {
           Seeing who has been given billing access or a commitment limit needs billing audit access, which an Owner can give you.
         </Banner>
       )}
+      <DelegationTemplates />
       <p className="text-sm text-ink-muted">
         To give billing access or a commitment limit, use <Link className="font-medium text-brand-700 underline" href="/admin/billing">Billing</Link>: the Billing access and Commitments tabs.
       </p>

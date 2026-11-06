@@ -52,6 +52,7 @@ from zid_platform.modules.operator_access.domain.model import (
 )
 from zid_platform.modules.operator_access.infrastructure import store
 from zid_platform.modules.operator_access.infrastructure.store import Grant, Review
+from zid_platform.modules.session.ports import SessionStatus, load_session
 
 router = APIRouter(prefix="/operator", tags=["operator-access"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -112,6 +113,22 @@ def _same_uuid(a: str | None, b: str | None) -> bool:
         return False
 
 
+OPERATOR_PASSWORD_CONTEXT = "operator:password"  # authentication/api/operator_password.py
+
+
+async def _password_session(request: Request, caller: Caller) -> bool:
+    """An Operator Console password sign-in (AAL-Z2) stands in for the fresh passkey the gate asks of other sessions."""
+    if caller.authn.level < 2 or not caller.session_id:
+        return False
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        session = await load_session(conn, caller.session_id)
+    return (
+        session is not None
+        and session.authentication_context == OPERATOR_PASSWORD_CONTEXT
+        and session.status is SessionStatus.ACTIVE
+    )
+
+
 async def operator_caller(request: Request, caller: CallerDep) -> Operator:
     """The operator gate: operator client AND operator tenant AND AAL-Z3 fresh AND no actor."""
     s = operator_settings(request)
@@ -123,7 +140,7 @@ async def operator_caller(request: Request, caller: CallerDep) -> Operator:
         raise _refuse("OPERATOR_DELEGATION_FORBIDDEN", "Operators act only as themselves.")
     if not caller.ctx.principal_id:
         raise _refuse("OPERATOR_PROFILE_MISSING", "An authenticated operator is required.")
-    if caller.authn.level < 3:
+    if caller.authn.level < 3 and not await _password_session(request, caller):
         raise _refuse(
             "STEP_UP_REQUIRED",
             "Operator actions need a fresh phishing-resistant authentication (AAL-Z3).",

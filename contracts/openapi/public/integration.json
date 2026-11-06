@@ -344,6 +344,7 @@
       },
       "OAuthClientBody": {
         "additionalProperties": false,
+        "description": "`purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to\nask the decision API (a signed key, no redirect address, no scopes to choose); a client people sign in through cannot get a machine token.",
         "properties": {
           "client_type": {
             "enum": [
@@ -371,12 +372,20 @@
             "title": "Name",
             "type": "string"
           },
+          "purpose": {
+            "default": "SIGN_IN",
+            "enum": [
+              "SIGN_IN",
+              "DECISIONS"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
           "redirect_uris": {
             "items": {
               "type": "string"
             },
             "maxItems": 10,
-            "minItems": 1,
             "title": "Redirect Uris",
             "type": "array"
           },
@@ -391,8 +400,7 @@
         },
         "required": [
           "name",
-          "client_type",
-          "redirect_uris"
+          "client_type"
         ],
         "title": "OAuthClientBody",
         "type": "object"
@@ -418,6 +426,33 @@
         ],
         "title": "RouteKind",
         "type": "string"
+      },
+      "SandboxIdentitiesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 1,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "days": {
+            "default": 14,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "prefix": {
+            "default": "test",
+            "pattern": "^[a-z][a-z0-9-]{0,30}$",
+            "title": "Prefix",
+            "type": "string"
+          }
+        },
+        "title": "SandboxIdentitiesBody",
+        "type": "object"
       },
       "SimulateBody": {
         "additionalProperties": false,
@@ -1401,6 +1436,115 @@
           }
         },
         "summary": "Resolve Route",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/sandbox-identities": {
+      "get": {
+        "operationId": "list_sandbox_identities_v1_integration_sandbox_identities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Sandbox Identities V1 Integration Sandbox Identities Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sandbox Identities",
+        "tags": [
+          "integration"
+        ]
+      },
+      "post": {
+        "operationId": "create_sandbox_identities_v1_integration_sandbox_identities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxIdentitiesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Sandbox Identities V1 Integration Sandbox Identities Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Sandbox Identities",
+        "tags": [
+          "integration"
+        ]
+      }
+    },
+    "/v1/integration/sandbox-identities/{principal_id}:retire": {
+      "post": {
+        "operationId": "retire_sandbox_identity_v1_integration_sandbox_identities__principal_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Sandbox Identity V1 Integration Sandbox Identities  Principal Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Sandbox Identity",
         "tags": [
           "integration"
         ]

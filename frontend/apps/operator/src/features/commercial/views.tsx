@@ -1,6 +1,6 @@
 "use client";
 
-import type { AssuranceException, AuditPackVerdict, OperatorApi, PaymentEvent, PlanRequest, PriceBookSummary } from "@zoiko/api-client";
+import type { ServiceRequest, AssuranceException, AuditPackVerdict, OperatorApi, PaymentEvent, PlanRequest, PriceBookSummary } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, EmptyState, JsonView, StatusBadge, TextField, type Column } from "@zoiko/ui";
 import { BookOpen, CreditCard, Inbox, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -48,12 +48,41 @@ export function PriceBooksView() {
   );
 }
 
+/** Before approving: what the book still lacks. Missing pairs mean a plan would be billed nothing for that SKU. */
+function Readiness({ id }: { id: string }) {
+  const r = useCellQuery([...COMMERCIAL_KEY, "readiness", id], (api) => api.commercial.bookReadiness(id));
+  return (
+    <QueryView query={r}>
+      {(d) => (
+        <Banner tone={d.ready ? "ok" : "warn"} title={d.ready ? `Complete: ${d.lines} lines, nothing unpriced` : `Not ready: ${d.missing.length} unpriced SKU and plan pairs`}>
+          {d.missing.length ? (
+            <ul className="mt-1 list-inside list-disc text-xs">
+              {d.missing.slice(0, 12).map((m) => (
+                <li key={`${m.sku}-${m.plan}`}>
+                  {m.plan}: <span className="font-mono">{m.sku}</span> ({m.what})
+                </li>
+              ))}
+              {d.missing.length > 12 ? <li>and {d.missing.length - 12} more</li> : null}
+            </ul>
+          ) : null}
+          {d.free.length ? <p className="mt-1 text-xs">{d.free.length} line(s) are priced at zero (free): check that was meant.</p> : null}
+        </Banner>
+      )}
+    </QueryView>
+  );
+}
+
 function BookLines({ id }: { id: string }) {
   const book = useCellQuery([...COMMERCIAL_KEY, "book", id], (api) => api.commercial.book(id));
   return (
     <QueryView query={book}>
       {(b) => (
         <Card title={`Price book v${b.version} (${b.status})`} padded={false}>
+          {b.status === "DRAFT" ? (
+            <div className="p-4">
+              <Readiness id={id} />
+            </div>
+          ) : null}
           <table className="w-full text-sm">
             <caption className="sr-only">Lines of price book version {b.version}</caption>
             <thead>
@@ -365,5 +394,70 @@ function VendorCosts() {
         <TextField label="To" type="datetime-local" value={end} onChange={setEnd} />
       </div>
     </Reader>
+  );
+}
+
+type OpenServiceRequest = ServiceRequest & { tenant_id: string };
+
+/** The next moves a request may make, in the order the work goes. A closed request has none. */
+export function nextMoves(status: ServiceRequest["status"]): ("IN_PROGRESS" | "ACTIVE" | "DECLINED")[] {
+  if (status === "REQUESTED") return ["IN_PROGRESS", "DECLINED"];
+  if (status === "IN_PROGRESS") return ["ACTIVE", "DECLINED"];
+  return [];
+}
+
+const MOVE_LABEL = { IN_PROGRESS: "Start", ACTIVE: "Mark in place", DECLINED: "Decline" } as const;
+
+/** Companies asking for dedicated isolation, sovereign service, key custody or named support. Each is delivered by people; the status and note below are what the company sees. */
+export function ServiceRequestsView() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "service-requests"], (api) => api.commercial.serviceRequests());
+  const [note, setNote] = useState("");
+  const move = useCellMutation<{ id: string; status: "IN_PROGRESS" | "ACTIVE" | "DECLINED" }, unknown>((api, v) => api.commercial.moveServiceRequest(v.id, v.status, note), {
+    invalidate: [COMMERCIAL_KEY],
+    success: "Recorded, and the company is told",
+  });
+  const columns: Column<OpenServiceRequest>[] = [
+    { key: "t", header: "Company", pinned: true, render: (r) => <span className="font-mono text-2xs">{r.tenant_id}</span>, sortValue: (r) => r.tenant_id },
+    { key: "s", header: "Service", render: (r) => <Badge tone="info">{r.service.replace(/_/g, " ").toLowerCase()}</Badge>, sortValue: (r) => r.service },
+    { key: "st", header: "Status", render: (r) => <StatusBadge state={r.status} kind="Service request" /> },
+    { key: "d", header: "What they asked", render: (r) => <span className="max-w-md whitespace-pre-wrap text-sm">{r.details}</span> },
+    { key: "c", header: "Contact", render: (r) => r.contact },
+    { key: "w", header: "Asked", render: (r) => new Date(r.created_at).toLocaleString("en-GB"), sortValue: (r) => r.created_at },
+    {
+      key: "a",
+      header: "Move",
+      align: "end",
+      render: (r) => (
+        <span className="flex justify-end gap-2">
+          {nextMoves(r.status).map((m) => (
+            <Button key={m} size="xs" variant={m === "DECLINED" ? "secondary" : "primary"} isDisabled={move.isPending || (m === "DECLINED" && note.trim().length < 3)} onPress={() => move.mutate({ id: r.request_id, status: m })}>
+              {MOVE_LABEL[m]}
+            </Button>
+          ))}
+        </span>
+      ),
+    },
+  ];
+  return (
+    <QueryView query={list}>
+      {(d) => (
+        <Card title="Enterprise service requests" description="Open requests, oldest first. The note below goes to the company; declining needs one." padded={false}>
+          <div className="p-4">
+            <TextField label="Note to the company" value={note} onChange={setNote} />
+          </div>
+          <DataTable<OpenServiceRequest>
+            caption="Open service requests"
+            columns={columns}
+            rows={d.items}
+            rowKey={(r) => r.request_id}
+            empty={
+              <EmptyState icon={Inbox} title="No open service requests">
+                Companies ask from Settings, Enterprise services.
+              </EmptyState>
+            }
+          />
+        </Card>
+      )}
+    </QueryView>
   );
 }

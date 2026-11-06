@@ -236,6 +236,34 @@ async def list_audit(
     )
 
 
+async def export_audit(
+    conn: AsyncConnection,
+    *,
+    after: tuple[datetime, uuid.UUID] | None,
+    event_type: str | None,
+    limit: int,
+    settled_before: datetime,
+) -> list[Row[Any]]:
+    """Audit records after a cursor, oldest first, in a stable order (created_at, then id), only those old enough that every transaction that could
+    still add an earlier one has finished, so a reader that follows the cursor never skips a record."""
+    return list(
+        (
+            await conn.execute(
+                text("""
+                    SELECT audit_id, event_type, actor_type, actor_handle, target_type, target_ref, action, outcome, reason_code,
+                           evidence_class::text AS evidence_class, record_hash, occurred_at, created_at
+                    FROM evidence.audit_record
+                    WHERE (CAST(:t AS text) IS NULL OR event_type = :t)
+                      AND created_at <= :settled
+                      AND (CAST(:ts AS timestamptz) IS NULL OR (created_at, audit_id) > (CAST(:ts AS timestamptz), CAST(:id AS uuid)))
+                    ORDER BY created_at ASC, audit_id ASC LIMIT :n
+                """),
+                {"t": event_type, "settled": settled_before, "ts": after[0] if after else None, "id": after[1] if after else None, "n": limit},
+            )
+        ).all()
+    )
+
+
 async def unledgered(conn: AsyncConnection, record_type: str, limit: int) -> Sequence[Row[Any]]:
     """Records visible in this transaction that the ledger has not committed yet, oldest first."""
     table, id_col, hash_col = LEDGERED[record_type]

@@ -2,6 +2,7 @@ import "server-only";
 
 import { readCookie } from "@zoiko/auth-bff";
 
+import { PLAIN_BRAND, parseBrand, type WorkspaceBrand } from "@/features/sign-in/brand-theme";
 import { server } from "@/server/bff";
 
 /** Which company workspace this browser signs in to: its console OAuth client id, plus the company
@@ -67,5 +68,17 @@ export async function signInConnections(cookieHeader: string | null): Promise<{ 
     return [...fixed, ...dynamic.filter((d) => !fixed.some((f) => f.id === d.id))];
   } catch {
     return fixed;
+  }
+}
+
+/** The presentation the workspace chose for its sign-in page (colour, welcome text, logo), asked of the cell by the workspace's client. Any failure shows the platform's own look. */
+export async function workspaceBrand(cookieHeader: string | null): Promise<WorkspaceBrand> {
+  const { bff, env } = server();
+  try {
+    const clientId = bff.clientFor(cookieHeader);
+    const res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}/v1/workspace-brand?client_id=${encodeURIComponent(clientId)}`, { cache: "no-store" });
+    return res.ok ? parseBrand(await res.json()) : PLAIN_BRAND;
+  } catch {
+    return PLAIN_BRAND;
   }
 }

@@ -172,6 +172,9 @@ export type VerificationProfile = {
   status: "DRAFT" | "ACTIVE" | string;
   jurisdictions?: string[];
 };
+export type BulkVerificationIn = { profile_id: string; subject_principal_ids: string[]; purpose: string; jurisdiction: string };
+export type BulkVerificationItem = { subject_principal_id: string; started: boolean; code?: string; verification_id?: string; status?: string; handoff?: unknown };
+export type BulkVerificationResult = { requested: number; started: number; failed: number; items: BulkVerificationItem[] };
 export type VerificationAdapter = { adapter_id: string; status: string; callback_path?: string };
 export type RelianceDecision = { reliance_decision_id: string; outcome: string; reason_codes: string[]; assertion_ids: string[] };
 export type ReviewOutcome = { case_id: string; outcome: string };
@@ -351,6 +354,23 @@ export type StreamPropagation = {
 
 export type ProvisioningSource = { source_id: string; client_id: string; display_name: string; status: string };
 /** Returned once by register: the connector's operator configures these; `client_created` says the cell made the OAuth client from the pasted public keys. */
+/** One connected company directory: the provider's own addresses and ids, the state, and how the last run went (a code and counts, never provider text). */
+export type DirectorySync = {
+  sync_id: string;
+  source_id: string;
+  provider: "AUTH0";
+  display_name: string;
+  settings: Record<string, string>;
+  status: "ACTIVE" | "PAUSED";
+  interval_seconds: number;
+  next_run_at: Iso;
+  last_run_at: Iso | null;
+  last_outcome: "OK" | "FAILED" | null;
+  last_error: string | null;
+  last_counts: Record<string, number>;
+  consecutive_failures: number;
+};
+
 export type ProvisioningSourceCreated = ProvisioningSource & { client_created: boolean; scim_base_url: string; token_endpoint: string };
 
 /* ---------------------------------------------------------------- admin lists (CR-010) */
@@ -565,6 +585,21 @@ export type EvidencePackage = {
   bundle: Record<string, unknown>;
   keys: Record<string, unknown>[];
 };
+/** One bulk export: several receipts in one signed package that stops being downloadable at `expires_at` (then it is erased). */
+export type BulkExport = {
+  export_id: string;
+  requested_by: string;
+  purpose: string;
+  mode: string;
+  receipt_count: number;
+  package_hash: string;
+  status: "AVAILABLE" | "EXPIRED" | string;
+  downloads: number;
+  created_at: Iso;
+  expires_at: Iso;
+  erased_at: Iso | null;
+};
+export type BulkExportIn = { receipt_ids: string[]; mode: string; purpose: string; case_ref: string; ttl_minutes?: number | null };
 export type AuditEvent = {
   audit_id: string;
   event_type: string;
@@ -973,6 +1008,98 @@ export type ApplicationCreate = {
   pep_context_fields?: PepContextField[];
 };
 
+export type SandboxIdentity = {
+  principal_id: string;
+  label: string;
+  status: "LIVE" | "EXPIRED" | "RETIRED";
+  created_at: string;
+  expires_at: string;
+};
+export type SandboxIdentitiesIn = { prefix: string; count: number; days: number };
+
+export type CustomRole = {
+  role_id: string;
+  name: string;
+  description: string;
+  base_role: "OPERATOR" | "VIEWER";
+  kind: "NARROW" | "EXTEND";
+  actions: string[];
+  status: "ACTIVE" | "RETIRED";
+  members?: number;
+  created_at: string;
+};
+/** NARROW keeps part of the base role; EXTEND adds reads and requests the base role lacks (never approvals or administration). */
+export type CustomRoleIn = { name: string; description: string; base_role: "OPERATOR" | "VIEWER"; kind: "NARROW" | "EXTEND"; actions: string[] };
+export type CustomRoleAction = { action_id: string; feature: string; matrix: string; mode: string };
+export type CustomRoleMember = { principal_id: string; assigned_at: string };
+
+export type DelegationTemplate = {
+  template_id: string;
+  name: string;
+  description: string;
+  actions: string[];
+  resources: string[];
+  purposes: string[] | null;
+  value_limit: { amount: string; currency: string } | null;
+  max_days: number;
+  delegation: { allowed: boolean; max_depth: number };
+  min_assurance: number;
+  risk_class: number;
+  status: "ACTIVE" | "RETIRED";
+  created_at: string;
+};
+export type DelegationTemplateIn = {
+  name: string;
+  description?: string;
+  actions: string[];
+  resources: string[];
+  value_amount?: string | null;
+  value_currency?: string | null;
+  max_days: number;
+  delegation_allowed?: boolean;
+  max_depth?: number;
+  risk_class?: number;
+};
+export type DelegationTemplateApply = { grantee_principal_id: string; represented_principal_id: string; authority_root_assertion_id?: string | null; days?: number | null };
+
+export type RiskInsights = {
+  days: number;
+  since: string;
+  total: number;
+  refusal_rate: number;
+  by_outcome: Record<string, number>;
+  by_risk_class: Record<string, Record<string, number>>;
+  top_refusal_reasons: { code: string; count: number }[];
+  top_actions: { action: string; count: number; refused: number }[];
+  daily: { day: string; decisions: number; refused: number }[];
+};
+export type AssuranceControl = { control: string; label: string; passed: number; of: number; rate: number | null; met: boolean | null };
+export type AssuranceReport = {
+  days: number;
+  since: string;
+  decisions: number;
+  controls: AssuranceControl[];
+  state_unavailable: number;
+  policy_releases_in_force: { policy_release_id: string; decisions: number }[];
+};
+
+export type OrgUnitKind = "GROUP" | "SUBSIDIARY" | "DIVISION" | "DEPARTMENT";
+export type OrgUnit = { unit_id: string; parent_unit_id: string | null; name: string; kind: OrgUnitKind; depth: number; members: number };
+export type OrgUnitIn = { name: string; kind: OrgUnitKind; parent_unit_id?: string | null };
+
+export type ServiceKind = "DEDICATED_ISOLATION" | "SOVEREIGN_SERVICE" | "KEY_CUSTODY" | "NAMED_SUPPORT";
+export type ServiceRequest = {
+  request_id: string;
+  service: ServiceKind;
+  status: "REQUESTED" | "IN_PROGRESS" | "ACTIVE" | "DECLINED" | "WITHDRAWN";
+  details: string;
+  contact: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
+export type ServiceRequestIn = { service: ServiceKind; details: string; contact: string };
+
 export type OAuthClientType = "PUBLIC" | "CONFIDENTIAL";
 export type OAuthClientRecord = {
   client_id: string;
@@ -984,10 +1111,13 @@ export type OAuthClientRecord = {
   status: "ACTIVE" | "SUSPENDED" | "RETIRED";
   first_party: boolean;
 };
+/** `purpose` SIGN_IN (default): a client people sign in through, with redirect addresses. DECISIONS: the machine client an application uses to ask the
+ * decision API (a signed key, no redirect address, no scopes to choose); a sign-in client cannot get a machine token. */
 export type OAuthClientCreate = {
   name: string;
   client_type: OAuthClientType;
-  redirect_uris: string[];
+  purpose?: "SIGN_IN" | "DECISIONS";
+  redirect_uris?: string[];
   scopes?: string[];
   jwks?: { keys: Record<string, unknown>[] } | null;
 };
@@ -1593,7 +1723,15 @@ export type SettingSnapshot<T> = {
 export type AuthenticationSettings = { session_absolute_hours: number | null; session_idle_minutes: number | null };
 export type NotificationSettings = { muted_kinds: string[] };
 export type BrandAccent = "blue" | "teal" | "green" | "violet" | "orange" | "slate";
-export type BrandingSettings = { display_name: string; accent: BrandAccent; support_url: string };
+/** `accent_hex`, `welcome_text` and `logo` (an inline PNG, JPEG or WebP data address of at most 48 KB) are the fuller theme, a plan feature; empty means the platform's own. */
+export type BrandingSettings = {
+  display_name: string;
+  accent: BrandAccent;
+  support_url: string;
+  accent_hex: string;
+  welcome_text: string;
+  logo: string;
+};
 export type SettingsAll = {
   areas: {
     AUTHENTICATION: SettingSnapshot<AuthenticationSettings>;

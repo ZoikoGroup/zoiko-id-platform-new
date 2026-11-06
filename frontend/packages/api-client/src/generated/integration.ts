@@ -246,6 +246,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integration/sandbox-identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sandbox Identities */
+        get: operations["list_sandbox_identities_v1_integration_sandbox_identities_get"];
+        put?: never;
+        /** Create Sandbox Identities */
+        post: operations["create_sandbox_identities_v1_integration_sandbox_identities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integration/sandbox-identities/{principal_id}:retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire Sandbox Identity */
+        post: operations["retire_sandbox_identity_v1_integration_sandbox_identities__principal_id__retire_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -363,7 +398,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** OAuthClientBody */
+        /**
+         * OAuthClientBody
+         * @description `purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to
+         *     ask the decision API (a signed key, no redirect address, no scopes to choose); a client people sign in through cannot get a machine token.
+         */
         OAuthClientBody: {
             /**
              * Client Type
@@ -376,8 +415,14 @@ export interface components {
             } | null;
             /** Name */
             name: string;
+            /**
+             * Purpose
+             * @default SIGN_IN
+             * @enum {string}
+             */
+            purpose: "SIGN_IN" | "DECISIONS";
             /** Redirect Uris */
-            redirect_uris: string[];
+            redirect_uris?: string[];
             /** Scopes */
             scopes?: string[];
         };
@@ -391,6 +436,24 @@ export interface components {
          * @enum {string}
          */
         RouteKind: "APPLICATION" | "DOMAIN";
+        /** SandboxIdentitiesBody */
+        SandboxIdentitiesBody: {
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /**
+             * Days
+             * @default 14
+             */
+            days: number;
+            /**
+             * Prefix
+             * @default test
+             */
+            prefix: string;
+        };
         /** SimulateBody */
         SimulateBody: {
             /** Records */
@@ -1047,6 +1110,96 @@ export interface operations {
                 "application/json": components["schemas"]["zid_platform__modules__integration__api__integration__ResolveBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sandbox_identities_v1_integration_sandbox_identities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    create_sandbox_identities_v1_integration_sandbox_identities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxIdentitiesBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retire_sandbox_identity_v1_integration_sandbox_identities__principal_id__retire_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

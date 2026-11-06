@@ -10,6 +10,7 @@ import { useRuntime } from "@/lib/runtime";
 
 import { DECIMAL_RE, FormProblem, PrincipalField, shortId, useMe } from "../authority/shared";
 import { DecisionResult, OutcomeBadge } from "./decision-result";
+import { Insights } from "./insights";
 
 /** The actions most often asked about, in plain words, with the kind of thing each one applies to. */
 const ACTIONS: { id: string; label: string; resource: string; money: boolean }[] = [
@@ -234,6 +235,7 @@ export function DecisionsPage() {
           )}
         </Card>
       </WithRail>
+      <Insights />
     </>
   );
 }

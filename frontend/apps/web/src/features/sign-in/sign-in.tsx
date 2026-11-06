@@ -4,6 +4,7 @@ import { Banner, Button, ButtonLink, Card } from "@zoiko/ui";
 import { Building2, Fingerprint, LifeBuoy } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 
+import { PLAIN_BRAND, safeLogo, themeVars, type WorkspaceBrand } from "@/features/sign-in/brand-theme";
 import { WorkspacePicker } from "@/features/sign-in/workspace-picker";
 import { useRuntime } from "@/lib/runtime";
 import { browserSupportsWebAuthn, completeAppSession, getPasskey, passkeyErrorMessage } from "@/lib/webauthn";
@@ -30,12 +31,14 @@ export function SignIn({
   reason,
   connections,
   workspace,
+  brand = PLAIN_BRAND,
 }: {
   returnTo?: string;
   error?: string;
   reason?: string;
   connections: { id: string; label: string }[];
   workspace: string | null;
+  brand?: WorkspaceBrand;
 }) {
   const { flow } = useRuntime();
   const [pending, setPending] = useState(false);
@@ -60,10 +63,14 @@ export function SignIn({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" style={themeVars(brand.accent_hex)}>
       <div className="text-center">
+        {safeLogo(brand.logo) ? (
+          // eslint-disable-next-line @next/next/no-img-element -- an inline image the company uploaded; there is nothing to optimise or fetch
+          <img src={safeLogo(brand.logo) ?? ""} alt={workspace ?? "Company logo"} className="mx-auto mb-3 max-h-14 max-w-48 object-contain" />
+        ) : null}
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Sign in</h1>
-        <p className="mt-1 text-sm text-ink-muted">Use the passkey on this device or your security key.</p>
+        <p className="mt-1 text-sm text-ink-muted">{brand.welcome_text || "Use the passkey on this device or your security key."}</p>
       </div>
 
       <WorkspacePicker current={workspace} />
@@ -123,7 +130,7 @@ export function SignIn({
           New here? Create your account
         </ButtonLink>
         <ButtonLink href="/recover" variant="ghost" size="sm" icon={<LifeBuoy aria-hidden className="size-4" />}>
-          Lost your passkey? Recover your account
+          Lost your passkey or can&apos;t sign in? Recover your account
         </ButtonLink>
       </div>
     </div>

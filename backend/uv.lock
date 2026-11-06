@@ -2268,8 +2268,19 @@ dependencies = [
     { name = "cryptography" },
 ]
 
+[package.optional-dependencies]
+timestamps = [
+    { name = "pyasn1" },
+    { name = "pyasn1-modules" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "cryptography", specifier = ">=43" }]
+requires-dist = [
+    { name = "cryptography", specifier = ">=43" },
+    { name = "pyasn1", marker = "extra == 'timestamps'", specifier = ">=0.6" },
+    { name = "pyasn1-modules", marker = "extra == 'timestamps'", specifier = ">=0.4" },
+]
+provides-extras = ["timestamps"]
 
 [[package]]
 name = "zid-idempotency"
@@ -2383,6 +2394,8 @@ dependencies = [
     { name = "defusedxml" },
     { name = "google-cloud-kms" },
     { name = "httpx" },
+    { name = "pyasn1" },
+    { name = "pyasn1-modules" },
     { name = "scim2-models" },
     { name = "signxml" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -2407,6 +2420,8 @@ requires-dist = [
     { name = "defusedxml", specifier = ">=0.7" },
     { name = "google-cloud-kms", specifier = ">=3.2" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "pyasn1", specifier = ">=0.6" },
+    { name = "pyasn1-modules", specifier = ">=0.4" },
     { name = "scim2-models", specifier = ">=0.3" },
     { name = "signxml", specifier = ">=4.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },

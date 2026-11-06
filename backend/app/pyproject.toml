@@ -24,6 +24,8 @@ dependencies = [
   "defusedxml>=0.7",
   "scim2-models>=0.3",
   "google-cloud-kms>=3.2",  # gcp-kms key provider (deployed cells on GCP); imported lazily
+  "pyasn1>=0.6",  # RFC 3161 timestamp token validation (evidence/infrastructure/tsa_token.py)
+  "pyasn1-modules>=0.4",
 ]
 
 [build-system]

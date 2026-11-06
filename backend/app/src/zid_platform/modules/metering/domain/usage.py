@@ -113,20 +113,22 @@ class RateLimiter:
             q.popleft()
         return q
 
-    def check(self, key: str, now: float) -> Verdict:
-        """Count this call and say whether it is allowed. A refused call does not extend the window."""
-        if self.limit <= 0:
+    def check(self, key: str, now: float, limit: int | None = None) -> Verdict:
+        """Count this call and say whether it is allowed (against `limit` when the key has its own, e.g. its plan's). A refused call does not extend the window."""
+        cap = self.limit if limit is None else limit
+        if cap <= 0:
             return Verdict(True, 0, 0, 0)
         q = self._trim(key, now)
-        if len(q) >= self.limit:
-            return Verdict(False, len(q), self.limit, max(1, int(self.window_s - (now - q[0])) + 1))
+        if len(q) >= cap:
+            return Verdict(False, len(q), cap, max(1, int(self.window_s - (now - q[0])) + 1))
         q.append(now)
-        return Verdict(True, len(q), self.limit, 0)
+        return Verdict(True, len(q), cap, 0)
 
-    def peek(self, key: str, now: float) -> Verdict:
+    def peek(self, key: str, now: float, limit: int | None = None) -> Verdict:
         """Where a key stands, without counting a call."""
-        if self.limit <= 0:
+        cap = self.limit if limit is None else limit
+        if cap <= 0:
             return Verdict(True, 0, 0, 0)
         q = self._trim(key, now)
         reset = max(0, int(self.window_s - (now - q[0])) + 1) if q else 0
-        return Verdict(len(q) < self.limit, len(q), self.limit, reset)
+        return Verdict(len(q) < cap, len(q), cap, reset)

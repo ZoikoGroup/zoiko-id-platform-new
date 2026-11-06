@@ -220,6 +220,34 @@ def test_authzen_evaluation_over_http(rt_url: str) -> None:
             and "AUTHORITY_SCOPE_EXCEEDED" in r.json()["context"]["reason_codes"]
         )
 
+        # A relying system names the person by the id its own directory gave them; the platform finds who that is, in this company only.
+        async def provision(external_id: str, *principals: str) -> None:
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+                for who in principals:
+                    source = uid()
+                    await c.execute(
+                        text("INSERT INTO platform.provisioning_source (source_id, tenant_id, client_id, display_name, status) VALUES (:s, :t, :c, 'HR', 'ACTIVE')"),
+                        {"s": uuid.UUID(source), "t": uuid.UUID(tenant), "c": f"hr-{source[:8]}"},
+                    )
+                    await c.execute(
+                        text(
+                            "INSERT INTO platform.scim_resource (resource_id, tenant_id, source_id, resource_type, external_id, principal_id, user_name, active, "
+                            "attributes, version, created_at, updated_at) VALUES (:r, :t, :s, 'User', :x, :p, :n, true, '{}', 1, now(), now())"
+                        ),
+                        {"r": uuid.uuid4(), "t": uuid.UUID(tenant), "s": uuid.UUID(source), "x": external_id, "p": uuid.UUID(who), "n": f"{external_id}-{who[:4]}"},
+                    )
+
+        asyncio.run(provision("auth0|clerk-1", clerk))
+        asyncio.run(provision("auth0|shared", clerk, cfo))
+        by_directory = {**body, "subject": {"type": "directory_user", "id": "auth0|clerk-1"}}
+        r = client.post("/access/v1/evaluation", json=by_directory)
+        assert r.json()["decision"] is True and r.json()["context"]["outcome"] == "ALLOW"  # the same answer as naming the clerk's principal id
+        r = client.post("/access/v1/evaluation", json={**by_directory, "context": over["context"]})
+        assert r.json()["decision"] is False and "AUTHORITY_SCOPE_EXCEEDED" in r.json()["context"]["reason_codes"]  # and the same limit
+        for unknown_id in ("auth0|nobody", "auth0|shared"):  # nobody provisioned under it, and an id that names two people
+            r = client.post("/access/v1/evaluation", json={**body, "subject": {"type": "directory_user", "id": unknown_id}})
+            assert r.json()["decision"] is False and "SUBJECT_UNKNOWN" in r.json()["context"]["reason_codes"]
+
         # SEC-09 / MACH-14: the clerk holds no payment authority. Text that tells the agent to act as admin, and
         # claims of scope, tools or mandates written into free-text fields, are not inputs to the decision.
         async def authority_rows() -> tuple[int, int]:
@@ -341,8 +369,8 @@ def test_authzen_evaluation_over_http(rt_url: str) -> None:
         return [r[0] for r in rows]
 
     keys = asyncio.run(billed())
-    assert len(keys) == 4 and len(set(keys)) == len(
+    assert len(keys) == 8 and len(set(keys)) == len(
         keys
-    )  # allow, over-limit deny, two payment denies
+    )  # allow, over-limit deny, two payment denies, and the four asked about by directory id (allow, over-limit deny, two unknown)
     assert all(k.startswith("pdp:") for k in keys)
     assert f"pdp:{unknown_id}" not in keys

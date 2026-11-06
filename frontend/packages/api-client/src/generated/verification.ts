@@ -243,6 +243,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/verifications:bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Bulk
+         * @description Start the same verification for up to 50 people in one request (plan feature advanced.bulk-identity-company-verification).
+         *     Each person is started on its own, exactly as POST /verifications would: one person's failure never stops or hides another's, and each
+         *     result says started or why not. A person's short-lived handoff link is returned once, here, and never stored.
+         */
+        post: operations["start_bulk_verifications_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -279,6 +301,22 @@ export interface components {
             submit_endpoint: string;
             /** Supported Evidence */
             supported_evidence: string[];
+        };
+        /** BulkStartIn */
+        BulkStartIn: {
+            /** Jurisdiction */
+            jurisdiction: string;
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /** Purpose */
+            purpose: string;
+            /** Required Level */
+            required_level?: ("IAL-Z1" | "IAL-Z2" | "IAL-Z3") | null;
+            /** Subject Principal Ids */
+            subject_principal_ids: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -865,6 +903,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_bulk_verifications_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            207: {
                 headers: {
                     [name: string]: unknown;
                 };

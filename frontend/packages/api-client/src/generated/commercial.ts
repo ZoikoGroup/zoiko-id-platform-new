@@ -1018,6 +1018,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/price-books/{price_book_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Book Readiness
+         * @description What this price book still lacks before it is approved: unpriced SKU and plan pairs, and lines chosen as free.
+         */
+        get: operations["book_readiness_v1_commercial_price_books__price_book_id__readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/price-books/{price_book_id}:approve": {
         parameters: {
             query?: never;
@@ -1120,6 +1140,43 @@ export interface paths {
          * @description Who may approve discounts in which band. Never granted to oneself.
          */
         post: operations["grant_commercial_role_v1_commercial_role_holders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/service-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Service Requests
+         * @description Every company's open requests for dedicated isolation, sovereign service, key custody or named support, oldest first.
+         */
+        get: operations["open_service_requests_v1_commercial_service_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/service-requests/{request_id}:move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move Service Request */
+        post: operations["move_service_request_v1_commercial_service_requests__request_id__move_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1268,6 +1325,28 @@ export interface paths {
         put?: never;
         /** Dunning */
         post: operations["dunning_v1_commercial_tenants__tenant_id__dunning_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/tenants/{tenant_id}/enforcement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Enforcement */
+        get: operations["get_enforcement_v1_commercial_tenants__tenant_id__enforcement_get"];
+        /**
+         * Set Enforcement
+         * @description ENFORCE: this company's plan limits refuse for real, ahead of the deployment default. SHADOW: they only report. A deployment that
+         *     enforces for everyone still enforces for this company either way; the setting can only make one company stricter, never looser.
+         */
+        put: operations["set_enforcement_v1_commercial_tenants__tenant_id__enforcement_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1807,6 +1886,16 @@ export interface components {
             /** Month */
             month: string;
         };
+        /** EnforcementBody */
+        EnforcementBody: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENFORCE" | "SHADOW";
+            /** Reason */
+            reason: string;
+        };
         /** EstimateBody */
         EstimateBody: {
             /**
@@ -2089,6 +2178,16 @@ export interface components {
             on: boolean;
             /** Reason */
             reason?: string | null;
+        };
+        /** ServiceRequestMove */
+        ServiceRequestMove: {
+            /** Note */
+            note?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "IN_PROGRESS" | "ACTIVE" | "DECLINED";
         };
         /** SignBody */
         SignBody: {
@@ -4267,6 +4366,39 @@ export interface operations {
             };
         };
     };
+    book_readiness_v1_commercial_price_books__price_book_id__readiness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_book_v1_commercial_price_books__price_book_id__approve_post: {
         parameters: {
             query?: never;
@@ -4461,6 +4593,65 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_service_requests_v1_commercial_service_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    move_service_request_v1_commercial_service_requests__request_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceRequestMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4780,6 +4971,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_enforcement_v1_commercial_tenants__tenant_id__enforcement_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_enforcement_v1_commercial_tenants__tenant_id__enforcement_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnforcementBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -42,6 +42,9 @@ const API_PATH_PREFIXES = [
   "/credentials/",
   "/presentations",
   "/v1/authority-grants",
+  "/v1/delegation-templates",
+  "/v1/service-requests",
+  "/v1/insights/",
   "/v1/approval-requests",
   "/v1/mandates$",
   "/v1/mandates/",
@@ -51,6 +54,7 @@ const API_PATH_PREFIXES = [
   "/signals",
   "/ssf/streams",
   "/provisioning/sources",
+  "/provisioning/directory-syncs",
   // Phase F: evidence, privacy, customer lockbox, residency, workload identity
   "/v1/evidence/",
   "/v1/privacy/",

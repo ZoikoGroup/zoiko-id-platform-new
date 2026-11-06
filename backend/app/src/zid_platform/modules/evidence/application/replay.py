@@ -24,7 +24,15 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_crypto import sign_jws
-from zid_evidence import Digest, canonicalize, hash_bytes, hash_json, loads_strict, verify_bundle
+from zid_evidence import (
+    CheckpointManifest,
+    Digest,
+    canonicalize,
+    hash_bytes,
+    hash_json,
+    loads_strict,
+    verify_bundle,
+)
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.application import ledger
@@ -39,6 +47,7 @@ from zid_platform.modules.evidence.domain.receipts import (
     compare_outcome,
 )
 from zid_platform.modules.evidence.infrastructure import receipt_store as store
+from zid_platform.modules.evidence.infrastructure.tsa import TimestampError
 
 PACKAGE_TYP = "zid-evidence-package+jws"
 REPLAY_FIELDS = ("outcome", "reason_codes", "obligations")
@@ -52,6 +61,35 @@ _REPLAYERS: dict[str, Replayer] = {}
 
 def register_replayer(decision_type: str, replayer: Replayer) -> None:
     _REPLAYERS[decision_type] = replayer
+
+
+async def _timestamp_check(
+    bundle: Mapping[str, Any], verifier: ledger.TimestampChecker | None
+) -> dict[str, Any] | None:
+    """The checkpoint's RFC 3161 timestamp, proved against the TSA trust list. None when the checkpoint is not anchored.
+
+    Without a trust list the timestamp is reported but not claimed: a stored token nobody checked proves nothing."""
+    manifest_fields = dict(bundle["checkpoint"])
+    ref = manifest_fields.pop("external_timestamp_ref", None)
+    manifest_fields.pop("signature", None)
+    if ref is None:
+        return None
+    if verifier is None:
+        return {
+            "name": "external_timestamp",
+            "ok": True,
+            "detail": "present, not verified (no TSA trust list)",
+        }
+    manifest = CheckpointManifest.from_dict(manifest_fields)
+    try:
+        await verifier.verify_ref(ref, manifest.hash(alg=manifest.merkle_root.alg))
+    except TimestampError as e:
+        return {"name": "external_timestamp", "ok": False, "detail": str(e)}
+    return {
+        "name": "external_timestamp",
+        "ok": True,
+        "detail": "verified against the TSA trust list",
+    }
 
 
 @dataclass(slots=True)
@@ -103,6 +141,9 @@ async def verify_receipt(
     out.ledgered = out.sealed = True
     report = verify_bundle(bundle, trusted_keys=rt.trusted_keys())
     out.checks = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in report.checks]
+    stamp = await _timestamp_check(bundle, rt.timestamp_verifier)
+    if stamp is not None:
+        out.checks.append(stamp)
     entry_hash = Digest.parse(bundle["ledger_entry"]["record_hash"])
     if not entry_hash.matches(Digest.parse(row.receipt_hash)):
         out.checks.append({"name": "ledger_record_hash", "ok": False, "detail": "differs"})
