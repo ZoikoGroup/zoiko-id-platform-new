@@ -20,6 +20,9 @@ import { Gavel, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { useRights } from "@/lib/rights";
+
+import { PersonLabel, usePeople } from "../team/person-label";
 
 import { GrantDetail } from "./grant-detail";
 import { IssueGrantDialog } from "./issue-grant";
@@ -43,6 +46,10 @@ export function isRevocable(g: AuthorityGrant) {
 }
 
 export function GrantsPanel() {
+  const rights = useRights();
+  const person = usePeople();
+  const mayIssue = rights.can("d.create-scoped-delegation-request", "S", "X");
+  const mayRevoke = rights.can("d.revoke-authorized-ordinary-delegation", "X");
   const [filters, setFilters] = useState<Record<string, string>>({ status: "ACTIVE" });
   const [grantee, setGrantee] = useState("");
   const granteeId = UUID_RE.test(grantee.trim()) ? grantee.trim() : undefined;
@@ -71,9 +78,9 @@ export function GrantsPanel() {
     { key: "id", header: "Grant", pinned: true, render: (g) => <span className="font-mono text-xs" title={g.authority_grant_id}>{g.authority_grant_id.slice(0, 8)}…{g.authority_grant_id.slice(-4)}</span> }, // plain text: the first column is already a row button, and a copy button inside it is invalid HTML,
     { key: "status", header: "Status", render: (g) => <StatusBadge state={g.status} kind="Grant" />, sortValue: (g) => g.status },
     { key: "type", header: "Type", render: (g) => <span className="text-sm">{humanize(g.grant_type)}</span>, sortValue: (g) => g.grant_type },
-    { key: "grantee", header: "Grantee", render: (g) => <CopyId value={g.grantee_principal_id} label="grantee" /> },
+    { key: "grantee", header: "Grantee", render: (g) => <PersonLabel person={person(g.grantee_principal_id)} fallbackId={g.grantee_principal_id} /> },
     { key: "represented", header: "On behalf of", render: (g) => <CopyId value={g.represented_principal_id} label="represented principal" />, defaultHidden: true },
-    { key: "grantor", header: "Grantor", render: (g) => <CopyId value={g.grantor_principal_id} label="grantor" />, defaultHidden: true },
+    { key: "grantor", header: "Grantor", render: (g) => <PersonLabel person={person(g.grantor_principal_id)} fallbackId={g.grantor_principal_id} />, defaultHidden: true },
     { key: "actions", header: "Actions", render: (g) => <ScopeList values={g.actions?.slice(0, 3)} any="Any action" /> },
     {
       key: "value",
@@ -96,7 +103,7 @@ export function GrantsPanel() {
           <Button size="xs" variant="secondary" onPress={() => setSelected(g)}>
             Details
           </Button>
-          {isRevocable(g) ? (
+          {mayRevoke && isRevocable(g) ? (
             <Button size="xs" variant="danger-outline" onPress={() => setRevokeTarget(g)}>
               Revoke
             </Button>
@@ -114,9 +121,11 @@ export function GrantsPanel() {
         title="Authority grants"
         description="Who may act, for whom, on what, and until when. Each grant is a link in an authority chain."
         actions={
-          <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setIssueOpen(true)}>
-            Issue grant
-          </Button>
+          mayIssue ? (
+            <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setIssueOpen(true)}>
+              Issue grant
+            </Button>
+          ) : undefined
         }
         padded={false}
       >

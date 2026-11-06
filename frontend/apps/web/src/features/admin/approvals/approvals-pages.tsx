@@ -1,12 +1,13 @@
 "use client";
 
 import type { GovernanceReviewer } from "@zoiko/api-client";
-import { Badge, Banner, Button, Card, CopyId, DataTable, DateTime, EmptyState, PageHeader, Select, TextField, type Column } from "@zoiko/ui";
+import { Badge, Banner, Button, Card, DataTable, DateTime, EmptyState, PageHeader, Select, TextField, type Column } from "@zoiko/ui";
 import { UserCheck } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { StepUpCancelled } from "@/lib/step-up";
+import { PersonLabel } from "../team/person-label";
 
 import {
   REVIEWER_IS_NOT,
@@ -46,7 +47,7 @@ export function GovernancePage() {
   const set = (k: keyof ReviewerForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const err = (k: keyof ReviewerForm) => (shown ? errors[k] : undefined);
   const columns: Column<GovernanceReviewer>[] = [
-    { key: "who", header: "Reviewer", render: (r) => <CopyId value={r.principal_id} label="reviewer account" /> },
+    { key: "who", header: "Reviewer", render: (r) => <PersonLabel person={r.person} fallbackId={r.principal_id} /> },
     { key: "rel", header: "Relationship", render: (r) => RELATIONSHIPS.find((x) => x.id === r.relationship)?.label ?? r.relationship },
     { key: "status", header: "Status", render: (r) => <Badge tone={reviewerStatusTone(r)}>{r.status === "PROPOSED" ? "Proposed, not yet active" : r.status === "ACTIVE" ? "Active" : r.status === "REVOKED" ? "Ended" : "Expired"}</Badge> },
     { key: "via", header: "Verified by", render: (r) => (r.activated_via === "PLATFORM_VERIFICATION" ? "Zoiko iD verification" : r.activated_via === "A1_APPROVAL" ? "Independent approval" : "Not yet"), defaultHidden: true },

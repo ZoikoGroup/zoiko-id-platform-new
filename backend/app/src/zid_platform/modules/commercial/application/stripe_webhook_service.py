@@ -55,6 +55,43 @@ async def _invoice_tenant(conn: AsyncConnection, tenants: list[str], invoice_id:
     return None
 
 
+async def _activation_paid(
+    conn: AsyncConnection, ev: hook.StripeEvent, tenants: list[str]
+) -> tuple[str, str | None, str | None, str | None]:
+    """A plan-activation payment (CR-062): record it against its order and, once it is paid in full, switch the plan. The same payment may arrive here and through
+    the buyer's return in either order; both are safe to repeat."""
+    from zid_platform.modules.commercial.application import activation_service as activations
+    from zid_platform.modules.commercial.application import orders_service as orders
+    from zid_platform.modules.commercial.domain.orders import OrderError
+
+    order_id = str(ev.order_id)
+    try:
+        uuid.UUID(order_id)
+    except ValueError:
+        return "UNMATCHED", None, "plan payment with a malformed order reference", None
+    tenant, row = None, None
+    for t in tenants:  # only this customer's own companies: an order id from elsewhere is not followed
+        found = await activations.load(conn, t, order_id)
+        if found is not None:
+            tenant, row = t, found
+            break
+    if tenant is None or row is None:
+        return "UNMATCHED", None, f"no plan payment asked for on order {order_id} for customer", None
+    if not (ev.object_id and ev.amount_minor and ev.currency):
+        return "UNMATCHED", tenant, "plan payment without an amount", None
+    try:
+        recorded = await activations.record_payment(
+            conn, tenant, order_id, payment_ref=ev.object_id, amount_minor=ev.amount_minor, currency=ev.currency
+        )
+    except activations.ActivationError as e:
+        return "NEEDS_REVIEW", tenant, f"plan payment {ev.object_id}: {e.code}", None
+    try:
+        await orders.activate(conn, order_id, actor=str(row["activated_by"]), direct=True, require_payment=True)
+    except OrderError as e:
+        return "NEEDS_REVIEW", tenant, f"plan payment {ev.object_id} recorded; the order did not switch: {e.code}", None
+    return ("IGNORED" if recorded.get("already_recorded") else "APPLIED"), tenant, ev.object_id, None
+
+
 async def _apply(
     conn: AsyncConnection, ev: hook.StripeEvent, now: datetime
 ) -> tuple[str, str | None, str | None, str | None]:
@@ -76,6 +113,12 @@ async def _apply(
             now=now,
         )
         return "APPLIED", None, f"dispute case {case_id}", None
+    if kind == "charge.refunded" and isinstance(ev.data.get("payment_intent"), str):
+        from zid_platform.modules.commercial.application import activation_service
+
+        returned = await activation_service.note_refunded(conn, str(ev.data["payment_intent"]), now=now)
+        if returned:  # the refund of a plan-activation payment: it is never credited to an invoice now
+            return "APPLIED", None, f"plan payment refunded for order {returned}", None
     if kind == "charge.refunded":
         from zid_platform.modules.commercial.application import refund_service
 
@@ -105,6 +148,10 @@ async def _apply(
         return "NEEDS_REVIEW", tenant, what[:300], invoice
     if kind not in (hook.PAYMENT_SUCCEEDED, hook.PAYMENT_FAILED):
         return "IGNORED", None, None, None
+    if ev.order_id and not ev.invoice_id:
+        if kind == hook.PAYMENT_SUCCEEDED:
+            return await _activation_paid(conn, ev, tenants)
+        return "IGNORED", None, "a plan payment that did not go through; the order keeps waiting", None  # the buyer can pay again
     if not (ev.invoice_id and ev.object_id and ev.amount_minor and ev.currency):
         return "UNMATCHED", None, "payment event without an invoice reference", None
     tenant = await _invoice_tenant(conn, tenants, ev.invoice_id)

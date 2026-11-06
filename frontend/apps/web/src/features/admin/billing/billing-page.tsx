@@ -18,7 +18,8 @@ import { PlanFeaturesSection } from "./plan-features-section";
 import { PreviewSection } from "./preview";
 import { ProfileSection } from "./profile";
 import { BILLING_KEY, STATE_COPY } from "./shared";
-import { SubscriptionSection } from "./subscription";
+import { PlansSection, SubscriptionSection } from "./subscription";
+import { ActivationBanner } from "./activation-banner";
 import { UsageSection } from "./usage";
 
 export function BillingPage() {
@@ -36,13 +37,15 @@ export function BillingPage() {
         description="Your plan and what it includes, usage against it, the bill so far, invoices and budgets. Figures come from the platform's ledger; this page never decides what you can use."
       />
       {can("billing.overview.read") ? <StateBanner /> : null}
+      {can("billing.overview.read") ? <ActivationBanner /> : null}
       <Tabs
         label="Billing"
         selectedTab={tab ?? (can("billing.overview.read") ? "overview" : "features")}
         onSelectionChange={setTab}
         tabs={[
           can("billing.overview.read") ? { id: "overview", label: "Overview", content: <OverviewSection goto={setTab} /> } : null,
-          can("billing.overview.read") ? { id: "subscription", label: "Subscription", content: <SubscriptionSection /> } : null,
+          can("billing.overview.read") ? { id: "subscription", label: "Subscription", content: <SubscriptionSection goto={setTab} /> } : null,
+          can("billing.overview.read") ? { id: "plans", label: "Plans", content: <PlansSection /> } : null,
           { id: "features", label: "Plan features", content: <PlanFeaturesSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
           can("billing.overview.read") ? { id: "preview", label: "Bill preview", content: <PreviewSection /> } : null,

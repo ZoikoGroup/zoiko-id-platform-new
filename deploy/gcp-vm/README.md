@@ -114,6 +114,10 @@ Set the `ZID_OPERATOR_*` values for the operator account (see `deploy/gcp/README
 - **Rotate keys:** `./keys.sh rotate-signing --key-id ...`; master key rotation is in the [runbook](../../docs/runbooks/software-keys.md).
 - **Rotate the database CA/certificate** before it lapses (2 years).
 
+## Evidence integrity and alerts
+
+The worker re-verifies the evidence ledger every 6 hours (`ZID_EVIDENCE_VERIFY_INTERVAL`) and raises the `evidence.integrity.failed` incident (an email to the SECURITY role) if anything fails; with software keys a timestamp authority is mandatory unless the owners waive it in writing (`ZID_EVIDENCE_TSA_WAIVER`). Point Prometheus at `worker:9102/metrics` over the private network and load `deploy/observability/prometheus/rules/zid-evidence.yaml`.
+
 ## Settings you will want soon
 
 `ZID_EVIDENCE_TSA_URL` with `ZID_EVIDENCE_TSA_TRUST_FILE` (an external timestamp on every evidence checkpoint: with software keys this is what makes a rewritten history detectable); `ZID_PROOF_SCANNER_ADDRESS` (a clamd VM; without it proof uploads are refused); `ZID_COMMERCIAL_ENFORCEMENT=enforce` once Commercial has signed.
@@ -121,5 +125,5 @@ Set the `ZID_OPERATOR_*` values for the operator account (see `deploy/gcp/README
 ## Known limits of this setup
 
 - Software keys are not FIPS-validated and are exposed by a compromise of the app VM (CR-060).
-- The Shared Signals transmitter (security event push to relying parties) stays off outside local mode until it is given signing keys.
+- The Shared Signals transmitter (security event push to relying parties) runs on the same `set` key ring the API publishes. An independent witness copy of the evidence checkpoints does not exist yet: until it does, the external timestamp authority is the only thing outside your control that vouches for history.
 - One cell, one region. A second cell means a second copy of this folder and `ZID_LOCATOR_CELL_KEYS` on the global plane.

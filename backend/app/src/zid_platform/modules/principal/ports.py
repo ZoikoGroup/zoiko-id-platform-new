@@ -8,7 +8,9 @@ from zid_platform.modules.principal.domain.principal import (
 from zid_platform.modules.principal.infrastructure.principal_store import (
     bump_security_revision,
     create_principal,
+    display_labels,
     load_principal,
+    set_display_label,
     set_status,
 )
 
@@ -18,6 +20,8 @@ __all__ = [
     "PrincipalType",
     "bump_security_revision",
     "create_principal",
+    "display_labels",
     "load_principal",
+    "set_display_label",
     "set_status",
 ]

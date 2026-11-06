@@ -19,8 +19,6 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
-
-from zid_platform.modules.commercial.infrastructure.enforcement_store import company_mode
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.modules.commercial.application import events
@@ -55,6 +53,7 @@ from zid_platform.modules.commercial.domain.invoicing import NEW_PAID_EXTRAS, re
 from zid_platform.modules.commercial.infrastructure import catalogue_store as store
 from zid_platform.modules.commercial.infrastructure import snapshot_store
 from zid_platform.modules.commercial.infrastructure.bands import band_matrix
+from zid_platform.modules.commercial.infrastructure.enforcement_store import company_mode
 
 log = logging.getLogger("zid.commercial")
 

@@ -36,6 +36,7 @@ rules:
   - {match: "GET /v1/tenant/me/permissions", exempt: OWN_ACCOUNT, why: "the caller's own projected rights"}
   - {match: "GET /v1/tenant/billing-access/me", exempt: OWN_ACCOUNT, why: "the caller's own billing keys"}
   - {match: "POST /v1/tenant/members/me:accept", exempt: OWN_ACCOUNT, why: "accepting one's own invitation; the caller has no role yet"}
+  - {match: "POST /v1/tenant/members/me:name", exempt: OWN_ACCOUNT, why: "a person sets their own display name"}
 
   # ------------------------------------------------------------------ Zoiko's operator plane and platform operations
   - {match: "* /operator/*", exempt: OPERATOR_PLANE, why: "operator sessions and JIT access requests"}

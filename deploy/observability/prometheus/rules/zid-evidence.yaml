@@ -1,0 +1,72 @@
+# Evidence ledger and key-custody alerts (hand-written; zid-slo.yaml next to it is generated from the operations catalogue).
+# The numbers come from the evidence worker, which exposes them when ZID_METRICS_PORT is set (backend/app/src/zid_platform/metrics_server.py):
+# scrape it from the private network only. Intervals assume the defaults (checkpoints every 5 minutes, integrity check every 6 hours).
+groups:
+- name: zid-evidence
+  rules:
+  # A scheduled verification found the ledger inconsistent: a hash, a signature, a link or an external timestamp. The worker has also raised the
+  # evidence.integrity.failed incident (an email to the SECURITY role). Treat as a security incident until proven otherwise.
+  - alert: EvidenceIntegrityFailed
+    expr: increase(zid_evidence_integrity_verifications_total{result="failed"}[1h]) > 0
+    for: 0m
+    labels:
+      class: PAGE
+      service: evidence
+      tier: T0
+    annotations:
+      summary: 'A scheduled verification of the evidence ledger failed: possible tampering or a damaged record'
+      owner: '@zoiko/security'
+      oncall: security-primary
+      runbook_url: docs/runbooks/RB-15.md
+  # The check could not run on a partition at all (unreadable rows, a master key that does not open them): that is not "clean".
+  - alert: EvidenceVerificationErroring
+    expr: increase(zid_evidence_integrity_verifications_total{result="error"}[1h]) > 0
+    for: 30m
+    labels:
+      class: PAGE
+      service: evidence
+      tier: T0
+    annotations:
+      summary: 'The scheduled evidence verification is erroring: integrity is not being checked'
+      owner: '@zoiko/security'
+      oncall: security-primary
+      runbook_url: docs/runbooks/RB-15.md
+  # Silence is the failure mode: nothing is checking. The scheduler stamps this gauge on every pass, even when no partition was due.
+  - alert: EvidenceVerificationStalled
+    expr: time() - zid_evidence_integrity_last_run_timestamp_seconds > 3600
+    for: 15m
+    labels:
+      class: PAGE
+      service: evidence
+      tier: T1
+    annotations:
+      summary: 'The scheduled evidence verification has not run for over an hour (worker down, or ZID_EVIDENCE_VERIFY_INTERVAL set to 0)'
+      owner: '@zoiko/security'
+      oncall: security-primary
+      runbook_url: docs/runbooks/RB-15.md
+  # Entries are being written but not sealed in checkpoints: they have no signature or timestamp over them yet.
+  - alert: EvidenceSealingBehind
+    expr: zid_evidence_oldest_unsealed_seconds > 900
+    for: 10m
+    labels:
+      class: PAGE
+      service: evidence
+      tier: T1
+    annotations:
+      summary: 'Evidence entries have waited over 15 minutes for a checkpoint (worker down, signer unavailable, or a required timestamp authority is down)'
+      owner: '@zoiko/security'
+      oncall: security-primary
+      runbook_url: docs/runbooks/RB-15.md
+  # Sealed without an external timestamp: with software keys that timestamp is what makes a rewritten history detectable (CR-060).
+  - alert: EvidenceCheckpointsUnanchored
+    expr: zid_evidence_unanchored_checkpoints > 0
+    for: 30m
+    labels:
+      class: TICKET
+      service: evidence
+      tier: T2
+    annotations:
+      summary: 'Checkpoints are waiting for their external timestamp (timestamp authority unreachable or rejecting)'
+      owner: '@zoiko/security'
+      oncall: security-primary
+      runbook_url: docs/runbooks/RB-15.md

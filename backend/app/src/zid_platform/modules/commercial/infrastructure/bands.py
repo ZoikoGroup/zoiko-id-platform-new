@@ -103,7 +103,7 @@ def meter_register() -> dict[str, MeterDef]:
     return parse_meters(_yaml("meter-register.yaml"))
 
 
-__all__ = ["plan_throughput_status", "BANDS", "MeterDef", "band_matrix", "meter_register", "parse", "parse_meters"]
+__all__ = ["BANDS", "MeterDef", "band_matrix", "meter_register", "parse", "parse_meters", "plan_throughput_status"]
 
 
 @lru_cache(maxsize=1)

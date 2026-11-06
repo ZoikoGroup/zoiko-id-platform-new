@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
+import { AsOf } from "./as-of";
 import { BILLING_KEY, money } from "./shared";
 
 const KEY = [...BILLING_KEY, "payment"];
@@ -66,6 +67,11 @@ export function PaymentSection() {
 
   return (
     <div className="space-y-4">
+      {complete.isPending || completeOnline.isPending ? (
+        <Banner tone="info" title="Payment verification in progress">
+          <span role="status">We are confirming this with the payment provider. Nothing is marked paid or saved until that finishes. Please keep this page open.</span>
+        </Banner>
+      ) : null}
       {cancelled ? <Banner tone="info" title="No card was saved">You left the card page before finishing. Nothing changed.</Banner> : null}
       {complete.isError ? <ApiErrorView error={complete.error} title="Couldn't save the card" /> : null}
       {pay.isError ? <ApiErrorView error={pay.error} title="Couldn't take the payment" /> : null}
@@ -73,6 +79,7 @@ export function PaymentSection() {
       {completeOnline.isError ? <ApiErrorView error={completeOnline.error} title="Couldn't confirm the payment" /> : null}
       {completeOnline.isSuccess ? <Banner tone="ok" title="Payment received">Your payment was confirmed and your invoice is settled.</Banner> : null}
       {paid ? <Banner tone={paid.ok ? "ok" : "danger"} title={paid.ok ? "Payment received" : "The payment did not go through"}>{paid.text}</Banner> : null}
+      <AsOf at={payment.dataUpdatedAt} />
       <QueryView query={payment}>{(p) => <Body p={p} onOnline={(id) => online.mutate(id)} onlineBusy={online.isPending} onRetry={() => void payment.refetch()} refetching={payment.isFetching} onStart={() => start.mutate(undefined as never)} starting={start.isPending} startError={start.error} onPay={(id) => { setPaid(null); pay.mutate({ id, key: newKey() }); }} paying={pay.isPending} />}</QueryView>
     </div>
   );
@@ -113,7 +120,7 @@ function Body({ p, onOnline, onlineBusy, onRetry, refetching, onStart, starting,
             </ul>
             <ul className="mt-3 divide-y divide-line text-sm">
               {p.open_invoices.map((i) => (
-                <li key={i.invoice_id} className="flex items-center justify-between py-2">
+                <li key={i.invoice_id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span className="font-mono text-xs">{i.number ?? "Invoice"}</span>
                   <span className="text-ink-muted">{i.due_at ? `due ${new Date(i.due_at).toLocaleDateString("en-GB")}` : ""}</span>
                   <span className="tabular-nums">{money(i.outstanding, i.currency)}</span>

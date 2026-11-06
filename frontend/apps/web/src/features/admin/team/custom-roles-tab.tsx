@@ -1,11 +1,12 @@
 "use client";
 
 import type { CustomRole } from "@zoiko/api-client";
-import { Banner, Button, Card, CopyId, DataTable, Dialog, EmptyState, Select, StatusBadge, TextField, type Column } from "@zoiko/ui";
+import { Banner, Button, Card, DataTable, Dialog, EmptyState, Select, StatusBadge, TextField, type Column } from "@zoiko/ui";
 import { Plus, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { PersonLabel } from "./person-label";
 
 const KEY = ["admin", "team", "custom-roles"];
 
@@ -111,7 +112,7 @@ function MembersDialog({ role, onClose }: { role: CustomRole | null; onClose: ()
       <div className="space-y-4">
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Select label="Give it to" value={person} onChange={setPerson} options={[{ id: "", label: eligible.length ? "Choose a person" : "No one eligible" }, ...eligible.map((m) => ({ id: m.principal_id, label: m.principal_id }))]} />
+            <Select label="Give it to" value={person} onChange={setPerson} options={[{ id: "", label: eligible.length ? "Choose a person" : "No one eligible" }, ...eligible.map((m) => ({ id: m.principal_id, label: m.person?.label ?? m.principal_id }))]} />
           </div>
           <Button pending={give.isPending} isDisabled={!person} onPress={() => give.mutate(undefined)}>
             Give
@@ -124,7 +125,7 @@ function MembersDialog({ role, onClose }: { role: CustomRole | null; onClose: ()
               <ul className="space-y-2">
                 {d.items.map((m) => (
                   <li key={m.principal_id} className="flex items-center justify-between gap-2">
-                    <CopyId value={m.principal_id} label="principal ID" />
+                    <PersonLabel person={(people.data?.items ?? []).find((x) => x.principal_id === m.principal_id)?.person} fallbackId={m.principal_id} />
                     <Button size="xs" variant="secondary" isDisabled={take.isPending} onPress={() => take.mutate(m.principal_id)}>
                       Take away
                     </Button>

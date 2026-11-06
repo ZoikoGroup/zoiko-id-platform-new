@@ -202,6 +202,11 @@ async def _monthly_minor(conn: AsyncConnection, quote_id: Any) -> int:
     )
 
 
+async def monthly_value_minor(conn: AsyncConnection, quote_id: Any) -> int:
+    """The quote's monthly value in minor units: the one figure a company approves as a commitment and pays as its first month (CR-062)."""
+    return await _monthly_minor(conn, quote_id)
+
+
 def _view(r: Any, approvals: list[Any]) -> dict[str, Any]:
     return {
         "request_id": str(r["request_id"]), "order_id": str(r["order_id"]), "currency": r["currency"], "term_months": r["term_months"],

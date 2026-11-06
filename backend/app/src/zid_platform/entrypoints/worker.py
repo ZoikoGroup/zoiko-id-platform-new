@@ -61,7 +61,20 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         tsa = Rfc3161Client(settings.evidence_tsa_url, verifier=verifier)
 
     async def evidence(conn: AsyncConnection, now: datetime) -> object:
-        return await worker_pass(conn, now=now, tsa=tsa)
+        return await worker_pass(
+            conn,
+            now=now,
+            tsa=tsa,
+            require_timestamp=settings.evidence_tsa_required,
+            verify_interval=settings.evidence_verify_interval,
+            verify_batch=settings.evidence_verify_batch,
+        )
+
+    async def key_events(conn: AsyncConnection, now: datetime) -> object:
+        """CR-060: copy the software key store's audit trail (create, rotate, retire, destroy, re-wrap) into the evidence ledger."""
+        from zid_platform.key_audit import ledger_key_events
+
+        return await ledger_key_events(conn)
 
     async def operator(conn: AsyncConnection, now: datetime) -> object:
         return await expire_due(conn, now)
@@ -303,6 +316,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
     return [
         ("evidence", evidence),
+        ("key_events", key_events),
         ("operator_access", operator),
         ("privacy", privacy),
         ("registry", registry),
@@ -380,6 +394,9 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
 def main() -> None:
     settings = Settings()
     configure_logging("zid-worker", settings.cell_id)
+    from zid_platform.metrics_server import start_from_environment
+
+    start_from_environment()  # ZID_METRICS_PORT: scrape endpoint for the evidence gauges below (off unless set)
     asyncio.run(main_loop(settings))
 
 

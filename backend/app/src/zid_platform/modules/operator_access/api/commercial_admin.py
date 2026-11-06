@@ -49,14 +49,14 @@ from zid_platform.modules.commercial.ports import (
     InvoicingError,
     OrderError,
     PlanRequestError,
-    ServiceRequestError,
     QuoteLine,
     RatingError,
+    ServiceRequestError,
     VendorError,
     assurance,
-    enforcement_store,
     billable_event_adjusted,
     billable_store,
+    enforcement_store,
     entitlement_changed,
     freeze_month,
     invoicing,
@@ -71,11 +71,14 @@ from zid_platform.modules.commercial.ports import (
     plan_requests,
     reconcile,
     resolve_payment_event,
-    service_requests,
     run_rating,
+    service_requests,
     vendors,
     verify_chain,
     verify_change_log,
+)
+from zid_platform.modules.commercial.ports import (
+    activations as activations_service,
 )
 from zid_platform.modules.commercial.ports import (
     catalogue_store as store,
@@ -215,6 +218,9 @@ async def get_book(price_book_id: uuid.UUID, request: Request, op: OperatorDep) 
                 "unit_rate": format(ln["unit_rate"].normalize(), "f"),
                 "unit_divisor": ln["unit_divisor"],
                 "included_quantity": ln["included_quantity"],
+                # a line edited in the console is written back whole, so the minimum must be read here or an edit would erase it
+                "minimum_amount": format(ln["minimum_amount"].normalize(), "f") if ln["minimum_amount"] is not None else None,
+                "unit": ln["unit"],
             }
             for ln in lines
         ],
@@ -1298,12 +1304,62 @@ async def activate_order(order_id: uuid.UUID, request: Request, op: OperatorDep)
     """The only route from a signed order to a tenant's entitlement. Idempotent; a second person activates."""
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _sales(conn, op)
+        require = getattr(request.app.state, "activation_payment", "REQUIRED") == "REQUIRED"
         try:
-            return await orders.activate(
-                conn, str(order_id), actor=op.principal_id, direct=direct_mode()
+            done = await orders.activate(
+                conn, str(order_id), actor=op.principal_id, direct=direct_mode(), require_payment=require
             )
         except OrderError as e:
             raise _order_fail(e) from e
+        if done.get("awaiting_payment") and getattr(request.app.state, "payment_setup", None) is None:
+            # fail closed: a plan that must be paid for is not switched on, and nobody could pay for it. Raising rolls the hold back.
+            raise ZidError(
+                "ACTIVATION_PAYMENT_UNAVAILABLE",
+                "This order has a monthly fee to pay first, but card payments are not set up on this platform. Set them up, or set ZID_ACTIVATION_PAYMENT=OFF.",
+                http_status=409,
+            )
+        return done
+
+
+@router.post("/v1/commercial/orders/{order_id}:cancel-payment-wait")
+async def cancel_payment_wait(order_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Take an order back from "awaiting payment" to signed. Nothing was charged; a paid one cannot be taken back here."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            o = await orders.order_view(conn, str(order_id))
+            return await activations_service.cancel(conn, o["tenant_id"], str(order_id), actor=op.principal_id)
+        except OrderError as e:
+            raise _order_fail(e) from e
+        except activations_service.ActivationError as e:
+            raise ZidError(e.code, e.detail, http_status=409) from e
+
+
+class ActivationRefundBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/v1/commercial/orders/{order_id}:refund-activation")
+async def refund_activation(order_id: uuid.UUID, body: ActivationRefundBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Mark a paid, unused activation payment as to be returned. The refund is made at the processor; its report marks the payment refunded."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        try:
+            o = await orders.order_view(conn, str(order_id))
+            return await activations_service.request_refund(conn, o["tenant_id"], str(order_id), actor=op.principal_id, reason=body.reason)
+        except OrderError as e:
+            raise _order_fail(e) from e
+        except activations_service.ActivationError as e:
+            raise ZidError(e.code, e.detail, http_status=409) from e
+
+
+@router.get("/v1/commercial/activation-refunds")
+async def activation_refunds(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Plan-activation payments waiting to be returned, with the processor reference to refund."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _sales(conn, op)
+        return {"items": await activations_service.refunds_due(conn)}
 
 
 # ------------------------------------------------------------------------------- vendor costs

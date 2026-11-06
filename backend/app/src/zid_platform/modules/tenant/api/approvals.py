@@ -33,6 +33,7 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.authentication.ports import require_step_up
 from zid_platform.modules.tenant.application import approvals as svc
+from zid_platform.modules.tenant.application import people
 from zid_platform.modules.tenant.application import reviewers as reviewer_svc
 from zid_platform.modules.tenant.domain.approvals import ApprovalError, State, Tier
 from zid_platform.modules.tenant.infrastructure import approvals as store
@@ -549,7 +550,12 @@ async def list_reviewers(request: Request, caller: CallerDep) -> dict[str, Any]:
     _who(caller)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         rows = await store.reviewers(conn)
-    return {"items": [reviewer_svc.public(r) for r in rows]}
+        refs = await people.person_refs(conn, [r.principal_id for r in rows])
+    return {
+        "items": [
+            {**reviewer_svc.public(r), "person": refs[r.principal_id].view()} for r in rows
+        ]
+    }
 
 
 @router.post("/v1/governance/reviewers", status_code=201)

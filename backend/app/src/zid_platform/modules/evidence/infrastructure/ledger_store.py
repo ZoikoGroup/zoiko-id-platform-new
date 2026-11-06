@@ -246,6 +246,16 @@ async def unanchored_checkpoints(conn: AsyncConnection, limit: int = 100) -> lis
     )
 
 
+async def partitions_with_entries(conn: AsyncConnection) -> list[str]:
+    """Every partition that has at least one ledger entry visible in this transaction (the worker role sees all of them)."""
+    rows = await conn.execute(
+        text(
+            "SELECT partition_id FROM evidence.ledger_entry GROUP BY partition_id ORDER BY partition_id"
+        )
+    )
+    return [str(r.partition_id) for r in rows]
+
+
 async def unsealed_partitions(conn: AsyncConnection) -> list[Row[Any]]:
     """Partitions with entries after their last checkpoint, visible in this transaction (the
     checkpointer's role reads every partition; a tenant transaction sees only its own)."""

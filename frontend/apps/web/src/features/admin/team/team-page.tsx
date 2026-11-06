@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Checkbox,
-  CopyId,
   DataTable,
   Dialog,
   EmptyState,
@@ -16,16 +15,19 @@ import {
   StatusBadge,
   SummaryStrip,
   Tabs,
+  TextField,
   type Column,
 } from "@zoiko/ui";
 import { AlertTriangle, Check, CheckCircle2, Circle, Copy, Fingerprint, LogIn, Mail, RefreshCw, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { can } from "@/lib/nav-access";
 
 import { DelegationsTab } from "./delegations-tab";
 import { OrgStructureTab } from "./org-structure-tab";
 import { CustomRolesTab } from "./custom-roles-tab";
+import { PersonLabel } from "./person-label";
 import { RolesTab } from "./roles-tab";
 
 const MEMBERS_KEY = ["tenant", "members"];
@@ -132,14 +134,25 @@ function ShareLink({ invitation, workspace, onDone }: { invitation: Invitation; 
 export function TeamPage() {
   const tenant = useCellQuery(TENANT_KEY, (api) => api.tenant.me());
   const members = useCellQuery(MEMBERS_KEY, (api) => api.tenant.members(), { refetchInterval: 5_000 });
+  const permissions = useCellQuery(["tenant", "permissions", "team"], (api) => api.tenant.myPermissions());
+  // Only people whose role may manage members see the controls; the cell refuses everyone else anyway.
+  const canManage = can(permissions.data?.rights, "a.invite-operator-or-viewer", "X");
   const [inviting, setInviting] = useState(false);
   const [role, setRole] = useState<InvitableRole>("MEMBER");
+  const [displayName, setDisplayName] = useState("");
+  const [renaming, setRenaming] = useState<TenantMember | null>(null);
+  const [newName, setNewName] = useState("");
   const [issued, setIssued] = useState<Invitation | null>(null);
   const [revoking, setRevoking] = useState<TenantMember | null>(null);
 
-  const invite = useCellMutation((api, r: InvitableRole) => api.tenant.invite(r), {
+  const invite = useCellMutation((api, v: { role: InvitableRole; name: string }) => api.tenant.invite(v.role, v.name.trim() || undefined), {
     invalidate: [MEMBERS_KEY],
     onSuccess: (inv) => setIssued(inv),
+  });
+  const rename = useCellMutation((api, v: { id: string; name: string }) => api.tenant.rename(v.id, v.name.trim() || null), {
+    invalidate: [MEMBERS_KEY],
+    success: "Name saved",
+    onSuccess: () => setRenaming(null),
   });
   const reissue = useCellMutation((api, id: string) => api.tenant.reissue(id), {
     invalidate: [MEMBERS_KEY],
@@ -158,6 +171,7 @@ export function TeamPage() {
     if (invite.isPending) return;
     setInviting(false);
     setIssued(null);
+    setDisplayName("");
     invite.reset();
     reissue.reset();
   };
@@ -172,7 +186,7 @@ export function TeamPage() {
       key: "who",
       header: "Person",
       pinned: true,
-      render: (m) => <CopyId value={m.principal_id} label="principal ID" />,
+      render: (m) => <PersonLabel person={m.person} fallbackId={m.principal_id} />,
       sortValue: (m) => m.created_at,
     },
     { key: "role", header: "Role", render: (m) => <span className="text-sm font-medium">{m.role}</span>, sortValue: (m) => m.role },
@@ -201,7 +215,7 @@ export function TeamPage() {
       align: "end",
       render: (m) => (
         <div className="flex justify-end gap-2">
-          {m.status === "INVITED" && m.passkeys === 0 ? (
+          {canManage && m.status === "INVITED" && m.passkeys === 0 ? (
             <Button
               size="xs"
               variant="secondary"
@@ -212,7 +226,19 @@ export function TeamPage() {
               New link
             </Button>
           ) : null}
-          {m.role !== "OWNER" && m.status !== "REVOKED" ? (
+          {canManage && m.status !== "REVOKED" ? (
+            <Button
+              size="xs"
+              variant="secondary"
+              onPress={() => {
+                setRenaming(m);
+                setNewName(m.person?.name ?? "");
+              }}
+            >
+              Name
+            </Button>
+          ) : null}
+          {canManage && m.role !== "OWNER" && m.status !== "REVOKED" ? (
             <Button size="xs" variant="danger-outline" onPress={() => setRevoking(m)}>
               Remove
             </Button>
@@ -279,9 +305,11 @@ export function TeamPage() {
         title="Team & invitations"
         description="Invite people into this tenant. Each person gets a single-use link to create their own passkey; you can follow them through to their first sign-in."
         actions={
-          <Button icon={<UserPlus aria-hidden className="size-4" />} onPress={() => setInviting(true)}>
-            Invite person
-          </Button>
+          canManage ? (
+            <Button icon={<UserPlus aria-hidden className="size-4" />} onPress={() => setInviting(true)}>
+              Invite person
+            </Button>
+          ) : undefined
         }
       />
       <Tabs
@@ -306,7 +334,7 @@ export function TeamPage() {
               <Button variant="secondary" isDisabled={invite.isPending} onPress={closeInvite}>
                 Cancel
               </Button>
-              <Button pending={invite.isPending} onPress={() => invite.mutate(role)}>
+              <Button pending={invite.isPending} onPress={() => invite.mutate({ role, name: displayName })}>
                 Create invitation
               </Button>
             </>
@@ -317,6 +345,7 @@ export function TeamPage() {
           <ShareLink invitation={issued} workspace={tenant.data?.tenant_slug} onDone={closeInvite} />
         ) : (
           <div className="space-y-4">
+            <TextField label="Name (optional)" value={displayName} onChange={setDisplayName} placeholder="Priya Nair" />
             <RadioCards
               label="Role"
               value={role}
@@ -332,6 +361,29 @@ export function TeamPage() {
             {invite.error ? <ApiErrorView error={invite.error} /> : null}
           </div>
         )}
+      </Dialog>
+
+      <Dialog
+        isOpen={renaming !== null}
+        onOpenChange={(o) => !o && !rename.isPending && setRenaming(null)}
+        title={renaming ? `Name for ${renaming.person?.member_code ?? "this person"}` : "Name"}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" isDisabled={rename.isPending} onPress={() => setRenaming(null)}>
+              Cancel
+            </Button>
+            <Button pending={rename.isPending} onPress={() => renaming && rename.mutate({ id: renaming.principal_id, name: newName })}>
+              Save name
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <TextField label="Name" value={newName} onChange={setNewName} placeholder="Priya Nair" />
+          <p className="text-xs text-ink-muted">The member number never changes. Leave the name empty to show the number alone.</p>
+          {rename.error ? <ApiErrorView error={rename.error} /> : null}
+        </div>
       </Dialog>
 
       <Dialog

@@ -6,6 +6,7 @@ import { Activity, ClipboardCheck, Receipt, FlaskConical, KeyRound, LifeBuoy, Se
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { useDirectMode } from "@/features/commercial/mode";
 import { useRuntime, type Subject } from "@/lib/runtime";
 
 const NAV: NavGroup[] = [
@@ -39,6 +40,12 @@ const NAV: NavGroup[] = [
   },
 ];
 
+/** One operator account manages everything that does not touch customer data, with no access request and no second approver (direct mode). The pages that exist to
+ * request, approve and review access are then not shown: nobody is there to ask. A governed deployment keeps them. */
+function navFor(direct: boolean): NavGroup[] {
+  return direct ? NAV.filter((g) => g.label !== "Operator plane") : NAV;
+}
+
 const COMMANDS: Command[] = NAV.flatMap((g) =>
   g.items.map((i) => ({ id: i.id, label: i.label, group: g.label ?? "Pages", href: i.href, icon: i.icon })),
 );
@@ -51,6 +58,9 @@ export function OperatorShell({ subject, environment, children }: { subject: Sub
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useRuntime();
+  const direct = useDirectMode();
+  const nav = navFor(direct);
+  const commands = direct ? COMMANDS.filter((c) => nav.some((g) => g.items.some((i) => i.id === c.id))) : COMMANDS;
   const health = useQuery({
     queryKey: ["health"],
     queryFn: async () => (await (await fetch("/api/health", { cache: "no-store" })).json()) as { status: string },
@@ -61,18 +71,19 @@ export function OperatorShell({ subject, environment, children }: { subject: Sub
   return (
     <AppShell
       surface="Operator Console"
-      homeHref="/requests"
-      nav={NAV}
+      homeHref={direct ? "/commercial" : "/requests"}
+      nav={nav}
       currentPath={pathname}
       environment={environment}
-      user={{ name: `Operator ${shortId(subject.sub)}`, email: subject.sub, roles: subject.acr ? [subject.acr] : undefined }}
-      commands={COMMANDS}
+      user={{ name: direct ? "Operator" : `Operator ${shortId(subject.sub)}`, email: subject.sub, roles: direct ? ["Single operator"] : subject.acr ? [subject.acr] : undefined }}
+      commands={commands}
       onNavigate={(href) => router.push(href)}
       onSignOut={() => void signOut()}
       statusBar={
         <StatusBarItems
           items={[
             { label: "Cell", value: <StatusBadge state={healthState} kind="Cell API" size="xs" /> },
+            ...(direct ? [{ label: "Mode", value: <span>Single operator</span> }] : []),
             { label: "Operator tenant", value: <span className="font-mono">{subject.tenantId ?? "—"}</span> },
             {
               label: "Signed in",

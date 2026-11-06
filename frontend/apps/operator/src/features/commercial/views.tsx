@@ -9,106 +9,44 @@ import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { CapabilityHint } from "../recovery-shared";
 import { useDirectMode } from "./mode";
+import { PriceBookEditor } from "./price-book-editor";
 
-export const COMMERCIAL_KEY = ["operator", "commercial"];
+import { COMMERCIAL_KEY } from "./keys";
 
-function rate(v: string): string {
-  return v;
-}
+export { COMMERCIAL_KEY };
 
 export function PriceBooksView() {
   const books = useCellQuery([...COMMERCIAL_KEY, "books"], (api) => api.commercial.books());
-  const [open, setOpen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const items = books.data?.items ?? [];
+  // Something is always open: the editable draft if there is one, else the newest book, so the rates are visible without a click.
+  const open = picked ?? items.find((b) => b.status === "DRAFT")?.price_book_id ?? items[0]?.price_book_id ?? null;
   const columns: Column<PriceBookSummary>[] = [
     { key: "v", header: "Version", pinned: true, render: (b) => `v${b.version}`, sortValue: (b) => b.version },
     { key: "s", header: "Status", render: (b) => <StatusBadge state={b.status} kind="Price book" /> },
     { key: "c", header: "Currency", render: (b) => b.currency },
     { key: "e", header: "Effective from", render: (b) => (b.effective_from ? new Date(b.effective_from).toLocaleString("en-GB") : "—") },
     { key: "n", header: "Note", render: (b) => b.note ?? "—" },
-    { key: "id", header: "ID", render: (b) => <span className="font-mono text-2xs">{b.price_book_id}</span> },
+    { key: "id", header: "ID", defaultHidden: true, render: (b) => <span className="font-mono text-2xs">{b.price_book_id}</span> },
   ];
   return (
     <div className="space-y-4">
       <QueryView query={books}>
         {(d) => (
-          <Card title="Price books" description="Select a row to see its lines. An APPROVED book is frozen by the database." padded={false}>
+          <Card title="Price books" description="Select a row to see its rates. An approved book is frozen by the database." padded={false}>
             <DataTable<PriceBookSummary>
               caption="Price books, newest first"
               columns={columns}
               rows={d.items}
               rowKey={(b) => b.price_book_id}
-              onRowAction={(b) => setOpen(b.price_book_id)}
+              onRowAction={(b) => setPicked(b.price_book_id)}
               empty={<EmptyState title="No price books" icon={BookOpen}>Create a draft below.</EmptyState>}
             />
           </Card>
         )}
       </QueryView>
-      {open ? <BookLines id={open} /> : null}
+      {open ? <PriceBookEditor id={open} onOpen={setPicked} /> : null}
     </div>
-  );
-}
-
-/** Before approving: what the book still lacks. Missing pairs mean a plan would be billed nothing for that SKU. */
-function Readiness({ id }: { id: string }) {
-  const r = useCellQuery([...COMMERCIAL_KEY, "readiness", id], (api) => api.commercial.bookReadiness(id));
-  return (
-    <QueryView query={r}>
-      {(d) => (
-        <Banner tone={d.ready ? "ok" : "warn"} title={d.ready ? `Complete: ${d.lines} lines, nothing unpriced` : `Not ready: ${d.missing.length} unpriced SKU and plan pairs`}>
-          {d.missing.length ? (
-            <ul className="mt-1 list-inside list-disc text-xs">
-              {d.missing.slice(0, 12).map((m) => (
-                <li key={`${m.sku}-${m.plan}`}>
-                  {m.plan}: <span className="font-mono">{m.sku}</span> ({m.what})
-                </li>
-              ))}
-              {d.missing.length > 12 ? <li>and {d.missing.length - 12} more</li> : null}
-            </ul>
-          ) : null}
-          {d.free.length ? <p className="mt-1 text-xs">{d.free.length} line(s) are priced at zero (free): check that was meant.</p> : null}
-        </Banner>
-      )}
-    </QueryView>
-  );
-}
-
-function BookLines({ id }: { id: string }) {
-  const book = useCellQuery([...COMMERCIAL_KEY, "book", id], (api) => api.commercial.book(id));
-  return (
-    <QueryView query={book}>
-      {(b) => (
-        <Card title={`Price book v${b.version} (${b.status})`} padded={false}>
-          {b.status === "DRAFT" ? (
-            <div className="p-4">
-              <Readiness id={id} />
-            </div>
-          ) : null}
-          <table className="w-full text-sm">
-            <caption className="sr-only">Lines of price book version {b.version}</caption>
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase text-ink-subtle">
-                <th scope="col" className="px-4 py-2">SKU</th>
-                <th scope="col" className="px-4 py-2">Plan</th>
-                <th scope="col" className="px-4 py-2 text-right">Unit rate</th>
-                <th scope="col" className="px-4 py-2 text-right">Per</th>
-                <th scope="col" className="px-4 py-2 text-right">Included</th>
-              </tr>
-            </thead>
-            <tbody>
-              {b.lines.map((l) => (
-                <tr key={`${l.sku}-${l.plan}`} className="border-b border-border last:border-0">
-                  <th scope="row" className="px-4 py-2 text-left font-mono text-xs">{l.sku}</th>
-                  <td className="px-4 py-2">{l.plan}</td>
-                  <td className="tabular px-4 py-2 text-right">{rate(l.unit_rate)}</td>
-                  <td className="tabular px-4 py-2 text-right">{l.unit_divisor}</td>
-                  <td className="tabular px-4 py-2 text-right">{l.included_quantity ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
-    </QueryView>
   );
 }
 

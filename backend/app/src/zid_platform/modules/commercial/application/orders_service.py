@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
+from zid_platform.modules.commercial.application import activation_service as activations
 from zid_platform.modules.commercial.application import commitment_service as commitments
 from zid_platform.modules.commercial.application import events, vendor_service
 from zid_platform.modules.commercial.application import finance_service as finance
@@ -504,9 +505,11 @@ async def activate(
     actor: str,
     now: datetime | None = None,
     direct: bool = False,
+    require_payment: bool = False,
 ) -> dict[str, Any]:
     """The one route from a signed order to the tenant's entitlement. Idempotent: a second call changes
-    nothing. The activator is never the person who entered the order."""
+    nothing. The activator is never the person who entered the order. With `require_payment` an order that has
+    a monthly fee waits (AWAITING_PAYMENT) until the first month is paid (CR-062); the call that follows the payment applies it."""
     now = now or datetime.now(UTC)
     o = (
         (
@@ -522,7 +525,7 @@ async def activate(
         raise rules.OrderError("ORDER_NOT_FOUND")
     if o["status"] == "ACTIVATED":
         return {**(await order_view(conn, order_id)), "already_active": True}
-    if o["status"] != "SIGNED":
+    if o["status"] not in ("SIGNED", "AWAITING_PAYMENT"):
         raise rules.OrderError("ORDER_NOT_SIGNED")
     if not direct and str(o["created_by"]) == actor:
         raise rules.OrderError("ORDER_SELF_ACTIVATION", "a second person activates the order")
@@ -545,6 +548,10 @@ async def activate(
                 actor=actor,
                 reason=problem,
             )
+    if require_payment and not o["pilot"]:
+        held = await activations.hold(conn, o, actor=actor, now=now)
+        if held is not None:
+            return {**(await order_view(conn, order_id)), **held, "status": "AWAITING_PAYMENT", "already_active": False}
     lines = (
         await conn.execute(
             text("SELECT sku_id, quantity FROM commercial.sales_order_line WHERE order_id = :o"),

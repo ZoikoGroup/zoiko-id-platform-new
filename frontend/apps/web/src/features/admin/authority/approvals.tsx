@@ -7,7 +7,10 @@ import { Plus, Search, Stamp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { useRights } from "@/lib/rights";
 import { useRuntime } from "@/lib/runtime";
+
+import { PersonLabel, usePeople } from "../team/person-label";
 
 import { APPROVALS_KEY, ApprovalOutcome, CreateApprovalDialog, DecideApprovalDialog } from "./approval-dialogs";
 import { UUID_RE } from "./shared";
@@ -22,6 +25,11 @@ export function ApprovalsPanel() {
   const [creating, setCreating] = useState(false);
   const [deciding, setDeciding] = useState<ApprovalListItem | "byId" | null>(null);
   const { session } = useRuntime();
+  const rights = useRights();
+  const person = usePeople();
+  // The role matrix: only an Owner or an Approver votes (d.approve-eligible-pending-request = A); the cell decides who is eligible for this request.
+  const mayVote = rights.can("d.approve-eligible-pending-request", "A");
+  const mayAsk = rights.can("d.create-scoped-delegation-request", "S", "X");
   const me = session?.authenticated ? session.subject.sub : null;
   // A request that says what it is for is decided in one click; the server picks the grant and rebuilds the binding.
   const decide = useCellMutation(
@@ -50,7 +58,7 @@ export function ApprovalsPanel() {
       ),
       sortValue: (a) => a.required_approvals - a.approvals_received,
     },
-    { key: "requester", header: "Requested by", render: (a) => <CopyId value={a.requester_principal_id} label="requester" />, defaultHidden: true },
+    { key: "requester", header: "Requested by", render: (a) => <PersonLabel person={person(a.requester_principal_id)} fallbackId={a.requester_principal_id} />, defaultHidden: true },
     { key: "created", header: "Opened", render: (a) => <RelativeTime value={a.created_at} />, sortValue: (a) => a.created_at },
     { key: "expires", header: "Expires", render: (a) => <DateTime value={a.expires_at} />, sortValue: (a) => a.expires_at },
     {
@@ -67,6 +75,7 @@ export function ApprovalsPanel() {
         if (a.state !== "PENDING") return null;
         if (a.summary && a.action) {
           if (a.requester_principal_id === me) return <span className="text-xs text-ink-muted">Waiting for someone else</span>;
+          if (!mayVote) return <span className="text-xs text-ink-muted">Waiting for an approver</span>;
           return (
             <span className="flex justify-end gap-2">
               <Button size="xs" variant="secondary" isDisabled={decide.isPending} onPress={() => decide.mutate({ id: a.approval_request_id, verdict: "DENY" })}>
@@ -78,11 +87,11 @@ export function ApprovalsPanel() {
             </span>
           );
         }
-        return (
+        return mayVote ? (
           <Button size="xs" variant="secondary" onPress={() => setDeciding(a)}>
             Decide (advanced)
           </Button>
-        );
+        ) : null;
       },
     },
   ];
@@ -95,12 +104,16 @@ export function ApprovalsPanel() {
         description="Changes that need a second administrator. Ask from the page that makes the change, and approve here or in the box above. The buttons marked advanced are for requests opened with an exact transaction context."
         actions={
           <>
-            <Button variant="secondary" onPress={() => setDeciding("byId")}>
-              Decide by ID (advanced)
-            </Button>
-            <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
-              New request (advanced)
-            </Button>
+            {mayVote ? (
+              <Button variant="secondary" onPress={() => setDeciding("byId")}>
+                Decide by ID (advanced)
+              </Button>
+            ) : null}
+            {mayAsk ? (
+              <Button icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
+                New request (advanced)
+              </Button>
+            ) : null}
           </>
         }
         padded={false}

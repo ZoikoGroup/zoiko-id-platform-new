@@ -1,12 +1,13 @@
 "use client";
 
 import type { BillingOrder, Catalog, CatalogPlan, PlanRequest } from "@zoiko/api-client";
-import { Badge, Banner, Button, Card, DataTable, DateTime, Dialog, EmptyState, StatusBadge, TextField, type Column } from "@zoiko/ui";
-import { FileSignature, Layers, Send } from "lucide-react";
+import { Badge, Banner, Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, StatusBadge, TextField, type Column } from "@zoiko/ui";
+import { Check, FileSignature, Layers, Send } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { losses, monthlyFee, reviewRows } from "./plan-review";
 import { BILLING_KEY, count, money } from "./shared";
 
 /** The signed orders behind this company's plan: what was agreed, from when, for how long. */
@@ -90,8 +91,84 @@ function PlanRequestStatus({ request }: { request: PlanRequest }) {
   return null;
 }
 
-function AskDialog({ plan, onClose }: { plan: CatalogPlan; onClose: () => void }) {
+
+/** One plan as a card: the name, the monthly fee, what it includes and a single action. Every figure is the published catalogue's; a figure it does
+ * not state reads "Agreed per order", and the fee reads "Agreed in the order" when no price book is approved. */
+function PlanCard({ plan, isCurrent, price, onAsk, canAsk, hasOpen }: { plan: CatalogPlan; isCurrent: boolean; price: { amount: string | null; currency: string | undefined }; onAsk: () => void; canAsk: boolean; hasOpen: boolean }) {
+  const free = price.amount !== null && Number(price.amount) === 0;
+  const l = plan.limits;
+  const included: [string, string][] = [
+    ["People", count(l.mah_included)],
+    ["Sign-ins", count(l.auth_events_included)],
+    ["Access decisions", count(l.policy_decisions_included)],
+    ["Machine grants", count(l.m2m_grants_included)],
+    ["SSO connections", count(l.sso_included)],
+    ["Production environments", count(l.production_environments)],
+  ];
+  return (
+    <article
+      aria-label={`${plan.label} plan`}
+      className={`flex flex-col rounded-lg border bg-surface p-5 shadow-sm ${isCurrent ? "border-brand-600 ring-2 ring-brand-600/20" : "border-border"}`}
+    >
+      <header className="flex items-start justify-between gap-2">
+        <h3 className="text-lg font-semibold text-ink">{plan.label}</h3>
+        {isCurrent ? <Badge tone="ok">Your plan</Badge> : null}
+      </header>
+      <p className="mt-3 flex items-baseline gap-1">
+        {price.amount === null || !price.currency ? (
+          <span className="text-base font-medium text-ink-muted">Agreed in the order</span>
+        ) : free ? (
+          <span className="text-3xl font-semibold text-ink">Free</span>
+        ) : (
+          <>
+            {plan.platform_fee_is_floor ? <span className="text-sm text-ink-muted">From</span> : null}
+            <span className="text-3xl font-semibold tabular-nums text-ink">{money(price.amount, price.currency)}</span>
+            <span className="text-sm text-ink-muted">/ month</span>
+          </>
+        )}
+      </p>
+      <p className="mt-1 text-xs text-ink-subtle">Platform fee. Usage above what is included is charged at the rates below.</p>
+      <ul className="mt-4 flex-1 space-y-2 border-t border-border pt-4 text-sm">
+        {included.map(([label, value]) => (
+          <li key={label} className="flex items-start gap-2">
+            <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-ok-fg" />
+            <span>
+              <span className="font-medium text-ink">{value}</span> <span className="text-ink-muted">{label.toLowerCase()}</span>
+            </span>
+          </li>
+        ))}
+        <li className="flex items-start gap-2">
+          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-ok-fg" />
+          <span className="text-ink-muted">
+            Support: <span className="font-medium text-ink">{l.support_level}</span>
+          </span>
+        </li>
+      </ul>
+      <div className="mt-5">
+        {isCurrent ? (
+          <Button className="w-full" variant="secondary" isDisabled>
+            Current plan
+          </Button>
+        ) : canAsk ? (
+          <Button className="w-full" variant="primary" isDisabled={hasOpen} onPress={onAsk}>
+            {hasOpen ? "A request is open" : "Review and ask for this plan"}
+          </Button>
+        ) : (
+          <p className="text-center text-xs text-ink-muted">Only an owner or billing admin can ask for a plan.</p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function AskDialog({ plan, current, catalog, onClose }: { plan: CatalogPlan; current: CatalogPlan | undefined; catalog: Catalog | undefined; onClose: () => void }) {
   const [note, setNote] = useState("");
+  const [understood, setUnderstood] = useState(false);
+  const rows = reviewRows(current, plan);
+  const lost = losses(current, plan);
+  const fee = monthlyFee(catalog, plan.plan);
+  const currentFee = current ? monthlyFee(catalog, current.plan) : null;
+  const currency = catalog?.pricing?.currency;
   const ask = useCellMutation((api) => api.billing.requestPlan(plan.plan, note), {
     invalidate: [REQUESTS_KEY],
     success: "Request sent to our team",
@@ -108,13 +185,57 @@ function AskDialog({ plan, onClose }: { plan: CatalogPlan; onClose: () => void }
           <Button variant="secondary" isDisabled={ask.isPending} onPress={onClose}>
             Cancel
           </Button>
-          <Button pending={ask.isPending} icon={<Send aria-hidden className="size-4" />} onPress={() => ask.mutate(undefined)}>
+          <Button pending={ask.isPending} isDisabled={!understood} icon={<Send aria-hidden className="size-4" />} onPress={() => ask.mutate(undefined)}>
             Send request
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <section aria-label="Review of the change">
+          <h3 className="mb-1 text-sm font-medium text-ink">
+            {current ? `${current.label} to ${plan.label}` : plan.label}
+          </h3>
+          <table className="w-full text-sm">
+            <caption className="sr-only">What changes if this plan is agreed</caption>
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase text-ink-subtle">
+                <th scope="col" className="py-2">What</th>
+                <th scope="col" className="py-2">Now</th>
+                <th scope="col" className="py-2">{plan.label}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border">
+                <th scope="row" className="py-2 text-left font-normal">Platform fee</th>
+                <td className="py-2">{currentFee !== null && currency ? (Number(currentFee) === 0 ? "Free" : `${money(currentFee, currency)} / month`) : "—"}</td>
+                <td className="py-2">{fee !== null && currency ? (Number(fee) === 0 ? "Free" : `${plan.platform_fee_is_floor ? "From " : ""}${money(fee, currency)} / month`) : "Agreed in the order"}</td>
+              </tr>
+              {rows.map((r) => (
+                <tr key={r.label} className="border-b border-border last:border-0">
+                  <th scope="row" className="py-2 text-left font-normal">{r.label}</th>
+                  <td className="py-2">{r.from}</td>
+                  <td className="py-2">
+                    {r.to}
+                    {r.change === "MORE" ? <span className="sr-only"> (more)</span> : r.change === "LESS" ? <span className="sr-only"> (less)</span> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-ink-muted">
+            This is the published plan, not a quote. The price, term, tax and start date are fixed only in the signed order, and a figure shown as agreed per order is not yet known.
+          </p>
+        </section>
+        {lost.length ? (
+          <Banner tone="warn" title="You would lose some of what you have now">
+            <ul className="list-disc pl-5">
+              {lost.map((l) => (
+                <li key={l}>{l}</li>
+              ))}
+            </ul>
+          </Banner>
+        ) : null}
         <TextField
           label="What do you need it for? (optional)"
           value={note}
@@ -123,6 +244,9 @@ function AskDialog({ plan, onClose }: { plan: CatalogPlan; onClose: () => void }
           rows={4}
           description="For example: two more people with single sign-on, or a higher volume of access decisions."
         />
+        <Checkbox isSelected={understood} onChange={setUnderstood}>
+          I understand this only asks our team for the plan. Nothing is charged and nothing changes until I sign an order.
+        </Checkbox>
         {ask.error ? <ApiErrorView error={ask.error} title="The request was not sent" /> : null}
       </div>
     </Dialog>
@@ -132,6 +256,9 @@ function AskDialog({ plan, onClose }: { plan: CatalogPlan; onClose: () => void }
 /** The plans on offer and what each includes, from the same catalogue the public pricing page uses. A company can ask
  * for any plan other than its own; the commercial team answers with an order. */
 export function PlansCard({ current }: { current: string }) {
+  // Asking for a plan needs billing.subscription.request_change; without it the button is not offered (the cell still decides).
+  const access = useCellQuery([...BILLING_KEY, "access"], (api) => api.billing.access());
+  const mayAsk = !access.data?.enforced || access.data.permissions.includes("billing.subscription.request_change");
   const catalog = useCellQuery([...BILLING_KEY, "catalog"], (api) => api.billing.catalog());
   const requests = useCellQuery(REQUESTS_KEY, (api) => api.billing.planRequests());
   const [asking, setAsking] = useState<CatalogPlan | null>(null);
@@ -170,7 +297,7 @@ export function PlansCard({ current }: { current: string }) {
       header: "Change",
       align: "end",
       render: (p) =>
-        p.plan === current ? null : (
+        p.plan === current || !mayAsk ? null : (
           <Button size="xs" variant="secondary" isDisabled={Boolean(open)} onPress={() => setAsking(p)}>
             {open ? "Request open" : "Ask for this plan"}
           </Button>
@@ -178,7 +305,7 @@ export function PlansCard({ current }: { current: string }) {
     },
   ];
   return (
-    <Card title="Plans" description="What each plan includes. Figures marked — are agreed per order." padded={false}>
+    <Card title="Choose a plan" description="What each plan includes. Asking for one sends a request to our team: nothing is charged and your plan does not change until an order is signed." padded={false}>
       {latest && latest.status !== "WITHDRAWN" ? (
         <div className="border-b border-border p-4">
           <PlanRequestStatus request={latest} />
@@ -187,19 +314,41 @@ export function PlansCard({ current }: { current: string }) {
       <QueryView query={catalog} loadingRows={2}>
         {(c) => (
           <>
-            <DataTable<CatalogPlan>
-              caption="Available plans"
-              columns={columns}
-              rows={c.plans}
-              rowKey={(p) => p.plan}
-              empty={<EmptyState title="No plans published" icon={Layers} compact>Plans appear once a price book is approved.</EmptyState>}
-            />
+            {c.plans.length === 0 ? (
+              <EmptyState title="No plans published" icon={Layers} compact>
+                Plans appear once a price book is approved.
+              </EmptyState>
+            ) : (
+              <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                {c.plans.map((p) => (
+                  <PlanCard
+                    key={p.plan}
+                    plan={p}
+                    isCurrent={p.plan === current}
+                    price={{ amount: fee.get(p.plan) ?? null, currency: pricing?.currency }}
+                    canAsk={mayAsk}
+                    hasOpen={Boolean(open)}
+                    onAsk={() => setAsking(p)}
+                  />
+                ))}
+              </div>
+            )}
+            <details className="border-t border-border">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-brand-700">Compare every detail side by side</summary>
+              <DataTable<CatalogPlan>
+                caption="Available plans"
+                columns={columns}
+                rows={c.plans}
+                rowKey={(p) => p.plan}
+                empty={<EmptyState title="No plans published" icon={Layers} compact>Plans appear once a price book is approved.</EmptyState>}
+              />
+            </details>
             <RatesTable catalog={c} />
             <p className="border-t border-border px-4 py-3 text-xs text-ink-muted">{c.note}</p>
           </>
         )}
       </QueryView>
-      {asking ? <AskDialog plan={asking} onClose={() => setAsking(null)} /> : null}
+      {asking ? <AskDialog plan={asking} current={catalog.data?.plans.find((p) => p.plan === current)} catalog={catalog.data} onClose={() => setAsking(null)} /> : null}
     </Card>
   );
 }

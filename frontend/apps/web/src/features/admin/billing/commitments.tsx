@@ -22,6 +22,7 @@ import {
   validCap,
   waitingReason,
 } from "./commitment-logic";
+import { PersonLabel, usePeople } from "../team/person-label";
 import { BILLING_KEY, money } from "./shared";
 
 const KEY = [...BILLING_KEY, "commitments"] as const;
@@ -111,6 +112,7 @@ function RequestList({ items, principal }: { items: CommitmentRequest[]; princip
 
 /** Re-reads the request when it opens, so the hash on screen is the server's current one, then lets the person sign or refuse it. */
 function Detail({ id, fallback, principal, onClose }: { id: string; fallback: CommitmentRequest; principal: string | undefined; onClose: () => void }) {
+  const person = usePeople();
   const live = useCellQuery([...KEY, id], (api) => api.billing.commitment(id));
   const r = live.data ?? fallback;
   const { proveAction } = useRuntime();
@@ -183,7 +185,7 @@ function Detail({ id, fallback, principal, onClose }: { id: string; fallback: Co
             <ul className="space-y-1 text-sm">
               {r.approvals.map((a) => (
                 <li key={`${a.principal_id}-${a.decided_at}`}>
-                  {a.decision === "APPROVE" ? "Approved" : "Rejected"} as {authorityLabel(a.authority)} · <span className="font-mono text-xs">{a.principal_id.slice(0, 8)}</span> ·{" "}
+                  {a.decision === "APPROVE" ? "Approved" : "Rejected"} as {authorityLabel(a.authority)} · <PersonLabel person={person(a.principal_id)} fallbackId={a.principal_id} /> ·{" "}
                   {new Date(a.decided_at).toLocaleString("en-GB")}
                 </li>
               ))}
@@ -231,13 +233,14 @@ function Delegates({ canGive }: { canGive: boolean }) {
     { invalidate: [KEY], success: "Limit taken away." },
   );
 
+  const person = usePeople();
   const people = (members.data?.items ?? [])
     .filter((m) => m.status === "ACTIVE")
-    .map((m) => ({ id: m.principal_id, label: `${m.role.charAt(0)}${m.role.slice(1).toLowerCase()} · ${m.principal_id.slice(0, 8)}` }));
+    .map((m) => ({ id: m.principal_id, label: `${m.person?.label ?? m.principal_id.slice(0, 8)} · ${m.role.charAt(0)}${m.role.slice(1).toLowerCase()}` }));
   const valid = who !== "" && validCap(cap);
 
   const columns: Column<CommitmentDelegate>[] = [
-    { key: "who", header: "Person", pinned: true, render: (d) => <span className="font-mono text-xs">{d.principal_id.slice(0, 8)}</span>, sortValue: (d) => d.principal_id },
+    { key: "who", header: "Person", pinned: true, render: (d) => <PersonLabel person={person(d.principal_id)} fallbackId={d.principal_id} />, sortValue: (d) => d.principal_id },
     { key: "kind", header: "Authority", render: (d) => DELEGATE_KIND_LABEL[d.kind], sortValue: (d) => d.kind },
     { key: "cap", header: "Limit (USD)", render: (d) => money(d.cap_usd, "USD"), sortValue: (d) => Number(d.cap_usd) },
     { key: "until", header: "Until", render: (d) => (d.effective_to ? d.effective_to.slice(0, 10) : "No end date"), sortValue: (d) => d.effective_to ?? "" },

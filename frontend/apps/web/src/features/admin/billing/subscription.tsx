@@ -1,7 +1,7 @@
 "use client";
 
 import type { EntitlementView } from "@zoiko/api-client";
-import { Badge, Banner, ButtonLink, Card, DataTable, EmptyState, KeyValues, type Column } from "@zoiko/ui";
+import { Badge, Banner, Button, ButtonLink, Card, DataTable, EmptyState, KeyValues, type Column } from "@zoiko/ui";
 import { Layers } from "lucide-react";
 
 import { useTenant } from "@/features/onboarding/shared";
@@ -10,7 +10,24 @@ import { QueryView, useCellQuery } from "@/lib/cell";
 import { OrdersCard, PlansCard } from "./orders-plans";
 import { BILLING_KEY, count, money } from "./shared";
 
-export function SubscriptionSection() {
+/** The plans on offer as cards, with the company's own plan marked, and the signed orders under them. */
+export function PlansSection() {
+  const tenant = useTenant();
+  const id = tenant.data?.tenant_id;
+  const view = useCellQuery([...BILLING_KEY, "entitlements", id], (api) => api.billing.entitlements(id as string), { enabled: Boolean(id) });
+  return (
+    <QueryView query={view}>
+      {(e) => (
+        <div className="space-y-4">
+          <PlansCard current={e.plan} />
+          <OrdersCard />
+        </div>
+      )}
+    </QueryView>
+  );
+}
+
+export function SubscriptionSection({ goto }: { goto?: (tab: string) => void } = {}) {
   const tenant = useTenant();
   const id = tenant.data?.tenant_id;
   const view = useCellQuery([...BILLING_KEY, "entitlements", id], (api) => api.billing.entitlements(id as string), { enabled: Boolean(id) });
@@ -20,7 +37,7 @@ export function SubscriptionSection() {
         t === null ? (
           <EmptyState title="No company workspace" icon={Layers}>Subscriptions belong to a company workspace.</EmptyState>
         ) : (
-          <QueryView query={view}>{(e) => <Body e={e} />}</QueryView>
+          <QueryView query={view}>{(e) => <Body e={e} goto={goto} />}</QueryView>
         )
       }
     </QueryView>
@@ -29,7 +46,7 @@ export function SubscriptionSection() {
 
 type Cap = EntitlementView["capabilities"][number];
 
-function Body({ e }: { e: EntitlementView }) {
+function Body({ e, goto }: { e: EntitlementView; goto?: (tab: string) => void }) {
   const columns: Column<Cap>[] = [
     { key: "cap", header: "Capability", pinned: true, render: (c) => <span className="font-mono text-xs">{c.capability}</span>, sortValue: (c) => c.capability },
     {
@@ -63,9 +80,11 @@ function Body({ e }: { e: EntitlementView }) {
         title={e.plan_label}
         description={`Plan ${e.plan}, ${e.source === "DEFAULT" ? "the default plan (no signed order)" : "from a signed order"}.`}
         actions={
-          <ButtonLink href="#plans" size="sm" variant="secondary">
-            Change plan
-          </ButtonLink>
+          goto ? (
+            <Button size="sm" variant="secondary" onPress={() => goto("plans")}>
+              See plans
+            </Button>
+          ) : undefined
         }
       >
         <KeyValues
@@ -85,9 +104,6 @@ function Body({ e }: { e: EntitlementView }) {
         <Estimate />
         <p className="mt-3 text-xs text-ink-muted">{e.note}</p>
       </Card>
-      <div id="plans" className="scroll-mt-20">
-        <PlansCard current={e.plan} />
-      </div>
       <OrdersCard />
       <Card title="Capabilities" padded={false}>
         <DataTable<Cap>

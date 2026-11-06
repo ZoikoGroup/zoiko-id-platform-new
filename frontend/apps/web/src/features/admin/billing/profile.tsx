@@ -51,6 +51,11 @@ function Payer({ p }: { p: BillingProfile }) {
         ]}
       />
       <p className="mt-3 text-xs text-ink-subtle">{p.payer.change_note}</p>
+      <p className="mt-2 text-sm">
+        <a className="font-medium text-brand-700 underline" href="/help?topic=billing-payer-change">
+          Ask Zoiko to review a change of legal payer or tax country
+        </a>
+      </p>
     </Card>
   );
 }
