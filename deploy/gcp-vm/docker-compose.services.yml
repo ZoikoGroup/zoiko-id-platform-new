@@ -1,0 +1,61 @@
+# Zoiko iD on GCP virtual machines only: the SERVICES VM (OpenBao, Kafka, SpiceDB). Everything is stored in PostgreSQL on the DATABASE VM
+# except Kafka's own log. Run on its own VM, or on the app VM for a small deployment:
+#   docker compose -f docker-compose.services.yml up -d                      # on the services VM
+#   docker compose -f docker-compose.yml -f docker-compose.services.yml ... # one VM for both (set ZID_SERVICES_HOST to the app VM's address)
+# These ports must be reachable from the app VM only (firewall by network tag), never from the internet. OpenBao starts SEALED: see README.md.
+name: zoiko-id-services
+
+services:
+  # Secrets VM: OpenBao keeps its data in the PostgreSQL database `openbao`; sealed with Shamir keys held by people, not on this machine.
+  openbao:
+    image: openbao/openbao:2.1.1
+    restart: unless-stopped
+    command: ["server"]
+    environment:
+      BAO_LOCAL_CONFIG: |
+        ui = false
+        storage "postgresql" {
+          connection_url = "postgres://openbao:${ZID_OPENBAO_DB_PASSWORD}@${ZID_DB_HOST}:5432/openbao?sslmode=require"
+        }
+        listener "tcp" {
+          address = "0.0.0.0:8200"
+          tls_disable = true
+        }
+        api_addr = "http://${ZID_SERVICES_HOST}:8200"
+    ports: ["${ZID_SERVICES_BIND:-0.0.0.0}:8200:8200"]
+
+  # Kafka VM: Redpanda speaks the Kafka API. One node keeps the event platform simple; three give it fault tolerance.
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.7
+    restart: unless-stopped
+    command: >
+      redpanda start --overprovisioned --smp 2 --memory 2G --reserve-memory 0M --node-id 0
+      --check=false --kafka-addr internal://0.0.0.0:9092 --advertise-kafka-addr internal://${ZID_SERVICES_HOST}:9092
+    volumes: [redpanda-data:/var/lib/redpanda/data]
+    ports: ["${ZID_SERVICES_BIND:-0.0.0.0}:9092:9092"]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Authorization relationships: SpiceDB keeps its data in the PostgreSQL database `spicedb`.
+  spicedb-migrate:
+    image: authzed/spicedb:v1.39.1
+    restart: "no"
+    command: ["migrate", "head", "--datastore-engine", "postgres",
+              "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@${ZID_DB_HOST}:5432/spicedb?sslmode=require"]
+
+  spicedb:
+    image: authzed/spicedb:v1.39.1
+    restart: unless-stopped
+    depends_on:
+      spicedb-migrate: {condition: service_completed_successfully}
+    environment:
+      SPICEDB_GRPC_PRESHARED_KEY: ${ZID_SPICEDB_PRESHARED_KEY}
+    command: ["serve", "--http-enabled", "--datastore-engine", "postgres",
+              "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@${ZID_DB_HOST}:5432/spicedb?sslmode=require"]
+    ports: ["${ZID_SERVICES_BIND:-0.0.0.0}:8443:8443"]
+
+volumes:
+  redpanda-data:

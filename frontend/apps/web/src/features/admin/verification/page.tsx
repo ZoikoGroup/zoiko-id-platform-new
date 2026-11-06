@@ -5,6 +5,7 @@ import { PageHeader, Tabs } from "@zoiko/ui";
 import { AdaptersSection } from "./adapters";
 import { RelianceDecisionPanel, ReviewDecisionPanel } from "./decisions";
 import { PrincipalAssurancePanel } from "./principal";
+import { BulkStartSection } from "./bulk-start";
 import { ProfilesSection } from "./profiles";
 
 export function VerificationAdminPage() {
@@ -19,6 +20,7 @@ export function VerificationAdminPage() {
         tabs={[
           { id: "profiles", label: "Profiles", content: <ProfilesSection /> },
           { id: "adapters", label: "Adapters", content: <AdaptersSection /> },
+          { id: "bulk", label: "Bulk start", content: <BulkStartSection /> },
           {
             id: "decisions",
             label: "Review & reliance",

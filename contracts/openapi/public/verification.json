@@ -95,6 +95,61 @@
         "title": "AdapterIn",
         "type": "object"
       },
+      "BulkStartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "required_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "IAL-Z1",
+                  "IAL-Z2",
+                  "IAL-Z3"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Level"
+          },
+          "subject_principal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Subject Principal Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile_id",
+          "subject_principal_ids",
+          "purpose",
+          "jurisdiction"
+        ],
+        "title": "BulkStartIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -986,6 +1041,50 @@
           }
         },
         "summary": "Reverify",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications:bulk": {
+      "post": {
+        "description": "Start the same verification for up to 50 people in one request (plan feature advanced.bulk-identity-company-verification).\nEach person is started on its own, exactly as POST /verifications would: one person's failure never stops or hides another's, and each\nresult says started or why not. A person's short-lived handoff link is returned once, here, and never stored.",
+        "operationId": "start_bulk_verifications_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "207": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Bulk Verifications Bulk Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Bulk",
         "tags": [
           "verification"
         ]

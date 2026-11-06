@@ -14,3 +14,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zid_evidence"]
+
+[project.optional-dependencies]
+# Verifying an RFC 3161 timestamp in a bundle (zid_evidence.timestamp); pure Python, so still easy for an auditor to install.
+timestamps = ["pyasn1>=0.6", "pyasn1-modules>=0.4"]

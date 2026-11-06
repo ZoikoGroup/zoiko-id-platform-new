@@ -21,8 +21,9 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.configuration.application import settings as service
-from zid_platform.modules.configuration.domain.settings import AREAS, SettingsError
+from zid_platform.modules.configuration.domain.settings import AREAS, CUSTOM_THEME_FIELDS, SettingsError
 from zid_platform.modules.configuration.infrastructure import snapshot_store as store
 from zid_platform.protected import protected_action
 
@@ -147,6 +148,12 @@ async def put_setting(
                 resource=f"settings:{area}",
                 change=area,
             )
+            if area == "BRANDING" and any(body.value.get(f) for f in CUSTOM_THEME_FIELDS):
+                await require_feature(
+                    conn,
+                    "standard.custom-domain-hosted-brand-theme",
+                    enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+                )
             return await service.update(
                 conn,
                 caller.ctx.tenant_id or "",

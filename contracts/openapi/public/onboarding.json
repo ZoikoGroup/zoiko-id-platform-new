@@ -419,6 +419,38 @@
         "title": "PartyIn",
         "type": "object"
       },
+      "RecoveryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "RecoveryBody",
+        "type": "object"
+      },
+      "RecoveryConfirmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "RecoveryConfirmBody",
+        "type": "object"
+      },
       "ResendBody": {
         "additionalProperties": false,
         "properties": {
@@ -2186,6 +2218,94 @@
           }
         },
         "summary": "Create Intent",
+        "tags": [
+          "registration"
+        ]
+      }
+    },
+    "/v1/registration/recovery": {
+      "post": {
+        "description": "\"I can't sign in\": email the account's own address a way back. Ten asks per ten minutes per client, and the answer is the same\nwhether or not the address has an account.",
+        "operationId": "recovery_v1_registration_recovery_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recovery V1 Registration Recovery Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recovery",
+        "tags": [
+          "registration"
+        ]
+      }
+    },
+    "/v1/registration/recovery/confirm": {
+      "post": {
+        "description": "The emailed recovery link: which workspace, and the one-passkey enrollment ticket (shown once). Every failure is the same message.",
+        "operationId": "recovery_confirm_v1_registration_recovery_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recovery Confirm V1 Registration Recovery Confirm Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recovery Confirm",
         "tags": [
           "registration"
         ]

@@ -123,13 +123,18 @@ async def bootstrap(
     from zid_platform.modules.session.domain.oauth import OAuthClient
     from zid_platform.modules.session.infrastructure.oauth_store import create_client, load_client
 
+    from zid_platform.modules.authentication.domain.operator_password import operator_principal_id
+
     tenant = settings.operator_tenant_id
-    principal = settings.operator_bootstrap_principal_id
-    if not tenant or not principal:
-        raise BootstrapError("set ZID_OPERATOR_TENANT_ID and ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID")
+    if not tenant or not (settings.operator_bootstrap_principal_id or settings.operator_email):
+        raise BootstrapError(
+            "set ZID_OPERATOR_TENANT_ID and ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID (or ZID_OPERATOR_EMAIL)"
+        )
     try:
         uuid.UUID(tenant)
-        uuid.UUID(principal)
+        principal = operator_principal_id(
+            tenant, settings.operator_email or "", settings.operator_bootstrap_principal_id
+        )
     except ValueError as e:
         raise BootstrapError("the operator tenant and principal ids must be uuids") from e
     if not settings.operator_client_ids:
@@ -213,6 +218,17 @@ async def bootstrap(
     finally:
         await engine.dispose()
     return f"{base}/enroll?ticket={ticket}" if ticket else None
+
+
+async def provision_from_settings(settings: Settings, database_url: str) -> bool:
+    """The operator account from ZID_OPERATOR_EMAIL / ZID_OPERATOR_PASSWORD, for the migration step.
+
+    Does nothing (False) unless the email, the password and the operator tenant are all configured, so a deployment
+    that has not opted in is untouched. Idempotent like `bootstrap`; it issues no passkey link."""
+    if not (settings.operator_email and settings.operator_password and settings.operator_tenant_id):
+        return False
+    await bootstrap(settings, database_url, issue_ticket_link=False)
+    return True
 
 
 def main() -> int:

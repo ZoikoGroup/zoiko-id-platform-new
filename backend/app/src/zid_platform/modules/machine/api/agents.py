@@ -307,6 +307,11 @@ async def attest(
         await protected_action(
             conn, caller, action="machine.agent.manage", resource=f"agent:{agent_id}"
         )
+        await require_feature(
+            conn,
+            "advanced.advanced-agent-governance-attestations",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         return await service.attest_gate(
             conn, _tenant(caller), agent_id, body.gate, note=body.note, actor=_actor(caller)
         )

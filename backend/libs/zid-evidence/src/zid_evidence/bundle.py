@@ -26,7 +26,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
+
+from cryptography import x509
 
 from zid_evidence.chain import LedgerEntry, entry_hash
 from zid_evidence.checkpoint import (
@@ -43,6 +46,7 @@ __all__ = [
     "BUNDLE_FORMAT",
     "PROFILE",
     "Check",
+    "TimestampOptions",
     "VerificationReport",
     "build_bundle",
     "verify_bundle",
@@ -131,13 +135,30 @@ def build_bundle(
     }
 
 
+@dataclass(frozen=True, slots=True)
+class TimestampOptions:
+    """How to read the checkpoint's RFC 3161 timestamp. Without `roots` a present timestamp is reported but not verified."""
+
+    roots: Sequence[x509.Certificate] | None = None
+    crls: Sequence[x509.CertificateRevocationList] = ()
+    revocation: Literal["off", "if_available", "required"] = "if_available"
+    required: bool = False  # the checkpoint must be anchored and the anchor must verify
+    now: datetime | None = None
+
+
 def verify_bundle(
-    bundle: Mapping[str, Any], *, trusted_keys: Sequence[Mapping[str, Any]] | None = None
+    bundle: Mapping[str, Any],
+    *,
+    trusted_keys: Sequence[Mapping[str, Any]] | None = None,
+    timestamps: TimestampOptions | None = None,
 ) -> VerificationReport:
-    """Verify a bundle offline. Never raises on bad input: every failure is a failed check."""
+    """Verify a bundle offline. Never raises on bad input: every failure is a failed check.
+
+    `timestamps` (needs `zid-evidence[timestamps]`): the TSA trust list, and optionally CRLs, to verify the checkpoint's
+    external timestamp against. A timestamp that is present but not given a trust list is reported as not verified."""
     report = VerificationReport(keys_source="trusted" if trusted_keys is not None else "bundle")
     try:
-        _verify(bundle, trusted_keys, report)
+        _verify(bundle, trusted_keys, report, timestamps or TimestampOptions())
     except (KeyError, TypeError, ValueError, AttributeError) as e:
         report.add("structure", False, f"{type(e).__name__}: {e}")
     return report
@@ -147,6 +168,7 @@ def _verify(
     bundle: Mapping[str, Any],
     trusted_keys: Sequence[Mapping[str, Any]] | None,
     report: VerificationReport,
+    options: TimestampOptions,
 ) -> None:
     if not report.add("format", bundle.get("format") == BUNDLE_FORMAT, str(bundle.get("format"))):
         return
@@ -183,7 +205,7 @@ def _verify(
 
     raw_cp = dict(bundle["checkpoint"])
     signature = raw_cp.pop("signature")
-    raw_cp.pop("external_timestamp_ref", None)
+    timestamp_ref = raw_cp.pop("external_timestamp_ref", None)
     manifest = CheckpointManifest.from_dict(raw_cp)
     in_range = (
         manifest.partition_id == entry.partition_id
@@ -216,3 +238,41 @@ def _verify(
         report.add("checkpoint_signature", True, manifest.signer_key_id)
     except SignatureError as e:
         report.add("checkpoint_signature", False, str(e))
+    _check_timestamp(report, timestamp_ref, manifest, options)
+
+
+def _check_timestamp(
+    report: VerificationReport,
+    ref: str | None,
+    manifest: CheckpointManifest,
+    options: TimestampOptions,
+) -> None:
+    name = "external_timestamp"
+    if ref is None:
+        if options.required:
+            report.add(name, False, "checkpoint is not anchored")
+        elif options.roots is not None:
+            report.add(name, True, "not anchored")
+        return
+    if options.roots is None:
+        report.add(name, not options.required, "present, not verified (no TSA trust list given)")
+        return
+    try:
+        from zid_evidence import timestamp as ts
+    except ImportError:
+        report.add(name, False, "verifying a timestamp needs zid-evidence[timestamps]")
+        return
+    try:
+        stamped = manifest.hash(alg=manifest.merkle_root.alg)
+        verified = ts.verify_timestamp_ref(ref, stamped, options.roots, now=options.now)
+        verified = ts.check_revocation(
+            verified, options.crls, mode=options.revocation, now=options.now
+        )
+    except ts.TimestampInvalid as e:
+        report.add(name, False, str(e))
+        return
+    report.add(
+        name,
+        True,
+        f"{verified.gen_time.isoformat()} by {verified.tsa_subject}; revocation {verified.revocation}",
+    )

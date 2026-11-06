@@ -398,3 +398,36 @@ async def approve(
         ),
         {"a": uuid.UUID(approver), "n": now, "e": effective_from, "i": uuid.UUID(price_book_id)},
     )
+
+
+async def readiness(conn: AsyncConnection, price_book_id: str) -> dict[str, Any]:
+    """What a price book still lacks before an approver should approve it.
+
+    Every released, priced SKU (flat or metered) needs a line for every published plan that is not Enterprise (Enterprise is priced by contract). A line at
+    a zero rate is reported as FREE so an approver sees it was chosen. Contract and pass-through SKUs are never priced from the book."""
+    missing = (
+        await conn.execute(
+            text(
+                "SELECT s.sku_id, s.description, p.plan_code FROM commercial.sku s CROSS JOIN commercial.plan p "
+                "WHERE s.released AND s.retired_at IS NULL AND s.consumption IN ('FLAT', 'METERED') "
+                "AND p.published AND p.plan_code <> 'ENTERPRISE' "
+                "AND NOT EXISTS (SELECT 1 FROM commercial.price_book_line l WHERE l.price_book_id = :i AND l.sku_id = s.sku_id AND l.plan_code = p.plan_code) "
+                "ORDER BY p.sort_order, s.sku_id"
+            ),
+            {"i": uuid.UUID(price_book_id)},
+        )
+    ).all()
+    free = (
+        await conn.execute(
+            text("SELECT sku_id, plan_code FROM commercial.price_book_line WHERE price_book_id = :i AND unit_rate = 0 AND coalesce(minimum_amount, 0) = 0 ORDER BY plan_code, sku_id"),
+            {"i": uuid.UUID(price_book_id)},
+        )
+    ).all()
+    total = (await conn.execute(text("SELECT count(*) FROM commercial.price_book_line WHERE price_book_id = :i"), {"i": uuid.UUID(price_book_id)})).scalar_one()
+    return {
+        "price_book_id": price_book_id,
+        "lines": int(total),
+        "ready": not missing and total > 0,
+        "missing": [{"sku": r.sku_id, "plan": r.plan_code, "what": r.description} for r in missing],
+        "free": [{"sku": r.sku_id, "plan": r.plan_code} for r in free],
+    }

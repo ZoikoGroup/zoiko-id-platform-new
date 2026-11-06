@@ -9,7 +9,7 @@
 Account linking (§9.1, AUTH-09): an existing issuer+subject link decides the principal. Without
 one, a link is created only (a) inside an explicit linking flow started from an authenticated,
 fresh, strong session of that principal, or (b) for a brand-new principal when the connection's
-policy is JIT. Email is never consulted, so the same address at another IdP cannot attach itself to
+policy is JIT (that principal is made a MEMBER of the tenant, never more). Email is never consulted (a person the company's own directory sync provisioned is matched on the provider's id), so the same address at another IdP cannot attach itself to
 an existing account. The upstream call happens outside any database transaction; the state is
 spent first, so a replayed callback finds nothing.
 """
@@ -20,7 +20,7 @@ import base64
 import hashlib
 import secrets
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any
@@ -70,8 +70,19 @@ from zid_platform.modules.session.ports import (
     create_session,
     issue_handle,
 )
+from zid_platform.modules.tenant.ports import ensure_member
 
 SecretResolver = Callable[[str], str]
+
+# Who the company's own directory provisioned for an identity at its provider: (conn, issuer, subject) -> principal id or None. Federation must not import
+# provisioning (the two modules would be a dependency cycle through integration), so the composition root hands the lookup in at start-up.
+ProvisionedLookup = Callable[[AsyncConnection, str, str], Awaitable[str | None]]
+_provisioned_lookup: ProvisionedLookup | None = None
+
+
+def register_provisioned_lookup(lookup: ProvisionedLookup | None) -> None:
+    global _provisioned_lookup
+    _provisioned_lookup = lookup
 
 
 @dataclass(frozen=True, slots=True)
@@ -402,6 +413,21 @@ async def _principal_for(
     if link is not None:
         await touch_external_link(conn, link.link_id, now)
         return link.principal_id, False
+    provisioned = await _provisioned_lookup(conn, ident.issuer, ident.subject) if _provisioned_lookup else None
+    if provisioned is not None:
+        # The company's own directory sync provisioned this very person (matched on the provider's id, never on e-mail), so signing in
+        # attaches to that account instead of making a second one, whatever the connection's policy for strangers is.
+        await create_external_link(
+            conn,
+            tenant_id=c.tenant_id,
+            principal_id=provisioned,
+            issuer=ident.issuer,
+            subject=ident.subject,
+            connection_id=c.connection_id,
+            link_assurance="ENTERPRISE_PROVISIONED",
+            now=now,
+        )
+        return provisioned, True
     if c.link_policy != "JIT":
         raise FederationError("FEDERATION_ACCOUNT_NOT_LINKED")
     principal_id = str(uuid.uuid4())
@@ -425,6 +451,8 @@ async def _principal_for(
         link_assurance="JIT",
         now=now,
     )
+    # A person created by signing in gets the plain MEMBER role and nothing more; ADMIN is only ever given by an owner's invitation.
+    await ensure_member(conn, c.tenant_id, principal_id, now=now)
     return principal_id, True
 
 

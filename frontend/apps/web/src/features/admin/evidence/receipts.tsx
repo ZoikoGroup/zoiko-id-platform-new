@@ -33,7 +33,7 @@ const ANNOTATION_KINDS = [
   { id: "INVALIDATION", label: "Invalidation", description: "The receipt must not be relied on" },
 ];
 
-const EXPORT_MODES = [
+export const EXPORT_MODES = [
   { id: "CUSTOMER_VERIFY", label: "Customer verification", description: "Minimized, tenant-scoped" },
   { id: "AUDITOR", label: "Auditor", description: "Control/audit sample under engagement" },
   { id: "REGULATOR_LEGAL", label: "Regulator / legal", description: "Case-specific, disclosure review required" },

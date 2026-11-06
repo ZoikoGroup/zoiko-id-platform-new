@@ -1,6 +1,123 @@
 {
   "components": {
     "schemas": {
+      "DirectorySyncActionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          }
+        },
+        "title": "DirectorySyncActionIn",
+        "type": "object"
+      },
+      "DirectorySyncCredentialIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "secret": {
+            "format": "password",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Secret",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "DirectorySyncCredentialIn",
+        "type": "object"
+      },
+      "DirectorySyncIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "interval_seconds": {
+            "default": 3600,
+            "maximum": 86400.0,
+            "minimum": 300.0,
+            "title": "Interval Seconds",
+            "type": "integer"
+          },
+          "provider": {
+            "const": "AUTH0",
+            "title": "Provider",
+            "type": "string"
+          },
+          "secret": {
+            "format": "password",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Secret",
+            "type": "string",
+            "writeOnly": true
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 8,
+            "title": "Settings",
+            "type": "object"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "provider",
+          "display_name",
+          "settings",
+          "secret"
+        ],
+        "title": "DirectorySyncIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -175,6 +292,290 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/provisioning/directory-syncs": {
+      "get": {
+        "operationId": "list_syncs_provisioning_directory_syncs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Syncs Provisioning Directory Syncs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Syncs",
+        "tags": [
+          "scim"
+        ]
+      },
+      "post": {
+        "operationId": "create_sync_provisioning_directory_syncs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySyncIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Sync Provisioning Directory Syncs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Sync",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
+    "/provisioning/directory-syncs/{sync_id}/credential": {
+      "put": {
+        "operationId": "put_credential_provisioning_directory_syncs__sync_id__credential_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sync Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySyncCredentialIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Credential Provisioning Directory Syncs  Sync Id  Credential Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Credential",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
+    "/provisioning/directory-syncs/{sync_id}:pause": {
+      "post": {
+        "operationId": "pause_provisioning_directory_syncs__sync_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sync Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySyncActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Provisioning Directory Syncs  Sync Id  Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
+    "/provisioning/directory-syncs/{sync_id}:resume": {
+      "post": {
+        "operationId": "resume_provisioning_directory_syncs__sync_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sync Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySyncActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Provisioning Directory Syncs  Sync Id  Resume Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
+    "/provisioning/directory-syncs/{sync_id}:run": {
+      "post": {
+        "operationId": "run_now_provisioning_directory_syncs__sync_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sync Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySyncActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Now Provisioning Directory Syncs  Sync Id  Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Now",
+        "tags": [
+          "scim"
+        ]
+      }
+    },
     "/provisioning/lifecycle-events": {
       "post": {
         "description": "OVERLAY \u00a722: joiner / mover / leaver / leave from the HRIS (same source auth as SCIM).",

@@ -154,6 +154,7 @@ checkpoint:            checkpoint_id, partition_id, first_sequence, last_sequenc
   - **checkpoint witnesses / independent retention:** tenants can obtain signed checkpoint manifests where contracted
   - **optional RFC 3161 TSA** timestamps, with TSA trust configured per jurisdiction or profile
 - A TSA outage queues anchoring within bounds. It blocks sealing only where the E3 profile requires a synchronous timestamp.
+- **A timestamp is anchored only after it is verified, and verified again later** (`libs/zid-evidence/src/zid_evidence/timestamp.py`, extra `zid-evidence[timestamps]`; platform side in `evidence/infrastructure/tsa_token.py` and `crl.py`): the token must be CMS SignedData over a TSTInfo that imprints the exact checkpoint digest and echoes our nonce, carry a valid signature, name its signer certificate (ESSCertID), and chain to a root in `ZID_EVIDENCE_TSA_TRUST_FILE` through certificates valid at the stamp time, the signer holding only a critical id-kp-timeStamping. Revocation (`ZID_EVIDENCE_TSA_REVOCATION`: `off`, `if_available` by default, `required`) reads the CRLs named by the already-verified certificates: a certificate revoked at or before the stamp (the CRL's invalidity date when it has one) fails the stamp, one revoked later does not and is reported as `revoked_later`; `required` also fails when a certificate has no current CRL; the oldest CRL relied on is reported as `revocation_as_of`. Any other answer is `TimestampRejected` and the checkpoint stays unanchored like an outage. `ZID_EVIDENCE_TSA_URL` without a trust file stops the worker at start-up. The same proof is re-run by `partition:verify` (`timestamps_verified` / `timestamps_unverified` in the report; a bad stamp is a `checkpoint_timestamp` problem), by receipt verification (check `external_timestamp`), and offline by `python -m zid_evidence verify bundle.json --tsa-roots roots.pem [--tsa-crl list.crl] [--tsa-revocation required] [--require-timestamp]`. Not read: OCSP, delta and indirect CRLs. Checked against OpenSSL in both directions and against live DigiCert and Sectigo timestamp authorities (Mozilla root bundle); tests: `test_tsa_token.py`, `test_tsa_revocation.py`, `test_evidence_timestamp_pg.py`.
 - SCITT compatibility may be added later through an adapter. The ledger never depends on unfinished SCITT drafts.
 
 ##### 4. Time integrity
@@ -334,6 +335,8 @@ The OPS module and `operator-console` are W1/W2 deliverables, because controlled
 ---
 
 ### DEC-F5: Key management and secrets implementation
+
+> **Amendment (CR-060):** a deployment with no KMS/HSM may hold keys in PostgreSQL wrapped by a master key kept outside the database (`ZID_KEY_PROVIDER=db`), as an explicitly accepted standard-assurance exception: not FIPS-validated, exposed by a host compromise, never the default. The KMS providers below are unchanged. See [CR-060](../specs/change-requests/CR-060-software-keys-in-the-database.md) and [the runbook](../runbooks/software-keys.md).
 
 - **Status:** Proposed
 - **Owner:** Security / Cryptography Lead (name to be recorded at ratification)

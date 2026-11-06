@@ -16,6 +16,7 @@ from zid_context import uuid7
 
 from zid_platform.modules.authority.ports import GrantStatus, load_grants_for_grantee
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.tenant.domain.custom_roles import PRIVILEGED, kept, with_extension
 from zid_platform.modules.tenant.domain.lifecycle import Role, RoleStatus, serves_runtime
 from zid_platform.modules.tenant.domain.role_matrix import (
     BOOTSTRAP_ACTIONS,
@@ -25,6 +26,7 @@ from zid_platform.modules.tenant.domain.role_matrix import (
     Outcome,
     decide,
 )
+from zid_platform.modules.tenant.infrastructure import custom_role_store
 from zid_platform.modules.tenant.infrastructure import tenant_store as store
 from zid_platform.modules.tenant.infrastructure.role_matrix import role_matrix
 
@@ -81,12 +83,25 @@ async def evaluate(
         initiator_person=await store.person_of(conn, initiator_id) if initiator_id else None,
     )
     decision = decide(matrix, action_id, mode, facts)
+    extra: frozenset[str] = frozenset()
+    if not (set(facts.roles) & PRIVILEGED):
+        extra = await custom_role_store.held_extensions(conn, actor_id)
+        if extra and action_id in extra and decision.reasons == ("ROLE_DOES_NOT_HOLD_PERMISSION",):
+            # an extension role adds this read or request: decide again with the person as one more holder, so every other condition still applies
+            wider = with_extension(matrix, action_id, mode)
+            if wider is not None:
+                decision = decide(wider, action_id, mode, replace(facts, roles=(*facts.roles, "CUSTOM_EXTENSION")))
     if (
         deny_with and decision.allowed
     ):  # a rule about the object (a role that is never assigned directly) refuses what the role allowed
         decision = replace(
             decision, outcome=Outcome.DENY, reasons=(deny_with,), granted_by_role=None
         )
+    if decision.allowed and not (set(facts.roles) & PRIVILEGED):
+        # a custom role only narrows: someone who holds one keeps to the actions it names (a standard administrator is not held back by one)
+        narrowed = await custom_role_store.held_actions(conn, actor_id)
+        if narrowed and action_id not in kept(narrowed) | extra:
+            decision = replace(decision, outcome=Outcome.DENY, reasons=("CUSTOM_ROLE_DOES_NOT_INCLUDE",), granted_by_role=None)
     if mode not in (Mode.READ, Mode.OWN) or decision.outcome is not Outcome.ALLOW:
         await record(conn, tenant_id, actor_id, decision, object_id=object_id, now=now)
     return decision

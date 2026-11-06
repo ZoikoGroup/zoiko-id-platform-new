@@ -5,8 +5,9 @@ import { Banner, Button, Checkbox, Dialog, RadioCards, Select, TextField } from 
 import { useState } from "react";
 
 import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { downloadText, generateKeyPair } from "@/lib/keypair";
 
-import { CLIENTS_KEY, lines } from "./oauth-clients";
+import { CLIENTS_KEY } from "./oauth-clients";
 import { GATES_KEY } from "./shared";
 
 const APPS_KEY = ["integration", "applications"];
@@ -57,18 +58,6 @@ function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
-/* ------------------------------------------------------------------------------------ key generation */
-
-/** A fresh signing key pair made in this browser. The private half is shown once and never sent to Zoiko iD; only the public
- * half is registered, so Zoiko iD can check what the application signs. */
-export async function generateKeyPair(): Promise<{ publicKeys: string; privateKey: string }> {
-  const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
-  const kid = `key-${crypto.randomUUID().slice(0, 8)}`;
-  const pub = { ...(await crypto.subtle.exportKey("jwk", pair.publicKey)), kid, alg: "ES256", use: "sig" };
-  const priv = { ...(await crypto.subtle.exportKey("jwk", pair.privateKey)), kid, alg: "ES256" };
-  return { publicKeys: JSON.stringify({ keys: [pub] }, null, 2), privateKey: JSON.stringify(priv, null, 2) };
-}
-
 /* ------------------------------------------------------------------------------------------- wizard */
 
 type Step = 1 | 2 | 3 | 4;
@@ -87,10 +76,10 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
 
   // how it identifies itself
   const clients = useCellQuery(CLIENTS_KEY, (api) => api.integration.oauthClients());
-  const mine = (clients.data?.items ?? []).filter((c) => c.status === "ACTIVE" && !c.first_party);
+  // Only a machine client for decisions can be used here: a client people sign in through cannot get a machine token.
+  const mine = (clients.data?.items ?? []).filter((c) => c.status === "ACTIVE" && !c.first_party && c.scopes.includes("access:evaluate"));
   const [keySource, setKeySource] = useState<"NEW" | "EXISTING">("NEW");
   const [existing, setExisting] = useState<string | null>(null);
-  const [redirect, setRedirect] = useState("");
   const [publicKeys, setPublicKeys] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
@@ -111,8 +100,7 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
         const c: OAuthClientRecord = await api.integration.createOauthClient({
           name: `${name.trim()} (access decisions)`,
           client_type: "CONFIDENTIAL",
-          redirect_uris: lines(redirect),
-          scopes: ["openid"],
+          purpose: "DECISIONS", // a machine client: it asks the decision API with its signed key, so it needs no return address
           jwks: keys,
         });
         clientId = c.client_id;
@@ -143,7 +131,7 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
   }
 
   const nameOk = name.trim().length >= 2;
-  const identOk = !authzen || (keySource === "EXISTING" ? Boolean(existing) : lines(redirect).length > 0 && publicKeys.trim().length > 0);
+  const identOk = !authzen || (keySource === "EXISTING" ? Boolean(existing) : publicKeys.trim().length > 0);
   const effective = preset === "SIMPLE" ? { o: ["STEP_UP"] as PepObligation[], c: ["purpose"] as PepContextField[] } : { o: obligations, c: context };
 
   if (done) return <Finished done={done} name={name.trim()} onClose={onClose} />;
@@ -231,17 +219,6 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
               />
             ) : (
               <div className="space-y-4">
-                <TextField
-                  label="A return address for it"
-                  isRequired
-                  mono
-                  multiline
-                  rows={2}
-                  value={redirect}
-                  onChange={setRedirect}
-                  placeholder="https://payroll.example.com/callback"
-                  description="Any https address that belongs to the application. One per line."
-                />
                 <div className="space-y-2 rounded-card border border-border p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" pending={keyBusy} onPress={() => void makeKey()}>
@@ -260,7 +237,7 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
                         <Button size="xs" variant="secondary" onPress={() => void navigator.clipboard?.writeText(privateKey)}>
                           Copy private key
                         </Button>
-                        <Button size="xs" variant="secondary" onPress={() => download(`${name.trim() || "application"}-private-key.json`, privateKey)}>
+                        <Button size="xs" variant="secondary" onPress={() => downloadText(`${name.trim() || "application"}-private-key.json`, privateKey)}>
                           Download private key
                         </Button>
                       </div>
@@ -352,15 +329,6 @@ export function RegisterApp({ onClose }: { onClose: () => void }) {
       </div>
     </Dialog>
   );
-}
-
-function download(filename: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.replace(/[^A-Za-z0-9._-]/g, "-");
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 /** After adding: what happens next, with the one click that does it. */

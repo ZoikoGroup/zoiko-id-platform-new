@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.federation.application.oidc_login import register_provisioned_lookup
 from zid_platform.modules.federation.application.trust_chain import Anchor, Resolved, resolve
 from zid_platform.modules.federation.domain.openid_federation import TrustChainError
 from zid_platform.modules.federation.infrastructure.connection_store import load_anchor
@@ -43,6 +44,7 @@ __all__ = [
     "Anchor",
     "Resolved",
     "TrustChainError",
+    "register_provisioned_lookup",
     "resolve",
     "set_connection_status",
     "trust_anchor",

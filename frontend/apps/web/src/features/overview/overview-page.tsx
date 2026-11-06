@@ -9,6 +9,8 @@ import { ApprovalsWaiting } from "@/features/approvals/guided-approval";
 import { DevelopmentNotice, GATES_KEY, GateList, LIFECYCLE, blockingCount, lifecycleIndex, standing, useTenant } from "@/features/onboarding/shared";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
+import { MemberHome } from "./member-home";
+
 /** The lifecycle as a horizontal stepper (OVERLAY-001 §2): where the company is, what comes next. */
 function Lifecycle({ tenant }: { tenant: TenantView }) {
   const at = lifecycleIndex(tenant.status);
@@ -125,7 +127,7 @@ function RecoveryPrompt() {
   const passkeys = useCellQuery(["authn", "authenticators"], (api) => api.me.authenticators());
   const codes = useCellQuery(["authn", "recovery-status"], (api) => api.me.recoveryCodeStatus());
   const active = (passkeys.data?.items ?? []).filter((a) => a.status === "ACTIVE").length;
-  if (!passkeys.data || !codes.data || active >= 2 || codes.data.codes_remaining > 0) return null;
+  if (!passkeys.data || !codes.data || active !== 1 || codes.data.codes_remaining > 0) return null; // the warning is about a single passkey; none at all is a different story
   return (
     <Banner tone="warn" icon={KeyRound} title="Protect your access">
       You have one passkey and no recovery codes. If you lose this device, nobody can get back into the account. Add a second passkey or save
@@ -164,11 +166,12 @@ export function OverviewPage({ welcome, carry }: { welcome: boolean; carry: stri
             );
           }
           const me = standing(t);
+          const memberHome = me.isMember && !me.personal && !me.invited && me.roleLabel !== null;
           return (
             <>
               <PageHeader icon={LayoutDashboard} title={t.display_name} description={`Workspace ${t.tenant_slug}`} />
               <PendingInvitation autoJoin={welcome} />
-              <RecoveryPrompt />
+              {memberHome ? null : <RecoveryPrompt />}
               {welcome && carry.includes("org=dev") ? <DevelopmentNotice /> : null}
               {welcome && me.pendingOwner && !me.personal ? (
                 <Banner tone="ok" icon={PartyPopper} title="Your passkey is set up">
@@ -191,7 +194,8 @@ export function OverviewPage({ welcome, carry }: { welcome: boolean; carry: stri
               ) : null}
               {me.isAdmin ? <ApprovalsWaiting compact /> : null}
               {me.isAdmin ? <AdminOverview tenant={t} /> : null}
-              {!me.isAdmin && (!me.pendingOwner || me.personal) && !me.invited ? (
+              {memberHome ? <MemberHome tenant={t} roleLabel={me.roleLabel ?? "Member"} /> : null}
+              {!memberHome && !me.isAdmin && (!me.pendingOwner || me.personal) && !me.invited ? (
                 <>
                   <Lifecycle tenant={t} />
                   <Card title="Your account">

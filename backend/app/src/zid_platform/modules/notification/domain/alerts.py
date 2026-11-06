@@ -183,6 +183,12 @@ TEMPLATES: dict[str, Template] = {
         "/admin/billing",
         "Open Billing to see your plan.",
     ),
+    "commercial.service_request.moved": _t(
+        I,
+        "Your request for an enterprise service moved",
+        "/settings",
+        "Open Settings, Enterprise services, to see the request.",
+    ),
     "commercial.billing_state.changed": _t(
         H,
         "The account's billing status changed",

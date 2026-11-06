@@ -65,6 +65,7 @@ CELL_SCHEMAS = (
     "events",
     "metering",
     "commercial",
+    "keys",
     "zid_migrations",
 )
 GLOBAL_SCHEMAS = ("global_directory", "zid_migrations")

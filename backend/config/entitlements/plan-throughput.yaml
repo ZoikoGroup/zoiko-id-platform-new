@@ -1,0 +1,16 @@
+# Request allowance by plan ("Enhanced API throughput allowances", ZID-ENG-DEC-008 feature standard.enhanced-api-throughput-allowances).
+# ENGINEERING DEFAULT: the multipliers below are not approved numbers. Commercial & Finance confirm them before a price is quoted on them.
+# The base is ZID_API_RATE_LIMIT_PER_MINUTE (the DEVELOPER allowance, also what a company with no plan gets); a plan allows `multiplier` times the
+# base per minute, per company. 0 = no request limit (contracted). A base of 0 turns the limit off for every plan.
+version: "1"
+# To confirm: set `status: CONFIRMED`, `confirmed_by` (who in Commercial or Finance) and `confirmed_on` (a date). Until all three are present the
+# service reports ENGINEERING_DEFAULT and a deployed cell logs a warning at start-up.
+status: ENGINEERING_DEFAULT
+confirmed_by: null
+confirmed_on: null
+multipliers:
+  DEVELOPER: 1
+  LAUNCH: 2
+  BUSINESS: 5
+  SCALE: 20
+  ENTERPRISE: 0

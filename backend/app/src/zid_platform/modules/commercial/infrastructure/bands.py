@@ -103,4 +103,19 @@ def meter_register() -> dict[str, MeterDef]:
     return parse_meters(_yaml("meter-register.yaml"))
 
 
-__all__ = ["BANDS", "MeterDef", "band_matrix", "meter_register", "parse", "parse_meters"]
+__all__ = ["plan_throughput_status", "BANDS", "MeterDef", "band_matrix", "meter_register", "parse", "parse_meters"]
+
+
+@lru_cache(maxsize=1)
+def plan_throughput_status() -> str:
+    """CONFIRMED only when Commercial & Finance signed the multipliers off (the file names who and when); anything else is the engineering default."""
+    doc = _yaml("plan-throughput.yaml")
+    return "CONFIRMED" if doc.get("status") == "CONFIRMED" and doc.get("confirmed_by") and doc.get("confirmed_on") else "ENGINEERING_DEFAULT"
+
+
+@lru_cache(maxsize=1)
+def plan_throughput() -> dict[str, int]:
+    """The request-allowance multiplier of every plan (config/entitlements/plan-throughput.yaml), validated on first use."""
+    from zid_platform.modules.commercial.domain.throughput import check
+
+    return check(_yaml("plan-throughput.yaml").get("multipliers") or {})

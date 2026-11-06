@@ -42,6 +42,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.privacy.application import registry, service
 from zid_platform.modules.privacy.domain.model import PrivacyError
 from zid_platform.modules.privacy.infrastructure import store
@@ -738,6 +739,11 @@ async def create_retention(
             resource="retention_policy:*",
             change=body.change(),
             approval_request_id=str(body.approval_request_id),
+        )
+        await require_feature(
+            conn,
+            "advanced.custom-data-retention-configuration",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
         r = await service.create_retention_policy(
             conn,

@@ -64,6 +64,7 @@ from zid_platform.modules.mandate.infrastructure.mandate_store import (
     load_terms,
     set_mandate_status,
 )
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["mandate"])
@@ -286,6 +287,11 @@ async def create(
     scope = Scope(tenant, caller.client_id, "POST /v1/mandates")
     async with tenant_transaction(request_engine(request), ctx) as conn:
         await protected_action(conn, caller, action="mandate.create", resource="mandate:*")
+        await require_feature(
+            conn,
+            "advanced.agent-mandates-and-scoped-delegation",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         stored = await begin(
             conn, scope=scope, key=idempotency_key, payload=body.model_dump(mode="json")
         )

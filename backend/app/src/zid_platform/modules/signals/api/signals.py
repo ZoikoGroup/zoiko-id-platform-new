@@ -38,6 +38,7 @@ from zid_platform.modules.signals.application.ssf import (
 )
 from zid_platform.modules.signals.domain.rules import RULES, SignalError, State
 from zid_platform.modules.signals.infrastructure import signal_store as store
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["signals"])
@@ -192,6 +193,11 @@ async def create_stream(body: StreamIn, request: Request, caller: CallerDep) -> 
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="signals.stream.manage", resource=f"ssf_stream:{stream_id}"
+        )
+        await require_feature(
+            conn,
+            "advanced.custom-event-streams-siem-integrations",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
         await store.create_stream(conn, stream)
     out = _stream_view(stream)

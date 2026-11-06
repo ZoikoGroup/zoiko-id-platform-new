@@ -51,6 +51,9 @@ __all__ = [
     "pep_application",
     "purge_connector_secrets",
     "record_interaction",
+    "register_directory_connector",
+    "set_connector_secret",
+    "connector_secret",
     "route_login",
 ]
 
@@ -72,3 +75,60 @@ async def searchable_connectors(conn: AsyncConnection) -> list[tuple[str, str, s
         (c.connector_id, c.display_name, f"{c.connector_type} connector")
         for c in await list_connectors(conn)
     ]
+
+
+async def register_directory_connector(
+    conn: AsyncConnection, tenant_id: str, *, display_name: str, source_ref: str, owner: str, actor: str
+) -> str:
+    """A DIRECTORY connector (a company's own directory read by a sync job) with a secret as its credential; returns its id.
+
+    The provisioning module runs the sync and reports each run through `record_interaction(source_ref)`; this module holds the sealed secret,
+    its rotation and expiry alerts, and the connector's health, freshness and quarantine."""
+    from datetime import timedelta
+
+    from zid_platform.modules.integration.application.service import register_connector
+    from zid_platform.modules.integration.domain.model import (
+        AuthProfile,
+        Capability,
+        ConnectorType,
+        DisableBehavior,
+    )
+
+    c = await register_connector(
+        conn,
+        tenant_id,
+        connector_type=ConnectorType.DIRECTORY,
+        display_name=display_name,
+        source_ref=source_ref,
+        capabilities=[Capability.PROVISIONING, Capability.DIRECTORY_LOOKUP],
+        source_of_truth_scope=["identity.profile"],
+        auth_profile=AuthProfile.SECRET,
+        freshness=timedelta(hours=26),  # a daily-or-better sync that has missed a whole day is stale
+        owner=owner,
+        disable_behavior=DisableBehavior.FAIL_CLOSED_HIGH_RISK,
+        actor=actor,
+    )
+    return c.connector_id
+
+
+async def set_connector_secret(
+    conn: AsyncConnection, tenant_id: str, connector_id: str, *, secret: str, actor: str
+) -> int:
+    """Write-only: seal a new secret for the connector (the previous one stops working at once); returns its version."""
+    from datetime import timedelta
+
+    from zid_platform.modules.integration.application.service import set_credential
+
+    return await set_credential(
+        conn, tenant_id, connector_id, secret=secret, not_after=None, overlap=timedelta(0), actor=actor
+    )
+
+
+async def connector_secret(
+    conn: AsyncConnection, tenant_id: str, connector_id: str, now: datetime
+) -> str | None:
+    """For the connector's own runtime only: the secret that is in force now, or None when there is none."""
+    from zid_platform.modules.integration.application.service import credential_values
+
+    values = await credential_values(conn, tenant_id, connector_id, now)
+    return values[0] if values else None

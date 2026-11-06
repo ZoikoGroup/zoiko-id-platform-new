@@ -103,6 +103,22 @@ export const ACTIONS: Action[] = [
     fields: [tenant, { key: "plan", label: "Plan", kind: "select", options: PLANS, required: true }],
   },
   {
+    id: "enforcement-set",
+    group: "plans",
+    title: "Enforce plan limits for one company",
+    description:
+      "ENFORCE makes this company's plan limits refuse for real (HTTP 402) while the rest of the deployment only reports; SHADOW sets it back. It can only make a company stricter than the deployment, never looser. Recorded in the change log.",
+    method: "PUT",
+    path: "/v1/commercial/tenants/{tenant_id}/enforcement",
+    capability: "tenant.config.change",
+    confirm: "change how this company's plan limits are applied",
+    fields: [
+      tenant,
+      { key: "mode", label: "Mode", kind: "select", options: [{ id: "ENFORCE", label: "Enforce (refuse beyond the plan)" }, { id: "SHADOW", label: "Shadow (report only)" }], required: true },
+      { key: "reason", label: "Reason", required: true, placeholder: "Pilot company; contract signed" },
+    ],
+  },
+  {
     id: "override-add",
     group: "plans",
     title: "Contracted override",

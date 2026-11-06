@@ -34,6 +34,7 @@ import { useRuntime } from "@/lib/runtime";
 
 import { AuthenticationSettings } from "../settings/authentication";
 import { BrandingSettingsPanel } from "../settings/branding";
+import { ServiceRequestsPanel } from "../settings/service-requests";
 import { CryptographySettings } from "../settings/cryptography";
 import { NotificationSettingsPanel } from "../settings/notifications";
 import { ApprovalStep, TENANT_KEY, standing, useTenant } from "./shared";
@@ -506,6 +507,11 @@ export function SettingsPage() {
                         id: "branding",
                         label: "Branding",
                         content: <BrandingSettingsPanel />,
+                      },
+                      {
+                        id: "services",
+                        label: "Enterprise services",
+                        content: <ServiceRequestsPanel />,
                       },
                       {
                         id: "cryptography",

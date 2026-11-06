@@ -27,6 +27,7 @@ describe("the proxy allowlist", () => {
     ["the role gallery (the published role matrix)", "/v1/roles/"],
     ["the verification level and what each tier asks for", "/v1/verification/"],
     ["provisioning sources (list, register, suspend)", "/provisioning/sources"],
+    ["directory syncs (connect, run, pause, resume, replace the secret)", "/provisioning/directory-syncs"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

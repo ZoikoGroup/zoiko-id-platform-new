@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
@@ -148,6 +148,34 @@ async def start_with_code(
         principal_id=principal_id,
         with_code=True,
         opened_by="self:code",
+        now=now,
+    )
+    if case.recovery_class == "RC-1":
+        return await _ready(conn, case, handle, now)
+    return Progress(
+        case.recovery_id, case.recovery_class, case.status, handle, None, ("REPROOF_REQUIRED",)
+    )
+
+
+EMAIL_RECOVERY_COOLDOWN = timedelta(minutes=10)
+
+
+async def start_with_email(
+    conn: AsyncConnection, *, tenant_id: str, principal_id: str, now: datetime
+) -> Progress | None:
+    """Recovery from the account's own email address (the caller proved the inbox by sending the link there).
+
+    Treated like a recovery code: an ordinary member is READY at once (RC-1: an enrollment ticket for one passkey), while an
+    administrator (RC-3) or a lockbox account (RC-4) only opens a case that still needs re-proofing and approval, as the
+    platform's rule requires. None when one was already started in the last ten minutes, so a stranger cannot flood an inbox."""
+    if await store.recent_by(conn, principal_id, "self:email", now - EMAIL_RECOVERY_COOLDOWN):
+        return None
+    case, handle = await _open(
+        conn,
+        tenant_id=tenant_id,
+        principal_id=principal_id,
+        with_code=True,
+        opened_by="self:email",
         now=now,
     )
     if case.recovery_class == "RC-1":

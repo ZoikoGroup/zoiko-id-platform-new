@@ -20,7 +20,7 @@ BEGIN
     FOREACH s IN ARRAY ARRAY['agent','core','org','authz','events','platform','authn','signals','verify','cred',
                              'evidence','privacy','metering','commercial','notification','configuration',
                              'zid_migrations','machine','tenant','federation','integration','webhook','provisioning','operations',
-                             'operator','locator','search','relationship','policy','session','decision','mandate']
+                             'operator','locator','search','relationship','policy','session','decision','mandate','keys']
     LOOP
         IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
             EXECUTE format('GRANT USAGE ON SCHEMA %I TO zid_runtime', s);

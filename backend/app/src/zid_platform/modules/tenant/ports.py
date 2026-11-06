@@ -133,7 +133,10 @@ def owner_checker() -> Callable[..., Awaitable[bool]]:
     return is_owner
 
 
+from zid_platform.modules.tenant.infrastructure.org_unit_store import unit_principals  # noqa: E402
+
 __all__ = [
+    "unit_principals",
     "CATEGORY_CLASS",
     "ApprovalError",
     "BootstrapResult",

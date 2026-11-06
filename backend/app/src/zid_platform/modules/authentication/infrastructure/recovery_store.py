@@ -286,3 +286,17 @@ async def code_status(conn: AsyncConnection, principal_id: str) -> tuple[int, da
         )
     ).one()
     return int(row.left or 0), row.issued
+
+
+async def recent_by(conn: AsyncConnection, principal_id: str, opened_by: str, since: datetime) -> bool:
+    """Has this principal had a case opened that way since `since`?"""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT 1 FROM authn.recovery_case WHERE principal_id = :p AND opened_by = :by "
+                "AND created_at > :since LIMIT 1"
+            ),
+            {"p": uuid.UUID(principal_id), "by": opened_by, "since": since},
+        )
+    ).first()
+    return row is not None

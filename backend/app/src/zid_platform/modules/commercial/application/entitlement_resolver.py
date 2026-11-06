@@ -19,6 +19,8 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
+
+from zid_platform.modules.commercial.infrastructure.enforcement_store import company_mode
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.modules.commercial.application import events
@@ -329,6 +331,7 @@ async def decide(
     entitlement refuses in `enforce` mode and holds in the others, never allows silently."""
     now = now or datetime.now(UTC)
     m = band_matrix()
+    enforcement = await company_mode(conn, enforcement)
     try:
         async with conn.begin_nested():
             tenant = await tenant_of(conn) if cache is not None else None

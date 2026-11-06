@@ -532,6 +532,99 @@
         ]
       }
     },
+    "/v1/evidence/audit-events/export": {
+      "get": {
+        "description": "A company's audit records as a feed a SIEM can follow: oldest first, `limit` at a time, with a cursor to continue from.\n\nPass the `next_cursor` of one answer as `after` of the next; with nothing new the cursor stays the same, so polling is safe to repeat. Every record\ncarries the same fields as the audit list plus the schema name, so a collector maps it once. `format=ndjson` gives one JSON object per line with\nthe cursor in the `X-Next-Cursor` header. Plan: custom event streams / SIEM integrations.",
+        "operationId": "export_audit_events_v1_evidence_audit_events_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "ndjson"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Export Audit Events V1 Evidence Audit Events Export Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Audit Events",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
     "/v1/evidence/bulk-exports": {
       "get": {
         "operationId": "bulk_exports_v1_evidence_bulk_exports_get",

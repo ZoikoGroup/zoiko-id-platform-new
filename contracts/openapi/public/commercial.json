@@ -463,6 +463,31 @@
         "title": "DraftInvoiceBody",
         "type": "object"
       },
+      "EnforcementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "ENFORCE",
+              "SHADOW"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "reason"
+        ],
+        "title": "EnforcementBody",
+        "type": "object"
+      },
       "EstimateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1253,6 +1278,37 @@
           "on"
         ],
         "title": "SafetyHoldBody",
+        "type": "object"
+      },
+      "ServiceRequestMove": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "enum": [
+              "IN_PROGRESS",
+              "ACTIVE",
+              "DECLINED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ServiceRequestMove",
         "type": "object"
       },
       "SignBody": {
@@ -4670,6 +4726,52 @@
         ]
       }
     },
+    "/v1/commercial/price-books/{price_book_id}/readiness": {
+      "get": {
+        "description": "What this price book still lacks before it is approved: unpriced SKU and plan pairs, and lines chosen as free.",
+        "operationId": "book_readiness_v1_commercial_price_books__price_book_id__readiness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_book_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Book Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Book Readiness V1 Commercial Price Books  Price Book Id  Readiness Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Book Readiness",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/price-books/{price_book_id}:approve": {
       "post": {
         "operationId": "approve_book_v1_commercial_price_books__price_book_id__approve_post",
@@ -4962,6 +5064,85 @@
           }
         },
         "summary": "Grant Commercial Role",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-requests": {
+      "get": {
+        "description": "Every company's open requests for dedicated isolation, sovereign service, key custody or named support, oldest first.",
+        "operationId": "open_service_requests_v1_commercial_service_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Service Requests V1 Commercial Service Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Service Requests",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-requests/{request_id}:move": {
+      "post": {
+        "operationId": "move_service_request_v1_commercial_service_requests__request_id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRequestMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Move Service Request V1 Commercial Service Requests  Request Id  Move Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Service Request",
         "tags": [
           "commercial"
         ]
@@ -5447,6 +5628,105 @@
           }
         },
         "summary": "Dunning",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/enforcement": {
+      "get": {
+        "operationId": "get_enforcement_v1_commercial_tenants__tenant_id__enforcement_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Enforcement V1 Commercial Tenants  Tenant Id  Enforcement Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enforcement",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "put": {
+        "description": "ENFORCE: this company's plan limits refuse for real, ahead of the deployment default. SHADOW: they only report. A deployment that\nenforces for everyone still enforces for this company either way; the setting can only make one company stricter, never looser.",
+        "operationId": "set_enforcement_v1_commercial_tenants__tenant_id__enforcement_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnforcementBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Enforcement V1 Commercial Tenants  Tenant Id  Enforcement Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Enforcement",
         "tags": [
           "commercial"
         ]

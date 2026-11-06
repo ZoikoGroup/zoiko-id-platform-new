@@ -20,6 +20,7 @@ from zid_platform.modules.commercial.domain.catalogue import (
 )
 from zid_platform.modules.commercial.domain.invoicing import NEW_PAID_EXTRAS, restricted
 from zid_platform.modules.commercial.infrastructure import catalogue_store as store
+from zid_platform.modules.commercial.infrastructure.enforcement_store import company_mode
 
 log = logging.getLogger("zid.commercial")
 
@@ -42,6 +43,7 @@ async def entitled(
     Fails closed for the paid extra only: if the entitlement cannot be read, `enforce` mode refuses and the
     other modes allow and log. Callers are paid-extra creation paths, never security paths."""
     now = now or datetime.now(UTC)
+    enforcement = await company_mode(conn, enforcement)  # type: ignore[assignment]
     try:
         async with conn.begin_nested():
             current = await store.active_entitlement(conn)
@@ -91,6 +93,52 @@ async def entitled(
             plan_code,
         )
     return result
+
+
+async def request_limit(conn: AsyncConnection, base: int) -> int:
+    """This company's request allowance per minute (the connection's RLS scope): its plan's multiple of `base`; 0 = unlimited.
+
+    An unreadable plan gets the base allowance (the limit is a courtesy to other companies, never a reason to refuse a call)."""
+    from zid_platform.modules.commercial.domain.throughput import request_limit as limit_for
+    from zid_platform.modules.commercial.infrastructure.bands import plan_throughput
+
+    try:
+        async with conn.begin_nested():
+            current = await store.active_entitlement(conn)
+        plan_code = str(current["plan_code"]) if current else DEFAULT_PLAN
+    except Exception:  # noqa: BLE001
+        log.exception("plan lookup for the request limit failed")
+        plan_code = DEFAULT_PLAN
+    return limit_for(plan_code, base, plan_throughput())
+
+
+async def production_environments_check(
+    conn: AsyncConnection, *, used: int, enforcement: Enforcement = "shadow"
+) -> tuple[bool, str, int | None]:
+    """May this tenant (the connection's RLS scope) have one more production environment? Returns (allowed, plan code, the plan's limit).
+
+    The limit is the plan's own `production_environments`; a plan with none stated (Enterprise: by contract) has no limit. In `shadow` a
+    refusal is logged and allowed, in `enforce` it is refused; an unreadable plan is allowed and logged, never refused (a paid extra, not a
+    security path)."""
+    enforcement = await company_mode(conn, enforcement)  # type: ignore[assignment]
+    try:
+        async with conn.begin_nested():
+            current = await store.active_entitlement(conn)
+            plan_code = str(current["plan_code"]) if current else DEFAULT_PLAN
+            limit = (
+                await conn.execute(
+                    text("SELECT production_environments FROM commercial.plan WHERE plan_code = :p"), {"p": plan_code}
+                )
+            ).scalar()
+    except Exception:  # noqa: BLE001
+        log.exception("production environment limit lookup failed")
+        return True, DEFAULT_PLAN, None
+    if limit is None or used < int(limit):
+        return True, plan_code, None if limit is None else int(limit)
+    if enforcement != "enforce":
+        log.warning("plan shadow denial: production_environments used=%s limit=%s plan=%s", used, limit, plan_code)
+        return True, plan_code, int(limit)
+    return False, plan_code, int(limit)
 
 
 async def entitlement_view(

@@ -38,6 +38,8 @@ DEFAULT_ROUTES: Mapping[str, str] = {
     "trusted_support_url": "/help",
     # the sign-up verification page (WF-013A): the link carries only its single-use token, `?t=`
     "single_use_verification_url": "/sign-up/verify",
+    # the emailed way back when a member cannot sign in: the page redeems `?t=` and runs the one-passkey enrollment
+    "single_use_signin_url": "/recover/email",
 }
 
 MARKETING_LISTS: Mapping[str, str] = {"ZID-EM-142": "product_updates"}

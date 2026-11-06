@@ -190,7 +190,7 @@ export function ConsoleShell({
             : undefined
       }
       environment={environment}
-      user={{ name: `Principal ${shortId(subject.sub)}`, email: subject.sub, roles: subject.acr ? [subject.acr] : undefined }}
+      user={{ name: `Principal ${shortId(subject.sub)}`, email: subject.sub, roles: me.roleLabel ? [me.roleLabel] : subject.acr ? [subject.acr] : undefined }}
       commands={commandsFor(nav)}
       search={async (query, signal) => {
         // Authorization-aware and tenant-scoped on the server (UX-01): whatever comes back is allowed.

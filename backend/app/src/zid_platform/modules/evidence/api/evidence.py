@@ -30,11 +30,13 @@ decision, so reading, verifying, replaying or exporting evidence leaves its own 
 
 from __future__ import annotations
 
+import base64
+import json
 import uuid
-from datetime import UTC, datetime
-from typing import Annotated, Any
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
@@ -259,6 +261,9 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
             await protected_action(
                 conn, caller, action="evidence.export", resource=f"decision_receipt:{rid}"
             )
+            gate = getattr(request.app.state, "plan_feature_gate", None)  # handed in by main.py: evidence must not import commercial
+            if gate is not None:
+                await gate(conn, "advanced.advanced-evidence-export-and-analytics")
             return await replay.export_package(
                 conn,
                 _tenant(caller),
@@ -399,6 +404,75 @@ async def audit_events(
     }
 
 
+SETTLE = timedelta(seconds=5)  # a record is exported once it is this old: transactions that could still add an earlier one have finished
+EXPORT_SCHEMA = "zid.audit.v1"
+
+
+def _cursor(created_at: datetime, audit_id: uuid.UUID) -> str:
+    return base64.urlsafe_b64encode(f"{created_at.isoformat()}|{audit_id}".encode()).decode().rstrip("=")
+
+
+def _after(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
+    if not cursor:
+        return None
+    try:
+        stamp, ident = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode().split("|")
+        return datetime.fromisoformat(stamp), uuid.UUID(ident)
+    except (ValueError, UnicodeDecodeError) as e:
+        raise ZidError("VALIDATION_FAILED", "after is not a cursor this export gave.", http_status=422) from e
+
+
+@router.get("/audit-events/export")
+async def export_audit_events(
+    request: Request,
+    caller: CallerDep,
+    after: Annotated[str | None, Query(max_length=200)] = None,
+    event_type: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+    format: Literal["json", "ndjson"] = "json",
+) -> Any:
+    """A company's audit records as a feed a SIEM can follow: oldest first, `limit` at a time, with a cursor to continue from.
+
+    Pass the `next_cursor` of one answer as `after` of the next; with nothing new the cursor stays the same, so polling is safe to repeat. Every record
+    carries the same fields as the audit list plus the schema name, so a collector maps it once. `format=ndjson` gives one JSON object per line with
+    the cursor in the `X-Next-Cursor` header. Plan: custom event streams / SIEM integrations."""
+    start = _after(after)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.read", resource="audit_record:*")
+        gate = getattr(request.app.state, "plan_feature_gate", None)  # handed in by main.py: evidence must not import commercial
+        if gate is not None:
+            await gate(conn, "advanced.custom-event-streams-siem-integrations")
+        rows = await receipt_store.export_audit(
+            conn, after=start, event_type=event_type, limit=limit + 1, settled_before=datetime.now(UTC) - SETTLE
+        )
+    more = len(rows) > limit
+    rows = rows[:limit]
+    items = [
+        {
+            "schema": EXPORT_SCHEMA,
+            "audit_id": str(r.audit_id),
+            "event_type": r.event_type,
+            "actor_type": r.actor_type,
+            "actor_handle": r.actor_handle,
+            "target_type": r.target_type,
+            "target_ref": r.target_ref,
+            "action": r.action,
+            "outcome": r.outcome,
+            "reason_code": r.reason_code,
+            "evidence_class": r.evidence_class,
+            "record_hash": r.record_hash,
+            "occurred_at": _iso(r.occurred_at),
+            "created_at": _iso(r.created_at),
+        }
+        for r in rows
+    ]
+    next_cursor = _cursor(rows[-1].created_at, rows[-1].audit_id) if rows else (after or "")
+    if format == "ndjson":
+        body = "".join(json.dumps(i, separators=(",", ":")) + chr(10) for i in items)
+        return Response(body, media_type="application/x-ndjson", headers={"X-Next-Cursor": next_cursor, "X-Has-More": str(more).lower()})
+    return {"schema": EXPORT_SCHEMA, "items": items, "next_cursor": next_cursor, "has_more": more}
+
+
 @router.post("/partition:verify")
 async def verify_partition(request: Request, caller: CallerDep) -> dict[str, Any]:
     """Recompute the tenant's whole hash chain and every checkpoint; a failure is an incident."""
@@ -412,6 +486,7 @@ async def verify_partition(request: Request, caller: CallerDep) -> dict[str, Any
             Partition(tenant, current_runtime().cell_id).id,
             keys=current_runtime().trusted_keys(),
             compromised=current_runtime().compromised,
+            timestamps=current_runtime().timestamp_verifier,
         )
     return report.to_dict()
 

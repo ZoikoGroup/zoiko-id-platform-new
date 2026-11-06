@@ -37,6 +37,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller
+from zid_platform.modules.decision.application.subjects import NO_PERSON, resolve_subject
 from zid_platform.modules.authority.ports import Request as AuthorityRequest
 from zid_platform.modules.authority.ports import ValueLimit
 from zid_platform.modules.commercial.ports import key_decision, record_billable
@@ -155,6 +156,9 @@ async def evaluation(
         requested_risk=RiskClass[c.risk_class] if c.risk_class else None,
     )
     async with tenant_transaction(engine, ctx) as conn:
+        # The person decided for: a principal id as given, or a person the company's directory provisioned under the id its own system uses.
+        resolved = await resolve_subject(conn, body.subject.type, body.subject.id)
+        executor = resolved or NO_PERSON
         # A named mandate is checked here (read only: nothing is reserved or spent by asking). An unknown
         # mandate id is treated as no mandate at all, so a caller learns nothing about other mandates.
         mandate_fact: MandateFact | None = None
@@ -167,7 +171,7 @@ async def evaluation(
                 await check_for_decision(
                     conn,
                     mandate_ref,
-                    executor_id=body.subject.id,
+                    executor_id=executor,
                     represented_id=c.represented_principal_id,
                     action=body.action.name,
                     resource=resource_ref,
@@ -188,7 +192,7 @@ async def evaluation(
         d = await evaluate_request(
             conn,
             req=req,
-            executor_id=body.subject.id,
+            executor_id=executor,
             mandate=mandate_fact,
             authority_request=AuthorityRequest(
                 body.action.name,
@@ -219,7 +223,7 @@ async def evaluation(
             tenant_id=ctx.tenant_id,
             tenant_status=caller.tenant_status,
             client_id=caller.client_id,
-            subject=body.subject.id,
+            subject=executor,
             action=body.action.name,
             risk=int(d.risk_class),
             decision_id=d.decision_id,
@@ -255,7 +259,7 @@ async def evaluation(
             if d.outcome.value == "ALLOW" and not verdict.allow
             else d.outcome.value,
             "enforcement": verdict.enforcement.value,
-            "reason_codes": [*d.reason_codes, *verdict.reason_codes],
+            "reason_codes": [*d.reason_codes, *verdict.reason_codes, *(["SUBJECT_UNKNOWN"] if resolved is None else [])],
             "obligations": [{**o, "type": str(o["type"]).lower()} for o in d.obligations],
             "risk_class": d.risk_class.name,
             "policy_release_id": d.policy_release_id,

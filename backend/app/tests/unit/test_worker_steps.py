@@ -16,7 +16,7 @@ def test_every_scheduled_job_is_wired_once() -> None:
     wired = names()
     assert len(wired) == len(set(wired)), "a job listed twice would run twice per pass"
     for job in (
-        "evidence", "operator_access", "privacy", "registry", "domains", "connector_credentials", "stale_connectors",
+        "evidence", "operator_access", "privacy", "registry", "domains", "connector_credentials", "stale_connectors", "sandbox_identities",
         "offboarding", "deletion", "directory", "webhooks", "sanctions_lists", "screening", "company_refresh",
     ):  # fmt: skip
         assert job in wired, job

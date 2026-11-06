@@ -2,19 +2,26 @@
 
 `TimestampAuthority` is the port; `Rfc3161Client` is a minimal HTTP client that posts a DER
 TimeStampReq (`application/timestamp-query`) and keeps the DER TimeStampResp as the checkpoint's
-`external_timestamp_ref` (`rfc3161:<base64>`). It does not yet validate the response token against
-a configured TSA trust list (per jurisdiction/profile): that, and the TSA network isolation of the
-Deployment spec §23, come with the deployed TSA profile. A TSA outage never blocks sealing by
+`external_timestamp_ref` (`rfc3161:<base64>`) only after `tsa_token.TimestampVerifier` has proved the
+token against the configured TSA trust list and checked revocation (a forged, mismatched, expired,
+untrusted or revoked answer is `TimestampRejected` and the checkpoint stays unanchored). The TSA network isolation of the Deployment
+spec §23 comes with the deployed TSA profile. A TSA outage or a rejected answer never blocks sealing by
 default; the checkpoint is stored without a timestamp and anchored on a later worker pass.
 """
 
 from __future__ import annotations
 
 import base64
+import logging
 import secrets
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from zid_evidence import Digest
+
+if TYPE_CHECKING:
+    from zid_platform.modules.evidence.infrastructure.tsa_token import TimestampVerifier
+
+log = logging.getLogger("zid.evidence.tsa")
 
 # id-sha256 / id-sha384 / id-sha512 (NIST hash algorithm OIDs), DER-encoded OBJECT IDENTIFIER values
 _HASH_OIDS = {
@@ -57,14 +64,24 @@ def timestamp_request(digest: Digest, nonce: int) -> bytes:
 
 
 class Rfc3161Client:
-    def __init__(self, url: str, *, timeout_s: float = 10.0) -> None:
+    """Asks a TSA for a timestamp and returns a reference only if the answer proves it.
+
+    The `verifier` (a `tsa_token.TimestampVerifier`) is required: a response from an unverified authority, or one whose
+    certificates are revoked, is never stored as an anchor.
+    """
+
+    def __init__(self, url: str, *, verifier: TimestampVerifier, timeout_s: float = 10.0) -> None:
         self.url = url
+        self.verifier = verifier
         self.timeout_s = timeout_s
 
     async def timestamp(self, digest: Digest) -> str:
         import httpx
 
-        body = timestamp_request(digest, secrets.randbits(63))
+        from zid_platform.modules.evidence.infrastructure.tsa_token import TimestampRejected
+
+        nonce = secrets.randbits(63)
+        body = timestamp_request(digest, nonce)
         try:
             async with httpx.AsyncClient(timeout=self.timeout_s) as http:
                 r = await http.post(
@@ -76,4 +93,11 @@ class Rfc3161Client:
             raise TimestampError(f"TSA unreachable: {type(e).__name__}") from e
         if r.status_code != 200 or r.headers.get("content-type") != "application/timestamp-reply":
             raise TimestampError(f"TSA answered {r.status_code}")
+        try:
+            await self.verifier.verify_response(r.content, digest, nonce=nonce)
+        except TimestampRejected:
+            log.exception(
+                "TSA response rejected; the checkpoint stays unanchored", extra={"tsa": self.url}
+            )
+            raise
         return "rfc3161:" + base64.b64encode(r.content).decode("ascii")

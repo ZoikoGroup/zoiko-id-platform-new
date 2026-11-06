@@ -8,7 +8,7 @@ import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
 import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequestsView } from "./finance-page";
 import { useDirectMode } from "./mode";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
-import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView } from "./views";
+import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
   const qc = useQueryClient();
@@ -63,6 +63,7 @@ export function CommercialPage() {
             content: (
               <div className="space-y-4">
                 <PlanRequestsView />
+                <ServiceRequestsView />
                 <Actions group="plans" />
               </div>
             ),

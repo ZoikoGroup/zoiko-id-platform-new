@@ -34,6 +34,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/evidence/audit-events/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Audit Events
+         * @description A company's audit records as a feed a SIEM can follow: oldest first, `limit` at a time, with a cursor to continue from.
+         *
+         *     Pass the `next_cursor` of one answer as `after` of the next; with nothing new the cursor stays the same, so polling is safe to repeat. Every record
+         *     carries the same fields as the audit list plus the schema name, so a collector maps it once. `format=ndjson` gives one JSON object per line with
+         *     the cursor in the `X-Next-Cursor` header. Plan: custom event streams / SIEM integrations.
+         */
+        get: operations["export_audit_events_v1_evidence_audit_events_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/evidence/bulk-exports": {
         parameters: {
             query?: never;
@@ -568,6 +592,40 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_audit_events_v1_evidence_audit_events_export_get: {
+        parameters: {
+            query?: {
+                after?: string | null;
+                event_type?: string | null;
+                limit?: number;
+                format?: "json" | "ndjson";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

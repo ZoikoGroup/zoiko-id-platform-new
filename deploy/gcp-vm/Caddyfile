@@ -1,0 +1,32 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Console (passkeys need this exact origin: https://id.<domain>)
+id.{$ZID_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Cell API: OAuth/OIDC, passkeys, AuthZEN, the protected APIs
+api.{$ZID_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	reverse_proxy cell:8000
+}
+
+# Global plane: tenant locator and discovery (no personal data)
+global.{$ZID_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy global:8100
+}
+
+# Operator Console (only when the `operator` compose profile is running). Restrict by source IP or put IAP in front.
+operator.{$ZID_DOMAIN} {
+	encode zstd gzip
+	@allowed remote_ip {$OPERATOR_ALLOWED_CIDRS:127.0.0.1/32}
+	handle @allowed {
+		reverse_proxy operator:3000
+	}
+	respond 403
+}

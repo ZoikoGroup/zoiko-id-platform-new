@@ -187,6 +187,18 @@ class ClientGateway(StructuralType):
         audience: str,
     ) -> dict[str, Any]: ...
 
+    async def register_machine(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        name: str,
+        jwks: dict[str, Any],
+        scopes: Sequence[str],
+        audience: str,
+        home_cell: str,
+    ) -> dict[str, Any]: ...
+
     async def get(self, conn: AsyncConnection, client_id: str) -> dict[str, Any] | None: ...
 
     async def retire(self, conn: AsyncConnection, client_id: str) -> bool: ...
@@ -248,6 +260,40 @@ async def register_oauth_client(
         actor=actor,
         evidence=EvidenceClass.E2,
         data={"client_id": client["client_id"], "client_type": client_type, "status": "ACTIVE"},
+    )
+    return client
+
+
+DECISION_SCOPE = "access:evaluate"  # what a decision caller's token is for (the decision API itself is open to any of the tenant's clients)
+
+
+async def register_decision_client(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    name: str,
+    jwks: dict[str, Any],
+    audience: str,
+    home_cell: str,
+    actor: str,
+) -> dict[str, Any]:
+    """Register the OAuth client an application uses to ask the decision API (ZID-AUTH-001 §6-7). It is a machine client: `client_credentials`
+    only, no redirect and no secret, proving itself with a key pair whose public half is registered here."""
+    try:
+        client = await client_gateway().register_machine(
+            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=[DECISION_SCOPE], audience=audience, home_cell=home_cell
+        )
+    except ValueError as e:  # the registry's own refusal, with a stable code
+        raise IntegrationError(getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))) from e
+    await _record(
+        conn,
+        tenant_id,
+        "integration.application.changed",
+        target=("oauth_client", client["client_id"]),
+        version=1,
+        actor=actor,
+        evidence=EvidenceClass.E2,
+        data={"client_id": client["client_id"], "client_type": "MACHINE", "status": "ACTIVE"},
     )
     return client
 

@@ -60,6 +60,8 @@ rules:
   - {match: "POST /v1/approval-requests", gate: {action: d.create-scoped-delegation-request, mode: S}}
   - {match: "POST /v1/approval-requests/*/decisions", gate: {action: d.approve-eligible-pending-request, mode: A}}
   - {match: "GET /v1/authority-grants*", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "GET /v1/delegation-templates", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "POST /v1/delegation-templates*", gate: {action: d.create-scoped-delegation-request, mode: S}}
   - {match: "POST /v1/authority-grants", gate: {action: d.create-scoped-delegation-request, mode: S}}
   - {match: "POST /v1/authority-grants/*:revoke", gate: {action: d.revoke-authorized-ordinary-delegation, mode: X}}
   - {match: "GET /v1/mandates*", gate: {action: d.create-scoped-delegation-request, mode: R}}
@@ -87,6 +89,13 @@ rules:
   - {match: "* /v1/usage*", exempt: COMMERCIAL, why: "usage reservations need the usage:write scope; reads are not in the billing key list"}
   - {match: "* /v1/budgets*", exempt: COMMERCIAL, why: "budgets are not in the billing key list"}
   - {match: "GET /v1/entitlements/*", exempt: COMMERCIAL, why: "the entitlement read the console renders"}
+  - {match: "GET /v1/tenant/org-units*", gate: {action: a.list-active-members-and-assigned-roles, mode: R}}
+  - {match: "POST /v1/tenant/org-units*", gate: {action: a.edit-ordinary-organization-profile, mode: X}}
+  - {match: "GET /v1/service-requests", exempt: COMMERCIAL, why: "read through the commercial.read protected action"}
+  - {match: "POST /v1/service-requests*", exempt: COMMERCIAL, why: "asked through the tenant.lifecycle.manage protected action; the plan feature is checked inside"}
+  - {match: "GET /v1/tenant/custom-roles*", gate: {action: a.list-active-members-and-assigned-roles, mode: R}}
+  - {match: "POST /v1/tenant/custom-roles*", gate: {action: a.invite-operator-or-viewer, mode: X}}
+  - {match: "GET /v1/insights/*", gate: {action: c.view-organization-security-posture, mode: R}}
   - {match: "GET /v1/tenant/domains", gate: {action: c.view-organization-security-posture, mode: R}}
   - {match: "POST /v1/tenant/domains*", gate: {action: c.change-trusted-domains-session-restrictions, mode: S}}
   - {match: "* /v1/tenant/owners*", exempt: APPROVAL_ENGINE, why: "owner changes are an approval case with their own two-person rules"}
@@ -136,6 +145,11 @@ rules:
   - {match: "POST /provisioning/sources/*:suspend", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /provisioning/sources/*:resume", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "POST /provisioning/sources", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "GET /provisioning/directory-syncs", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /provisioning/directory-syncs/*:pause", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /provisioning/directory-syncs/*:*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /provisioning/directory-syncs", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "PUT /provisioning/directory-syncs/*/credential", gate: {action: e.rotate-assigned-nonprivileged-api-credential, mode: X}}
   - {match: "POST /provisioning/lifecycle-events", exempt: PROTOCOL, why: "the provisioning source's own credential"}
   - {match: "* /scim/v2/*", exempt: PROTOCOL, why: "SCIM is authorised by the source's bearer token"}
   - {match: "* /ssf/*", exempt: PROTOCOL, why: "Shared Signals streams carry their own receiver credential"}
