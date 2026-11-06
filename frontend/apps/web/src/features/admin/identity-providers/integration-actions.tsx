@@ -7,6 +7,7 @@ import { useState } from "react";
 import { jsonInput, listInput, useCellMutation } from "@/lib/cell";
 
 import { INTEGRATIONS_KEY } from "./integration-form";
+import { parseProviderKeys } from "./provider-keys";
 import { AlgorithmPicker, FormDialog, certificatesInput, isoFromLocal, localDateTimeFromNow, optional, required, type Alg } from "./shared";
 
 type ClientAuth = "private_key_jwt" | "client_secret_basic";
@@ -144,10 +145,10 @@ export function RotateDialog({ integration, onClose }: { integration: Federation
       const keyRef = optional(decryptionKeyRef);
       if (keyRef) body.sp_decryption_key_ref = keyRef;
     } else {
-      const keys = jsonInput(jwks, "JWKS");
-      if (keys) {
-        if (!Array.isArray(keys.keys) || !keys.keys.length) throw new Error('JWKS must contain a non-empty "keys" array.');
-        body.jwks = keys;
+      if (jwks.trim()) {
+        const parsed = parseProviderKeys(jwks);
+        if (parsed.error) throw new Error(parsed.error);
+        body.jwks = parsed.keys;
       }
       if (clientAuth) body.client_auth = clientAuth;
       if (clientAuth === "client_secret_basic") body.client_secret_ref = required(secretRef, "Client secret reference");

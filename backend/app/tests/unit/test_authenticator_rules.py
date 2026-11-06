@@ -54,3 +54,51 @@ def test_last_strong_factor_is_replaced_through_recovery() -> None:
     can_remove(Authenticator("b", "t", "p", "TOTP", S.ACTIVE, datetime.now(UTC)), 0)
     with pytest.raises(AuthnError):
         can_remove(Authenticator("c", "t", "p", "PASSKEY", S.REVOKED, datetime.now(UTC)), 3)
+
+
+def test_allow_list_is_capped_for_the_browser_and_prefers_recent_strong_keys() -> None:
+    from datetime import timedelta
+
+    from zid_platform.modules.authentication.domain.authenticator import (
+        MAX_ALLOWED_CREDENTIALS,
+        credential_allow_list,
+    )
+
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    many = [
+        Authenticator(
+            f"a{i}",
+            "t",
+            "p",
+            "PASSKEY",
+            S.ACTIVE,
+            t0 + timedelta(minutes=i),
+            credential_id=bytes([i]),
+        )
+        for i in range(70)
+    ]
+    ids = credential_allow_list(many)
+    assert len(ids) == MAX_ALLOWED_CREDENTIALS == 64
+    assert (
+        ids[0] == bytes([69]) and bytes([0]) not in ids
+    )  # the newest are kept, the oldest dropped
+    # a key used recently outranks newer registrations; weak or id-less authenticators never appear
+    used = Authenticator(
+        "u",
+        "t",
+        "p",
+        "PASSKEY",
+        S.ACTIVE,
+        t0,
+        credential_id=b"used",
+        last_used_at=t0 + timedelta(days=1),
+    )
+    weak = Authenticator("w", "t", "p", "TOTP", S.ACTIVE, t0, credential_id=b"weak")
+    bare = Authenticator("b", "t", "p", "PASSKEY", S.ACTIVE, t0)
+    assert credential_allow_list([*many[:3], used, weak, bare]) == [
+        b"used",
+        bytes([2]),
+        bytes([1]),
+        bytes([0]),
+    ]
+    assert credential_allow_list([]) == []

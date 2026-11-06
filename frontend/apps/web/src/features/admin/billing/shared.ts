@@ -51,3 +51,11 @@ export const STATE_COPY: Record<string, string> = {
   TERMINATING: "The account is being closed. Export what you need before the final date.",
   CLOSED: "The account is closed.",
 };
+
+/** What "Check now" tells the person. The cell only evaluates budgets and allowance warnings once an approved price book covers the month
+ * (status UNPRICED otherwise), so an empty result then must not read as "all clear". */
+export function budgetCheckMessage(r: { raised: unknown[]; status?: string }): string {
+  if (r.raised.length) return `${r.raised.length} new notification(s) raised`;
+  if (r.status === "UNPRICED") return "Budgets cannot be checked yet: no approved price book covers this month";
+  return "Nothing new to report";
+}
