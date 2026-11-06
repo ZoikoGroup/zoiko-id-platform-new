@@ -198,17 +198,20 @@ def test_relay_publishes_once_priority_first_and_quarantines_after_retries(
             )
         rec = Recorder()
 
-        async def relay() -> int:
+        async def relay(batch: int = 50) -> int:
             async with engine(owner_url) as eng, eng.begin() as c:
-                return await relay_once(c, rec, env="test", region="uk-1", batch=50)
+                return await relay_once(c, rec, env="test", region="uk-1", batch=batch)
 
-        counts = await asyncio.gather(
-            relay(), relay(), relay()
-        )  # SKIP LOCKED: no row published twice
-        mine = [e for _, _, e in rec.sent if e.tenantid == tenant]
-        assert len(mine) == 31 and len({e.id for e in mine}) == 31 and sum(counts) >= 31
+        # One relay on its own: the revocation is the first message published, ahead of the 30 older ones. (Several relays at once cannot
+        # be asked this: each takes its own rows, so whichever publishes first depends on timing.)
+        taken = await relay(batch=5)
         first = next(t for t, _, e in rec.sent if e.tenantid == tenant)
         assert first.endswith(".mandate.priority")  # revocations jump the queue
+
+        # The rest, by three relays at once: SKIP LOCKED means no row is published twice.
+        counts = await asyncio.gather(relay(), relay(), relay())
+        mine = [e for _, _, e in rec.sent if e.tenantid == tenant]
+        assert len(mine) == 31 and len({e.id for e in mine}) == 31 and taken + sum(counts) >= 31
         assert ("zid.test.uk-1.mandate.priority", "t_load:urgent") in {
             (t, k) for t, k, _ in rec.sent
         }

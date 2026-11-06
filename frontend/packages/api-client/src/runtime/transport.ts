@@ -20,8 +20,8 @@ export type Transport = {
 export type TransportConfig = {
   /** "/api/bff" for token-bearing calls, "" for same-origin browser flows. */
   baseUrl: string;
-  /** CSRF token for state-changing calls through the BFF. */
-  csrf?: () => string | undefined;
+  /** CSRF token for state-changing calls through the BFF. May wait for the session to load: a write sent before the token is known would be refused. */
+  csrf?: () => string | undefined | Promise<string | undefined>;
   fetchImpl?: typeof fetch;
   /** Called once when the cell's central step-up guard refuses a request and names the change to prove. Resolves the proof to send with the same
    * request, or undefined to give up (the original refusal is then thrown). Never called for any other refusal. */
@@ -50,7 +50,7 @@ export function createTransport(config: TransportConfig): Transport {
       else if (opts.body !== undefined) headers["content-type"] = "application/json";
       if (opts.idempotencyKey) headers["idempotency-key"] = opts.idempotencyKey;
       if (method !== "GET") {
-        const csrf = config.csrf?.();
+        const csrf = await config.csrf?.();
         if (csrf) headers["x-zid-csrf"] = csrf;
       }
       const body = opts.raw ? opts.raw.data : opts.body === undefined ? undefined : JSON.stringify(opts.body);

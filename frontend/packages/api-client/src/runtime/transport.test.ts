@@ -60,3 +60,28 @@ describe("route step-up retry", () => {
     expect(plain).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the CSRF token on writes", () => {
+  it("waits for a token that is still loading instead of sending the write without one", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(ok());
+    let release!: (token: string) => void;
+    const loading = new Promise<string>((resolve) => (release = resolve));
+    const t = createTransport({ baseUrl: "/api", fetchImpl, csrf: () => loading });
+    const pending = t.request("POST", "/v1/x", { body: {} });
+    await Promise.resolve();
+    expect(fetchImpl).not.toHaveBeenCalled(); // nothing goes out until the token is known
+    release("tok-1");
+    await pending;
+    expect(((fetchImpl.mock.calls[0]![1] as RequestInit).headers as Record<string, string>)["x-zid-csrf"]).toBe("tok-1");
+  });
+
+  it("sends a token it already has, and none on a read", async () => {
+    const fetchImpl = vi.fn().mockImplementation(async () => ok());
+    const t = createTransport({ baseUrl: "/api", fetchImpl, csrf: () => "tok-2" });
+    await t.request("PATCH", "/v1/x", { body: {} });
+    await t.request("GET", "/v1/x");
+    const [write, read] = fetchImpl.mock.calls.map((c) => (c[1] as RequestInit).headers as Record<string, string>);
+    expect(write!["x-zid-csrf"]).toBe("tok-2");
+    expect(read!["x-zid-csrf"]).toBeUndefined();
+  });
+});

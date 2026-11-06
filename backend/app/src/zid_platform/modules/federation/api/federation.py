@@ -708,10 +708,19 @@ def _validity(expires: datetime) -> None:
         raise http_error("VALIDATION_FAILED", "metadata validity must be in the future and bounded")
 
 
+_PRIVATE_KEY_MEMBERS = frozenset({"d", "p", "q", "dp", "dq", "qi", "k", "oth"})
+
+
 def _keys(jwks: dict[str, Any] | None, message: str) -> dict[str, Any]:
     keys = jwks.get("keys") if jwks else None
     if not isinstance(keys, list) or not keys or not all(isinstance(k, dict) for k in keys):
         raise http_error("VALIDATION_FAILED", message)
+    if any(_PRIVATE_KEY_MEMBERS & k.keys() for k in keys):
+        # A pinned key verifies the provider's signatures: it is public. A private key here is a leaked secret, never stored.
+        raise http_error(
+            "VALIDATION_FAILED",
+            "the keys must be public keys: a private key member was found and nothing was stored",
+        )
     return jwks or {}
 
 

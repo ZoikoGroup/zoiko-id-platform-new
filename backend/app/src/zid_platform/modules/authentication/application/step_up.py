@@ -27,7 +27,10 @@ from zid_platform.modules.authentication.application.webauthn import (
     assert_credential,
     challenge_of,
 )
-from zid_platform.modules.authentication.domain.authenticator import STRONG_TYPES, AuthnError
+from zid_platform.modules.authentication.domain.authenticator import (
+    AuthnError,
+    credential_allow_list,
+)
 from zid_platform.modules.authentication.domain.step_up import (
     Binding,
     Catalogue,
@@ -160,11 +163,7 @@ async def create_challenge(
     nonce = secrets.token_bytes(32)
     wa_challenge = webauthn_challenge(nonce, digest, challenge_id)
     mine = await authn_store.for_principal(conn, who.actor_id, active_only=True)
-    allow = [
-        PublicKeyCredentialDescriptor(id=a.credential_id)
-        for a in mine
-        if a.credential_id and a.authenticator_type in STRONG_TYPES
-    ]
+    allow = [PublicKeyCredentialDescriptor(id=cid) for cid in credential_allow_list(mine)]
     if not allow:  # never replaced by email or SMS: the person goes through governed recovery
         raise StepUpError(
             "NO_STRONG_AUTHENTICATOR", "no passkey is available; use governed recovery"

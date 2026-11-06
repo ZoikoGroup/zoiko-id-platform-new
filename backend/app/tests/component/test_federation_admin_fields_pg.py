@@ -217,6 +217,14 @@ def test_identity_provider_fields_round_trip(rt_url: str, owner_url: str) -> Non
         assert "client_id" in bad(client_id=None).text
         assert "client_secret_ref" in bad(client_secret_ref=None).text
         assert "pin at least one key" in bad(jwks={"keys": []}).text
+        private = {
+            "keys": [
+                {"kty": "EC", "crv": "P-256", "kid": "k2", "x": "AQAB", "y": "AQAB", "d": "AQAB"}
+            ]
+        }
+        assert (
+            "public keys" in bad(jwks=private).text
+        )  # a private key is a leaked secret: refused, never stored
         assert "SAML settings" in bad(sso_url="https://x.example/sso").text
         assert "time zone" in bad(metadata_expires_at="2030-01-01T00:00:00").text
         bad(display_name="   ")
