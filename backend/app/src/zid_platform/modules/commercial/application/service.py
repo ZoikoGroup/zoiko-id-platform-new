@@ -106,7 +106,7 @@ async def request_limit(conn: AsyncConnection, base: int) -> int:
         async with conn.begin_nested():
             current = await store.active_entitlement(conn)
         plan_code = str(current["plan_code"]) if current else DEFAULT_PLAN
-    except Exception:  # noqa: BLE001
+    except Exception:
         log.exception("plan lookup for the request limit failed")
         plan_code = DEFAULT_PLAN
     return limit_for(plan_code, base, plan_throughput())
@@ -130,7 +130,7 @@ async def production_environments_check(
                     text("SELECT production_environments FROM commercial.plan WHERE plan_code = :p"), {"p": plan_code}
                 )
             ).scalar()
-    except Exception:  # noqa: BLE001
+    except Exception:
         log.exception("production environment limit lookup failed")
         return True, DEFAULT_PLAN, None
     if limit is None or used < int(limit):

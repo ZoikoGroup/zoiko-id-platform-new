@@ -11,6 +11,10 @@ Change record: [CR-060](../specs/change-requests/CR-060-software-keys-in-the-dat
 3. **Database:** run the migrations as the owner role (creates `keys.key_version`; the global plane's `global_directory.key_version`), then `deploy/gcp/db/02_grants.sql`.
 4. **First start:** keys are created on first use. Run `keys status` to see them; **pin the cell's directory public key in the global plane** with `keys public` (`ZID_LOCATOR_CELL_KEYS`).
 
+## Audit trail
+
+Every create, rotate, retire, destroy and re-wrap is a row in `keys.key_event` (`global_directory.key_event` on the global plane) with the actor (`process:<role>` or `cli:<user>@<host>`), written in the same transaction as the change. The evidence worker copies each into the ledger as a `key.*` event (class E3), so "who rotated the evidence key and when" is answerable from the same hash-chained, timestamped record as everything else. Every change the platform's own code makes has an event. **Residual risk:** the triggers stop the runtime, worker and relay roles, but not the database owner or a superuser: someone with that access could change key rows directly, without an event (the trigger can be disabled, as the tests themselves do). Detection then rests on the external timestamps and the scheduled verification of the evidence ledger, not on the key tables. Keep owner credentials off the app VMs and use them only for migrations.
+
 ## Daily
 
 `keys status` lists key ids, versions, states and whether the material is present. It never prints material.

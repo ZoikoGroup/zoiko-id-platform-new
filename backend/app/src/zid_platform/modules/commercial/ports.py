@@ -15,6 +15,7 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_errors import ErrorDetail, ZidError
 
+from zid_platform.modules.commercial.application import activation_service as activations
 from zid_platform.modules.commercial.application import assurance_service as assurance
 from zid_platform.modules.commercial.application import billing_gate, usage_reservations
 from zid_platform.modules.commercial.application import budget_service as budgets
@@ -25,18 +26,19 @@ from zid_platform.modules.commercial.application import finance_service as finan
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
-from zid_platform.modules.commercial.application import service_request_service as service_requests
-from zid_platform.modules.commercial.application.service_request_service import ServiceRequestError
 from zid_platform.modules.commercial.application import recon_service as recon
 from zid_platform.modules.commercial.application import refund_service as refunds
+from zid_platform.modules.commercial.application import service_request_service as service_requests
 from zid_platform.modules.commercial.application import vendor_service as vendors
 from zid_platform.modules.commercial.application.adapters import (
+    FallbackTax,
     NoTaxConfigured,
     OnlinePayment,
     PaymentMethodSummary,
     PaymentPort,
     PaymentResult,
     PaymentSetupError,
+    RateTableTax,
     RecordingPayments,
     RecordingRefunds,
     RefundPort,
@@ -44,8 +46,6 @@ from zid_platform.modules.commercial.application.adapters import (
     StripePayments,
     StripeRefunds,
     StripeTax,
-    FallbackTax,
-    RateTableTax,
     TaxLine,
     TaxPort,
 )
@@ -73,6 +73,7 @@ from zid_platform.modules.commercial.application.recorder import (
 )
 from zid_platform.modules.commercial.application.recorder import record as record_billable
 from zid_platform.modules.commercial.application.service import entitled
+from zid_platform.modules.commercial.application.service_request_service import ServiceRequestError
 from zid_platform.modules.commercial.application.stripe_webhook_service import (
     open_refund as open_payment_refund,
 )
@@ -114,9 +115,9 @@ from zid_platform.modules.commercial.infrastructure import (
     bank_statement,
     billable_store,
     catalogue_store,
+    enforcement_store,
 )
 from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
-from zid_platform.modules.commercial.infrastructure import enforcement_store
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
@@ -149,7 +150,9 @@ async def require_entitlement(
 
 def plan_throughput_status() -> str:
     """CONFIRMED, or ENGINEERING_DEFAULT while Commercial & Finance have not signed the request-allowance multipliers off."""
-    from zid_platform.modules.commercial.infrastructure.bands import plan_throughput_status as status
+    from zid_platform.modules.commercial.infrastructure.bands import (
+        plan_throughput_status as status,
+    )
 
     return status()
 
@@ -186,15 +189,13 @@ __all__ = [
     "Credit",
     "Enforcement",
     "Entitlement",
+    "FallbackTax",
     "FinanceError",
     "FinanceKind",
     "InvoicingError",
     "NoTaxConfigured",
     "OnlinePayment",
     "OpsError",
-    "plan_request_limit",
-    "plan_throughput_status",
-    "require_production_environment",
     "OrderError",
     "PaymentMethodSummary",
     "PaymentPort",
@@ -202,19 +203,20 @@ __all__ = [
     "PaymentSetupError",
     "PlanRequestError",
     "QuoteLine",
+    "RateTableTax",
     "RatingError",
     "RecordingPayments",
     "RecordingRefunds",
     "RefundPort",
+    "ServiceRequestError",
     "StripeCustomers",
     "StripePayments",
     "StripeRefunds",
     "StripeTax",
-    "FallbackTax",
-    "RateTableTax",
     "TaxLine",
     "TaxPort",
     "VendorError",
+    "activations",
     "assurance",
     "bank_statement",
     "billable_event_adjusted",
@@ -229,6 +231,7 @@ __all__ = [
     "decide_feature_entitlement",
     "disputes",
     "eligibility",
+    "enforcement_store",
     "entitled",
     "entitlement_changed",
     "finance",
@@ -250,10 +253,9 @@ __all__ = [
     "orders",
     "payment_event_queue",
     "plan_aware_transfer_gate",
-    "ServiceRequestError",
-    "enforcement_store",
+    "plan_request_limit",
     "plan_requests",
-    "service_requests",
+    "plan_throughput_status",
     "recon",
     "recon_import",
     "reconcile",
@@ -264,8 +266,10 @@ __all__ = [
     "refunds",
     "require_entitlement",
     "require_feature",
+    "require_production_environment",
     "resolve_payment_event",
     "run_rating",
+    "service_requests",
     "usage_reservations",
     "vendors",
     "verify_chain",

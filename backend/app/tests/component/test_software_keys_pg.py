@@ -1,4 +1,4 @@
-"""Software keys in PostgreSQL (CR-057): the real table, its append-only guard, least-privilege roles, races and the settings gate."""
+"""Software keys in PostgreSQL (CR-060): the real table, its append-only guard, least-privilege roles, races and the settings gate."""
 
 from __future__ import annotations
 
@@ -69,6 +69,9 @@ def clean(keys_ready: str) -> None:
         "ALTER TABLE keys.key_version DISABLE TRIGGER key_version_guard",
         "DELETE FROM keys.key_version",
         "ALTER TABLE keys.key_version ENABLE TRIGGER key_version_guard",
+        "ALTER TABLE keys.key_event DISABLE TRIGGER key_event_guard",
+        "DELETE FROM keys.key_event",
+        "ALTER TABLE keys.key_event ENABLE TRIGGER key_event_guard",
     )
     crypto_runtime._software_parts.cache_clear()
 
@@ -173,6 +176,7 @@ def test_processes_racing_to_create_a_signing_key_converge_on_one(
 
 
 def settings(url: str, master_file: Path, **kw: object) -> Settings:
+    kw.setdefault("evidence_tsa_waiver", "accept-no-external-timestamps")
     return Settings(
         environment=kw.pop("environment", "production"),  # type: ignore[arg-type]
         cell_id="eu-1",
@@ -254,3 +258,204 @@ def test_the_global_plane_keeps_its_keys_in_its_own_table(
     assert fetch(
         owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-global'"
     ) == [(0,)]
+
+
+# ------------------------------------------------------------------------------------------------ the audit trail of key changes
+
+
+def events(url: str) -> list[tuple]:  # type: ignore[type-arg]
+    return fetch(
+        url,
+        "SELECT key_id, version, action, actor, ledgered_at IS NOT NULL FROM keys.key_event ORDER BY occurred_at, event_id",
+    )
+
+
+def test_every_key_change_is_recorded_in_the_same_transaction_with_who_made_it(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    _, masters = master
+    p = SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=masters
+    )
+    p.ensure_key(KeyPurpose.SUBJECT_ERASURE_KEY, "subject_erasure_key-eu-1")
+    ref = KeyRef(KeyPurpose.SUBJECT_ERASURE_KEY, "subject_erasure_key-eu-1")
+    p.rotate_key(ref)
+    assert p.rewrap_all() == 0  # nothing to re-wrap under the same master
+    asyncio.run(p.destroy_key(ref))
+    got = events(keys_ready)
+    assert [(g[1], g[2]) for g in got] == [
+        (1, "CREATED"),
+        (2, "ROTATED"),
+        (1, "RETIRED"),
+        (1, "DESTROYED"),
+        (2, "DESTROYED"),
+    ]
+    assert {g[3] for g in got} == {"cli:anil@laptop"} and not any(g[4] for g in got)
+
+
+def test_a_rewrap_is_its_own_event_and_a_state_change_is_not_mistaken_for_one(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys], tmp_path: Path
+) -> None:
+    f, masters = master
+    SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "process:cell"), masters=masters
+    ).ensure_key(KeyPurpose.DATA_KEK, "data_kek-eu-1")
+    newer = tmp_path / "rotated"
+    newer.write_text(MasterKeys.generate("m2") + "\n" + f.read_text().splitlines()[-1] + "\n")
+    both = MasterKeys.from_file(newer)
+    changed = SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=both
+    ).rewrap_all()
+    assert changed == 1
+    assert [g[2] for g in events(keys_ready)] == ["CREATED", "REWRAPPED"]
+
+
+def test_a_failed_or_raced_change_leaves_no_event(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    _, masters = master
+    a = PostgresKeyStore(rt_url, "keys", "process:cell")
+    SoftwareKeyProvider(store=a, masters=masters).ensure_key(KeyPurpose.DATA_KEK, "data_kek-eu-1")
+    SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "process:worker"), masters=masters
+    ).ensure_key(KeyPurpose.DATA_KEK, "data_kek-eu-1")  # adopts
+    assert [g[2] for g in events(keys_ready)] == [
+        "CREATED"
+    ]  # the second process lost the race and recorded nothing
+
+
+def test_the_event_table_cannot_be_rewritten_or_deleted(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    _, masters = master
+    SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "process:cell"), masters=masters
+    ).ensure_key(KeyPurpose.DATA_KEK, "data_kek-eu-1")
+    for statement, why in (
+        ("DELETE FROM keys.key_event", "never deleted"),
+        ("UPDATE keys.key_event SET actor = 'someone-else'", "never changes"),
+        ("UPDATE keys.key_event SET action = 'DESTROYED'", "never changes"),
+        ("UPDATE keys.key_event SET ledgered_at = NULL", "ledgered once"),
+    ):
+        with pytest.raises(DBAPIError, match=why):
+            run_sql(keys_ready, statement)
+    with pytest.raises(DBAPIError, match="permission denied"):
+        run_sql(rt_url, "DELETE FROM keys.key_event")
+    run_sql(
+        keys_ready, "UPDATE keys.key_event SET ledgered_at = now()"
+    )  # the one allowed change, once
+    with pytest.raises(DBAPIError, match="ledgered once"):
+        run_sql(keys_ready, "UPDATE keys.key_event SET ledgered_at = now()")
+
+
+def test_the_worker_copies_key_events_into_the_ledger_once_and_the_ledger_still_verifies(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    from zid_platform.key_audit import ledger_key_events
+    from zid_platform.modules.evidence.application import ledger
+    from zid_platform.modules.evidence.application.runtime import (
+        configure_runtime,
+        current_runtime,
+        development_runtime,
+    )
+    from zid_platform.modules.evidence.infrastructure import ledger_store as store
+
+    _, masters = master
+    p = SoftwareKeyProvider(store=PostgresKeyStore(rt_url, "keys", "process:cell"), masters=masters)
+    p.ensure_key(KeyPurpose.DATA_KEK, "data_kek-eu-1")
+    p.rotate_key(KeyRef(KeyPurpose.DATA_KEK, "data_kek-eu-1"))
+    SoftwareKeyProvider(
+        store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=masters
+    ).rewrap_all()  # no-op: same master
+    SoftwareSigners(
+        store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=masters
+    ).signer("evidence-eu-1", kid="evidence-eu-1")
+    configure_runtime(development_runtime("kv-1"))  # its own cell id: the platform partition is shared with other tests, which sign with other throw-away keys
+
+    async def audit_rows(c: object) -> list[tuple]:  # type: ignore[type-arg]
+        rows = await c.execute(  # type: ignore[attr-defined]
+            text(
+                "SELECT event_type, actor_type, target_ref FROM evidence.audit_record WHERE event_type LIKE 'key.%' ORDER BY event_type, target_ref"
+            )
+        )
+        return [tuple(r) for r in rows]
+
+    async def run() -> None:
+        async with create_async_engine(keys_ready).begin() as c, store.platform_scope(c):
+            before = len(await audit_rows(c))
+            assert (
+                await ledger_key_events(c) == 4
+            )  # created, retired and rotated for the KEK, and created for the signing key
+            rows = await audit_rows(c)
+            assert len(rows) - before == 4
+            assert {r[0] for r in rows[before:]} >= {"key.created", "key.rotated"}
+            assert any(r[1] == "OPERATOR" for r in rows) and any(r[1] == "SYSTEM" for r in rows)
+            assert await ledger_key_events(c) == 0  # idempotent: each event is copied once
+            report = await ledger.verify_partition(
+                c,
+                f"platform-security:{current_runtime().cell_id}",
+                keys=current_runtime().trusted_keys(),
+                emit_incident=False,
+            )
+            assert report.ok, report.to_dict()
+
+    try:
+        asyncio.run(run())
+    finally:
+        configure_runtime(None)
+    assert all(g[4] for g in events(keys_ready))  # every event is stamped as ledgered
+    assert not any(
+        "@" in str(r)
+        for r in fetch(
+            keys_ready, "SELECT body::text FROM evidence.audit_record WHERE event_type LIKE 'key.%'"
+        )
+    )  # no identity in the ledger
+
+
+def test_a_deployed_environment_with_software_keys_needs_a_timestamp_authority_or_a_written_waiver(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    f, _ = master
+    ack = {"key_provider_db_ack": "accept-software-keys"}
+    with pytest.raises(RuntimeError, match="ZID_EVIDENCE_TSA_URL"):
+        crypto_runtime.software_keys(settings(rt_url, f, evidence_tsa_waiver=None, **ack))
+    with pytest.raises(RuntimeError, match="ZID_EVIDENCE_TSA_URL"):
+        crypto_runtime.software_keys(settings(rt_url, f, evidence_tsa_waiver="yes", **ack))
+    crypto_runtime.software_keys(
+        settings(
+            rt_url,
+            f,
+            evidence_tsa_waiver=None,
+            evidence_tsa_url="https://tsa.example.test/tsr",
+            **ack,
+        )
+    )
+    crypto_runtime.software_keys(
+        settings(rt_url, f, evidence_tsa_waiver="accept-no-external-timestamps", **ack)
+    )
+    crypto_runtime.software_keys(
+        settings(rt_url, f, environment="local", evidence_tsa_waiver=None)
+    )  # local and test need nothing
+
+
+def test_the_revocation_transmitter_gets_the_ring_the_api_publishes_when_keys_are_in_the_database(
+    keys_ready: str, rt_url: str, master: tuple[Path, MasterKeys]
+) -> None:
+    from zid_platform.entrypoints.consumer import transmitter_keys
+
+    f, _ = master
+    s = settings(rt_url, f, key_provider_db_ack="accept-software-keys")
+    ring, issuer = transmitter_keys({}, "eu-1", s)  # type: ignore[misc]
+    api_ring = crypto_runtime.kms_keyrings_from_settings(s).set
+    assert (
+        issuer == "https://api.example.test" and ring.jwks() == api_ring.jwks()
+    )  # receivers can verify what it signs
+    # without database keys a deployed cell still keeps it off, rather than sign with a key nobody can fetch
+    assert (
+        transmitter_keys(
+            {"ZID_ENVIRONMENT": "production", "ZID_TOKEN_ISSUER": "https://api.example.test"},
+            "eu-1",
+            None,
+        )
+        is None
+    )

@@ -9,6 +9,7 @@ import { useTenant } from "@/features/onboarding/shared";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { ALLOWANCE_FIELD, BILLING_KEY, count, meterLabel, usageTone } from "./shared";
+import { AsOf } from "./as-of";
 import { MeterEvents, RatedLines } from "./usage-detail";
 
 function lastMonths(n: number): { id: string; label: string }[] {
@@ -34,6 +35,7 @@ export function UsageSection() {
   return (
     <div className="space-y-4">
       <Select label="Month (UTC)" options={months} value={month} onChange={setMonth} className="max-w-xs" />
+      <AsOf at={ledger.dataUpdatedAt} />
       <QueryView query={ledger}>
         {(l) => {
           const rows = l.meters.filter((m) => Number(m.net) > 0 || m.events > 0 || m.meter in ALLOWANCE_FIELD);

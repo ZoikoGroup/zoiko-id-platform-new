@@ -14,6 +14,7 @@ vi.mock("@/lib/cell", () => ({
   ApiErrorView: () => <div>generic error</div>,
 }));
 
+vi.mock("@/lib/rights", () => ({ useRights: () => ({ rights: {}, loaded: true, can: () => true }) }));
 vi.mock("./receipts", () => ({ EXPORT_MODES: [{ id: "CUSTOMER_VERIFY", label: "Customer verification" }] }));
 
 vi.mock("@zoiko/ui", () => ({

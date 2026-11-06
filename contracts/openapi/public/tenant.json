@@ -299,6 +299,18 @@
       "Invite": {
         "additionalProperties": false,
         "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "email": {
             "anyOf": [
               {
@@ -347,6 +359,25 @@
           "approval_request_id"
         ],
         "title": "OwnerChange",
+        "type": "object"
+      },
+      "PersonName": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "PersonName",
         "type": "object"
       },
       "RecoveryOpen": {
@@ -2526,6 +2557,50 @@
         ]
       }
     },
+    "/v1/tenant/members/me:name": {
+      "post": {
+        "description": "Anyone sets or clears their own display name. It is how colleagues see them next to their member number.",
+        "operationId": "name_myself_v1_tenant_members_me_name_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonName"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Name Myself V1 Tenant Members Me Name Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Name Myself",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/v1/tenant/members/{assignment_id}:reissue": {
       "post": {
         "operationId": "reissue_v1_tenant_members__assignment_id__reissue_post",
@@ -2611,6 +2686,62 @@
           }
         },
         "summary": "Revoke Member",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/v1/tenant/members/{principal_id}:rename": {
+      "post": {
+        "description": "An Owner or Admin sets or clears a colleague's display name (the member number never changes).",
+        "operationId": "rename_member_v1_tenant_members__principal_id__rename_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonName"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rename Member V1 Tenant Members  Principal Id  Rename Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Member",
         "tags": [
           "tenant"
         ]

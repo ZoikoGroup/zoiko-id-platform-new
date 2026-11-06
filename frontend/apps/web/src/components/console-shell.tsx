@@ -155,8 +155,10 @@ export function ConsoleShell({
   // While the company loads the full navigation is drawn, so the sidebar does not reflow when the role arrives (a
   // layout shift, UX-30); a person who is not an administrator then loses the administration links, which only ever
   // led to pages the cell refuses them. Once it is known, the navigation follows the role (UX-02).
+  // What the person's roles may do (the role matrix). Approvers, Operators and Viewers get the pages their role is for; a plain Member gets none.
+  const permissions = useCellQuery(["tenant", "permissions", "shell"], (api) => api.tenant.myPermissions(), { enabled: Boolean(tenant) && !me.isAdmin });
   const roleKnown = !company.isLoading;
-  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess }) : NAV).map((g) => ({
+  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess, rights: permissions.data?.rights }) : NAV).map((g) => ({
     ...g,
     items: g.items.map((i) =>
       i.id === "alerts" && openCount > 0 ? { ...i, badge: openCount, badgeTone: criticalOpen.length ? ("danger" as const) : ("warn" as const) } : i,

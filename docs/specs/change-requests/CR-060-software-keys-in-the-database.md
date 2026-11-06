@@ -22,6 +22,17 @@ DEC-F5 requires every platform key to live in a KMS/HSM and refuses the local pr
 - **Erasure depends on the master key as well as the row:** a backup taken before a key was destroyed still holds its wrapped material. The erasure promise to a data subject therefore holds only once every backup wrapped under the same master key has aged out or the master key is retired (`docs/runbooks/software-keys.md`).
 - **Evidence integrity:** the evidence signing key is now reachable by someone with the host. The mitigation is the external timestamp on each checkpoint (`ZID_EVIDENCE_TSA_URL`, CR on RFC 3161): a history re-signed after a key leak will not match what the timestamp authority stamped. Production use should therefore also configure a TSA.
 
+## Addendum: closing the audit gaps this mode makes more important
+- **Scheduled integrity verification.** The evidence worker re-verifies each partition's hash chain, checkpoint roots, links, signatures and external timestamps every `ZID_EVIDENCE_VERIFY_INTERVAL` (default 6 hours), at most `ZID_EVIDENCE_VERIFY_BATCH` partitions per pass. A failure raises the existing `evidence.integrity.failed` incident (an email to the SECURITY role) once per partition until it verifies clean, and is counted. Before this, tampering was found only if someone called `partition:verify`.
+- **`ZID_EVIDENCE_TSA_REQUIRED` now works.** It was read by nothing. With it set, a checkpoint is not sealed without an external timestamp; the entries stay visibly unsealed and the worker retries.
+- **A deployed cell on software keys needs a timestamp authority.** Without `ZID_EVIDENCE_TSA_URL` it refuses to start unless the owners accept the exposure in writing with `ZID_EVIDENCE_TSA_WAIVER=accept-no-external-timestamps`: an external timestamp is what exposes a history re-signed with a leaked key.
+- **Every key change is audited.** `keys.key_event` (and `global_directory.key_event`) records create, rotate, retire, destroy and re-wrap in the same transaction as the change, with who made it (`process:<role>` or `cli:<user>@<host>`); an append-only trigger protects it. The evidence worker copies each into the ledger (platform-security partition, class E3, `key.*` events, operators as a pseudonymous reference) and stamps the row. The global plane has no ledger, so its table is its audit trail.
+- **The revocation transmitter runs on software keys.** The Shared Signals transmitter (continuous revocation push) was off in every deployed cell; with `ZID_KEY_PROVIDER=db` it signs with the same `set` key ring the API publishes. On a KMS it stays off until given the KMS signer.
+- **Alerts.** The worker can serve `/metrics` (`ZID_METRICS_PORT`); `deploy/observability/prometheus/rules/zid-evidence.yaml` alerts on a failed or erroring verification, a stalled scheduler, sealing that is behind, and checkpoints without a timestamp.
+- Tests: `test_evidence_integrity_pg.py`, the key-event and transmitter cases in `test_software_keys_pg.py`.
+
+Still open: an independent witness copy of the checkpoints (who holds it is a business decision).
+
 ## Not changed
 KMS providers, the crypto policy registry, the envelope format of data (`seal`/`open`), the action catalogue, outbox events, tenant tables. No tenant data is stored in the key tables.
 

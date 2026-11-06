@@ -27,6 +27,14 @@ from zid_crypto.software_keys import MasterKeys, SoftwareKeyProvider, SoftwareSi
 from zid_platform.db_keystore import PostgresKeyStore
 
 
+def _actor() -> str:
+    """Who is running this tool, for the key audit trail."""
+    import getpass
+    import socket
+
+    return f"cli:{getpass.getuser()}@{socket.gethostname()}"
+
+
 def _store(plane: str) -> PostgresKeyStore:
     url = (
         os.environ.get("ZID_KEY_STORE_DATABASE_URL")
@@ -37,7 +45,7 @@ def _store(plane: str) -> PostgresKeyStore:
         raise SystemExit(
             "set ZID_KEY_STORE_DATABASE_URL (or ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL)"
         )
-    return PostgresKeyStore(url, "global_directory" if plane == "global" else "keys")
+    return PostgresKeyStore(url, "global_directory" if plane == "global" else "keys", _actor())
 
 
 def _masters() -> MasterKeys:

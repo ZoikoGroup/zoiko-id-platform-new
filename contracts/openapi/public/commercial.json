@@ -103,6 +103,22 @@
         "title": "AccountBody",
         "type": "object"
       },
+      "ActivationRefundBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ActivationRefundBody",
+        "type": "object"
+      },
       "AdjustmentBody": {
         "additionalProperties": false,
         "properties": {
@@ -2174,6 +2190,30 @@
         ]
       }
     },
+    "/v1/commercial/activation-refunds": {
+      "get": {
+        "description": "Plan-activation payments waiting to be returned, with the processor reference to refund.",
+        "operationId": "activation_refunds_v1_commercial_activation_refunds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activation Refunds V1 Commercial Activation Refunds Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Activation Refunds",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/assurance:run": {
       "post": {
         "operationId": "run_platform_assurance_v1_commercial_assurance_run_post",
@@ -3037,6 +3077,108 @@
           }
         },
         "summary": "Activate Order",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/orders/{order_id}:cancel-payment-wait": {
+      "post": {
+        "description": "Take an order back from \"awaiting payment\" to signed. Nothing was charged; a paid one cannot be taken back here.",
+        "operationId": "cancel_payment_wait_v1_commercial_orders__order_id__cancel_payment_wait_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Payment Wait V1 Commercial Orders  Order Id  Cancel Payment Wait Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Payment Wait",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/orders/{order_id}:refund-activation": {
+      "post": {
+        "description": "Mark a paid, unused activation payment as to be returned. The refund is made at the processor; its report marks the payment refunded.",
+        "operationId": "refund_activation_v1_commercial_orders__order_id__refund_activation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationRefundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refund Activation V1 Commercial Orders  Order Id  Refund Activation Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refund Activation",
         "tags": [
           "commercial"
         ]

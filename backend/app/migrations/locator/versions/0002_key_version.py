@@ -1,4 +1,4 @@
-"""Software key store for the global plane (CR-057): `global_directory.key_version`.
+"""Software key store for the global plane (CR-060): `global_directory.key_version`.
 
 Revision ID: locator_0002
 Revises: locator_0001
