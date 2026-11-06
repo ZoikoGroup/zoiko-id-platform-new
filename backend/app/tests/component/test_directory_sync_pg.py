@@ -25,7 +25,7 @@ from zid_platform.modules.provisioning.infrastructure import directory_store, sc
 from zid_platform.modules.provisioning.infrastructure.scim_store import Source
 
 DOMAIN = "acme-test.us.auth0.com"
-SECRET = "client-secret-that-must-never-be-stored-in-clear"
+SECRET = "cli-" + "x" * 32  # a stand-in value: the tests check it is never stored in clear
 NOW = datetime(2026, 11, 5, 12, 0, tzinfo=UTC)
 
 
@@ -98,7 +98,7 @@ class World:
             await scim_store.create_source(c, Source(self.source_id, self.tenant, f"hr-{self.tenant[:8]}", "HR", "ACTIVE"))
             sync = await ds.create_sync(
                 c, tenant_id=self.tenant, source_id=self.source_id, provider="AUTH0", display_name="Acme Auth0",
-                settings={"domain": DOMAIN, "client_id": "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa"}, secret=SECRET, owner=uid(), actor=uid(), now=NOW,
+                settings={"domain": DOMAIN, "client_id": "test-client-id-0001"}, secret=SECRET, owner=uid(), actor=uid(), now=NOW,
             )  # fmt: skip
             self.sync_id = sync.sync_id
 
@@ -241,7 +241,7 @@ def test_only_an_auth0_tenant_address_is_accepted(world: World) -> None:
     async def work(c: Any) -> None:
         for bad in ("169.254.169.254", "evil.example.com", "acme.auth0.com.evil.example", "http://acme.us.auth0.com", ""):
             with pytest.raises(DirectoryError) as e:
-                ds._provider("AUTH0").check_settings({"domain": bad, "client_id": "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa"})
+                ds._provider("AUTH0").check_settings({"domain": bad, "client_id": "test-client-id-0001"})
             assert e.value.code == "SETTINGS_INVALID"
 
     world.run(work)

@@ -91,7 +91,7 @@ const sync = (over: Partial<DirectorySync> = {}): DirectorySync => ({
   source_id: "src-1",
   provider: "AUTH0",
   display_name: "Acme Auth0",
-  settings: { domain: "acme.us.auth0.com", client_id: "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa" },
+  settings: { domain: "acme.us.auth0.com", client_id: "test-client-id-0001" },
   status: "ACTIVE",
   interval_seconds: 3600,
   next_run_at: "2026-11-05T13:00:00Z",
@@ -152,7 +152,7 @@ describe("DirectorySyncSection", () => {
     fireEvent.change(screen.getByLabelText(/^Auth0 domain/), { target: { value: "evil.example.com" } });
     expect(screen.getByText(/ending in .auth0.com/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/^Auth0 domain/), { target: { value: "Acme.US.auth0.com" } });
-    fireEvent.change(screen.getByLabelText("Client ID"), { target: { value: "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa" } });
+    fireEvent.change(screen.getByLabelText("Client ID"), { target: { value: "test-client-id-0001" } });
     fireEvent.change(screen.getByLabelText("Client secret"), { target: { value: "s3cret-value" } });
     expect(connect().disabled).toBe(false);
     await user.click(connect());
@@ -160,7 +160,7 @@ describe("DirectorySyncSection", () => {
       source_id: "src-1",
       provider: "AUTH0",
       display_name: "Auth0",
-      settings: { domain: "acme.us.auth0.com", client_id: "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa" },
+      settings: { domain: "acme.us.auth0.com", client_id: "test-client-id-0001" },
       secret: "s3cret-value",
       interval_seconds: 3600,
       approval_request_id: null,

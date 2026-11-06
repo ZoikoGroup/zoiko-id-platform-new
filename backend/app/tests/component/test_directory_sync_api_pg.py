@@ -27,8 +27,8 @@ from zid_platform.modules.session.ports import issue_access_token
 from zid_platform.settings import Settings
 
 ISS, AUD = "https://id.zoiko.test", "https://api.zoiko.test"
-SECRET = "directory-secret-that-must-never-come-back"
-SETTINGS = {"domain": "acme-test.us.auth0.com", "client_id": "bNeCRSbpn6ZTckdRm0msR3UEQC2FbaLa"}
+SECRET = "dir-" + "x" * 32  # a stand-in value: the tests check it is never stored or returned
+SETTINGS = {"domain": "acme-test.us.auth0.com", "client_id": "test-client-id-0001"}
 
 
 def uid() -> str:
