@@ -1,7 +1,7 @@
 # OpenBao for one cell: file storage on a persistent disk, auto-unsealed with Cloud KMS (no manual unseal keys).
 # The VM's service account needs roles/cloudkms.cryptoKeyEncrypterDecrypter on the seal key (gcp-platform module).
 ui            = false
-disable_mlock = false
+# No `disable_mlock` line: OpenBao dropped mlock support and refuses to start if the setting is present with false.
 
 storage "file" {
   path = "/openbao/data"

@@ -14,7 +14,9 @@ and openbao; the local implementations refuse to start there.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -32,18 +34,66 @@ from zid_crypto.handles import MacKey
 from zid_crypto.providers import KeyProvider, KeyRef, LocalKeyProvider
 from zid_crypto.purposes import WRAPPING_PURPOSES, KeyPurpose
 from zid_crypto.secret_broker import EnvSecretBroker, OpenBaoSecretBroker, SecretBroker
+from zid_crypto.software_keys import (
+    RISK_ACKNOWLEDGEMENT,
+    KeyStore,
+    MasterKeys,
+    SoftwareKeyProvider,
+    SoftwareSigners,
+)
 
+from .db_keystore import PostgresKeyStore
 from .keys import PURPOSES, KeyRings
+from .roles import Role
 from .settings import Settings
 
 # Symmetric purposes the provider holds (signing keys stay behind keys.KeyRings / KMS signers).
 PROVIDER_PURPOSES = (*sorted(WRAPPING_PURPOSES), KeyPurpose.HMAC_INTERNAL)
 
 
+@lru_cache(maxsize=4)
+def _software_parts(url: str, schema: str, master_file: str) -> tuple[KeyStore, MasterKeys]:
+    return PostgresKeyStore(url, schema), MasterKeys.from_file(master_file)
+
+
+def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
+    """The key store and master keys of `ZID_KEY_PROVIDER=db`. Outside local/test it needs the operator's written acceptance
+    that software keys are standard assurance (CR-057): a host compromise exposes them, and they are not FIPS-validated."""
+    if (
+        settings.environment not in ("local", "test")
+        and settings.key_provider_db_ack != RISK_ACKNOWLEDGEMENT
+    ):
+        raise RuntimeError(
+            "ZID_KEY_PROVIDER=db in a deployed environment needs ZID_KEY_PROVIDER_DB_ACK="
+            + RISK_ACKNOWLEDGEMENT
+            + " (software keys: a host compromise exposes them; not FIPS-validated; CR-057)"
+        )
+    if not settings.key_master_file:
+        raise RuntimeError(
+            "ZID_KEY_PROVIDER=db needs ZID_KEY_MASTER_FILE (the master key, kept outside the database)"
+        )
+    url = (
+        settings.key_store_database_url
+        or settings.database_url
+        or os.environ.get("ZID_WORKER_DATABASE_URL")
+    )
+    if not url:
+        raise RuntimeError("ZID_KEY_PROVIDER=db needs a database connection for the key store")
+    schema = "global_directory" if settings.role is Role.GLOBAL else "keys"
+    return _software_parts(url, schema, settings.key_master_file)
+
+
+def _software_signers(settings: Settings) -> SoftwareSigners:
+    store, masters = software_keys(settings)
+    return SoftwareSigners(store=store, masters=masters)
+
+
 def kek_ref(settings: Settings, purpose: KeyPurpose) -> KeyRef:
     """The configured key for `purpose` in this cell (current version)."""
     if settings.key_provider == "local":
         return KeyRef(purpose, f"dev-{purpose.value.lower()}-{settings.cell_id}")
+    if settings.key_provider == "db":
+        return KeyRef(purpose, f"{purpose.value.lower()}-{settings.cell_id}")
     if purpose.value in settings.kms_key_ids:
         return KeyRef(purpose, settings.kms_key_ids[purpose.value])
     if settings.key_provider == "gcp-kms":
@@ -74,6 +124,12 @@ def key_provider_from_settings(
         for purpose in PROVIDER_PURPOSES:
             local.ensure_key(purpose, kek_ref(settings, purpose).key_id)
         return local
+    if settings.key_provider == "db":
+        store, masters = software_keys(settings)
+        software = SoftwareKeyProvider(store=store, masters=masters)
+        for purpose in PROVIDER_PURPOSES:
+            software.ensure_key(purpose, kek_ref(settings, purpose).key_id)
+        return software
     key_ids = {p: kek_ref(settings, p).key_id for p in PROVIDER_PURPOSES}
     if settings.key_provider == "gcp-kms":
         return GcpKmsKeyProvider(
@@ -119,6 +175,18 @@ def kms_keyrings_from_settings(settings: Settings, *, kms_client: object | None 
     Key ids come from ZID_KMS_KEY_IDS under `SIGNING_<PURPOSE>` (e.g. SIGNING_TOKEN) or are built like the KEKs,
     from the key ring (gcp-kms) or alias pattern (aws-kms). Keys that were rotated out stay published for the
     verification window through ZID_SIGNING_RETIRING_KEYS ({"token": [public JWK, ...]})."""
+    if settings.key_provider == "db":
+        signers = _software_signers(settings)
+        db_rings: dict[str, KeyRing] = {}
+        for ring in PURPOSES:
+            db_key_id, db_kid = f"signing_{ring}-{settings.cell_id}", f"{ring}-{settings.cell_id}"
+            db_signer = signers.signer(db_key_id, kid=db_kid, purpose=_RING_POLICY_PURPOSE[ring])
+            retiring = [
+                *settings.signing_retiring_keys.get(ring, ()),
+                *signers.retired_public_jwks(db_key_id, db_kid),
+            ]
+            db_rings[ring] = KeyRing(db_signer, retiring=retiring)
+        return KeyRings(**db_rings)
     if settings.key_provider == "local":
         raise RuntimeError("signing keys must come from KMS outside local/test (DEC-F5)")
     client = kms_client or _kms_client(settings)
@@ -149,6 +217,12 @@ def evidence_signer_from_settings(
     Local/test: a development key, shared between processes through ZID_DEV_SIGNING_KEYS
     ("evidence" -> PEM) so the API, worker and verifier agree; deployed: the cell's KMS key."""
     kid = f"evidence-{settings.cell_id}"
+    if settings.key_provider == "db":
+        return _software_signers(settings).signer(
+            f"evidence-{settings.cell_id}",
+            kid=settings.evidence_signing_kid or kid,
+            purpose=KeyPurpose.EVIDENCE_SIGNING,
+        )
     if settings.key_provider == "local":
         if settings.environment not in ("local", "test"):
             raise RuntimeError(
@@ -177,7 +251,10 @@ def placement_signer(
 ) -> Signer | None:
     """Signer for placement statements (DEC-G3): a cell's directory records, the global plane's
     discovery answers. Local/test: the development key `dev_purpose` from ZID_DEV_SIGNING_KEYS (shared
-    by the processes of one machine) or a fresh one; deployed: the KMS key, or None (not configured)."""
+    by the processes of one machine) or a fresh one; deployed: the KMS key, or None (not configured). With the db
+    provider the key is stored under the signer's `kid`."""
+    if settings.key_provider == "db":
+        return _software_signers(settings).signer(kid, kid=kid)
     if settings.environment in ("local", "test") and settings.key_provider == "local":
         pem = settings.dev_signing_keys.get(dev_purpose)
         return (
@@ -215,7 +292,7 @@ def handle_key_from_settings(
 ) -> MacKey:
     """The HMAC_INTERNAL key that makes pseudonymous evidence handles (DEC-F1 §2)."""
     ref = kek_ref(settings, KeyPurpose.HMAC_INTERNAL)
-    if settings.key_provider == "local":
+    if settings.key_provider in ("local", "db"):
         local = (
             provider
             if isinstance(provider, LocalKeyProvider)
@@ -265,4 +342,5 @@ __all__ = [
     "kms_keyrings_from_settings",
     "placement_signer",
     "secret_broker_from_settings",
+    "software_keys",
 ]

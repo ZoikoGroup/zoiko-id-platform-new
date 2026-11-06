@@ -6,3 +6,4 @@ May create or alter **only** these tables (enforced by CI against `backend/datab
 
 - `global_directory.tenant_directory_record`
 - `global_directory.routing_alias`
+- `global_directory.key_version`

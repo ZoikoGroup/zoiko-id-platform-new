@@ -47,6 +47,8 @@ class EvidenceRuntime:
     tenant_keks: Mapping[str, KeyRef] = field(default_factory=dict)
     # kid -> when the key was believed to be in other hands; signatures from then on are not trusted (EVID-22)
     compromised: Mapping[str, datetime] = field(default_factory=dict)
+    # checks a stored RFC 3161 timestamp against the TSA trust list (`tsa_token.TimestampVerifier`); None = not verified here
+    timestamp_verifier: Any = None
 
     def after_compromise(self, new_signer: Signer, *, compromised_at: datetime) -> EvidenceRuntime:
         """The runtime once the current signer is declared compromised: the new signer takes over, the old public
@@ -122,6 +124,9 @@ def runtime_from_settings(settings: Any, *, kms_client: object | None = None) ->
         kek_ref,
         key_provider_from_settings,
     )
+    from zid_platform.modules.evidence.infrastructure.tsa_token import (
+        timestamp_verifier_from_settings,
+    )
 
     provider = key_provider_from_settings(settings)
     return EvidenceRuntime(
@@ -137,6 +142,7 @@ def runtime_from_settings(settings: Any, *, kms_client: object | None = None) ->
             e3_interval=settings.evidence_checkpoint_e3_interval,
         ),
         retention_days=dict(settings.evidence_retention_days),
+        timestamp_verifier=timestamp_verifier_from_settings(settings),
         tenant_keks={
             tenant: KeyRef(KeyPurpose.SUBJECT_ERASURE_KEY, key_id)
             for tenant, key_id in settings.tenant_kek_ids.items()

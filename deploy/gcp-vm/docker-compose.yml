@@ -1,0 +1,166 @@
+# Zoiko iD on GCP virtual machines only: the APP VM. No KMS, no Cloud SQL, no managed service of any kind.
+#   cp env.example .env && chmod 600 .env     # fill in (see README.md)
+#   docker compose --profile edge up -d       # migrate runs first; add --profile events for the event relay and consumer
+# Keys live in PostgreSQL, wrapped by a master key file kept outside it (ZID_KEY_PROVIDER=db, CR-060). The database, OpenBao,
+# Kafka (Redpanda) and SpiceDB run on their own VMs (docker-compose.services.yml and README.md) and are reached by address.
+# Everything secret is a root-owned file in ./secrets (master_key, openbao_token, smtp_password), never an environment value.
+name: zoiko-id-vm
+
+x-backend: &backend
+  image: ${ZID_BACKEND_IMAGE}
+  restart: unless-stopped
+  env_file: [.env]
+  environment: &backend-env
+    ZID_ENVIRONMENT: production
+    ZID_CELL_ID: ${ZID_CELL_ID}
+    ZID_REGION: ${ZID_REGION}
+    ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    # keys in the database, wrapped by the master key file. A deployed environment refuses to start without the written acceptance,
+    # so it has no default here: set ZID_KEY_PROVIDER_DB_ACK=accept-software-keys in .env only after the Security Lead signed CR-060.
+    ZID_KEY_PROVIDER: db
+    ZID_KEY_MASTER_FILE: /run/secrets/master_key
+    ZID_KEY_PROVIDER_DB_ACK: ${ZID_KEY_PROVIDER_DB_ACK:?set ZID_KEY_PROVIDER_DB_ACK=accept-software-keys after CR-060 is accepted}
+    # secrets: OpenBao on the services VM (stored in PostgreSQL), a periodic token read from a file
+    ZID_SECRET_BROKER: ${ZID_SECRET_BROKER:-openbao}
+    ZID_OPENBAO_ADDR: http://${ZID_SERVICES_HOST}:8200
+    ZID_OPENBAO_AUTH: token
+    ZID_OPENBAO_TOKEN_FILE: /run/secrets/openbao_token
+    ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+    ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-https://api.${ZID_DOMAIN}}
+    ZID_PUBLIC_BASE_URL: https://api.${ZID_DOMAIN}
+    ZID_CONSENT_URL: https://id.${ZID_DOMAIN}/consent
+    ZID_WEBAUTHN_RP_ID: ${ZID_DOMAIN}
+    ZID_WEBAUTHN_RP_NAME: Zoiko iD
+    ZID_WEBAUTHN_ORIGINS: '["https://id.${ZID_DOMAIN}"]'
+    ZID_TENANT_SIGNUP_ENABLED: "true"
+    ZID_TENANT_CONSOLE_REDIRECT_URIS: '["https://id.${ZID_DOMAIN}/auth/callback"]'
+    ZID_REGISTRATION_TENANT_ID: ${ZID_REGISTRATION_TENANT_ID:-}
+    ZID_EMAIL_PUBLIC_BASE_URL: https://id.${ZID_DOMAIN}
+    ZID_EMAIL_ENABLED: "true"
+    ZID_EMAIL_ENABLED_TEMPLATES: ${ZID_EMAIL_ENABLED_TEMPLATES:-["*"]}
+    ZID_EMAIL_FROM: ${ZID_EMAIL_FROM}
+    ZID_SMTP_HOST: ${ZID_SMTP_HOST}
+    ZID_SMTP_PORT: ${ZID_SMTP_PORT:-587}
+    ZID_SMTP_USERNAME: ${ZID_SMTP_USERNAME}
+    ZID_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+    # the malware scanner for company proof documents; unset, uploads are refused (nothing is stored unscanned)
+    ZID_PROOF_SCANNER_ADDRESS: ${ZID_PROOF_SCANNER_ADDRESS:-}
+    ZID_KAFKA_BOOTSTRAP: ${ZID_SERVICES_HOST}:9092
+  volumes:
+    - ../../contracts:/app/contracts:ro
+    - ../../backend/config:/app/config:ro
+    - ./secrets:/run/secrets:ro
+
+services:
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${ZID_VALKEY_PASSWORD}"]
+    volumes: [valkey-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"${ZID_VALKEY_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      retries: 10
+
+  # One-shot schema migration as the database OWNER role (never the runtime role), then exits.
+  migrate:
+    <<: *backend
+    restart: "no"
+    environment:
+      <<: *backend-env
+      ZID_CELL_DATABASE_URL: ${ZID_OWNER_CELL_DATABASE_URL}
+      ZID_GLOBAL_DATABASE_URL: ${ZID_OWNER_GLOBAL_DATABASE_URL}
+    command: ["python", "-m", "zid_platform.entrypoints.migrate"]
+    healthcheck: {disable: true}
+
+  cell:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: cell
+      ZID_CELL_DATABASE_URL: ${ZID_RUNTIME_CELL_DATABASE_URL} # zid_runtime: row-level security applies
+    expose: ["8000"]
+
+  global:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: global
+      ZID_GLOBAL_DATABASE_URL: ${ZID_RUNTIME_GLOBAL_DATABASE_URL}
+    expose: ["8100"]
+
+  worker:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_WORKER_DATABASE_URL: ${ZID_WORKER_DATABASE_URL} # dedicated worker role, never the API's runtime role
+    command: ["python", "-m", "zid_platform.entrypoints.worker"]
+    healthcheck: {disable: true}
+
+  web:
+    image: ${ZID_WEB_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+      ZID_PUBLIC_ORIGIN: https://id.${ZID_DOMAIN}
+      ZID_OAUTH_CLIENT_ID: zoiko-web
+      ZID_OAUTH_REDIRECT_URI: https://id.${ZID_DOMAIN}/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    expose: ["3000"]
+
+  # The event platform's two processes (profile `events`): they need Kafka and SpiceDB on the services VM.
+  outbox-relay:
+    profiles: ["events"]
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_RELAY_DATABASE_URL: ${ZID_RELAY_DATABASE_URL:-}
+    command: ["python", "-m", "zid_platform.entrypoints.outbox_relay"]
+    healthcheck: {disable: true}
+
+  consumer:
+    profiles: ["events"]
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_KAFKA_CREATE_TOPICS: "true"
+      ZID_DATABASE_URL: ${ZID_RUNTIME_CELL_DATABASE_URL}
+      ZID_SPICEDB_URL: http://${ZID_SERVICES_HOST}:8443
+      ZID_SPICEDB_KEY: ${ZID_SPICEDB_PRESHARED_KEY}
+    command: ["python", "-m", "zid_platform.entrypoints.consumer"]
+    healthcheck: {disable: true}
+
+  # The public edge (profile `edge`): Caddy gets and renews the certificates by itself and publishes 80 and 443.
+  caddy:
+    profiles: ["edge"]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      ZID_DOMAIN: ${ZID_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web, cell, global]
+
+volumes:
+  valkey-data:
+  caddy-data:
+  caddy-config:

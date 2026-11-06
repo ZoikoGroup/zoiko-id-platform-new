@@ -1,0 +1,266 @@
+# Zoiko iD: a LOCAL REHEARSAL of the production deployment on virtual machines (deploy/gcp-vm), from the real images.
+#   ./rehearse.sh up        build the images, set up the databases the production way, start everything
+#   ./rehearse.sh status    what is running and healthy
+#   ./rehearse.sh down      stop (data stays);  ./rehearse.sh reset  stop and delete all data and generated secrets
+#
+# The backend runs with ZID_ENVIRONMENT=production. Keys live in PostgreSQL, wrapped by a master key held outside it
+# (ZID_KEY_PROVIDER=db, CR-060); there is no KMS. Every service below is one VM (or one process on a VM) in the real deployment:
+#   postgres  database VM                       valkey    web-session cache (rebuildable, holds no business data)
+#   openbao   secrets VM (stores in Postgres)   redpanda  Kafka VM (the event platform)
+#   spicedb   relationship store (stores in Postgres; the event consumer projects into it)
+#   cell / global / worker / outbox-relay / consumer / web   the app VM(s)         mailpit   the SMTP relay (TLS)
+# Not rehearsed: the public edge (Caddy and TLS certificates), DNS, and the second database VM (standby). Synthetic data only.
+name: zoiko-id-rehearsal
+
+x-backend: &backend
+  image: zid/platform:prodlocal
+  restart: unless-stopped
+  env_file: [.env]
+  environment: &backend-env
+    ZID_ENVIRONMENT: production
+    ZID_CELL_ID: local-1
+    ZID_REGION: local-dev
+    ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    # keys: in the database, wrapped by a master key kept outside it (CR-060). Deployed environments need the written acceptance.
+    ZID_KEY_PROVIDER: db
+    ZID_KEY_MASTER_FILE: /zid/master_key
+    ZID_KEY_PROVIDER_DB_ACK: accept-software-keys
+    # secrets: OpenBao (itself stored in PostgreSQL), reached with a periodic token read from a file
+    ZID_SECRET_BROKER: ${ZID_SECRET_BROKER:-openbao}
+    ZID_OPENBAO_ADDR: http://openbao:8200
+    ZID_OPENBAO_AUTH: token
+    ZID_OPENBAO_TOKEN_FILE: /zid/openbao_token
+    # public addresses
+    ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:18000}
+    ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-http://localhost:18000}
+    ZID_PUBLIC_BASE_URL: http://localhost:18000
+    ZID_CONSENT_URL: http://localhost:13000/consent
+    ZID_WEBAUTHN_RP_ID: localhost
+    ZID_WEBAUTHN_RP_NAME: Zoiko iD (rehearsal)
+    ZID_WEBAUTHN_ORIGINS: '["http://localhost:13000"]'
+    ZID_TENANT_SIGNUP_ENABLED: "true"
+    ZID_TENANT_CONSOLE_REDIRECT_URIS: '["http://127.0.0.1:13000/auth/callback"]'
+    ZID_API_RATE_LIMIT_PER_MINUTE: "600"
+    # events: Kafka (Redpanda). The relay and consumer run as their own processes
+    ZID_KAFKA_BOOTSTRAP: redpanda:9092
+    ZID_KAFKA_CREATE_TOPICS: "true"
+    # email through an SMTP relay with TLS (production refuses a plaintext relay). The relay's certificate is signed by a
+    # throw-away CA made by rehearse.sh; SSL_CERT_FILE makes the process trust it, as a real deployment trusts its provider's CA.
+    ZID_EMAIL_ENABLED: "true"
+    ZID_EMAIL_ENABLED_TEMPLATES: '["*"]'
+    ZID_EMAIL_FROM: "Zoiko iD <no-reply@rehearsal.local>"
+    ZID_EMAIL_PUBLIC_BASE_URL: http://localhost:13000
+    ZID_SMTP_HOST: mailpit
+    ZID_SMTP_PORT: "1025"
+    ZID_SMTP_USERNAME: rehearsal
+    ZID_SMTP_PASSWORD_FILE: /zid/smtp_password
+    SSL_CERT_FILE: /zid/mail-ca.pem
+  volumes:
+    - ../../contracts:/app/contracts:ro
+    - ../../backend/config:/app/config:ro
+    - keys:/zid:ro # master key, OpenBao token, SMTP password and CA: root-only files on a real VM
+
+services:
+  # --- database VM ---------------------------------------------------------------------------------------------------------
+  postgres:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${ZID_PG_ADMIN_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["127.0.0.1:${ZID_PG_HOST_PORT:-15432}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # --- cache VM ------------------------------------------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${ZID_VALKEY_PASSWORD}"]
+    volumes: [valkey-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"${ZID_VALKEY_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      retries: 10
+
+  # --- secrets VM: OpenBao keeps its data in PostgreSQL (database `openbao`), sealed with Shamir keys ------------------------
+  openbao:
+    image: openbao/openbao:2.1.1
+    restart: unless-stopped
+    cap_add: [IPC_LOCK]
+    command: ["server"]
+    environment:
+      BAO_LOCAL_CONFIG: |
+        ui = false
+        storage "postgresql" {
+          connection_url = "postgres://openbao:${ZID_OPENBAO_DB_PASSWORD}@postgres:5432/openbao?sslmode=disable"
+        }
+        listener "tcp" {
+          address = "0.0.0.0:8200"
+          tls_disable = true
+        }
+        api_addr = "http://openbao:8200"
+    ports: ["127.0.0.1:18200:8200"]
+
+  # --- Kafka VM: Redpanda speaks the Kafka API -----------------------------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.7
+    restart: unless-stopped
+    command: >
+      redpanda start --overprovisioned --smp 1 --memory 512M --reserve-memory 0M --node-id 0
+      --check=false --kafka-addr internal://0.0.0.0:9092 --advertise-kafka-addr internal://redpanda:9092
+    volumes: [redpanda-data:/var/lib/redpanda/data]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # --- authorization relationships (SpiceDB keeps its data in PostgreSQL, database `spicedb`) ------------------------------
+  spicedb-migrate:
+    image: authzed/spicedb:v1.39.1
+    restart: "no"
+    command: ["migrate", "head", "--datastore-engine", "postgres",
+              "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@postgres:5432/spicedb?sslmode=disable"]
+
+  spicedb:
+    image: authzed/spicedb:v1.39.1
+    restart: unless-stopped
+    depends_on:
+      spicedb-migrate: {condition: service_completed_successfully}
+    environment:
+      SPICEDB_GRPC_PRESHARED_KEY: ${ZID_SPICEDB_PRESHARED_KEY}
+    command: ["serve", "--http-enabled", "--datastore-engine", "postgres",
+              "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@postgres:5432/spicedb?sslmode=disable"]
+
+  # --- the SMTP relay, with TLS ---------------------------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_TLS_CERT: /zid/mail.crt
+      MP_SMTP_TLS_KEY: /zid/mail.key
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+    volumes: [keys:/zid:ro]
+    ports: ["127.0.0.1:18025:8025"]
+
+  # --- app VM --------------------------------------------------------------------------------------------------------------
+  # The files in /zid must belong to the unprivileged user the images run as (uid 10001) and be unreadable by anyone else.
+  init-volumes:
+    image: zid/platform:prodlocal
+    user: "0"
+    entrypoint: ["sh", "-c", "chown -R 10001:10001 /zid && chmod 755 /zid"]
+    volumes: [keys:/zid]
+    restart: "no"
+
+  # Operator tools, run on demand (`./rehearse.sh keys status`): the same image with the volume writable, to create the master
+  # key, the rehearsal CA and the secret files. On a real VM these are steps done once by a person.
+  tools:
+    <<: *backend
+    profiles: ["tools"]
+    restart: "no"
+    volumes:
+      - ./make_mail_tls.py:/tools/make_mail_tls.py:ro
+      - keys:/zid
+    healthcheck: {disable: true}
+
+  # One-shot schema migration as the database OWNER role (never the runtime role), then exits. The databases, roles and
+  # namespaces already exist: rehearse.sh creates them the way the production guide does.
+  migrate:
+    <<: *backend
+    restart: "no"
+    depends_on:
+      init-volumes: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_cell
+      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_global
+    command: ["python", "-m", "zid_platform.entrypoints.migrate"]
+    healthcheck: {disable: true}
+
+  cell:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      mailpit: {condition: service_started}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: cell
+      # the runtime role: row-level security applies, so one company can never read another's rows
+      ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_cell
+    ports: ["127.0.0.1:18000:8000"]
+
+  global:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      ZID_ROLES: global
+      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_global
+    ports: ["127.0.0.1:18100:8100"]
+
+  worker:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    environment:
+      <<: *backend-env
+      # the dedicated worker role (BYPASSRLS: it sweeps every tenant), never the API's runtime role
+      ZID_WORKER_DATABASE_URL: postgresql+asyncpg://zid_worker:${ZID_WORKER_PASSWORD}@postgres:5432/zid_cell
+    command: ["python", "-m", "zid_platform.entrypoints.worker"]
+    healthcheck: {disable: true}
+
+  outbox-relay:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redpanda: {condition: service_healthy}
+    environment:
+      <<: *backend-env
+      # the dedicated relay role (BYPASSRLS, SELECT and UPDATE on the outbox only)
+      ZID_RELAY_DATABASE_URL: postgresql+asyncpg://zid_relay:${ZID_RELAY_PASSWORD}@postgres:5432/zid_cell
+    command: ["python", "-m", "zid_platform.entrypoints.outbox_relay"]
+    healthcheck: {disable: true}
+
+  consumer:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redpanda: {condition: service_healthy}
+      spicedb: {condition: service_started}
+    environment:
+      <<: *backend-env
+      ZID_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_cell
+      ZID_SPICEDB_URL: http://spicedb:8443
+      ZID_SPICEDB_KEY: ${ZID_SPICEDB_PRESHARED_KEY}
+    command: ["python", "-m", "zid_platform.entrypoints.consumer"]
+    healthcheck: {disable: true}
+
+  web:
+    image: zid/web:prodlocal
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:18000}
+      ZID_PUBLIC_ORIGIN: http://localhost:13000
+      ZID_OAUTH_CLIENT_ID: zoiko-web
+      ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:13000/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    ports: ["127.0.0.1:13000:3000"]
+
+volumes:
+  pgdata:
+  valkey-data:
+  redpanda-data:
+  keys:

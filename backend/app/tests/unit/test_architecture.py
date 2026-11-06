@@ -13,8 +13,8 @@ APP = Path(__file__).resolve().parents[2]
 MODULES_DIR = APP / "src" / "zid_platform" / "modules"
 MIGRATIONS_DIR = APP / "migrations"
 OWNERSHIP = APP.parent / "database" / "table-ownership.yaml"
-# Event Platform tables (events.outbox_event / inbox_message)
-PLATFORM_MIGRATION_STREAMS = {"outbox"}
+# Event Platform tables (events.outbox_event / inbox_message) and the software key store (keys.key_version, CR-057)
+PLATFORM_MIGRATION_STREAMS = {"outbox", "keys"}
 
 ON_DISK = {p.name for p in MODULES_DIR.iterdir() if p.is_dir() and not p.name.startswith("__")}
 IN_PLANES = [m for mods in PLANES.values() for m in mods]

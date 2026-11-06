@@ -250,14 +250,19 @@ def upgrade() -> None:
         CREATE TRIGGER recon_leg_period_lock BEFORE INSERT ON commercial.recon_leg FOR EACH ROW EXECUTE FUNCTION commercial.recon_period_lock();
         CREATE TRIGGER recon_exception_period_lock BEFORE INSERT OR UPDATE ON commercial.recon_exception FOR EACH ROW EXECUTE FUNCTION commercial.recon_period_lock();
 
-        -- payments captured before this change are items too
-        SET LOCAL row_security = off;
+        -- payments captured before this change are items too. Both tables FORCE row-level security, which binds even their owner, and
+        -- `SET LOCAL row_security = off` only helps a superuser or a BYPASSRLS role; the migration runs as the plain owner role
+        -- (deploy/gcp), so the force is lifted for this one statement and restored (the owner can alter its own tables).
+        ALTER TABLE commercial.payment_attempt NO FORCE ROW LEVEL SECURITY;
+        ALTER TABLE commercial.invoice NO FORCE ROW LEVEL SECURITY;
         INSERT INTO commercial.recon_item (item_id, kind, tenant_id, issuing_entity, currency, amount_minor, ref, journal_ref, occurred_on)
         SELECT a.attempt_id, 'PAYMENT', a.tenant_id, i.issuing_entity, a.currency, commercial.minor_units(a.amount, a.currency), a.provider_ref,
                CASE WHEN i.sequence_number IS NULL THEN '' ELSE i.issuing_entity || '-' || lpad(i.sequence_number::text, 8, '0') END, (a.attempted_at AT TIME ZONE 'UTC')::date
           FROM commercial.payment_attempt a JOIN commercial.invoice i ON i.invoice_id = a.invoice_id
          WHERE a.status = 'CAPTURED' AND a.provider_ref IS NOT NULL
         ON CONFLICT (kind, ref) DO NOTHING;
+        ALTER TABLE commercial.payment_attempt FORCE ROW LEVEL SECURITY;
+        ALTER TABLE commercial.invoice FORCE ROW LEVEL SECURITY;
     """)
 
 

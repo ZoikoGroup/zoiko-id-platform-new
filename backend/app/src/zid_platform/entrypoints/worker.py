@@ -44,11 +44,21 @@ Step = Callable[[AsyncConnection, datetime], Awaitable[object]]
 
 def steps(settings: Settings) -> list[tuple[str, Step]]:
     from zid_platform.modules.evidence.infrastructure.tsa import Rfc3161Client
+    from zid_platform.modules.evidence.infrastructure.tsa_token import (
+        timestamp_verifier_from_settings,
+    )
     from zid_platform.modules.evidence.ports import worker_pass
     from zid_platform.modules.operator_access.ports import expire_due
     from zid_platform.modules.privacy.ports import privacy_pass
 
-    tsa = Rfc3161Client(settings.evidence_tsa_url) if settings.evidence_tsa_url else None
+    tsa = None
+    if settings.evidence_tsa_url:
+        verifier = timestamp_verifier_from_settings(settings)
+        if verifier is None:
+            raise RuntimeError(
+                "ZID_EVIDENCE_TSA_URL is set without ZID_EVIDENCE_TSA_TRUST_FILE: a timestamp is anchored only after it is verified"
+            )
+        tsa = Rfc3161Client(settings.evidence_tsa_url, verifier=verifier)
 
     async def evidence(conn: AsyncConnection, now: datetime) -> object:
         return await worker_pass(conn, now=now, tsa=tsa)

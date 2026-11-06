@@ -130,7 +130,9 @@ def create_app(
     if settings.token_issuer:
         if keyrings is None and keyring is not None:
             keyrings = KeyRings.single(keyring)
-        if keyrings is None and settings.environment not in ("local", "test"):
+        if keyrings is None and (
+            settings.environment not in ("local", "test") or settings.key_provider == "db"
+        ):
             if settings.key_provider == "local":
                 raise RuntimeError(
                     "token issuer keys must come from the key broker outside local/test (DEC-F5)"
@@ -703,7 +705,7 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     from .modules.operator_access.ports import OperatorSettings
     from .protected import catalog
 
-    if settings.environment in ("local", "test") and not settings.local_keystore:
+    if settings.environment in ("local", "test") and not settings.local_keystore and settings.key_provider != "db":
         current_runtime()  # one process-wide development runtime (in-memory keys)
     else:
         configure_runtime(runtime_from_settings(settings))

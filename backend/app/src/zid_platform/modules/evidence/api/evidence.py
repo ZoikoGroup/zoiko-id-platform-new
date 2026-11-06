@@ -486,6 +486,7 @@ async def verify_partition(request: Request, caller: CallerDep) -> dict[str, Any
             Partition(tenant, current_runtime().cell_id).id,
             keys=current_runtime().trusted_keys(),
             compromised=current_runtime().compromised,
+            timestamps=current_runtime().timestamp_verifier,
         )
     return report.to_dict()
 

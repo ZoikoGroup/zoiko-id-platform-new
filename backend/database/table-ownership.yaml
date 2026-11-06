@@ -1364,3 +1364,13 @@ tables:
     module: machine
     tenant_scoped: true
     source: "ZID-MACHINE-001 §9 (CR-042)"
+  keys.key_version:
+    role: cell
+    module: keys
+    tenant_scoped: false
+    source: "CR-057 (software key store; platform table, no tenant data)"
+  global_directory.key_version:
+    role: global
+    module: locator
+    tenant_scoped: false
+    source: "CR-057 (software key store for the global plane)"
