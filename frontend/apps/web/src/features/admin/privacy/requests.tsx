@@ -100,14 +100,18 @@ function OnBehalfDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
         authorized_agent_ref: agent.trim() || null,
         scope: {},
       }),
-    { invalidate: [REQUESTS_KEY], success: "Request recorded", onSuccess: () => close() },
+    { invalidate: [REQUESTS_KEY], success: "Request recorded", onSuccess: () => finish() },
   );
-  function close() {
-    if (open.isPending) return;
+  /** Resets and closes. Also used from onSuccess, where the mutation still reads as pending, so it must not check that. */
+  function finish() {
     setSubject("");
     setAgent("");
     open.reset();
     onClose();
+  }
+  function close() {
+    if (open.isPending) return;
+    finish();
   }
   return (
     <Dialog

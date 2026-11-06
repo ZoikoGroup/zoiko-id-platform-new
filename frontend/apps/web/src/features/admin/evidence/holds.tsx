@@ -141,10 +141,10 @@ function CreateHoldDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         review_at: new Date(review).toISOString(),
         approval_request_id: approval.trim(),
       }),
-    { invalidate: [HOLDS_KEY], success: "Legal hold applied", onSuccess: () => close() },
+    { invalidate: [HOLDS_KEY], success: "Legal hold applied", onSuccess: () => finish() },
   );
-  function close() {
-    if (create.isPending) return;
+  /** Resets and closes. Also used from onSuccess, where the mutation still reads as pending, so it must not check that. */
+  function finish() {
     setBasis("");
     setReference("");
     setSubjects("");
@@ -153,6 +153,10 @@ function CreateHoldDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     setApproval("");
     create.reset();
     onClose();
+  }
+  function close() {
+    if (create.isPending) return;
+    finish();
   }
   const valid = basis.trim().length >= 3 && reference.trim() && (subjects.trim() || types.trim()) && review && approval.trim();
   return (

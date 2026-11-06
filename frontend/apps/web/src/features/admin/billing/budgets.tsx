@@ -7,7 +7,7 @@ import { useState, type FormEvent } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { BILLING_KEY, METER_LABEL, count, meterLabel, money } from "./shared";
+import { BILLING_KEY, METER_LABEL, budgetCheckMessage, count, meterLabel, money } from "./shared";
 
 const TARGETS = [{ id: "", label: "The whole monthly bill" }, ...Object.entries(METER_LABEL).map(([id, label]) => ({ id, label }))];
 
@@ -30,7 +30,7 @@ export function BudgetsSection() {
   );
   const evaluate = useCellMutation((api) => api.billing.evaluateBudgets(), {
     invalidate: [["alerts"]],
-    success: (r) => (r.raised.length ? `${r.raised.length} new notification(s) raised` : "Nothing new to report"),
+    success: (r) => budgetCheckMessage(r),
   });
 
   const valid = /^\d+(\.\d{1,6})?$/.test(limit.trim()) && Number(limit) > 0;
