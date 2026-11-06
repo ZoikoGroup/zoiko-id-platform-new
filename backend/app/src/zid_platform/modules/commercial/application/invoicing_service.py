@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.commercial.application import activation_service as activations
 from zid_platform.modules.commercial.application import events
 from zid_platform.modules.commercial.application.adapters import (
     PaymentPort,
@@ -254,7 +255,9 @@ async def create_draft(
             {"r": run["run_id"]},
         )
     ).mappings()
+    last_seq = 0
     for ln in rated:
+        last_seq = max(last_seq, int(ln["seq"]))
         await conn.execute(
             text(
                 "INSERT INTO commercial.invoice_line (line_id, invoice_id, tenant_id, seq, kind, sku, meter_id, "
@@ -275,6 +278,35 @@ async def create_draft(
                 "u": ln["unit_rate"],
                 "n": ln["net"],
             },
+        )
+    # A plan paid for in advance on activation (CR-062) is taken off the invoices it fits on, so the fee is not billed twice. The platform fee of a part month is
+    # prorated by the rating run while the company paid a whole month, so what does not fit on this invoice carries to the next one.
+    remaining = Decimal(run["subtotal"])
+    for credit in await activations.unapplied_credits(conn, tenant_id, run["currency"]):
+        take = min(Decimal(credit["balance"]), remaining)
+        if take <= 0:
+            continue
+        last_seq += 1
+        await conn.execute(
+            text(
+                "INSERT INTO commercial.invoice_line (line_id, invoice_id, tenant_id, seq, kind, sku, description, net, gross) "
+                "VALUES (:l, :i, :t, :q, 'CREDIT', 'ZID-BASE', :d, :n, :n)"
+            ),
+            {
+                "l": uuid.uuid4(),
+                "i": invoice_id,
+                "t": uuid.UUID(tenant_id),
+                "q": last_seq,
+                "d": "Platform fee paid in advance when the plan was activated",
+                "n": -take,
+            },
+        )
+        remaining -= take
+        await activations.apply_credit(conn, tenant_id, credit["order_id"], invoice_id, take)
+    if remaining != Decimal(run["subtotal"]):
+        await conn.execute(
+            text("UPDATE commercial.invoice SET subtotal = :s, gross = :s WHERE invoice_id = :i"),
+            {"s": remaining, "i": invoice_id},
         )
     return await view(conn, str(invoice_id))
 
@@ -525,6 +557,7 @@ async def void(conn: AsyncConnection, invoice_id: str) -> None:
         text("UPDATE commercial.invoice SET status = 'VOID' WHERE invoice_id = :i"),
         {"i": uuid.UUID(invoice_id)},
     )
+    await activations.release_credits(conn, str(i["tenant_id"]), invoice_id)  # what it took off a paid activation is available again
 
 
 async def document(conn: AsyncConnection, invoice_id: str) -> str:

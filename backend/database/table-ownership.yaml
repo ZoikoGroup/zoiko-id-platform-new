@@ -54,6 +54,16 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "per-company plan enforcement: the operator can enforce plan limits for one company before the deployment default does"
+  commercial.activation_payment:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "CR-062: the first month's platform fee a company pays before an activated order switches its plan"
+  commercial.activation_credit:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "CR-062: how much of a paid activation each invoice took off, so it can spread over invoices and be released when a draft is voided"
   commercial.service_request:
     role: cell
     module: commercial
@@ -1368,9 +1378,24 @@ tables:
     role: cell
     module: keys
     tenant_scoped: false
-    source: "CR-057 (software key store; platform table, no tenant data)"
+    source: "CR-060 (software key store; platform table, no tenant data)"
   global_directory.key_version:
     role: global
     module: locator
     tenant_scoped: false
-    source: "CR-057 (software key store for the global plane)"
+    source: "CR-060 (software key store for the global plane)"
+  keys.key_event:
+    role: cell
+    module: keys
+    tenant_scoped: false
+    source: "CR-060 (audit trail of the software key store)"
+  global_directory.key_event:
+    role: global
+    module: locator
+    tenant_scoped: false
+    source: "CR-060 (audit trail of the global plane's software keys)"
+  platform.tenant_member_no:
+    role: cell
+    module: tenant
+    tenant_scoped: true
+    source: "CR-061 (permanent per-company member number)"

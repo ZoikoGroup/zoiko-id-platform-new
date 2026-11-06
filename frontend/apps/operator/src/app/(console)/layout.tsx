@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const h = await headers();
   const subject = await bff.currentSubject(h.get("cookie"));
   if (!subject) {
-    const path = h.get("x-zid-path") ?? "/requests";
+    const path = h.get("x-zid-path") ?? "/";
     redirect(`/sign-in?returnTo=${encodeURIComponent(path)}`);
   }
   const environment = env.environment === "local" ? "development" : env.environment;

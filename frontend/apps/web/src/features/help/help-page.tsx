@@ -1,7 +1,8 @@
 "use client";
 
-import { Card, KeyValues, PageHeader } from "@zoiko/ui";
+import { Banner, Card, KeyValues, PageHeader } from "@zoiko/ui";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { useTenant } from "@/features/onboarding/shared";
 
@@ -11,6 +12,31 @@ const SHORTCUTS: [string, string][] = [
   ["Tab / Shift + Tab", "Move between controls; focus is never trapped"],
 ];
 
+/** The billing questions the invoice and billing-profile pages link here with (`?topic=...`). */
+const BILLING_TOPICS: Record<string, { title: string; text: (invoice: string | null) => string }> = {
+  "billing-dispute": {
+    title: "Question an invoice",
+    text: (invoice) =>
+      `Contact your Zoiko account manager and quote ${invoice ? `invoice ${invoice}` : "the invoice number"}. Say what looks wrong: an amount, a date, a payment you made or a credit you expected. An issued invoice is never edited: a correction is a linked credit note, which Zoiko Finance approves.`,
+  },
+  "billing-payer-change": {
+    title: "Change the legal payer or tax country",
+    text: () =>
+      "A change of legal payer or tax country is a reviewed request, not an edit. Contact your Zoiko account manager with the new legal name, country and tax number. The owner of your company confirms it, and Zoiko Finance reviews it before any invoice changes.",
+  },
+};
+
+function BillingTopic() {
+  const sp = useSearchParams();
+  const topic = BILLING_TOPICS[sp.get("topic") ?? ""];
+  if (!topic) return null;
+  return (
+    <Banner tone="info" title={topic.title}>
+      {topic.text(sp.get("invoice"))}
+    </Banner>
+  );
+}
+
 export function HelpPage() {
   const company = useTenant();
   const tenant = company.data;
@@ -18,6 +44,7 @@ export function HelpPage() {
     <>
       <PageHeader title="Help & support" description="Where to look first, what to tell support, and how the console works." />
       <div className="space-y-4">
+        <BillingTopic />
         <Card title="Quick answers">
           <ul className="list-disc space-y-2 pl-5 text-sm text-ink-muted">
             <li>

@@ -221,3 +221,21 @@ async def add_identifier(conn: AsyncConnection, i: Identifier) -> None:
         raise DomainError(
             "IDENTIFIER_CONFLICT", "resolve explicitly; identifiers never auto-merge"
         ) from e
+
+
+_SET_LABEL = "UPDATE core.principal SET display_label = :label WHERE principal_id = :id AND status <> 'ERASED'"
+_GET_LABELS = "SELECT principal_id, display_label FROM core.principal WHERE principal_id = ANY(:ids) AND display_label IS NOT NULL"
+
+
+async def set_display_label(conn: AsyncConnection, principal_id: str, label: str | None) -> bool:
+    """Set (or clear) the name shown for a person. Row-level security keeps it to the caller's company; an erased person keeps no name."""
+    result = await conn.execute(text(_SET_LABEL), {"id": uuid.UUID(principal_id), "label": label})
+    return result.rowcount == 1
+
+
+async def display_labels(conn: AsyncConnection, principal_ids: list[str]) -> dict[str, str]:
+    """principal id -> name, for the people who have one (visible to the caller's company only)."""
+    if not principal_ids:
+        return {}
+    rows = await conn.execute(text(_GET_LABELS), {"ids": [uuid.UUID(i) for i in principal_ids]})
+    return {str(r.principal_id): str(r.display_label) for r in rows}

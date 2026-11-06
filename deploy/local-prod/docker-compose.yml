@@ -25,6 +25,8 @@ x-backend: &backend
     ZID_KEY_PROVIDER: db
     ZID_KEY_MASTER_FILE: /zid/master_key
     ZID_KEY_PROVIDER_DB_ACK: accept-software-keys
+    # the rehearsal has no timestamp authority; a real deployment sets ZID_EVIDENCE_TSA_URL instead of this waiver (CR-060)
+    ZID_EVIDENCE_TSA_WAIVER: accept-no-external-timestamps
     # secrets: OpenBao (itself stored in PostgreSQL), reached with a periodic token read from a file
     ZID_SECRET_BROKER: ${ZID_SECRET_BROKER:-openbao}
     ZID_OPENBAO_ADDR: http://openbao:8200
@@ -181,6 +183,7 @@ services:
       <<: *backend-env
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_cell
       ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_global
+      ZID_KEY_ACTOR: process:migrate
     command: ["python", "-m", "zid_platform.entrypoints.migrate"]
     healthcheck: {disable: true}
 
@@ -214,7 +217,11 @@ services:
       <<: *backend-env
       # the dedicated worker role (BYPASSRLS: it sweeps every tenant), never the API's runtime role
       ZID_WORKER_DATABASE_URL: postgresql+asyncpg://zid_worker:${ZID_WORKER_PASSWORD}@postgres:5432/zid_cell
+      ZID_KEY_ACTOR: process:worker # who the key audit trail names for changes this process makes
+      ZID_METRICS_PORT: "9102" # the worker's scrape endpoint (evidence integrity, sealing lag); reachable on the private network only
+      ZID_METRICS_BIND: 0.0.0.0
     command: ["python", "-m", "zid_platform.entrypoints.worker"]
+    expose: ["9102"]
     healthcheck: {disable: true}
 
   outbox-relay:

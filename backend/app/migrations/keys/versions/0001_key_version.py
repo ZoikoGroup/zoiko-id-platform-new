@@ -1,4 +1,4 @@
-"""Software key store for a cell (CR-057): `keys.key_version`.
+"""Software key store for a cell (CR-060): `keys.key_version`.
 
 Revision ID: keys_0001
 Revises:

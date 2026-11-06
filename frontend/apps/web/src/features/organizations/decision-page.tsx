@@ -2,6 +2,7 @@
 
 import { ApiError, type OrgApprovalCase, type OrgDecision } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, CopyId, DateTime, Dialog, EmptyState, LoadingRows, PageHeader, TextField } from "@zoiko/ui";
+import { PersonLabel } from "@/features/admin/team/person-label";
 import { Check, MessageSquareWarning, Scale, X } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -153,12 +154,12 @@ function Decision({ orgId, c, refetch }: { orgId: string; c: OrgApprovalCase; re
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           {facts.map((f) => (
             <Row key={f.label} label={f.label}>
-              {f.label === "Expires" ? <DateTime value={f.value} /> : <span className={f.label === "Request id" || f.label === "Requested by" || f.label === "Policy version" ? "break-all font-mono text-xs" : undefined}>{f.value}</span>}
+              {f.label === "Expires" ? <DateTime value={f.value} /> : f.label === "Requested by" && c.requester ? <span>{c.requester.label}</span> : <span className={f.label === "Request id" || f.label === "Requested by" || f.label === "Policy version" ? "break-all font-mono text-xs" : undefined}>{f.value}</span>}
             </Row>
           ))}
           {c.beneficiary_principal_id ? (
             <Row label="Change is for">
-              <CopyId value={c.beneficiary_principal_id} label="account" />
+              <PersonLabel person={c.beneficiary} fallbackId={c.beneficiary_principal_id} />
             </Row>
           ) : null}
         </dl>
@@ -203,7 +204,7 @@ function Decision({ orgId, c, refetch }: { orgId: string; c: OrgApprovalCase; re
               <li key={v.vote_id} className="flex flex-wrap items-center gap-2 py-2">
                 <Badge tone={v.vote === "APPROVE" ? "ok" : "danger"}>{v.vote === "APPROVE" ? "Approved" : "Rejected"}</Badge>
                 <span>
-                  Person <span className="font-mono text-xs">{v.person_ref}</span> as {v.authority_basis.toLowerCase()}
+                  {v.approver ? <strong>{v.approver.label}</strong> : <>Person <span className="font-mono text-xs">{v.person_ref}</span></>} as {v.authority_basis.toLowerCase()}
                 </span>
                 <span className="text-ink-muted">
                   confirmed with a {v.step_up_tier ?? "passkey"} proof, <DateTime value={v.decided_at} />

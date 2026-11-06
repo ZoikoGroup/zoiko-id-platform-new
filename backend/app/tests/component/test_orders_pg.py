@@ -262,7 +262,7 @@ def test_orders_over_http(rt_url: str, owner_url: str) -> None:
     )
     book = asyncio.run(setup(rt_url, owner_url, cco=bob, cfo=carol, founder=uid()))
     op_app = create_app(
-        settings(rt_url, operator_tenant_id=ops.tenant, operator_client_ids=(ops.client,)),
+        settings(rt_url, operator_tenant_id=ops.tenant, operator_client_ids=(ops.client,), activation_payment="OFF"),  # this test is about the order flow itself; payment-before-activation has its own tests
         keyring=ops.ring,
     )
     with TestClient(op_app, base_url=ISS) as api:

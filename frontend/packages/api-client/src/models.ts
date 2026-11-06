@@ -883,13 +883,22 @@ export type RoleMatrix = {
 export type MyPermissions = { roles: string[]; policy_hash: string; enforcement: boolean; rights: Record<string, RoleMode[]> };
 /** Where an invitee is: link sent -> passkey created -> signed in -> accepted (ACTIVE). */
 export type MemberProgress = "INVITED" | "PASSKEY_CREATED" | "SIGNED_IN" | "ACTIVE" | "PENDING_VERIFICATION" | "REVOKED";
+/** How a person is shown to colleagues: "Name (M-0007)". The number is permanent inside a company; the name is optional. */
+export type Person = {
+  principal_id: string;
+  member_no: number | null;
+  member_code: string | null;
+  name: string | null;
+  label: string;
+};
 export type TenantMember = TenantRole & {
+  person: Person;
   passkeys: number;
   passkey_registered_at: Iso | null;
   last_sign_in_at: Iso | null;
   progress: MemberProgress;
 };
-export type Invitation = TenantRole & { enrollment_ticket: string; enrollment_ticket_expires_at: Iso };
+export type Invitation = TenantRole & { person: Person; enrollment_ticket: string; enrollment_ticket_expires_at: Iso };
 export type TenantView = {
   tenant_id: string;
   display_name: string;
@@ -1868,6 +1877,7 @@ export type ApprovalHold = "BLOCKED_INSUFFICIENT_APPROVERS" | "PENDING_INDEPENDE
 export type ApprovalVoteRow = {
   vote_id: string;
   approver_principal_id: string;
+  approver?: Person | null;
   person_ref: string;
   authority_basis: string;
   vote: "APPROVE" | "REJECT";
@@ -1898,6 +1908,9 @@ export type ApprovalCase = {
   region: string;
   requester_principal_id: string;
   beneficiary_principal_id: string | null;
+  /** The same people as "Name (M-0007)"; null when the case is not about a person in this company. */
+  requester?: Person | null;
+  beneficiary?: Person | null;
   expires_at: string;
   created_at: string;
   approved_at: string | null;
@@ -1964,6 +1977,7 @@ export type GovernanceReviewer = {
   activated_via: "A1_APPROVAL" | "PLATFORM_VERIFICATION" | null;
   conflicts_declared: number;
   kind: "REVIEWER";
+  person?: Person;
 };
 export type ReviewerAppointIn = {
   principal_id: string;
@@ -2061,6 +2075,7 @@ export type OrgApprovalSummary = {
   request_id: string;
   title: string;
   requester_principal_id: string;
+  requester?: Person | null;
   level: ApprovalTier;
   state: ApprovalCaseState;
   status_label: string;
@@ -2222,6 +2237,9 @@ export type PaymentAttempt = { at: string; amount: string; currency: string; sta
 /** The saved card as the company may see it: never the number. */
 export type PaymentMethod = { brand: string; last4: string; exp_month: number; exp_year: number };
 /** What is owed now (open issued invoices, per currency) and the saved card (CR-034). */
+/** An order the operator activated that waits for the first month's platform fee (CR-062). The plan switches only after this is paid. */
+export type ActivationWait = { order_id: string; plan: string | null; status: "AWAITING" | "PAID" | "CREDITED" | "CANCELLED"; amount: string; currency: string; created_at: string | null; paid_at: string | null };
+export type ActivationConfirm = { activated: boolean; status: string; reason?: string; already_active?: boolean; plan?: string | null };
 export type BillingPayment = {
   configured: boolean;
   account_linked: boolean;
@@ -2307,8 +2325,9 @@ export type UsageBudget = { budget_id: string; meter: string | null; monthly_lim
 export type BudgetIn = { meter: string | null; monthly_limit: string; currency: string | null; thresholds: number[] };
 
 /* Operator commercial surface (ZID-COM-001; CR-024 to CR-030). */
+export type ActivationRefund = { order_id: string; tenant_id: string; amount: string; currency: string; payment_ref: string | null; reason: string | null; decided_at: string | null };
 export type PriceBookSummary = { price_book_id: string; version: number; currency: string; status: string; effective_from: string | null; approved_at: string | null; note: string | null };
-export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null };
+export type PriceBookLine = { sku: string; plan: string; unit_rate: string; unit_divisor: number; included_quantity: number | null; minimum_amount?: string | null; unit?: string | null };
 export type PriceBookDetail = PriceBookSummary & { lines: PriceBookLine[] };
 export type AssuranceException = { exception_id: string; kind: string; ref: string; tenant_id: string | null; detail: unknown; status: string; raised_at: string };
 /** Something the payment provider reported that needs a person: a refund, a dispute, or a payment that names no invoice of the customer. */

@@ -37,7 +37,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.authentication.ports import passkey_summary, require_step_up
 from zid_platform.modules.session.ports import last_sign_in
 from zid_platform.modules.tenant.api.gate import matrix_gate, refusal
-from zid_platform.modules.tenant.application import access
+from zid_platform.modules.tenant.application import access, people
 from zid_platform.modules.tenant.application import lifecycle as service
 from zid_platform.modules.tenant.application.approvals import legacy_path_gate
 from zid_platform.modules.tenant.domain.approvals import ApprovalError
@@ -49,6 +49,7 @@ from zid_platform.modules.tenant.domain.role_matrix import (
     effective_rights,
 )
 from zid_platform.modules.tenant.infrastructure import tenant_store as store
+from zid_platform.modules.tenant.infrastructure.route_map import route_matrix_enforced
 from zid_platform.modules.tenant.infrastructure.role_matrix import (
     direct_admin_invitation_allowed,
     role_matrix,
@@ -172,6 +173,9 @@ class Invite(BaseModel):
     email: str | None = Field(
         default=None, max_length=254
     )  # lets sign-up recognise the invitee after they prove the inbox
+    display_name: str | None = Field(
+        default=None, max_length=120
+    )  # how the person is shown to colleagues ("Name (M-0007)"); optional, they can set their own later
 
 
 class OwnerChange(BaseModel):
@@ -338,6 +342,7 @@ async def read_members(request: Request, caller: CallerDep) -> dict[str, Any]:
         ids = sorted({a.principal_id for a in items})
         keys = await passkey_summary(conn, ids)
         seen = await last_sign_in(conn, ids)
+        refs = await people.person_refs(conn, ids)
     out = []
     for a in items:
         pk = keys.get(a.principal_id)
@@ -346,6 +351,7 @@ async def read_members(request: Request, caller: CallerDep) -> dict[str, Any]:
         out.append(
             {
                 **role_view(a),
+                "person": refs[a.principal_id].view(),
                 "passkeys": int(pk["passkeys"]) if pk else 0,  # type: ignore[call-overload]
                 "passkey_registered_at": _iso(pk["first_at"]) if pk else None,  # type: ignore[arg-type]
                 "last_sign_in_at": _iso(signed_in),
@@ -402,7 +408,7 @@ async def read_my_permissions(request: Request, caller: CallerDep) -> dict[str, 
     return {
         "roles": roles,
         "policy_hash": m.policy_hash,
-        "enforcement": False,
+        "enforcement": route_matrix_enforced(),  # False while the owners have the matrix on REPORT_ONLY
         "rights": effective_rights(m, tuple(roles)),
     }
 
@@ -410,6 +416,7 @@ async def read_my_permissions(request: Request, caller: CallerDep) -> dict[str, 
 @router.post("/v1/tenant/members", status_code=201)
 async def invite_member(body: Invite, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
+    display_name = _clean_name(body.display_name)  # an unusable name stops the invitation before anything is written
     refusal_error: ZidError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
@@ -441,10 +448,12 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
                 )
             except TenantError as e:
                 raise http(e) from e
+            invited = await people.rename(conn, inv.assignment.principal_id, display_name)
     if refusal_error is not None:
         raise refusal_error
     return {
         **role_view(inv.assignment),
+        "person": invited.view(),
         "enrollment_ticket": inv.enrollment_ticket,  # shown once; hand it to the invitee
         "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
     }
@@ -508,6 +517,51 @@ async def revoke_member(
         except TenantError as e:
             raise http(e) from e
     return role_view(a)
+
+
+class PersonName(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, max_length=120)  # empty or null clears the name
+
+
+def _clean_name(raw: str | None) -> str | None:
+    try:
+        return people.clean_name(raw)
+    except people.NameError_ as e:
+        raise ZidError("NAME_INVALID", str(e), http_status=422) from e
+
+
+@router.post("/v1/tenant/members/me:name")
+async def name_myself(body: PersonName, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Anyone sets or clears their own display name. It is how colleagues see them next to their member number."""
+    name = _clean_name(body.name)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            ref = await people.rename(conn, _principal(caller), name)
+        except LookupError as e:
+            raise ZidError("MEMBER_NOT_FOUND", str(e), http_status=404) from e
+    return ref.view()
+
+
+@router.post(
+    "/v1/tenant/members/{principal_id}:rename",
+    dependencies=[Depends(matrix_gate("a.invite-operator-or-viewer", Mode.EXECUTE))],
+)
+async def rename_member(
+    principal_id: uuid.UUID, body: PersonName, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """An Owner or Admin sets or clears a colleague's display name (the member number never changes)."""
+    tenant = caller.ctx.tenant_id or ""
+    name = _clean_name(body.name)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="tenant.member.manage", resource=f"tenant:{tenant}"
+        )
+        try:
+            ref = await people.rename(conn, str(principal_id), name)
+        except LookupError as e:
+            raise ZidError("MEMBER_NOT_FOUND", str(e), http_status=404) from e
+    return ref.view()
 
 
 def _a2_gate(action_id: str) -> None:

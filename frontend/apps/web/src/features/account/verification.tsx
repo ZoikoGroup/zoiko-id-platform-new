@@ -32,6 +32,10 @@ import {
   useCellMutation,
   useCellQuery,
 } from "@/lib/cell";
+import { useSearchParams } from "next/navigation";
+
+import { AutoContinue } from "@/components/auto-continue";
+import { safeNext } from "@/lib/continue";
 import { useRuntime } from "@/lib/runtime";
 
 import { DevProvider, DevSetup } from "./dev-provider";
@@ -112,6 +116,8 @@ function claimRows(claims: Record<string, unknown> | undefined) {
 
 export function VerificationPage() {
   const { session } = useRuntime();
+  // `?next=` is where a step that sent the person here (a company claim) wants them back once the check is done.
+  const next = safeNext(useSearchParams().get("next"));
   const qc = useQueryClient();
   const sub = session?.authenticated ? session.subject.sub : undefined;
 
@@ -271,6 +277,14 @@ export function VerificationPage() {
         title="Identity verification"
         description="How strongly your identity has been verified, and the checks behind it. Only levels and dates are shown here, never your documents or provider data."
       />
+
+      {next && status === "VERIFIED" ? (
+        <div className="mb-5">
+          <AutoContinue to={next} title="Identity verified" once={`identity-verified:${verificationId ?? "x"}`}>
+            Your identity check is complete. Taking you to your onboarding dashboard.
+          </AutoContinue>
+        </div>
+      ) : null}
 
       <div className="mb-5">
         <VerificationTierCard />

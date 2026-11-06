@@ -32,6 +32,7 @@ from zid_platform.modules.tenant.api.approvals import (
     http,
 )
 from zid_platform.modules.tenant.application import approvals as svc
+from zid_platform.modules.tenant.application import people
 from zid_platform.modules.tenant.domain.approvals import ApprovalError, State, Tier
 from zid_platform.modules.tenant.infrastructure import approval_forms as forms
 from zid_platform.modules.tenant.infrastructure import approvals as store
@@ -71,13 +72,30 @@ def _item(v: svc.CaseView, *, mine: tuple[str, ...] | None, me: str) -> dict[str
     return out
 
 
-def _summary(v: svc.CaseView) -> dict[str, Any]:
+async def _name_people(conn: Any, item: dict[str, Any]) -> dict[str, Any]:
+    """Add "Name (M-0007)" next to every principal id in a case: the requester, the beneficiary and each voter."""
+    votes = item.get("votes") or []
+    ids = [item.get("requester_principal_id"), item.get("beneficiary_principal_id")]
+    ids += [x.get("approver_principal_id") for x in votes]
+    refs = await people.person_refs(conn, [i for i in ids if i])
+    for key, source in (("requester", "requester_principal_id"), ("beneficiary", "beneficiary_principal_id")):
+        ref = refs.get(item.get(source) or "")
+        item[key] = ref.view() if ref else None
+    for x in votes:
+        ref = refs.get(x.get("approver_principal_id") or "")
+        x["approver"] = ref.view() if ref else None
+    return item
+
+
+def _summary(v: svc.CaseView, refs: dict[str, people.PersonRef] | None = None) -> dict[str, Any]:
     """The inbox card (WF-013C-02B): title, requester, level, quorum, expiry and next action. No payload, no evidence."""
     c = v.case
+    who = (refs or {}).get(c.requester_principal_id)
     return {
         "request_id": c.case_id,
         "title": c.summary,
         "requester_principal_id": c.requester_principal_id,
+        "requester": who.view() if who else None,  # "Name (M-0007)": the id alone is unreadable
         "level": c.tier.value,
         "state": c.state.value,
         "status_label": STATUS_WORDS.get(c.state.value, c.state.value),
@@ -131,9 +149,10 @@ async def inbox(
             )  # fmt: skip
         except ApprovalError as e:
             raise http(e) from e
+        refs = await people.person_refs(conn, [v.case.requester_principal_id for v in page.items])
     return {
         "scope": scope,
-        "items": [_summary(v) for v in page.items],
+        "items": [_summary(v, refs) for v in page.items],
         "counts": page.counts,
         "next_cursor": page.next_cursor,
     }
@@ -191,7 +210,8 @@ async def read(
         now = datetime.now(UTC)
         case = await svc._lapse(conn, case, now)
         v = await svc.view(conn, case, now=now)
-        return _item(v, mine=await svc.my_refusals(conn, case, me, now), me=me)
+        item = _item(v, mine=await svc.my_refusals(conn, case, me, now), me=me)
+        return await _name_people(conn, item)
 
     out: dict[str, Any] = await _commit_then(request, caller, work)
     return out

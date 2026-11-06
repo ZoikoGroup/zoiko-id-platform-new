@@ -38,6 +38,7 @@ from zid_platform.modules.signals.application.ssf import (
     TRANSMITTER_TOPICS,
     transmitter_handler,
 )
+from zid_platform.settings import Settings
 
 PROJECTOR = "relationship.projector.v1"
 WEBHOOK_ROUTER = "webhook.router.v1"
@@ -288,16 +289,24 @@ def main() -> None:
             region=os.environ.get("ZID_REGION", cell),
             cell_id=cell,
             create_topics=os.environ.get("ZID_KAFKA_CREATE_TOPICS", "").lower() == "true",
-            transmitter=transmitter_keys(os.environ, cell),
+            transmitter=transmitter_keys(os.environ, cell, settings),
             email=email,
         )
     )
 
 
-def transmitter_keys(environ: Mapping[str, str], cell: str) -> tuple[KeyRing, str] | None:
+def transmitter_keys(
+    environ: Mapping[str, str], cell: str, settings: Settings | None = None
+) -> tuple[KeyRing, str] | None:
     """The SET signing ring, when this process may have one: local/test development keys shared
-    with the API through ZID_DEV_SIGNING_KEYS. Deployed cells get the KMS signer (Phase F); until
-    then the transmitter stays off rather than signing with a key receivers cannot fetch."""
+    with the API through ZID_DEV_SIGNING_KEYS, or, with ZID_KEY_PROVIDER=db (CR-060), the `set` key
+    ring the API publishes, read from the same key store so receivers can verify it. A deployed cell
+    on a KMS keeps the transmitter off until it is given the KMS signer, rather than signing with a
+    key receivers cannot fetch: continuous revocation is then not pushed."""
+    if settings is not None and settings.key_provider == "db" and settings.token_issuer:
+        from zid_platform.crypto_runtime import kms_keyrings_from_settings
+
+        return kms_keyrings_from_settings(settings).set, settings.token_issuer
     issuer = environ.get("ZID_TOKEN_ISSUER")
     pems = json.loads(environ.get("ZID_DEV_SIGNING_KEYS") or "{}")
     if not issuer or environ.get("ZID_ENVIRONMENT", "local") not in ("local", "test"):

@@ -1,4 +1,4 @@
-"""PostgreSQL store for software keys (CR-057): the `KeyStore` that `ZID_KEY_PROVIDER=db` uses.
+"""PostgreSQL store for software keys (CR-060): the `KeyStore` that `ZID_KEY_PROVIDER=db` uses.
 
 Keys are needed while the application is being built, which can happen with an event loop already running (uvicorn imports the
 app inside its loop), so every call runs its query on a private event loop in a short-lived thread. The store is used at
@@ -26,9 +26,14 @@ _COLUMNS = (
 _SCHEMAS = ("keys", "global_directory")
 
 
-def _statements(table: str) -> dict[str, str]:
-    """The three statements for one known table name (never user input), built once at import."""
+def _statements(table: str, events: str) -> dict[str, str]:
+    """The statements for one known pair of table names (never user input), built once at import."""
     return {
+        "state": f"SELECT state FROM {table} WHERE key_id = :key_id AND version = :version FOR UPDATE",
+        "event": (
+            f"INSERT INTO {events} (key_id, version, action, purpose, algorithm, actor) "
+            "VALUES (:key_id, :version, :action, :purpose, :algorithm, :actor)"
+        ),
         "select": f"SELECT {_COLUMNS} FROM {table} ORDER BY key_id, version",
         "insert": (
             f"INSERT INTO {table} ({_COLUMNS}) VALUES (:key_id, :version, :purpose, :algorithm, :state, :wrapped, "
@@ -42,15 +47,16 @@ def _statements(table: str) -> dict[str, str]:
     }
 
 
-_SQL = {schema: _statements(f"{schema}.key_version") for schema in _SCHEMAS}
+_SQL = {schema: _statements(f"{schema}.key_version", f"{schema}.key_event") for schema in _SCHEMAS}
 
 
 class PostgresKeyStore:
-    def __init__(self, url: str, schema: str) -> None:
+    def __init__(self, url: str, schema: str, actor: str = "process:unknown") -> None:
         if schema not in _SQL:
             raise ValueError(f"unknown key store schema {schema!r}")
         self._url = url
         self._sql = _SQL[schema]
+        self._actor = actor  # who is changing keys: written to the audit trail with every change (`process:<role>` or `cli:<user>@<host>`)
 
     def _run(self, work: Callable[[AsyncConnection], Awaitable[T]]) -> T:
         async def go() -> T:
@@ -90,17 +96,38 @@ class PostgresKeyStore:
     def insert(self, row: StoredKey) -> bool:
         async def work(conn: AsyncConnection) -> bool:
             result = await conn.execute(text(self._sql["insert"]), self._params(row))
-            return result.rowcount == 1
+            if result.rowcount != 1:
+                return False
+            await self._event(conn, row, "CREATED" if row.version == 1 else "ROTATED")
+            return True
 
         return self._run(work)
 
     def update(self, row: StoredKey) -> None:
         async def work(conn: AsyncConnection) -> None:
-            result = await conn.execute(text(self._sql["update"]), self._params(row))
-            if result.rowcount != 1:
+            before = (
+                await conn.execute(text(self._sql["state"]), self._params(row))
+            ).scalar_one_or_none()
+            if before is None:
                 raise LookupError(f"unknown key version {row.key_id} v{row.version}")
+            await conn.execute(text(self._sql["update"]), self._params(row))
+            # a state change is its own event; the same state with different material is a re-wrap under a newer master key
+            await self._event(conn, row, row.state if before != row.state else "REWRAPPED")
 
         self._run(work)
+
+    async def _event(self, conn: AsyncConnection, row: StoredKey, action: str) -> None:
+        await conn.execute(
+            text(self._sql["event"]),
+            {
+                "key_id": row.key_id,
+                "version": row.version,
+                "action": action,
+                "purpose": row.purpose,
+                "algorithm": row.algorithm,
+                "actor": self._actor,
+            },
+        )
 
     @staticmethod
     def _params(row: StoredKey) -> dict[str, Any]:

@@ -286,6 +286,7 @@ def create_app(
         from .modules.authority.api.templates import router as delegation_templates_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.commercial.api.service_requests import router as service_requests_router
+        from .modules.commercial.api.activations import router as activations_router
         from .modules.tenant.api.custom_roles import router as custom_roles_router
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.domains import router as domains_router
@@ -328,6 +329,7 @@ def create_app(
             billing_access_router,
             custom_roles_router,
             service_requests_router,
+            activations_router,
             org_units_router,
             insights_router,
             delegation_templates_router,
@@ -456,6 +458,7 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
 
     configure_ledger(environment=settings.environment, region=settings.cell_id)
     app.state.commercial_enforcement = settings.commercial_enforcement
+    app.state.activation_payment = settings.activation_payment
     app.state.step_up_enforcement = settings.step_up_enforcement
     from . import approval_wiring  # noqa: F401  (registers approval executors that need other modules)
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { BulkExport } from "@zoiko/api-client";
+import { useRights } from "@/lib/rights";
 import { Banner, Button, Card, CopyId, DataTable, DateTime, Dialog, EmptyState, RiskBadge, Select, StatusBadge, TextField, type Column } from "@zoiko/ui";
 import { Download, PackagePlus, Package } from "lucide-react";
 import { useState } from "react";
@@ -107,6 +108,7 @@ function NewExportDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 export function BulkExportsSection() {
   const list = useCellQuery(BULK_KEY, (api) => api.evidence.bulkExports(50));
   const [creating, setCreating] = useState(false);
+  const mayRequest = useRights().can("f.request-sensitive-evidence-export", "S", "X");
   const download = useCellMutation((api, id: string) => api.evidence.bulkExport(id), {
     invalidate: [BULK_KEY],
     onSuccess: (pkg, id) => save(`evidence-bulk-${id}.json`, pkg),
@@ -140,9 +142,11 @@ export function BulkExportsSection() {
         title="Bulk exports"
         description="Signed packages of several receipts. Each stops being downloadable at its expiry and is then erased; the record of it stays."
         actions={
-          <Button icon={<PackagePlus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
-            New bulk export
-          </Button>
+          mayRequest ? (
+            <Button icon={<PackagePlus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
+              New bulk export
+            </Button>
+          ) : undefined
         }
         padded={false}
       >

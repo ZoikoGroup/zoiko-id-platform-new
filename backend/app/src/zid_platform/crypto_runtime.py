@@ -49,16 +49,19 @@ from .settings import Settings
 
 # Symmetric purposes the provider holds (signing keys stay behind keys.KeyRings / KMS signers).
 PROVIDER_PURPOSES = (*sorted(WRAPPING_PURPOSES), KeyPurpose.HMAC_INTERNAL)
+TSA_WAIVER_TEXT = "accept-no-external-timestamps"
 
 
 @lru_cache(maxsize=4)
-def _software_parts(url: str, schema: str, master_file: str) -> tuple[KeyStore, MasterKeys]:
-    return PostgresKeyStore(url, schema), MasterKeys.from_file(master_file)
+def _software_parts(
+    url: str, schema: str, master_file: str, actor: str
+) -> tuple[KeyStore, MasterKeys]:
+    return PostgresKeyStore(url, schema, actor), MasterKeys.from_file(master_file)
 
 
 def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
     """The key store and master keys of `ZID_KEY_PROVIDER=db`. Outside local/test it needs the operator's written acceptance
-    that software keys are standard assurance (CR-057): a host compromise exposes them, and they are not FIPS-validated."""
+    that software keys are standard assurance (CR-060): a host compromise exposes them, and they are not FIPS-validated."""
     if (
         settings.environment not in ("local", "test")
         and settings.key_provider_db_ack != RISK_ACKNOWLEDGEMENT
@@ -66,7 +69,19 @@ def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
         raise RuntimeError(
             "ZID_KEY_PROVIDER=db in a deployed environment needs ZID_KEY_PROVIDER_DB_ACK="
             + RISK_ACKNOWLEDGEMENT
-            + " (software keys: a host compromise exposes them; not FIPS-validated; CR-057)"
+            + " (software keys: a host compromise exposes them; not FIPS-validated; CR-060)"
+        )
+    if (
+        settings.environment not in ("local", "test")
+        and not settings.evidence_tsa_url
+        and settings.evidence_tsa_waiver != TSA_WAIVER_TEXT
+    ):
+        raise RuntimeError(
+            "ZID_KEY_PROVIDER=db in a deployed environment needs ZID_EVIDENCE_TSA_URL (and ZID_EVIDENCE_TSA_TRUST_FILE): "
+            "software keys can re-sign a rewritten ledger, and an external timestamp is what exposes it. To run without one, "
+            "the owners accept that in writing with ZID_EVIDENCE_TSA_WAIVER="
+            + TSA_WAIVER_TEXT
+            + " (CR-060)"
         )
     if not settings.key_master_file:
         raise RuntimeError(
@@ -80,7 +95,8 @@ def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
     if not url:
         raise RuntimeError("ZID_KEY_PROVIDER=db needs a database connection for the key store")
     schema = "global_directory" if settings.role is Role.GLOBAL else "keys"
-    return _software_parts(url, schema, settings.key_master_file)
+    actor = os.environ.get("ZID_KEY_ACTOR") or f"process:{settings.role.value}"
+    return _software_parts(url, schema, settings.key_master_file, actor)
 
 
 def _software_signers(settings: Settings) -> SoftwareSigners:
