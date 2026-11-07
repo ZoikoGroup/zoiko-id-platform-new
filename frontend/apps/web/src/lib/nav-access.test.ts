@@ -2,14 +2,14 @@
 import type { NavGroup } from "@zoiko/ui";
 import { describe, expect, it } from "vitest";
 
-import { visibleNav } from "./nav-access";
+import { can, visibleNav } from "./nav-access";
 
 const icon = (() => null) as unknown as NavGroup["items"][number]["icon"];
 const item = (id: string) => ({ id, label: id, href: `/${id}`, icon });
 const NAV: NavGroup[] = [
   { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "settings"].map(item) },
   { label: "My account", items: ["account", "sessions", "passkeys"].map(item) },
-  { label: "Administration", items: ["idp", "authority", "mandates", "policies"].map(item) },
+  { label: "Administration", items: ["idp", "verification", "credentials", "authority", "mandates", "policies", "evidence"].map(item) },
 ];
 const ids = (g: NavGroup[]) => g.flatMap((x) => x.items.map((i) => i.id));
 
@@ -36,6 +36,46 @@ describe("UX-02 role default: a Member sees no administration", () => {
     expect(seen).toContain("billing");
     expect(seen).not.toContain("team");
     expect(seen).not.toContain("settings");
+  });
+
+  // The role matrix cells (ZID-ENG-DEC-007), as `GET /v1/tenant/me/permissions` returns them for one role.
+  const APPROVER = { "d.approve-eligible-pending-request": ["A"], "a.approve-privileged-role-grant": ["A"], "d.approve-authority-delegation": ["A"], "f.view-authorized-audit-and-ledger-entries": ["R"], "a.list-active-members-and-assigned-roles": ["R"] };
+  const OPERATOR = { "b.draft-routine-credential-issuance": ["X"], "b.upload-organization-kyb-evidence": ["X"], "f.view-authorized-audit-and-ledger-entries": ["R"], "a.list-active-members-and-assigned-roles": ["R"] };
+  const VIEWER = { "f.view-authorized-audit-and-ledger-entries": ["R"], "e.view-integration-directory-status": ["R"] };
+
+  it("gives an Approver the approval inbox and no administration they cannot use", () => {
+    const seen = ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, rights: APPROVER }));
+    expect(seen).toContain("approvals");
+    expect(seen).toContain("authority");
+    expect(seen).not.toContain("settings");
+    expect(seen).not.toContain("billing");
+    expect(seen).not.toContain("idp");
+  });
+
+  it("gives an Operator the verification and credential work and nothing that changes policy", () => {
+    const seen = ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, rights: OPERATOR }));
+    expect(seen).toContain("credentials");
+    expect(seen).toContain("verification");
+    expect(seen).not.toContain("approvals");
+    expect(seen).not.toContain("policies");
+  });
+
+  it("gives a Viewer read-only evidence and nothing else", () => {
+    const seen = ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, rights: VIEWER }));
+    expect(seen).toContain("evidence");
+    expect(seen).not.toContain("approvals");
+    expect(seen).not.toContain("team");
+    expect(seen).not.toContain("credentials");
+  });
+
+  it("keeps a plain Member on the short menu even when the rights have loaded", () => {
+    expect(ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, rights: {} }))).toEqual(["overview", "alerts", "account", "sessions", "passkeys"]);
+  });
+
+  it("answers can() from the modes a role holds", () => {
+    expect(can(APPROVER, "d.approve-eligible-pending-request", "A")).toBe(true);
+    expect(can(APPROVER, "d.approve-eligible-pending-request", "X")).toBe(false);
+    expect(can(undefined, "d.approve-eligible-pending-request")).toBe(false);
   });
 
   it("shows owners and administrators everything", () => {

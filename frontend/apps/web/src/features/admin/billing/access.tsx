@@ -7,6 +7,8 @@ import { useState, type FormEvent } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { PersonLabel, usePeople } from "../team/person-label";
+
 import { BILLING_KEY } from "./shared";
 
 export const ACCESS_KEY = [...BILLING_KEY, "access"] as const;
@@ -75,9 +77,10 @@ function Grants({ canGive }: { canGive: boolean }) {
     success: "Billing access taken away. It ends on the person's next request.",
   });
 
+  const person = usePeople();
   const people = (members.data?.items ?? [])
     .filter((m) => m.status === "ACTIVE")
-    .map((m) => ({ id: m.principal_id, label: `${m.role.charAt(0)}${m.role.slice(1).toLowerCase()} · ${m.principal_id.slice(0, 8)}` }));
+    .map((m) => ({ id: m.principal_id, label: `${m.person?.label ?? m.principal_id.slice(0, 8)} · ${m.role.charAt(0)}${m.role.slice(1).toLowerCase()}` }));
   const valid = who !== "" && reason.trim().length > 0;
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -85,7 +88,7 @@ function Grants({ canGive }: { canGive: boolean }) {
   };
 
   const columns: Column<BillingGrant>[] = [
-    { key: "who", header: "Person", pinned: true, render: (g) => g.grantee_principal_id.slice(0, 8), sortValue: (g) => g.grantee_principal_id },
+    { key: "who", header: "Person", pinned: true, render: (g) => <PersonLabel person={person(g.grantee_principal_id)} fallbackId={g.grantee_principal_id} />, sortValue: (g) => g.grantee_principal_id },
     { key: "bundle", header: "Access", render: (g) => BUNDLE_COPY[g.bundle].label, sortValue: (g) => g.bundle },
     { key: "reason", header: "Why", render: (g) => g.reason },
     { key: "until", header: "Until", render: (g) => (g.expires_at ? g.expires_at.slice(0, 10) : "No end date"), sortValue: (g) => g.expires_at ?? "" },

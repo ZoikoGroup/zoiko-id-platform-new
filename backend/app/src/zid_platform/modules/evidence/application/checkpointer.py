@@ -176,6 +176,7 @@ async def seal_due(
     now: datetime | None = None,
     tsa: TimestampAuthority | None = None,
     force: bool = False,
+    require_timestamp: bool = False,
 ) -> list[SealedCheckpoint]:
     """One checkpointer pass: seal every partition whose cadence is due (E3 sooner)."""
     now = now or datetime.now(UTC)
@@ -188,7 +189,12 @@ async def seal_due(
         ):
             continue
         cp = await seal_partition(
-            conn, row.partition_id, signer=signer, max_batch=cadence.max_batch, tsa=tsa
+            conn,
+            row.partition_id,
+            signer=signer,
+            max_batch=cadence.max_batch,
+            tsa=tsa,
+            require_timestamp=require_timestamp,
         )
         if cp is not None:
             sealed.append(cp)

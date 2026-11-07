@@ -375,6 +375,16 @@ class OnlinePayment:
     currency: str
 
 
+@dataclass(frozen=True, slots=True)
+class ActivationPayment:
+    """The first month's platform fee paid on Stripe's hosted page for one order (CR-062)."""
+
+    payment_intent: str
+    order_id: str
+    amount_minor: int
+    currency: str
+
+
 class StripeCustomers:
     """A company's saved payment method, collected on Stripe's hosted page (Checkout in setup mode): the card number
     never reaches the platform or the browser app. The platform stores only the Stripe customer id, sends the buyer to
@@ -487,6 +497,65 @@ class StripeCustomers:
             },
         )
         return str(body["url"])
+
+    async def start_activation_payment(
+        self,
+        *,
+        customer_ref: str,
+        order_id: str,
+        label: str,
+        amount: Decimal,
+        currency: str,
+        success_url: str,
+        cancel_url: str,
+    ) -> tuple[str, str]:
+        """Stripe's hosted page for the first month's platform fee of one order. Returns the page's address and the session's id, which is kept so a payment made
+        while the browser was closed can still be found. The order is named in the payment's metadata."""
+        body = await self._call(
+            "POST",
+            "/v1/checkout/sessions",
+            data={
+                "mode": "payment",
+                "customer": customer_ref,
+                "payment_method_types[0]": "card",
+                "line_items[0][quantity]": "1",
+                "line_items[0][price_data][currency]": currency.lower(),
+                "line_items[0][price_data][unit_amount]": str(to_minor_units(amount, currency)),
+                "line_items[0][price_data][product_data][name]": label[:200],
+                "payment_intent_data[metadata][order_id]": order_id,
+                "metadata[order_id]": order_id,
+                "metadata[purpose]": "plan_activation",
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        )
+        return str(body["url"]), str(body["id"])
+
+    async def complete_activation_payment(self, *, session_id: str, customer_ref: str) -> ActivationPayment:
+        """Read the session back from Stripe: it must be this customer's, a plan-activation payment, paid, and name an order."""
+        if not session_id.startswith("cs_") or len(session_id) > 200:
+            raise PaymentSetupError("SESSION_INVALID")
+        session = await self._call("GET", f"/v1/checkout/sessions/{session_id}")
+        meta = session.get("metadata") or {}
+        intent = session.get("payment_intent")
+        if isinstance(intent, dict):
+            intent = intent.get("id")
+        if (
+            session.get("mode") != "payment"
+            or session.get("customer") != customer_ref
+            or session.get("payment_status") != "paid"
+            or meta.get("purpose") != "plan_activation"
+            or not intent
+            or not meta.get("order_id")
+            or not isinstance(session.get("amount_total"), int)
+        ):
+            raise PaymentSetupError("PAYMENT_NOT_COMPLETE")
+        return ActivationPayment(
+            payment_intent=str(intent),
+            order_id=str(meta["order_id"]),
+            amount_minor=int(session["amount_total"]),
+            currency=str(session.get("currency") or "").upper(),
+        )
 
     async def complete_payment(self, *, session_id: str, customer_ref: str) -> OnlinePayment:
         """Verify a returned payment session is this customer's and was paid, and say what was paid."""

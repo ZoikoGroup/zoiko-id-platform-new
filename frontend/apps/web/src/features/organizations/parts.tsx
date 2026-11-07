@@ -58,7 +58,7 @@ export function RequestCard({ orgId, r }: { orgId: string; r: OrgApprovalSummary
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-ink-muted">Requested by</dt>
-          <dd className="break-all font-mono text-xs">{r.requester_principal_id}</dd>
+          <dd className="text-sm">{r.requester?.label ?? r.requester_principal_id}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-ink-muted">Expires</dt>

@@ -1,12 +1,14 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Banner, PageHeader, Tabs } from "@zoiko/ui";
+import { Badge, Banner, PageHeader, Tabs } from "@zoiko/ui";
+import { Receipt, ShieldCheck } from "lucide-react";
 
 import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
 import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequestsView } from "./finance-page";
 import { useDirectMode } from "./mode";
+import { ActivationRefundsView, DataDeletionStatusCard } from "./gap-views";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
@@ -27,22 +29,27 @@ export function CommercialPage() {
   return (
     <>
       <PageHeader
+        icon={Receipt}
         title="Commercial"
+        actions={
+          direct ? (
+            <Badge tone="info" size="sm">
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck aria-hidden className="size-3.5" />
+                Single operator: every change is logged under your name
+              </span>
+            </Badge>
+          ) : undefined
+        }
         description={
           direct
-            ? "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. You can make and approve every change here yourself."
+            ? "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. You make and approve every change here yourself."
             : "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. Every action needs its own approved, unexpired grant; dual-control steps need a different operator."
         }
       />
-      {direct ? (
-        <Banner tone="warn" className="mb-4" title="Direct mode">
-          This account can approve and change commercial settings without access requests or a second approver. Every change is still recorded
-          under your name in the commercial change log.
-        </Banner>
-      ) : null}
-      <Banner tone="info" className="mb-4">
-        Rates here are draft proposals until Finance approves a price book. Nothing on this page publishes a price, promises a region or SLA, or
-        reaches a customer before the approvals the platform enforces.
+      <Banner tone="info" className="mb-5">
+        Rates here are draft proposals until a price book is approved. Nothing on this page publishes a price, promises a region or SLA, or reaches a customer before that
+        approval.
       </Banner>
       <Tabs
         label="Commercial"
@@ -53,7 +60,12 @@ export function CommercialPage() {
             content: (
               <div className="space-y-4">
                 <PriceBooksView />
-                <Actions group="catalogue" />
+                <details className="rounded-lg border border-border bg-surface">
+                  <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink-muted">Advanced: change a price book by its ID</summary>
+                  <div className="space-y-4 p-4">
+                    <Actions group="catalogue" />
+                  </div>
+                </details>
               </div>
             ),
           },
@@ -65,6 +77,7 @@ export function CommercialPage() {
                 <PlanRequestsView />
                 <ServiceRequestsView />
                 <Actions group="plans" />
+                <DataDeletionStatusCard />
               </div>
             ),
           },
@@ -87,6 +100,7 @@ export function CommercialPage() {
             content: (
               <div className="space-y-4">
                 <PaymentEventsView />
+                <ActivationRefundsView />
                 <Actions group="payments" />
               </div>
             ),

@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: "Sign in" };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  return <OperatorSignIn returnTo={sp.returnTo} reason={sp.reason} passwordSignIn={process.env.ZID_OPERATOR_PASSWORD_SIGNIN === "true"} />;
+  return <OperatorSignIn returnTo={sp.returnTo} reason={sp.reason} />;
 }

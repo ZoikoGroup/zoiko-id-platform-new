@@ -45,7 +45,7 @@ class Settings(ServiceSettings):
     billing_return_origin: str | None = None
     # --- Keys and secrets (DEC-F5; zid_crypto broker, see crypto_runtime.py) ---------------------
     # ZID_KEY_PROVIDER: local (development KEKs; local/test only) | aws-kms | gcp-kms (deployed cells)
-    # db = software keys held in the database, wrapped by a master key outside it (CR-057; standard assurance, not FIPS-validated)
+    # db = software keys held in the database, wrapped by a master key outside it (CR-060; standard assurance, not FIPS-validated)
     key_provider: Literal["local", "aws-kms", "gcp-kms", "db"] = "local"
     # ZID_KEY_MASTER_FILE (db): file of master keys, one `<id> <base64 32 bytes>` per line, first is current; root-only, never in the database
     key_master_file: str | None = None
@@ -94,6 +94,13 @@ class Settings(ServiceSettings):
     # SUBJECT_ERASURE KEKs (DEC-F5 §4); tenants not listed use the cell's platform KEK
     tenant_kek_ids: dict[str, str] = {}  # noqa: RUF012 - pydantic copies defaults
     evidence_tsa_required: bool = False
+    # ZID_EVIDENCE_VERIFY_INTERVAL (seconds, 0 = off) and ZID_EVIDENCE_VERIFY_BATCH: the worker re-verifies each evidence partition's chain,
+    # checkpoints, signatures and timestamps on this schedule, at most `batch` partitions per pass; a failure raises evidence.integrity.failed
+    evidence_verify_interval: timedelta = timedelta(hours=6)
+    evidence_verify_batch: int = 2
+    # ZID_EVIDENCE_TSA_WAIVER=accept-no-external-timestamps: with software keys a deployed cell needs a timestamp authority unless this is
+    # set; it records that the owners accept that a rewritten history could not be told apart from the original (CR-060)
+    evidence_tsa_waiver: str | None = None
     # --- Operator plane (DEC-F4; operator_access) -------------------------------------------------
     # ZID_OPERATOR_TENANT_ID: the dedicated operator tenant; unset = the operator plane is disabled
     operator_tenant_id: str | None = None
@@ -197,6 +204,9 @@ class Settings(ServiceSettings):
     # ZID_COMMERCIAL_ENFORCEMENT (CR-024): off | shadow | enforce. `shadow` (default) reports what the plan
     # would refuse without blocking; turn on `enforce` only once a price book is approved.
     commercial_enforcement: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_ACTIVATION_PAYMENT (CR-062): REQUIRED (default) holds an activated order until the company has paid the first month's platform fee on Stripe;
+    # OFF switches the plan on activation, as before. REQUIRED with no payment provider configured refuses the activation rather than switch without payment.
+    activation_payment: Literal["REQUIRED", "OFF"] = "REQUIRED"
     # ZID-ENG-DEC-009: shadow reports a missing or bad step-up proof without blocking; enforce refuses it
     step_up_enforcement: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_COMMERCIAL_ISSUING_ENTITY (CR-027): the seller of record's invoice series prefix.

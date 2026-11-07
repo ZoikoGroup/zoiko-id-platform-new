@@ -394,7 +394,12 @@ export function createCellApi(t: Transport) {
       roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
       /** What the caller's live roles could do if every other condition held. */
       myPermissions: () => get<M.MyPermissions>("/v1/tenant/me/permissions"),
-      invite: (role: M.InvitableRole) => post<M.Invitation>("/v1/tenant/members", { role }),
+      invite: (role: M.InvitableRole, display_name?: string) =>
+        post<M.Invitation>("/v1/tenant/members", display_name ? { role, display_name } : { role }),
+      /** An owner or admin sets or clears a colleague's name (the member number never changes). */
+      rename: (principal_id: string, name: string | null) => post<M.Person>(`/v1/tenant/members/${seg(principal_id)}:rename`, { name }),
+      /** A person sets or clears their own name. */
+      nameMe: (name: string | null) => post<M.Person>("/v1/tenant/members/me:name", { name }),
       reissue: (assignmentId: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:reissue`),
       revoke: (assignmentId: string) => post<M.TenantRole>(`/v1/tenant/members/${seg(assignmentId)}:revoke`),
       accept: () => post<M.TenantRole>("/v1/tenant/members/me:accept"),
@@ -679,6 +684,12 @@ export function createCellApi(t: Transport) {
       /** Start saving or replacing the card: the address of Stripe's hosted page. The card never reaches this app. */
       startPaymentSetup: () => post<{ url: string }>("/v1/billing/payment/setup"),
       /** After Stripe sends the buyer back: the cell verifies the session and makes the card the default. */
+      /** Orders that wait for the first month's platform fee before the plan switches (CR-062). */
+      activations: () => get<M.Items<M.ActivationWait>>("/v1/billing/activations"),
+      /** Stripe's page for that amount: the address to send the buyer to. */
+      payActivation: (orderId: string) => post<{ url: string }>(`/v1/billing/activations/${seg(orderId)}/pay`),
+      /** Read the payment back from Stripe (the returned session, or the one this order last opened) and, only if it is paid in full, switch the plan. */
+      confirmActivation: (orderId: string, sessionId?: string) => post<M.ActivationConfirm>(`/v1/billing/activations/${seg(orderId)}:confirm`, sessionId ? { session_id: sessionId } : {}),
       /** Pay one invoice on Stripe's page (the way through when the bank asks for confirmation): the address to send the buyer to. */
       payOnline: (invoiceId: string) => post<{ url: string }>(`/v1/invoices/${seg(invoiceId)}/pay-online`),
       /** After Stripe sends the buyer back from paying: the cell verifies the session and records the payment once. */
@@ -794,6 +805,10 @@ export function createOperatorApi(t: Transport) {
         get<{ price_book_id: string; lines: number; ready: boolean; missing: { sku: string; plan: string; what: string }[]; free: { sku: string; plan: string }[] }>(
           `/v1/commercial/price-books/${seg(id)}/readiness`,
         ),
+      /** First-month plan payments an operator marked to be returned, with the processor reference to refund (CR-062). */
+      activationRefunds: () => get<M.Items<M.ActivationRefund>>("/v1/commercial/activation-refunds"),
+      /** What was deleted for a closed company, what is held and what is still owed. */
+      dataDeletion: (tenantId: string) => get<Record<string, unknown>>(`/v1/commercial/tenants/${seg(tenantId)}/data-deletion`),
       /** Every company's open requests for a different plan, oldest first. */
       planRequests: () => get<M.Items<M.PlanRequest & { tenant_id: string; company: string | null }>>("/v1/commercial/plan-requests"),
       /** ACCEPTED: the team will raise the order. DECLINED: the company is told why. The entitlement is untouched. */

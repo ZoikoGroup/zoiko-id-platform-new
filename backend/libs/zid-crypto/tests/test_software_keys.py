@@ -1,4 +1,4 @@
-"""Database-held software keys (CR-057): wrapping under a master key, versions, rotation, erasure, races, signers."""
+"""Database-held software keys (CR-060): wrapping under a master key, versions, rotation, erasure, races, signers."""
 
 from __future__ import annotations
 

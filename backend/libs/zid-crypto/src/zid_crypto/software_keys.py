@@ -1,4 +1,4 @@
-"""Software key custody in a database: standard-assurance keys for deployments without a KMS/HSM (DEC-F5 amendment, CR-057).
+"""Software key custody in a database: standard-assurance keys for deployments without a KMS/HSM (DEC-F5 amendment, CR-060).
 
 Every key is a row in a key store (PostgreSQL in the platform), encrypted by a **master key held outside the database** (a
 root-only file, or a secret delivered by the operator's secret service). A stolen database, backup or snapshot is useless
