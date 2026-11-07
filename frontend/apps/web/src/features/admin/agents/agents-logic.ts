@@ -107,6 +107,50 @@ export async function manifestDigest(tools: { tool_id: string; version: string }
   return `sha256:${[...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/* ----------------------------------------------------------------------------------------- build choice */
+
+export const BUILD_TEST = "test";
+export const BUILD_PASTE = "paste";
+const REUSE = "reuse:";
+
+/**
+ * How a release says which software it runs, without anyone needing to know a digest. A person picks the build of an earlier
+ * release, or (outside production) a test build, or pastes a digest from their registry. A real digest cannot be invented from a
+ * name: only the build itself has one, which is why the last choice exists.
+ */
+export function buildChoices(releases: { blueprint_id: string; version: string; artifact_digest: string }[], allowTest: boolean): Opt[] {
+  const seen = new Set<string>();
+  const out: Opt[] = [];
+  for (const r of [...releases].reverse()) {
+    if (seen.has(r.artifact_digest)) continue;
+    seen.add(r.artifact_digest);
+    out.push({ id: `${REUSE}${r.artifact_digest}`, label: `Same build as ${r.blueprint_id} ${r.version}`, description: `${r.artifact_digest.slice(0, 19)}…` });
+  }
+  if (allowTest) {
+    out.push({ id: BUILD_TEST, label: "A test build (for trying things out)", description: "A placeholder, not real software. Fine for the screens; not for running an agent." });
+  }
+  out.push({ id: BUILD_PASTE, label: "A build from my registry…", description: "Paste its sha256 digest." });
+  return out;
+}
+
+/** The digest a choice stands for, or null while it is still to be worked out or typed. */
+export function digestFor(choice: string, pasted: string, testDigest: string | undefined): string | null {
+  if (choice.startsWith(REUSE)) return choice.slice(REUSE.length);
+  if (choice === BUILD_TEST) return testDigest ?? null;
+  if (choice === BUILD_PASTE) return pasted.trim() || null;
+  return null;
+}
+
+/** A stable placeholder digest for a test release: the same blueprint and version always give the same one. Never a real build. */
+export async function testBuildDigest(blueprintId: string, version: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`zoiko-test-build:${blueprintId}@${version}`);
+  const hash = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return `sha256:${[...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Test builds are for development and demos: hidden in a production build unless that deployment turns them on. */
+export const allowTestBuilds = () => process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ZID_ALLOW_TEST_BUILDS === "true";
+
 /* ------------------------------------------------------------------------------------------------ authority */
 
 /** Does one held action cover a needed one? `*` covers all, `machine.*` covers everything under machine. */

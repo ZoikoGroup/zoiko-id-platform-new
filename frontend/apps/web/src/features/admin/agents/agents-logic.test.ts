@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import { ACTION_GROUPS } from "../authority/choice-list";
 import {
   ACTION_OPTIONS,
+  BUILD_PASTE,
+  BUILD_TEST,
   GATE_NOTES,
+  buildChoices,
+  digestFor,
+  testBuildDigest,
   TOOL_PRESETS,
   forcesMandate,
   heldActions,
@@ -129,5 +134,36 @@ describe("suggested notes for the activation gates", () => {
       expect(notes.length, gate).toBeGreaterThan(0);
       expect(new Set(notes.map((n) => n.id)).size, gate).toBe(notes.length);
     }
+  });
+});
+
+describe("choosing a build without knowing a digest", () => {
+  const rel = (blueprint_id: string, version: string, d: string) => ({ blueprint_id, version, artifact_digest: `sha256:${d.repeat(64)}` });
+
+  it("offers earlier builds once each, newest first, then the test build, then pasting", () => {
+    const opts = buildChoices([rel("bot", "1.0.0", "a"), rel("bot", "1.0.1", "a"), rel("other", "1.0.0", "b")], true);
+    expect(opts.map((o) => o.label)).toEqual(["Same build as other 1.0.0", "Same build as bot 1.0.1", "A test build (for trying things out)", "A build from my registry…"]);
+    expect(opts.at(-1)?.id).toBe(BUILD_PASTE);
+  });
+  it("does not offer a test build when production forbids it", () => {
+    expect(buildChoices([], false).map((o) => o.id)).toEqual([BUILD_PASTE]);
+    expect(buildChoices([], true).map((o) => o.id)).toEqual([BUILD_TEST, BUILD_PASTE]);
+  });
+  it("turns each choice into the digest it stands for", async () => {
+    const d = `sha256:${"c".repeat(64)}`;
+    const opts = buildChoices([{ blueprint_id: "bot", version: "1.0.0", artifact_digest: d }], true);
+    expect(digestFor(opts[0]!.id, "", undefined)).toBe(d);
+    expect(digestFor(BUILD_PASTE, `  ${d}  `, undefined)).toBe(d);
+    expect(digestFor(BUILD_PASTE, "", undefined)).toBeNull();
+    expect(digestFor(BUILD_TEST, "", undefined)).toBeNull();
+    const t = await testBuildDigest("bot", "1.0.0");
+    expect(digestFor(BUILD_TEST, "", t)).toBe(t);
+    expect(digestFor("", "", undefined)).toBeNull();
+  });
+  it("gives a test build a stable digest of the right shape that differs per release", async () => {
+    const a = await testBuildDigest("bot", "1.0.0");
+    expect(a).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(await testBuildDigest("bot", "1.0.0")).toBe(a);
+    expect(await testBuildDigest("bot", "1.0.1")).not.toBe(a);
   });
 });

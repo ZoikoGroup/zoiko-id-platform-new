@@ -10,7 +10,7 @@ import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/ce
 import { useRuntime } from "@/lib/runtime";
 
 import { useMe } from "../authority/shared";
-import { NEEDS, manifestDigest, nextVersion } from "./agents-logic";
+import { BUILD_PASTE, BUILD_TEST, NEEDS, allowTestBuilds, buildChoices, digestFor, manifestDigest, nextVersion, testBuildDigest } from "./agents-logic";
 import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
 import { AGENTS_KEY, BLUEPRINTS_KEY, DIGEST_RE, TOOLS_KEY, UUID_RE } from "./shared";
 
@@ -145,7 +145,8 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [which, setWhich] = useState(NEW_BLUEPRINT);
   const [newId, setNewId] = useState("");
   const [versionEdit, setVersionEdit] = useState<string | null>(null);
-  const [artifact, setArtifact] = useState("");
+  const [build, setBuild] = useState("");
+  const [pasted, setPasted] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
   const [ownManifest, setOwnManifest] = useState("");
   const [publisherPick, setPublisherPick] = useState("");
@@ -167,6 +168,16 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   });
   const manifest = chosenTools.length > 0 ? (digest.data ?? "") : "";
 
+  // The build: an earlier release's, a stable test placeholder, or one pasted. Only the test digest has to be worked out.
+  const testDigest = useQuery({
+    queryKey: ["agents", "test-build-digest", id, version],
+    queryFn: () => testBuildDigest(id, version.trim()),
+    enabled: build === BUILD_TEST && Boolean(id) && Boolean(version.trim()),
+    staleTime: Infinity,
+  });
+  const artifact = digestFor(build, pasted, testDigest.data) ?? "";
+  const buildOptions = buildChoices(releases, allowTestBuilds());
+
   const manifestToSend = ownManifest.trim() || manifest;
 
   function close() {
@@ -182,7 +193,7 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
     if (!/^[a-z0-9][a-z0-9._-]{1,62}$/.test(id)) return setFormError("Blueprint name: lowercase letters, digits, dot, dash or underscore (2 to 63 characters).");
     if (!version.trim()) return setFormError("Give the release a version.");
     if (releases.some((b) => b.blueprint_id === id && b.version === version.trim())) return setFormError(`${id} ${version} already exists. A release never changes: use the next version.`);
-    if (!DIGEST_RE.test(artifact.trim())) return setFormError("The artifact digest must be sha256: followed by 64 hex characters.");
+    if (!DIGEST_RE.test(artifact)) return setFormError("Choose which build it runs (or paste its sha256 digest).");
     if (!DIGEST_RE.test(manifestToSend)) return setFormError("Tick at least one tool for this release (or paste a tool manifest digest under Advanced).");
     if (!UUID_RE.test(publisher.trim())) return setFormError("Choose who publishes this release.");
     setPending(true);
@@ -191,7 +202,7 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
         api.agents.createBlueprint({
           blueprint_id: id,
           version: version.trim(),
-          artifact_digest: artifact.trim(),
+          artifact_digest: artifact,
           tool_manifest_digest: manifestToSend,
           publisher_principal_id: publisher.trim(),
         }),
@@ -240,16 +251,37 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
           )}
         </div>
         <TextField label="Version" isRequired mono value={version} onChange={setVersionEdit} description="Suggested from the releases that exist. Change it only if you need a different number." />
-        <TextField
-          label="Artifact digest"
+        <Select
+          label="Which build does it run?"
           isRequired
-          mono
-          value={artifact}
-          onChange={setArtifact}
-          placeholder="sha256:…"
-          description="The signed build or container digest that will run (from your build or registry). It cannot be chosen from a list."
-          errorMessage={artifact.trim() && !DIGEST_RE.test(artifact.trim()) ? "sha256: followed by 64 hex characters." : undefined}
+          placeholder="Choose…"
+          value={build || null}
+          onChange={setBuild}
+          options={buildOptions}
+          description="You do not need to know a digest: pick an earlier release's build, a test build, or paste one from your registry."
         />
+        {build === BUILD_PASTE ? (
+          <TextField
+            label="Build digest"
+            isRequired
+            mono
+            value={pasted}
+            onChange={setPasted}
+            placeholder="sha256:…"
+            description="The signed build or container digest, from your build pipeline or registry."
+            errorMessage={pasted.trim() && !DIGEST_RE.test(pasted.trim()) ? "sha256: followed by 64 hex characters." : undefined}
+          />
+        ) : null}
+        {build === BUILD_TEST ? (
+          <Banner tone="warn" title="A test build is a placeholder">
+            It lets you try the screens. A workload can get a token only if what is really running matches this digest, so before real use draft a new release with the real build.
+          </Banner>
+        ) : null}
+        {artifact ? (
+          <p className="text-xs text-ink-subtle">
+            Build digest: <CopyId value={artifact} label="build digest" />
+          </p>
+        ) : null}
         <div className="space-y-2">
           <p className="text-sm font-medium text-ink">
             Tools in this release <span aria-hidden className="text-danger-fg">*</span>
