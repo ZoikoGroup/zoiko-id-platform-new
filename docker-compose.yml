@@ -230,6 +230,41 @@ services:
       - ./local/spire/agent.conf:/opt/spire/conf/agent/agent.conf:ro
       - spire-sockets:/run/spire/sockets
 
+  # Local workload identity (profile `workload`; see local/workload/setup.sh). The listener checks a workload's SPIRE identity on the way in; the attestor
+  # looks at the running container through the engine's read-only socket and signs what it found. Both reach the cell, which runs from source on the host.
+  workload-edge:
+    profiles: ["workload"]
+    image: caddy:2.8-alpine
+    ports: ["127.0.0.1:9443:9443"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ./local/workload/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./local/spire/bundle.pem:/run/secrets/spire_bundle.pem:ro
+
+  attestor:
+    profiles: ["workload"]
+    image: zid/platform:local
+    restart: unless-stopped
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    group_add: ["0"]   # Docker Desktop's engine socket belongs to root; a Linux host uses the docker group's number (see deploy/gcp-vm/README.md)
+    command:
+      - python
+      - -m
+      - zid_platform.entrypoints.attestor
+      - run
+      - --registrations=/etc/zid/workloads.json
+      - --registered-docker
+      - --docker-socket=/var/run/docker.sock
+      - --key=/run/attestor/attestor.pem
+      - --kid=attestor-1
+      - --cell=http://host.docker.internal:8010/v1/machine/attestations:verify
+    volumes:
+      - ./local/workload/workloads.json:/etc/zid/workloads.json:ro
+      - ./local/workload/.keys:/run/attestor:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      disable: true
+
 volumes:
   pgdata:
   redpanda:

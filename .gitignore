@@ -95,3 +95,7 @@ deploy/gcp/secrets/
 
 # local development key material (shared dev KEKs); never commit
 .zid/
+
+# local workload identity: the attestor's private key and the registration file with your digests
+local/workload/.keys/
+local/workload/workloads.json
