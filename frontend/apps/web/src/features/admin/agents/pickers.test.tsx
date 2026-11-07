@@ -53,7 +53,7 @@ vi.mock("@zoiko/ui", () => ({
   humanize: (s: string) => s.toLowerCase(),
 }));
 
-import { AuthorityNotice, PersonSelect, ServerSelect, ToolChecklist } from "./pickers";
+import { AuthorityNotice, DigestHelp, PersonSelect, ServerSelect, ToolChecklist } from "./pickers";
 
 beforeEach(() => {
   state.queries = {};
@@ -159,5 +159,25 @@ describe("AuthorityNotice", () => {
     state.queries.grants = { data: undefined, isPending: true };
     render(<AuthorityNotice needs={["machine.tool.manage"]} what="x" />);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("DigestHelp", () => {
+  it("tells a new person what a digest is, that it is not made up, and where it comes from", () => {
+    const { container } = render(<DigestHelp canUseTestBuild={false} />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("fingerprint of one exact build");
+    expect(text).toContain("docker images --digests");
+    expect(text).toContain("index .RepoDigests 0");
+    expect(text).toContain("registry");
+  });
+
+  it("points to a test build where one is offered, and to the Builds tab where it is not", () => {
+    const withTest = render(<DigestHelp canUseTestBuild />);
+    expect(withTest.container.textContent).toContain("Choose A test build");
+    withTest.unmount();
+    const without = render(<DigestHelp canUseTestBuild={false} />);
+    expect(without.container.textContent).toContain("register it under Builds");
+    expect(without.container.textContent).not.toContain("Choose A test build");
   });
 });

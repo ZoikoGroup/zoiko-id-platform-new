@@ -11,7 +11,7 @@ import { useRuntime } from "@/lib/runtime";
 
 import { PersonLabel, usePeople } from "../team/person-label";
 import { NEEDS } from "./agents-logic";
-import { AuthorityNotice } from "./pickers";
+import { AuthorityNotice, DigestHelp } from "./pickers";
 import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY, DIGEST_RE } from "./shared";
 
 /**
@@ -216,6 +216,7 @@ function RegisterBuildDialog({ isOpen, onClose }: { isOpen: boolean; onClose: ()
           description="From whoever builds it: the image digest shown by your registry or build pipeline. This is the only place a digest is typed."
           errorMessage={digest.trim() && !DIGEST_RE.test(digest.trim()) ? "sha256: followed by 64 hex characters." : undefined}
         />
+        <DigestHelp canUseTestBuild={false} />
         <TextField label="Where it comes from (optional)" mono value={source} onChange={setSource} placeholder="ghcr.io/acme/invoice-bot" description="The registry reference or repository." />
         <TextField label="Proof of how it was built (optional)" mono value={provenance} onChange={setProvenance} placeholder="https://…" description="A link to the build's provenance or signature. It is recorded, not verified." />
         {formError ? <Banner tone="danger" title="Check the form" live="polite">{formError}</Banner> : null}

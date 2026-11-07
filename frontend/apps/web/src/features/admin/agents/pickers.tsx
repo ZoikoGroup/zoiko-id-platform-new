@@ -138,3 +138,42 @@ export function AuthorityNotice({ needs, what }: { needs: readonly string[]; wha
     </Banner>
   );
 }
+
+const INSPECT = "docker inspect --format='{{index .RepoDigests 0}}' your-image";
+
+/**
+ * For a person who has never seen a digest: what it is, that it comes from whoever builds the software, and three ways to find it.
+ * Shown next to every field that asks for one, so nobody is left to guess what to type.
+ */
+export function DigestHelp({ canUseTestBuild }: { canUseTestBuild: boolean }) {
+  return (
+    <details className="rounded-card border border-border bg-canvas p-3 text-sm">
+      <summary className="cursor-pointer font-medium text-brand-700">I don&apos;t know what to put here</summary>
+      <div className="mt-2 space-y-2 text-ink-muted">
+        <p>
+          A digest is the fingerprint of one exact build of the software: <code className="font-mono text-xs">sha256:</code> followed by 64 letters and digits. It comes
+          from whoever builds the software. It cannot be worked out from a name, so it is not something to make up.
+        </p>
+        <ul className="list-disc space-y-1 ps-5">
+          <li>
+            When an image is pushed to a registry, the push prints a line like <code className="font-mono text-xs">digest: sha256:… size: …</code>. Copy the{" "}
+            <code className="font-mono text-xs">sha256:…</code> part.
+          </li>
+          <li>
+            On the computer that built it: <code className="font-mono text-xs">docker images --digests</code>, or <code className="break-all font-mono text-xs">{INSPECT}</code>.
+          </li>
+          <li>In a registry&apos;s web page (GitHub Packages, Docker Hub, a cloud registry), open the image version and copy its digest.</li>
+        </ul>
+        <p>
+          {canUseTestBuild ? (
+            <>
+              Just trying things out? Choose <strong>A test build</strong> in the list above and nothing needs to be pasted.
+            </>
+          ) : (
+            <>Not sure? Ask the person who builds it to register it under <strong>Builds</strong>, and pick it from the list.</>
+          )}
+        </p>
+      </div>
+    </details>
+  );
+}

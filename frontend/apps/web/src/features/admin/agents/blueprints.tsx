@@ -11,7 +11,7 @@ import { useRuntime } from "@/lib/runtime";
 
 import { useMe } from "../authority/shared";
 import { BUILD_PASTE, BUILD_TEST, NEEDS, allowTestBuilds, buildChoices, digestFor, manifestDigest, nextVersion, testBuildDigest } from "./agents-logic";
-import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
+import { AuthorityNotice, DigestHelp, PersonSelect, ToolChecklist } from "./pickers";
 import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY, DIGEST_RE, TOOLS_KEY, UUID_RE } from "./shared";
 
 export function BlueprintsSection() {
@@ -283,6 +283,7 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
             errorMessage={pasted.trim() && !DIGEST_RE.test(pasted.trim()) ? "sha256: followed by 64 hex characters." : undefined}
           />
         ) : null}
+        {build === BUILD_PASTE ? <DigestHelp canUseTestBuild={buildOptions.some((o) => o.id === BUILD_TEST)} /> : null}
         {build === BUILD_TEST ? (
           <Banner tone="warn" title="A test build is a placeholder">
             It lets you try the screens. A workload can get a token only if what is really running matches this digest, so before real use draft a new release with the real build.
