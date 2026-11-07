@@ -103,6 +103,10 @@ def create_app(
             "builds must be approved (set it to auto or enforce)"
         )
     app.state.agent_builds = settings.agent_builds
+    app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
+    app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
+    app.state.registry_transport = None  # tests supply a simulated registry
+    app.state.registry_resolver = None
     if (
         settings.mesh_trusted_proxies
         and not settings.mesh_proxy_secret_file

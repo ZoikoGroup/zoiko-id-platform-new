@@ -9,7 +9,8 @@
     POST /v1/machine/agents/{id}/children                   sub-agent identity     machine.agent.manage
     GET  /v1/machine/blueprints                             list                   machine.agent.read
     GET  /v1/machine/builds                                 approved builds        machine.agent.read
-    POST /v1/machine/builds                                 register (DRAFT)       machine.build.manage
+    POST /v1/machine/builds                                 register (DRAFT)       machine.build.register
+    POST /v1/machine/builds:resolve                         digest of an image name machine.build.register (named registries only)
     POST /v1/machine/builds/{id}:approve | :revoke          second person / kill   machine.build.manage (R3)
     POST /v1/machine/blueprints                             draft a release        machine.blueprint.manage
     POST /v1/machine/blueprints/{id}/versions/{v}:approve | :revoke                machine.blueprint.manage (R3)
@@ -34,7 +35,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.machine.application import agents as service
 from zid_platform.modules.machine.domain.agents import ATTESTABLE_GATES, MachineError
-from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store
+from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store, registry
 from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-registry"])
@@ -247,6 +248,7 @@ async def list_builds(
         return {
             "items": await build_store.list_builds(conn, status=status),
             "enforced": builds_enforced(request),
+            "lookup_enabled": bool(getattr(request.app.state, "build_registries", ())),
         }
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
@@ -255,10 +257,55 @@ async def list_builds(
 @router.post("/builds", status_code=201)
 async def register_build(body: BuildBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action="machine.build.manage", resource="build:new")
+        # registering is its own, lower authority so a build pipeline can hold it without being able to approve its own builds
+        await protected_action(conn, caller, action="machine.build.register", resource="build:new")
         return await service.register_build(conn, _tenant(caller), actor=_actor(caller), **body.model_dump())
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+_LOOKUP_STATUS = {
+    "IMAGE_NAME_INVALID": 422,
+    "REGISTRY_NOT_ALLOWED": 422,
+    "REGISTRY_AUTH_REQUIRED": 422,
+    "REGISTRY_LOOKUP_DISABLED": 409,
+    "IMAGE_NOT_FOUND": 404,
+}
+
+
+class ResolveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    image: str = Field(min_length=1, max_length=400)
+
+
+@router.post("/builds:resolve")
+async def resolve_build(body: ResolveBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The digest an image name points at today, asked of its registry (CR-065). Changes nothing: a person registers what it returns, and a second
+    person approves it. The registry is contacted outside the database transaction, only if it is one the operator named."""
+
+    async def authorize(conn: Any) -> None:
+        await protected_action(conn, caller, action="machine.build.register", resource="build:new")
+
+    await _run(request, caller, authorize)
+    state = request.app.state
+    try:
+        found = await registry.resolve(
+            body.image,
+            allowed=getattr(state, "build_registries", ()),
+            private_ok=getattr(state, "build_registries_private", ()),
+            transport=getattr(state, "registry_transport", None),
+            resolver=getattr(state, "registry_resolver", None),
+        )
+    except registry.RegistryError as e:
+        raise ZidError(e.code, str(e), http_status=_LOOKUP_STATUS.get(e.code, 502)) from e
+    return {
+        "image": body.image.strip(),
+        "registry": found.host,
+        "repository": found.repository,
+        "reference": found.reference,
+        "digest": found.digest,
+        "media_type": found.media_type,
+    }
 
 
 @router.post("/builds/{build_id}:approve")

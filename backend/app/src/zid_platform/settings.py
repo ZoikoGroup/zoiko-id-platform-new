@@ -267,6 +267,11 @@ class Settings(ServiceSettings):
     # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
     # enforce = always; off = never, which a deployed environment refuses at start-up.
     agent_builds: Literal["auto", "off", "enforce"] = "auto"
+    # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
+    # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
+    # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.
+    build_registries: tuple[str, ...] = ()
+    build_registries_private: tuple[str, ...] = ()
     # ZID_SECRET_BROKER: env (ZID_SECRET__<REF>; local/test only) | openbao (deployed cells)
     secret_broker: Literal["env", "openbao"] = "env"
     openbao_addr: str | None = None  # ZID_OPENBAO_ADDR: the cell's OpenBao, e.g. https://bao:8200

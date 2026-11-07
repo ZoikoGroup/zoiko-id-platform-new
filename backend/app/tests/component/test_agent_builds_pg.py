@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 import pytest
 from admin_fixture import make_admin
 from conftest import ctx, engine
@@ -40,7 +41,7 @@ from zid_platform.modules.session.ports import issue_access_token
 from zid_platform.settings import Settings
 
 ISS, AUD = "https://id.zoiko.test", "https://api.zoiko.test"
-ACTIONS = ["machine.agent.read", "machine.build.manage", "machine.blueprint.manage"]
+ACTIONS = ["machine.agent.read", "machine.build.register", "machine.build.manage", "machine.blueprint.manage"]
 RESOURCES = ["build:*", "blueprint:*"]
 BASE = "/v1/machine"
 D1 = "sha256:" + "1" * 64
@@ -269,3 +270,125 @@ def test_a_binding_runs_the_software_of_its_agents_approved_release(rt_url: str)
             await refused(c, 9, "AGENT_BLUEPRINT_NOT_APPROVED")
 
     asyncio.run(run())
+
+
+def test_an_image_name_is_looked_up_only_in_registries_the_operator_named_and_only_for_those_who_may(rt_url: str) -> None:
+    """The route changes nothing: it returns the digest an image name points at. It is off until an operator names registries, needs the build
+    authority, and contacts nothing that was not named."""
+    import hashlib
+
+    tenant, engineer, nobody = uid(), uid(), uid()
+    ring = KeyRing(LocalSigner("issuer-lookup"))
+    manifest = b'{"schemaVersion":2,"layers":[]}'
+    digest = "sha256:" + hashlib.sha256(manifest).hexdigest()
+    asked: list[str] = []
+
+    def registry_handler(req: httpx.Request) -> httpx.Response:
+        asked.append(str(req.url))
+        return httpx.Response(200, content=manifest, headers={"content-type": "application/vnd.oci.image.manifest.v1+json"})
+
+    async def seed() -> dict[str, str]:
+        out = {}
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            for p in (engineer, nobody):
+                await create_principal(c, Principal(p, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+            await make_admin(c, tenant, [engineer], ACTIONS, RESOURCES)
+            for p in (engineer, nobody):
+                sid, t = uid(), datetime.now(UTC)
+                principal, _ = await load_principal(c, p)
+                await create_session(c, Session(sid, tenant, p, t - timedelta(seconds=30), "native:webauthn", 2, principal.security_revision, 1, SessionStatus.ACTIVE, t + timedelta(hours=8)))
+                out[p] = sid
+        return out
+
+    sessions = asyncio.run(seed())
+
+    def bearer(sub: str) -> dict[str, str]:
+        tok = issue_access_token(ring, issuer=ISS, audience=AUD, subject=sub, tenant_id=tenant, client_id="admin-console",
+                                 now=datetime.now(UTC), session_id=sessions[sub], scope=frozenset())
+        return {"Authorization": f"Bearer {tok}"}
+
+    eng_h, non_h = bearer(engineer), bearer(nobody)
+    url = f"{BASE}/builds:resolve"
+
+    # off by default: nothing is contacted and the console is told the lookup is not available
+    with TestClient(_app(rt_url, ring), base_url=ISS) as http:
+        http.app.state.registry_transport = httpx.MockTransport(registry_handler)  # type: ignore[attr-defined]
+        assert http.get(f"{BASE}/builds", headers=eng_h).json()["lookup_enabled"] is False
+        off = http.post(url, headers=eng_h, json={"image": "ghcr.io/acme/bot:1"})
+        assert off.status_code == 409 and off.json()["error"]["code"] == "REGISTRY_LOOKUP_DISABLED"
+        assert asked == []
+
+    with TestClient(_app(rt_url, ring, build_registries=("ghcr.io",)), base_url=ISS) as http:
+        http.app.state.registry_transport = httpx.MockTransport(registry_handler)  # type: ignore[attr-defined]
+        http.app.state.registry_resolver = lambda host: {"8.8.8.8"}  # type: ignore[attr-defined]
+        assert http.get(f"{BASE}/builds", headers=eng_h).json()["lookup_enabled"] is True
+        assert http.post(url, headers=non_h, json={"image": "ghcr.io/acme/bot:1"}).status_code == 403  # no build authority
+        assert asked == []
+
+        got = http.post(url, headers=eng_h, json={"image": "ghcr.io/acme/bot:1.4"})
+        assert got.status_code == 200, got.text
+        assert got.json()["digest"] == digest and got.json()["repository"] == "acme/bot" and got.json()["reference"] == "1.4"
+        assert asked == ["https://ghcr.io/v2/acme/bot/manifests/1.4"]
+
+        # nothing is registered by looking: the engineer registers what came back, as before
+        assert http.get(f"{BASE}/builds", headers=eng_h).json()["items"] == []
+        assert http.post(f"{BASE}/builds", headers=eng_h, json={"name": "Bot 1.4", "artifact_digest": got.json()["digest"], "source_ref": "ghcr.io/acme/bot:1.4"}).status_code == 201
+
+        before = len(asked)
+        other = http.post(url, headers=eng_h, json={"image": "evil.example.com/acme/bot:1"})
+        assert other.status_code == 422 and other.json()["error"]["code"] == "REGISTRY_NOT_ALLOWED"
+        bad = http.post(url, headers=eng_h, json={"image": "https://ghcr.io/acme/bot"})
+        assert bad.status_code == 422 and bad.json()["error"]["code"] == "IMAGE_NAME_INVALID"
+        assert len(asked) == before, "nothing that was not named, and nothing malformed, was ever contacted"
+
+
+def test_a_build_pipeline_can_register_a_build_but_never_approve_or_revoke_one(rt_url: str) -> None:
+    """The authority to register is separate from the authority to approve. A pipeline (an application principal) holds only the first, so a
+    compromised pipeline can propose a build, and a person still has to approve it."""
+    tenant, pipeline, approver, approver_only = uid(), uid(), uid(), uid()
+    ring = KeyRing(LocalSigner("issuer-pipeline"))
+
+    async def seed() -> dict[str, str]:
+        out = {}
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await create_principal(c, Principal(pipeline, tenant, PrincipalType.APPLICATION, PrincipalStatus.ACTIVE, "uk-1"))
+            for p in (approver, approver_only):
+                await create_principal(c, Principal(p, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+            await make_admin(c, tenant, [pipeline], ["machine.agent.read", "machine.build.register"], ["build:*"])
+            # one policy release per tenant: the later grants reuse it
+            await make_admin(c, tenant, [approver], ["machine.agent.read", "machine.build.register", "machine.build.manage"], ["build:*"], release=False)
+            await make_admin(c, tenant, [approver_only], ["machine.agent.read", "machine.build.manage"], ["build:*"], release=False)
+            for p in (pipeline, approver, approver_only):
+                sid, t = uid(), datetime.now(UTC)
+                principal, _ = await load_principal(c, p)
+                await create_session(c, Session(sid, tenant, p, t - timedelta(seconds=30), "native:webauthn", 2, principal.security_revision, 1, SessionStatus.ACTIVE, t + timedelta(hours=8)))
+                out[p] = sid
+        return out
+
+    sessions = asyncio.run(seed())
+
+    def bearer(sub: str) -> dict[str, str]:
+        tok = issue_access_token(ring, issuer=ISS, audience=AUD, subject=sub, tenant_id=tenant, client_id="ci-pipeline",
+                                 now=datetime.now(UTC), session_id=sessions[sub], scope=frozenset())
+        return {"Authorization": f"Bearer {tok}"}
+
+    ci, boss, only = bearer(pipeline), bearer(approver), bearer(approver_only)
+    with TestClient(_app(rt_url, ring), base_url=ISS) as http:
+        made = http.post(f"{BASE}/builds", headers=ci, json={"name": "Nightly image", "artifact_digest": D1, "source_ref": "ghcr.io/acme/bot:nightly"})
+        assert made.status_code == 201 and made.json()["registered_by"] == pipeline and made.json()["review_status"] == "DRAFT"
+        bid = made.json()["build_id"]
+
+        # the pipeline can propose and look, but cannot approve its own build, revoke anything, or draft a release from it
+        assert http.get(f"{BASE}/builds", headers=ci).status_code == 200
+        assert http.post(f"{BASE}/builds/{bid}:approve", headers=ci).status_code == 403
+        assert http.post(f"{BASE}/builds/{bid}:revoke", headers=ci, json={}).status_code == 403
+
+        # approving is a different authority, and holding it alone does not allow registering
+        assert http.post(f"{BASE}/builds", headers=only, json={"name": "Not allowed", "artifact_digest": D2}).status_code == 403
+        ok = http.post(f"{BASE}/builds/{bid}:approve", headers=only)
+        assert ok.status_code == 200 and ok.json()["approved_by"] == approver_only and ok.json()["registered_by"] == pipeline
+
+        # a person holding both can do each, but still not approve what they registered themselves
+        mine = http.post(f"{BASE}/builds", headers=boss, json={"name": "Mine", "artifact_digest": D3})
+        assert mine.status_code == 201
+        assert http.post(f"{BASE}/builds/{mine.json()['build_id']}:approve", headers=boss).status_code == 403

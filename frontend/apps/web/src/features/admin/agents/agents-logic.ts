@@ -191,7 +191,8 @@ export function heldActions(grants: { actions: string[] | null }[]): string[] | 
 export const NEEDS = {
   tool: ["machine.tool.manage"],
   blueprint: ["machine.blueprint.manage"],
-  build: ["machine.build.manage"],
+  build: ["machine.build.register"],
+  approveBuild: ["machine.build.manage"],
   agent: ["machine.agent.manage"],
   activate: ["machine.agent.activate"],
   workload: ["machine.workload.manage"],

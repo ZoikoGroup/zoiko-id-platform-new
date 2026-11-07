@@ -1711,7 +1711,11 @@ export type BuildItem = {
 export type BuildList = Items<BuildItem> & {
   /** Whether a blueprint release must run an approved build in this environment. */
   enforced: boolean;
+  /** Whether this environment can look an image's digest up by name (an operator named registries). */
+  lookup_enabled: boolean;
 };
+/** What an image name points at today, as its registry says. Nothing is registered by asking. */
+export type BuildLookup = { image: string; registry: string; repository: string; reference: string; digest: string; media_type: string };
 export type BuildCreate = { name: string; artifact_digest: string; source_ref?: string | null; provenance_ref?: string | null };
 export type BuildRevoked = BuildItem & { releases_revoked: number; bindings_suspended: number; agents_suspended: number };
 

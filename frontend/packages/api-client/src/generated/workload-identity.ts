@@ -280,6 +280,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/machine/builds:resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Build
+         * @description The digest an image name points at today, asked of its registry (CR-065). Changes nothing: a person registers what it returns, and a second
+         *     person approves it. The registry is contacted outside the database transaction, only if it is one the operator named.
+         */
+        post: operations["resolve_build_v1_machine_builds_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/machine/environments/{environment_id}:quarantine": {
         parameters: {
             query?: never;
@@ -637,6 +658,11 @@ export interface components {
              * @default OPERATOR_DECISION
              */
             reason_code: string;
+        };
+        /** ResolveBody */
+        zid_platform__modules__machine__api__agents__ResolveBody: {
+            /** Image */
+            image: string;
         };
         /** QuarantineBody */
         zid_platform__modules__machine__api__workloads__QuarantineBody: {
@@ -1277,6 +1303,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["zid_platform__modules__machine__api__agents__ReasonBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_build_v1_machine_builds_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__machine__api__agents__ResolveBody"];
             };
         };
         responses: {

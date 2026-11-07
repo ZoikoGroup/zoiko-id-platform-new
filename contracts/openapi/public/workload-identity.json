@@ -487,6 +487,22 @@
         "title": "ReasonBody",
         "type": "object"
       },
+      "zid_platform__modules__machine__api__agents__ResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "image": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "ResolveBody",
+        "type": "object"
+      },
       "zid_platform__modules__machine__api__workloads__QuarantineBody": {
         "additionalProperties": false,
         "properties": {
@@ -1416,6 +1432,50 @@
           }
         },
         "summary": "Revoke Build",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/builds:resolve": {
+      "post": {
+        "description": "The digest an image name points at today, asked of its registry (CR-065). Changes nothing: a person registers what it returns, and a second\nperson approves it. The registry is contacted outside the database transaction, only if it is one the operator named.",
+        "operationId": "resolve_build_v1_machine_builds_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Build V1 Machine Builds Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Build",
         "tags": [
           "agent-registry"
         ]

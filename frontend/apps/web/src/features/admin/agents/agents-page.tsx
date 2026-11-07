@@ -90,7 +90,7 @@ export function AgentsPage() {
         description="AI agents, the blueprints they are built from, and the tools they may use. An agent is an identity with accountable people behind it, not a user account."
       />
       <div className="space-y-4">
-        <AuthorityNotice needs={["machine.tool.manage", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
+        <AuthorityNotice needs={["machine.tool.manage", "machine.build.register", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
         <SetupGuide onGo={setTab} />
         <Banner tone="info" title="Identity, not authority">
           An active agent can act only through grants and mandates, and a tool that shows up in a server&apos;s tool list is not executable until it is

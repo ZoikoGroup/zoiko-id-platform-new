@@ -42,7 +42,7 @@ from zid_platform.settings import Settings
 BASE = "/v1/machine"
 ACTIONS = [
     "machine.agent.read", "machine.agent.manage", "machine.agent.activate", "machine.blueprint.manage",
-    "machine.tool.manage", "machine.build.manage", "machine.workload.manage",
+    "machine.tool.manage", "machine.build.register", "machine.build.manage", "machine.workload.manage",
 ]
 RESOURCES = ["agent:*", "blueprint:*", "tool:*", "build:*", "workload_binding:*", "workload_environment:*"]
 MANIFEST = "sha256:" + "b" * 64

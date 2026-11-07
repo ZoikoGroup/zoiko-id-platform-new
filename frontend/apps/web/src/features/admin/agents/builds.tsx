@@ -86,7 +86,7 @@ export function BuildsSection() {
           {(data) => (
             <>
               <div className="space-y-3 p-4 pb-0">
-                <AuthorityNotice needs={NEEDS.build} what="register or approve a build" />
+                <AuthorityNotice needs={[...NEEDS.build, ...NEEDS.approveBuild]} what="register or approve a build" />
                 <Banner tone={data.enforced ? "info" : "warn"} title={data.enforced ? "Releases must run an approved build" : "Releases may run any digest in this environment"}>
                   {data.enforced
                     ? "A blueprint release is refused unless its build is approved here."
@@ -110,7 +110,7 @@ export function BuildsSection() {
         </QueryView>
       </Card>
 
-      <RegisterBuildDialog isOpen={creating} onClose={() => setCreating(false)} />
+      <RegisterBuildDialog isOpen={creating} onClose={() => setCreating(false)} lookupEnabled={builds.data?.lookup_enabled ?? false} />
 
       <Dialog
         isOpen={revoking !== null}
@@ -141,7 +141,7 @@ export function BuildsSection() {
   );
 }
 
-function RegisterBuildDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function RegisterBuildDialog({ isOpen, onClose, lookupEnabled }: { isOpen: boolean; onClose: () => void; lookupEnabled: boolean }) {
   const { api, protect } = useRuntime();
   const qc = useQueryClient();
   const toast = useToast();
@@ -149,6 +149,16 @@ function RegisterBuildDialog({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const [digest, setDigest] = useState("");
   const [source, setSource] = useState("");
   const [provenance, setProvenance] = useState("");
+  const [image, setImage] = useState("");
+  const [found, setFound] = useState<string | null>(null);
+  // Asking changes nothing: it fills the digest in from what the registry says the name points at, and the person still registers it.
+  const lookup = useCellMutation((api, name: string) => api.agents.resolveBuild(name), {
+    onSuccess: (r) => {
+      setDigest(r.digest);
+      setSource((s) => s || `${r.registry}/${r.repository}:${r.reference}`);
+      setFound(`${r.registry}/${r.repository}:${r.reference}`);
+    },
+  });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -181,6 +191,8 @@ function RegisterBuildDialog({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       setDigest("");
       setSource("");
       setProvenance("");
+      setImage("");
+      setFound(null);
       onClose();
     } catch (e) {
       setError(e);
@@ -206,6 +218,30 @@ function RegisterBuildDialog({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       <div className="space-y-4">
         <AuthorityNotice needs={NEEDS.build} what="register a build" />
         <TextField label="Name" isRequired value={name} onChange={setName} placeholder="Invoice bot, release 1.4" description="What people will pick from a list later." />
+        {lookupEnabled ? (
+          <div className="space-y-2 rounded-card border border-border p-3">
+            <TextField
+              label="Image name (optional)"
+              mono
+              value={image}
+              onChange={(v) => {
+                setImage(v);
+                setFound(null);
+              }}
+              placeholder="ghcr.io/acme/invoice-bot:1.4"
+              description="Where the image is published. Look it up and the digest below is filled in from what the registry says it points at."
+            />
+            <Button size="sm" variant="secondary" pending={lookup.isPending} isDisabled={!image.trim()} onPress={() => lookup.mutate(image.trim())}>
+              Look up digest
+            </Button>
+            {found ? (
+              <p className="text-xs text-ink-muted">
+                Found <span className="font-mono">{found}</span>. A tag can move: the digest is what gets registered and approved, so it never changes under you.
+              </p>
+            ) : null}
+            {lookup.error ? <ApiErrorView error={lookup.error} title="The digest could not be looked up" /> : null}
+          </div>
+        ) : null}
         <TextField
           label="Build digest"
           isRequired
