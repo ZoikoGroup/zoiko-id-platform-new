@@ -52,6 +52,7 @@ x-backend: &backend
     ZID_SPIFFE_TRUST_DOMAIN: ${ZID_SPIFFE_TRUST_DOMAIN:-}
     ZID_SPIFFE_BUNDLE_FILES: ${ZID_SPIFFE_BUNDLE_FILES:-{}}
     ZID_MESH_TRUSTED_PROXIES: ${ZID_MESH_TRUSTED_PROXIES:-[]}
+    ZID_MESH_PROXY_SECRET_FILE: ${ZID_MESH_PROXY_SECRET_FILE:-}
     ZID_ATTESTOR_KEYS_FILE: ${ZID_ATTESTOR_KEYS_FILE:-}
   volumes:
     - ../../contracts:/app/contracts:ro
@@ -229,6 +230,7 @@ services:
     volumes:
       - ./Caddyfile.workload:/etc/caddy/Caddyfile:ro
       - ./secrets/spire_bundle.pem:/run/secrets/spire_bundle.pem:ro
+      - ./secrets/mesh_proxy_secret:/run/secrets/mesh_proxy_secret:ro
       - workload-edge-data:/data
     depends_on: [cell]
     networks:

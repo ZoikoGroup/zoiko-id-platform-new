@@ -6,6 +6,7 @@
 # client certificate. Every public site drops it, so a caller on the internet cannot present a certificate it only copied.
 (no_forwarded_cert) {
 	request_header -X-Forwarded-Client-Cert
+	request_header -X-Zid-Proxy-Auth
 }
 
 # Console (passkeys need this exact origin: https://id.<domain>)

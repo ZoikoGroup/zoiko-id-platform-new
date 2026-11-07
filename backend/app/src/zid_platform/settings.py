@@ -261,6 +261,9 @@ class Settings(ServiceSettings):
     attestor_keys_file: str | None = None
     spiffe_federated_domains: tuple[str, ...] = ()
     mesh_trusted_proxies: tuple[str, ...] = ()
+    # ZID_MESH_PROXY_SECRET_FILE: a file holding the secret the workload listener adds to every request it forwards. With it set, a forwarded
+    # client certificate is honored only from a trusted proxy that also presents it. A deployed environment with trusted proxies requires it.
+    mesh_proxy_secret_file: str | None = None
     # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
     # enforce = always; off = never, which a deployed environment refuses at start-up.
     agent_builds: Literal["auto", "off", "enforce"] = "auto"

@@ -19,6 +19,7 @@ caller could set.
 
 from __future__ import annotations
 
+import hmac
 import re
 import urllib.parse
 from collections.abc import Iterable, Mapping, Sequence
@@ -27,6 +28,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
+    "PROXY_AUTH_HEADER",
     "SpiffeError",
     "SpiffeId",
     "TrustPolicy",
@@ -69,6 +71,8 @@ class SpiffeId:
     def __str__(self) -> str:
         return f"spiffe://{self.trust_domain}{self.path}"
 
+PROXY_AUTH_HEADER = "x-zid-proxy-auth"
+
 
 @dataclass(frozen=True, slots=True)
 class TrustPolicy:
@@ -78,6 +82,9 @@ class TrustPolicy:
     bundles: Mapping[str, Sequence[bytes]] = field(default_factory=dict)
     federated: frozenset[str] = frozenset()
     trusted_proxies: frozenset[str] = frozenset()  # e.g. {"127.0.0.1"} for a local mesh proxy
+    # A shared secret the mesh proxy adds to every request it forwards (header `PROXY_AUTH_HEADER`). With it set, a forwarded certificate is honored
+    # only from a trusted address that ALSO presents the secret, so an address alone (any process on a shared host) is not enough.
+    proxy_secret: bytes | None = None
 
     def accepts(self, sid: SpiffeId) -> bool:
         return sid.trust_domain == self.own_domain or sid.trust_domain in self.federated
@@ -203,6 +210,14 @@ def _xfcc_cert(header: str) -> bytes | None:
     return None
 
 
+def _proxy_proved(headers: Mapping[str, str], policy: TrustPolicy) -> bool:
+    """True when no secret is required, or the request carries it (constant-time compare)."""
+    if policy.proxy_secret is None:
+        return True
+    given = headers.get(PROXY_AUTH_HEADER) or ""
+    return hmac.compare_digest(given.encode("utf-8"), policy.proxy_secret)
+
+
 def peer_svid(
     scope: Mapping[str, Any],
     headers: Mapping[str, str],
@@ -222,7 +237,7 @@ def peer_svid(
         return verify_x509_svid(ders, policy, now=now), ders[0]
     client = scope.get("client") or ("", 0)
     header = headers.get("x-forwarded-client-cert")
-    if header and client[0] in policy.trusted_proxies:
+    if header and client[0] in policy.trusted_proxies and _proxy_proved(headers, policy):
         der = _xfcc_cert(header)
         if der is not None:
             return verify_x509_svid([der, *xfcc_chain], policy, now=now), der

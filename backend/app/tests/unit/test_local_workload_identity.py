@@ -61,3 +61,14 @@ def test_the_example_registration_is_valid_for_the_attestor_and_names_the_tenant
 def test_the_setup_script_refuses_to_overwrite_a_signing_key() -> None:
     script = (REPO / "local" / "workload" / "setup.sh").read_text(encoding="utf-8")
     assert "refusing to overwrite a signing key" in script and "set -eu" in script
+
+
+def test_the_listener_proves_itself_with_a_secret_only_it_and_the_cell_can_read() -> None:
+    assert "header_up X-Zid-Proxy-Auth {file./run/secrets/proxy_auth}" in CADDY
+    assert "./local/workload/.proxy/proxy_auth:/run/secrets/proxy_auth:ro" in EDGE["volumes"]
+    # the attestor mounts the keys directory, never the secret's directory
+    assert not any(".proxy" in str(v) for v in ATTESTOR["volumes"])
+    ignore = (REPO / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert "local/workload/.proxy/" in ignore
+    script = (REPO / "local" / "workload" / "setup.sh").read_text(encoding="utf-8")
+    assert "end=''" in script, "a trailing newline would make the header value invalid and the listener answer 502"

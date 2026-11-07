@@ -183,3 +183,15 @@ def test_the_digest_is_entered_once_and_the_deployment_says_how_builds_are_requi
     assert "sync-attestor" in readme and "ZID_AGENT_BUILDS" in readme
     assert "ZID_AGENT_BUILDS" in _text("env.example")
     assert "approved_digests" in readme and "do **not** type" in readme
+
+
+def test_the_listener_proves_itself_to_the_cell_and_public_sites_drop_that_header() -> None:
+    assert "header_up X-Zid-Proxy-Auth {file./run/secrets/mesh_proxy_secret}" in _text("Caddyfile.workload")
+    assert re.search(r"^\s*request_header -X-Zid-Proxy-Auth\s*$", _text("Caddyfile"), flags=re.M)
+    assert "./secrets/mesh_proxy_secret:/run/secrets/mesh_proxy_secret:ro" in [str(v) for v in NEW["workload-edge"]["volumes"]]
+    assert "ZID_MESH_PROXY_SECRET_FILE: ${ZID_MESH_PROXY_SECRET_FILE:-}" in _text("docker-compose.yml")
+    # the attestor holds none of the cell's or the listener's secrets
+    assert not any("mesh_proxy_secret" in str(v) for v in NEW["attestor"]["volumes"])
+    script = _text("workload-identity.sh")
+    assert "proxy-secret)" in script and "end=''" in script and "mesh_proxy_secret" in script.split("  preflight)", 1)[1].split("  edge-ca)", 1)[0]
+    assert "ZID_MESH_PROXY_SECRET_FILE" in _text("env.example") and "proxy-secret" in _text("README.md")

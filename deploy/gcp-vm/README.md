@@ -142,6 +142,11 @@ docker compose --profile workload-identity up -d spire-agent
 ```
 Run the workload container with `user: "20001"` and `-v /run/zid/spire-sockets:/run/spire/sockets:ro`; its SPIRE Workload API socket is `/run/spire/sockets/agent.sock`. A new entry reaches the agent within seconds.
 
+**c2. The listener's secret.** The cell believes a forwarded certificate only from the listener's address **and** with a secret the listener adds, so a process that merely reaches the cell from that address cannot claim an identity. A deployed cell with `ZID_MESH_TRUSTED_PROXIES` and no `ZID_MESH_PROXY_SECRET_FILE` refuses to start.
+```bash
+./workload-identity.sh proxy-secret     # secrets/mesh_proxy_secret (owner 10001, mode 400); then .env: ZID_MESH_PROXY_SECRET_FILE=/run/secrets/mesh_proxy_secret
+```
+
 **d. The attestor.** On the app VM:
 ```bash
 ./workload-identity.sh attestor-init                     # attestor-secrets/attestor.pem (private, only the attestor mounts it) + secrets/attestor_keys.json (public)

@@ -103,6 +103,15 @@ def create_app(
             "builds must be approved (set it to auto or enforce)"
         )
     app.state.agent_builds = settings.agent_builds
+    if (
+        settings.mesh_trusted_proxies
+        and not settings.mesh_proxy_secret_file
+        and settings.environment not in ("local", "test", "dev")
+    ):
+        raise RuntimeError(
+            "ZID_MESH_TRUSTED_PROXIES names a proxy whose forwarded certificate is believed; outside local, test and dev it must also "
+            "prove itself: set ZID_MESH_PROXY_SECRET_FILE"
+        )
     app.state.proof_scanner_address = settings.proof_scanner_address
     app.state.proof_scanner = None  # tests supply their own scanner
     app.state.federation_authority_hints = settings.federation_authority_hints

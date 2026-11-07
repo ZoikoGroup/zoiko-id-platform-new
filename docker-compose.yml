@@ -240,6 +240,7 @@ services:
     volumes:
       - ./local/workload/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./local/spire/bundle.pem:/run/secrets/spire_bundle.pem:ro
+      - ./local/workload/.proxy/proxy_auth:/run/secrets/proxy_auth:ro
 
   attestor:
     profiles: ["workload"]

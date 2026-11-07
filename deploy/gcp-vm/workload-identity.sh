@@ -11,6 +11,7 @@
 #     ./workload-identity.sh edge-ca                     the root a workload must trust to reach the workload listener
 #     ./workload-identity.sh docker-gid                  the group number that owns the engine socket (for ZID_DOCKER_GID)
 #     ./workload-identity.sh preflight                   check this VM is ready for the profile; exit 1 on any FAIL
+#     ./workload-identity.sh proxy-secret                the secret the workload listener proves itself with (secrets/mesh_proxy_secret)
 #     ./workload-identity.sh sync-attestor WORKSPACE [--write]   fill attestor/workloads.json's approved digests from approved builds
 set -eu
 cd "$(dirname "$0")"
@@ -105,6 +106,13 @@ case "$cmd" in
     if ls secrets/*.pem 2>/dev/null | grep -qv spire_bundle.pem; then fail "a private key (*.pem) other than the bundle is in secrets/, which the cell can read: the attestor's key must live only in attestor-secrets/"; else ok "no attestor private key in secrets/"; fi
     grep -q '"kid"' secrets/attestor_keys.json 2>/dev/null && ok "secrets/attestor_keys.json holds the attestor's public key" || fail "secrets/attestor_keys.json missing: run attestor-init"
     [ -f attestor/workloads.json ] && ok "attestor/workloads.json exists" || fail "attestor/workloads.json missing: copy attestor/workloads.example.json and edit it (docker would create a directory in its place)"
+    if [ -f secrets/mesh_proxy_secret ]; then
+      len=$(wc -c < secrets/mesh_proxy_secret | tr -d ' '); mode=$(stat -c %a secrets/mesh_proxy_secret)
+      [ "$len" -ge 32 ] && [ "$mode" = 400 ] && ok "secrets/mesh_proxy_secret is $len characters, mode 400" || fail "secrets/mesh_proxy_secret must be at least 32 characters and mode 400 (is $len, $mode)"
+      [ "$(env_value ZID_MESH_PROXY_SECRET_FILE)" = "/run/secrets/mesh_proxy_secret" ] && ok "the cell is pointed at it" || fail "set ZID_MESH_PROXY_SECRET_FILE=/run/secrets/mesh_proxy_secret in .env"
+    else
+      fail "secrets/mesh_proxy_secret missing: run proxy-secret (a deployed cell refuses to trust the workload listener without it)"
+    fi
     sock=$(env_value ZID_SPIRE_SOCKET_DIR); sock=${sock:-/run/zid/spire-sockets}
     [ -d "$sock" ] && ok "$sock exists" || fail "mkdir -p $sock (the agent's socket directory)"
     domain=$(env_value ZID_DOMAIN)
@@ -118,6 +126,13 @@ case "$cmd" in
     [ -z "$(env_value ZID_SPIRE_JOIN_TOKEN)" ] && ok "no join token left in .env" || warn "ZID_SPIRE_JOIN_TOKEN is still set: remove it once the agent has joined"
     [ "$fails" -eq 0 ] && echo "ready." || { echo "$fails problem(s) to fix before starting the profile." >&2; exit 1; }
     ;;
+  proxy-secret)
+    [ ! -e secrets/mesh_proxy_secret ] || { echo "secrets/mesh_proxy_secret exists: refusing to replace it (replace it by hand, then restart cell and workload-edge together)" >&2; exit 1; }
+    mkdir -p secrets
+    docker run --rm "$(env_value ZID_BACKEND_IMAGE)" python -c "import secrets; print(secrets.token_hex(32), end='')" > secrets/mesh_proxy_secret
+    chown 10001:10001 secrets/mesh_proxy_secret; chmod 400 secrets/mesh_proxy_secret
+    echo "created secrets/mesh_proxy_secret. Set ZID_MESH_PROXY_SECRET_FILE=/run/secrets/mesh_proxy_secret in .env, then restart cell and workload-edge." >&2
+    ;;
   sync-attestor)
     ws="${1:?usage: sync-attestor WORKSPACE [--write]}"; shift
     [ -f attestor/workloads.json ] || { echo "attestor/workloads.json missing: copy attestor/workloads.example.json and write its selectors first" >&2; exit 2; }
@@ -129,7 +144,7 @@ case "$cmd" in
     docker compose --profile workload-identity exec -T workload-edge cat /data/caddy/pki/authorities/local/root.crt
     ;;
   *)
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
     ;;
 esac

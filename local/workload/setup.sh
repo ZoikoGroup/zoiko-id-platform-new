@@ -6,11 +6,15 @@
 #   docker compose --profile workload up -d workload-edge attestor
 #   python launch_stack.py cell           # restarts the cell with the attestor key and the trusted listener address
 #
-# The attestor's PRIVATE key stays in .keys/ and only the attestor container mounts it; the cell gets the PUBLIC key (attestor_keys.json).
+# The listener's secret is in .proxy/. The attestor's PRIVATE key stays in .keys/ and only the attestor container mounts it; the cell gets the PUBLIC key (attestor_keys.json).
 # Both .keys/ and workloads.json are git-ignored: workloads.json holds your digests and container names.
 set -eu
 cd "$(dirname "$0")"
 image="${ZID_BACKEND_IMAGE:-zid/platform:local}"
+# the secret the listener proves itself with: its own directory, mounted only into the listener (the attestor never sees it)
+mkdir -p .proxy
+[ -s .proxy/proxy_auth ] || docker run --rm "$image" python -c "import secrets; print(secrets.token_hex(32), end='')" > .proxy/proxy_auth  # no newline: it goes into an HTTP header
+# (safe to run again: an existing secret is kept)
 [ ! -e .keys/attestor.pem ] || { echo ".keys/attestor.pem exists: refusing to overwrite a signing key" >&2; exit 1; }
 mkdir -p .keys
 # written as root inside the container, then made readable by the attestor's own user (Docker Desktop mounts ignore ownership)

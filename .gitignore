@@ -98,4 +98,5 @@ deploy/gcp/secrets/
 
 # local workload identity: the attestor's private key and the registration file with your digests
 local/workload/.keys/
+local/workload/.proxy/
 local/workload/workloads.json

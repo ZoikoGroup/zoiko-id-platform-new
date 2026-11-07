@@ -26,6 +26,16 @@ def _bundle(path: str) -> list[bytes]:
     return [c.public_bytes(Encoding.DER) for c in x509.load_pem_x509_certificates(pem)]
 
 
+def _proxy_secret(settings: Settings) -> bytes | None:
+    """The shared secret the mesh proxy proves itself with, from a file (never an environment value). Empty or missing means none."""
+    if not settings.mesh_proxy_secret_file:
+        return None
+    secret = Path(settings.mesh_proxy_secret_file).read_text(encoding="utf-8").strip()
+    if len(secret) < 32:
+        raise RuntimeError("ZID_MESH_PROXY_SECRET_FILE must hold at least 32 characters (openssl rand -hex 32)")
+    return secret.encode("utf-8")
+
+
 def trust_policy_from_settings(settings: Settings) -> TrustPolicy:
     own = settings.spiffe_trust_domain or f"{settings.cell_id}.{settings.environment}.id.zoiko"
     return TrustPolicy(
@@ -33,6 +43,7 @@ def trust_policy_from_settings(settings: Settings) -> TrustPolicy:
         bundles={domain: _bundle(path) for domain, path in settings.spiffe_bundle_files.items()},
         federated=frozenset(settings.spiffe_federated_domains),
         trusted_proxies=frozenset(settings.mesh_trusted_proxies),
+        proxy_secret=_proxy_secret(settings),
     )
 
 

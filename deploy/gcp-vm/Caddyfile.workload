@@ -33,6 +33,8 @@ https://workload.{$ZID_DOMAIN}:9443 {
 	handle {
 		reverse_proxy cell:8000 {
 			header_up X-Forwarded-Client-Cert "Cert=\"{http.request.tls.client.certificate_der_base64}\""
+			# the proof that this really is the listener: the cell believes a forwarded certificate only from its address AND with this secret
+			header_up X-Zid-Proxy-Auth {file./run/secrets/mesh_proxy_secret}
 		}
 	}
 }
