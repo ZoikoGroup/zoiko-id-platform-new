@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import urllib.parse
 from datetime import UTC, datetime, timedelta
 
@@ -123,3 +124,23 @@ def test_peer_identity_comes_from_the_mesh_never_from_a_caller_header() -> None:
         peer_spiffe_id({"client": ("10.0.0.9", 1)}, xfcc, POLICY)
     with pytest.raises(SpiffeError, match="SVID_MISSING"):
         peer_spiffe_id({"client": ("127.0.0.1", 1)}, {"x-spiffe-id": WORKLOAD}, POLICY)
+
+
+def test_a_proxy_may_forward_the_certificate_as_base64_der_and_it_is_verified_just_the_same() -> None:
+    """Caddy cannot put a PEM in a header (raw newlines), so it forwards base64 DER. The form changes how bytes are read, not what is trusted."""
+    der = svid(UK, [WORKLOAD])
+    proxy = {"client": ("127.0.0.1", 1)}
+    ok = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(der).decode()}"'}
+    assert str(peer_spiffe_id(proxy, ok, POLICY)) == WORKLOAD
+    other = ca("other")
+    foreign = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(svid(other, [WORKLOAD])).decode()}"'}
+    with pytest.raises(SpiffeError, match="SVID_CHAIN_INVALID"):  # a readable certificate from a CA we do not trust
+        peer_spiffe_id(proxy, foreign, POLICY)
+    with pytest.raises(SpiffeError, match="SVID_MISSING"):  # not from the proxy
+        peer_spiffe_id({"client": ("10.0.0.9", 1)}, ok, POLICY)
+
+
+@pytest.mark.parametrize("junk", ['Cert="forged"', 'Cert=""', 'Cert="AAAA"', 'Cert="%%%"', "Cert=-----BEGIN CERTIFICATE-----junk"])
+def test_an_unreadable_forwarded_certificate_is_no_certificate_never_a_server_error(junk: str) -> None:
+    with pytest.raises(SpiffeError, match="SVID_MISSING"):
+        peer_spiffe_id({"client": ("127.0.0.1", 1)}, {"x-forwarded-client-cert": junk}, POLICY)

@@ -51,6 +51,34 @@ def _docker_run(args: Sequence[str]) -> str:
     return done.stdout
 
 
+def engine_api_runner(socket_path: str, *, transport: httpx.BaseTransport | None = None) -> Runner:
+    """A `Runner` that answers `docker inspect` and `docker image inspect` from the Docker Engine API on its unix socket.
+
+    The platform image carries no docker command, and a VM deployment runs the attestor in that image beside the engine. The Engine API
+    returns the same objects the command prints, so the facts are read the same way. Only these two read calls are ever made; the
+    socket is mounted read-only into the attestor and nothing here can start, stop or change a container."""
+    base = transport or httpx.HTTPTransport(uds=socket_path)
+
+    def run(args: Sequence[str]) -> str:
+        argv = list(args)
+        if argv[:2] == ["docker", "inspect"] and len(argv) == 3:
+            path = f"/containers/{argv[2]}/json"
+        elif argv[:3] == ["docker", "image", "inspect"] and len(argv) == 4:
+            path = f"/images/{argv[3]}/json"
+        else:
+            raise InspectionError("only inspect calls are allowed")
+        try:
+            with httpx.Client(base_url="http://docker", transport=base, timeout=10) as c:
+                res = c.get(path)
+        except httpx.HTTPError as e:
+            raise InspectionError(f"container engine unreachable: {type(e).__name__}") from e
+        if res.status_code != 200:
+            raise InspectionError(f"container engine answered {res.status_code}")
+        return json.dumps([res.json()])  # the command prints a list of one object; so does this
+
+    return run
+
+
 @dataclass(slots=True)
 class DockerInspector:
     """A container on the local engine. Selectors: `docker.container` (its name) and `docker.label.<key>`."""

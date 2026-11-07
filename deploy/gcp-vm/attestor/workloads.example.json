@@ -1,0 +1,15 @@
+{
+  "workloads": [
+    {
+      "spiffe_id": "spiffe://eu-1.production.id.zoiko/t/00000000-0000-4000-8000-000000000001/ns/payments/sa/agent",
+      "environment_id": "prod",
+      "selectors": {
+        "docker.container": "payments-agent",
+        "docker.label.team": "payments"
+      },
+      "approved_digests": [
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      ]
+    }
+  ]
+}

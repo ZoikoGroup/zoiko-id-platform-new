@@ -176,16 +176,30 @@ def verify_x509_svid(
 
 
 def _xfcc_cert(header: str) -> bytes | None:
-    """The first element's URL-encoded PEM `Cert=` from an Envoy x-forwarded-client-cert header."""
+    """The first element's `Cert=` from a forwarded-client-cert header: Envoy's URL-encoded PEM, or the base64 DER that Caddy
+    forwards (`{http.request.tls.client.certificate_der_base64}`, since its PEM placeholder holds raw newlines a header cannot carry).
+
+    This only decides how to read the bytes. The certificate is verified against the trust bundle afterwards, so a form that parses is
+    not thereby trusted; an unreadable value is "no certificate" (the caller refuses), never an error that reaches the client."""
+    import base64
+    import binascii
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+
     first = header.split(",")[0]
     for part in first.split(";"):
         key, _, value = part.partition("=")
         if key.strip().lower() == "cert":
-            pem = urllib.parse.unquote(value.strip().strip('"'))
-            from cryptography import x509
-            from cryptography.hazmat.primitives.serialization import Encoding
-
-            return x509.load_pem_x509_certificate(pem.encode()).public_bytes(Encoding.DER)
+            raw = urllib.parse.unquote(value.strip().strip('"'))
+            try:
+                if "BEGIN CERTIFICATE" in raw:
+                    cert = x509.load_pem_x509_certificate(raw.encode())
+                else:
+                    cert = x509.load_der_x509_certificate(base64.b64decode(raw, validate=True))
+            except (ValueError, binascii.Error):
+                return None
+            return cert.public_bytes(Encoding.DER)
     return None
 
 

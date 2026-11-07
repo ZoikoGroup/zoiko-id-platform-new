@@ -46,6 +46,13 @@ x-backend: &backend
     # the malware scanner for company proof documents; unset, uploads are refused (nothing is stored unscanned)
     ZID_PROOF_SCANNER_ADDRESS: ${ZID_PROOF_SCANNER_ADDRESS:-}
     ZID_KAFKA_BOOTSTRAP: ${ZID_SERVICES_HOST}:9092
+    # workload identity (profile `workload-identity`, README section 8): trust this cell's SPIRE bundle, accept a forwarded client
+    # certificate only from the workload listener's fixed address, and verify attestor statements against the attestor's public key.
+    # Unset, workloads get no identity (the cell answers 503) and the attestation endpoint is 404.
+    ZID_SPIFFE_TRUST_DOMAIN: ${ZID_SPIFFE_TRUST_DOMAIN:-}
+    ZID_SPIFFE_BUNDLE_FILES: ${ZID_SPIFFE_BUNDLE_FILES:-{}}
+    ZID_MESH_TRUSTED_PROXIES: ${ZID_MESH_TRUSTED_PROXIES:-[]}
+    ZID_ATTESTOR_KEYS_FILE: ${ZID_ATTESTOR_KEYS_FILE:-}
   volumes:
     - ../../contracts:/app/contracts:ro
     - ../../backend/config:/app/config:ro
@@ -165,7 +172,78 @@ services:
       - caddy-config:/config
     depends_on: [web, cell, global]
 
+  # ---- Workload identity (profile `workload-identity`): the same flow as local/spire, on a VM ---------------------------------------
+  # The SPIRE agent gives each workload on THIS VM its identity over a unix socket. It shares the host's process table (`pid: host`) so
+  # it can see which user a caller runs as. The first start needs a one-time join token (ZID_SPIRE_JOIN_TOKEN, README section 8).
+  spire-agent:
+    profiles: ["workload-identity"]
+    image: ghcr.io/spiffe/spire-agent:1.13.2
+    restart: unless-stopped
+    pid: host
+    command: ["-config", "/opt/spire/conf/agent/agent.conf", "-expandEnv"]
+    environment:
+      ZID_SPIFFE_TRUST_DOMAIN: ${ZID_SPIFFE_TRUST_DOMAIN:-}
+      ZID_SERVICES_HOST: ${ZID_SERVICES_HOST}
+      ZID_SPIRE_JOIN_TOKEN: ${ZID_SPIRE_JOIN_TOKEN:-}
+    volumes:
+      - ./spire/agent.conf:/opt/spire/conf/agent/agent.conf:ro
+      - ./secrets/spire_bundle.pem:/run/secrets/spire_bundle.pem:ro
+      - spire-agent-data:/run/spire/agent
+      - ${ZID_SPIRE_SOCKET_DIR:-/run/zid/spire-sockets}:/run/spire/sockets
+
+  # The attestor is its own trust boundary: it looks at the running container through the engine's read-only socket and signs what it
+  # found. It has its OWN key (./attestor-secrets, not ./secrets) and none of the cell's secrets: a compromised cell cannot mint
+  # evidence. Registrations (which container may be what) change by reviewed change to attestor/workloads.json.
+  attestor:
+    profiles: ["workload-identity"]
+    image: ${ZID_BACKEND_IMAGE}
+    restart: unless-stopped
+    depends_on: [cell]
+    group_add: ["${ZID_DOCKER_GID:-999}"]   # the host's docker group (`getent group docker`): read access to the engine socket only
+    command:
+      - python
+      - -m
+      - zid_platform.entrypoints.attestor
+      - run
+      - --registrations=/etc/zid/workloads.json
+      - --registered-docker
+      - --docker-socket=/var/run/docker.sock
+      - --key=/run/attestor/attestor.pem
+      - --kid=${ZID_ATTESTOR_KID:-attestor-1}
+      - --cell=http://cell:8000/v1/machine/attestations:verify
+    volumes:
+      - ./attestor/workloads.json:/etc/zid/workloads.json:ro
+      - ./attestor-secrets:/run/attestor:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck: {disable: true}
+
+  # Where a workload's identity is checked on the way in (Caddyfile.workload). Fixed address: the cell trusts a forwarded
+  # certificate only from exactly this address (ZID_MESH_TRUSTED_PROXIES='["172.30.0.250"]').
+  workload-edge:
+    profiles: ["workload-identity"]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["${ZID_WORKLOAD_BIND:-127.0.0.1}:9443:9443"]
+    environment:
+      ZID_DOMAIN: ${ZID_DOMAIN}
+    volumes:
+      - ./Caddyfile.workload:/etc/caddy/Caddyfile:ro
+      - ./secrets/spire_bundle.pem:/run/secrets/spire_bundle.pem:ro
+      - workload-edge-data:/data
+    depends_on: [cell]
+    networks:
+      default:
+        ipv4_address: 172.30.0.250
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
 volumes:
   valkey-data:
   caddy-data:
   caddy-config:
+  spire-agent-data:
+  workload-edge-data:
