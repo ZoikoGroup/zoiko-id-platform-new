@@ -97,6 +97,12 @@ def create_app(
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
     app.state.environment = settings.environment
+    if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_AGENT_BUILDS=off would let any typed digest back a blueprint release; outside local, test and dev "
+            "builds must be approved (set it to auto or enforce)"
+        )
+    app.state.agent_builds = settings.agent_builds
     app.state.proof_scanner_address = settings.proof_scanner_address
     app.state.proof_scanner = None  # tests supply their own scanner
     app.state.federation_authority_hints = settings.federation_authority_hints

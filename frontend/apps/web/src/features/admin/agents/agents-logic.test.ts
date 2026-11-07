@@ -1,4 +1,4 @@
-import type { AgentItem, BlueprintRelease, ToolItem, WorkloadBindingView } from "@zoiko/api-client";
+import type { AgentItem, BlueprintRelease, BuildItem, ToolItem, WorkloadBindingView } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
 import { ACTION_GROUPS } from "../authority/choice-list";
@@ -139,19 +139,29 @@ describe("suggested notes for the activation gates", () => {
 
 describe("choosing a build without knowing a digest", () => {
   const rel = (blueprint_id: string, version: string, d: string) => ({ blueprint_id, version, artifact_digest: `sha256:${d.repeat(64)}` });
+  const build = (name: string, d: string, review_status = "APPROVED") => ({ name, artifact_digest: `sha256:${d.repeat(64)}`, review_status });
+  const none = { builds: [], releases: [] as ReturnType<typeof rel>[], enforced: false, allowTest: true };
 
-  it("offers earlier builds once each, newest first, then the test build, then pasting", () => {
-    const opts = buildChoices([rel("bot", "1.0.0", "a"), rel("bot", "1.0.1", "a"), rel("other", "1.0.0", "b")], true);
-    expect(opts.map((o) => o.label)).toEqual(["Same build as other 1.0.0", "Same build as bot 1.0.1", "A test build (for trying things out)", "A build from my registry…"]);
-    expect(opts.at(-1)?.id).toBe(BUILD_PASTE);
+  it("offers approved builds by name first, then earlier releases' builds once each, the test build, then pasting", () => {
+    const opts = buildChoices({
+      ...none,
+      builds: [build("Invoice bot image", "a"), build("Draft only", "d", "DRAFT"), build("Old image", "e", "REVOKED")],
+      releases: [rel("bot", "1.0.0", "a"), rel("bot", "1.0.1", "c"), rel("other", "1.0.0", "c")],
+    });
+    expect(opts.map((o) => o.label)).toEqual(["Invoice bot image", "Same build as other 1.0.0", "A test build (for trying things out)", "A build from my registry…"]);
+  });
+  it("where approved builds are required, offers nothing but approved builds", () => {
+    const opts = buildChoices({ ...none, enforced: true, builds: [build("Invoice bot image", "a"), build("Draft only", "d", "DRAFT")], releases: [rel("bot", "1.0.0", "c")] });
+    expect(opts.map((o) => o.label)).toEqual(["Invoice bot image"]);
+    expect(buildChoices({ ...none, enforced: true })).toEqual([]);
   });
   it("does not offer a test build when production forbids it", () => {
-    expect(buildChoices([], false).map((o) => o.id)).toEqual([BUILD_PASTE]);
-    expect(buildChoices([], true).map((o) => o.id)).toEqual([BUILD_TEST, BUILD_PASTE]);
+    expect(buildChoices({ ...none, allowTest: false }).map((o) => o.id)).toEqual([BUILD_PASTE]);
+    expect(buildChoices(none).map((o) => o.id)).toEqual([BUILD_TEST, BUILD_PASTE]);
   });
   it("turns each choice into the digest it stands for", async () => {
     const d = `sha256:${"c".repeat(64)}`;
-    const opts = buildChoices([{ blueprint_id: "bot", version: "1.0.0", artifact_digest: d }], true);
+    const opts = buildChoices({ ...none, builds: [build("Invoice bot image", "c")] });
     expect(digestFor(opts[0]!.id, "", undefined)).toBe(d);
     expect(digestFor(BUILD_PASTE, `  ${d}  `, undefined)).toBe(d);
     expect(digestFor(BUILD_PASTE, "", undefined)).toBeNull();
@@ -165,5 +175,24 @@ describe("choosing a build without knowing a digest", () => {
     expect(a).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(await testBuildDigest("bot", "1.0.0")).toBe(a);
     expect(await testBuildDigest("bot", "1.0.1")).not.toBe(a);
+  });
+});
+
+describe("the build step of the setup guide", () => {
+  const base = { tools: [tool("ACTIVE")], blueprints: [], agents: [], bindings: [] };
+  const b = (review_status: BuildItem["review_status"]) => ({ review_status }) as BuildItem;
+  const ids = (s: ReturnType<typeof setupSteps>) => s.map((x) => x.id);
+
+  it("is absent where builds are not required and none exist", () => {
+    expect(ids(setupSteps({ ...base, builds: [], buildsEnforced: false }))).not.toContain("build");
+  });
+  it("is the second step where builds are required, and open until one is approved", () => {
+    const s = setupSteps({ ...base, builds: [b("DRAFT")], buildsEnforced: true });
+    expect(ids(s).slice(0, 3)).toEqual(["tools", "build", "blueprint"]);
+    expect(s.find((x) => x.id === "build")).toMatchObject({ done: false, tab: "builds" });
+    expect(setupSteps({ ...base, builds: [b("DRAFT"), b("APPROVED")], buildsEnforced: true }).find((x) => x.id === "build")?.done).toBe(true);
+  });
+  it("appears once builds exist even where they are not required", () => {
+    expect(ids(setupSteps({ ...base, builds: [b("APPROVED")], buildsEnforced: false }))).toContain("build");
   });
 });

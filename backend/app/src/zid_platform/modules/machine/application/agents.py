@@ -34,7 +34,7 @@ from zid_platform.modules.machine.domain.agents import (
     register_child_agent,
     tool_requires_mandate,
 )
-from zid_platform.modules.machine.infrastructure import agent_store, machine_store
+from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store
 from zid_platform.modules.organization.ports import organization_exists
 from zid_platform.modules.principal.ports import (
     Principal,
@@ -172,9 +172,13 @@ async def create_blueprint(
     tool_manifest_digest: str,
     publisher_principal_id: str,
     actor: str,
+    require_approved_build: bool = False,
 ) -> BlueprintRelease:
     if not DIGEST.match(artifact_digest) or not DIGEST.match(tool_manifest_digest):
         raise MachineError("WORKLOAD_ARTIFACT_NOT_APPROVED", "digests must be sha256:<64 hex>")
+    if require_approved_build:
+        await require_build_approved(conn, artifact_digest)
+    artifact_digest = normalize_digest(artifact_digest)  # one spelling is stored, so the same build always matches
     if await machine_store.load_blueprint(conn, blueprint_id, version) is not None:
         raise MachineError("BLUEPRINT_EXISTS", "a release is immutable; publish a new version")
     bp = BlueprintRelease(
@@ -279,6 +283,131 @@ async def revoke_blueprint(
         },
     )
     return {"bindings_suspended": bindings, "agents_suspended": suspended}
+
+
+# ---------------------------------------------------------------- builds (§3, §9; CR-064)
+
+
+def normalize_digest(digest: str) -> str:
+    """`sha-256:<hex>` and `sha256:<hex>` name the same build; builds are stored and matched in the second form."""
+    return "sha256:" + digest.split(":", 1)[1].lower()
+
+
+async def require_build_approved(conn: AsyncConnection, artifact_digest: str) -> dict[str, Any]:
+    """A release may run only a build someone other than its registrar approved (and that has not been revoked)."""
+    build = await build_store.by_digest(conn, normalize_digest(artifact_digest))
+    if build is None:
+        raise MachineError("BUILD_NOT_APPROVED", "this build is not registered: register it under Builds and have it approved")
+    if build["review_status"] != "APPROVED":
+        raise MachineError("BUILD_NOT_APPROVED", f"this build is {build['review_status'].lower()}, not approved")
+    return build
+
+
+async def register_build(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    name: str,
+    artifact_digest: str,
+    source_ref: str | None,
+    provenance_ref: str | None,
+    actor: str,
+) -> dict[str, Any]:
+    if not DIGEST.match(artifact_digest):
+        raise MachineError("WORKLOAD_ARTIFACT_NOT_APPROVED", "the digest must be sha256:<64 hex>")
+    digest = normalize_digest(artifact_digest)
+    if await build_store.by_digest(conn, digest) is not None:
+        raise MachineError("BUILD_EXISTS", "this build is already registered")
+    build_id = str(uuid7())
+    await build_store.insert(
+        conn,
+        tenant_id,
+        build_id=build_id,
+        name=name.strip(),
+        artifact_digest=digest,
+        source_ref=source_ref or None,
+        provenance_ref=provenance_ref or None,
+        registered_by=actor,
+    )
+    await _record(
+        conn,
+        tenant_id,
+        name="agent_registry.build_registered",
+        event=False,
+        aggregate_type="agent_build",
+        aggregate_id=f"{tenant_id}:{build_id}",
+        actor=actor,
+        data={"build_id": build_id, "artifact_digest": digest},  # the label is not recorded: audit data carries no names
+        evidence=EvidenceClass.E2,
+    )
+    built = await build_store.get(conn, build_id)
+    assert built is not None
+    return built
+
+
+async def approve_build(conn: AsyncConnection, tenant_id: str, build_id: str, *, actor: str) -> dict[str, Any]:
+    build = await build_store.get(conn, build_id, lock=True)
+    if build is None:
+        raise MachineError("BUILD_NOT_FOUND")
+    if build["review_status"] != "DRAFT":
+        raise MachineError("BUILD_INVALID_STATE", f"a {build['review_status'].lower()} build cannot be approved")
+    if actor == build["registered_by"]:
+        raise MachineError("AGENT_REVIEW_NOT_INDEPENDENT", "the person who registered a build cannot approve it")
+    await build_store.approve(conn, build_id, actor)
+    await _record(
+        conn,
+        tenant_id,
+        name="agent_registry.build_approved",
+        event=False,
+        aggregate_type="agent_build",
+        aggregate_id=f"{tenant_id}:{build_id}",
+        actor=actor,
+        data={"build_id": build_id, "artifact_digest": build["artifact_digest"]},
+    )
+    approved = await build_store.get(conn, build_id)
+    assert approved is not None
+    return approved
+
+
+async def revoke_build(
+    conn: AsyncConnection, tenant_id: str, build_id: str, *, reason: str, actor: str
+) -> dict[str, Any]:
+    """The build turned out to be bad: nothing may run it. Its releases are revoked, its bindings and live agents suspended."""
+    build = await build_store.get(conn, build_id, lock=True)
+    if build is None:
+        raise MachineError("BUILD_NOT_FOUND")
+    if build["review_status"] == "REVOKED":
+        raise MachineError("BUILD_INVALID_STATE", "already revoked")
+    digest = build["artifact_digest"]
+    await build_store.revoke(conn, build_id, reason)
+    bindings = await agent_store.suspend_bindings_for_digest(conn, digest)
+    suspended = 0
+    for agent_id in await agent_store.agents_using_digest(conn, digest):
+        agent = await _load(conn, agent_id)
+        if agent.status is AgentStatus.ACTIVE:
+            await _suspend_one(conn, tenant_id, agent, reason="BUILD_REVOKED", actor=actor)
+            suspended += 1
+    releases = await agent_store.revoke_blueprints_for_digest(conn, digest)
+    await _record(
+        conn,
+        tenant_id,
+        name="agent_registry.build_revoked",
+        event=False,
+        aggregate_type="agent_build",
+        aggregate_id=f"{tenant_id}:{build_id}",
+        actor=actor,
+        data={
+            "build_id": build_id,
+            "artifact_digest": digest,
+            "reason_code": reason,
+            "releases_revoked": releases,
+            "bindings_suspended": bindings,
+            "agents_suspended": suspended,
+        },
+    )
+    revoked = await build_store.get(conn, build_id)
+    assert revoked is not None
+    return {**revoked, "releases_revoked": releases, "bindings_suspended": bindings, "agents_suspended": suspended}
 
 
 # ---------------------------------------------------------------- agents (§2, §12)

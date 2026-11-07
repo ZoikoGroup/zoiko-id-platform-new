@@ -10,11 +10,12 @@ import { useCellQuery } from "@/lib/cell";
 import { AgentsSection } from "./agents";
 import { setupSteps, type SetupStep } from "./agents-logic";
 import { BlueprintsSection } from "./blueprints";
+import { BuildsSection } from "./builds";
 import { AuthorityNotice } from "./pickers";
-import { AGENTS_KEY, BLUEPRINTS_KEY, TOOLS_KEY } from "./shared";
+import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY, TOOLS_KEY } from "./shared";
 import { ToolsSection } from "./tools";
 
-type Tab = "agents" | "blueprints" | "tools";
+type Tab = "agents" | "blueprints" | "builds" | "tools";
 
 /** The order to set an agent up in, with where each step stands. The first one not done is marked as the next thing to do. */
 function SetupGuide({ onGo }: { onGo: (tab: Tab) => void }) {
@@ -22,12 +23,15 @@ function SetupGuide({ onGo }: { onGo: (tab: Tab) => void }) {
   const blueprints = useCellQuery(BLUEPRINTS_KEY, (a) => a.agents.blueprints());
   const agents = useCellQuery([...AGENTS_KEY, ""], (a) => a.agents.list(undefined));
   const bindings = useCellQuery(["admin", "workloads"], (a) => a.workloads.bindings());
+  const builds = useCellQuery(BUILDS_KEY, (a) => a.agents.builds());
   if (!tools.data && !blueprints.data && !agents.data) return null;
   const steps = setupSteps({
     tools: tools.data?.items ?? [],
     blueprints: blueprints.data?.items ?? [],
     agents: agents.data?.items ?? [],
     bindings: bindings.data?.items ?? [],
+    builds: builds.data?.items ?? [],
+    buildsEnforced: builds.data?.enforced ?? false,
   });
   const next = steps.find((s) => !s.done)?.id;
 
@@ -48,8 +52,8 @@ function SetupGuide({ onGo }: { onGo: (tab: Tab) => void }) {
   };
 
   return (
-    <Card title="Set up an agent" description="Five steps, in this order. Each one opens the screen where you do it.">
-      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <Card title="Set up an agent" description="In this order. Each step opens the screen where you do it.">
+      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {steps.map((s, i) => (
           <li
             key={s.id}
@@ -86,7 +90,7 @@ export function AgentsPage() {
         description="AI agents, the blueprints they are built from, and the tools they may use. An agent is an identity with accountable people behind it, not a user account."
       />
       <div className="space-y-4">
-        <AuthorityNotice needs={["machine.tool.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
+        <AuthorityNotice needs={["machine.tool.manage", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
         <SetupGuide onGo={setTab} />
         <Banner tone="info" title="Identity, not authority">
           An active agent can act only through grants and mandates, and a tool that shows up in a server&apos;s tool list is not executable until it is
@@ -104,6 +108,7 @@ export function AgentsPage() {
           onSelectionChange={(id) => setTab(id as Tab)}
           tabs={[
             { id: "agents", label: "Agents", content: <AgentsSection /> },
+            { id: "builds", label: "Builds", content: <BuildsSection /> },
             { id: "blueprints", label: "Blueprints", content: <BlueprintsSection /> },
             { id: "tools", label: "Tools", content: <ToolsSection /> },
           ]}

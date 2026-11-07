@@ -33,6 +33,7 @@ rules:
   - {match: "POST /credential-issuer-trust*", action: issue-revoke-high-trust-organization-credentials}
   - {match: "POST /relying-party-registrations", action: authorize-new-high-risk-oauth-scopes-relying-party-trust}
   - {match: "POST /v1/machine/blueprints", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/builds", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/tools", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/workload-bindings*", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/environments/*", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}

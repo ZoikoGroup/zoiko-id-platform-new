@@ -1692,6 +1692,29 @@ export type BlueprintCreate = {
   tool_manifest_digest: string;
   publisher_principal_id: string;
 };
+export type BuildReview = "DRAFT" | "APPROVED" | "REVOKED";
+/** The reviewed software a blueprint release may run: registered by one person, approved by another (CR-064). */
+export type BuildItem = {
+  build_id: string;
+  name: string;
+  artifact_digest: string;
+  source_ref: string | null;
+  provenance_ref: string | null;
+  registered_by: string;
+  review_status: BuildReview;
+  approved_by: string | null;
+  registered_at: Iso;
+  approved_at: Iso | null;
+  revoked_at: Iso | null;
+  revoke_reason: string | null;
+};
+export type BuildList = Items<BuildItem> & {
+  /** Whether a blueprint release must run an approved build in this environment. */
+  enforced: boolean;
+};
+export type BuildCreate = { name: string; artifact_digest: string; source_ref?: string | null; provenance_ref?: string | null };
+export type BuildRevoked = BuildItem & { releases_revoked: number; bindings_suspended: number; agents_suspended: number };
+
 export type ToolStatus = "DRAFT" | "ACTIVE" | "SUSPENDED" | "RETIRED";
 export type ToolSideEffect = "NONE" | "REVERSIBLE" | "IRREVERSIBLE" | "EXTERNAL_TRANSACTION";
 export type ToolItem = {

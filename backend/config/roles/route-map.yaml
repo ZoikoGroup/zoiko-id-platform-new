@@ -167,6 +167,9 @@ rules:
   - {match: "POST /v1/machine/blueprints", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/blueprints/*:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/blueprints/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/builds", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "POST /v1/machine/builds/*:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/builds/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/tools", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/tools/*:activate", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/tools/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}

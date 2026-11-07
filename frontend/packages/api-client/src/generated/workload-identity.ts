@@ -228,6 +228,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/machine/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Builds */
+        get: operations["list_builds_v1_machine_builds_get"];
+        put?: never;
+        /** Register Build */
+        post: operations["register_build_v1_machine_builds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/machine/builds/{build_id}:approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Build */
+        post: operations["approve_build_v1_machine_builds__build_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/machine/builds/{build_id}:revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Build */
+        post: operations["revoke_build_v1_machine_builds__build_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/machine/environments/{environment_id}:quarantine": {
         parameters: {
             query?: never;
@@ -484,6 +536,17 @@ export interface components {
             tool_manifest_digest: string;
             /** Version */
             version: string;
+        };
+        /** BuildBody */
+        BuildBody: {
+            /** Artifact Digest */
+            artifact_digest: string;
+            /** Name */
+            name: string;
+            /** Provenance Ref */
+            provenance_ref?: string | null;
+            /** Source Ref */
+            source_ref?: string | null;
         };
         /** ChildBody */
         ChildBody: {
@@ -1070,6 +1133,144 @@ export interface operations {
             path: {
                 blueprint_id: string;
                 version: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__machine__api__agents__ReasonBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_builds_v1_machine_builds_get: {
+        parameters: {
+            query?: {
+                status?: ("DRAFT" | "APPROVED" | "REVOKED") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_build_v1_machine_builds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuildBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_build_v1_machine_builds__build_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                build_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_build_v1_machine_builds__build_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                build_id: string;
             };
             cookie?: never;
         };

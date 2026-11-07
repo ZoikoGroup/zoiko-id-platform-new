@@ -62,6 +62,7 @@ export const ACTION_GROUPS: ChoiceGroup[] = [
       { id: "machine.agent.manage", label: "Register agents and attest their checks" },
       { id: "machine.agent.activate", label: "Activate an agent" },
       { id: "machine.blueprint.manage", label: "Publish, approve or revoke blueprint releases" },
+      { id: "machine.build.manage", label: "Register, approve or revoke software builds" },
       { id: "machine.tool.manage", label: "Register, activate or suspend tools" },
     ],
   },
@@ -138,6 +139,7 @@ export const RESOURCE_GROUPS: ChoiceGroup[] = [
     choices: [
       { id: "agent:*", label: "Any agent" },
       { id: "blueprint:*", label: "Any blueprint release" },
+      { id: "build:*", label: "Any software build" },
       { id: "tool:*", label: "Any tool" },
     ],
   },

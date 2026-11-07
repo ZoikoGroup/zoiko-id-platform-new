@@ -261,6 +261,9 @@ class Settings(ServiceSettings):
     attestor_keys_file: str | None = None
     spiffe_federated_domains: tuple[str, ...] = ()
     mesh_trusted_proxies: tuple[str, ...] = ()
+    # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
+    # enforce = always; off = never, which a deployed environment refuses at start-up.
+    agent_builds: Literal["auto", "off", "enforce"] = "auto"
     # ZID_SECRET_BROKER: env (ZID_SECRET__<REF>; local/test only) | openbao (deployed cells)
     secret_broker: Literal["env", "openbao"] = "env"
     openbao_addr: str | None = None  # ZID_OPENBAO_ADDR: the cell's OpenBao, e.g. https://bao:8200

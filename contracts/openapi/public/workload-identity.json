@@ -215,6 +215,52 @@
         "title": "BlueprintBody",
         "type": "object"
       },
+      "BuildBody": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "pattern": "^sha-?256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "provenance_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance Ref"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          }
+        },
+        "required": [
+          "name",
+          "artifact_digest"
+        ],
+        "title": "BuildBody",
+        "type": "object"
+      },
       "ChildBody": {
         "additionalProperties": false,
         "properties": {
@@ -1175,6 +1221,201 @@
           }
         },
         "summary": "Revoke Blueprint",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/builds": {
+      "get": {
+        "operationId": "list_builds_v1_machine_builds_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DRAFT",
+                    "APPROVED",
+                    "REVOKED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Builds V1 Machine Builds Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Builds",
+        "tags": [
+          "agent-registry"
+        ]
+      },
+      "post": {
+        "operationId": "register_build_v1_machine_builds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Build V1 Machine Builds Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Build",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/builds/{build_id}:approve": {
+      "post": {
+        "operationId": "approve_build_v1_machine_builds__build_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_id",
+            "required": true,
+            "schema": {
+              "title": "Build Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Build V1 Machine Builds  Build Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Build",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/builds/{build_id}:revoke": {
+      "post": {
+        "operationId": "revoke_build_v1_machine_builds__build_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_id",
+            "required": true,
+            "schema": {
+              "title": "Build Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Build V1 Machine Builds  Build Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Build",
         "tags": [
           "agent-registry"
         ]

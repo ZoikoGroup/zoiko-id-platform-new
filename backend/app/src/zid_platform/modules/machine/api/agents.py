@@ -8,6 +8,9 @@
     POST /v1/machine/agents/{id}:activate | :revoke | :retire                      machine.agent.activate (R3)
     POST /v1/machine/agents/{id}/children                   sub-agent identity     machine.agent.manage
     GET  /v1/machine/blueprints                             list                   machine.agent.read
+    GET  /v1/machine/builds                                 approved builds        machine.agent.read
+    POST /v1/machine/builds                                 register (DRAFT)       machine.build.manage
+    POST /v1/machine/builds/{id}:approve | :revoke          second person / kill   machine.build.manage (R3)
     POST /v1/machine/blueprints                             draft a release        machine.blueprint.manage
     POST /v1/machine/blueprints/{id}/versions/{v}:approve | :revoke                machine.blueprint.manage (R3)
     GET  /v1/machine/tools                                  list                   machine.agent.read
@@ -31,7 +34,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.machine.application import agents as service
 from zid_platform.modules.machine.domain.agents import ATTESTABLE_GATES, MachineError
-from zid_platform.modules.machine.infrastructure import agent_store, machine_store
+from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store
 from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-registry"])
@@ -148,7 +151,11 @@ async def create_blueprint(
             resource=f"blueprint:{body.blueprint_id}@{body.version}",
         )
         bp = await service.create_blueprint(
-            conn, _tenant(caller), actor=_actor(caller), **body.model_dump()
+            conn,
+            _tenant(caller),
+            actor=_actor(caller),
+            require_approved_build=builds_enforced(request),
+            **body.model_dump(),
         )
         return {
             "blueprint_id": bp.blueprint_id,
@@ -207,6 +214,69 @@ async def revoke_blueprint(
             actor=_actor(caller),
         )
         return {"blueprint_id": blueprint_id, "version": version, "review_status": "REVOKED", **out}
+
+    return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+# ---------------------------------------------------------------- builds (CR-064)
+
+
+def builds_enforced(request: Request) -> bool:
+    """Must a blueprint release run an approved build? On unless the deployment is local, test or dev (or says so)."""
+    mode = getattr(request.app.state, "agent_builds", "auto")
+    env = getattr(request.app.state, "environment", "local")
+    return mode == "enforce" or (mode == "auto" and env not in ("local", "test", "dev"))
+
+
+class BuildBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=120)
+    artifact_digest: str = Field(pattern=r"^sha-?256:[0-9a-f]{64}$")
+    source_ref: str | None = Field(default=None, max_length=300)
+    provenance_ref: str | None = Field(default=None, max_length=300)
+
+
+@router.get("/builds")
+async def list_builds(
+    request: Request,
+    caller: CallerDep,
+    status: Literal["DRAFT", "APPROVED", "REVOKED"] | None = None,
+) -> dict[str, Any]:
+    async def go(conn: Any) -> dict[str, Any]:
+        await protected_action(conn, caller, action="machine.agent.read", resource="build:*")
+        return {
+            "items": await build_store.list_builds(conn, status=status),
+            "enforced": builds_enforced(request),
+        }
+
+    return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+@router.post("/builds", status_code=201)
+async def register_build(body: BuildBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: Any) -> dict[str, Any]:
+        await protected_action(conn, caller, action="machine.build.manage", resource="build:new")
+        return await service.register_build(conn, _tenant(caller), actor=_actor(caller), **body.model_dump())
+
+    return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+@router.post("/builds/{build_id}:approve")
+async def approve_build(build_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: Any) -> dict[str, Any]:
+        await protected_action(conn, caller, action="machine.build.manage", resource=f"build:{build_id}")
+        return await service.approve_build(conn, _tenant(caller), build_id, actor=_actor(caller))
+
+    return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+@router.post("/builds/{build_id}:revoke")
+async def revoke_build(build_id: str, body: ReasonBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def go(conn: Any) -> dict[str, Any]:
+        await protected_action(conn, caller, action="machine.build.manage", resource=f"build:{build_id}")
+        return await service.revoke_build(
+            conn, _tenant(caller), build_id, reason=body.reason_code, actor=_actor(caller)
+        )
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 

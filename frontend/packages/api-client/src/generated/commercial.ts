@@ -94,6 +94,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/activation-refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activation Refunds
+         * @description Plan-activation payments waiting to be returned, with the processor reference to refund.
+         */
+        get: operations["activation_refunds_v1_commercial_activation_refunds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/assurance:run": {
         parameters: {
             query?: never;
@@ -451,6 +471,46 @@ export interface paths {
          * @description The only route from a signed order to a tenant's entitlement. Idempotent; a second person activates.
          */
         post: operations["activate_order_v1_commercial_orders__order_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/orders/{order_id}:cancel-payment-wait": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Payment Wait
+         * @description Take an order back from "awaiting payment" to signed. Nothing was charged; a paid one cannot be taken back here.
+         */
+        post: operations["cancel_payment_wait_v1_commercial_orders__order_id__cancel_payment_wait_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/orders/{order_id}:refund-activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund Activation
+         * @description Mark a paid, unused activation payment as to be returned. The refund is made at the processor; its report marks the payment refunded.
+         */
+        post: operations["refund_activation_v1_commercial_orders__order_id__refund_activation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1775,6 +1835,11 @@ export interface components {
             /** Reseller Of */
             reseller_of?: string | null;
         };
+        /** ActivationRefundBody */
+        ActivationRefundBody: {
+            /** Reason */
+            reason: string;
+        };
         /** AdjustmentBody */
         AdjustmentBody: {
             /**
@@ -2562,6 +2627,28 @@ export interface operations {
             };
         };
     };
+    activation_refunds_v1_commercial_activation_refunds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     run_platform_assurance_v1_commercial_assurance_run_post: {
         parameters: {
             query?: never;
@@ -3199,6 +3286,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_payment_wait_v1_commercial_orders__order_id__cancel_payment_wait_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refund_activation_v1_commercial_orders__order_id__refund_activation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationRefundBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

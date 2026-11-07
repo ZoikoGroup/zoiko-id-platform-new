@@ -579,6 +579,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/members/me:name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name Myself
+         * @description Anyone sets or clears their own display name. It is how colleagues see them next to their member number.
+         */
+        post: operations["name_myself_v1_tenant_members_me_name_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/members/{assignment_id}:reissue": {
         parameters: {
             query?: never;
@@ -607,6 +627,26 @@ export interface paths {
         put?: never;
         /** Revoke Member */
         post: operations["revoke_member_v1_tenant_members__assignment_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/members/{principal_id}:rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename Member
+         * @description An Owner or Admin sets or clears a colleague's display name (the member number never changes).
+         */
+        post: operations["rename_member_v1_tenant_members__principal_id__rename_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -855,6 +895,8 @@ export interface components {
         };
         /** Invite */
         Invite: {
+            /** Display Name */
+            display_name?: string | null;
             /** Email */
             email?: string | null;
             /** @default MEMBER */
@@ -874,6 +916,11 @@ export interface components {
              * Format: uuid
              */
             principal_id: string;
+        };
+        /** PersonName */
+        PersonName: {
+            /** Name */
+            name?: string | null;
         };
         /** RecoveryOpen */
         RecoveryOpen: {
@@ -2249,6 +2296,41 @@ export interface operations {
             };
         };
     };
+    name_myself_v1_tenant_members_me_name_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonName"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reissue_v1_tenant_members__assignment_id__reissue_post: {
         parameters: {
             query?: never;
@@ -2292,6 +2374,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_member_v1_tenant_members__principal_id__rename_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonName"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

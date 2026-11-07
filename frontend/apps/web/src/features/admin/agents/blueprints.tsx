@@ -12,7 +12,7 @@ import { useRuntime } from "@/lib/runtime";
 import { useMe } from "../authority/shared";
 import { BUILD_PASTE, BUILD_TEST, NEEDS, allowTestBuilds, buildChoices, digestFor, manifestDigest, nextVersion, testBuildDigest } from "./agents-logic";
 import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
-import { AGENTS_KEY, BLUEPRINTS_KEY, DIGEST_RE, TOOLS_KEY, UUID_RE } from "./shared";
+import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY, DIGEST_RE, TOOLS_KEY, UUID_RE } from "./shared";
 
 export function BlueprintsSection() {
   const blueprints = useCellQuery(BLUEPRINTS_KEY, (api) => api.agents.blueprints());
@@ -139,6 +139,7 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const me = useMe();
   const existing = useCellQuery(BLUEPRINTS_KEY, (a) => a.agents.blueprints(), { enabled: isOpen });
   const tools = useCellQuery(TOOLS_KEY, (a) => a.agents.tools(), { enabled: isOpen });
+  const builds = useCellQuery(BUILDS_KEY, (a) => a.agents.builds(), { enabled: isOpen });
   const releases = existing.data?.items ?? [];
   const known = [...new Set(releases.map((b) => b.blueprint_id))];
 
@@ -176,7 +177,8 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
     staleTime: Infinity,
   });
   const artifact = digestFor(build, pasted, testDigest.data) ?? "";
-  const buildOptions = buildChoices(releases, allowTestBuilds());
+  const enforced = builds.data?.enforced ?? false;
+  const buildOptions = buildChoices({ builds: builds.data?.items ?? [], releases, enforced, allowTest: allowTestBuilds() });
 
   const manifestToSend = ownManifest.trim() || manifest;
 
@@ -258,8 +260,17 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
           value={build || null}
           onChange={setBuild}
           options={buildOptions}
-          description="You do not need to know a digest: pick an earlier release's build, a test build, or paste one from your registry."
+          description={
+            enforced
+              ? "Only a build that has been registered and approved can be chosen. You do not need to know a digest."
+              : "You do not need to know a digest: pick an approved build, a test build, or paste one from your registry."
+          }
         />
+        {enforced && buildOptions.length === 0 ? (
+          <Banner tone="warn" title="No approved builds yet">
+            Register the software under Builds; a second person approves it. Then it appears here to pick.
+          </Banner>
+        ) : null}
         {build === BUILD_PASTE ? (
           <TextField
             label="Build digest"

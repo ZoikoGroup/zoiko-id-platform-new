@@ -1,4 +1,4 @@
-import type { AgentGate, AgentItem, BlueprintRelease, ToolItem, ToolSideEffect, WorkloadBindingView } from "@zoiko/api-client";
+import type { AgentGate, AgentItem, BlueprintRelease, BuildItem, ToolItem, ToolSideEffect, WorkloadBindingView } from "@zoiko/api-client";
 
 import { ACTION_GROUPS } from "../authority/choice-list";
 
@@ -114,19 +114,31 @@ export const BUILD_PASTE = "paste";
 const REUSE = "reuse:";
 
 /**
- * How a release says which software it runs, without anyone needing to know a digest. A person picks the build of an earlier
- * release, or (outside production) a test build, or pastes a digest from their registry. A real digest cannot be invented from a
- * name: only the build itself has one, which is why the last choice exists.
+ * How a release says which software it runs, without anyone needing to know a digest: the approved builds first, by name. Where
+ * approved builds are not required (a local, test or development setup) earlier releases' builds, a test build and pasting a
+ * digest are also offered; where they are required only an approved build can be chosen. A real digest cannot be invented from a
+ * name: only the build itself has one, so it is entered once, when the build is registered.
  */
-export function buildChoices(releases: { blueprint_id: string; version: string; artifact_digest: string }[], allowTest: boolean): Opt[] {
+export function buildChoices(x: {
+  builds: { name: string; artifact_digest: string; review_status: string }[];
+  releases: { blueprint_id: string; version: string; artifact_digest: string }[];
+  enforced: boolean;
+  allowTest: boolean;
+}): Opt[] {
   const seen = new Set<string>();
   const out: Opt[] = [];
-  for (const r of [...releases].reverse()) {
+  for (const b of x.builds) {
+    if (b.review_status !== "APPROVED" || seen.has(b.artifact_digest)) continue;
+    seen.add(b.artifact_digest);
+    out.push({ id: `${REUSE}${b.artifact_digest}`, label: b.name, description: `${b.artifact_digest.slice(0, 19)}… · approved` });
+  }
+  if (x.enforced) return out;
+  for (const r of [...x.releases].reverse()) {
     if (seen.has(r.artifact_digest)) continue;
     seen.add(r.artifact_digest);
     out.push({ id: `${REUSE}${r.artifact_digest}`, label: `Same build as ${r.blueprint_id} ${r.version}`, description: `${r.artifact_digest.slice(0, 19)}…` });
   }
-  if (allowTest) {
+  if (x.allowTest) {
     out.push({ id: BUILD_TEST, label: "A test build (for trying things out)", description: "A placeholder, not real software. Fine for the screens; not for running an agent." });
   }
   out.push({ id: BUILD_PASTE, label: "A build from my registry…", description: "Paste its sha256 digest." });
@@ -179,6 +191,7 @@ export function heldActions(grants: { actions: string[] | null }[]): string[] | 
 export const NEEDS = {
   tool: ["machine.tool.manage"],
   blueprint: ["machine.blueprint.manage"],
+  build: ["machine.build.manage"],
   agent: ["machine.agent.manage"],
   activate: ["machine.agent.activate"],
   workload: ["machine.workload.manage"],
@@ -186,17 +199,26 @@ export const NEEDS = {
 
 /* ------------------------------------------------------------------------------------------ setup guide */
 
-export type SetupStep = { id: string; title: string; detail: string; done: boolean; tab: "tools" | "blueprints" | "agents" | "workloads" };
+export type SetupStep = { id: string; title: string; detail: string; done: boolean; tab: "tools" | "builds" | "blueprints" | "agents" | "workloads" };
 
 /** The order to set an agent up in, and where each step stands. The first step not done is the one to do next. */
-export function setupSteps(x: { tools: ToolItem[]; blueprints: BlueprintRelease[]; agents: AgentItem[]; bindings: WorkloadBindingView[] }): SetupStep[] {
+export function setupSteps(x: {
+  tools: ToolItem[];
+  blueprints: BlueprintRelease[];
+  agents: AgentItem[];
+  bindings: WorkloadBindingView[];
+  builds?: BuildItem[];
+  buildsEnforced?: boolean;
+}): SetupStep[] {
   const liveTools = x.tools.filter((t) => t.status === "ACTIVE");
   const approved = x.blueprints.filter((b) => b.review_status === "APPROVED");
   const live = x.agents.filter((a) => a.status === "ACTIVE");
   const open = x.agents.filter((a) => a.status !== "REVOKED" && a.status !== "RETIRED");
   const bound = new Set(x.bindings.filter((b) => b.status === "ACTIVE").map((b) => b.logical_principal_id));
   const unbound = open.filter((a) => !bound.has(a.agent_principal_id));
-  return [
+  const builds = x.builds ?? [];
+  const approvedBuilds = builds.filter((b) => b.review_status === "APPROVED");
+  const steps: SetupStep[] = [
     {
       id: "tools",
       title: "Tools",
@@ -233,6 +255,17 @@ export function setupSteps(x: { tools: ToolItem[]; blueprints: BlueprintRelease[
       tab: "agents",
     },
   ];
+  // Where approved builds are required, choosing the software is its own step; elsewhere it appears once builds exist.
+  if (x.buildsEnforced || builds.length > 0) {
+    steps.splice(1, 0, {
+      id: "build",
+      title: "Build",
+      detail: builds.length ? `${approvedBuilds.length} approved of ${builds.length}. Someone else approves.` : "None yet. Register the software an agent will run; a second person approves it.",
+      done: approvedBuilds.length > 0,
+      tab: "builds",
+    });
+  }
+  return steps;
 }
 
 /* -------------------------------------------------------------------------------------------------- misc */

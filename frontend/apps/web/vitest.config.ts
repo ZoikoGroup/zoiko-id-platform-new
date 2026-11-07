@@ -6,5 +6,6 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   oxc: { jsx: { runtime: "automatic" } },
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
-  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
+  // 15 s a test: component tests that open dialogs take about 1 s alone but pass 5 s when a machine is busy (a developer's stack, a shared CI runner).
+  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"], testTimeout: 15_000 },
 });
