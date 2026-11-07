@@ -5,8 +5,11 @@ import { Checkbox, TextField } from "@zoiko/ui";
 import { listInput } from "@/lib/cell";
 
 export type Choice = { id: string; label: string };
+export type ChoiceGroup = { id: string; label: string; description?: string; choices: Choice[] };
 
-/** What a company can most often hand out. Each is a name the platform already knows, so nothing is typed from memory. */
+/** What a company can most often hand out. Each is a name the platform already knows, so nothing is typed from memory.
+ * These four are the spending actions: the mandate dialog uses exactly this list (a mandate narrows a spending grant), so it is
+ * kept as it is and the grant dialog builds on it below. */
 export const ACTION_CHOICES: Choice[] = [
   { id: "payment.release", label: "Release a payment" },
   { id: "mandate.create", label: "Give someone a spending limit (mandate)" },
@@ -22,14 +25,199 @@ export const RESOURCE_CHOICES: Choice[] = [
 ];
 
 /**
+ * Everything the grant dialog can hand out, by feature area, so a person ticks areas instead of typing action names. Each name is one
+ * the cell's routes check today (`action=` and `resource=` in the API modules), and each area's resources are the types those routes
+ * name, so a grant that ticks an area covers what that area's screens do.
+ *
+ * Not listed on purpose: company administration (members, owners, residency, identity providers). Those come with the Owner and Admin
+ * roles and are not delegated one by one; anything else can still be typed under "Something else".
+ */
+export const ACTION_GROUPS: ChoiceGroup[] = [
+  {
+    id: "payments",
+    label: "Payments and invoices",
+    description: "Move or commit company money.",
+    choices: [
+      { id: "payment.release", label: "Release a payment" },
+      { id: "purchase.create", label: "Create a purchase" },
+      { id: "invoice.approve", label: "Approve an invoice" },
+    ],
+  },
+  {
+    id: "mandates",
+    label: "Spending limits (mandates)",
+    description: "Hand part of a grant to an agent or service with a budget.",
+    choices: [
+      { id: "mandate.create", label: "Give someone a spending limit (mandate)" },
+      { id: "mandate.manage", label: "Activate, pause or revoke mandates" },
+      { id: "mandate.read", label: "See mandates and balances" },
+    ],
+  },
+  {
+    id: "agents",
+    label: "Agents and tools",
+    description: "Register AI agents, the blueprints they are built from and the tools they may use.",
+    choices: [
+      { id: "machine.agent.read", label: "See agents, blueprints and tools" },
+      { id: "machine.agent.manage", label: "Register agents and attest their checks" },
+      { id: "machine.agent.activate", label: "Activate an agent" },
+      { id: "machine.blueprint.manage", label: "Publish, approve or revoke blueprint releases" },
+      { id: "machine.tool.manage", label: "Register, activate or suspend tools" },
+    ],
+  },
+  {
+    id: "workloads",
+    label: "Workload identity",
+    description: "Bind a running workload's identity to an agent and quarantine an environment.",
+    choices: [{ id: "machine.workload.manage", label: "Register, revoke or quarantine workload bindings" }],
+  },
+  {
+    id: "evidence",
+    label: "Evidence and audit",
+    description: "Read, verify and export the tamper-evident record.",
+    choices: [
+      { id: "evidence.read", label: "Read receipts and audit records" },
+      { id: "evidence.verify", label: "Verify receipts and the ledger" },
+      { id: "evidence.annotate", label: "Annotate a receipt" },
+      { id: "evidence.export", label: "Export a signed evidence package" },
+    ],
+  },
+  {
+    id: "credentials",
+    label: "Credentials",
+    description: "Issue and manage verifiable credentials.",
+    choices: [
+      { id: "credential.read", label: "See credentials and issuers" },
+      { id: "credential.issue", label: "Issue a credential" },
+      { id: "credential.status.change", label: "Suspend, revoke or reinstate a credential" },
+    ],
+  },
+];
+
+export const RESOURCE_GROUPS: ChoiceGroup[] = [
+  {
+    id: "payments",
+    label: "Payments and invoices",
+    choices: [
+      { id: "payment:*", label: "Any payment" },
+      { id: "purchase:*", label: "Any purchase" },
+      { id: "invoice:*", label: "Any invoice" },
+    ],
+  },
+  { id: "mandates", label: "Spending limits (mandates)", choices: [{ id: "mandate:*", label: "Any spending limit (mandate)" }] },
+  {
+    id: "agents",
+    label: "Agents and tools",
+    choices: [
+      { id: "agent:*", label: "Any agent" },
+      { id: "blueprint:*", label: "Any blueprint release" },
+      { id: "tool:*", label: "Any tool" },
+    ],
+  },
+  {
+    id: "workloads",
+    label: "Workload identity",
+    choices: [
+      { id: "workload_binding:*", label: "Any workload binding" },
+      { id: "workload_environment:*", label: "Any workload environment" },
+    ],
+  },
+  {
+    id: "evidence",
+    label: "Evidence and audit",
+    choices: [
+      { id: "decision_receipt:*", label: "Any decision receipt" },
+      { id: "evidence_case:*", label: "Any evidence case" },
+      { id: "evidence_export:*", label: "Any evidence export" },
+    ],
+  },
+  {
+    id: "credentials",
+    label: "Credentials",
+    choices: [
+      { id: "credential_issuer:*", label: "Any credential issuer" },
+      { id: "credential_configuration:*", label: "Any credential type" },
+    ],
+  },
+];
+
+const idsOf = (groups: ChoiceGroup[], area: string) => groups.find((g) => g.id === area)?.choices.map((c) => c.id) ?? [];
+const withIds = (list: string[], ids: string[], on: boolean) => (on ? [...new Set([...list, ...ids])] : list.filter((x) => !ids.includes(x)));
+
+/**
+ * The quick way to cover a feature: tick an area and both its actions and its resources are ticked below (and cleared again when
+ * unticked). The two lists stay editable for anything finer. Entries typed under "Something else" are never touched.
+ */
+export function AreaPicker({
+  actions,
+  resources,
+  onActions,
+  onResources,
+}: {
+  actions: string;
+  resources: string;
+  onActions: (v: string) => void;
+  onResources: (v: string) => void;
+}) {
+  const a = listInput(actions);
+  const r = listInput(resources);
+  const count = (area: string) => {
+    const ai = idsOf(ACTION_GROUPS, area);
+    const ri = idsOf(RESOURCE_GROUPS, area);
+    return { n: ai.filter((i) => a.includes(i)).length + ri.filter((i) => r.includes(i)).length, total: ai.length + ri.length };
+  };
+  const set = (areas: string[], on: boolean) => {
+    const ai = areas.flatMap((x) => idsOf(ACTION_GROUPS, x));
+    const ri = areas.flatMap((x) => idsOf(RESOURCE_GROUPS, x));
+    onActions(withIds(a, ai, on).join("\n"));
+    onResources(withIds(r, ri, on).join("\n"));
+  };
+  const areas = ACTION_GROUPS.map((g) => g.id);
+  const totals = areas.map(count);
+  const every = totals.every((t) => t.n === t.total);
+  const any = totals.some((t) => t.n > 0);
+
+  return (
+    <fieldset className="space-y-2 sm:col-span-2">
+      <legend className="text-sm font-medium text-ink">What it covers</legend>
+      <p className="text-xs text-ink-subtle">
+        Tick a feature area to cover all of it (its actions and resources are ticked below). Fine-tune below, or leave it as it is.
+      </p>
+      <div className="space-y-2 rounded-card border border-border p-3">
+        <Checkbox isSelected={every} isIndeterminate={any && !every} onChange={(on) => set(areas, on)}>
+          <span className="font-medium">All areas</span>
+        </Checkbox>
+        <div className="grid gap-2 ps-7 sm:grid-cols-2">
+          {ACTION_GROUPS.map((g, i) => {
+            const t = totals[i]!;
+            return (
+              <div key={g.id}>
+                <Checkbox isSelected={t.n === t.total} isIndeterminate={t.n > 0 && t.n < t.total} onChange={(on) => set([g.id], on)}>
+                  {g.label}
+                </Checkbox>
+                {g.description ? <p className="ps-7 text-xs text-ink-subtle">{g.description}</p> : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
+/**
  * Pick from a list instead of typing exact names. The value stays the text the form already sends (one entry per line),
  * so the ticked boxes and the "something else" box are two views of the same list; entries that are not in the list are
  * kept in the box so nothing is lost.
+ *
+ * Give it `groups` to show the choices by feature area, each with a box that ticks or clears the whole area. `choices` alone keeps
+ * the plain list the mandate dialog uses.
  */
 export function ChoiceList({
   label,
   description,
   choices,
+  groups,
   value,
   onChange,
   otherLabel,
@@ -37,18 +225,26 @@ export function ChoiceList({
 }: {
   label: string;
   description: string;
-  choices: Choice[];
+  choices?: Choice[];
+  groups?: ChoiceGroup[];
   value: string;
   onChange: (v: string) => void;
   otherLabel: string;
   otherPlaceholder: string;
 }) {
+  const sections: ChoiceGroup[] = groups ?? [{ id: "all", label: "", choices: choices ?? [] }];
+  const all = sections.flatMap((s) => s.choices);
   const chosen = listInput(value);
-  const known = new Set(choices.map((c) => c.id));
+  const known = new Set(all.map((c) => c.id));
   const custom = chosen.filter((v) => !known.has(v));
 
-  const toggle = (id: string, on: boolean) =>
-    onChange([...choices.map((c) => c.id).filter((i) => (i === id ? on : chosen.includes(i))), ...custom].join("\n"));
+  /** The new list: every known choice that stays ticked (in list order), then whatever was typed under "Something else". */
+  const write = (ticked: (id: string) => boolean) => onChange([...all.map((c) => c.id).filter(ticked), ...custom].join("\n"));
+  const toggle = (id: string, on: boolean) => write((i) => (i === id ? on : chosen.includes(i)));
+  const toggleGroup = (g: ChoiceGroup, on: boolean) => {
+    const ids = new Set(g.choices.map((c) => c.id));
+    write((i) => (ids.has(i) ? on : chosen.includes(i)));
+  };
 
   return (
     <fieldset className="space-y-2">
@@ -56,19 +252,43 @@ export function ChoiceList({
         {label} <span aria-hidden className="text-danger-fg">*</span>
       </legend>
       <p className="text-xs text-ink-subtle">{description}</p>
-      <div className="space-y-2 rounded-card border border-border p-3">
-        {choices.map((c) => (
-          <Checkbox key={c.id} isSelected={chosen.includes(c.id)} onChange={(on) => toggle(c.id, on)}>
-            {c.label} <code className="ms-1 rounded bg-sunken px-1 font-mono text-xs text-ink-muted">{c.id}</code>
-          </Checkbox>
-        ))}
+      <div className="space-y-3 rounded-card border border-border p-3">
+        {sections.map((s) => {
+          const ticked = s.choices.filter((c) => chosen.includes(c.id)).length;
+          return (
+            <div key={s.id} role={groups ? "group" : undefined} aria-label={groups ? s.label : undefined} className="space-y-2">
+              {groups ? (
+                <div className="space-y-0.5 border-b border-border pb-1.5">
+                  <Checkbox
+                    isSelected={ticked === s.choices.length && ticked > 0}
+                    isIndeterminate={ticked > 0 && ticked < s.choices.length}
+                    onChange={(on) => toggleGroup(s, on)}
+                  >
+                    <span className="font-medium">{s.label}</span>{" "}
+                    <span className="text-xs text-ink-subtle">
+                      ({ticked} of {s.choices.length})
+                    </span>
+                  </Checkbox>
+                  {s.description ? <p className="ps-7 text-xs text-ink-subtle">{s.description}</p> : null}
+                </div>
+              ) : null}
+              <div className={groups ? "space-y-2 ps-7" : "space-y-2"}>
+                {s.choices.map((c) => (
+                  <Checkbox key={c.id} isSelected={chosen.includes(c.id)} onChange={(on) => toggle(c.id, on)}>
+                    {c.label} <code className="ms-1 rounded bg-sunken px-1 font-mono text-xs text-ink-muted">{c.id}</code>
+                  </Checkbox>
+                ))}
+              </div>
+            </div>
+          );
+        })}
         <details open={custom.length > 0}>
           <summary className="cursor-pointer pt-1 text-xs font-medium text-brand-700">Something else</summary>
           <div className="pt-2">
             <TextField
               label={otherLabel}
               value={custom.join(", ")}
-              onChange={(t) => onChange([...choices.map((c) => c.id).filter((i) => chosen.includes(i)), ...listInput(t)].join("\n"))}
+              onChange={(t) => onChange([...all.map((c) => c.id).filter((i) => chosen.includes(i)), ...listInput(t)].join("\n"))}
               mono
               placeholder={otherPlaceholder}
             />
