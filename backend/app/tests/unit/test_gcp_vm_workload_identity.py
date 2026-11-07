@@ -173,3 +173,13 @@ def test_the_preflight_checks_what_a_vm_must_get_right_and_changes_nothing() -> 
     ):
         assert needle in body, needle
     assert not re.search(r"(chown|chmod|mkdir|rm|docker run|docker compose)", body.replace("mkdir -p $sock", "")), "preflight only looks"
+
+
+def test_the_digest_is_entered_once_and_the_deployment_says_how_builds_are_required() -> None:
+    script = _text("workload-identity.sh")
+    assert "sync-attestor)" in script and "zid_platform.entrypoints.attestor_sync" in script
+    assert "--registrations /work/workloads.json" in script
+    readme = _text("README.md")
+    assert "sync-attestor" in readme and "ZID_AGENT_BUILDS" in readme
+    assert "ZID_AGENT_BUILDS" in _text("env.example")
+    assert "approved_digests" in readme and "do **not** type" in readme

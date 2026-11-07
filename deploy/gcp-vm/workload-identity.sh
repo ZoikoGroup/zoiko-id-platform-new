@@ -11,6 +11,7 @@
 #     ./workload-identity.sh edge-ca                     the root a workload must trust to reach the workload listener
 #     ./workload-identity.sh docker-gid                  the group number that owns the engine socket (for ZID_DOCKER_GID)
 #     ./workload-identity.sh preflight                   check this VM is ready for the profile; exit 1 on any FAIL
+#     ./workload-identity.sh sync-attestor WORKSPACE [--write]   fill attestor/workloads.json's approved digests from approved builds
 set -eu
 cd "$(dirname "$0")"
 cmd="${1:-}"
@@ -117,11 +118,18 @@ case "$cmd" in
     [ -z "$(env_value ZID_SPIRE_JOIN_TOKEN)" ] && ok "no join token left in .env" || warn "ZID_SPIRE_JOIN_TOKEN is still set: remove it once the agent has joined"
     [ "$fails" -eq 0 ] && echo "ready." || { echo "$fails problem(s) to fix before starting the profile." >&2; exit 1; }
     ;;
+  sync-attestor)
+    ws="${1:?usage: sync-attestor WORKSPACE [--write]}"; shift
+    [ -f attestor/workloads.json ] || { echo "attestor/workloads.json missing: copy attestor/workloads.example.json and write its selectors first" >&2; exit 2; }
+    # runs in the cell's own image and reads the company's records the way the cell does; it changes only the file it is given (with --write)
+    docker compose run --rm --no-deps -v "$PWD/attestor:/work" cell \
+      python -m zid_platform.entrypoints.attestor_sync --workspace "$ws" --registrations /work/workloads.json "$@"
+    ;;
   edge-ca)
     docker compose --profile workload-identity exec -T workload-edge cat /data/caddy/pki/authorities/local/root.crt
     ;;
   *)
-    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
     ;;
 esac

@@ -21,6 +21,7 @@ import pytest
 from conftest import ctx, engine
 from cryptography.hazmat.primitives.serialization import Encoding
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from test_workload_identity_pg import AUD, DOMAIN, ISS, POLICY, _ca, _svid, seed_agent
 from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
@@ -86,6 +87,8 @@ def _world(rt_url: str, tmp_path: Path, digest: str, sid: str, tenant: str, agen
         configure_runtime(development_runtime("uk-1"))
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             await seed_agent(c, tenant, agent_id)
+            # the agent's approved release runs the container's real image, which is what the binding must name (CR-064)
+            await c.execute(text("UPDATE agent.blueprint_release SET artifact_digest = :d WHERE blueprint_id = 'bp_pay'"), {"d": digest})
             await workload.register_binding(
                 c,
                 tenant,

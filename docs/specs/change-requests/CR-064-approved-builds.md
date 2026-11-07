@@ -33,9 +33,15 @@ know a digest, so the console asked for something its users could not supply. A 
 
 ## Not built, and why
 - Registering builds from a CI pipeline with a scoped machine credential (today a person registers a build in the console or over the API).
-- Deriving the attestor's per-workload approved digests from approved builds. The attestor registration file stays the reviewed list
-  (`docs/architecture/workload-attestor.md`); a later change can generate it.
 - Listing images from a container registry: it needs registry access and credentials, which the platform does not hold.
+
+## Added after the first version
+- **A binding runs its agent's release.** `POST /v1/machine/workload-bindings` now refuses a digest or version other than the one of the agent's own
+  blueprint release (`WORKLOAD_ARTIFACT_NOT_APPROVED`), an unapproved release (`AGENT_BLUEPRINT_NOT_APPROVED`) and, where builds are required, a build
+  nobody approved (`BUILD_NOT_APPROVED`). Before this, the console filled in the right digest and nothing else checked it.
+- **The attestor's digests come from approved builds.** `entrypoints/attestor_sync.py` (planner in `attestor/sync.py`) fills the registration file's
+  `approved_digests` from active bindings that run approved builds, so a digest is entered once, under Builds. The file stays a reviewed change.
+- **Deployment docs.** `ZID_AGENT_BUILDS` and the sync step are in `deploy/gcp-vm/README.md` and `env.example`, and `workload-identity.sh sync-attestor` runs it.
 
 ## Tests
 `test_agent_builds_pg.py`: nobody without authority sees or changes a build; register, duplicate (either spelling), the registrar cannot approve,

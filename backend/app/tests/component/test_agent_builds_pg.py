@@ -20,13 +20,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from test_workload_identity_pg import DIGEST as SEEDED_DIGEST
+from test_workload_identity_pg import DOMAIN
 from test_workload_identity_pg import seed_agent
 from zid_crypto import KeyRing, LocalSigner
+from zid_context.spiffe import TrustPolicy
 from zid_db import tenant_transaction
+from zid_platform.entrypoints.attestor_sync import approved_by_workload
 from zid_platform.main import create_app
 from zid_platform.modules.evidence.application.runtime import configure_runtime, development_runtime
 from zid_platform.modules.machine.application import agents as service
-from zid_platform.modules.machine.domain.agents import Attestation, BindingStatus, WorkloadBinding
+from zid_platform.modules.machine.application import workload
+from zid_platform.modules.machine.domain.agents import Attestation, BindingStatus, MachineError, WorkloadBinding
 from zid_platform.modules.machine.infrastructure.machine_store import save_binding
 from zid_platform.modules.principal.domain.principal import Principal, PrincipalStatus, PrincipalType
 from zid_platform.modules.principal.infrastructure.principal_store import create_principal, load_principal
@@ -210,3 +214,58 @@ def test_builds_are_required_by_default_outside_local_test_and_dev() -> None:
         assert builds_enforced(req("auto", env)) is True
     assert builds_enforced(req("enforce", "local")) is True
     assert builds_enforced(req("off", "local")) is False
+
+
+def test_a_binding_runs_the_software_of_its_agents_approved_release(rt_url: str) -> None:
+    """A workload binding names the digest of the release its agent is built from: not any digest, not another version, not an
+    unapproved release, and (where approved builds are required) not a build nobody approved."""
+    tenant, agent_id, registrar, approver = uid(), uid(), uid(), uid()
+    policy = TrustPolicy(DOMAIN)
+
+    def sid(n: int) -> str:
+        return f"spiffe://{DOMAIN}/t/{tenant}/ns/x/sa/w{n}"
+
+    async def bind(c: Any, n: int, *, digest: str = SEEDED_DIGEST, version: str = "1.0.0", enforced: bool = False) -> Any:
+        return await workload.register_binding(
+            c, tenant, policy=policy, agent_principal_id=agent_id, spiffe_id=sid(n), blueprint_version=version,
+            artifact_digest=digest, environment_id="prod", attestation_required=2,
+            valid_to=datetime.now(UTC) + timedelta(days=1), actor=uid(), require_approved_build=enforced,
+        )
+
+    async def refused(c: Any, n: int, code: str, **kw: Any) -> None:
+        async with c.begin_nested():
+            with pytest.raises(MachineError) as e:
+                await bind(c, n, **kw)
+            assert e.value.code == code, e.value.code
+
+    async def run() -> None:
+        configure_runtime(development_runtime("uk-1"))
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await seed_agent(c, tenant, agent_id)  # ACTIVE agent on bp_pay@1.0.0, an approved release of SEEDED_DIGEST
+
+            await refused(c, 1, "WORKLOAD_ARTIFACT_NOT_APPROVED", digest=D1)  # any other digest
+            await refused(c, 2, "WORKLOAD_ARTIFACT_NOT_APPROVED", version="9.9.9")  # right digest, another version
+            await refused(c, 3, "WORKLOAD_ARTIFACT_NOT_APPROVED", digest="notadigest")
+
+            ok = await bind(c, 4)
+            assert ok.artifact_digest == SEEDED_DIGEST
+            spelled = await bind(c, 5, digest=SEEDED_DIGEST.replace("sha256:", "sha-256:"))  # either spelling is the same digest
+            assert spelled.binding_id
+
+            # where approved builds are required, the release's own build must be approved too
+            await refused(c, 6, "BUILD_NOT_APPROVED", enforced=True)
+            built = await service.register_build(c, tenant, name="pay bot", artifact_digest=SEEDED_DIGEST, source_ref=None, provenance_ref=None, actor=registrar)
+            await refused(c, 7, "BUILD_NOT_APPROVED", enforced=True)  # registered, not yet approved
+            await service.approve_build(c, tenant, built["build_id"], actor=approver)
+            assert (await bind(c, 8, enforced=True)).binding_id
+
+            # what the attestor registration would list: the approved build's digest, for the bindings that run it
+            found = await approved_by_workload(c)
+            assert found[sid(8)] == frozenset({SEEDED_DIGEST})
+            assert found[sid(5)] == frozenset({SEEDED_DIGEST}), "a binding spelled sha-256: matches its build all the same"
+
+            # a release that is not approved (here: revoked) cannot back a new binding
+            await c.execute(text("UPDATE agent.blueprint_release SET review_status = 'REVOKED' WHERE blueprint_id = 'bp_pay'"))
+            await refused(c, 9, "AGENT_BLUEPRINT_NOT_APPROVED")
+
+    asyncio.run(run())

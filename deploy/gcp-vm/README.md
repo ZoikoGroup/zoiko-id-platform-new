@@ -157,7 +157,14 @@ Private DNS for the listener (once per project; a zone for `workload.<domain>` o
 gcloud dns managed-zones create zid-workload --dns-name=workload.<domain>. --visibility=private --networks=zid --description='workload listener'
 gcloud dns record-sets create workload.<domain>. --zone=zid-workload --type=A --ttl=300 --rrdatas=<app VM private address>
 ```
-`attestor/workloads.json` changes by reviewed change, like SPIRE registrations: widening an entry is visible in review. The approved digests come from your signed releases. Register the workload in the console (workload binding) so the cell recognises it.
+`attestor/workloads.json` changes by reviewed change, like SPIRE registrations: widening an entry is visible in review. You write each entry's `selectors` (which container it is). You do **not** type its `approved_digests`: they come from the console. A person registers the build under **Agents & tools → Builds**, a second person approves it, the workload is bound in **Workload identity**, and then:
+```bash
+./workload-identity.sh sync-attestor <workspace>            # shows what would change: + a newly approved digest, - one no longer approved
+./workload-identity.sh sync-attestor <workspace> --write    # rewrites the file; read the difference and commit it
+```
+A digest is listed only while an active binding runs an approved build, and an entry with none behind it is reported, never silently emptied. Pipelines can run it with `--check`, which exits 1 when the file is out of date.
+
+**Approved builds are required here by default.** A blueprint release, and a workload binding, must run an approved build whenever `ZID_ENVIRONMENT` is not `local`, `test` or `dev`. `ZID_AGENT_BUILDS=enforce` makes it so everywhere; `off` is refused at start-up in a deployed environment. A binding must also carry the digest and version of its own agent's approved release, so one cannot be pointed at other software.
 
 **e. Check it.** `docker compose logs attestor` shows `attested ... level 2: 200 OK` for a running, approved container, `not attested ... not running` for a stopped one, and level 1 for the right container running an image that is not approved (level 1 cannot get a token). A workload reaches the cell at `https://workload.<domain>:9443` with its SVID as the TLS client certificate (`./workload-identity.sh edge-ca` prints the root to trust for that listener's own certificate; point `workload.<domain>` at the app VM's private address in private DNS).
 
