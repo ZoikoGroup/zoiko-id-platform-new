@@ -92,6 +92,33 @@ export const ACTION_GROUPS: ChoiceGroup[] = [
       { id: "credential.status.change", label: "Suspend, revoke or reinstate a credential" },
     ],
   },
+  {
+    id: "privacy",
+    label: "Privacy and data rights",
+    description: "Handle data-subject requests, retention and the record of processing.",
+    choices: [
+      { id: "privacy.read", label: "See privacy records, purposes and retention" },
+      { id: "privacy.rights.manage", label: "Handle data-subject requests" },
+      { id: "privacy.rights.fulfill", label: "Fulfil a data-subject request" },
+      { id: "privacy.retention.manage", label: "Change retention rules" },
+      { id: "privacy.processing_activity.manage", label: "Record processing activities and purposes" },
+      { id: "privacy.role_assignment.manage", label: "Assign controller or processor roles" },
+    ],
+  },
+  {
+    id: "verification",
+    label: "Verification and screening",
+    description: "Run identity and company checks and their reviews.",
+    choices: [
+      { id: "verification.profile.manage", label: "Publish verification profiles" },
+      { id: "verification.adapter.manage", label: "Manage verification provider trust" },
+      { id: "verification.review.decide", label: "Decide a manual verification review" },
+      { id: "verification.screening.review", label: "Review a screening case" },
+      { id: "verification.screening.read_restricted", label: "Read restricted screening detail" },
+      { id: "verification.assertion.revoke", label: "Revoke a verification assertion" },
+      { id: "organization.kyb.review", label: "Review a company (KYB) case" },
+    ],
+  },
 ];
 
 export const RESOURCE_GROUPS: ChoiceGroup[] = [
@@ -137,6 +164,33 @@ export const RESOURCE_GROUPS: ChoiceGroup[] = [
     choices: [
       { id: "credential_issuer:*", label: "Any credential issuer" },
       { id: "credential_configuration:*", label: "Any credential type" },
+    ],
+  },
+  {
+    id: "privacy",
+    label: "Privacy and data rights",
+    choices: [
+      { id: "rights_request:*", label: "Any data-subject request" },
+      { id: "data_map:*", label: "Any data map" },
+      { id: "restriction:*", label: "Any processing restriction" },
+      { id: "processing_activity:*", label: "Any processing activity" },
+      { id: "purpose:*", label: "Any purpose" },
+      { id: "retention_policy:*", label: "Any retention policy" },
+      { id: "processor:*", label: "Any processor" },
+      { id: "privacy_notice:*", label: "Any privacy notice" },
+      { id: "processing_role_assignment:*", label: "Any controller or processor role" },
+    ],
+  },
+  {
+    id: "verification",
+    label: "Verification and screening",
+    choices: [
+      { id: "verification_profile:*", label: "Any verification profile" },
+      { id: "verification_adapter:*", label: "Any verification provider" },
+      { id: "verification_review_case:*", label: "Any manual review case" },
+      { id: "screening_case:*", label: "Any screening case" },
+      { id: "verification_assertion:*", label: "Any verification assertion" },
+      { id: "kyb_case:*", label: "Any company (KYB) case" },
     ],
   },
 ];

@@ -1,4 +1,6 @@
 /** The grant dialog's pickers: ticking a feature area covers all of it, the lists stay in step, and nothing typed by hand is lost. */
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -87,9 +89,50 @@ describe("the catalogue the dialog offers", () => {
     for (const r of ["agent:*", "blueprint:*", "tool:*", "workload_binding:*", "workload_environment:*"]) expect(resources.has(r), r).toBe(true);
   });
 
+  it("covers privacy and verification too, with the resources their routes check", () => {
+    const actions = new Set(ACTION_GROUPS.flatMap((g) => g.choices.map((c) => c.id)));
+    for (const a of ["privacy.read", "privacy.rights.manage", "privacy.rights.fulfill", "privacy.retention.manage", "privacy.processing_activity.manage", "privacy.role_assignment.manage"]) {
+      expect(actions.has(a), a).toBe(true);
+    }
+    for (const a of ["verification.profile.manage", "verification.adapter.manage", "verification.review.decide", "verification.screening.review", "verification.screening.read_restricted", "verification.assertion.revoke", "organization.kyb.review"]) {
+      expect(actions.has(a), a).toBe(true);
+    }
+    const resources = new Set(RESOURCE_GROUPS.flatMap((g) => g.choices.map((c) => c.id)));
+    for (const r of ["rights_request:*", "retention_policy:*", "processing_activity:*", "verification_profile:*", "screening_case:*", "kyb_case:*"]) expect(resources.has(r), r).toBe(true);
+  });
+
   it("leaves the mandate dialog's spending-only lists as they were", () => {
     expect(ACTION_CHOICES.map((c) => c.id)).toEqual(["payment.release", "mandate.create", "purchase.create", "invoice.approve"]);
     expect(RESOURCE_CHOICES.map((c) => c.id)).toEqual(["payment:*", "mandate:*", "purchase:*", "invoice:*"]);
+  });
+});
+
+/** The names a grant can carry must be names the cell checks, or the box grants nothing. Read from the backend's own routes. */
+const MODULES = join(process.cwd(), "..", "..", "..", "backend", "app", "src", "zid_platform", "modules");
+// Checked by the customer's own enforcement point, not by a route of this platform, so they are not in the routes.
+const CUSTOMER_ENFORCED_ACTIONS = new Set(["payment.release", "purchase.create", "invoice.approve"]);
+const CUSTOMER_ENFORCED_RESOURCES = new Set(["payment", "purchase", "invoice"]);
+
+function pythonFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? pythonFiles(p) : p.endsWith(".py") ? [p] : [];
+  });
+}
+
+describe.skipIf(!existsSync(MODULES))("the names match what the backend checks", () => {
+  const source = existsSync(MODULES) ? pythonFiles(MODULES).map((f) => readFileSync(f, "utf-8")).join("\n") : "";
+  const actions = new Set([...source.matchAll(/(?:action|ACTION)\s*=\s*"([a-z_]+(?:\.[a-z_]+)+)"/g)].map((m) => m[1]!));
+  const resources = new Set([...source.matchAll(/resource=f?"([a-z_]+):/g)].map((m) => m[1]!));
+
+  it("every action a box offers is checked by some route (or by the customer's own enforcement point)", () => {
+    const missing = ACTION_GROUPS.flatMap((g) => g.choices.map((c) => c.id)).filter((a) => !actions.has(a) && !CUSTOMER_ENFORCED_ACTIONS.has(a));
+    expect(missing).toEqual([]);
+  });
+
+  it("every resource type a box offers is one a route names", () => {
+    const missing = RESOURCE_GROUPS.flatMap((g) => g.choices.map((c) => c.id.replace(/:\*$/, ""))).filter((r) => !resources.has(r) && !CUSTOMER_ENFORCED_RESOURCES.has(r));
+    expect(missing).toEqual([]);
   });
 });
 
