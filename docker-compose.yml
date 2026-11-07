@@ -216,6 +216,7 @@ services:
   spire-server:
     profiles: ["spire"]
     image: ghcr.io/spiffe/spire-server:1.13.2
+    user: "0:0"   # local profile only: a fresh named volume is root-owned and the image's own user cannot open the sqlite file
     command: ["-config", "/opt/spire/conf/server/server.conf"]
     volumes:
       - ./local/spire/server.conf:/opt/spire/conf/server/server.conf:ro
