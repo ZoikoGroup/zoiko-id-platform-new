@@ -1,15 +1,18 @@
 "use client";
 
 import type { BlueprintRelease } from "@zoiko/api-client";
-import { useQueryClient } from "@tanstack/react-query";
-import { Banner, Button, Card, CopyId, DataTable, DateTime, Dialog, EmptyState, StatusBadge, TextField, useToast, type Column } from "@zoiko/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Banner, Button, Card, CopyId, DataTable, DateTime, Dialog, EmptyState, Select, StatusBadge, TextField, useToast, type Column } from "@zoiko/ui";
 import { PackageCheck, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
-import { AGENTS_KEY, BLUEPRINTS_KEY, DIGEST_RE, UUID_RE } from "./shared";
+import { useMe } from "../authority/shared";
+import { NEEDS, manifestDigest, nextVersion } from "./agents-logic";
+import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
+import { AGENTS_KEY, BLUEPRINTS_KEY, DIGEST_RE, TOOLS_KEY, UUID_RE } from "./shared";
 
 export function BlueprintsSection() {
   const blueprints = useCellQuery(BLUEPRINTS_KEY, (api) => api.agents.blueprints());
@@ -127,18 +130,44 @@ export function BlueprintsSection() {
   );
 }
 
+const NEW_BLUEPRINT = "__new__";
+
 function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { api, protect } = useRuntime();
   const qc = useQueryClient();
   const toast = useToast();
-  const [id, setId] = useState("");
-  const [version, setVersion] = useState("");
+  const me = useMe();
+  const existing = useCellQuery(BLUEPRINTS_KEY, (a) => a.agents.blueprints(), { enabled: isOpen });
+  const tools = useCellQuery(TOOLS_KEY, (a) => a.agents.tools(), { enabled: isOpen });
+  const releases = existing.data?.items ?? [];
+  const known = [...new Set(releases.map((b) => b.blueprint_id))];
+
+  const [which, setWhich] = useState(NEW_BLUEPRINT);
+  const [newId, setNewId] = useState("");
+  const [versionEdit, setVersionEdit] = useState<string | null>(null);
   const [artifact, setArtifact] = useState("");
-  const [manifest, setManifest] = useState("");
-  const [publisher, setPublisher] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [ownManifest, setOwnManifest] = useState("");
+  const [publisherPick, setPublisherPick] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const id = which === NEW_BLUEPRINT ? newId.trim() : which;
+  const version = versionEdit ?? nextVersion(releases.filter((b) => b.blueprint_id === id).map((b) => b.version));
+  const publisher = publisherPick || me || "";
+  const chosenTools = (tools.data?.items ?? []).filter((t) => chosen.includes(t.tool_id));
+
+  // The manifest digest follows the tools ticked: the same tools always give the same digest.
+  const digest = useQuery({
+    queryKey: ["agents", "manifest-digest", ...chosenTools.map((t) => `${t.tool_id}@${t.version}`).sort()],
+    queryFn: () => manifestDigest(chosenTools),
+    enabled: chosenTools.length > 0,
+    staleTime: Infinity,
+  });
+  const manifest = chosenTools.length > 0 ? (digest.data ?? "") : "";
+
+  const manifestToSend = ownManifest.trim() || manifest;
 
   function close() {
     if (pending) return;
@@ -150,19 +179,20 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   async function submit() {
     setFormError(null);
     setError(null);
-    if (!/^[a-z0-9][a-z0-9._-]{1,62}$/.test(id.trim())) return setFormError("Blueprint ID: lowercase letters, digits, dot, dash or underscore (2 to 63 characters).");
+    if (!/^[a-z0-9][a-z0-9._-]{1,62}$/.test(id)) return setFormError("Blueprint name: lowercase letters, digits, dot, dash or underscore (2 to 63 characters).");
     if (!version.trim()) return setFormError("Give the release a version.");
+    if (releases.some((b) => b.blueprint_id === id && b.version === version.trim())) return setFormError(`${id} ${version} already exists. A release never changes: use the next version.`);
     if (!DIGEST_RE.test(artifact.trim())) return setFormError("The artifact digest must be sha256: followed by 64 hex characters.");
-    if (!DIGEST_RE.test(manifest.trim())) return setFormError("The tool manifest digest must be sha256: followed by 64 hex characters.");
-    if (!UUID_RE.test(publisher.trim())) return setFormError("The publisher must be a principal ID.");
+    if (!DIGEST_RE.test(manifestToSend)) return setFormError("Tick at least one tool for this release (or paste a tool manifest digest under Advanced).");
+    if (!UUID_RE.test(publisher.trim())) return setFormError("Choose who publishes this release.");
     setPending(true);
     try {
       await protect(() =>
         api.agents.createBlueprint({
-          blueprint_id: id.trim(),
+          blueprint_id: id,
           version: version.trim(),
           artifact_digest: artifact.trim(),
-          tool_manifest_digest: manifest.trim(),
+          tool_manifest_digest: manifestToSend,
           publisher_principal_id: publisher.trim(),
         }),
       );
@@ -191,13 +221,58 @@ function DraftBlueprintDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
       }
     >
       <div className="space-y-4">
+        <AuthorityNotice needs={NEEDS.blueprint} what="publish a blueprint" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Blueprint ID" isRequired mono value={id} onChange={setId} placeholder="finance-approval-bot" />
-          <TextField label="Version" isRequired mono value={version} onChange={setVersion} placeholder="1.0.0" />
+          <Select
+            label="Blueprint"
+            isRequired
+            value={which}
+            onChange={(v) => {
+              setWhich(v);
+              setVersionEdit(null);
+            }}
+            options={[{ id: NEW_BLUEPRINT, label: "A new blueprint", description: "Start a new design." }, ...known.map((k) => ({ id: k, label: k, description: "A new version of this blueprint." }))]}
+          />
+          {which === NEW_BLUEPRINT ? (
+            <TextField label="Name" isRequired mono value={newId} onChange={setNewId} placeholder="finance-approval-bot" description="Lowercase letters, digits, dot, dash." />
+          ) : (
+            <div />
+          )}
         </div>
-        <TextField label="Artifact digest" isRequired mono value={artifact} onChange={setArtifact} placeholder="sha256:…" description="The signed build or container digest that will run." />
-        <TextField label="Tool manifest digest" isRequired mono value={manifest} onChange={setManifest} placeholder="sha256:…" />
-        <TextField label="Publisher principal ID" isRequired mono value={publisher} onChange={setPublisher} description="Who built and published this release; they cannot approve it." />
+        <TextField label="Version" isRequired mono value={version} onChange={setVersionEdit} description="Suggested from the releases that exist. Change it only if you need a different number." />
+        <TextField
+          label="Artifact digest"
+          isRequired
+          mono
+          value={artifact}
+          onChange={setArtifact}
+          placeholder="sha256:…"
+          description="The signed build or container digest that will run (from your build or registry). It cannot be chosen from a list."
+          errorMessage={artifact.trim() && !DIGEST_RE.test(artifact.trim()) ? "sha256: followed by 64 hex characters." : undefined}
+        />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-ink">
+            Tools in this release <span aria-hidden className="text-danger-fg">*</span>
+          </p>
+          <ToolChecklist
+            tools={tools.data?.items ?? []}
+            value={chosen}
+            onChange={setChosen}
+            emptyHint="No tools yet. Register one under Tools first; a release lists the tools its agents may ever use."
+          />
+          {manifest ? (
+            <p className="text-xs text-ink-subtle">
+              Tool manifest digest, worked out from these tools: <CopyId value={manifest} label="tool manifest digest" />
+            </p>
+          ) : null}
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-brand-700">Advanced: use my own tool manifest digest</summary>
+            <div className="pt-2">
+              <TextField label="Tool manifest digest" mono value={ownManifest} onChange={setOwnManifest} placeholder="sha256:…" description="Replaces the one worked out above." />
+            </div>
+          </details>
+        </div>
+        <PersonSelect label="Publisher" isRequired value={publisher} onChange={setPublisherPick} description="Who built and published this release. They cannot approve it." />
         {formError ? <Banner tone="danger" title="Check the form" live="polite">{formError}</Banner> : null}
         {error ? <ApiErrorView error={error} /> : null}
       </div>
