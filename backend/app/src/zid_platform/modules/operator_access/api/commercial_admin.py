@@ -196,7 +196,9 @@ async def list_books(request: Request, op: OperatorDep) -> dict[str, Any]:
 
 
 @router.get("/v1/commercial/price-books/{price_book_id}/readiness")
-async def book_readiness(price_book_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+async def book_readiness(
+    price_book_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
     """What this price book still lacks before it is approved: unpriced SKU and plan pairs, and lines chosen as free."""
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         if await store.price_book(conn, str(price_book_id)) is None:
@@ -221,7 +223,9 @@ async def get_book(price_book_id: uuid.UUID, request: Request, op: OperatorDep) 
                 "unit_divisor": ln["unit_divisor"],
                 "included_quantity": ln["included_quantity"],
                 # a line edited in the console is written back whole, so the minimum must be read here or an edit would erase it
-                "minimum_amount": format(ln["minimum_amount"].normalize(), "f") if ln["minimum_amount"] is not None else None,
+                "minimum_amount": format(ln["minimum_amount"].normalize(), "f")
+                if ln["minimum_amount"] is not None
+                else None,
                 "unit": ln["unit"],
             }
             for ln in lines
@@ -392,7 +396,11 @@ async def notify_service_move(conn: Any, moved: dict[str, Any]) -> None:
     """Tell the company, in its own Alerts, where its request stands. Raised in the company's tenant context, never the operator's."""
     from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
 
-    words = {"IN_PROGRESS": "has been started", "ACTIVE": "is now in place", "DECLINED": "was declined"}[moved["status"]]
+    words = {
+        "IN_PROGRESS": "has been started",
+        "ACTIVE": "is now in place",
+        "DECLINED": "was declined",
+    }[moved["status"]]
     service = str(moved["service"]).replace("_", " ").lower()
     draft = AlertDraft(
         severity=Severity.INFO,
@@ -420,11 +428,25 @@ async def move_service_request(
         operator_scope(conn),
     ):
         try:
-            moved = await service_requests.move(conn, str(request_id), target=body.status, operator_id=op.principal_id, note=body.note)
+            moved = await service_requests.move(
+                conn,
+                str(request_id),
+                target=body.status,
+                operator_id=op.principal_id,
+                note=body.note,
+            )
             await notify_service_move(conn, moved)
             return moved
         except ServiceRequestError as e:
-            raise ZidError(e.code, e.detail, http_status=404 if e.code.endswith("NOT_FOUND") else 409 if "REFUSED" in e.code else 422) from e
+            raise ZidError(
+                e.code,
+                e.detail,
+                http_status=404
+                if e.code.endswith("NOT_FOUND")
+                else 409
+                if "REFUSED" in e.code
+                else 422,
+            ) from e
 
 
 class DeletionBody(BaseModel):
@@ -485,12 +507,16 @@ class EnforcementBody(BaseModel):
 
 
 @router.get("/v1/commercial/tenants/{tenant_id}/enforcement")
-async def get_enforcement(tenant_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+async def get_enforcement(
+    tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
     async with (
         tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
         operator_scope(conn),
     ):
-        return await enforcement_store.read(conn, str(tenant_id), getattr(request.app.state, "commercial_enforcement", "shadow"))
+        return await enforcement_store.read(
+            conn, str(tenant_id), getattr(request.app.state, "commercial_enforcement", "shadow")
+        )
 
 
 @router.put("/v1/commercial/tenants/{tenant_id}/enforcement")
@@ -505,9 +531,21 @@ async def set_enforcement(
         operator_scope(conn),
     ):
         await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
-        await enforcement_store.write(conn, tenant, mode=body.mode, reason=body.reason.strip(), actor=op.principal_id)
-        await log_change(conn, kind=f"ENFORCEMENT_{body.mode}", ref=tenant, tenant_id=tenant, actor=op.principal_id, reason=body.reason.strip(), detail={})
-        return await enforcement_store.read(conn, tenant, getattr(request.app.state, "commercial_enforcement", "shadow"))
+        await enforcement_store.write(
+            conn, tenant, mode=body.mode, reason=body.reason.strip(), actor=op.principal_id
+        )
+        await log_change(
+            conn,
+            kind=f"ENFORCEMENT_{body.mode}",
+            ref=tenant,
+            tenant_id=tenant,
+            actor=op.principal_id,
+            reason=body.reason.strip(),
+            detail={},
+        )
+        return await enforcement_store.read(
+            conn, tenant, getattr(request.app.state, "commercial_enforcement", "shadow")
+        )
 
 
 @router.put("/v1/commercial/tenants/{tenant_id}/entitlement")
@@ -1212,7 +1250,9 @@ async def grant_commercial_role(
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
         try:
-            await finance.require_person(conn, str(body.principal_id), body.role)  # a discount approver is a person, never a service account
+            await finance.require_person(
+                conn, str(body.principal_id), body.role
+            )  # a discount approver is a person, never a service account
         except FinanceError as e:
             raise ZidError(e.code, e.detail, http_status=422) from e
         await conn.execute(
@@ -1313,11 +1353,18 @@ async def activate_order(order_id: uuid.UUID, request: Request, op: OperatorDep)
         require = getattr(request.app.state, "activation_payment", "REQUIRED") == "REQUIRED"
         try:
             done = await orders.activate(
-                conn, str(order_id), actor=op.principal_id, direct=direct_mode(), require_payment=require
+                conn,
+                str(order_id),
+                actor=op.principal_id,
+                direct=direct_mode(),
+                require_payment=require,
             )
         except OrderError as e:
             raise _order_fail(e) from e
-        if done.get("awaiting_payment") and getattr(request.app.state, "payment_setup", None) is None:
+        if (
+            done.get("awaiting_payment")
+            and getattr(request.app.state, "payment_setup", None) is None
+        ):
             # fail closed: a plan that must be paid for is not switched on, and nobody could pay for it. Raising rolls the hold back.
             raise ZidError(
                 "ACTIVATION_PAYMENT_UNAVAILABLE",
@@ -1328,13 +1375,17 @@ async def activate_order(order_id: uuid.UUID, request: Request, op: OperatorDep)
 
 
 @router.post("/v1/commercial/orders/{order_id}:cancel-payment-wait")
-async def cancel_payment_wait(order_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+async def cancel_payment_wait(
+    order_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
     """Take an order back from "awaiting payment" to signed. Nothing was charged; a paid one cannot be taken back here."""
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _sales(conn, op)
         try:
             o = await orders.order_view(conn, str(order_id))
-            return await activations_service.cancel(conn, o["tenant_id"], str(order_id), actor=op.principal_id)
+            return await activations_service.cancel(
+                conn, o["tenant_id"], str(order_id), actor=op.principal_id
+            )
         except OrderError as e:
             raise _order_fail(e) from e
         except activations_service.ActivationError as e:
@@ -1347,13 +1398,17 @@ class ActivationRefundBody(BaseModel):
 
 
 @router.post("/v1/commercial/orders/{order_id}:refund-activation")
-async def refund_activation(order_id: uuid.UUID, body: ActivationRefundBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+async def refund_activation(
+    order_id: uuid.UUID, body: ActivationRefundBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
     """Mark a paid, unused activation payment as to be returned. The refund is made at the processor; its report marks the payment refunded."""
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _sales(conn, op)
         try:
             o = await orders.order_view(conn, str(order_id))
-            return await activations_service.request_refund(conn, o["tenant_id"], str(order_id), actor=op.principal_id, reason=body.reason)
+            return await activations_service.request_refund(
+                conn, o["tenant_id"], str(order_id), actor=op.principal_id, reason=body.reason
+            )
         except OrderError as e:
             raise _order_fail(e) from e
         except activations_service.ActivationError as e:

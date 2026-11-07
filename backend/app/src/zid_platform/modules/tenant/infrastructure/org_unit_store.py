@@ -14,7 +14,12 @@ async def unit_principals(conn: AsyncConnection, unit_id: str) -> list[str] | No
         uid = uuid.UUID(unit_id)
     except ValueError:
         return None
-    live = (await conn.execute(text("SELECT 1 FROM platform.org_unit WHERE unit_id = :u AND status = 'ACTIVE'"), {"u": uid})).first()
+    live = (
+        await conn.execute(
+            text("SELECT 1 FROM platform.org_unit WHERE unit_id = :u AND status = 'ACTIVE'"),
+            {"u": uid},
+        )
+    ).first()
     if live is None:
         return None
     rows = (

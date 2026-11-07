@@ -36,7 +36,7 @@ function NewExportDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
       invalidate: [BULK_KEY],
       success: "Bulk export created",
       onSuccess: (pkg) => {
-        save(`evidence-bulk-${String((pkg as { export_id?: string }).export_id ?? Date.now())}.json`, pkg);
+        save(`evidence-bulk-${String((pkg as { export_id?: string }).export_id ?? "export")}.json`, pkg);
         close(true);
       },
     },

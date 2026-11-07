@@ -288,7 +288,9 @@ async def code_status(conn: AsyncConnection, principal_id: str) -> tuple[int, da
     return int(row.left or 0), row.issued
 
 
-async def recent_by(conn: AsyncConnection, principal_id: str, opened_by: str, since: datetime) -> bool:
+async def recent_by(
+    conn: AsyncConnection, principal_id: str, opened_by: str, since: datetime
+) -> bool:
     """Has this principal had a case opened that way since `since`?"""
     row = (
         await conn.execute(

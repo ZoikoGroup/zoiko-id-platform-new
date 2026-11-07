@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, type OrgApprovalCase, type OrgDecision } from "@zoiko/api-client";
-import { Badge, Banner, Button, Card, CopyId, DateTime, Dialog, EmptyState, LoadingRows, PageHeader, TextField } from "@zoiko/ui";
+import { Badge, Banner, Button, Card, DateTime, Dialog, EmptyState, LoadingRows, PageHeader, TextField } from "@zoiko/ui";
 import { PersonLabel } from "@/features/admin/team/person-label";
 import { Check, MessageSquareWarning, Scale, X } from "lucide-react";
 import Link from "next/link";

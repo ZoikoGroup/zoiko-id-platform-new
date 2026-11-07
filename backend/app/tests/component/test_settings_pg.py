@@ -76,7 +76,9 @@ def test_settings_versioning_validation_and_effects(rt_url: str, owner_url: str)
             )
         async with engine(owner_url) as eng, eng.begin() as c:
             await c.execute(
-                text("INSERT INTO authn.client_directory (client_id, tenant_id) VALUES ('console-x', :t) ON CONFLICT DO NOTHING"),
+                text(
+                    "INSERT INTO authn.client_directory (client_id, tenant_id) VALUES ('console-x', :t) ON CONFLICT DO NOTHING"
+                ),
                 {"t": uuid.UUID(tenant)},
             )
             await c.execute(
@@ -196,10 +198,27 @@ def test_settings_versioning_validation_and_effects(rt_url: str, owner_url: str)
         assert set(look) == {"workspace", "display_name", "console_client_id", "branding"}
 
         # --- the fuller theme (colour, welcome text) is public to the sign-in page by the workspace's client, and only that
-        themed = put(http, "BRANDING", 2, {"display_name": "Acme Global", "accent_hex": "#1a73e8", "welcome_text": "Welcome back"})
+        themed = put(
+            http,
+            "BRANDING",
+            2,
+            {
+                "display_name": "Acme Global",
+                "accent_hex": "#1a73e8",
+                "welcome_text": "Welcome back",
+            },
+        )
         assert themed.status_code == 200, themed.text  # type: ignore[attr-defined]
-        brand = http.get("/v1/workspace-brand", params={"client_id": look["console_client_id"]}).json()
-        assert brand == {"accent": "blue", "accent_hex": "#1a73e8", "welcome_text": "Welcome back", "logo": "", "support_url": ""}
+        brand = http.get(
+            "/v1/workspace-brand", params={"client_id": look["console_client_id"]}
+        ).json()
+        assert brand == {
+            "accent": "blue",
+            "accent_hex": "#1a73e8",
+            "welcome_text": "Welcome back",
+            "logo": "",
+            "support_url": "",
+        }
         nobody = http.get("/v1/workspace-brand", params={"client_id": "no-such-client"}).json()
         assert nobody["accent_hex"] == "" and nobody["welcome_text"] == ""
         assert put(http, "BRANDING", 3, {"accent_hex": "#ffff00"}).status_code == 422  # type: ignore[attr-defined]

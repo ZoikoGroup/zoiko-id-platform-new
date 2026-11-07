@@ -15,7 +15,9 @@ import yaml
 APP = Path(__file__).resolve().parents[2]
 SRC = APP / "src" / "zid_platform"
 BANDS = APP.parent / "config" / "entitlements" / "capability-bands.yaml"
-GATE = re.compile(r'(?:require_feature\(\s*(?:conn,\s*)?|feature_id=|gate\(conn,\s*)"((?:standard|advanced)\.[a-z0-9-]+)"')  # a direct gate, or a plan-aware gate
+GATE = re.compile(
+    r'(?:require_feature\(\s*(?:conn,\s*)?|feature_id=|gate\(conn,\s*)"((?:standard|advanced)\.[a-z0-9-]+)"'
+)  # a direct gate, or a plan-aware gate
 
 # Included in every plan (bands IIIII): no plan can lack it, so there is nothing for a plan gate to refuse. Any quota is the catalogue's.
 INCLUDED_IN_EVERY_PLAN = {
@@ -34,8 +36,7 @@ ENFORCED_BY_ITS_OWN_MECHANISM = {
 }
 # Not checked anywhere yet. Each is either not built as a product feature, or built without a plan check; either way a plan that lists it promises
 # something nothing enforces. Wire a gate and remove the line, or leave it here until the feature exists.
-NO_GATE_YET = {
-}
+NO_GATE_YET = {}
 
 
 def features() -> set[str]:
@@ -51,12 +52,22 @@ def gated() -> set[str]:
 
 
 def test_every_gate_names_a_feature_the_matrix_has() -> None:
-    assert gated() - features() == set(), "a require_feature(...) names a feature that is not in capability-bands.yaml"
+    assert gated() - features() == set(), (
+        "a require_feature(...) names a feature that is not in capability-bands.yaml"
+    )
 
 
 def test_every_feature_is_gated_or_listed_with_a_reason() -> None:
-    unclassified = features() - gated() - INCLUDED_IN_EVERY_PLAN - set(NO_GATE_YET) - set(ENFORCED_BY_ITS_OWN_MECHANISM)
-    assert not unclassified, f"classify these plan features (gate them, or list them with a reason): {sorted(unclassified)}"
+    unclassified = (
+        features()
+        - gated()
+        - INCLUDED_IN_EVERY_PLAN
+        - set(NO_GATE_YET)
+        - set(ENFORCED_BY_ITS_OWN_MECHANISM)
+    )
+    assert not unclassified, (
+        f"classify these plan features (gate them, or list them with a reason): {sorted(unclassified)}"
+    )
 
 
 def test_a_feature_that_gained_a_gate_leaves_the_lists() -> None:
@@ -65,7 +76,9 @@ def test_a_feature_that_gained_a_gate_leaves_the_lists() -> None:
 
 
 def test_the_lists_only_name_features_that_exist() -> None:
-    assert (INCLUDED_IN_EVERY_PLAN | set(NO_GATE_YET) | set(ENFORCED_BY_ITS_OWN_MECHANISM)) - features() == set()
+    assert (
+        INCLUDED_IN_EVERY_PLAN | set(NO_GATE_YET) | set(ENFORCED_BY_ITS_OWN_MECHANISM)
+    ) - features() == set()
 
 
 def test_what_is_in_every_plan_really_is() -> None:

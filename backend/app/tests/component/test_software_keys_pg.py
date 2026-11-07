@@ -370,7 +370,9 @@ def test_the_worker_copies_key_events_into_the_ledger_once_and_the_ledger_still_
     SoftwareSigners(
         store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=masters
     ).signer("evidence-eu-1", kid="evidence-eu-1")
-    configure_runtime(development_runtime("kv-1"))  # its own cell id: the platform partition is shared with other tests, which sign with other throw-away keys
+    configure_runtime(
+        development_runtime("kv-1")
+    )  # its own cell id: the platform partition is shared with other tests, which sign with other throw-away keys
 
     async def audit_rows(c: object) -> list[tuple]:  # type: ignore[type-arg]
         rows = await c.execute(  # type: ignore[attr-defined]

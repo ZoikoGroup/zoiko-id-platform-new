@@ -20,7 +20,10 @@ import httpx
 def main() -> int:
     path = os.environ.get("ZID_STRIPE_SECRET_KEY_FILE")
     if not path:
-        print("ZID_STRIPE_SECRET_KEY_FILE is not set: no payment provider is configured.", file=sys.stderr)
+        print(
+            "ZID_STRIPE_SECRET_KEY_FILE is not set: no payment provider is configured.",
+            file=sys.stderr,
+        )
         return 2
     key = Path(path).read_text(encoding="utf-8").strip()
     base = os.environ.get("ZID_STRIPE_API_BASE", "https://api.stripe.com").rstrip("/")
@@ -30,12 +33,23 @@ def main() -> int:
         return 2
     account = response.json()
     profile = account.get("business_profile") or {}
-    name = profile.get("name") or (account.get("settings") or {}).get("dashboard", {}).get("display_name") or ""
+    name = (
+        profile.get("name")
+        or (account.get("settings") or {}).get("dashboard", {}).get("display_name")
+        or ""
+    )
     mode = "live" if key.startswith(("sk_live_", "rk_live_")) else "test"
     expected = os.environ.get("ZID_STRIPE_EXPECTED_ACCOUNT", "").strip()
-    print(json.dumps({"account": account.get("id"), "name": name, "mode": mode, "expected": expected or None}))
+    print(
+        json.dumps(
+            {"account": account.get("id"), "name": name, "mode": mode, "expected": expected or None}
+        )
+    )
     if expected and expected != account.get("id"):
-        print(f"This key belongs to {account.get('id')}, not the expected account {expected}.", file=sys.stderr)
+        print(
+            f"This key belongs to {account.get('id')}, not the expected account {expected}.",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

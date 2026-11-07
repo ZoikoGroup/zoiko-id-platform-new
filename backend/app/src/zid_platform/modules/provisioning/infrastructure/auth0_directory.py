@@ -20,7 +20,9 @@ PROVIDER = "AUTH0"
 PAGE = 100
 WINDOW = 1000  # Auth0's paged user list reaches no further than this
 FIELDS = "user_id,email,name,given_name,family_name,blocked"
-_DOMAIN = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.auth0\.com$")
+_DOMAIN = re.compile(
+    r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.auth0\.com$"
+)
 
 
 def valid_domain(domain: str) -> bool:
@@ -29,9 +31,14 @@ def valid_domain(domain: str) -> bool:
 
 def check_settings(settings: Mapping[str, Any]) -> dict[str, str]:
     """The only settings the provider takes: its tenant domain and the application's client id. Nothing here is a secret."""
-    domain, client_id = str(settings.get("domain", "")).strip().lower(), str(settings.get("client_id", "")).strip()
+    domain, client_id = (
+        str(settings.get("domain", "")).strip().lower(),
+        str(settings.get("client_id", "")).strip(),
+    )
     if not valid_domain(domain):
-        raise DirectoryError("SETTINGS_INVALID", "domain must be an Auth0 tenant such as your-tenant.us.auth0.com")
+        raise DirectoryError(
+            "SETTINGS_INVALID", "domain must be an Auth0 tenant such as your-tenant.us.auth0.com"
+        )
     if not 8 <= len(client_id) <= 64 or not re.fullmatch(r"[A-Za-z0-9_-]+", client_id):
         raise DirectoryError("SETTINGS_INVALID", "client_id looks wrong")
     return {"domain": domain, "client_id": client_id}
@@ -75,7 +82,9 @@ def to_user(raw: Mapping[str, Any]) -> DirectoryUser | None:
     )
 
 
-async def fetch_users(http: httpx.AsyncClient, settings: Mapping[str, Any], secret: str) -> list[DirectoryUser]:
+async def fetch_users(
+    http: httpx.AsyncClient, settings: Mapping[str, Any], secret: str
+) -> list[DirectoryUser]:
     s = check_settings(settings)
     audience = f"https://{s['domain']}/api/v2/"
     token = (
@@ -83,7 +92,12 @@ async def fetch_users(http: httpx.AsyncClient, settings: Mapping[str, Any], secr
             http,
             "POST",
             f"https://{s['domain']}/oauth/token",
-            json={"client_id": s["client_id"], "client_secret": secret, "audience": audience, "grant_type": "client_credentials"},
+            json={
+                "client_id": s["client_id"],
+                "client_secret": secret,
+                "audience": audience,
+                "grant_type": "client_credentials",
+            },
         )
     ).json()
     granted = set(str(token.get("scope", "")).split())
@@ -101,7 +115,13 @@ async def fetch_users(http: httpx.AsyncClient, settings: Mapping[str, Any], secr
                 "GET",
                 f"{audience}users",
                 headers=headers,
-                params={"per_page": PAGE, "page": page, "include_totals": "true", "fields": FIELDS, "include_fields": "true"},
+                params={
+                    "per_page": PAGE,
+                    "page": page,
+                    "include_totals": "true",
+                    "fields": FIELDS,
+                    "include_fields": "true",
+                },
             )
         ).json()
         total = int(body["total"])
@@ -112,5 +132,7 @@ async def fetch_users(http: httpx.AsyncClient, settings: Mapping[str, Any], secr
             break
         page += 1
     if len(users) != total:
-        raise DirectoryError("DIRECTORY_INCOMPLETE")  # fewer people than the provider said it has: never act on a partial list
+        raise DirectoryError(
+            "DIRECTORY_INCOMPLETE"
+        )  # fewer people than the provider said it has: never act on a partial list
     return users

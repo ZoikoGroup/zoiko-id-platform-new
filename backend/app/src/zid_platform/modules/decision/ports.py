@@ -19,8 +19,6 @@ from zid_platform.modules.decision.domain.risk import RiskClass
 
 __all__ = [
     "DIRECTORY_SUBJECT",
-    "register_subject_resolver",
-    "register_unit_lookup",
     "AuthnFact",
     "Decision",
     "DecisionRequest",
@@ -29,4 +27,6 @@ __all__ = [
     "action_spec",
     "evaluate_request",
     "register_evidence_replayer",
+    "register_subject_resolver",
+    "register_unit_lookup",
 ]

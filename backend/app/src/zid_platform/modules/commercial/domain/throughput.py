@@ -24,7 +24,9 @@ def check(multipliers: Mapping[str, object]) -> dict[str, int]:
         out[plan] = m
     ladder = [out[p] for p in PLANS[:-1]]
     if ladder != sorted(ladder) or ladder[0] < 1:
-        raise ThroughputError("a bigger plan must never allow fewer requests than a smaller one, and DEVELOPER is the base (1 or more)")
+        raise ThroughputError(
+            "a bigger plan must never allow fewer requests than a smaller one, and DEVELOPER is the base (1 or more)"
+        )
     return out
 
 

@@ -32,12 +32,21 @@ def holdable(m: Matrix, base_role: str) -> list[dict[str, str]]:
     for action_id, row in m.rows.items():
         mode = row.cells.get(base_role)
         if mode is not None and mode is not Mode.DENIED and action_id not in RESERVED:
-            out.append({"action_id": action_id, "feature": row.feature, "matrix": row.matrix, "mode": mode.value})
+            out.append(
+                {
+                    "action_id": action_id,
+                    "feature": row.feature,
+                    "matrix": row.matrix,
+                    "mode": mode.value,
+                }
+            )
     return sorted(out, key=lambda a: a["action_id"])
 
 
 EXTENSION_ROLE = "CUSTOM_EXTENSION"
-EXTENDABLE_MODES = frozenset({Mode.READ, Mode.PREPARE})  # a read, or a request that still needs an independent approval
+EXTENDABLE_MODES = frozenset(
+    {Mode.READ, Mode.PREPARE}
+)  # a read, or a request that still needs an independent approval
 
 
 def extendable(m: Matrix, base_role: str) -> list[dict[str, str]]:
@@ -51,7 +60,14 @@ def extendable(m: Matrix, base_role: str) -> list[dict[str, str]]:
         if not modes & EXTENDABLE_MODES:
             continue
         mode = Mode.READ if Mode.READ in modes else Mode.PREPARE
-        out.append({"action_id": action_id, "feature": row.feature, "matrix": row.matrix, "mode": mode.value})
+        out.append(
+            {
+                "action_id": action_id,
+                "feature": row.feature,
+                "matrix": row.matrix,
+                "mode": mode.value,
+            }
+        )
     return sorted(out, key=lambda a: a["action_id"])
 
 
@@ -68,7 +84,15 @@ def with_extension(m: Matrix, action_id: str, mode: Mode) -> Matrix | None:
     return replace(m, rows=rows)
 
 
-def clean(m: Matrix, *, name: str, base_role: str, actions: list[str], description: str = "", kind: str = "NARROW") -> tuple[str, str, list[str], str]:
+def clean(
+    m: Matrix,
+    *,
+    name: str,
+    base_role: str,
+    actions: list[str],
+    description: str = "",
+    kind: str = "NARROW",
+) -> tuple[str, str, list[str], str]:
     """The normalized definition, or CustomRoleError. `kind` NARROW keeps part of the base role; EXTEND adds read or prepare-only actions the base lacks."""
     name, description = name.strip(), description.strip()
     if not 2 <= len(name) <= 64 or any(not ch.isprintable() for ch in name):
@@ -76,7 +100,10 @@ def clean(m: Matrix, *, name: str, base_role: str, actions: list[str], descripti
     if len(description) > 300:
         raise CustomRoleError("CUSTOM_ROLE_INVALID", "The description is at most 300 characters.")
     if base_role in PRIVILEGED:
-        raise CustomRoleError("CUSTOM_ROLE_BASE_REFUSED", "A custom role narrows Operator or Viewer; it cannot be built on an administrative role.")
+        raise CustomRoleError(
+            "CUSTOM_ROLE_BASE_REFUSED",
+            "A custom role narrows Operator or Viewer; it cannot be built on an administrative role.",
+        )
     if base_role not in BASE_ROLES:
         raise CustomRoleError("CUSTOM_ROLE_INVALID", "The base role is OPERATOR or VIEWER.")
     wanted = sorted(set(actions))
@@ -96,7 +123,10 @@ def clean(m: Matrix, *, name: str, base_role: str, actions: list[str], descripti
     allowed = {a["action_id"] for a in holdable(m, base_role)}
     beyond = [a for a in wanted if a not in allowed]
     if beyond:
-        raise CustomRoleError("CUSTOM_ROLE_WIDENS", f"{base_role.title()} does not hold: {', '.join(beyond[:5])}. A narrowing role can only keep part of its base role; to add reads or requests, make an extension.")
+        raise CustomRoleError(
+            "CUSTOM_ROLE_WIDENS",
+            f"{base_role.title()} does not hold: {', '.join(beyond[:5])}. A narrowing role can only keep part of its base role; to add reads or requests, make an extension.",
+        )
     return name, base_role, wanted, description
 
 

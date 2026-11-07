@@ -103,14 +103,26 @@ def meter_register() -> dict[str, MeterDef]:
     return parse_meters(_yaml("meter-register.yaml"))
 
 
-__all__ = ["BANDS", "MeterDef", "band_matrix", "meter_register", "parse", "parse_meters", "plan_throughput_status"]
+__all__ = [
+    "BANDS",
+    "MeterDef",
+    "band_matrix",
+    "meter_register",
+    "parse",
+    "parse_meters",
+    "plan_throughput_status",
+]
 
 
 @lru_cache(maxsize=1)
 def plan_throughput_status() -> str:
     """CONFIRMED only when Commercial & Finance signed the multipliers off (the file names who and when); anything else is the engineering default."""
     doc = _yaml("plan-throughput.yaml")
-    return "CONFIRMED" if doc.get("status") == "CONFIRMED" and doc.get("confirmed_by") and doc.get("confirmed_on") else "ENGINEERING_DEFAULT"
+    return (
+        "CONFIRMED"
+        if doc.get("status") == "CONFIRMED" and doc.get("confirmed_by") and doc.get("confirmed_on")
+        else "ENGINEERING_DEFAULT"
+    )
 
 
 @lru_cache(maxsize=1)

@@ -5,18 +5,29 @@ from __future__ import annotations
 import base64
 
 import pytest
-from zid_platform.modules.configuration.domain.settings import SettingsError, contrast_with_white, validate
+from zid_platform.modules.configuration.domain.settings import (
+    SettingsError,
+    contrast_with_white,
+    validate,
+)
 
 PNG = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 100).decode()
 
 
 def brand(**over: str) -> dict[str, str]:
-    return validate("BRANDING", {"display_name": "Acme", **over}, mandatory_kinds=frozenset(), known_kinds=frozenset())  # type: ignore[return-value]
+    return validate(
+        "BRANDING",
+        {"display_name": "Acme", **over},
+        mandatory_kinds=frozenset(),
+        known_kinds=frozenset(),
+    )  # type: ignore[return-value]
 
 
 def test_a_dark_enough_colour_is_kept_lower_cased_and_a_pale_one_refused() -> None:
     assert brand(accent_hex="#1A73E8")["accent_hex"] == "#1a73e8"
-    assert contrast_with_white("#000000") > 20 and contrast_with_white("#ffffff") == pytest.approx(1.0, abs=0.01)
+    assert contrast_with_white("#000000") > 20 and contrast_with_white("#ffffff") == pytest.approx(
+        1.0, abs=0.01
+    )
     for bad in ("#ffff00", "#cccccc", "blue", "#12345", "#1a73e8; x"):
         with pytest.raises(SettingsError):
             brand(accent_hex=bad)
@@ -37,7 +48,9 @@ def test_a_logo_must_be_a_real_small_inline_raster_image() -> None:
     assert brand(logo=PNG)["logo"] == PNG
     assert brand()["logo"] == ""
     wrong_magic = "data:image/png;base64," + base64.b64encode(b"<svg onload=x>").decode()
-    too_big = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 50_000).decode()
+    too_big = (
+        "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 50_000).decode()
+    )
     for bad in (
         "https://evil.example/logo.png",
         "data:image/svg+xml;base64," + base64.b64encode(b"<svg/>").decode(),

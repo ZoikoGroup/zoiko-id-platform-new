@@ -127,7 +127,13 @@ class OAuthClientGateway:
         """A machine client for an application that asks the decision API (a PEP): `client_credentials` only, a signed key, no redirect, its own
         service principal. The same kind of client a SCIM connector uses; a person-sign-in client cannot get a machine token."""
         return await register_service_client(
-            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=scopes, audience=audience, home_cell=home_cell
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            jwks=jwks,
+            scopes=scopes,
+            audience=audience,
+            home_cell=home_cell,
         )
 
     async def get(self, conn: AsyncConnection, client_id: str) -> dict[str, Any] | None:

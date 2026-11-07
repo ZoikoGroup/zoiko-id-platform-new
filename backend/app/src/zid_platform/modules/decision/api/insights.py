@@ -27,7 +27,12 @@ from zid_platform.protected import protected_action
 router = APIRouter(prefix="/v1/insights", tags=["decision"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 Days = Annotated[int, Query(ge=1, le=366)]
-Unit = Annotated[uuid.UUID | None, Query(description="Only decisions about people in this organization unit and the units beneath it")]
+Unit = Annotated[
+    uuid.UUID | None,
+    Query(
+        description="Only decisions about people in this organization unit and the units beneath it"
+    ),
+]
 
 
 async def _subjects(conn: AsyncConnection, unit: uuid.UUID | None) -> list[str] | None:
@@ -43,12 +48,24 @@ def _since(days: int) -> datetime:
     return datetime.now(UTC) - timedelta(days=days)
 
 
-async def risk_figures(conn: AsyncConnection, since: datetime, subjects: list[str] | None = None) -> dict[str, Any]:
+async def risk_figures(
+    conn: AsyncConnection, since: datetime, subjects: list[str] | None = None
+) -> dict[str, Any]:
     p: dict[str, Any] = {"s": since, "ids": subjects or [], "all": subjects is None}
-    by_outcome = (await conn.execute(text("SELECT outcome::text AS k, count(*) AS n FROM authz.policy_decision WHERE decided_at >= :s AND (:all OR subject_principal_id = ANY(CAST(:ids AS uuid[]))) GROUP BY 1"), p)).all()
+    by_outcome = (
+        await conn.execute(
+            text(
+                "SELECT outcome::text AS k, count(*) AS n FROM authz.policy_decision WHERE decided_at >= :s AND (:all OR subject_principal_id = ANY(CAST(:ids AS uuid[]))) GROUP BY 1"
+            ),
+            p,
+        )
+    ).all()
     by_risk = (
         await conn.execute(
-            text("SELECT risk_class AS k, outcome::text AS o, count(*) AS n FROM authz.policy_decision WHERE decided_at >= :s AND (:all OR subject_principal_id = ANY(CAST(:ids AS uuid[]))) GROUP BY 1, 2"), p
+            text(
+                "SELECT risk_class AS k, outcome::text AS o, count(*) AS n FROM authz.policy_decision WHERE decided_at >= :s AND (:all OR subject_principal_id = ANY(CAST(:ids AS uuid[]))) GROUP BY 1, 2"
+            ),
+            p,
         )
     ).all()
     reasons = (
@@ -86,14 +103,23 @@ async def risk_figures(conn: AsyncConnection, since: datetime, subjects: list[st
         "total": total,
         "by_outcome": {r.k: int(r.n) for r in by_outcome},
         "by_risk_class": risk,
-        "refusal_rate": round(sum(int(r.n) for r in by_outcome if r.k != "ALLOW") / total, 4) if total else 0.0,
+        "refusal_rate": round(sum(int(r.n) for r in by_outcome if r.k != "ALLOW") / total, 4)
+        if total
+        else 0.0,
         "top_refusal_reasons": [{"code": r.k, "count": int(r.n)} for r in reasons],
-        "top_actions": [{"action": r.k, "count": int(r.n), "refused": int(r.refused)} for r in actions],
-        "daily": [{"day": r.d.isoformat(), "decisions": int(r.n), "refused": int(r.refused)} for r in daily],
+        "top_actions": [
+            {"action": r.k, "count": int(r.n), "refused": int(r.refused)} for r in actions
+        ],
+        "daily": [
+            {"day": r.d.isoformat(), "decisions": int(r.n), "refused": int(r.refused)}
+            for r in daily
+        ],
     }
 
 
-async def assurance_figures(conn: AsyncConnection, since: datetime, subjects: list[str] | None = None) -> dict[str, Any]:
+async def assurance_figures(
+    conn: AsyncConnection, since: datetime, subjects: list[str] | None = None
+) -> dict[str, Any]:
     row = (
         await conn.execute(
             text(
@@ -122,22 +148,48 @@ async def assurance_figures(conn: AsyncConnection, since: datetime, subjects: li
 
     def check(code: str, label: str, passed: int, of: int) -> dict[str, Any]:
         rate = round(passed / of, 4) if of else None
-        return {"control": code, "label": label, "passed": passed, "of": of, "rate": rate, "met": (passed == of) if of else None}
+        return {
+            "control": code,
+            "label": label,
+            "passed": passed,
+            "of": of,
+            "rate": rate,
+            "met": (passed == of) if of else None,
+        }
 
     return {
         "decisions": int(row.total),
         "controls": [
-            check("HIGH_RISK_ALLOW_HAS_AUTHORITY", "Every allowed high-risk decision is backed by an authority chain", int(row.high_with_authority), int(row.high_allows)),
-            check("HIGH_RISK_ALLOW_IS_BOUND", "Every allowed high-risk decision names its policy release and revisions", int(row.high_bound), int(row.high_allows)),
-            check("CRITICAL_ALLOW_IS_EVIDENCED", "Every allowed critical (R3) decision leaves signed evidence", int(row.r3_evidenced), int(row.r3_allows)),
+            check(
+                "HIGH_RISK_ALLOW_HAS_AUTHORITY",
+                "Every allowed high-risk decision is backed by an authority chain",
+                int(row.high_with_authority),
+                int(row.high_allows),
+            ),
+            check(
+                "HIGH_RISK_ALLOW_IS_BOUND",
+                "Every allowed high-risk decision names its policy release and revisions",
+                int(row.high_bound),
+                int(row.high_allows),
+            ),
+            check(
+                "CRITICAL_ALLOW_IS_EVIDENCED",
+                "Every allowed critical (R3) decision leaves signed evidence",
+                int(row.r3_evidenced),
+                int(row.r3_allows),
+            ),
         ],
         "state_unavailable": int(row.unavailable),
-        "policy_releases_in_force": [{"policy_release_id": r.k, "decisions": int(r.n)} for r in releases],
+        "policy_releases_in_force": [
+            {"policy_release_id": r.k, "decisions": int(r.n)} for r in releases
+        ],
     }
 
 
 @router.get("/risk")
-async def risk(request: Request, caller: CallerDep, days: Days = 30, unit_id: Unit = None) -> dict[str, Any]:
+async def risk(
+    request: Request, caller: CallerDep, days: Days = 30, unit_id: Unit = None
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.read", resource="decision_receipt:*")
         await require_feature(
@@ -147,11 +199,18 @@ async def risk(request: Request, caller: CallerDep, days: Days = 30, unit_id: Un
         )
         since = _since(days)
         out = await risk_figures(conn, since, await _subjects(conn, unit_id))
-    return {"days": days, "since": since.isoformat(), "unit_id": str(unit_id) if unit_id else None, **out}
+    return {
+        "days": days,
+        "since": since.isoformat(),
+        "unit_id": str(unit_id) if unit_id else None,
+        **out,
+    }
 
 
 @router.get("/assurance")
-async def assurance(request: Request, caller: CallerDep, days: Days = 30, unit_id: Unit = None) -> dict[str, Any]:
+async def assurance(
+    request: Request, caller: CallerDep, days: Days = 30, unit_id: Unit = None
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.read", resource="decision_receipt:*")
         await require_feature(
@@ -161,4 +220,9 @@ async def assurance(request: Request, caller: CallerDep, days: Days = 30, unit_i
         )
         since = _since(days)
         out = await assurance_figures(conn, since, await _subjects(conn, unit_id))
-    return {"days": days, "since": since.isoformat(), "unit_id": str(unit_id) if unit_id else None, **out}
+    return {
+        "days": days,
+        "since": since.isoformat(),
+        "unit_id": str(unit_id) if unit_id else None,
+        **out,
+    }

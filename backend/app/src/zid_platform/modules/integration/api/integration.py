@@ -27,6 +27,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature, require_production_environment
 from zid_platform.modules.integration.application import mapping, sandbox, service
 from zid_platform.modules.integration.domain.model import (
     AppStatus,
@@ -43,7 +44,6 @@ from zid_platform.modules.integration.domain.routing import RouteKind
 from zid_platform.modules.integration.infrastructure import mapping_store, store
 from zid_platform.modules.integration.infrastructure.store import Application, Connector
 from zid_platform.modules.tenant.ports import Mode, Role, RoleStatus, live_roles, matrix_gate
-from zid_platform.modules.commercial.ports import require_feature, require_production_environment
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(prefix="/v1/integration", tags=["integration"])
@@ -204,10 +204,18 @@ async def register_application(
         await protected_action(
             conn, caller, action=APP_ACTION, resource="integration_application:*"
         )
-        if body.environment == Environment.PROD:  # the plan's production environments (a retired application no longer counts)
-            live = [a for a in await store.list_applications(conn) if a.environment == Environment.PROD.value and a.status != "RETIRED"]
+        if (
+            body.environment == Environment.PROD
+        ):  # the plan's production environments (a retired application no longer counts)
+            live = [
+                a
+                for a in await store.list_applications(conn)
+                if a.environment == Environment.PROD.value and a.status != "RETIRED"
+            ]
             await require_production_environment(
-                conn, used=len(live), enforcement=getattr(request.app.state, "commercial_enforcement", "shadow")
+                conn,
+                used=len(live),
+                enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
             )
         try:
             a = await service.register_application(
@@ -270,7 +278,9 @@ class OAuthClientBody(BaseModel):
     def _by_purpose(self) -> OAuthClientBody:
         if self.purpose == "DECISIONS":
             if self.jwks is None or self.redirect_uris or self.client_type != "CONFIDENTIAL":
-                raise ValueError("a decisions client is CONFIDENTIAL, has public keys and no redirect addresses")
+                raise ValueError(
+                    "a decisions client is CONFIDENTIAL, has public keys and no redirect addresses"
+                )
         elif not self.redirect_uris:
             raise ValueError("a sign-in client needs at least one redirect address")
         return self

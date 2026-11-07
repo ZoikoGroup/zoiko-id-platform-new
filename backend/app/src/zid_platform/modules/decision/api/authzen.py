@@ -37,11 +37,11 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller
-from zid_platform.modules.decision.application.subjects import NO_PERSON, resolve_subject
 from zid_platform.modules.authority.ports import Request as AuthorityRequest
 from zid_platform.modules.authority.ports import ValueLimit
 from zid_platform.modules.commercial.ports import key_decision, record_billable
 from zid_platform.modules.decision.application.pdp_service import action_spec, evaluate_request
+from zid_platform.modules.decision.application.subjects import NO_PERSON, resolve_subject
 from zid_platform.modules.decision.domain.pdp import DecisionRequest, MandateFact
 from zid_platform.modules.decision.domain.risk import RiskClass
 from zid_platform.modules.mandate.ports import check_for_decision
@@ -259,7 +259,11 @@ async def evaluation(
             if d.outcome.value == "ALLOW" and not verdict.allow
             else d.outcome.value,
             "enforcement": verdict.enforcement.value,
-            "reason_codes": [*d.reason_codes, *verdict.reason_codes, *(["SUBJECT_UNKNOWN"] if resolved is None else [])],
+            "reason_codes": [
+                *d.reason_codes,
+                *verdict.reason_codes,
+                *(["SUBJECT_UNKNOWN"] if resolved is None else []),
+            ],
             "obligations": [{**o, "type": str(o["type"]).lower()} for o in d.obligations],
             "risk_class": d.risk_class.name,
             "policy_release_id": d.policy_release_id,

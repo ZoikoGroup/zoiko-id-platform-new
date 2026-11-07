@@ -235,13 +235,17 @@ def create_app(
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
+        from .modules.authority.api.templates import router as delegation_templates_router
+        from .modules.commercial.api.activations import router as activations_router
         from .modules.commercial.api.billing_workspace import router as billing_workspace_router
         from .modules.commercial.api.commercial import router as commercial_router
+        from .modules.commercial.api.service_requests import router as service_requests_router
         from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
         from .modules.configuration.api.settings import router as settings_router
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.decision.api.authzen import router as authzen_router
+        from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
@@ -283,14 +287,10 @@ def create_app(
         from .modules.tenant.api.approvals import router as approval_cases_router
         from .modules.tenant.api.billing_access import router as billing_access_router
         from .modules.tenant.api.commitments import router as commitments_router
-        from .modules.authority.api.templates import router as delegation_templates_router
-        from .modules.decision.api.insights import router as insights_router
-        from .modules.commercial.api.service_requests import router as service_requests_router
-        from .modules.commercial.api.activations import router as activations_router
         from .modules.tenant.api.custom_roles import router as custom_roles_router
-        from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.domains import router as domains_router
         from .modules.tenant.api.org_approvals import router as org_approvals_router
+        from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.countries import router as countries_router
@@ -363,7 +363,9 @@ def create_app(
         ):
             app.include_router(router)
         if app.state.operator_password_logins:
-            from .modules.authentication.api.operator_password import router as operator_password_router
+            from .modules.authentication.api.operator_password import (
+                router as operator_password_router,
+            )
 
             app.include_router(operator_password_router)
     return app
@@ -413,7 +415,9 @@ def _operator_password_logins(settings: Settings) -> dict[str, dict[str, str]]:
             raise RuntimeError(f"operator login {key}: principal_id must be a uuid") from e
         stored = entry.get("password_hash")
         if stored is None and local and entry.get("password"):
-            stored = hash_password(entry["password"], min_length=1)  # local convenience; never a deployed cell
+            stored = hash_password(
+                entry["password"], min_length=1
+            )  # local convenience; never a deployed cell
         if stored is None or not valid_hash(stored):
             raise RuntimeError(
                 f"operator login {key}: a scrypt password_hash is required (entrypoints/hash_operator_password.py)"
@@ -507,8 +511,13 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
 
     from .modules.commercial.ports import FallbackTax, RateTableTax
 
-    config_root = _Path(os.environ.get("ZID_PLATFORM_CONFIG") or _Path(__file__).resolve().parents[3] / "config")
-    app.state.tax_port = FallbackTax(app.state.tax_port, RateTableTax.from_file(config_root / "commercial" / "tax-rate-table.yaml"))
+    config_root = _Path(
+        os.environ.get("ZID_PLATFORM_CONFIG") or _Path(__file__).resolve().parents[3] / "config"
+    )
+    app.state.tax_port = FallbackTax(
+        app.state.tax_port,
+        RateTableTax.from_file(config_root / "commercial" / "tax-rate-table.yaml"),
+    )
     app.state.refund_port = build_refund_port(settings)
     if settings.attestor_keys_file:
         import json as _json
@@ -545,9 +554,12 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         "AUTH_EVENT": (sessions_created_between, key_auth, "HUMAN"),
         "VC_ISSUED": (credentials_issued_between, key_vc_issued, "HUMAN"),
     }
+
     async def plan_feature_gate(conn: Any, feature_id: str) -> None:
         """The plan check for a feature, for the modules that must not import commercial (they find it on app.state)."""
-        await require_feature(conn, feature_id, enforcement=getattr(app.state, "commercial_enforcement", "shadow"))
+        await require_feature(
+            conn, feature_id, enforcement=getattr(app.state, "commercial_enforcement", "shadow")
+        )
 
     app.state.plan_feature_gate = plan_feature_gate
     app.state.commercial_counters = {
@@ -583,7 +595,7 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
         try:
             async with tenant_transaction(engine, ctx) as conn:
                 limit = await limit_for(conn, settings.api_rate_limit_per_minute)
-        except Exception:  # noqa: BLE001 - the limit never becomes a reason to refuse a call; the base allowance applies
+        except Exception:
             logging.getLogger("zid.commercial").exception("plan request limit unavailable")
             return None
         plan_limits[tenant] = (now + 60.0, limit)
@@ -708,7 +720,11 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     from .modules.operator_access.ports import OperatorSettings
     from .protected import catalog
 
-    if settings.environment in ("local", "test") and not settings.local_keystore and settings.key_provider != "db":
+    if (
+        settings.environment in ("local", "test")
+        and not settings.local_keystore
+        and settings.key_provider != "db"
+    ):
         current_runtime()  # one process-wide development runtime (in-memory keys)
     else:
         configure_runtime(runtime_from_settings(settings))
