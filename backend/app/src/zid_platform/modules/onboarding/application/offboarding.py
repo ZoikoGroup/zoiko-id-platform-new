@@ -28,7 +28,7 @@ async def complete_offboarding(
     if tenant is None or tenant.status is not TenantStatus.OFFBOARDING:
         return {"tenant_id": tenant_id, "skipped": True}
     drained = await offboard_integrations(conn, tenant_id, actor=None)
-    sessions = await revoke_tenant_sessions(conn, reason="tenant_offboarded")
+    sessions = await revoke_tenant_sessions(conn, reason="tenant_offboarded", tenant_id=tenant_id)
     await transition(
         conn,
         tenant_id,

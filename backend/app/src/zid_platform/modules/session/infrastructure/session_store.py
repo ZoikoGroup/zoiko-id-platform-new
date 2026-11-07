@@ -229,13 +229,18 @@ async def last_sign_in(conn: AsyncConnection, principal_ids: list[str]) -> dict[
     return {str(r.principal_id): r.at for r in rows}
 
 
-async def revoke_tenant_sessions(conn: AsyncConnection, *, reason: str) -> int:
-    """Every live session of the tenant the connection is scoped to (tenant offboarding)."""
+async def revoke_tenant_sessions(
+    conn: AsyncConnection, *, reason: str, tenant_id: str | None = None
+) -> int:
+    """Every live session of the tenant (tenant offboarding): the connection's own tenant under row-level
+    security, or the named one for a worker that bypasses it."""
     rows = (
         await conn.execute(
             text(
-                "SELECT session_id FROM authn.session WHERE status IN ('ACTIVE', 'REAUTH_REQUIRED')"
-            )
+                "SELECT session_id FROM authn.session WHERE status IN ('ACTIVE', 'REAUTH_REQUIRED') "
+                "AND (CAST(:t AS uuid) IS NULL OR tenant_id = CAST(:t AS uuid))"
+            ),
+            {"t": tenant_id},
         )
     ).all()
     for r in rows:

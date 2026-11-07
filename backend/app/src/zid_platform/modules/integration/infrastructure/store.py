@@ -126,10 +126,17 @@ async def active_application_count(conn: AsyncConnection) -> int:
     )
 
 
-async def list_applications(conn: AsyncConnection) -> list[Application]:
+async def list_applications(
+    conn: AsyncConnection, *, tenant_id: str | None = None
+) -> list[Application]:
+    """Row-level security scopes this to the connection's tenant; a worker that bypasses it names the tenant."""
     rows = (
         await conn.execute(
-            text("SELECT * FROM platform.integration_application ORDER BY created_at DESC")
+            text(
+                "SELECT * FROM platform.integration_application "
+                "WHERE CAST(:t AS uuid) IS NULL OR tenant_id = CAST(:t AS uuid) ORDER BY created_at DESC"
+            ),
+            {"t": tenant_id},
         )
     ).all()
     return [_app(r) for r in rows]
@@ -258,9 +265,18 @@ async def connector_for_source(conn: AsyncConnection, source_ref: str) -> Connec
     return _connector(row) if row else None
 
 
-async def list_connectors(conn: AsyncConnection) -> list[Connector]:
+async def list_connectors(
+    conn: AsyncConnection, *, tenant_id: str | None = None
+) -> list[Connector]:
+    """Row-level security scopes this to the connection's tenant; a worker that bypasses it names the tenant."""
     rows = (
-        await conn.execute(text("SELECT * FROM platform.integration_connector ORDER BY created_at"))
+        await conn.execute(
+            text(
+                "SELECT * FROM platform.integration_connector "
+                "WHERE CAST(:t AS uuid) IS NULL OR tenant_id = CAST(:t AS uuid) ORDER BY created_at"
+            ),
+            {"t": tenant_id},
+        )
     ).all()
     return [_connector(r) for r in rows]
 

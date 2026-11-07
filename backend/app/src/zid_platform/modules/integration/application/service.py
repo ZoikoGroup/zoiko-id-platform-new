@@ -281,10 +281,18 @@ async def register_decision_client(
     only, no redirect and no secret, proving itself with a key pair whose public half is registered here."""
     try:
         client = await client_gateway().register_machine(
-            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=[DECISION_SCOPE], audience=audience, home_cell=home_cell
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            jwks=jwks,
+            scopes=[DECISION_SCOPE],
+            audience=audience,
+            home_cell=home_cell,
         )
     except ValueError as e:  # the registry's own refusal, with a stable code
-        raise IntegrationError(getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))) from e
+        raise IntegrationError(
+            getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))
+        ) from e
     await _record(
         conn,
         tenant_id,
@@ -667,13 +675,13 @@ async def offboard_integrations(
     """OVL-30: every connector quarantined (credentials revoked, sources suspended) and every
     application retired. Idempotent."""
     quarantined = retired = 0
-    for c in await store.list_connectors(conn):
+    for c in await store.list_connectors(conn, tenant_id=tenant_id):
         if c.health is not Health.QUARANTINED:
             await quarantine(
                 conn, tenant_id, c.connector_id, reason="TENANT_OFFBOARDING", actor=actor
             )
             quarantined += 1
-    for a in await store.list_applications(conn):
+    for a in await store.list_applications(conn, tenant_id=tenant_id):
         if a.status is not AppStatus.RETIRED:
             await move_application(
                 conn, tenant_id, a.application_id, AppStatus.RETIRED, actor=actor or ""
