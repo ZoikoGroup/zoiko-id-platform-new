@@ -16,11 +16,14 @@ The local flow for agents and workloads (`local/spire/`, the attestor) is now pa
 ## Run against the real components (one machine, Docker)
 SPIRE server and agent from these files; a registered workload fetched its identity as uid 1000 from a separate container; Caddy accepted that identity and refused no certificate and another CA's; the cell accepted the forwarded identity, derived the tenant and answered `WORKLOAD_IDENTITY_UNREGISTERED` (no binding exists: an identity alone authorizes nothing); a forged forwarded header changed nothing; the attestor read a real container through the read-only engine socket and the cell recorded a level 2 attestation (level 1 for a different image, none for a stopped container).
 
+## Also run on a real Linux filesystem and with a real token
+- `attestor-init` as root on the Docker VM's native filesystem (not a Windows mount): the directory came out owner 10001 mode 700, the key owner 10001 mode 400, the public key 444; the key's own user could read it, another user could not; a second run refused to overwrite it. `docker-gid` reads the engine socket's group. `preflight` (new) checks ownership, modes, the Docker group, the bundle, a private key left where the cell can read it, the workload registration file, the socket directory, private DNS and the SPIRE server, and printed a fix for each failure.
+- A real token: a real cell on a fresh migrated database with one agent and one workload binding; the real attestor recorded a level 2 attestation for a real container; a real SPIRE identity (uid 2000) went through the real workload listener and received a token (subject the agent principal, tenant from the signed SPIFFE ID, five minutes, bound to the certificate's thumbprint). The token worked with the same identity and was refused with another valid SPIRE identity, with no certificate, and presented straight to the cell.
+
 ## Not run, and why
-- The Linux ownership steps of `attestor-init` and `server-init` (`chown`): Docker Desktop on Windows ignores bind-mount ownership. They run as root on a VM.
-- Engine socket group on a VM (`ZID_DOCKER_GID`, `docker` group); on Docker Desktop it is root (0).
-- A token actually issued to a workload: needs a registered workload binding and a signed approved attestation in the cell's database for a real tenant. The component test `test_mesh_verified_workload_gets_a_bound_token` covers issuance with a test CA.
-- Real GCP VMs, firewall rules, private DNS for `workload.<domain>`, a workload outside the app VM.
+- Real GCP VMs: there is no `gcloud` or project access here, and I did not create cloud resources. The firewall rules and the private DNS zone in README section 9 are written but unrun.
+- The SPIRE server reachability check and the workload-listener DNS name can only pass on the real network.
+- A workload on a VM other than the app VM.
 
 ## Limits (stated, not hidden)
 Software keys for the SPIRE CA and the attestor (modes 600 and 400 on VM disks); the agent container shares the host process table and is privileged; the listener's own certificate comes from Caddy's internal CA (a private name cannot get a public one) and workloads must pin that root; no hardware or TEE attestation, so no workload reaches level 3; one SPIRE server (no HA).

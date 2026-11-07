@@ -146,9 +146,16 @@ Run the workload container with `user: "20001"` and `-v /run/zid/spire-sockets:/
 ```bash
 ./workload-identity.sh attestor-init                     # attestor-secrets/attestor.pem (private, only the attestor mounts it) + secrets/attestor_keys.json (public)
 cp attestor/workloads.example.json attestor/workloads.json   # edit: which container may be what, and the image digests approved for it
-getent group docker                                      # put its number in .env as ZID_DOCKER_GID
+./workload-identity.sh docker-gid                      # the group that owns the engine socket: put the number in .env as ZID_DOCKER_GID
 # .env: ZID_ATTESTOR_KEYS_FILE=/run/secrets/attestor_keys.json
+./workload-identity.sh preflight                         # checks this VM (ownership, modes, group, bundle, DNS, the SPIRE server); fix every FAIL
 docker compose --profile workload-identity up -d attestor workload-edge && docker compose up -d cell
+```
+
+Private DNS for the listener (once per project; a zone for `workload.<domain>` only, so the public `id.`, `api.` and `global.` names are not shadowed):
+```bash
+gcloud dns managed-zones create zid-workload --dns-name=workload.<domain>. --visibility=private --networks=zid --description='workload listener'
+gcloud dns record-sets create workload.<domain>. --zone=zid-workload --type=A --ttl=300 --rrdatas=<app VM private address>
 ```
 `attestor/workloads.json` changes by reviewed change, like SPIRE registrations: widening an entry is visible in review. The approved digests come from your signed releases. Register the workload in the console (workload binding) so the cell recognises it.
 

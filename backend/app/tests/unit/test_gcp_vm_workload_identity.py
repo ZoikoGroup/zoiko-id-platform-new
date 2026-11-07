@@ -157,3 +157,19 @@ def test_the_operator_script_parses_and_refuses_bad_input_before_touching_anythi
     assert "set -eu" in script.read_text(encoding="utf-8")
     nothing = subprocess.run(["sh", str(script)], capture_output=True, text=True, check=False, cwd=DEPLOY)
     assert nothing.returncode == 2 and "register" in nothing.stdout  # usage, not an action
+
+
+def test_the_preflight_checks_what_a_vm_must_get_right_and_changes_nothing() -> None:
+    script = (DEPLOY / "workload-identity.sh").read_text(encoding="utf-8")
+    body = script.split("  preflight)", 1)[1].split("  edge-ca)", 1)[0]
+    for needle in (
+        "ZID_DOCKER_GID",  # the engine socket's group
+        "attestor-secrets",  # owner 10001, mode 700
+        "attestor.pem",  # owner 10001, mode 400
+        "secrets/*.pem",  # a private key where the cell can read it
+        "workloads.json",  # docker would create a directory in its place
+        "workload.$domain",  # private DNS
+        "8081",  # the SPIRE server
+    ):
+        assert needle in body, needle
+    assert not re.search(r"(chown|chmod|mkdir|rm|docker run|docker compose)", body.replace("mkdir -p $sock", "")), "preflight only looks"
