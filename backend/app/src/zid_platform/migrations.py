@@ -5,7 +5,7 @@ table `zid_migrations.alembic_version__<module>`, so a module's schema history c
 module if it is ever extracted. Schemas themselves are created once by `backend/database/schemas/`.
 
     python -m zid_platform.migrations upgrade --url postgresql+asyncpg://... [--stream mandate ...]
-    python -m zid_platform.migrations upgrade --role global --url <global-plane database>
+    python -m zid_platform.migrations upgrade --role global --url <same platform database>
 
 Run as the migration owner role (`db_owner_migration`), never as a runtime role.
 """
@@ -61,8 +61,8 @@ def execute_script(sql: str) -> None:
         op.execute(statement)
 
 
-# Streams of the global-plane database (ZID-TENANCY-001 §2): never applied to a cell database,
-# and the cell streams are never applied to the global one (roles.PLANES["global"]).
+# Streams of the global plane: they own only the global_directory schema and share the one platform database
+# with the cell streams, which never touch that schema (roles.PLANES["global"]).
 GLOBAL_STREAMS = frozenset({"locator", "discovery"})
 
 
@@ -117,9 +117,22 @@ def run_env(context: object) -> None:
     asyncio.run(main())
 
 
+async def _ensure_global_schema(url: str) -> None:
+    """The global plane's schema, for a database that was created before it shared the cell database. Idempotent."""
+    engine = async_engine_from_config(
+        {"sqlalchemy.url": url}, prefix="sqlalchemy.", poolclass=pool.NullPool
+    )
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS global_directory")
+        await conn.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {VERSION_SCHEMA}")
+    await engine.dispose()
+
+
 def upgrade(
     url: str, streams: list[str] | None = None, revision: str = "head", *, role: str = "cell"
 ) -> None:
+    if role == "global":
+        asyncio.run(_ensure_global_schema(url))
     for stream in streams or streams_with_revisions(role):
         command.upgrade(config_for(stream, url), revision)
 

@@ -3,6 +3,7 @@ import type { AgentGate } from "@zoiko/api-client";
 export const AGENTS_KEY = ["admin", "agents"];
 export const BLUEPRINTS_KEY = ["admin", "agents", "blueprints"];
 export const TOOLS_KEY = ["admin", "agents", "tools"];
+export const BUILDS_KEY = ["admin", "agents", "builds"];
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DIGEST_RE = /^sha-?256:[0-9a-f]{64}$/;

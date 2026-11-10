@@ -23,12 +23,14 @@ from zid_context.spiffe import SpiffeError, SpiffeId, TrustPolicy, tenant_of
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.machine.application.agents import normalize_digest, require_build_approved
 from zid_platform.modules.machine.application.attestation import Statement
 from zid_platform.modules.machine.domain.agents import (
     Attestation,
     BindingStatus,
     CredentialRequest,
     MachineError,
+    ReviewStatus,
     WorkloadBinding,
 )
 from zid_platform.modules.machine.infrastructure import machine_store
@@ -95,6 +97,7 @@ async def register_binding(
     attestation_required: int,
     valid_to: datetime,
     actor: str,
+    require_approved_build: bool = False,
 ) -> WorkloadBinding:
     """Governed registration (machine.workload.manage, R3): the trust domain must be this cell's or
     an explicitly federated one; the agent must exist; one live binding per SPIFFE ID."""
@@ -104,10 +107,24 @@ async def register_binding(
             raise SpiffeError("SPIFFE_ID_INVALID", "the SPIFFE ID belongs to another tenant")
     except SpiffeError as e:
         raise MachineError(e.code, str(e)) from e
-    if await machine_store.load_agent(conn, agent_principal_id) is None:
+    agent = await machine_store.load_agent(conn, agent_principal_id)
+    if agent is None:
         raise MachineError("AGENT_NOT_FOUND")
     if not artifact_digest.startswith(("sha256:", "sha-256:")):
         raise MachineError("WORKLOAD_ARTIFACT_NOT_APPROVED")
+    # A workload runs the software of the release its agent is built from, and nothing else (CR-064): the digest and version must be
+    # that release's, the release must be approved, and where approved builds are required its build must be too. Without this a
+    # binding could name any digest, and the console filling in the right one was the only thing keeping it honest.
+    release = await machine_store.load_blueprint(conn, agent.blueprint_id, agent.blueprint_version)
+    if release is None or release.review is not ReviewStatus.APPROVED:
+        raise MachineError("AGENT_BLUEPRINT_NOT_APPROVED", "the agent's blueprint release is not approved")
+    if blueprint_version != agent.blueprint_version or normalize_digest(artifact_digest) != normalize_digest(release.artifact_digest):
+        raise MachineError(
+            "WORKLOAD_ARTIFACT_NOT_APPROVED",
+            "a binding must run the artifact of its agent's approved blueprint release",
+        )
+    if require_approved_build:
+        await require_build_approved(conn, artifact_digest)
     if await store.active_binding(conn, str(sid)) is not None:
         raise MachineError("WORKLOAD_IDENTITY_ALREADY_BOUND")
     now = _now()

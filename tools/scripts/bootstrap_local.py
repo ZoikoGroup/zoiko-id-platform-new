@@ -462,10 +462,9 @@ def main() -> int:
 
         upgrade(url)
         print("migrations applied to the cell database")
-        global_url = os.environ.get("ZID_GLOBAL_DATABASE_URL")
-        if global_url:  # the global plane's own database: locator + discovery only (DEC-G3)
-            upgrade(global_url, role="global")
-            print("migrations applied to the global-plane database")
+        # the global plane (locator + discovery only, DEC-G3) lives in the same database unless told otherwise
+        upgrade(os.environ.get("ZID_GLOBAL_DATABASE_URL") or url, role="global")
+        print("migrations applied to the global plane")
     ticket = asyncio.run(seed(url, args))
     print()
     print("Register the first passkey (link valid 23 hours, single use):")

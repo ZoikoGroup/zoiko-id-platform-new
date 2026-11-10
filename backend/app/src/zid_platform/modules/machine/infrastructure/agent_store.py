@@ -17,6 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_platform.modules.machine.domain.agents import ToolStatus
 
 
+def _norm(digest: str) -> str:
+    """`sha-256:<hex>` and `sha256:<hex>` are one digest; lookups match either spelling of what is stored."""
+    return "sha256:" + digest.split(":", 1)[1].lower()
+
+
 def _iso(v: Any) -> str | None:
     return v.isoformat() if v is not None else None
 
@@ -205,9 +210,9 @@ async def suspend_bindings_for_digest(conn: AsyncConnection, artifact_digest: st
     result = await conn.execute(
         text(
             "UPDATE agent.workload_binding SET status = 'SUSPENDED', security_revision = security_revision + 1 "
-            "WHERE artifact_digest = :d AND status = 'ACTIVE'"
+            "WHERE replace(lower(artifact_digest), 'sha-256:', 'sha256:') = :d AND status = 'ACTIVE'"
         ),
-        {"d": artifact_digest},
+        {"d": _norm(artifact_digest)},
     )
     return int(result.rowcount)
 
@@ -239,3 +244,30 @@ async def agents_with_tool(conn: AsyncConnection, tool_id: str) -> int:
             )
         ).scalar_one()
     )
+
+
+async def agents_using_digest(conn: AsyncConnection, artifact_digest: str) -> list[str]:
+    """Live agents whose blueprint release runs this artifact (a revoked build reaches them, §3.1)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT a.agent_principal_id FROM agent.agent_profile a JOIN agent.blueprint_release b "
+                "ON b.blueprint_id = a.blueprint_id AND b.version = a.blueprint_version "
+                "WHERE replace(lower(b.artifact_digest), 'sha-256:', 'sha256:') = :d AND a.status IN ('ACTIVE', 'PENDING_APPROVAL')"
+            ),
+            {"d": _norm(artifact_digest)},
+        )
+    ).all()
+    return [str(r.agent_principal_id) for r in rows]
+
+
+async def revoke_blueprints_for_digest(conn: AsyncConnection, artifact_digest: str) -> int:
+    """A revoked build can no longer back a release: every draft or approved release of it is revoked."""
+    result = await conn.execute(
+        text(
+            "UPDATE agent.blueprint_release SET review_status = 'REVOKED' "
+            "WHERE replace(lower(artifact_digest), 'sha-256:', 'sha256:') = :d AND review_status IN ('DRAFT', 'APPROVED')"
+        ),
+        {"d": _norm(artifact_digest)},
+    )
+    return int(result.rowcount)

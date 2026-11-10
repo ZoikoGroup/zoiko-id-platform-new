@@ -344,7 +344,7 @@
       },
       "OAuthClientBody": {
         "additionalProperties": false,
-        "description": "`purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to\nask the decision API (a signed key, no redirect address, no scopes to choose); a client people sign in through cannot get a machine token.",
+        "description": "`purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to\nask the decision API (a signed key, no redirect address, no scopes to choose). BUILD_PIPELINE: the machine client a build pipeline uses to register\nbuilds (the same shape, its own scope). A client people sign in through cannot get a machine token.",
         "properties": {
           "client_type": {
             "enum": [
@@ -376,7 +376,8 @@
             "default": "SIGN_IN",
             "enum": [
               "SIGN_IN",
-              "DECISIONS"
+              "DECISIONS",
+              "BUILD_PIPELINE"
             ],
             "title": "Purpose",
             "type": "string"

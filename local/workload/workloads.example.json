@@ -1,0 +1,13 @@
+{
+  "workloads": [
+    {
+      "spiffe_id": "spiffe://local-1.local.id.zoiko/t/00000000-0000-4000-8000-000000000000/ns/agents/sa/acme-invoice-agent",
+      "environment_id": "prod",
+      "selectors": {
+        "docker.container": "payments-agent",
+        "docker.label.team": "finance"
+      },
+      "approved_digests": []
+    }
+  ]
+}

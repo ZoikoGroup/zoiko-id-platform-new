@@ -33,7 +33,7 @@ from zid_platform.modules.session.domain.client_registration import (
     check_registration,
     new_client_id,
 )
-from zid_platform.modules.session.domain.oauth import OAuthClient
+from zid_platform.modules.session.domain.oauth import BUILD_PIPELINE_SCOPE, OAuthClient
 from zid_platform.modules.session.domain.session import Session, SessionPolicy, SessionStatus
 from zid_platform.modules.session.domain.tokens import TokenError
 from zid_platform.modules.session.infrastructure.oauth_store import (
@@ -74,6 +74,8 @@ def _client_view(c: OAuthClient) -> dict[str, Any]:
         "key_ids": _key_ids(c),  # ids, never key material
         "status": c.status,
         "first_party": c.first_party,
+        # the identity a machine client acts as: what grants are issued to (null for a client people sign in through)
+        "service_principal_id": c.service_principal_id,
     }
 
 
@@ -193,6 +195,26 @@ async def usable_service_client(conn: AsyncConnection, client_id: str, *, scope:
     )
 
 
+async def signed_key_service_caller(conn: AsyncConnection, *, client_id: str, principal_id: str) -> bool:
+    """True only when the caller IS an ACTIVE machine client that proves itself with a signed key and acts as its own service identity (CR-066).
+
+    Read from the client's own record, in the caller's tenant (RLS), never from anything the caller sent: `client_credentials` only (no person signs in
+    through it), a key rather than a secret, no sign-in redirect, the scope of a build pipeline, and the token's subject is the client's service principal.
+    A machine client made for something else (access decisions, a SCIM source) does not qualify, whatever grants its identity holds."""
+    c = await load_client(conn, client_id)
+    return (
+        c is not None
+        and c.status == "ACTIVE"
+        and c.grant_types == frozenset({"client_credentials"})
+        and c.token_auth_method == "private_key_jwt"
+        and not c.redirect_uris
+        and bool(c.jwks)
+        and BUILD_PIPELINE_SCOPE in c.scopes
+        and c.service_principal_id is not None
+        and c.service_principal_id == principal_id
+    )
+
+
 __all__ = [
     "Authenticated",
     "ClientRegistrationError",
@@ -223,6 +245,7 @@ __all__ = [
     "revoke_tenant_sessions",
     "set_client_status",
     "set_session_status",
+    "signed_key_service_caller",
     "usable_service_client",
 ]
 

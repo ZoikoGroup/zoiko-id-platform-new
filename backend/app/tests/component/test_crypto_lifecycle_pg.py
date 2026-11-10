@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from conftest import ctx, engine
+from conftest import ctx, engine, fresh_database
 from sqlalchemy import text
 from zid_crypto import CryptoError
 from zid_crypto.envelope import Envelope
@@ -31,6 +32,25 @@ from zid_platform.modules.evidence.application.runtime import (
 from zid_platform.modules.evidence.ports import worker_pass
 
 N_SUBJECT, N_PLAIN = 12, 13
+
+
+# These tests count what depends on a key across the WHOLE database ("nothing depends on the old version any more"). Every test builds its own in-memory
+# key provider, so rows other tests left behind are wrapped under keys that no longer exist: they can never be re-wrapped and would be counted forever.
+# A database of their own keeps the counts about what these tests wrote.
+@pytest.fixture(scope="module")
+def isolated() -> Iterator[tuple[str, str]]:
+    with fresh_database() as urls:
+        yield urls
+
+
+@pytest.fixture(scope="module")
+def owner_url(isolated: tuple[str, str]) -> str:
+    return isolated[0]
+
+
+@pytest.fixture(scope="module")
+def rt_url(isolated: tuple[str, str]) -> str:
+    return isolated[1]
 
 
 def uid() -> str:

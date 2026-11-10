@@ -59,7 +59,11 @@ def _keygen(args: argparse.Namespace) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     from zid_platform.attestor import registration, service
-    from zid_platform.attestor.inspectors import DockerInspector, KubernetesInspector
+    from zid_platform.attestor.inspectors import (
+        DockerInspector,
+        KubernetesInspector,
+        engine_api_runner,
+    )
 
     entries = {e.spiffe_id: e for e in registration.load(Path(args.registrations))}
     targets: list[tuple[registration.Entry, str]] = []
@@ -69,15 +73,25 @@ def _run(args: argparse.Namespace) -> int:
             print(f"{sid or spec} is not in the registration file", file=sys.stderr)
             return 2
         targets.append((entries[sid], target))
+    if args.registered_docker:
+        # every registration that names a container is attested as that container: the file (changed by review) is the whole list
+        named = {t[0].spiffe_id for t in targets}
+        for entry in entries.values():
+            container = entry.selectors.get("docker.container")
+            if container and entry.spiffe_id not in named:
+                targets.append((entry, container))
     if not targets:
-        print("nothing to attest: give --docker or --k8s", file=sys.stderr)
+        print("nothing to attest: give --docker, --k8s or --registered-docker", file=sys.stderr)
         return 2
-    if args.docker and args.k8s:
+    use_docker = bool(args.docker) or args.registered_docker
+    if use_docker and args.k8s:
         print("run one attestor per runtime kind", file=sys.stderr)
         return 2
     inspector = (
-        DockerInspector()
-        if args.docker
+        DockerInspector(run=engine_api_runner(args.docker_socket))
+        if use_docker and args.docker_socket
+        else DockerInspector()
+        if use_docker
         else KubernetesInspector(
             args.k8s_api,
             Path(args.k8s_token_file).read_text(encoding="utf-8").strip(),
@@ -112,6 +126,16 @@ def main(argv: list[str] | None = None) -> int:
         "--cell", required=True, help="the cell's /v1/machine/attestations:verify address"
     )
     r.add_argument("--docker", action="append", metavar="NAME=SPIFFE_ID")
+    r.add_argument(
+        "--docker-socket",
+        help="read containers from the Docker Engine API on this unix socket (e.g. /var/run/docker.sock, mounted read-only) "
+        "instead of running the docker command, which the platform image does not contain",
+    )
+    r.add_argument(
+        "--registered-docker",
+        action="store_true",
+        help="attest every registration that names a `docker.container` selector, as that container (no --docker pair per workload)",
+    )
     r.add_argument("--k8s", action="append", metavar="NAMESPACE/POD=SPIFFE_ID")
     r.add_argument("--k8s-api", default="https://kubernetes.default.svc")
     r.add_argument(

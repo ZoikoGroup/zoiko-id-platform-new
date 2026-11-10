@@ -6,7 +6,7 @@ This was rehearsed end to end on one machine in `deploy/local-prod/` (the same i
 
 ```
 Internet ─443─▶ APP VM:      Caddy ─▶ web ─▶ cell API ─┐                 DATABASE VM:  PostgreSQL 17
-                             global API ───────────────┼──TLS 5432──▶   zid_cell  zid_global  openbao  spicedb
+                             global API ───────────────┼──TLS 5432──▶   zid_cell  openbao  spicedb
                              worker, outbox-relay, consumer, valkey     roles: owner / runtime / worker / relay
                                           │ 8200 9092 8443                     ▲ replication
                                           ▼                                    │
@@ -34,7 +34,8 @@ Names, zone and sizes are examples; the principle is private addresses only for 
 PROJECT=zoiko-prod ZONE=europe-west2-a
 gcloud compute networks create zid --subnet-mode=custom
 gcloud compute networks subnets create zid-eu --network=zid --range=10.0.0.0/24 --region=europe-west2
-gcloud compute firewall-rules create zid-internal --network=zid --allow=tcp:5432,tcp:8200,tcp:9092,tcp:8443 --source-tags=zid-app,zid-services --target-tags=zid-db,zid-services
+gcloud compute firewall-rules create zid-internal --network=zid --allow=tcp:5432,tcp:8200,tcp:9092,tcp:8443,tcp:8081 --source-tags=zid-app,zid-services --target-tags=zid-db,zid-services   # 8081: SPIRE server (section 9 only)
+gcloud compute firewall-rules create zid-workload --network=zid --allow=tcp:9443 --source-tags=zid-workload --target-tags=zid-app   # workload listener (section 9 only)
 gcloud compute firewall-rules create zid-web --network=zid --allow=tcp:80,tcp:443 --target-tags=zid-app
 gcloud compute firewall-rules create zid-ssh-iap --network=zid --allow=tcp:22 --source-ranges=35.235.240.0/20   # SSH only through IAP
 
@@ -104,6 +105,90 @@ Check: `curl https://api.<domain>/health/ready`, `https://global.<domain>/health
 ## 8. First operator
 
 Set the `ZID_OPERATOR_*` values for the operator account (see `deploy/gcp/README.md`, "operator-bootstrap"): it creates the first operator and prints one enrollment link.
+
+## 9. Workload identity and agents (optional; profile `workload-identity`)
+
+The same flow as local (`local/spire/`), on VMs. It lets software running on your VMs (an AI agent, a service) prove **who it is** with a short-lived SPIFFE identity and **what it is running** with a signed attestation, so the cell can issue it a token bound to that identity. Nothing here is on by default; without it the cell answers 503 to workload requests and 404 to the attestation endpoint.
+
+```
+SERVICES VM  spire-server  (issues identities for <cell>.production.id.zoiko; CA key + registrations in /var/lib/zid/spire-server)
+      ^ 8081 (join token once, then the agent's own identity)
+APP VM       spire-agent   (pid: host; unix socket /run/zid/spire-sockets/agent.sock, mounted by workloads, read by uid)
+             attestor      (own key; reads containers through the engine socket, read-only; signs "this container is this image")
+             workload-edge (Caddy :9443, private address only: mutual TLS against the SPIRE bundle, forwards the verified certificate)
+             cell          (verifies the certificate again against the bundle, maps the SPIFFE ID to a registered workload binding)
+```
+
+Who proves what: the **agent** proves which workload this is (its identity), the **attestor** proves what it is running (a statement the cell checks against the attestor's public key), and the **cell** decides (binding, authority, policy). An identity alone authorizes nothing: a workload with no registered binding gets `WORKLOAD_IDENTITY_UNREGISTERED`.
+
+**a. Services VM.** In `.env` set `ZID_SPIFFE_TRUST_DOMAIN=<cell>.production.id.zoiko` (the cell id from `cells.yaml`; the domain is governed, never a default).
+```bash
+./workload-identity.sh server-init                      # /var/lib/zid/spire-server, owner 1000, mode 700: put it on the snapshotted disk
+docker compose -f docker-compose.services.yml --profile workload-identity up -d spire-server
+./workload-identity.sh bundle > spire_bundle.pem        # PUBLIC: the trust bundle
+./workload-identity.sh token app-1                      # a one-time join token for the app VM's agent (10 minutes)
+```
+**b. App VM.** Copy `spire_bundle.pem` to `secrets/spire_bundle.pem`, add the firewall rules (step 1), then:
+```bash
+# .env: ZID_SPIFFE_TRUST_DOMAIN, ZID_SPIFFE_BUNDLE_FILES='{"<trust domain>": "/run/secrets/spire_bundle.pem"}',
+#       ZID_MESH_TRUSTED_PROXIES='["172.30.0.250"]'   (the workload listener's fixed address), ZID_SPIRE_JOIN_TOKEN=<the token>
+mkdir -p /run/zid/spire-sockets
+docker compose --profile workload-identity up -d spire-agent
+#   ... once the agent logs "Node attestation was successful", REMOVE ZID_SPIRE_JOIN_TOKEN from .env (it is spent).
+```
+**c. Let a workload have an identity.** On the services VM, one entry per workload: the tenant is part of its SPIFFE ID path, and the workload is recognised by the unix user it runs as (give each workload its own uid):
+```bash
+./workload-identity.sh register app-1 spiffe://<trust domain>/t/<tenant-id>/ns/payments/sa/agent 20001
+```
+Run the workload container with `user: "20001"` and `-v /run/zid/spire-sockets:/run/spire/sockets:ro`; its SPIRE Workload API socket is `/run/spire/sockets/agent.sock`. A new entry reaches the agent within seconds.
+
+**c2. The listener's secret.** The cell believes a forwarded certificate only from the listener's address **and** with a secret the listener adds, so a process that merely reaches the cell from that address cannot claim an identity. A deployed cell with `ZID_MESH_TRUSTED_PROXIES` and no `ZID_MESH_PROXY_SECRET_FILE` refuses to start.
+```bash
+./workload-identity.sh proxy-secret     # secrets/mesh_proxy_secret (owner 10001, mode 400); then .env: ZID_MESH_PROXY_SECRET_FILE=/run/secrets/mesh_proxy_secret
+```
+
+**d. The attestor.** On the app VM:
+```bash
+./workload-identity.sh attestor-init                     # attestor-secrets/attestor.pem (private, only the attestor mounts it) + secrets/attestor_keys.json (public)
+cp attestor/workloads.example.json attestor/workloads.json   # edit: which container may be what, and the image digests approved for it
+./workload-identity.sh docker-gid                      # the group that owns the engine socket: put the number in .env as ZID_DOCKER_GID
+# .env: ZID_ATTESTOR_KEYS_FILE=/run/secrets/attestor_keys.json
+./workload-identity.sh preflight                         # checks this VM (ownership, modes, group, bundle, DNS, the SPIRE server); fix every FAIL
+docker compose --profile workload-identity up -d attestor workload-edge && docker compose up -d cell
+```
+
+Private DNS for the listener (once per project; a zone for `workload.<domain>` only, so the public `id.`, `api.` and `global.` names are not shadowed):
+```bash
+gcloud dns managed-zones create zid-workload --dns-name=workload.<domain>. --visibility=private --networks=zid --description='workload listener'
+gcloud dns record-sets create workload.<domain>. --zone=zid-workload --type=A --ttl=300 --rrdatas=<app VM private address>
+```
+`attestor/workloads.json` changes by reviewed change, like SPIRE registrations: widening an entry is visible in review. You write each entry's `selectors` (which container it is). You do **not** type its `approved_digests`: they come from the console. A person registers the build under **Agents & tools → Builds**, a second person approves it, the workload is bound in **Workload identity**, and then:
+```bash
+./workload-identity.sh sync-attestor <workspace>            # shows what would change: + a newly approved digest, - one no longer approved
+./workload-identity.sh sync-attestor <workspace> --write    # rewrites the file; read the difference and commit it
+```
+A digest is listed only while an active binding runs an approved build, and an entry with none behind it is reported, never silently emptied. Pipelines can run it with `--check`, which exits 1 when the file is out of date.
+
+**Approved builds are required here by default.** A blueprint release, and a workload binding, must run an approved build whenever `ZID_ENVIRONMENT` is not `local`, `test` or `dev`. `ZID_AGENT_BUILDS=enforce` makes it so everywhere; `off` is refused at start-up in a deployed environment. A binding must also carry the digest and version of its own agent's approved release, so one cannot be pointed at other software.
+
+**e. Check it.** `docker compose logs attestor` shows `attested ... level 2: 200 OK` for a running, approved container, `not attested ... not running` for a stopped one, and level 1 for the right container running an image that is not approved (level 1 cannot get a token). A workload reaches the cell at `https://workload.<domain>:9443` with its SVID as the TLS client certificate (`./workload-identity.sh edge-ca` prints the root to trust for that listener's own certificate; point `workload.<domain>` at the app VM's private address in private DNS).
+
+**What this setup cannot give you** (VM-only, no KMS or HSM): the SPIRE CA key and the attestor key are files on VM disks (modes 600 and 400), protected by disk encryption, snapshots you control and VM access, not by hardware. Run the attestor on the workload VM and the cell on another where you can: an attacker who owns one machine then does not hold both. Hardware or TEE attestation (level 3) is not built, so no workload reaches level 3. The agent shares the host's process table (`pid: host`) to see which user a caller is; treat the agent container as privileged. To rotate the attestor key, run `attestor-init` into an empty directory and swap the public key in `secrets/attestor_keys.json` (keep both until statements signed with the old key expire, at most one hour).
+
+## Registering agent builds (nobody types a digest)
+
+The whole path from a build to a working agent, with who holds which grant, is in [docs/runbooks/agent-go-live.md](../../docs/runbooks/agent-go-live.md).
+
+An agent is software you build elsewhere. Zoiko iD never builds it; it only checks the digest of the finished image.
+
+1. **Build and push** the agent's image in its own repository. The registry computes the digest at push time.
+2. **Register it, either way:**
+   - **From the pipeline (the production path, and the only one for a private registry):** copy [`tools/ci/register-agent-build.yml`](../../tools/ci/register-agent-build.yml) into the agent's repository. It pushes the image, takes the digest from the registry and runs `tools/scripts/register_build.py` as an application holding only `machine.build.register`.
+   - **From the console:** Agents & tools > Builds > Register build. Pick the software from the list (name your repositories in `ZID_BUILD_IMAGES`; ones already registered are offered too), then pick a version: the digest is looked up from the registry for you. For software not listed yet, paste its name once (`ghcr.io/acme/bot:1.4`). This works for the hosts named in `ZID_BUILD_REGISTRIES`, anonymously, so a private image needs the pipeline instead.
+3. **A second person approves** the build under Agents & tools > Builds, where every registered build appears under **Waiting for approval** with its digest, source, a link to the build record (or a warning that none was recorded) and who registered it. The registering identity can never approve its own build.
+4. **Deploy by digest** (`image@sha256:...`), never by a tag, which can move. `./workload-identity.sh sync-attestor <workspace>` then brings the approved digests into the attestor's file.
+
+Where approved builds are required (any environment that is not local, test or dev), a release or a workload binding is refused unless its build is approved.
 
 ## Day two
 

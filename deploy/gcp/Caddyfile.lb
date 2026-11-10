@@ -26,7 +26,7 @@ http://api.{$ZID_DOMAIN} {
 
 http://global.{$ZID_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy global:8100
+	reverse_proxy cell:8000
 }
 
 http://operator.{$ZID_DOMAIN} {

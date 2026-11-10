@@ -31,8 +31,8 @@ docker compose run --rm migrate                      # schema first, as the owne
 FLAGS=""; for p in $PROFILES; do FLAGS="$FLAGS --profile $p"; done
 # shellcheck disable=SC2086
 docker compose $FLAGS up -d --remove-orphans
-for svc in cell global; do                           # wait for readiness before declaring success
-  port=8000; [ "$svc" = global ] && port=8100
+for svc in cell; do                           # wait for readiness before declaring success
+  port=8000
   i=0
   until docker compose exec -T "$svc" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:$port/health/ready',timeout=3).status==200 else 1)" 2>/dev/null; do
     i=$((i+1)); [ "$i" -gt 40 ] && { echo "$svc did not become ready" >&2; exit 1; }; sleep 3

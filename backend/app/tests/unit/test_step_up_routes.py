@@ -106,6 +106,25 @@ def test_a_rule_listed_twice_and_an_empty_map_are_refused() -> None:
         sr.parse({"rules": []}, CAT)
 
 
+def test_a_rule_may_opt_in_to_signed_key_service_callers_and_nothing_else_is_accepted() -> None:
+    """CR-066: `machine: exempt` is the only way a rule lets a machine through, it is off by default, and a misspelling does not quietly mean yes."""
+    base = {"match": "POST /a", "action": "revoke-own-sessions-or-all-other-sessions"}
+    (plain,) = _parse(base)
+    (exempt,) = _parse({**base, "machine": "exempt"})
+    assert plain.machine_exempt is False and exempt.machine_exempt is True
+    for bad in ("skip", True, "EXEMPT", "yes"):
+        with pytest.raises(StepUpError, match="machine must be"):
+            _parse({**base, "machine": bad})
+
+
+def test_in_the_shipped_map_only_registering_a_build_lets_a_machine_through() -> None:
+    sr.route_actions.cache_clear()
+    exempt = sorted(r.match for r in sr.route_actions().rules if r.machine_exempt)
+    assert exempt == [
+        "POST /v1/machine/builds"
+    ]  # a pipeline only PROPOSES a build; every other rule still needs a person
+
+
 # ----------------------------------------------------------------------------------------------------------------- the guard
 
 

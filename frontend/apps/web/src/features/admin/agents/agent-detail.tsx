@@ -1,12 +1,13 @@
 "use client";
 
 import type { AgentGate } from "@zoiko/api-client";
-import { Badge, Banner, Button, Card, CopyId, Dialog, KeyValues, StatusBadge, TextField } from "@zoiko/ui";
+import { Badge, Banner, Button, Card, CopyId, Dialog, KeyValues, Select, StatusBadge, TextField } from "@zoiko/ui";
 import { CheckCircle2, CircleDashed, X } from "lucide-react";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { GATE_NOTES } from "./agents-logic";
 import { RegisterChildDialog } from "./register-child-dialog";
 import { AGENTS_KEY, BLOCKER_TEXT, GATES, PLATFORM_CHECKS } from "./shared";
 
@@ -228,6 +229,16 @@ export function AgentDetailPanel({ agentId, onClose }: { agentId: string; onClos
               >
                 <div className="space-y-3">
                   <p className="text-sm text-ink-muted">{GATES.find((g) => g.id === attesting)?.help}</p>
+                  {attesting ? (
+                    <Select
+                      label="Suggested note"
+                      placeholder="Pick what was checked…"
+                      value={null}
+                      onChange={(id) => setNote(GATE_NOTES[attesting].find((n) => n.id === id)?.label ?? note)}
+                      options={GATE_NOTES[attesting]}
+                      description="Fills the note below. You can edit it."
+                    />
+                  ) : null}
                   <TextField label="Note (optional)" multiline rows={3} value={note} onChange={setNote} description="What was reviewed or tested, for the next reader." />
                   {attest.error ? <ApiErrorView error={attest.error} /> : null}
                 </div>

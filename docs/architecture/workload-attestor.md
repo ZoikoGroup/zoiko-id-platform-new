@@ -46,6 +46,8 @@ The cell also pins a **ceiling per attestor key** (`zid_max_level` on its JWK, d
 
 Owned by the platform team and changed by review, like SPIRE registration entries. Each entry names the SPIFFE ID (which carries the tenant), the environment, the selectors the runtime object must satisfy, the digests it may run, and an optional lower ceiling. A workload never edits it and the attestor never takes a digest or a name from the workload.
 
+The digests are not typed. `python -m zid_platform.entrypoints.attestor_sync --workspace <company> --registrations workloads.json` fills each entry's `approved_digests` from the company's records: a digest is listed only while an ACTIVE workload binding runs a build that a second person approved (CR-064), an entry with none behind it is reported and left as it is, and other companies' entries are never touched. The selectors stay hand-written, because which container is which is operational. The output is still a reviewed change to this file (`--check` exits 1 when it is out of date, for a pipeline).
+
 ## Failure and renewal (fail closed)
 
 - A statement lasts at most one hour (the cell's limit); the attestor default is 15 minutes, renewed every 5.
@@ -80,5 +82,5 @@ Production: one attestor per node or per cluster, signing with `--gcp-kms-key` (
 ## Not built here
 
 - A hardware or TEE verifier (TPM quotes, SEV-SNP, Nitro, TDX reports). The extension point is `HardwareQuoteVerifier`; without one nothing reaches level 3.
-- Artifact signature verification (for example Sigstore). The digest match is against the registration's approved list, which in a release pipeline is filled from signed, approved builds.
+- Artifact signature verification (for example Sigstore). The digest match is against the registration's approved list, which `attestor_sync` fills from the platform's approved builds. A build records a provenance reference, but nothing verifies a signature on it yet.
 - A Kubernetes run against a live cluster. The inspector is tested against the API's response format only; the Docker path is tested against a real container.

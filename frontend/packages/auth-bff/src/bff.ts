@@ -351,12 +351,13 @@ export function createBff(config: BffConfig) {
       return new Response(JSON.stringify({ signedOut: true }), { status: 200, headers });
     },
 
-    /** GET /api/auth/session — display identity + CSRF token. Never tokens. */
+    /** GET /api/auth/session — display identity + CSRF token. Never tokens. `apiBase` is the public API address (the token issuer): not secret, and what an
+     * external caller such as a build pipeline is pointed at. */
     async session(req: Request): Promise<Response> {
       const stored = await loadSession(req);
       const session = stored ? await freshSession(req, stored) : null;
       if (!session) return json({ authenticated: false });
-      return json({ authenticated: true, subject: session.subject, csrf: session.csrf });
+      return json({ authenticated: true, subject: session.subject, csrf: session.csrf, apiBase: issuer });
     },
 
     /** Server components: the current display subject, or null. */
