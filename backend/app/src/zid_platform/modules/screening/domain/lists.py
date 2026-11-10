@@ -21,6 +21,7 @@ class ListId(StrEnum):
     EU_CONSOLIDATED = "EU_CONSOLIDATED"
     UN_SC = "UN_SC"
     LOCAL = "LOCAL"  # a country's own list, converted by its owner to the normalized local format
+    PEP = "PEP"  # politically exposed persons (CR-068): a risk list, not a sanctions list; a match only ever routes to a person
 
 
 class PartyKind(StrEnum):

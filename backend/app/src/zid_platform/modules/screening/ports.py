@@ -29,6 +29,11 @@ from zid_platform.modules.screening.application.screening import (
     restricted_detail,
     review,
 )
+from zid_platform.modules.screening.application.signals import (
+    AdverseMediaPort,
+    check_adverse_media,
+    record_attempt,
+)
 from zid_platform.modules.screening.domain.decision import (
     AuthorityEvidence,
     AuthorityKind,
@@ -45,6 +50,7 @@ from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph
 from zid_platform.modules.screening.infrastructure.config import config as screening_config
 
 __all__ = [
+    "AdverseMediaPort",
     "AuthorityEvidence",
     "AuthorityKind",
     "CaseView",
@@ -64,6 +70,7 @@ __all__ = [
     "ScreeningStatus",
     "amend_case",
     "case_for_kyb",
+    "check_adverse_media",
     "close_for_kyb",
     "due_for_rescreen",
     "get_case",
@@ -72,6 +79,7 @@ __all__ = [
     "ingest_pass",
     "live_kyb_cases",
     "open_case",
+    "record_attempt",
     "record_register",
     "replay",
     "request_appeal",

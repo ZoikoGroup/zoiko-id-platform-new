@@ -22,6 +22,11 @@ policy:
   validity_elevated_days: 90
   match_threshold: 0.88
   strong_name: 0.97
+  # PEP screening (CR-068) is DISABLED by default: no list is required and no source is configured, so nothing changes until the owners
+  # choose a licensed PEP source and set this. PROPOSED: [PEP], meaning a high-risk (elevated) approval needs a current PEP list, and
+  # a missing or stale one blocks it (UNAVAILABLE, LIST_STALE:PEP, HIGH_RISK_APPROVAL_BLOCKED). To screen every case, add PEP to
+  # required_lists instead. A PEP match always goes to a person; it is never an automatic reject or approval.
+  high_risk_required_lists: []
 
 packs:
   GB:
@@ -58,4 +63,7 @@ sources:
     format: xml
   LOCAL:
     url: null        # a country's own list, converted to the normalized local CSV by its owner and loaded by hand or from an address
+    format: csv
+  PEP:
+    url: null        # DISABLED: the owners must choose a licensed PEP source and convert it to the documented CSV or JSON shape (CR-068)
     format: csv

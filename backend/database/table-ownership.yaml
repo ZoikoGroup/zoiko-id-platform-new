@@ -769,6 +769,21 @@ tables:
     module: screening
     tenant_scoped: true
     source: "ZID-ED-04 appeals and corrections (CR-044)"
+  verify.screening_velocity_event:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 velocity attempts, hashed keys only (CR-068)"
+  verify.screening_signal:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 fraud and adverse-media signals, append-only (CR-068)"
+  verify.screening_signal_review:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 review items for signals (CR-068)"
   verify.verification_assertion:
     role: cell
     module: verification
