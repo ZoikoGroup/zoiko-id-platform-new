@@ -467,6 +467,39 @@
         "title": "ResendBody",
         "type": "object"
       },
+      "ResolutionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "CLEARED_BY_REVIEWER",
+              "CONFIRMED_RISK",
+              "ESCALATED"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "rationale",
+          "evidence_ref"
+        ],
+        "title": "ResolutionIn",
+        "type": "object"
+      },
       "RollbackBody": {
         "additionalProperties": false,
         "properties": {
@@ -745,6 +778,29 @@
           "target_mode"
         ],
         "title": "PlanBody",
+        "type": "object"
+      },
+      "zid_platform__modules__screening__api__signals__ChallengeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "statement": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "evidence_ref"
+        ],
+        "title": "ChallengeIn",
         "type": "object"
       }
     }
@@ -2744,6 +2800,139 @@
         "summary": "Screening Ruling",
         "tags": [
           "org-claims"
+        ]
+      }
+    },
+    "/v1/reviews/signals": {
+      "get": {
+        "operationId": "queue_v1_reviews_signals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Queue V1 Reviews Signals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "screening-signals"
+        ]
+      }
+    },
+    "/v1/reviews/signals/{review_id}/challenge": {
+      "post": {
+        "operationId": "challenge_v1_reviews_signals__review_id__challenge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__screening__api__signals__ChallengeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Challenge V1 Reviews Signals  Review Id  Challenge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Challenge",
+        "tags": [
+          "screening-signals"
+        ]
+      }
+    },
+    "/v1/reviews/signals/{review_id}/resolution": {
+      "post": {
+        "operationId": "resolution_v1_reviews_signals__review_id__resolution_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolutionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolution V1 Reviews Signals  Review Id  Resolution Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolution",
+        "tags": [
+          "screening-signals"
         ]
       }
     }

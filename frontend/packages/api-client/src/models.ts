@@ -844,6 +844,49 @@ export type BreakGlassReview = {
   reviewed_at: Iso | null;
 };
 
+/** A fraud or adverse-media signal waiting for a person (reviewer plane). `detail` carries hashes only, never an address or a device identifier. */
+export type SignalReviewStatus = "OPEN" | "CHALLENGED" | "RESOLVED";
+export type SignalNotifyState = "PENDING" | "SENT" | "FAILED";
+export type SignalSource = "VELOCITY" | "ADVERSE_MEDIA";
+export type SignalRiskTier = "LOW" | "ELEVATED" | "HIGH";
+export type SignalOutcome = "CLEARED_BY_REVIEWER" | "CONFIRMED_RISK" | "ESCALATED";
+export type VelocityDetail = {
+  rule?: string;
+  dimension?: "DEVICE" | "CONTACT" | "NETWORK";
+  action?: "SIGNUP" | "VERIFICATION" | "CLAIM";
+  count?: number;
+  threshold?: number;
+  window_seconds?: number;
+  key_hash?: string;
+};
+export type AdverseMediaDetail = {
+  provider?: string;
+  queried_at?: Iso;
+  outcome?: string;
+  hit_count?: number;
+  severity?: string;
+  rationale?: string;
+  reasons?: string[];
+};
+export type SignalReview = {
+  review_id: string;
+  signal_id: string;
+  dedupe_key: string;
+  status: SignalReviewStatus;
+  notify_state: SignalNotifyState;
+  outcome: string | null;
+  resolved_by: string | null;
+  rationale: string | null;
+  evidence_ref: string | null;
+  source: SignalSource;
+  rule: string;
+  detail: VelocityDetail & AdverseMediaDetail;
+  risk_tier: SignalRiskTier;
+  created_at: Iso;
+};
+export type SignalChallengeIn = { statement: string; evidence_ref: string };
+export type SignalResolutionIn = { outcome: SignalOutcome; rationale: string; evidence_ref: string };
+
 /* Phase G: tenant lifecycle, team and invitations (ZID-OVERLAY-001 §2-4). */
 export type TenantStatus =
   | "DRAFT"
@@ -2418,6 +2461,8 @@ export type OrgClaimStatus = {
   registration_number: string;
   state: OrgClaimState;
   outcome: OrgClaimOutcome;
+  /** Local and test environments only: the claim reads as verified from the claimant's identity check alone, with no company check or review. */
+  development_shortcut?: boolean;
   relationship: OrgClaimRelationship | null;
   submitted_at: Iso | null;
   closed_at: Iso | null;

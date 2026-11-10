@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -43,6 +44,21 @@ def hash_identifier(value: str, *, tenant_id: str, kind: str, pepper: bytes = b"
     normalized = value.strip().casefold()
     msg = f"{tenant_id}\x1f{kind}\x1f{normalized}".encode()
     return hmac.new(pepper or b"zid-screening-velocity", msg, hashlib.sha256).hexdigest()
+
+
+def network_prefix(address: str | None) -> str | None:
+    """The network a client came from, coarse on purpose so one household or office is one key: an IPv4 address becomes its /24, an
+    IPv6 address its /48. An address that does not parse, or none at all, gives None (no network signal)."""
+    if not address:
+        return None
+    try:
+        ip = ipaddress.ip_address(address.strip())
+    except ValueError:
+        return None
+    if ip.is_loopback or ip.is_unspecified:
+        return None  # a local proxy hop says nothing about the client
+    bits = 24 if ip.version == 4 else 48
+    return str(ipaddress.ip_network(f"{ip}/{bits}", strict=False))
 
 
 # ---- velocity --------------------------------------------------------------------------------------------------------

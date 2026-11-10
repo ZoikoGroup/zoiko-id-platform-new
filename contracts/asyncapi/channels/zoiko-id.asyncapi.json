@@ -1740,6 +1740,22 @@
         }
       }
     },
+    "screening.domain": {
+      "address": "zid.{env}.{region}.screening.domain",
+      "messages": {
+        "screening_signal_raised": {
+          "$ref": "#/components/messages/screening_signal_raised"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "security.domain": {
       "address": "zid.{env}.{region}.security.domain",
       "messages": {
@@ -5169,6 +5185,17 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "screening_signal_raised": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.signal.raised.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A fraud or adverse-media signal opened a review item that is waiting for a person (review id, source, rule and risk tier only; no hash, count or name).",
+        "title": "screening.signal.raised",
+        "x-zid-source": "ZID-GAP-001 WP-14; CR-068",
+        "x-zid-status": "proposed"
+      },
       "security_exception_created": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.security.exception.created.v1",
@@ -6536,6 +6563,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/sbom.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_screening_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/screening.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

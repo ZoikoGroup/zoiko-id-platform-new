@@ -86,11 +86,12 @@ class ReviewRow:
     rule: str
     detail: dict[str, Any]
     risk_tier: str
+    created_at: datetime | None = None
 
 
 _SELECT = (
     "SELECT r.review_id, r.signal_id, r.dedupe_key, r.status, r.notify_state, r.outcome, r.resolved_by, r.rationale, "
-    "r.evidence_ref, s.source, s.rule, s.detail, s.risk_tier FROM verify.screening_signal_review r "
+    "r.evidence_ref, s.source, s.rule, s.detail, s.risk_tier, r.created_at FROM verify.screening_signal_review r "
     "JOIN verify.screening_signal s ON s.signal_id = r.signal_id "
 )
 
@@ -110,6 +111,7 @@ def _row(r: Any) -> ReviewRow:
         r.rule,
         r.detail,
         r.risk_tier,
+        r.created_at,
     )
 
 
@@ -259,3 +261,26 @@ async def mark_resolved(
             "i": review_id,
         },
     )
+
+
+async def prune_events(conn: AsyncConnection, before: datetime) -> int:
+    """Delete attempt rows older than `before` (every tenant; the worker role). Only the sliding windows read them, so a row older than the
+    longest window can never change a count again. Signals and review items are never pruned."""
+    result = await conn.execute(
+        text("DELETE FROM verify.screening_velocity_event WHERE occurred_at < :b"), {"b": before}
+    )
+    return int(result.rowcount or 0)
+
+
+async def failed_notifications(conn: AsyncConnection, limit: int = 200) -> list[tuple[str, str]]:
+    """(tenant id, review id) of items still waiting for a person whose notification failed, oldest first (every tenant; the worker role)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, review_id FROM verify.screening_signal_review "
+                "WHERE notify_state = 'FAILED' AND status <> 'RESOLVED' ORDER BY created_at LIMIT :n"
+            ),
+            {"n": limit},
+        )
+    ).all()
+    return [(str(r.tenant_id), str(r.review_id)) for r in rows]

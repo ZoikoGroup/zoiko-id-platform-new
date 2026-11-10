@@ -16,38 +16,6 @@
         "title": "AssistIn",
         "type": "object"
       },
-      "ChallengeIn": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "pattern": "^[a-z0-9-]{3,120}$",
-            "title": "Action",
-            "type": "string"
-          },
-          "change": {
-            "additionalProperties": true,
-            "title": "Change",
-            "type": "object"
-          },
-          "critical": {
-            "default": false,
-            "title": "Critical",
-            "type": "boolean"
-          },
-          "resource": {
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Resource",
-            "type": "string"
-          }
-        },
-        "required": [
-          "action",
-          "resource"
-        ],
-        "title": "ChallengeIn",
-        "type": "object"
-      },
       "ClientRef": {
         "additionalProperties": false,
         "properties": {
@@ -333,6 +301,38 @@
           "recovery_code"
         ],
         "title": "StartIn",
+        "type": "object"
+      },
+      "zid_platform__modules__authentication__api__step_up__ChallengeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "pattern": "^[a-z0-9-]{3,120}$",
+            "title": "Action",
+            "type": "string"
+          },
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "critical": {
+            "default": false,
+            "title": "Critical",
+            "type": "boolean"
+          },
+          "resource": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Resource",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "resource"
+        ],
+        "title": "ChallengeIn",
         "type": "object"
       },
       "zid_platform__modules__authentication__api__webauthn__CredentialIn": {
@@ -1360,7 +1360,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChallengeIn"
+                "$ref": "#/components/schemas/zid_platform__modules__authentication__api__step_up__ChallengeIn"
               }
             }
           },

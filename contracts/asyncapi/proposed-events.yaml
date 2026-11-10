@@ -574,3 +574,9 @@ events:
     source: ZID-UX-WF-013C section 02, 11; CR-049
     lane: domain
     source_status: "proposed"
+  screening.signal.raised:
+    cloudevents_type: com.zoiko.id.screening.signal.raised.v1
+    meaning: "A fraud or adverse-media signal opened a review item that is waiting for a person (review id, source, rule and risk tier only; no hash, count or name)."
+    source: ZID-GAP-001 WP-14; CR-068
+    lane: domain
+    source_status: "proposed"

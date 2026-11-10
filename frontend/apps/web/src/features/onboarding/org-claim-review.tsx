@@ -3,7 +3,8 @@
 import { ApiError, type OrgClaimAppealKind, type OrgClaimStatus } from "@zoiko/api-client";
 import { Banner, Button, ButtonLink, Card, Select, TextField } from "@zoiko/ui";
 import { CheckCircle2, MessageSquareWarning } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { useCellMutation } from "@/lib/cell";
 
@@ -12,13 +13,35 @@ import { APPEAL_LABELS, MAX_STATEMENT, appealKinds, appealMessage, statementProb
 /** WF-13B to WF-13C: a VERIFIED claim (all four checks complete) is turned into the organization, named by the register, with the claimant as its owner. Nothing
  * but a VERIFIED outcome offers this, and the server refuses it otherwise. */
 export function EstablishCard({ claimId, status }: { claimId: string; status: OrgClaimStatus }) {
+  const router = useRouter();
+  // Local and test only: the server says the claim reads as verified from the claimant's identity check alone. Then there is nothing to wait for or to
+  // choose, so the organization is created at once and the person goes straight on to its setup.
+  const shortcut = status.development_shortcut === true;
   const establish = useCellMutation((api) => api.orgClaims.establish(claimId), {
     invalidate: [["org-claims"], ["tenant"], ["onboarding"]],
     success: "Your organization is established.",
+    onSuccess: () => {
+      if (shortcut) router.replace("/organizations/current/setup");
+    },
   });
+  const started = useRef(false);
+  useEffect(() => {
+    if (shortcut && status.outcome === "VERIFIED" && !status.closed_at && !started.current) {
+      started.current = true; // once: a failure is shown with the button to try again, never retried in a loop
+      establish.mutate(undefined as never);
+    }
+  }, [shortcut, status.outcome, status.closed_at, establish]);
   if (status.outcome !== "VERIFIED") return null;
   return (
-    <Card title="Your organization is verified" description="All four checks are complete. Create the organization from the official register record.">
+    <Card
+      title={shortcut ? "Setting up your organization" : "Your organization is verified"}
+      description={shortcut ? "Your identity check is complete." : "All four checks are complete. Create the organization from the official register record."}
+    >
+      {shortcut ? (
+        <Banner tone="warn" title="Development shortcut">
+          Only your identity check was used. The company was not checked against a register and nobody reviewed it. This works only on a local or test environment.
+        </Banner>
+      ) : null}
       {establish.data ? (
         <div className="space-y-3">
           <Banner tone="ok" icon={CheckCircle2} title={`${establish.data.legal_name ?? "Your organization"} is established`}>

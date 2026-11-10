@@ -30,10 +30,20 @@ from zid_platform.modules.screening.application.screening import (
     review,
 )
 from zid_platform.modules.screening.application.signals import (
+    EVENT as SIGNAL_EVENT_CHANNEL,
+)
+from zid_platform.modules.screening.application.signals import (
     AdverseMediaPort,
     check_adverse_media,
+    note_attempt,
+    prune_velocity,
     record_attempt,
+    retry_failed_notifications,
+    review_view,
 )
+from zid_platform.modules.screening.application.signals import challenge as challenge_signal
+from zid_platform.modules.screening.application.signals import open_queue as open_signal_queue
+from zid_platform.modules.screening.application.signals import resolve as resolve_signal
 from zid_platform.modules.screening.domain.decision import (
     AuthorityEvidence,
     AuthorityKind,
@@ -47,10 +57,15 @@ from zid_platform.modules.screening.domain.decision import (
 from zid_platform.modules.screening.domain.lists import ListId, PartyKind
 from zid_platform.modules.screening.domain.matching import Party
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
+from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES
+from zid_platform.modules.screening.domain.signals import Action as AttemptAction
 from zid_platform.modules.screening.infrastructure.config import config as screening_config
 
 __all__ = [
+    "SIGNAL_EVENT_CHANNEL",
+    "SIGNAL_OUTCOMES",
     "AdverseMediaPort",
+    "AttemptAction",
     "AuthorityEvidence",
     "AuthorityKind",
     "CaseView",
@@ -70,6 +85,7 @@ __all__ = [
     "ScreeningStatus",
     "amend_case",
     "case_for_kyb",
+    "challenge_signal",
     "check_adverse_media",
     "close_for_kyb",
     "due_for_rescreen",
@@ -78,7 +94,10 @@ __all__ = [
     "ingest_list",
     "ingest_pass",
     "live_kyb_cases",
+    "note_attempt",
     "open_case",
+    "open_signal_queue",
+    "prune_velocity",
     "record_attempt",
     "record_register",
     "replay",
@@ -86,7 +105,10 @@ __all__ = [
     "request_rescreen",
     "rescreen",
     "rescreen_pass",
+    "resolve_signal",
     "restricted_detail",
+    "retry_failed_notifications",
     "review",
+    "review_view",
     "screening_config",
 ]

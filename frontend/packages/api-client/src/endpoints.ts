@@ -800,6 +800,10 @@ export function createOperatorApi(t: Transport) {
     breakGlass: (body: BreakGlassIn) => post<M.JitGrant & { review_id: string }>("/operator/break-glass", body),
     reviews: (state?: string) => get<M.Items<M.BreakGlassReview>>("/operator/reviews", { state }),
     completeReview: (id: string, body: BreakGlassReviewIn) => post<M.BreakGlassReview>(`/operator/reviews/${seg(id)}:complete`, body),
+    /** Fraud and adverse-media signals waiting for a person. A signal is a flag to look at: it never blocks or approves anything. */
+    signalReviews: () => get<M.Items<M.SignalReview>>("/v1/reviews/signals"),
+    challengeSignal: (id: string, body: M.SignalChallengeIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/challenge`, body),
+    resolveSignal: (id: string, body: M.SignalResolutionIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/resolution`, body),
 
     /** Commercial operator surface (ZID-COM-001). Reads are typed; every write goes through `call`, driven by the
      * action catalogue in the operator console so that each route has exactly one description of its body. */

@@ -67,6 +67,11 @@ def create_app(
     )
     if settings.tenant_signup_dev_verify and settings.environment not in ("local", "test"):
         raise RuntimeError("ZID_TENANT_SIGNUP_DEV_VERIFY is for local/test only")
+    if settings.org_claim_dev_autoverify and settings.environment not in ("local", "test"):
+        raise RuntimeError("ZID_ORG_CLAIM_DEV_AUTOVERIFY is for local/test only")
+    from .modules.onboarding.application import claims as _claims
+
+    _claims.configure_dev_shortcut(settings.org_claim_dev_autoverify, settings.environment)
     if settings.dev_simulators and settings.environment not in ("local", "test"):
         raise RuntimeError("ZID_DEV_SIMULATORS is for local/test only")
     app.state.operator_password_logins = _operator_password_logins(settings)
@@ -273,6 +278,7 @@ def create_app(
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
+        from .modules.screening.api.signals import router as screening_signals_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
@@ -375,6 +381,7 @@ def create_app(
             search_router,
             agents_router,
             tool_calls_router,
+            screening_signals_router,
             settings_router,
             usage_router,
             commercial_router,
@@ -505,6 +512,15 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
     app.state.payment_port = (
         RecordingPayments() if settings.environment in ("local", "test") else None
     )
+    app.state.screening_velocity_mode = settings.screening_velocity_mode
+    app.state.screening_signal_pepper = b""
+    if settings.screening_signal_pepper_file:
+        from pathlib import Path as _PepperPath
+
+        pepper = _PepperPath(settings.screening_signal_pepper_file).read_bytes().strip()
+        if not pepper:
+            raise RuntimeError("ZID_SCREENING_SIGNAL_PEPPER_FILE is empty")
+        app.state.screening_signal_pepper = pepper
     if settings.stripe_secret_key_file:
         from pathlib import Path
 

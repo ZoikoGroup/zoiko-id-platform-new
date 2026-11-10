@@ -45,14 +45,57 @@ risk only, parser formats, adverse media only adds, error and timeout go to revi
 repeat does not duplicate, a failed notification leaves the item open, and resolution records outcome and evidence and leaves the evidence in place. Existing
 screening tests were adjusted only for the new list kind.
 
+## Wired into the journeys, with a reviewer queue (second slice)
+- **Three journeys now count themselves** through one best-effort call, `screening.note_attempt`: a person sign-up (`POST /v1/registration/intents`, in the
+  registration tenant), a verification start (`POST /verifications`, counted before the country gate, so a refused attempt still counts) and a company claim
+  (`POST /v1/org-claims`). The call hashes the contact, the client network (kept as its /24 or /48) and the device id (`X-Zid-Device`, an opaque id the web app
+  keeps for the browser; a client can omit or change it, so it is advisory). For a verification or a claim the contact key is the person's stable id, not an
+  address. It runs in a savepoint and never raises: a failure is logged and the journey goes on exactly as before, and a breach never blocks.
+- **A hash pepper per cell**: `ZID_SCREENING_SIGNAL_PEPPER_FILE` (a file, read once at start-up and never logged). Without it the hashes are tenant-scoped only.
+- **Reviewer routes** (`/v1/reviews/signals`, an operator-plane route like the other `/v1/reviews/*` routes): `GET` the queue (everything not yet resolved, oldest
+  first, including items whose notification failed), `POST .../challenge` and `POST .../resolution`. Two catalogued protected actions,
+  `verification.screening.signal.read` and `verification.screening.signal.review` (R2/E2): a tenant role never grants them. A resolution needs an outcome from
+  `CLEARED_BY_REVIEWER`, `CONFIRMED_RISK`, `ESCALATED`, a reason of at least a sentence and an evidence reference; the raised signal is never changed.
+- **A console screen** in the operator console (`/signals`, nav entry beside Post-reviews): the queue with risk tier, source, rule, plain-language summary,
+  status and notification state (a FAILED notification is shown as a warning), a Review dialog with separate Challenge and Resolve forms, and a short guide for
+  reviewers (`docs/operator/signals-review-guide.md`). No raw identifier is ever shown.
+- **Housekeeping**: worker step `signal_housekeeping` drops attempt rows older than eight days (longer than the longest 24-hour window); signals and review
+  items are never pruned. `retry_failed_notifications` exists for when a notification channel is chosen.
+
+## Tests (second slice)
+`test_screening_signals_api_pg.py` (PostgreSQL, over HTTP): three sign-ups from one address open exactly one signal, all three answer 202 and no address appears in
+any stored value; the queue, a too-short and a proper challenge, bad and short rulings, a valid ruling that records the reviewer, a repeat (409), an unknown id (404),
+a signed-in person without the reviewer actions (403) and no token (401); old attempt rows are pruned while the signal stays; a claim and a verification each call the
+hook with the right tenant, contact and device. The existing registration suite still passes. Console: 10 tests (queue, FAILED warning, empty state, shortened
+hash, challenge and resolution bodies, an API error).
+
+## Shadow mode, a notification channel and the device id (third slice)
+- **Shadow mode is the default** (`ZID_SCREENING_VELOCITY_MODE`: `off`, `shadow` or `review`). In `shadow` the attempts are counted and each first crossing of a
+  threshold is written to the audit trail as `shadow_breach` (rule, count, threshold, window and the key hash), with no review item and no notification, so the
+  owners can read what the proposed thresholds would have flagged on real traffic before anyone is asked to review it. `review` opens an item per breach;
+  `off` records nothing. Change the mode only after the shadow trail has been read.
+- **The platform channel is the notification.** A raised item publishes one catalogued outbox event, `screening.signal.raised` (review id, source, rule, tier; no hash,
+  count or name; in `proposed-events.yaml`), which any consumer (a webhook, a future alert or email) can act on. A delivery that fails leaves the item open and marked
+  `FAILED`; the worker step `signal_housekeeping` retries it and a second sweep finds nothing to do. Exactly one event per item.
+- **The web app now sends the device id.** The BFF keeps a first-party cookie (`__Host-zid_device`, 128 random bits, HttpOnly, one year) and forwards it to the cell as the
+  header `X-Zid-Device`, always deleting any such header the browser sent, so the BFF is the only source. It is covered for the cell-cookie relay, the bearer relay and the
+  public registration calls; the operator app is untouched. `ZID_DEVICE_COOKIE=off` turns it off. The privacy owner's note is `docs/privacy/device-cookie.md`; the legal
+  basis and the notice text are for the DPO and Legal.
+
 ## Not done
 - **No licensed PEP data source** and no download address; PEP screening is off until the owners choose one and convert it to the documented format.
-- **No adverse-media vendor**; only the port and a fake exist.
-- **Velocity thresholds are unvalidated** against real traffic. The producers (sign-up, verification and claim code) do not call `record_attempt` yet, nothing
-  prunes old `screening_velocity_event` rows or sweeps `FAILED` notifications, and there is no console queue or API route for signal reviews.
+- **No adverse-media vendor**; only the port and a fake exist. Nothing calls `check_adverse_media` from a live journey yet, because there is no provider to ask.
+- **Velocity thresholds are unvalidated** against real traffic. The default mode is now `shadow` for that reason; nobody has read a shadow trail yet.
+- **Nothing consumes `screening.signal.raised` yet.** The event is published and retried; an alert template, an email or a webhook that acts on it is a separate design
+  (the alert catalogue and the email estate are fixed lists). Until then the operator queue is where a reviewer looks.
+- **The device cookie** needs the DPO's and Legal's decision on basis and notice before it is relied on in production. The BFF's `reauthorize`, `callback` and `logout`
+  calls do not send the header (they are not attempts).
+- **The operator console screen** was built and tested against mocks and the real response shapes, and the app builds with the `/signals` route; it was not clicked
+  through with a live reviewer session, which needs the operator's own credentials and a passkey.
 - Ownership-graph propagation of PEP or adverse-media alerts beyond the persons already screened, and a feedback loop that tunes thresholds from review outcomes,
   are not built.
 - Adverse-media results are not fed into a case's risk tier automatically; `check_adverse_media` returns the effect for the caller to apply.
+- The audit event type `verification.screening.signal` is not in the asyncapi catalogue.
 
 ## Owner decisions (proposed values, none ratified)
 1. **PEP source and enablement.** Proposed: a licensed source and `high_risk_required_lists: [PEP]`, so a high-risk approval needs a current PEP list. Alternative:
@@ -65,3 +108,5 @@ screening tests were adjusted only for the new list kind.
 5. **Signal resolution outcomes** (`CLEARED_BY_REVIEWER`, `CONFIRMED_RISK`, `ESCALATED`) and who may resolve (proposed: a compliance reviewer who is not the
    subject).
 6. **Hash pepper.** Proposed: a deployment secret per cell; without one the digests are tenant-scoped only.
+7. **Where signals are reviewed.** Proposed: the operator console, by the same reviewers who rule on screening cases. A company-side view is not built.
+8. **Retention of attempt rows.** Proposed: eight days. Signals and review items are kept like other screening evidence.
