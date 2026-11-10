@@ -21,20 +21,31 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from test_workload_identity_pg import DIGEST as SEEDED_DIGEST
-from test_workload_identity_pg import DOMAIN
-from test_workload_identity_pg import seed_agent
-from zid_crypto import KeyRing, LocalSigner
+from test_workload_identity_pg import DOMAIN, seed_agent
 from zid_context.spiffe import TrustPolicy
+from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
 from zid_platform.entrypoints.attestor_sync import approved_by_workload
 from zid_platform.main import create_app
 from zid_platform.modules.evidence.application.runtime import configure_runtime, development_runtime
 from zid_platform.modules.machine.application import agents as service
 from zid_platform.modules.machine.application import workload
-from zid_platform.modules.machine.domain.agents import Attestation, BindingStatus, MachineError, WorkloadBinding
+from zid_platform.modules.machine.domain.agents import (
+    Attestation,
+    BindingStatus,
+    MachineError,
+    WorkloadBinding,
+)
 from zid_platform.modules.machine.infrastructure.machine_store import save_binding
-from zid_platform.modules.principal.domain.principal import Principal, PrincipalStatus, PrincipalType
-from zid_platform.modules.principal.infrastructure.principal_store import create_principal, load_principal
+from zid_platform.modules.principal.domain.principal import (
+    Principal,
+    PrincipalStatus,
+    PrincipalType,
+)
+from zid_platform.modules.principal.infrastructure.principal_store import (
+    create_principal,
+    load_principal,
+)
 from zid_platform.modules.session.domain.session import Session, SessionStatus
 from zid_platform.modules.session.infrastructure.session_store import create_session
 from zid_platform.modules.session.ports import issue_access_token
@@ -285,6 +296,8 @@ def test_an_image_name_is_looked_up_only_in_registries_the_operator_named_and_on
 
     def registry_handler(req: httpx.Request) -> httpx.Response:
         asked.append(str(req.url))
+        if req.url.path.endswith("/tags/list"):
+            return httpx.Response(200, json={"name": "acme/bot", "tags": ["1.3", "1.4", "sha256-" + "a" * 64 + ".sig"]})
         return httpx.Response(200, content=manifest, headers={"content-type": "application/vnd.oci.image.manifest.v1+json"})
 
     async def seed() -> dict[str, str]:
@@ -316,14 +329,23 @@ def test_an_image_name_is_looked_up_only_in_registries_the_operator_named_and_on
         assert http.get(f"{BASE}/builds", headers=eng_h).json()["lookup_enabled"] is False
         off = http.post(url, headers=eng_h, json={"image": "ghcr.io/acme/bot:1"})
         assert off.status_code == 409 and off.json()["error"]["code"] == "REGISTRY_LOOKUP_DISABLED"
+        assert http.post(f"{BASE}/builds:versions", headers=eng_h, json={"image": "ghcr.io/acme/bot"}).json()["error"]["code"] == "REGISTRY_LOOKUP_DISABLED"
         assert asked == []
 
-    with TestClient(_app(rt_url, ring, build_registries=("ghcr.io",)), base_url=ISS) as http:
+    with TestClient(_app(rt_url, ring, build_registries=("ghcr.io",), build_images=("ghcr.io/acme/bot",)), base_url=ISS) as http:
         http.app.state.registry_transport = httpx.MockTransport(registry_handler)  # type: ignore[attr-defined]
         http.app.state.registry_resolver = lambda host: {"8.8.8.8"}  # type: ignore[attr-defined]
-        assert http.get(f"{BASE}/builds", headers=eng_h).json()["lookup_enabled"] is True
+        listed = http.get(f"{BASE}/builds", headers=eng_h).json()
+        assert listed["lookup_enabled"] is True and listed["images"] == ["ghcr.io/acme/bot"]  # offered to pick, not typed
         assert http.post(url, headers=non_h, json={"image": "ghcr.io/acme/bot:1"}).status_code == 403  # no build authority
+        assert http.post(f"{BASE}/builds:versions", headers=non_h, json={"image": "ghcr.io/acme/bot"}).status_code == 403
         assert asked == []
+
+        versions = http.post(f"{BASE}/builds:versions", headers=eng_h, json={"image": "ghcr.io/acme/bot"})
+        assert versions.status_code == 200, versions.text
+        assert versions.json()["tags"] == ["1.3", "1.4"] and versions.json()["repository"] == "acme/bot"  # a signature tag is not a version
+        assert asked == ["https://ghcr.io/v2/acme/bot/tags/list?n=1000"]
+        asked.clear()
 
         got = http.post(url, headers=eng_h, json={"image": "ghcr.io/acme/bot:1.4"})
         assert got.status_code == 200, got.text
@@ -339,6 +361,7 @@ def test_an_image_name_is_looked_up_only_in_registries_the_operator_named_and_on
         assert other.status_code == 422 and other.json()["error"]["code"] == "REGISTRY_NOT_ALLOWED"
         bad = http.post(url, headers=eng_h, json={"image": "https://ghcr.io/acme/bot"})
         assert bad.status_code == 422 and bad.json()["error"]["code"] == "IMAGE_NAME_INVALID"
+        assert http.post(f"{BASE}/builds:versions", headers=eng_h, json={"image": "evil.example.com/acme/bot"}).status_code == 422
         assert len(asked) == before, "nothing that was not named, and nothing malformed, was ever contacted"
 
 

@@ -35,7 +35,12 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.machine.application import agents as service
 from zid_platform.modules.machine.domain.agents import ATTESTABLE_GATES, MachineError
-from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store, registry
+from zid_platform.modules.machine.infrastructure import (
+    agent_store,
+    build_store,
+    machine_store,
+    registry,
+)
 from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-registry"])
@@ -249,6 +254,7 @@ async def list_builds(
             "items": await build_store.list_builds(conn, status=status),
             "enforced": builds_enforced(request),
             "lookup_enabled": bool(getattr(request.app.state, "build_registries", ())),
+            "images": list(getattr(request.app.state, "build_images", ())),
         }
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
@@ -306,6 +312,29 @@ async def resolve_build(body: ResolveBody, request: Request, caller: CallerDep) 
         "digest": found.digest,
         "media_type": found.media_type,
     }
+
+
+@router.post("/builds:versions")
+async def build_versions(body: ResolveBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The versions (tags) an image repository has, so a person picks one instead of typing it. Changes nothing, and the same rules as `:resolve`:
+    named registries only, public images only. A picked tag is still turned into a digest by `:resolve` before anything is registered."""
+
+    async def authorize(conn: Any) -> None:
+        await protected_action(conn, caller, action="machine.build.register", resource="build:new")
+
+    await _run(request, caller, authorize)
+    state = request.app.state
+    try:
+        found = await registry.list_tags(
+            body.image,
+            allowed=getattr(state, "build_registries", ()),
+            private_ok=getattr(state, "build_registries_private", ()),
+            transport=getattr(state, "registry_transport", None),
+            resolver=getattr(state, "registry_resolver", None),
+        )
+    except registry.RegistryError as e:
+        raise ZidError(e.code, str(e), http_status=_LOOKUP_STATUS.get(e.code, 502)) from e
+    return {"image": body.image.strip(), "registry": found.host, "repository": found.repository, "tags": list(found.tags)}
 
 
 @router.post("/builds/{build_id}:approve")

@@ -35,7 +35,7 @@ api.{$ZID_DOMAIN} {
 global.{$ZID_DOMAIN} {
 	import no_forwarded_cert
 	encode zstd gzip
-	reverse_proxy global:8100
+	reverse_proxy cell:8000
 }
 
 # Operator Console (only when the `operator` compose profile is running). Restrict by source IP or put IAP in front.

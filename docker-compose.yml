@@ -1,9 +1,8 @@
 # Zoiko iD — local development stack (LOCAL environment only; synthetic data only).
-#   docker compose up --build -d      then open http://localhost:8000/docs and http://localhost:8100/docs
-# One backend container from the single image (modular monolith, DEC-D6) running both roles,
-# each as its own process on its own port:
-#   cell   — all 27 cell modules         -> http://localhost:8000
-#   global — tenant locator + discovery  -> http://localhost:8100 (separate DB, no personal data)
+#   docker compose up --build -d      then open http://localhost:8000/docs
+# One backend container from the single image (modular monolith, DEC-D6) the cell role
+# as one process on one port:
+#   cell   — all 27 cell modules, plus the global plane (tenant locator + discovery) -> http://localhost:8000
 # DB password: set ZID_DB_PASSWORD in a .env file next to this file (compose reads it automatically).
 # The fallback `zid_local_only` is for a developer laptop ONLY; any VM or shared host must set its own.
 # Production gets short-lived credentials from the secrets broker instead (DEC-F5).
@@ -27,18 +26,18 @@ services:
       POSTGRES_DB: zid_cell
     volumes:
       - ./backend/database/schemas/001_cell_schemas.sql:/docker-entrypoint-initdb.d/10_cell_schemas.sql:ro
-      - ./local/postgres/20_global_database.sh:/docker-entrypoint-initdb.d/20_global_database.sh:ro
+      - ./backend/database/schemas/001_global_schemas.sql:/docker-entrypoint-initdb.d/20_global_schemas.sql:ro
       - ./backend/database/schemas:/zid/schemas:ro
       - pgdata:/var/lib/postgresql/data
     ports: ["127.0.0.1:${ZID_DB_HOST_PORT:-5432}:5432"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zid -d zid_global"]
+      test: ["CMD-SHELL", "pg_isready -U zid -d zid_cell"]
       interval: 5s
       timeout: 3s
       retries: 20
 
-  # One-shot schema migration (DEC-D1): runs every module's Alembic stream against the cell database and the
-  # global plane's database, then exits. The API and worker start only after it succeeds. Production runs
+  # One-shot schema migration (DEC-D1): runs every module's Alembic stream (cell and global plane) against the one
+  # platform database, then exits. The API and worker start only after it succeeds. Production runs
   # the same step as the migration owner role (db_owner_migration), never a runtime role.
   migrate:
     image: zid/platform:local
@@ -56,7 +55,6 @@ services:
     environment:
       ZID_ENVIRONMENT: local
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_cell
-      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
     restart: "no"
     healthcheck:
       disable: true
@@ -76,21 +74,23 @@ services:
       - path: ./backend/.env
         required: false
     environment:
-      ZID_ROLES: cell,global
+      ZID_ROLES: cell
+      ZID_SERVE_GLOBAL_PLANE: "true"   # locator + discovery on the same port, same database (own schema, no personal data)
+      # People enter an image name (ghcr.io/acme/bot:1.4) and the console works the digest out from the registry, so nobody types a sha256.
+      # Only the hosts named here are ever contacted; anonymous access only (a private image is registered by the build pipeline instead).
+      ZID_BUILD_REGISTRIES: '["ghcr.io"]'
       ZID_ENVIRONMENT: local
       # Authenticated requests per tenant per minute (0 = off). Turn it off for single-tenant load tests.
       ZID_API_RATE_LIMIT_PER_MINUTE: ${ZID_API_RATE_LIMIT_PER_MINUTE:-600}
       ZID_CELL_ID: local-1
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD:-zid_runtime_local_only}@postgres:5432/zid_cell   # runtime role: row-level security applies (see local/postgres/runtime_role.sql)
-      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_global
       # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
       ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
     volumes:
       - ./contracts:/app/contracts:ro
       - ./backend/config:/app/config:ro   # cells, residency profiles: edit and restart, no rebuild
     ports:
-      - "8000:8000"   # cell role
-      - "8100:8100"   # global role
+      - "8000:8000"   # cell role (and the global plane)
 
   # Background worker (DEC-D6): evidence sequencing + signed checkpoints, operator-grant expiry,
   # privacy retention sweep (Phase F). Locally it uses the owner role; deployed cells give it the
@@ -232,6 +232,17 @@ services:
 
   # Local workload identity (profile `workload`; see local/workload/setup.sh). The listener checks a workload's SPIRE identity on the way in; the attestor
   # looks at the running container through the engine's read-only socket and signs what it found. Both reach the cell, which runs from source on the host.
+  # A stand-in agent to try workload identity with (development only; see local/workload/agent/Dockerfile). It builds and starts with the
+  # stack. Its container name, label and user id are what local/workload/workloads.json and the SPIRE entry select on.
+  invoice-agent:
+    build: ./local/workload/agent
+    image: acme/invoice-agent:1.0.0
+    container_name: payments-agent
+    labels:
+      team: finance
+    user: "10001"
+    restart: unless-stopped
+
   workload-edge:
     profiles: ["workload"]
     image: caddy:2.8-alpine

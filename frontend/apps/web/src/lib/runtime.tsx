@@ -58,7 +58,7 @@ export type Subject = {
   authTime?: number;
 };
 type SessionInfo =
-  | { authenticated: true; subject: Subject; csrf: string }
+  | { authenticated: true; subject: Subject; csrf: string; apiBase?: string }
   | { authenticated: false };
 
 type Runtime = {

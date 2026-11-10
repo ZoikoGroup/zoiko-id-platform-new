@@ -47,15 +47,11 @@ wait_for() { # url label seconds
 }
 
 database_setup() {
-  say "databases zid_cell, zid_global, openbao and spicedb; roles owner, runtime, worker (the production guide's step 3)"
-  for DB in zid_cell zid_global; do
-    psql_admin -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DB'" | grep -q 1 \
-      || psql_admin -d postgres -c "CREATE DATABASE $DB"
-  done
-  for DB in zid_cell zid_global; do
-    psql_admin -d "$DB" -v owner_pw="$(envval ZID_OWNER_PASSWORD)" -v runtime_pw="$(envval ZID_RUNTIME_PASSWORD)" \
-      -v worker_pw="$(envval ZID_WORKER_PASSWORD)" -f - < "$ROOT/deploy/gcp/db/01_roles.sql" >/dev/null
-  done
+  say "databases zid_cell (the one platform database), openbao and spicedb; roles owner, runtime, worker (the production guide's step 3)"
+  psql_admin -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='zid_cell'" | grep -q 1 \
+    || psql_admin -d postgres -c "CREATE DATABASE zid_cell"
+  psql_admin -d zid_cell -v owner_pw="$(envval ZID_OWNER_PASSWORD)" -v runtime_pw="$(envval ZID_RUNTIME_PASSWORD)" \
+    -v worker_pw="$(envval ZID_WORKER_PASSWORD)" -f - < "$ROOT/deploy/gcp/db/01_roles.sql" >/dev/null
   psql_admin -d postgres -v openbao_pw="$(envval ZID_OPENBAO_DB_PASSWORD)" -v spicedb_pw="$(envval ZID_SPICEDB_DB_PASSWORD)" -f - < openbao_db.sql >/dev/null
   # OpenBao's table (its PostgreSQL storage backend), created as its own role
   compose exec -T postgres psql -v ON_ERROR_STOP=1 -U openbao -d openbao >/dev/null <<'SQL'
@@ -66,14 +62,12 @@ CREATE INDEX IF NOT EXISTS parent_path_idx ON openbao_kv_store (parent_path);
 SQL
   say "namespaces, as the owner role"
   compose exec -T postgres psql -v ON_ERROR_STOP=1 -U zid_owner -d zid_cell -f - < "$ROOT/backend/database/schemas/001_cell_schemas.sql" >/dev/null
-  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U zid_owner -d zid_global -f - < "$ROOT/backend/database/schemas/001_global_schemas.sql" >/dev/null
+  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U zid_owner -d zid_cell -f - < "$ROOT/backend/database/schemas/001_global_schemas.sql" >/dev/null
 }
 
 grants() {
   say "privileges for the runtime and worker roles; the relay's own role (re-run after every migration that adds a schema)"
-  for DB in zid_cell zid_global; do
-    psql_admin -d "$DB" -f - < "$ROOT/deploy/gcp/db/02_grants.sql" >/dev/null
-  done
+  psql_admin -d zid_cell -f - < "$ROOT/deploy/gcp/db/02_grants.sql" >/dev/null
   psql_admin -d zid_cell -v relay_pw="$(envval ZID_RELAY_PASSWORD)" -f - < "$ROOT/deploy/gcp/db/04_relay_role.sql" >/dev/null
 }
 
@@ -142,10 +136,9 @@ up() {
     line="$(compose run --rm migrate python -m zid_platform.entrypoints.seed_registration_tenant --apply | grep '^ZID_REGISTRATION_TENANT_ID=' | head -1)"
     set_env ZID_REGISTRATION_TENANT_ID "${line#ZID_REGISTRATION_TENANT_ID=}"
   fi
-  say "starting the mail relay, cell, global, worker, event relay and consumer, and the web console"
-  compose up -d mailpit cell global worker outbox-relay consumer web
+  say "starting the mail relay, cell (it also serves the global plane), worker, event relay and consumer, and the web console"
+  compose up -d mailpit cell worker outbox-relay consumer web
   wait_for "http://localhost:18000/health/ready" "cell API" 300
-  wait_for "http://localhost:18100/health/ready" "global API" 300
   wait_for "http://localhost:13000/" "web console" 300
   say "up"
   echo "  web console   http://localhost:13000"
@@ -156,7 +149,7 @@ up() {
 
 verify() {
   say "health"
-  for u in 18000/health/ready 18100/health/ready 13000/; do printf '  %-26s' "$u"; curl -s -o /dev/null --max-time 15 -w '%{http_code}\n' "http://localhost:$u" || true; done
+  for u in 18000/health/ready 13000/; do printf '  %-26s' "$u"; curl -s -o /dev/null --max-time 15 -w '%{http_code}\n' "http://localhost:$u" || true; done
   say "database roles (owner and runtime must not bypass row-level security)"
   psql_admin -d zid_cell -Atc "select rolname, rolsuper, rolbypassrls from pg_roles where rolname like 'zid_%' or rolname='openbao' order by 1"
   say "keys in the database (no material is shown; every row must hold wrapped material)"

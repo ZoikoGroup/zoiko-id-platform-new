@@ -1481,6 +1481,50 @@
         ]
       }
     },
+    "/v1/machine/builds:versions": {
+      "post": {
+        "description": "The versions (tags) an image repository has, so a person picks one instead of typing it. Changes nothing, and the same rules as `:resolve`:\nnamed registries only, public images only. A picked tag is still turned into a digest by `:resolve` before anything is registered.",
+        "operationId": "build_versions_v1_machine_builds_versions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__machine__api__agents__ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Build Versions V1 Machine Builds Versions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Build Versions",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
     "/v1/machine/environments/{environment_id}:quarantine": {
       "post": {
         "operationId": "quarantine_v1_machine_environments__environment_id__quarantine_post",

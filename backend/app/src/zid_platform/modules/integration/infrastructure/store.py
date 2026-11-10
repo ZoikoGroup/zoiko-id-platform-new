@@ -126,10 +126,16 @@ async def active_application_count(conn: AsyncConnection) -> int:
     )
 
 
-async def list_applications(conn: AsyncConnection) -> list[Application]:
+async def list_applications(
+    conn: AsyncConnection, tenant_id: str | None = None
+) -> list[Application]:
+    """A tenant's own request is narrowed by row-level security. A caller that runs as the worker role, which BYPASSES it, must say which tenant:
+    `tenant_id` then narrows the query itself, so the answer never depends on the connection's role."""
+    where = "WHERE tenant_id = CAST(:t AS uuid) " if tenant_id else ""
     rows = (
         await conn.execute(
-            text("SELECT * FROM platform.integration_application ORDER BY created_at DESC")
+            text(f"SELECT * FROM platform.integration_application {where}ORDER BY created_at DESC"),
+            {"t": tenant_id} if tenant_id else {},
         )
     ).all()
     return [_app(r) for r in rows]
@@ -258,9 +264,14 @@ async def connector_for_source(conn: AsyncConnection, source_ref: str) -> Connec
     return _connector(row) if row else None
 
 
-async def list_connectors(conn: AsyncConnection) -> list[Connector]:
+async def list_connectors(conn: AsyncConnection, tenant_id: str | None = None) -> list[Connector]:
+    """See `list_applications`: pass `tenant_id` whenever the connection may bypass row-level security (the worker)."""
+    where = "WHERE tenant_id = CAST(:t AS uuid) " if tenant_id else ""
     rows = (
-        await conn.execute(text("SELECT * FROM platform.integration_connector ORDER BY created_at"))
+        await conn.execute(
+            text(f"SELECT * FROM platform.integration_connector {where}ORDER BY created_at"),
+            {"t": tenant_id} if tenant_id else {},
+        )
     ).all()
     return [_connector(r) for r in rows]
 

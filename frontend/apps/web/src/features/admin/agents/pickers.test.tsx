@@ -172,6 +172,14 @@ describe("DigestHelp", () => {
     expect(text).toContain("registry");
   });
 
+  it("covers a local-only image, the lookup shortcut, the pipeline script, and why the digest matters", () => {
+    const text = render(<DigestHelp canUseTestBuild={false} />).container.textContent ?? "";
+    expect(text).toContain("{{.Id}}");
+    expect(text).toContain("Look up digest");
+    expect(text).toContain("register_build.py");
+    expect(text).toContain("gets a token only while");
+  });
+
   it("points to a test build where one is offered, and to the Builds tab where it is not", () => {
     const withTest = render(<DigestHelp canUseTestBuild />);
     expect(withTest.container.textContent).toContain("Choose A test build");

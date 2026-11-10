@@ -12,13 +12,15 @@ docker compose --profile workload up -d workload-edge attestor
 ```
 
 ## The flow, with a real container
-1. **Build something to run** and read its digest: `docker build -t acme/invoice-agent:1.0.0 .` then `docker inspect --format '{{.Id}}' acme/invoice-agent:1.0.0`.
+The whole chain (who holds which grant, what each step refuses without) is in [docs/runbooks/agent-go-live.md](../../docs/runbooks/agent-go-live.md); this page is its last mile.
+
+1. **The stand-in agent builds and runs with the stack** (`local/workload/agent/`, container `payments-agent`, label `team=finance`, user id 10001; `docker compose up -d` starts it). Read its digest: `docker inspect --format '{{.Id}}' acme/invoice-agent:1.0.0`. Rebuild with `docker compose build invoice-agent`: a rebuilt image can have a new digest, which must be registered and approved again.
 2. **Console:** Agents & tools → *Builds* → register that digest; a second person approves it. *Tools*, *Blueprints* (pick the approved build), *Agents*.
 3. **Workload identity** → register a binding for the agent. The SPIFFE ID is built for you; note it.
 4. **SPIRE:** let the workload have that identity: `docker exec zoiko-id-spire-server-1 /opt/spire/bin/spire-server entry create -parentID spiffe://local-1.local.id.zoiko/node/local -spiffeID <the id> -selector unix:uid:<the container's user id>`.
 5. **Registration file:** in `local/workload/workloads.json` put that SPIFFE ID, `"environment_id": "prod"` and the container's selectors. Do not type the digest: run
    `python -m zid_platform.entrypoints.attestor_sync --workspace <company> --registrations local/workload/workloads.json --write` (needs `ZID_CELL_DATABASE_URL`, as the launcher sets it).
-6. **Run it:** `docker run -d --name payments-agent --label team=finance -u <uid> acme/invoice-agent:1.0.0`. The attestor logs `attested … level 2: 200 OK`.
+6. **Run it:** it is already running as `payments-agent` (user id 10001, so the SPIRE selector is `unix:uid:10001`). The attestor logs `attested … level 2: 200 OK`. To run your own software instead, replace the image or start your own container with the name, label and user id the registration file names.
 7. The workload presents its SPIRE identity to `https://workload.localhost:9443/v1/machine/workload-token` and receives a token bound to that identity.
 
 ## Limits

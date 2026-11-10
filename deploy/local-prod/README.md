@@ -15,19 +15,18 @@ Needs Docker Desktop, Git Bash (or any POSIX shell) and `openssl`. The first run
 | Open | What |
 |---|---|
 | http://localhost:13000 | the web console (Next.js production build, standalone) |
-| http://localhost:18000/docs | the cell API (OpenAPI) |
-| http://localhost:18100/docs | the global plane (locator and discovery) |
+| http://localhost:18000/docs | the cell API (OpenAPI); the global plane (locator and discovery) is served here too |
 | http://localhost:18025 | Mailpit: every email the platform sends (sign-up, recovery) lands here |
 | `localhost:15432` | PostgreSQL, user `postgres`, password in the generated `.env` |
 
-Ports are offset (`13000`, `18000`, `18100`, `15432`) so this runs beside the everyday dev stack (3000, 8010, 8100).
+Ports are offset (`13000`, `18000`, `15432`) so this runs beside the everyday dev stack (3000, 8010, 8000).
 
 ## What `up` does, and where production differs
 
 | Step | The rehearsal | Real production (`deploy/gcp`) |
 |---|---|---|
 | Images | `docker build` of `backend/` and `frontend/` on your machine | the release workflow builds, scans, attests and signs them by digest; `deploy.sh` verifies the signatures |
-| Database | one Postgres 17 container, two databases (`zid_cell`, `zid_global`) | Cloud SQL, private IP only, point-in-time recovery, pgaudit; the global plane is a separate cluster |
+| Database | one Postgres 17 container, one platform database (`zid_cell`) | Cloud SQL, private IP only, point-in-time recovery, pgaudit; the global plane shares it |
 | Roles | `zid_owner` (migrations only), `zid_runtime` (API, row-level security applies), `zid_worker` (BYPASSRLS, sweeps every tenant) from `deploy/gcp/db/*.sql` | the same scripts, run on the VM against Cloud SQL |
 | Migration | one-shot `migrate` container as the owner role | the same, run by `deploy.sh` before the cell restarts |
 | Keys | development keys persisted in a Docker volume (`ZID_LOCAL_KEYSTORE`) plus generated `ZID_DEV_SIGNING_KEYS` | **Cloud KMS HSM**: one key per purpose, never exported; created by OpenTofu |
@@ -61,7 +60,7 @@ Assumptions behind this section (tell me if one is wrong): the application and t
 | Accounts, organizations, authority, mandates, credentials, verification, screening, billing, invoices, email log, events (outbox) | **PostgreSQL** | already, in the cell database (`zid_cell`) |
 | Evidence ledger, checkpoints, decision receipts, audit, legal holds | **PostgreSQL** | already; objects are stored as encrypted `bytea` (`evidence.evidence_object`) |
 | Company proof documents (uploads) | **PostgreSQL** | already; encrypted, scanned first. The backend has no object-storage dependency (checked: no S3 or GCS use) |
-| Global locator and discovery | **PostgreSQL** (`zid_global`) | its own database; no personal data |
+| Global locator and discovery | **PostgreSQL** (`zid_cell`, schema `global_directory`) | its own schema in the one database; no personal data |
 | Signing and encryption **keys** | **Cloud KMS** (not a VM) | cannot go in the database: the code refuses local keys outside `local` and `test`, and a private key beside the data it protects defeats the design. Cloud KMS stores no data of yours, only key custody. If you want no Cloud KMS at all, that is new development (see below) |
 | Customer connection **secrets** (enterprise OIDC client secrets) | **OpenBao** (runs on a VM) | production requires the OpenBao broker. By default it stores on a VM disk (`storage "file"`); it can use PostgreSQL as its storage backend instead, which puts them in the database (encrypted by OpenBao, auto-unsealed by KMS). A config change; not yet tested here |
 | **Web sessions** (who is signed in) | **Valkey** (a container on the VM) | the web app refuses to start in production without it. Not business data (losing it signs everyone out), but it is the one runtime store outside the database. Moving it into PostgreSQL is new development |
@@ -71,7 +70,7 @@ Assumptions behind this section (tell me if one is wrong): the application and t
 ### What the VM-only topology looks like
 
 ```
-Internet ─▶ app VM:  Caddy (TLS) ─▶ web ─▶ cell API ─┐        db VM:  PostgreSQL 17 (zid_cell, zid_global)
+Internet ─▶ app VM:  Caddy (TLS) ─▶ web ─▶ cell API ─┐        db VM:  PostgreSQL 17 (zid_cell)
                                      global API ─────┼──TLS──▶  roles: zid_owner / zid_runtime / zid_worker
                                      worker ─────────┘          standby VM (streaming replica) + snapshots
             valkey, openbao (on the app VM or its own)   ──▶   Cloud KMS (keys only)
@@ -86,7 +85,7 @@ What exists today for this: the app side is `deploy/gcp` (compose with Caddy, Op
 ### Real deployment on VMs, in order
 
 1. **GCP project**: the service account, the HSM key ring `zid-<cell>` (every key the code asks for, plus the OpenBao unseal key), a private network and firewall, from `deploy/tofu` (leave out `google_sql_database_instance`, add the database VMs).
-2. **Database VM**: install PostgreSQL, create `zid_cell` and `zid_global`, then run the same steps `./rehearse.sh up` runs: `01_roles.sql`, the schema SQL as the owner, migrate, `02_grants.sql`. Point `ZID_OWNER_*`, `ZID_RUNTIME_*` and `ZID_WORKER_DATABASE_URL` at it.
+2. **Database VM**: install PostgreSQL, create `zid_cell`, then run the same steps `./rehearse.sh up` runs: `01_roles.sql`, the schema SQL as the owner, migrate, `02_grants.sql`. Point `ZID_OWNER_*`, `ZID_RUNTIME_*` and `ZID_WORKER_DATABASE_URL` at it.
 3. **App VM**: images (built and pushed, or the signed ones from the release workflow), `.env` from `deploy/gcp/env.example`, `docker compose up -d openbao vm-identity`, OpenBao bootstrap (record the recovery keys offline, split between two people).
 4. **Prove the keys**: `tools/scripts/gcp_kms_smoke.py` against the real KMS before taking traffic.
 5. **Start**: `docker compose --profile direct up -d`, then DNS for `id.`, `api.` and `global.` under your domain (the domain is the passkey relying-party id).

@@ -1,14 +1,15 @@
 """Run one or more roles of the platform in a single container: `python -m zid_platform.entrypoints.supervisor`.
 
 Each role is its own uvicorn **process** on its own port (cell and global must never share a
-process — the global plane holds no personal data and uses its own database, ZID-TENANCY-001 §2,
-DEC-D6). The supervisor forwards shutdown signals and exits if any role dies, so the container
+process — the global plane holds no personal data and keeps to its own schema, global_directory,
+DEC-D6), in the one platform database. The supervisor forwards shutdown signals and exits if any role dies, so the container
 runtime restarts the whole unit instead of leaving it half-up.
 
 Configuration (environment):
-  ZID_ROLES                 comma-separated roles to run (default "cell,global"; production cells use "cell")
+  ZID_ROLES                 comma-separated roles to run (default "cell": one process, one port)
+  ZID_SERVE_GLOBAL_PLANE    true: the cell process also serves the global plane (locator + discovery) on its port
   ZID_CELL_PORT / ZID_GLOBAL_PORT                 default 8000 / 8100
-  ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL database per role
+  ZID_CELL_DATABASE_URL     the platform database; ZID_GLOBAL_DATABASE_URL is optional and defaults to it
   ZID_CELL_ID               cell identity for the cell role (the global role is always "global")
   ZID_FORWARDED_ALLOW_IPS   addresses of the proxies whose X-Forwarded-For is believed (the ingress), comma-separated or "*"; unset
                             trusts only 127.0.0.1, so behind an ingress every caller looks like the ingress to the sign-up limits
@@ -42,7 +43,7 @@ class RoleProcess:
 
 def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
     """Build the per-role process definitions from the environment (pure; unit-tested)."""
-    names = [r.strip() for r in environ.get("ZID_ROLES", "cell,global").split(",") if r.strip()]
+    names = [r.strip() for r in environ.get("ZID_ROLES", "cell").split(",") if r.strip()]
     if not names:
         raise ValueError("ZID_ROLES is empty")
     roles = [Role(n) for n in names]  # raises ValueError on an unknown role
@@ -58,10 +59,13 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
             ZID_CELL_ID="global" if role is Role.GLOBAL else environ.get("ZID_CELL_ID", "local-1"),
         )
         db = environ.get(f"ZID_{key}_DATABASE_URL")
+        if not db and role is Role.GLOBAL:
+            # one database serves both roles: they keep separate schemas (global_directory vs the cell schemas)
+            db = environ.get("ZID_CELL_DATABASE_URL")
         if db:
             env["ZID_DATABASE_URL"] = db
         else:
-            # never let one role inherit the other role's database
+            # a bare ZID_DATABASE_URL meant for one role is never inherited by another
             env.pop("ZID_DATABASE_URL", None)
         out.append(RoleProcess(role, port, env))
     if len({p.port for p in out}) != len(out):

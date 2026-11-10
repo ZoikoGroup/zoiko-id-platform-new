@@ -26,13 +26,11 @@ import httpx
 MAX_MANIFEST = 4 * 1024 * 1024
 TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-ACCEPT = ", ".join(
-    (
-        "application/vnd.oci.image.index.v1+json",
-        "application/vnd.oci.image.manifest.v1+json",
-        "application/vnd.docker.distribution.manifest.list.v2+json",
-        "application/vnd.docker.distribution.manifest.v2+json",
-    )
+ACCEPT = (
+    "application/vnd.oci.image.index.v1+json, "
+    "application/vnd.oci.image.manifest.v1+json, "
+    "application/vnd.docker.distribution.manifest.list.v2+json, "
+    "application/vnd.docker.distribution.manifest.v2+json"
 )
 _HOST = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,253}[a-z0-9])?(:\d{1,5})?$")
 _REPO = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$")
@@ -182,3 +180,77 @@ async def resolve(
     if ref.reference.startswith("sha256:") and ref.reference != digest:
         raise RegistryError("REGISTRY_UNREACHABLE", "The registry returned a manifest that is not the digest asked for")
     return Resolved(digest, res.headers.get("content-type", "").split(";")[0], ref.host, ref.repository, ref.reference)
+
+
+# A page of 1000 is the most a registry such as ghcr.io returns, and signatures and attestations (cosign tags) can outnumber real versions ten to one:
+# a small page size would stop before the newest versions. The whole listing is also bounded in time.
+MAX_TAG_PAGES = 10
+TAGS_PER_PAGE = 1000
+MAX_TAGS_BODY = 1024 * 1024
+TAGS_DEADLINE_S = 20.0
+_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="?next"?')
+
+
+@dataclass(frozen=True, slots=True)
+class Versions:
+    host: str
+    repository: str
+    tags: tuple[str, ...]
+
+
+def _is_build_tag(tag: str) -> bool:
+    # cosign stores signatures, attestations and SBOMs as tags named sha256-<hex>[.sig|.att|.sbom]: they are not versions of the software
+    return not tag.startswith("sha256-")
+
+
+async def list_tags(
+    image: str,
+    *,
+    allowed: Collection[str],
+    private_ok: Collection[str] = (),
+    transport: httpx.AsyncBaseTransport | None = None,
+    resolver: Resolver | None = None,
+) -> Versions:
+    """The tags a repository has, so a person picks a version instead of typing one. Same rules as `resolve`: only named registries, public images
+    only, https, no redirects, time and size capped. A tag can move, so a picked tag is still turned into a digest (`resolve`) before anything is registered."""
+    if not allowed:
+        raise RegistryError("REGISTRY_LOOKUP_DISABLED", "Looking up an image by name is not set up here (no registries are named in ZID_BUILD_REGISTRIES)")
+    ref = parse(image)
+    await _require_allowed(ref.host, allowed, private_ok, resolver)
+    url = f"https://{ref.host}/v2/{ref.repository}/tags/list?n={TAGS_PER_PAGE}"
+    headers = {"Accept": "application/json", "User-Agent": "zoiko-id-build-lookup/1"}
+    tags: list[str] = []
+    try:
+        async with asyncio.timeout(TAGS_DEADLINE_S), httpx.AsyncClient(transport=transport, timeout=TIMEOUT, follow_redirects=False) as client:
+            auth: dict[str, str] = {}
+            for _ in range(MAX_TAG_PAGES):
+                res = await client.get(url, headers={**headers, **auth})
+                if res.status_code == 401 and not auth:
+                    token = await _token(client, res.headers.get("www-authenticate", ""), allowed, private_ok, resolver)
+                    auth = {"Authorization": f"Bearer {token}"}
+                    res = await client.get(url, headers={**headers, **auth})
+                if res.status_code in (401, 403):
+                    raise RegistryError("REGISTRY_AUTH_REQUIRED", "The image was not found, or it is not public: listing a private image's versions needs a credential this platform does not hold")
+                if res.status_code == 404:
+                    raise RegistryError("IMAGE_NOT_FOUND", f"{ref.repository} was not found in {ref.host}")
+                if 300 <= res.status_code < 400:
+                    raise RegistryError("REGISTRY_UNREACHABLE", "The registry redirected the request, which is not followed")
+                if res.status_code != 200:
+                    raise RegistryError("REGISTRY_UNREACHABLE", f"{ref.host} answered {res.status_code}")
+                if len(res.content) > MAX_TAGS_BODY:
+                    raise RegistryError("REGISTRY_UNREACHABLE", "The list of versions is larger than this platform will read")
+                try:
+                    found = res.json().get("tags") or []
+                except (ValueError, AttributeError) as e:
+                    raise RegistryError("REGISTRY_UNREACHABLE", "The registry's list of versions could not be read") from e
+                tags += [t for t in found if isinstance(t, str) and _TAG.match(t) and _is_build_tag(t)]
+                nxt = _NEXT.search(res.headers.get("link", ""))
+                # the next page is a path on the same registry, never another address
+                if not nxt or not nxt.group(1).startswith(f"/v2/{ref.repository}/tags/list"):
+                    break
+                url = f"https://{ref.host}{nxt.group(1)}"
+    except TimeoutError as e:
+        raise RegistryError("REGISTRY_UNREACHABLE", f"{ref.host} took too long to list the versions") from e
+    except httpx.HTTPError as e:
+        raise RegistryError("REGISTRY_UNREACHABLE", f"{ref.host} did not answer ({type(e).__name__})") from e
+    return Versions(ref.host, ref.repository, tuple(dict.fromkeys(tags)))

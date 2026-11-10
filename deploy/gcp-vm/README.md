@@ -6,7 +6,7 @@ This was rehearsed end to end on one machine in `deploy/local-prod/` (the same i
 
 ```
 Internet ─443─▶ APP VM:      Caddy ─▶ web ─▶ cell API ─┐                 DATABASE VM:  PostgreSQL 17
-                             global API ───────────────┼──TLS 5432──▶   zid_cell  zid_global  openbao  spicedb
+                             global API ───────────────┼──TLS 5432──▶   zid_cell  openbao  spicedb
                              worker, outbox-relay, consumer, valkey     roles: owner / runtime / worker / relay
                                           │ 8200 9092 8443                     ▲ replication
                                           ▼                                    │
@@ -174,6 +174,21 @@ A digest is listed only while an active binding runs an approved build, and an e
 **e. Check it.** `docker compose logs attestor` shows `attested ... level 2: 200 OK` for a running, approved container, `not attested ... not running` for a stopped one, and level 1 for the right container running an image that is not approved (level 1 cannot get a token). A workload reaches the cell at `https://workload.<domain>:9443` with its SVID as the TLS client certificate (`./workload-identity.sh edge-ca` prints the root to trust for that listener's own certificate; point `workload.<domain>` at the app VM's private address in private DNS).
 
 **What this setup cannot give you** (VM-only, no KMS or HSM): the SPIRE CA key and the attestor key are files on VM disks (modes 600 and 400), protected by disk encryption, snapshots you control and VM access, not by hardware. Run the attestor on the workload VM and the cell on another where you can: an attacker who owns one machine then does not hold both. Hardware or TEE attestation (level 3) is not built, so no workload reaches level 3. The agent shares the host's process table (`pid: host`) to see which user a caller is; treat the agent container as privileged. To rotate the attestor key, run `attestor-init` into an empty directory and swap the public key in `secrets/attestor_keys.json` (keep both until statements signed with the old key expire, at most one hour).
+
+## Registering agent builds (nobody types a digest)
+
+The whole path from a build to a working agent, with who holds which grant, is in [docs/runbooks/agent-go-live.md](../../docs/runbooks/agent-go-live.md).
+
+An agent is software you build elsewhere. Zoiko iD never builds it; it only checks the digest of the finished image.
+
+1. **Build and push** the agent's image in its own repository. The registry computes the digest at push time.
+2. **Register it, either way:**
+   - **From the pipeline (the production path, and the only one for a private registry):** copy [`tools/ci/register-agent-build.yml`](../../tools/ci/register-agent-build.yml) into the agent's repository. It pushes the image, takes the digest from the registry and runs `tools/scripts/register_build.py` as an application holding only `machine.build.register`.
+   - **From the console:** Agents & tools > Builds > Register build. Pick the software from the list (name your repositories in `ZID_BUILD_IMAGES`; ones already registered are offered too), then pick a version: the digest is looked up from the registry for you. For software not listed yet, paste its name once (`ghcr.io/acme/bot:1.4`). This works for the hosts named in `ZID_BUILD_REGISTRIES`, anonymously, so a private image needs the pipeline instead.
+3. **A second person approves** the build under Agents & tools > Builds, where every registered build appears under **Waiting for approval** with its digest, source, a link to the build record (or a warning that none was recorded) and who registered it. The registering identity can never approve its own build.
+4. **Deploy by digest** (`image@sha256:...`), never by a tag, which can move. `./workload-identity.sh sync-attestor <workspace>` then brings the approved digests into the attestor's file.
+
+Where approved builds are required (any environment that is not local, test or dev), a release or a workload binding is refused unless its build is approved.
 
 ## Day two
 

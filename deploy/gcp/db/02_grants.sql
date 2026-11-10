@@ -1,4 +1,4 @@
--- Step 2: run as `postgres` (or zid_owner) after the migrations, on zid_cell and zid_global. Idempotent: re-run after
+-- Step 2: run as `postgres` (or zid_owner) after the migrations, on zid_cell. Idempotent: re-run after
 -- every migration that adds a schema. Same schema list and privileges as local/postgres/runtime_role.sql, applied to
 -- the Cloud SQL roles and made permanent for tables the owner creates later (default privileges).
 \set ON_ERROR_STOP on
@@ -10,7 +10,7 @@ BEGIN
                              'evidence','privacy','metering','commercial','notification','configuration',
                              'zid_migrations','machine','tenant','federation','integration','webhook','provisioning','operations',
                              'operator','locator','search','relationship','policy','session','decision','mandate',
-                             'keys', 'global_directory']  -- the last is the global plane's only schema (zid_global)
+                             'keys', 'global_directory']  -- the last is the global plane's only schema, in the same database
     LOOP
         IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
             EXECUTE format('GRANT USAGE ON SCHEMA %I TO zid_runtime, zid_worker', s);

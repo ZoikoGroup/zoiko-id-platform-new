@@ -1119,13 +1119,16 @@ export type OAuthClientRecord = {
   key_ids: string[];
   status: "ACTIVE" | "SUSPENDED" | "RETIRED";
   first_party: boolean;
+  /** The identity a machine client acts as, which grants are issued to; null for a client people sign in through. */
+  service_principal_id?: string | null;
 };
 /** `purpose` SIGN_IN (default): a client people sign in through, with redirect addresses. DECISIONS: the machine client an application uses to ask the
- * decision API (a signed key, no redirect address, no scopes to choose); a sign-in client cannot get a machine token. */
+ * decision API (a signed key, no redirect address, no scopes to choose). BUILD_PIPELINE: the machine client a build pipeline uses to register builds
+ * (the same shape, its own scope). A sign-in client cannot get a machine token. */
 export type OAuthClientCreate = {
   name: string;
   client_type: OAuthClientType;
-  purpose?: "SIGN_IN" | "DECISIONS";
+  purpose?: "SIGN_IN" | "DECISIONS" | "BUILD_PIPELINE";
   redirect_uris?: string[];
   scopes?: string[];
   jwks?: { keys: Record<string, unknown>[] } | null;
@@ -1713,9 +1716,13 @@ export type BuildList = Items<BuildItem> & {
   enforced: boolean;
   /** Whether this environment can look an image's digest up by name (an operator named registries). */
   lookup_enabled: boolean;
+  /** Image repositories an operator offers to register builds from (ZID_BUILD_IMAGES): picked, not typed. */
+  images?: string[];
 };
 /** What an image name points at today, as its registry says. Nothing is registered by asking. */
 export type BuildLookup = { image: string; registry: string; repository: string; reference: string; digest: string; media_type: string };
+/** The versions (tags) of an image repository, from its registry. */
+export type BuildVersions = { image: string; registry: string; repository: string; tags: string[] };
 export type BuildCreate = { name: string; artifact_digest: string; source_ref?: string | null; provenance_ref?: string | null };
 export type BuildRevoked = BuildItem & { releases_revoked: number; bindings_suspended: number; agents_suspended: number };
 

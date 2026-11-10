@@ -42,16 +42,14 @@ docker push ...   # both
 `db/` holds the SQL. Run from `deploy/gcp` on a machine that can reach the Cloud SQL private IP (the VM):
 
 ```bash
-for DB in zid_cell zid_global; do   # 1. roles: owner (migrations), runtime (RLS applies), worker (BYPASSRLS, cell only)
-  psql "host=<private-ip> dbname=$DB user=postgres sslmode=require" -v owner_pw="$OWNER_PW"        -v runtime_pw="$RUNTIME_PW" -v worker_pw="$WORKER_PW" -f db/01_roles.sql
-done
+# 1. roles: owner (migrations), runtime (RLS applies), worker (BYPASSRLS)
+psql "host=<private-ip> dbname=zid_cell user=postgres sslmode=require" -v owner_pw="$OWNER_PW"        -v runtime_pw="$RUNTIME_PW" -v worker_pw="$WORKER_PW" -f db/01_roles.sql
 # 2. namespaces, as the owner
 psql "host=<private-ip> dbname=zid_cell   user=zid_owner sslmode=require" -f ../../backend/database/schemas/001_cell_schemas.sql
-psql "host=<private-ip> dbname=zid_global user=zid_owner sslmode=require" -f ../../backend/database/schemas/001_global_schemas.sql
+psql "host=<private-ip> dbname=zid_cell   user=zid_owner sslmode=require" -f ../../backend/database/schemas/001_global_schemas.sql
 docker compose run --rm migrate     # 3. tables, as the owner role
-for DB in zid_cell zid_global; do   # 4. privileges for the runtime and worker roles (re-run after new schemas)
-  psql "host=<private-ip> dbname=$DB user=postgres sslmode=require" -f db/02_grants.sql
-done
+# 4. privileges for the runtime and worker roles (re-run after new schemas)
+psql "host=<private-ip> dbname=zid_cell user=postgres sslmode=require" -f db/02_grants.sql
 ```
 
 Put the same three passwords in `.env`. The worker's `BYPASSRLS` is deliberate: it sweeps every tenant, so it never serves requests.

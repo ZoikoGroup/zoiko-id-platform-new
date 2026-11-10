@@ -6,7 +6,10 @@
 # does not compute anything: the refusal names the action, the resource and the change to prove, and the client retries the same request.
 #
 # Rules are matched like route-map.yaml: "METHOD /path", each path parameter written {}, `*` matches any characters, first match wins.
-# `action` is an id of step-up-tiers.yaml; `critical: true` takes an "S1 or S2" action to S2. Enforcement follows the platform switch
+# `action` is an id of step-up-tiers.yaml; `critical: true` takes an "S1 or S2" action to S2.
+# `machine: exempt` (CR-066) lets a signed-key SERVICE caller (an application client that proves itself with its private key and has no session,
+# so no passkey to give) through this one rule without a human proof. It is checked against the client itself, never the caller's say-so, and it only
+# helps where the action is also marked `machine_callable` in the action catalogue. People are never exempt. Enforcement follows the platform switch
 # (ZID_STEP_UP_ENFORCEMENT: off, shadow or enforce); in shadow a missing or bad proof is logged and the request goes through.
 version: "1"
 rules:
@@ -33,7 +36,7 @@ rules:
   - {match: "POST /credential-issuer-trust*", action: issue-revoke-high-trust-organization-credentials}
   - {match: "POST /relying-party-registrations", action: authorize-new-high-risk-oauth-scopes-relying-party-trust}
   - {match: "POST /v1/machine/blueprints", action: create-production-signing-keys-or-privileged-api-clients}
-  - {match: "POST /v1/machine/builds", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/builds", action: create-production-signing-keys-or-privileged-api-clients, machine: exempt}  # CR-066: a pipeline only PROPOSES a build
   - {match: "POST /v1/machine/tools", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/workload-bindings*", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/environments/*", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}

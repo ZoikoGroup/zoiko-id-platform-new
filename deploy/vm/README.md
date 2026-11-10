@@ -1,6 +1,6 @@
 # Deploy to a single GCP VM (dev / demo only)
 
-PostgreSQL runs in Docker; the backend runs directly on the VM with uv, as two systemd services (`zid@cell`, `zid@global`).
+PostgreSQL runs in Docker; the backend runs directly on the VM with uv, as one systemd service (`zid@cell`), which also serves the global plane on the same port.
 
 > **Not production.** There's no TLS, no authentication, a single VM and a single database. Production follows the cell topology in DEC-G1/DEC-G2 (AWS for Stage A; running production on GCP would need DEC-G2 revisited). Restrict the firewall to your own IP.
 
@@ -16,7 +16,7 @@ gcloud compute instances create zoiko-id-dev \
 
 # allow ONLY your IP to reach the API ports (find it with: curl ifconfig.me)
 gcloud compute firewall-rules create zoiko-id-api --network=default \
-  --allow=tcp:8000,tcp:8100 --target-tags=zoiko-id --source-ranges=<YOUR_IP>/32
+  --allow=tcp:8000 --target-tags=zoiko-id --source-ranges=<YOUR_IP>/32
 
 # package the committed code and copy it to the VM
 git archive --format=tar.gz -o zoiko_ids.tar.gz HEAD
@@ -51,13 +51,13 @@ uv sync --frozen --no-dev --package zoiko-id-platform   # exact versions from uv
 sudo sed "s|__USER__|$USER|g; s|__HOME__|$HOME|g" ~/zoiko_ids/deploy/vm/zid@.service \
   | sudo tee /etc/systemd/system/zid@.service >/dev/null
 sudo systemctl daemon-reload
-sudo systemctl enable --now zid@cell zid@global
+sudo systemctl enable --now zid@cell
 ```
 
 ## 5. Check it
 
 ```bash
-systemctl status zid@cell zid@global --no-pager
+systemctl status zid@cell --no-pager
 curl -s localhost:8000/health/ready     # on the VM: "status":"ready"
 journalctl -u zid@cell -f               # live JSON logs
 ```
@@ -71,13 +71,13 @@ From your laptop: `http://<VM_EXTERNAL_IP>:8000/docs`. Get the IP with `gcloud c
 # VM:
 tar -xzf ~/zoiko_ids.tar.gz -C ~/zoiko_ids          # keeps .env and the database volume
 cd ~/zoiko_ids/backend && uv sync --frozen --no-dev --package zoiko-id-platform
-sudo systemctl restart zid@cell zid@global
+sudo systemctl restart zid@cell
 ```
 
 ## Stop / remove
 
 ```bash
-sudo systemctl disable --now zid@cell zid@global
+sudo systemctl disable --now zid@cell
 cd ~/zoiko_ids && docker compose down          # add -v to delete the database
 # laptop: gcloud compute instances delete zoiko-id-dev --zone=europe-west2-a
 #         gcloud compute firewall-rules delete zoiko-id-api

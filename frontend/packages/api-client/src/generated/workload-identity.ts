@@ -301,6 +301,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/machine/builds:versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build Versions
+         * @description The versions (tags) an image repository has, so a person picks one instead of typing it. Changes nothing, and the same rules as `:resolve`:
+         *     named registries only, public images only. A picked tag is still turned into a digest by `:resolve` before anything is registered.
+         */
+        post: operations["build_versions_v1_machine_builds_versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/machine/environments/{environment_id}:quarantine": {
         parameters: {
             query?: never;
@@ -1329,6 +1350,41 @@ export interface operations {
         };
     };
     resolve_build_v1_machine_builds_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__machine__api__agents__ResolveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    build_versions_v1_machine_builds_versions_post: {
         parameters: {
             query?: never;
             header?: never;

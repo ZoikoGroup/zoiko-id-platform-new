@@ -68,7 +68,7 @@ def main(argv: Sequence[str] | None = None, *, http: httpx.Client | None = None,
     src.add_argument("--repo-digest", metavar="IMAGE")
     p.add_argument("--source", help="where the image is published, e.g. ghcr.io/acme/invoice-bot:1.4")
     p.add_argument("--provenance", help="a link to the build's provenance or signature (recorded, not verified)")
-    p.add_argument("--scope", default="openid", help="the OAuth scope to ask for (default: openid)")
+    p.add_argument("--scope", default="machine.build:register", help="the OAuth scope to ask for: the one a build pipeline's client has (default: machine.build:register)")
     p.add_argument("--allow-existing", action="store_true", help="exit 0 if this digest is already registered (a re-run of the same build)")
     args = p.parse_args(argv)
 

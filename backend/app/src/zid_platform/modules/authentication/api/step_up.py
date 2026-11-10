@@ -30,6 +30,7 @@ from zid_platform.modules.authentication.domain.authenticator import AuthnError
 from zid_platform.modules.authentication.domain.step_up import StepUpError, Tier, classify
 from zid_platform.modules.authentication.infrastructure.step_up_config import step_up_catalogue
 from zid_platform.modules.authentication.infrastructure.step_up_routes import route_actions
+from zid_platform.modules.session.ports import signed_key_service_caller
 
 router = APIRouter(tags=["step-up"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -305,6 +306,13 @@ async def route_step_up_guard(request: Request, caller: Caller) -> None:
     if rule is None:
         return
     tenant = caller.ctx.tenant_id or ""
+    if rule.machine_exempt and caller.session_id is None:
+        # CR-066: a signed-key service client has no passkey to give. Judged from the client's own record, in its own tenant, and only for a rule that opts in.
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            if await signed_key_service_caller(
+                conn, client_id=caller.client_id, principal_id=caller.ctx.principal_id or ""
+            ):
+                return
     body = await request.body()
     change = {
         "operation": rule.action,

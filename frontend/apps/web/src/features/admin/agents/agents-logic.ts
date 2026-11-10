@@ -305,3 +305,81 @@ export const GATE_NOTES: Record<AgentGate, Opt[]> = {
     { id: "audit", label: "Seen in Evidence & audit: receipts and audit records appear for its actions" },
   ],
 };
+
+// ---- Registering a build from one field --------------------------------------------------------------------------
+
+/** What a person pasted into "Image": a name (`ghcr.io/acme/invoice-bot:1.4`), or a name already pinned to its digest (`name@sha256:…`, what `docker inspect` prints). */
+export type ParsedImage = { image: string; digest: string | null; name: string };
+
+const PINNED_IMAGE = /^(\S+?)@(sha-?256:[0-9a-f]{64})$/;
+/** A registry host, a repository path and an optional tag: enough to be worth asking a registry about. */
+const IMAGE_NAME = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?\/[a-z0-9]+([._/-][a-z0-9]+)*(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?$/i;
+
+/** "ghcr.io/acme/invoice-bot:1.4" becomes "Invoice bot 1.4": a name people recognise, filled in so nobody has to think of one. */
+export function suggestBuildName(image: string): string {
+  const bare = image.trim().replace(/@sha-?256:[0-9a-f]{64}$/, "");
+  const last = bare.split("/").pop() ?? "";
+  const [repo, tag] = last.split(":");
+  const words = (repo ?? "").replace(/[^A-Za-z0-9]+/g, " ").trim();
+  const name = [words ? words.charAt(0).toUpperCase() + words.slice(1) : "", tag && tag !== "latest" ? tag : ""].filter(Boolean).join(" ");
+  return name || "Build";
+}
+
+export function parseImage(input: string): ParsedImage | null {
+  const text = input.trim();
+  if (!text) return null;
+  const pinned = PINNED_IMAGE.exec(text);
+  if (pinned) return { image: pinned[1] ?? text, digest: (pinned[2] ?? "").replace("sha-256", "sha256"), name: suggestBuildName(pinned[1] ?? text) };
+  return { image: text, digest: null, name: suggestBuildName(text) };
+}
+
+/** True when the text is shaped like an image name a registry can be asked about, so the console looks it up on its own. */
+export const worthLookingUp = (image: string) => IMAGE_NAME.test(image.trim());
+
+// ---- Picking the image instead of typing it ------------------------------------------------------------------------
+
+/** "ghcr.io/acme/bot:1.4" and "ghcr.io/acme/bot@sha256:…" are both the repository "ghcr.io/acme/bot". */
+export function repositoryOf(ref: string): string {
+  const bare = ref.trim().replace(/@sha-?256:[0-9a-f]{64}$/, "");
+  const slash = bare.lastIndexOf("/");
+  const colon = bare.lastIndexOf(":");
+  return colon > slash ? bare.slice(0, colon) : bare;
+}
+
+/** The repositories to offer: the ones an operator named first, then every one a build was already registered from, each once. */
+export function knownRepositories(images: string[], builds: { source_ref?: string | null }[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of [...images, ...builds.map((b) => b.source_ref ?? "")]) {
+    const repo = repositoryOf(raw);
+    if (!repo || !worthLookingUp(repo) || seen.has(repo)) continue;
+    seen.add(repo);
+    out.push(repo);
+  }
+  return out;
+}
+
+const numbers = (tag: string): number[] | null => {
+  const m = /^v?(\d+(?:\.\d+)*)(?:[-+].*)?$/.exec(tag);
+  return m ? (m[1] ?? "").split(".").map(Number) : null;
+};
+
+/** Newest first: numbered versions by number (1.10 after 1.9), then the rest alphabetically. `latest` is last: it moves. */
+export function sortVersions(tags: string[]): string[] {
+  const rank = (t: string) => (t === "latest" ? 2 : numbers(t) ? 0 : 1);
+  return [...tags].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 0) {
+      const x = numbers(a) ?? [];
+      const y = numbers(b) ?? [];
+      for (let i = 0; i < Math.max(x.length, y.length); i++) {
+        const d = (y[i] ?? 0) - (x[i] ?? 0);
+        if (d !== 0) return d;
+      }
+      return a.localeCompare(b);
+    }
+    return a.localeCompare(b);
+  });
+}

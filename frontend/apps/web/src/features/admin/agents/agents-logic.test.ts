@@ -9,6 +9,12 @@ import {
   GATE_NOTES,
   buildChoices,
   digestFor,
+  knownRepositories,
+  parseImage,
+  repositoryOf,
+  sortVersions,
+  suggestBuildName,
+  worthLookingUp,
   testBuildDigest,
   TOOL_PRESETS,
   forcesMandate,
@@ -194,5 +200,47 @@ describe("the build step of the setup guide", () => {
   });
   it("appears once builds exist even where they are not required", () => {
     expect(ids(setupSteps({ ...base, builds: [b("APPROVED")], buildsEnforced: false }))).toContain("build");
+  });
+});
+
+describe("registering a build from one field", () => {
+  const d = `sha256:${"a".repeat(64)}`;
+  it("suggests a name people recognise from the image", () => {
+    expect(suggestBuildName("ghcr.io/acme/invoice-bot:1.4")).toBe("Invoice bot 1.4");
+    expect(suggestBuildName("ghcr.io/acme/invoice_agent")).toBe("Invoice agent");
+    expect(suggestBuildName("ghcr.io/acme/bot:latest")).toBe("Bot");
+    expect(suggestBuildName(`ghcr.io/acme/bot:2@${d}`)).toBe("Bot 2");
+    expect(suggestBuildName("???")).toBe("Build");
+  });
+  it("takes the digest from a name that already carries one, and asks the registry for the rest", () => {
+    expect(parseImage(`ghcr.io/acme/bot@${d}`)).toEqual({ image: "ghcr.io/acme/bot", digest: d, name: "Bot" });
+    expect(parseImage("ghcr.io/acme/bot:1.4")).toEqual({ image: "ghcr.io/acme/bot:1.4", digest: null, name: "Bot 1.4" });
+    expect(parseImage("   ")).toBeNull();
+  });
+  it("looks up only what is shaped like a registry image name", () => {
+    expect(worthLookingUp("ghcr.io/acme/bot:1.4")).toBe(true);
+    expect(worthLookingUp("registry.example.com:5000/team/bot")).toBe(true);
+    expect(worthLookingUp("ghcr.io/ac")).toBe(true);
+    expect(worthLookingUp("bot")).toBe(false);
+    expect(worthLookingUp("ghcr.io/")).toBe(false);
+    expect(worthLookingUp("ghcr.io/acme/bot with spaces")).toBe(false);
+  });
+});
+
+describe("picking the image instead of typing it", () => {
+  it("reads the repository out of a reference with a tag or a digest", () => {
+    expect(repositoryOf("ghcr.io/acme/bot:1.4")).toBe("ghcr.io/acme/bot");
+    expect(repositoryOf(`ghcr.io/acme/bot@sha256:${"a".repeat(64)}`)).toBe("ghcr.io/acme/bot");
+    expect(repositoryOf("registry.example.com:5000/team/bot")).toBe("registry.example.com:5000/team/bot");
+    expect(repositoryOf("registry.example.com:5000/team/bot:2")).toBe("registry.example.com:5000/team/bot");
+  });
+  it("offers the operator's repositories, then those already registered, each once and none that is not an image", () => {
+    const builds = [{ source_ref: "ghcr.io/acme/bot:1.3" }, { source_ref: "ghcr.io/acme/other:2" }, { source_ref: null }, { source_ref: "nonsense" }];
+    expect(knownRepositories(["ghcr.io/acme/bot"], builds)).toEqual(["ghcr.io/acme/bot", "ghcr.io/acme/other"]);
+    expect(knownRepositories([], [])).toEqual([]);
+  });
+  it("orders versions newest first, by number, with latest last", () => {
+    expect(sortVersions(["1.9.0", "1.10.0", "latest", "v2.0.0", "sha-abc", "1.2"])).toEqual(["v2.0.0", "1.10.0", "1.9.0", "1.2", "sha-abc", "latest"]);
+    expect(sortVersions([])).toEqual([]);
   });
 });

@@ -20,7 +20,7 @@ BEGIN
     FOREACH s IN ARRAY ARRAY['agent','core','org','authz','events','platform','authn','signals','verify','cred',
                              'evidence','privacy','metering','commercial','notification','configuration',
                              'zid_migrations','machine','tenant','federation','integration','webhook','provisioning','operations',
-                             'operator','locator','search','relationship','policy','session','decision','mandate','keys']
+                             'operator','locator','search','relationship','policy','session','decision','mandate','keys','global_directory']
     LOOP
         IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
             EXECUTE format('GRANT USAGE ON SCHEMA %I TO zid_runtime', s);
@@ -30,4 +30,12 @@ BEGIN
             EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE zid IN SCHEMA %I GRANT USAGE, SELECT ON SEQUENCES TO zid_runtime', s);
         END IF;
     END LOOP;
+END $$;
+
+-- The one DELETE the global locator needs: it drops a tenant's retired routing aliases when its directory record is republished.
+DO $$
+BEGIN
+    IF to_regclass('global_directory.routing_alias') IS NOT NULL THEN
+        GRANT DELETE ON global_directory.routing_alias TO zid_runtime;
+    END IF;
 END $$;

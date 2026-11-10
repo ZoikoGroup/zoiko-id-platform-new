@@ -1,17 +1,15 @@
--- Step 1 of the database setup on Cloud SQL. Run as the `postgres` admin user against BOTH zid_cell and zid_global.
+-- Step 1 of the database setup on Cloud SQL. Run as the `postgres` admin user against zid_cell, the one platform database.
 -- Passwords come from psql variables so they never sit in a file:
 --
---   for DB in zid_cell zid_global; do
---     psql "host=<private-ip> dbname=$DB user=postgres sslmode=require" -v owner_pw="$OWNER_PW" \
---          -v runtime_pw="$RUNTIME_PW" -v worker_pw="$WORKER_PW" -f db/01_roles.sql
---   done
---   then create the namespaces as the owner (backend/database/schemas/001_cell_schemas.sql on zid_cell and
---   001_global_schemas.sql on zid_global), run the `migrate` service, and finally db/02_grants.sql.
+--   psql "host=<private-ip> dbname=zid_cell user=postgres sslmode=require" -v owner_pw="$OWNER_PW" \
+--        -v runtime_pw="$RUNTIME_PW" -v worker_pw="$WORKER_PW" -f db/01_roles.sql
+--   then create the namespaces as the owner (backend/database/schemas/001_cell_schemas.sql and
+--   001_global_schemas.sql, both on zid_cell), run the `migrate` service, and finally db/02_grants.sql.
 --
 --   zid_owner    owns the database and schemas and runs the migrations (used only by the one-shot `migrate` service).
 --   zid_runtime  the API: NOSUPERUSER NOBYPASSRLS, so row-level security applies and a company only sees its own rows.
 --   zid_worker   the background worker: BYPASSRLS because it sweeps every tenant; SELECT/INSERT/UPDATE only (no DELETE).
---                The global plane has no personal data and no worker, so only the cell database needs it.
+--                The global plane's schema (global_directory) holds no personal data, and the worker never touches it.
 --
 -- BYPASSRLS needs a privileged creator. If Cloud SQL refuses it for `postgres`, create zid_worker in the console
 -- (Users) as a built-in user and re-run; every statement here is idempotent.

@@ -14,7 +14,7 @@ import asyncio
 import os
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
 import pytest
@@ -54,9 +54,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
                 item.add_marker(skip)
 
 
-@pytest.fixture(scope="session")
-def pg_urls() -> Iterator[tuple[str, str]]:
-    """(owner URL, runtime-role URL) for a fresh, fully migrated database."""
+@contextmanager
+def fresh_database() -> Iterator[tuple[str, str]]:
+    """(owner URL, runtime-role URL) for a fresh, fully migrated database, dropped on exit. The session shares one (`pg_urls`); a test module whose
+    assertions count rows across the whole database (key dependents, say) takes its own so other tests' rows cannot be counted."""
     assert ADMIN_URL
     db = f"zid_component_{uuid.uuid4().hex[:8]}"
     admin = make_url(ADMIN_URL)
@@ -95,6 +96,13 @@ def pg_urls() -> Iterator[tuple[str, str]]:
     )
     yield owner, runtime
     asyncio.run(run(admin, f'DROP DATABASE "{db}" WITH (FORCE)'))
+
+
+@pytest.fixture(scope="session")
+def pg_urls() -> Iterator[tuple[str, str]]:
+    """The database every component test shares for the session."""
+    with fresh_database() as urls:
+        yield urls
 
 
 @pytest.fixture(scope="session")

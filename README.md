@@ -32,15 +32,15 @@ PostgreSQL **always runs in Docker** (`docker compose`); no local PostgreSQL ins
 Requires Docker Desktop.
 
 ```bash
-docker compose up --build -d             # Postgres + ONE backend container (cell :8000 + global :8100)
+docker compose up --build -d             # Postgres + ONE backend container (cell and global plane, one port :8000)
 curl http://localhost:8000/health/ready  # cell role: all 27 modules, DB + owned schemas checked
-curl http://localhost:8100/health/ready  # global role: locator + discovery, global database
-docker compose logs -f backend           # structured JSON logs from both roles
+curl http://localhost:8000/v1/discovery?workspace=x  # the global plane's locator + discovery, same port
+docker compose logs -f backend           # structured JSON logs
 docker compose down                      # stop (add -v to wipe the database)
 docker build --target test backend       # run the backend test suite
 ```
 
-Interactive API docs: http://localhost:8000/docs (cell) and http://localhost:8100/docs (global). Endpoints: `/`, `/health/live`, `/health/ready`.
+Interactive API docs: http://localhost:8000/docs (cell and global plane). Endpoints: `/`, `/health/live`, `/health/ready`.
 
 ## Option B: backend on your machine, PostgreSQL in Docker (Windows PowerShell)
 
@@ -60,12 +60,9 @@ cd C:\Users\HP\Downloads\zoiko_ids\backend
 $env:UV_PROJECT_ENVIRONMENT = "$env:LOCALAPPDATA\zoiko-id\venv"
 python -m uv sync --all-packages          # install exactly what uv.lock says
 
-# 4. Start the backend: ONE terminal, both roles (Ctrl+C stops both)
-#    cell   (27 modules)            -> http://localhost:8000
-#    global (locator + discovery)   -> http://localhost:8100
+# 4. Start the backend: ONE terminal, ONE process, ONE port (Ctrl+C stops it)
+#    cell (27 modules) + the global plane (locator + discovery) -> http://localhost:8000
 python -m uv run python ..\tools\scripts\run_local.py
-#    only the cell role (enough for most work):
-python -m uv run python ..\tools\scripts\run_local.py --only cell
 
 # Tests
 python -m uv run pytest -q libs app
@@ -73,9 +70,9 @@ python -m uv run pytest -q libs app
 
 Check: http://localhost:8000/health/ready should return `"status": "ready"`. Stop the database with `docker compose stop postgres` (`docker compose down -v` also deletes its data).
 
-Don't run the `backend` container (option A) and the launcher (option B) at the same time; both use ports 8000 and 8100.
+Don't run the `backend` container (option A) and the launcher (option B) at the same time; both use port 8000.
 
-The two roles stay **separate processes** (the global plane holds no personal data and uses its own database, ZID-TENANCY-001 §2). The launcher runs both from one terminal, labels their output `[cell]` / `[global]`, and reloads automatically on code changes. Database URLs can be overridden with `ZID_CELL_DATABASE_URL` / `ZID_GLOBAL_DATABASE_URL`.
+One process serves everything on port 8000: the cell modules and, because `ZID_SERVE_GLOBAL_PLANE=true`, the global plane (locator + discovery, no personal data, its own schema `global_directory`) in the same database. The launcher reloads automatically on code changes. The database URL can be overridden with `ZID_CELL_DATABASE_URL`.
 
 ## Connect the web app to the backend (local)
 

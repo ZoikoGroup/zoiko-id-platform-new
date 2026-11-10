@@ -199,10 +199,10 @@ The specs define **27 logical services**. Stage A ships them as **one modular mo
 | **Security / Evidence** | signals (SIG), evidence (EVID), privacy (PRIV) | `signals`, `evidence`, `privacy` | SIG on the priority lane; EVID never blocks SIG |
 | **Integration** | federation (FED), provisioning (SCIM), integration (INT), onboarding (ONB), webhook (WHK) | `authn`, `platform`, `events` | Kept off runtime failure paths |
 | **Control / Support** | tenant (TEN), configuration (CFG), policy_authoring (POL), operator_access (OPS), metering (METER), notification (NOTIF), search (SEARCH) | `platform`, `authz`, `metering` | Never on the R2/R3 path |
-| **Global** | locator, discovery | `global_directory` (separate database) | Served only by the `global` role |
+| **Global** | locator, discovery | `global_directory` (own schema, same database) | Served only by the `global` role |
 
 **Run modes of the single image:**
-- **Role** (`ZID_ROLE`): `cell` loads the 27 cell modules and is deployed once per regional cell. `global` loads only `locator` and `discovery`, on the global-plane database with no personal data.
+- **Role** (`ZID_ROLE`): `cell` loads the 27 cell modules and is deployed once per regional cell. `global` loads only `locator` and `discovery`, in the `global_directory` schema of the one platform database, with no personal data.
 - **Process:** the API is the default. `consumer` (Kafka consumers, for example the relationship projector into SpiceDB), `worker` (Temporal workflows, for example onboarding sagas and the evidence checkpointer) and `outbox_relay` run as separate processes of the same image.
 - **Hot-path protection:** separate connection pools and worker limits per plane inside the process. When load requires it, runtime and admin routes go to separate replica pools of the same image (DEC-D6 §4).
 

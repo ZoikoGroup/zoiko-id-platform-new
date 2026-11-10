@@ -751,6 +751,7 @@ export function createCellApi(t: Transport) {
         post<{ bindings_suspended: number; agents_suspended: number }>(`/v1/machine/blueprints/${seg(id)}/versions/${seg(version)}:revoke`, { reason_code }),
       builds: (status?: M.BuildReview) => get<M.BuildList>("/v1/machine/builds", { status }),
       resolveBuild: (image: string) => post<M.BuildLookup>("/v1/machine/builds:resolve", { image }),
+      buildVersions: (image: string) => post<M.BuildVersions>("/v1/machine/builds:versions", { image }),
       registerBuild: (body: M.BuildCreate) => post<M.BuildItem>("/v1/machine/builds", body),
       approveBuild: (id: string) => post<M.BuildItem>(`/v1/machine/builds/${seg(id)}:approve`),
       revokeBuild: (id: string, reason_code: string) => post<M.BuildRevoked>(`/v1/machine/builds/${seg(id)}:revoke`, { reason_code }),

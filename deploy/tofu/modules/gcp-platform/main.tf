@@ -231,11 +231,6 @@ resource "google_sql_database" "cell" {
   instance = google_sql_database_instance.pg.name
 }
 
-resource "google_sql_database" "global" {
-  name     = "zid_global"
-  instance = google_sql_database_instance.pg.name
-}
-
 # --- the VM ---------------------------------------------------------------------------------------------------
 
 resource "google_compute_address" "ip" {

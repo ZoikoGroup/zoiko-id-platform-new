@@ -152,7 +152,8 @@ export function DigestHelp({ canUseTestBuild }: { canUseTestBuild: boolean }) {
       <div className="mt-2 space-y-2 text-ink-muted">
         <p>
           A digest is the fingerprint of one exact build of the software: <code className="font-mono text-xs">sha256:</code> followed by 64 letters and digits. It comes
-          from whoever builds the software. It cannot be worked out from a name, so it is not something to make up.
+          from whoever builds the software. It cannot be worked out from a name, so it is not something to make up. A workload gets a token only while the
+          software really running matches the approved digest, so a wrong one means no token.
         </p>
         <ul className="list-disc space-y-1 ps-5">
           <li>
@@ -162,7 +163,15 @@ export function DigestHelp({ canUseTestBuild }: { canUseTestBuild: boolean }) {
           <li>
             On the computer that built it: <code className="font-mono text-xs">docker images --digests</code>, or <code className="break-all font-mono text-xs">{INSPECT}</code>.
           </li>
+          <li>
+            An image that exists only on that computer, never pushed: its image ID is accepted too:{" "}
+            <code className="break-all font-mono text-xs">docker inspect --format=&apos;{"{{.Id}}"}&apos; your-image</code>.
+          </li>
           <li>In a registry&apos;s web page (GitHub Packages, Docker Hub, a cloud registry), open the image version and copy its digest.</li>
+          <li>
+            In <strong>Builds</strong>, type the image name and choose <strong>Look up digest</strong>: the registry says which digest it points at. A build pipeline can
+            register builds itself with <code className="font-mono text-xs">tools/scripts/register_build.py</code>.
+          </li>
         </ul>
         <p>
           {canUseTestBuild ? (

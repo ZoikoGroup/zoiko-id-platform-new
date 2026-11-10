@@ -38,6 +38,17 @@ describe("safeReturnTo", () => {
   });
 });
 
+describe("session", () => {
+  it("says who is signed in and the public API address, and never a token", async () => {
+    const store = new MemorySessionStore();
+    const h = await withSession(store);
+    const body = await (await createBff({ ...base, store }).session(new Request("https://id.test/api/auth/session", { headers: h }))).json();
+    expect(body).toMatchObject({ authenticated: true, subject: { sub: "u1" }, csrf: "csrf-token", apiBase: "https://cell.test" });
+    expect(JSON.stringify(body)).not.toContain("accessToken");
+    expect(JSON.stringify(body)).not.toContain('"at"');
+  });
+});
+
 describe("proxy", () => {
   it("requires a session", async () => {
     const bff = createBff({ ...base, store: new MemorySessionStore() });

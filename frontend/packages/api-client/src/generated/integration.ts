@@ -401,7 +401,8 @@ export interface components {
         /**
          * OAuthClientBody
          * @description `purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to
-         *     ask the decision API (a signed key, no redirect address, no scopes to choose); a client people sign in through cannot get a machine token.
+         *     ask the decision API (a signed key, no redirect address, no scopes to choose). BUILD_PIPELINE: the machine client a build pipeline uses to register
+         *     builds (the same shape, its own scope). A client people sign in through cannot get a machine token.
          */
         OAuthClientBody: {
             /**
@@ -420,7 +421,7 @@ export interface components {
              * @default SIGN_IN
              * @enum {string}
              */
-            purpose: "SIGN_IN" | "DECISIONS";
+            purpose: "SIGN_IN" | "DECISIONS" | "BUILD_PIPELINE";
             /** Redirect Uris */
             redirect_uris?: string[];
             /** Scopes */
