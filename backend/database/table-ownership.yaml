@@ -629,6 +629,11 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (ZID-MACHINE-001 §15; CR-007)"
+  agent.tool_grant:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-GAP-001 WP-11; CR-067)"
   agent.agent_profile:
     role: cell
     module: machine

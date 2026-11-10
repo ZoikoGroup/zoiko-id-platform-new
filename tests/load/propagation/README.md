@@ -33,3 +33,17 @@ ZID_PROPAGATION_PRINCIPALS=5000 ZID_PROPAGATION_READERS=64 ZID_PROPAGATION_SECON
 Keep the printed line with the run's database saturation dashboards. Together they are the FR-SIG-004 evidence. In deployed cells, the same lag is logged on every enforcing read as `commit_to_observation_ms` (component `signals.propagation`), which feeds the `zid_revocation_propagation_seconds` SLI.
 
 Cross-party propagation (SSF transmitter to receivers) depends on the receiver. The transmitter's own delivery lag per stream is reported by `GET /ssf/streams/{id}/propagation`.
+
+## The agent channel (ZID-GAP-001 WP-17)
+
+`backend/app/tests/component/test_agent_revocation_propagation_pg.py` measures the same thing where an agent acts: at the tool gateway
+(`POST /v1/machine/tool-calls:authorize`). Concurrent callers keep asking for grants for a sub-agent while another engine commits a
+revocation, and the test records commit -> first refusal and checks p99 against the R3 in-cell budget (the strictest, 2 s). Three
+triggers: the sponsor is disabled, the parent agent is suspended, the tool is suspended. The gateway reads committed rows in every request
+(no cache between), and a grant is checked again when the tool's server redeems it, so a revocation between signing and acting also stops the call.
+
+A run on a developer machine (local PostgreSQL, 6 concurrent callers, one process) measured: sponsor disabled p99 about 290 ms,
+parent suspended about 250 ms, tool suspended about 180 ms. These are single-machine numbers, not a performance-environment result;
+`ZID_AGENT_PROPAGATION_READERS` scales the callers up for a soak. Not measured here: the UI, queue/webhook and wallet-verification channels
+(the plan asks for those too), and cross-region propagation.
+

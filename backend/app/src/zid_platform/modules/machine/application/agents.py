@@ -12,6 +12,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_outbox import emit, next_version
@@ -31,6 +32,7 @@ from zid_platform.modules.machine.domain.agents import (
     activation_blockers,
     attestor_blockers,
     evidence_from_attestations,
+    lifecycle_breach,
     register_child_agent,
     tool_requires_mandate,
 )
@@ -63,9 +65,11 @@ async def _record(
     event: bool,
     aggregate_type: str,
     aggregate_id: str,
-    actor: str,
+    actor: str | None,
     data: dict[str, Any],
     evidence: EvidenceClass = EvidenceClass.E3,
+    actor_type: str = "HUMAN",
+    outcome: str = "SUCCESS",
 ) -> None:
     event_id = None
     if event:
@@ -83,11 +87,11 @@ async def _record(
         tenant_id,
         AuditFacts(
             event_type=name,
-            actor_type="HUMAN",
+            actor_type=actor_type,
             action=name.rsplit(".", 1)[-1],
             target_type=aggregate_type,
             target_ref=aggregate_id,
-            outcome="SUCCESS",
+            outcome=outcome,
             evidence_class=evidence,
             occurred_at=_now(),
             actor_principal_id=actor,
@@ -115,6 +119,7 @@ def profile_view(a: AgentProfile) -> dict[str, Any]:
         "max_subagent_depth": a.max_subagent_depth,
         "status": a.status.value,
         "security_revision": a.security_revision,
+        "expires_at": a.expires_at.isoformat() if a.expires_at else None,
     }
 
 
@@ -178,7 +183,9 @@ async def create_blueprint(
         raise MachineError("WORKLOAD_ARTIFACT_NOT_APPROVED", "digests must be sha256:<64 hex>")
     if require_approved_build:
         await require_build_approved(conn, artifact_digest)
-    artifact_digest = normalize_digest(artifact_digest)  # one spelling is stored, so the same build always matches
+    artifact_digest = normalize_digest(
+        artifact_digest
+    )  # one spelling is stored, so the same build always matches
     if await machine_store.load_blueprint(conn, blueprint_id, version) is not None:
         raise MachineError("BLUEPRINT_EXISTS", "a release is immutable; publish a new version")
     bp = BlueprintRelease(
@@ -297,9 +304,14 @@ async def require_build_approved(conn: AsyncConnection, artifact_digest: str) ->
     """A release may run only a build someone other than its registrar approved (and that has not been revoked)."""
     build = await build_store.by_digest(conn, normalize_digest(artifact_digest))
     if build is None:
-        raise MachineError("BUILD_NOT_APPROVED", "this build is not registered: register it under Builds and have it approved")
+        raise MachineError(
+            "BUILD_NOT_APPROVED",
+            "this build is not registered: register it under Builds and have it approved",
+        )
     if build["review_status"] != "APPROVED":
-        raise MachineError("BUILD_NOT_APPROVED", f"this build is {build['review_status'].lower()}, not approved")
+        raise MachineError(
+            "BUILD_NOT_APPROVED", f"this build is {build['review_status'].lower()}, not approved"
+        )
     return build
 
 
@@ -337,7 +349,10 @@ async def register_build(
         aggregate_type="agent_build",
         aggregate_id=f"{tenant_id}:{build_id}",
         actor=actor,
-        data={"build_id": build_id, "artifact_digest": digest},  # the label is not recorded: audit data carries no names
+        data={
+            "build_id": build_id,
+            "artifact_digest": digest,
+        },  # the label is not recorded: audit data carries no names
         evidence=EvidenceClass.E2,
     )
     built = await build_store.get(conn, build_id)
@@ -345,14 +360,20 @@ async def register_build(
     return built
 
 
-async def approve_build(conn: AsyncConnection, tenant_id: str, build_id: str, *, actor: str) -> dict[str, Any]:
+async def approve_build(
+    conn: AsyncConnection, tenant_id: str, build_id: str, *, actor: str
+) -> dict[str, Any]:
     build = await build_store.get(conn, build_id, lock=True)
     if build is None:
         raise MachineError("BUILD_NOT_FOUND")
     if build["review_status"] != "DRAFT":
-        raise MachineError("BUILD_INVALID_STATE", f"a {build['review_status'].lower()} build cannot be approved")
+        raise MachineError(
+            "BUILD_INVALID_STATE", f"a {build['review_status'].lower()} build cannot be approved"
+        )
     if actor == build["registered_by"]:
-        raise MachineError("AGENT_REVIEW_NOT_INDEPENDENT", "the person who registered a build cannot approve it")
+        raise MachineError(
+            "AGENT_REVIEW_NOT_INDEPENDENT", "the person who registered a build cannot approve it"
+        )
     await build_store.approve(conn, build_id, actor)
     await _record(
         conn,
@@ -407,7 +428,12 @@ async def revoke_build(
     )
     revoked = await build_store.get(conn, build_id)
     assert revoked is not None
-    return {**revoked, "releases_revoked": releases, "bindings_suspended": bindings, "agents_suspended": suspended}
+    return {
+        **revoked,
+        "releases_revoked": releases,
+        "bindings_suspended": bindings,
+        "agents_suspended": suspended,
+    }
 
 
 # ---------------------------------------------------------------- agents (§2, §12)
@@ -429,7 +455,10 @@ async def register_agent(
     home_cell: str,
     actor: str,
     parent_agent_id: str | None = None,
+    expires_at: datetime | None = None,
 ) -> AgentProfile:
+    if expires_at is not None and expires_at <= _now():
+        raise MachineError("AGENT_EXPIRY_INVALID", "an agent's expiry must be in the future")
     bp = await machine_store.load_blueprint(conn, blueprint_id, blueprint_version)
     if bp is None:
         raise MachineError("BLUEPRINT_NOT_FOUND")
@@ -460,6 +489,7 @@ async def register_agent(
         max_subagent_depth=max_subagent_depth,
         status=AgentStatus.DRAFT,
         parent_agent_id=parent_agent_id,
+        expires_at=expires_at,
     )
     await create_principal(
         conn,
@@ -520,6 +550,7 @@ async def register_child(
         home_cell=home_cell,
         actor=actor,
         parent_agent_id=parent_id,
+        expires_at=parent.expires_at,
     )
     problems = register_child_agent(parent, child, issued_by_identity_service=True)
     if problems:
@@ -637,7 +668,13 @@ async def activate(
 
 
 async def _suspend_one(
-    conn: AsyncConnection, tenant_id: str, agent: AgentProfile, *, reason: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    agent: AgentProfile,
+    *,
+    reason: str,
+    actor: str | None,
+    actor_type: str = "HUMAN",
 ) -> None:
     if agent.status is AgentStatus.ACTIVE:
         await machine_store.change_agent_status(
@@ -653,28 +690,86 @@ async def _suspend_one(
         aggregate_id=agent.agent_principal_id,
         actor=actor,
         data={"agent_principal_id": agent.agent_principal_id, "reason_code": reason},
+        actor_type=actor_type,
     )
 
 
 async def suspend(
-    conn: AsyncConnection, tenant_id: str, agent_id: str, *, reason: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    agent_id: str,
+    *,
+    reason: str,
+    actor: str | None,
+    actor_type: str = "HUMAN",
 ) -> dict[str, Any]:
     """The kill path (§12.1): the agent, every sub-agent below it, and their live bindings stop now."""
     agent = await _load(conn, agent_id)
     if agent.status is not AgentStatus.ACTIVE:
         raise MachineError("AGENT_INVALID_TRANSITION", f"{agent.status.value} -> SUSPENDED")
     below = await agent_store.descendants(conn, agent_id)
-    await _suspend_one(conn, tenant_id, agent, reason=reason, actor=actor)
+    await _suspend_one(conn, tenant_id, agent, reason=reason, actor=actor, actor_type=actor_type)
     for child_id in below:
         child = await _load(conn, child_id)
         if child.status is AgentStatus.ACTIVE:
-            await _suspend_one(conn, tenant_id, child, reason="PARENT_SUSPENDED", actor=actor)
+            await _suspend_one(
+                conn,
+                tenant_id,
+                child,
+                reason="PARENT_SUSPENDED",
+                actor=actor,
+                actor_type=actor_type,
+            )
     bindings = await agent_store.move_bindings(conn, agent_ids=[agent_id, *below], to="SUSPENDED")
     return {
         "agent_principal_id": agent_id,
         "sub_agents": len(below),
         "bindings_suspended": bindings,
     }
+
+
+async def sponsor_is_active(conn: AsyncConnection, sponsor_id: str | None) -> bool:
+    """Fails closed: a sponsor that cannot be read, or is not ACTIVE, is not accountable."""
+    if not sponsor_id:
+        return False
+    sponsor = await _principal(conn, sponsor_id)
+    return sponsor is not None and sponsor.status is PrincipalStatus.ACTIVE
+
+
+async def lifecycle_sweep(conn: AsyncConnection, now: datetime) -> list[dict[str, Any]]:
+    """Worker pass (BYPASSRLS), WP-10: suspend, by policy, every ACTIVE agent whose accountable sponsor has left
+    (disabled, erased, or removed) or whose expiry has passed, together with its sub-agents and live bindings.
+    Idempotent: a suspended agent is not picked again. Runs one tenant at a time under that tenant's scope."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT a.tenant_id, a.agent_principal_id FROM agent.agent_profile a "
+                "LEFT JOIN core.principal p ON p.principal_id = a.sponsor_principal_id "
+                "WHERE a.status = 'ACTIVE' AND (a.sponsor_principal_id IS NULL "
+                "OR p.principal_id IS NULL OR p.status <> 'ACTIVE' "
+                "OR (a.expires_at IS NOT NULL AND a.expires_at <= :now)) "
+                "ORDER BY a.tenant_id, a.created_at"
+            ),
+            {"now": now},
+        )
+    ).all()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        tenant, agent_id = str(r.tenant_id), str(r.agent_principal_id)
+        await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant})
+        agent = await machine_store.load_agent(conn, agent_id)
+        if agent is None or agent.status is not AgentStatus.ACTIVE:
+            continue  # a parent's suspension already took it
+        reason = lifecycle_breach(
+            agent, sponsor_active=await sponsor_is_active(conn, agent.sponsor_principal_id), now=now
+        )
+        if reason is None:
+            continue
+        result = await suspend(
+            conn, tenant, agent_id, reason=reason, actor=None, actor_type="SYSTEM"
+        )
+        out.append({"tenant_id": tenant, "reason": reason, **result})
+    return out
 
 
 async def revoke(

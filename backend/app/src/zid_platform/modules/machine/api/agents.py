@@ -24,6 +24,7 @@ shows up in discovery is not executable until it is ACTIVE here (MACH-13, MACH-1
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
@@ -371,6 +372,7 @@ class AgentBody(BaseModel):
     model_provider: str = Field(default="", max_length=120)
     allowed_tools: list[str] = Field(default_factory=list, max_length=64)
     max_subagent_depth: int = Field(default=0, ge=0, le=5)
+    expires_at: datetime | None = None  # after this the agent stops acting (WP-10)
 
 
 @router.post("/agents", status_code=201)

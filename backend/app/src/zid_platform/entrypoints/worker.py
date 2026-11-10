@@ -301,6 +301,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await remind_due(conn, now)
 
+    async def agent_lifecycle(conn: AsyncConnection, now: datetime) -> object:
+        """WP-10: suspend agents whose sponsor has left or whose expiry has passed (with their sub-agents and bindings)."""
+        from zid_platform.modules.machine.ports import lifecycle_sweep
+
+        return await lifecycle_sweep(conn, now)
+
     async def refunds(conn: AsyncConnection, now: datetime) -> object:
         """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""
         from zid_platform.main import build_refund_port
@@ -337,6 +343,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("approval_reminders", approval_reminders),
+        ("agent_lifecycle", agent_lifecycle),
         ("refunds", refunds),
     ]
 

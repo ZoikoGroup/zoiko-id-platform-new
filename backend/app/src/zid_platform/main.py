@@ -272,6 +272,7 @@ def create_app(
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
+        from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
@@ -373,6 +374,7 @@ def create_app(
             alerts_router,
             search_router,
             agents_router,
+            tool_calls_router,
             settings_router,
             usage_router,
             commercial_router,
