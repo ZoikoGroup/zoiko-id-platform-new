@@ -9,6 +9,7 @@ Domain modules plug their routers in; this package holds no domain logic.
 
 from __future__ import annotations
 
+import socket
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -17,11 +18,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from zid_context import RequestContext, current_context, new_id, reset_context, set_context
 from zid_db import CheckResult, check_database, create_engine
 from zid_errors import (
+    DEPENDENCY_UNAVAILABLE,
     INTERNAL_ERROR,
     NOT_FOUND,
     VALIDATION_FAILED,
@@ -134,6 +137,36 @@ def _rls_refusal(exc: BaseException) -> bool:
     seen: BaseException | None = exc
     while seen is not None:
         if "row-level security policy" in str(seen):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
+_OUTAGE_NAMES = frozenset(
+    {
+        "PostgresConnectionError",
+        "CannotConnectNowError",
+        "ConnectionDoesNotExistError",
+        "TooManyConnectionsError",
+    }
+)
+
+
+def _dependency_outage(exc: BaseException) -> bool:
+    """A dependency that is gone, not a bug: the database refused or dropped the connection, or a call ran out of time.
+    Looked for anywhere in the exception chain. A client should be told to retry (503), and operators should see an
+    outage, not an internal error. It is never an answer: the request was refused either way."""
+    seen: BaseException | None = exc
+    for _ in range(12):  # bounded: a cycle in __cause__/__context__ cannot hang the handler
+        if seen is None:
+            return False
+        if isinstance(seen, (ConnectionError, TimeoutError, socket.gaierror)):
+            return True
+        if isinstance(seen, (OperationalError, InterfaceError)):
+            return True
+        if isinstance(seen, DBAPIError) and seen.connection_invalidated:
+            return True
+        if any(cls.__name__ in _OUTAGE_NAMES for cls in type(seen).__mro__):
             return True
         seen = seen.__cause__ or seen.__context__
     return False
@@ -350,6 +383,20 @@ def create_service_app(
     async def unhandled(_: Request, exc: Exception) -> JSONResponse:
         if _rls_refusal(exc):
             isolation_violations.inc()  # SEV0 invariant: a write crossed the tenant boundary
+        if _dependency_outage(exc):
+            get_logger("zid.error").error(
+                "dependency unavailable", exc_info=exc, extra={"outcome": "dependency_unavailable"}
+            )
+            return _error_response(
+                503,
+                ErrorBody(
+                    code=DEPENDENCY_UNAVAILABLE,
+                    message="A dependency is unavailable. Retry shortly.",
+                    retryable=True,
+                    retry_after_ms=1000,
+                ),
+                headers={"Retry-After": "1"},
+            )
         get_logger("zid.error").error("unhandled error", exc_info=exc, extra={"outcome": "error"})
         return _error_response(
             500, ErrorBody(code=INTERNAL_ERROR, message="An internal error occurred.")

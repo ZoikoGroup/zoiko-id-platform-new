@@ -35,11 +35,13 @@ async def tenant_transaction(
             http_status=403,
         )
     async with engine.begin() as conn:
+        # One round trip for both settings: every tenant transaction in the platform opens here, so a second statement
+        # per transaction was a fixed cost on every request (tests/load/decision-gate/RESULTS.md).
         await conn.execute(
-            text("SELECT set_config('app.tenant_id', :t, true)"), {"t": ctx.tenant_id}
-        )
-        await conn.execute(
-            text("SELECT set_config('app.principal_id', :p, true)"), {"p": ctx.principal_id or ""}
+            text(
+                "SELECT set_config('app.tenant_id', :t, true), set_config('app.principal_id', :p, true)"
+            ),
+            {"t": ctx.tenant_id, "p": ctx.principal_id or ""},
         )
         yield conn
 
