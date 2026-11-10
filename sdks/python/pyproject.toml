@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zoiko-tool-server"
+version = "0.1.0"
+description = "Accept a Zoiko iD action grant in a tool server: verify offline, redeem once, then act."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["cryptography>=42"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zoiko_tool_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
