@@ -109,7 +109,7 @@ describe("proxy", () => {
     expect(seen?.get("authorization")).toBe("Bearer at");
     expect(seen?.get("cookie")).toBeNull();
     expect(seen?.get("idempotency-key")).toBe("k1");
-    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(res.headers.get("set-cookie") ?? "").not.toContain("x=y");
     expect(res.headers.get("cache-control")).toContain("no-store");
   });
 });

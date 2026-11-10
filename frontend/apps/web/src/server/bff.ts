@@ -143,6 +143,8 @@ export function server(): { bff: Bff; env: RuntimeEnv } {
     // Verification and presentation endpoints check these scopes; the first-party client holds them.
     scopes: ["openid", "verification:read", "verification:execute", "presentation:request"],
     secureCookies: secure,
+    // ZID_DEVICE_COOKIE=off switches the first-party device cookie (and the x-zid-device header) off.
+    deviceCookie: process.env.ZID_DEVICE_COOKIE?.trim().toLowerCase() !== "off",
     sessionTtlSeconds: 8 * 60 * 60,
     apiPathPrefixes: API_PATH_PREFIXES,
     passthroughPrefixes: PASSTHROUGH_PREFIXES,
