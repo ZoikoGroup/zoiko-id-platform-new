@@ -169,7 +169,7 @@ def main() -> int:
     p.add_argument("--file", required=True, type=Path)
     p.add_argument("--client-id", required=True, help="the application's machine client (access decisions)")
     p.add_argument("--key", required=True, type=Path, help="the client's private key file")
-    p.add_argument("--api-base", default="http://localhost:8010")
+    p.add_argument("--api-base", default="http://localhost:8000")
     p.add_argument("--ledger", type=Path, default=None, help="default: <file>.ledger.jsonl")
     p.add_argument("--apply", action="store_true", help="send the decisions (the default only shows what would be sent)")
     p.add_argument("--no-incumbent", action="store_true", help="do not say what the old system did (checks the answers without entering the mismatch statistics)")

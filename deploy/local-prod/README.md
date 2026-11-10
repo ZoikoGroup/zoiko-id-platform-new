@@ -19,7 +19,7 @@ Needs Docker Desktop, Git Bash (or any POSIX shell) and `openssl`. The first run
 | http://localhost:18025 | Mailpit: every email the platform sends (sign-up, recovery) lands here |
 | `localhost:15432` | PostgreSQL, user `postgres`, password in the generated `.env` |
 
-Ports are offset (`13000`, `18000`, `15432`) so this runs beside the everyday dev stack (3000, 8010, 8000).
+Ports are offset (`13000`, `18000`, `15432`) so this runs beside the everyday dev stack (3000, 8000).
 
 ## What `up` does, and where production differs
 
