@@ -16,6 +16,7 @@ Any gate failure leaves the tenant in ORGANIZATION_VERIFYING with the failing re
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -23,6 +24,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
+from zid_db import in_tenant
 
 from zid_platform.modules.authority.ports import (
     Authority,
@@ -327,6 +329,26 @@ async def establish_from_verified_claim(
             "TENANT_OWNER_UNAUTHORIZED",
             "Only the claimant's pending OWNER role is activated by a verified claim.",
         )
+    if claims.dev_shortcut_enabled():
+        # LOCAL/TEST ONLY (refused at start-up anywhere else): no register lookup. The synthetic root says what it is, exactly as `development_verification`.
+        name = (case.legal_name or "Company").strip()[:200] or "Company"  # the name the applicant gave, never a register's
+        if tenant.status is TenantStatus.DRAFT:
+            await transition(
+                conn, tenant_id, Move.ADVANCE, reason_code="ORGANIZATION_SUBMITTED", actor=case.requested_by, now=now
+            )
+        root = await establish_development_root(
+            conn, tenant_id, holder_principal_id=case.requested_by, legal_name=name, now=now
+        )
+        await set_fields(conn, tenant_id, display_name=name)
+        return await _seed_and_advance(
+            conn,
+            tenant_id,
+            principal_id=case.requested_by,
+            root=root,
+            catalog=catalog,
+            detail=f"development-unverified:claim:{claim_id}",
+            now=now,
+        )
     facts = None
     for adapter in adapters.values():
         countries = adapter.capabilities.countries
@@ -375,6 +397,38 @@ async def establish_from_verified_claim(
         detail=f"claim:{claim_id}",
         now=now,
     )
+
+
+log = logging.getLogger("zid.onboarding")
+
+
+async def auto_establish_pass(
+    conn: AsyncConnection, now: datetime, *, catalog: Mapping[str, Mapping[str, Any]]
+) -> dict[str, int]:
+    """LOCAL/TEST ONLY (worker pass, ZID_ORG_CLAIM_DEV_AUTOVERIFY): the moment a claim reads as VERIFIED (its claimant's identity check is complete; the
+    company, authority and risk checks are not run), create the organization from it, so nobody has to open a page or press a button to get on. Does
+    nothing unless the shortcut is on, which the app refuses outside local and test. A workspace that already has its organization is left alone, and one
+    claim that fails is logged and never stops the others. tenant id -> organizations established."""
+    from zid_platform.modules.onboarding.application import claims
+
+    if not claims.dev_shortcut_enabled():
+        return {}
+    out: dict[str, int] = {}
+    for tenant, claim in await claims.kyb_open_claims(conn):
+        try:
+            async with conn.begin_nested(), in_tenant(conn, tenant):
+                current = await load_tenant(conn, tenant)
+                if current is None or current.organization_id:
+                    continue
+                if (await claims.status(conn, tenant, claim, now))["outcome"] != "VERIFIED":
+                    continue
+                await establish_from_verified_claim(
+                    conn, tenant, claim, adapters={}, catalog=catalog, now=now
+                )
+            out[tenant] = out.get(tenant, 0) + 1
+        except Exception:
+            log.exception("could not establish the organization for claim %s", claim)
+    return out
 
 
 async def development_verification(

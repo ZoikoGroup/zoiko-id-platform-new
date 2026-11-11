@@ -137,6 +137,10 @@ IMPORT_EXCEPTIONS: dict[tuple[str, str], str] = {
         "app/src/zid_platform/modules/federation/application/saml_decrypt.py",
         "lxml",
     ): "operates on elements already extracted from a gated, signature-verified document",
+    (
+        "app/src/zid_platform/modules/evidence/application/trust.py",
+        "lxml",
+    ): "operator-supplied trusted lists only: the defusedxml gate forbids DTD, entities and external references first, then a parser with resolve_entities=False and no_network=True",
 }
 
 

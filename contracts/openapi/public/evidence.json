@@ -303,6 +303,136 @@
         "title": "PackageBody",
         "type": "object"
       },
+      "V2DocumentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Checks",
+            "type": "array"
+          },
+          "content_base64": {
+            "anyOf": [
+              {
+                "maxLength": 2796218,
+                "minLength": 4,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Base64"
+          },
+          "declared_type": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Declared Type",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Fa-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Sha256"
+          },
+          "jurisdiction": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          }
+        },
+        "required": [
+          "declared_type",
+          "checks"
+        ],
+        "title": "V2DocumentIn",
+        "type": "object"
+      },
+      "V2UploadIn": {
+        "additionalProperties": false,
+        "properties": {
+          "declared_type": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Declared Type",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "maximum": 5242880.0,
+            "minimum": 1.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "subject_ref": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Ref"
+          }
+        },
+        "required": [
+          "declared_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "V2UploadIn",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1710,6 +1840,353 @@
         "summary": "Verify",
         "tags": [
           "evidence"
+        ]
+      }
+    },
+    "/v2/documents/validate": {
+      "post": {
+        "operationId": "validate_document_v2_documents_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2DocumentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate Document V2 Documents Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Document",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
+    "/v2/documents/{validation_ref}": {
+      "get": {
+        "operationId": "read_validation_v2_documents__validation_ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_ref",
+            "required": true,
+            "schema": {
+              "title": "Validation Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Validation V2 Documents  Validation Ref  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Validation",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
+    "/v2/evidence/uploads": {
+      "get": {
+        "description": "The tenant's uploads as metadata (state, scan result, retention), newest first. Never the bytes.",
+        "operationId": "list_uploads_v2_evidence_uploads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject_ref",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Ref"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Uploads V2 Evidence Uploads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Uploads",
+        "tags": [
+          "evidence-v2"
+        ]
+      },
+      "post": {
+        "operationId": "announce_upload_v2_evidence_uploads_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2UploadIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Announce Upload V2 Evidence Uploads Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Announce Upload",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
+    "/v2/evidence/uploads/{upload_id}/content": {
+      "put": {
+        "operationId": "send_content_v2_evidence_uploads__upload_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Upload-Token",
+            "required": true,
+            "schema": {
+              "maxLength": 4000,
+              "minLength": 20,
+              "title": "X-Upload-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Send Content V2 Evidence Uploads  Upload Id  Content Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Content",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
+    "/v2/evidence/{evidence_ref}": {
+      "delete": {
+        "operationId": "delete_evidence_v2_evidence__evidence_ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "evidence_ref",
+            "required": true,
+            "schema": {
+              "title": "Evidence Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Evidence V2 Evidence  Evidence Ref  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Evidence",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
+    "/v2/evidence/{manifest_ref}/manifest": {
+      "get": {
+        "operationId": "manifest_v2_evidence__manifest_ref__manifest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifest_ref",
+            "required": true,
+            "schema": {
+              "title": "Manifest Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Manifest V2 Evidence  Manifest Ref  Manifest Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Manifest",
+        "tags": [
+          "evidence-v2"
         ]
       }
     }

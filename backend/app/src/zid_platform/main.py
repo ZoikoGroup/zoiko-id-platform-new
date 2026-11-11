@@ -67,6 +67,11 @@ def create_app(
     )
     if settings.tenant_signup_dev_verify and settings.environment not in ("local", "test"):
         raise RuntimeError("ZID_TENANT_SIGNUP_DEV_VERIFY is for local/test only")
+    if settings.org_claim_dev_autoverify and settings.environment not in ("local", "test"):
+        raise RuntimeError("ZID_ORG_CLAIM_DEV_AUTOVERIFY is for local/test only")
+    from .modules.onboarding.application import claims as _claims
+
+    _claims.configure_dev_shortcut(settings.org_claim_dev_autoverify, settings.environment)
     if settings.dev_simulators and settings.environment not in ("local", "test"):
         raise RuntimeError("ZID_DEV_SIMULATORS is for local/test only")
     app.state.operator_password_logins = _operator_password_logins(settings)
@@ -130,6 +135,18 @@ def create_app(
     app.state.federation_authority_hints = settings.federation_authority_hints
     app.state.verification_transport = None  # real network; tests inject a provider simulator
     app.state.credential_transport = None  # status-list / federation fetches (simulated in tests)
+    from .modules.evidence.application.scanner import SimulatorScanner, scanner_from_address
+
+    app.state.upload_retention_days = settings.upload_retention_days
+    # the real clamd when its address is set (the same one proof documents use); the EICAR-only simulator for local and test; otherwise
+    # NONE, and uploads are refused: a deployed cell never pretends to scan
+    app.state.evidence_scanner = (
+        scanner_from_address(settings.proof_scanner_address)
+        if settings.proof_scanner_address
+        else SimulatorScanner()
+        if settings.environment in ("local", "test")
+        else None
+    )
     app.state.registry_transport = None  # Companies House / GLEIF (simulated in tests)
     app.state.kyb_transport = None  # company-verification sources (real network; tests inject)
     app.state.kyb_adapters = None  # tests supply their own sources
@@ -271,13 +288,23 @@ def create_app(
         from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
         from .modules.configuration.api.settings import router as settings_router
+        from .modules.credential.api.claim_checks import router as claim_checks_router
         from .modules.credential.api.credentials import router as credentials_router
+        from .modules.credential.api.trust import router as credential_trust_router
+        from .modules.credential.api.v2 import router as credential_v2_router
+        from .modules.credential.api.v2_cases import router as credential_v2_cases_router
+        from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
+        from .modules.credential.api.v2_presentations import router as credential_v2_pres_router
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
+        from .modules.evidence.api.v2 import router as evidence_v2_router
+        from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
+        from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
+        from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
@@ -289,6 +316,8 @@ def create_app(
         from .modules.onboarding.api.org_claim_proofs import router as org_claim_proofs_router
         from .modules.onboarding.api.org_claim_screening import router as org_claim_screening_router
         from .modules.onboarding.api.org_claims import router as org_claims_router
+        from .modules.onboarding.api.v2_organizations import router as v2_organizations_router
+        from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.onboarding.api.readiness import router as readiness_router
         from .modules.onboarding.api.registration import router as registration_router
         from .modules.onboarding.api.signup import router as signup_router
@@ -309,6 +338,7 @@ def create_app(
         from .modules.provisioning.api.directory import router as directory_sync_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.resilience.api.platform import router as resilience_router
+        from .modules.screening.api.signals import router as screening_signals_router
         from .modules.search.api.search import router as search_router
         from .modules.session.api.oauth import router as oauth_router
         from .modules.session.api.sessions import router as sessions_router
@@ -325,6 +355,7 @@ def create_app(
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.verification import router as verification_router
+        from .modules.webhook.api.v2 import router as webhooks_v2_router
         from .modules.webhook.api.webhooks import router as webhooks_router
 
         for router in (
@@ -345,8 +376,17 @@ def create_app(
             countries_router,
             recovery_router,
             credentials_router,
+            claim_checks_router,
+            credential_trust_router,
+            credential_v2_router,
+            credential_v2_issuer_router,
+            credential_v2_pres_router,
+            credential_v2_cases_router,
             principals_router,
             evidence_router,
+            evidence_v2_router,
+            evidence_v2_documents_router,
+            evidence_v2_uploads_router,
             operator_router,
             lockbox_router,
             privacy_router,
@@ -365,6 +405,8 @@ def create_app(
             commitments_router,
             onboarding_router,
             org_claims_router,
+            v2_organizations_router,
+            v2_age_router,
             org_claim_proofs_router,
             org_claim_screening_router,
             signup_router,
@@ -377,9 +419,12 @@ def create_app(
             policy_router,
             workloads_router,
             webhooks_router,
+            webhooks_v2_router,
             alerts_router,
             search_router,
             agents_router,
+            tool_calls_router,
+            screening_signals_router,
             settings_router,
             usage_router,
             commercial_router,
@@ -513,6 +558,15 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
     app.state.payment_port = (
         RecordingPayments() if settings.environment in ("local", "test") else None
     )
+    app.state.screening_velocity_mode = settings.screening_velocity_mode
+    app.state.screening_signal_pepper = b""
+    if settings.screening_signal_pepper_file:
+        from pathlib import Path as _PepperPath
+
+        pepper = _PepperPath(settings.screening_signal_pepper_file).read_bytes().strip()
+        if not pepper:
+            raise RuntimeError("ZID_SCREENING_SIGNAL_PEPPER_FILE is empty")
+        app.state.screening_signal_pepper = pepper
     if settings.stripe_secret_key_file:
         from pathlib import Path
 
@@ -904,13 +958,14 @@ def _register_invitation_hooks() -> None:
 def register_privacy_stores(registration_tenant: str | None = None) -> None:
     """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
     data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
+    from . import evidence_privacy_adapter as evidence_uploads
     from .modules.authentication.infrastructure import privacy_adapter as authentication
     from .modules.credential.infrastructure import privacy_adapter as credential
     from .modules.principal.infrastructure import privacy_adapter as principal
     from .modules.session.infrastructure import privacy_adapter as session
     from .modules.verification.infrastructure import privacy_adapter as verification
 
-    for adapter in (principal, authentication, session, verification, credential):
+    for adapter in (principal, authentication, session, verification, credential, evidence_uploads):
         adapter.register()
     if (
         registration_tenant

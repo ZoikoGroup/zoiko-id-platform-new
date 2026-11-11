@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from zid_errors import ZidError
 
 from zid_platform.api_auth import request_engine
+from zid_platform.attempt_context import attempt_inputs
 from zid_platform.modules.communication.ports import Recipient, address_hash, send_email
 from zid_platform.modules.onboarding.application import registration as svc
 from zid_platform.modules.onboarding.domain.registration import (
@@ -261,6 +262,21 @@ async def create_intent(
                 now=datetime.now(UTC),
                 replaces=body.replaces,
             )
+            # CR-068: count this sign-up attempt against its contact, network and device (best effort, never blocks the journey)
+            from zid_db import in_tenant
+
+            from zid_platform.modules.screening.ports import AttemptAction, note_attempt
+
+            async with in_tenant(conn, env.registration_tenant):
+                await note_attempt(
+                    conn,
+                    env.registration_tenant,
+                    subject_ref=f"registration:{got.request_ref[:24]}",
+                    action=AttemptAction.SIGNUP,
+                    now=datetime.now(UTC),
+                    contact=body.email,
+                    **attempt_inputs(request),
+                )
     except RegistrationError as e:
         raise _http(e) from e
     if got.job is not None:

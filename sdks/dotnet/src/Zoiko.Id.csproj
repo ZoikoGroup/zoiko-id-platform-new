@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Zoiko.Id</AssemblyName>
+    <RootNamespace>Zoiko.Id</RootNamespace>
+    <Version>0.1.0</Version>
+    <Description>The /v2 global trust API client (ZID-INT-002) and the verification session state machine.</Description>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

@@ -87,7 +87,7 @@ class Settings(ServiceSettings):
     evidence_tsa_trust_file: str | None = None
     # ZID_EVIDENCE_TSA_REVOCATION: off | if_available (a revoked TSA certificate fails; a missing CRL is noted) | required (a missing CRL fails too)
     evidence_tsa_revocation: Literal["off", "if_available", "required"] = "if_available"
-    # ZID_EVIDENCE_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
+    # ZID_UPLOAD_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
     # unset classes are kept (the ledger entry is never purged, only the record body)
     evidence_retention_days: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
     # ZID_TENANT_KEK_IDS (JSON tenant -> KMS key id/ARN): DEDICATED_TENANT_KEY / BYOK / HYOK
@@ -165,6 +165,10 @@ class Settings(ServiceSettings):
     # ZID_TENANT_SIGNUP_DEV_VERIFY (local/test only): a signed-up company skips the registry gate
     # with a synthetic, self-labelled development root so it can be administered at once.
     tenant_signup_dev_verify: bool = False
+    # ZID_ORG_CLAIM_DEV_AUTOVERIFY: LOCAL/TEST ONLY. A company claim reads as verified as soon as the claimant's own identity check is complete, with no register
+    # lookup, screening, authority check or review, and the organization is established from it as `development-unverified` (the same synthetic root as
+    # ZID_TENANT_SIGNUP_DEV_VERIFY). The app refuses to start with it on in any other environment.
+    org_claim_dev_autoverify: bool = False
     # ZID_DEV_SIMULATORS: development identity-provider and register simulators (local/test only)
     dev_simulators: bool = False
     # ZID_TENANT_SIGNUP_NOTICE_VERSION: the privacy notice a registrant must acknowledge (PRIV-001)
@@ -191,6 +195,10 @@ class Settings(ServiceSettings):
     # ZID_PROOF_SCANNER_ADDRESS: host[:port] of the clamd malware scanner that checks uploaded proof documents; a deployed
     # environment refuses uploads without one (nothing is stored unscanned), local and test record NOT_SCANNED
     proof_scanner_address: str | None = None
+    # ZID_UPLOAD_RETENTION_DAYS: how long an uploaded evidence document is kept before its bytes are erased. The privacy officer
+    # decides it; unset means the cell accepts no evidence upload (a retention is never invented). Uploads are scanned by the same clamd
+    # as proof documents (ZID_PROOF_SCANNER_ADDRESS).
+    upload_retention_days: int | None = None
     company_evidence_kms_key_id: str | None = (
         None  # ZID_COMPANY_EVIDENCE_KMS_KEY_ID: signs company-verification and screening evidence
     )
@@ -215,6 +223,12 @@ class Settings(ServiceSettings):
     # inline value (DEC-F5). Set, the cell collects payments and calculates tax through Stripe; unset, tax
     # answers "not configured" and a deployed cell refuses to collect. ZID_STRIPE_API_BASE: test doubles only.
     stripe_secret_key_file: str | None = None
+    # ZID_SCREENING_SIGNAL_PEPPER_FILE: a deployment secret mixed into the hashes of the fraud and velocity signals (CR-068). Without one the
+    # hashes are still tenant-scoped but a short value (a phone number) could be guessed, so a deployed cell sets it.
+    screening_signal_pepper_file: str | None = None
+    # ZID_SCREENING_VELOCITY_MODE: off | shadow | review (CR-068). `shadow` (the default) counts attempts and logs which would have been flagged, with
+    # no review item and no notification, so the proposed thresholds can be read against real traffic first. `review` opens an item per breach.
+    screening_velocity_mode: Literal["off", "shadow", "review"] = "shadow"
     stripe_api_base: str = "https://api.stripe.com"
     # ZID_STRIPE_WEBHOOK_SECRET_FILE (CR-040): path of a file holding the endpoint's signing secret (`whsec_...`).
     # Set, POST /v1/webhooks/stripe accepts Stripe's signed events; unset, the endpoint answers 404.

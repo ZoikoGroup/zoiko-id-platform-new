@@ -30,6 +30,9 @@ from zid_platform.modules.organization.application.kyb import (
     close_claim as kyb_close,
 )
 from zid_platform.modules.organization.application.kyb import (
+    decide as kyb_decide,
+)
+from zid_platform.modules.organization.application.kyb import (
     drafts_before as kyb_drafts_before,
 )
 from zid_platform.modules.organization.application.kyb import (
@@ -78,6 +81,9 @@ from zid_platform.modules.organization.domain.kyb import (
 )
 from zid_platform.modules.organization.domain.kyb import (
     Review as KybReview,
+)
+from zid_platform.modules.organization.domain.kyb import (
+    check_applicant as kyb_check_applicant,
 )
 from zid_platform.modules.organization.domain.proof import (
     ProofError,
@@ -150,7 +156,9 @@ __all__ = [
     "establish_registry_root",
     "has_usable_root",
     "identifiers_of",
+    "kyb_check_applicant",
     "kyb_close",
+    "kyb_decide",
     "kyb_drafts_before",
     "kyb_get_case",
     "kyb_history",
