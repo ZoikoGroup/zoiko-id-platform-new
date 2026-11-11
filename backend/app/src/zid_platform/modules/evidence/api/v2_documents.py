@@ -1,20 +1,26 @@
-"""POST /v2/documents/validate (ZID-INT-002 section 09): integrity, type and signature detection, each reported on its own.
+"""POST /v2/documents/validate and GET /v2/documents/{id} (ZID-INT-002 section 09): integrity, type and signature detection, each on its own.
 
-The document is read from the request, checked in memory and DISCARDED: nothing about its content is stored or logged, only the
-caller sees the digest. It is a small-document check (2 MB). Issuer authentication, signature and seal VALIDATION, qualified status and
-long-term archive are reported UNAVAILABLE or INDETERMINATE with a reason, because no validator, trust list or issuer source exists
-here; the response never offers one positive status.
+Two ways in, exactly one per request:
+- `content_base64`: a small document (2 MB) is checked in memory and DISCARDED. Nothing about it is stored or logged.
+- `evidence_ref`: an upload that is READY and scanned CLEAN. Its result is kept (statuses, reason codes, details, the digest: never the
+  document) so `GET /v2/documents/{validation_id}` can return it later. A stored result belongs to its upload and goes with it.
+
+Issuer authentication, signature and seal VALIDATION, qualified status and long-term archive are reported UNAVAILABLE or INDETERMINATE with
+a reason, because no validator, trust list or issuer source exists here; the response never offers one positive status.
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
+import json
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import text
 from zid_context import current_context
 from zid_db import tenant_transaction
 from zid_errors import ZidError
@@ -26,6 +32,11 @@ from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["evidence-v2"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
+LIMITATIONS = [
+    "A hash shows unchanged bytes, not genuine issuing authority.",
+    "An embedded signature is detected, not validated: no validator or trust list is available.",
+    "A valid signature would still not mean lawful authority for the purpose.",
+]
 
 
 class V2DocumentIn(BaseModel):
@@ -43,6 +54,21 @@ class V2DocumentIn(BaseModel):
     purpose: str | None = Field(default=None, max_length=64)
 
 
+def _ids() -> dict[str, str]:
+    ctx = current_context()
+    return {
+        "request_id": ctx.request_id if ctx else "req_unknown",
+        "correlation_id": ctx.correlation_id if ctx else "cor_unknown",
+    }
+
+
+def _results(v: docs.Validation) -> list[dict[str, Any]]:
+    return [
+        {"check": r.check, "status": r.status.value, "reasons": list(r.reasons), "detail": r.detail}
+        for r in v.results
+    ]
+
+
 @router.post("/v2/documents/validate")
 async def validate_document(
     body: V2DocumentIn, request: Request, caller: CallerDep
@@ -54,6 +80,7 @@ async def validate_document(
             http_status=422,
         )
     content: bytes
+    upload_id: str | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.verify", resource="document:validate")
         held = None
@@ -65,6 +92,7 @@ async def validate_document(
                 raise ZidError(
                     "EVIDENCE_NOT_USABLE", "That evidence cannot be used.", http_status=422
                 )
+            upload_id = str(held[1]["upload_id"])
     if held is not None:
         content = held[0]
     else:
@@ -86,27 +114,73 @@ async def validate_document(
         raise ZidError(
             e.code, e.code.replace("_", " ").capitalize() + ".", http_status=status
         ) from e
-    ctx = current_context()
+    validation_id: str | None = None
+    if (
+        upload_id is not None
+    ):  # only a result about an upload is kept; pasted content leaves no trace
+        validation_id = str(uuid.uuid4())
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO evidence.document_validation (validation_id, tenant_id, upload_id, requested_by, checks, sha256, results) "
+                    "VALUES (:v, :t, :u, :r, :c, :h, CAST(:j AS jsonb))"
+                ),
+                {
+                    "v": uuid.UUID(validation_id),
+                    "t": uuid.UUID(caller.ctx.tenant_id or ""),
+                    "u": uuid.UUID(upload_id),
+                    "r": uuid.UUID(str(caller.ctx.principal_id)),
+                    "c": [r.check for r in v.results],
+                    "h": v.sha256,
+                    "j": json.dumps(_results(v)),
+                },
+            )
     return {
-        "request_id": ctx.request_id if ctx else "req_unknown",
-        "correlation_id": ctx.correlation_id if ctx else "cor_unknown",
+        **_ids(),
+        "validation_id": f"docval_{validation_id}" if validation_id else None,
         "sha256": v.sha256,
         "sniffed_type": v.sniffed_type,
         "size_bytes": v.size_bytes,
-        "stored": body.evidence_ref
-        is not None,  # an upload is held until its retention ends; pasted content never is
-        "document_results": [
-            {
-                "check": r.check,
-                "status": r.status.value,
-                "reasons": list(r.reasons),
-                "detail": r.detail,
-            }
-            for r in v.results
-        ],
-        "limitations": [
-            "A hash shows unchanged bytes, not genuine issuing authority.",
-            "An embedded signature is detected, not validated: no validator or trust list is available.",
-            "A valid signature would still not mean lawful authority for the purpose.",
-        ],
+        "stored": validation_id is not None,  # the RESULT, never the pasted document
+        "document_results": _results(v),
+        "limitations": LIMITATIONS,
+    }
+
+
+@router.get("/v2/documents/{validation_ref}")
+async def read_validation(
+    validation_ref: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    try:
+        vid = uuid.UUID(validation_ref.removeprefix("docval_"))
+    except ValueError as e:
+        raise ZidError("VALIDATION_FAILED", "A reference is not valid.", http_status=422) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.verify", resource=f"document:{vid}")
+        row = (
+            (
+                await conn.execute(
+                    text(
+                        "SELECT v.validation_id, v.upload_id, v.sha256, v.results, v.created_at, u.state AS upload_state "
+                        "FROM evidence.document_validation v JOIN evidence.upload u USING (upload_id) WHERE v.validation_id = :v"
+                    ),
+                    {"v": vid},
+                )
+            )
+            .mappings()
+            .first()
+        )
+    if row is None:
+        raise ZidError("NOT_FOUND", "Not found.", http_status=404)
+    return {
+        **_ids(),
+        "validation_id": f"docval_{row['validation_id']}",
+        "evidence_ref": f"ev_{row['upload_id']}",
+        "upload_state": row[
+            "upload_state"
+        ],  # the bytes may be gone; the result stays with the upload's record
+        "sha256": row["sha256"],
+        "checked_at": row["created_at"].isoformat(),
+        "document_results": row["results"],
+        "limitations": LIMITATIONS,
     }

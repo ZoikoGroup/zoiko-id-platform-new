@@ -253,6 +253,16 @@ export function createCellApi(t: Transport) {
       decideReview: (caseId: string, body: ReviewIn) => post<M.ReviewOutcome>(`/verification-review-cases/${seg(caseId)}/decisions`, body),
     },
 
+    /** Uploaded evidence (ZID-INT-002): bytes are kept only after a clean scan; everything here returns metadata. */
+    uploads: {
+      list: () => get<M.UploadList>("/v2/evidence/uploads"),
+      announce: (body: M.UploadAnnounce, idempotencyKey: string) => post<M.UploadAnnounced>("/v2/evidence/uploads", body, { idempotencyKey }),
+      send: (uploadUrl: string, token: string, file: Blob) =>
+        t.request<M.UploadManifest>("PUT", uploadUrl, { raw: { data: file, contentType: "application/octet-stream" }, headers: { "x-upload-token": token } }),
+      remove: (ref: string) => t.request<M.UploadManifest>("DELETE", `/v2/evidence/${seg(ref)}`),
+      validate: (body: { evidence_ref: string; declared_type: string; checks: string[]; expected_sha256?: string }) => post<M.DocumentValidation>("/v2/documents/validate", body),
+    },
+
     credentials: {
       list: (q: { status?: M.IssuedCredentialStatus; limit?: number } = {}) => get<M.Items<M.IssuedCredential>>("/credentials", q),
       configurations: () => get<M.Items<M.CredentialConfigurationItem>>("/credential-configurations"),

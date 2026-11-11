@@ -112,6 +112,40 @@ class EligibilityResult:
     check_ids: tuple[str, ...]
 
 
+async def _announce_recomputed(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    decision_id: str,
+    previous: str | None,
+    current: str,
+    reasons: Sequence[str],
+    policy: Mapping[str, Any],
+) -> None:
+    """A decision for the same person, policy and kind that differs from the one before it is a RECOMPUTATION a consumer must act on
+    (suspend or update a scoped eligibility). The first decision is not one, and an unchanged one changes nothing. The payload holds ids,
+    the two outcomes, the reason codes and the policy reference: no claimed value."""
+    if previous is None or previous == current:
+        return
+    await emit(
+        conn,
+        name="eligibility.recomputed",
+        tenant_id=tenant_id,
+        aggregate_type="eligibility_decision",
+        aggregate_id=decision_id,
+        aggregate_version=await trust_store.next_event_version(
+            conn, "eligibility_decision", decision_id
+        ),
+        data={
+            "decision_id": decision_id,
+            "previous_outcome": previous,
+            "current_outcome": current,
+            "reason_codes": list(reasons),
+            "policy": dict(policy),
+        },
+    )
+
+
 async def evaluate_eligibility(
     conn: AsyncConnection,
     *,
@@ -125,6 +159,7 @@ async def evaluate_eligibility(
     facts, rows = await _facts(conn, subject, policy, registry, now)
     outcome = el.evaluate(policy, facts, now=now)
     check_ids = [str(r["check_id"]) for r in rows]
+    previous = await trust_store.latest_outcome(conn, subject, policy.policy_id, "ELIGIBILITY")
     decision_id = await trust_store.insert_decision(
         conn,
         tenant_id=tenant_id,
@@ -150,6 +185,15 @@ async def evaluate_eligibility(
             "outcome": outcome.eligibility.value,
             "policy": outcome.policy_ref,
         },
+    )
+    await _announce_recomputed(
+        conn,
+        tenant_id=tenant_id,
+        decision_id=decision_id,
+        previous=previous,
+        current=outcome.eligibility.value,
+        reasons=outcome.reasons,
+        policy=outcome.policy_ref,
     )
     return EligibilityResult(decision_id, outcome, tuple(check_ids))
 
@@ -240,6 +284,7 @@ async def evaluate_engagement(
         now=now,
     )
     tier, gaps = el.tier_of(rule, dims)
+    previous = await trust_store.latest_outcome(conn, subject, policy.policy_id, "ENGAGEMENT")
     decision_id = await trust_store.insert_decision(
         conn,
         tenant_id=tenant_id,
@@ -261,6 +306,15 @@ async def evaluate_engagement(
         aggregate_id=decision_id,
         aggregate_version=1,
         data={"decision_id": decision_id, "outcome": outcome.engagement.value, "tier": tier.value},
+    )
+    await _announce_recomputed(
+        conn,
+        tenant_id=tenant_id,
+        decision_id=decision_id,
+        previous=previous,
+        current=outcome.engagement.value,
+        reasons=outcome.reasons,
+        policy={"id": policy.policy_id, "version": policy.version},
     )
     return EngagementResult(
         decision_id, outcome, tier, gaps, {d.value: s.value for d, s in dims.items()}

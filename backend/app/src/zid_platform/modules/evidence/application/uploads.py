@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_outbox import emit
 
 from zid_platform.modules.evidence.application import scanner as sc
 from zid_platform.modules.evidence.domain import intake
@@ -161,8 +162,35 @@ async def receive(
     return Received("READY", None, "CLEAN", stripped)
 
 
+async def _announce_erasure(
+    conn: AsyncConnection, upload_id: str, action: str, now: datetime
+) -> None:
+    """Tell consumers the bytes are gone (ZID-INT-002 section 13). It states what THIS cell did to ITS copy and nothing about any provider or
+    backup: the platform never asserts a deletion it has not confirmed."""
+    row = await store.load(conn, upload_id)
+    if row is None:
+        return
+    await emit(
+        conn,
+        name="evidence.retention_action",
+        tenant_id=str(row["tenant_id"]),
+        aggregate_type="evidence_upload",
+        aggregate_id=upload_id,
+        aggregate_version=1,
+        data={
+            "evidence_ref": f"ev_{upload_id}",
+            "action": action,
+            "bytes_erased": True,
+            "at": now.isoformat(),
+        },
+    )
+
+
 async def delete(conn: AsyncConnection, upload_id: str, now: datetime) -> bool:
-    return await store.erase(conn, upload_id, state="DELETED", now=now)
+    erased = await store.erase(conn, upload_id, state="DELETED", now=now)
+    if erased:
+        await _announce_erasure(conn, upload_id, "DELETED", now)
+    return erased
 
 
 async def purge_expired(conn: AsyncConnection, now: datetime) -> int:
@@ -170,6 +198,7 @@ async def purge_expired(conn: AsyncConnection, now: datetime) -> int:
     n = 0
     for upload_id in await store.expired_ids(conn, now):
         if await store.erase(conn, upload_id, state="EXPIRED", now=now):
+            await _announce_erasure(conn, upload_id, "EXPIRED", now)
             n += 1
     return n
 

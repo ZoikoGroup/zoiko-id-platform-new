@@ -1886,7 +1886,111 @@
         ]
       }
     },
+    "/v2/documents/{validation_ref}": {
+      "get": {
+        "operationId": "read_validation_v2_documents__validation_ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_ref",
+            "required": true,
+            "schema": {
+              "title": "Validation Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Validation V2 Documents  Validation Ref  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Validation",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
+    },
     "/v2/evidence/uploads": {
+      "get": {
+        "description": "The tenant's uploads as metadata (state, scan result, retention), newest first. Never the bytes.",
+        "operationId": "list_uploads_v2_evidence_uploads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject_ref",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Ref"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Uploads V2 Evidence Uploads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Uploads",
+        "tags": [
+          "evidence-v2"
+        ]
+      },
       "post": {
         "operationId": "announce_upload_v2_evidence_uploads_post",
         "parameters": [

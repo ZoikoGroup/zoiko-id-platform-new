@@ -884,6 +884,11 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 GID-058/060 (expiry, freshness and source ordering); CR-069"
+  evidence.document_validation:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-INT-002 section 09 (a stored validation result of an uploaded document; results only, never the document); CR-071"
   evidence.upload:
     role: cell
     module: evidence

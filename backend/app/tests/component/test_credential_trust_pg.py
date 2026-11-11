@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -809,5 +810,76 @@ def test_the_new_tables_are_invisible_to_another_tenant(rt_url: str) -> None:
                     assert (
                         await c.execute(text(f"SELECT count(*) FROM cred.{table}"))
                     ).scalar_one() == 0, table
+
+    run(go())
+
+
+def test_a_changed_eligibility_is_announced_as_recomputed_and_an_unchanged_or_first_one_is_not(
+    rt_url: str,
+) -> None:
+    """ZID-INT-002 section 13: `eligibility.recomputed` carries the previous and current outcome, ids and reasons only."""
+    tenant, subject = uid(), uid()
+
+    async def events(c) -> list[dict]:
+        rows = (
+            (
+                await c.execute(
+                    text(
+                        "SELECT payload::text FROM events.outbox_event WHERE event_type LIKE '%eligibility.recomputed%' ORDER BY created_at"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return [json.loads(r) for r in rows]
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            first = await svc.evaluate_eligibility(
+                c,
+                tenant_id=tenant,
+                subject=subject,
+                policy=POLICY,
+                registry=issuer_registry(),
+                now=NOW,
+            )
+            assert first.outcome.eligibility.value == "BLOCKED" and await events(c) == [], (
+                "the first decision is not a recomputation"
+            )
+            again = await svc.evaluate_eligibility(
+                c,
+                tenant_id=tenant,
+                subject=subject,
+                policy=POLICY,
+                registry=issuer_registry(),
+                now=NOW,
+            )
+            assert again.outcome.eligibility.value == "BLOCKED" and await events(c) == [], (
+                "an unchanged decision changes nothing"
+            )
+            await check(c, tenant, subject)  # a verified licence now exists
+            third = await svc.evaluate_eligibility(
+                c,
+                tenant_id=tenant,
+                subject=subject,
+                policy=POLICY,
+                registry=issuer_registry(),
+                now=NOW,
+            )
+            assert third.outcome.eligibility.value == "ELIGIBLE"
+            sent = await events(c)
+            assert len(sent) == 1
+            data = sent[0].get("data", sent[0])
+            assert (
+                data["previous_outcome"] == "BLOCKED"
+                and data["current_outcome"] == "ELIGIBLE"
+                and data["decision_id"] == third.decision_id
+            )
+            assert "policy" in data and "reason_codes" in data
+            text_form = json.dumps(data)
+            assert "license_ref" not in text_form and "L-1" not in text_form, (
+                "ids and outcomes only"
+            )
 
     run(go())

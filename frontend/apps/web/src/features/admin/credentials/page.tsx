@@ -7,6 +7,7 @@ import { ConfigurationsSection } from "./configurations";
 import { IssuedSection } from "./issued";
 import { IssuerTrustSection } from "./issuer-trust";
 import { DossierSection } from "./dossier";
+import { EvidenceSection } from "./evidence";
 import { PresentationPanel } from "./presentation";
 import { RegistrySection } from "./registry";
 import { RelyingPartiesSection } from "./relying-parties";
@@ -32,6 +33,7 @@ export function CredentialsAdminPage() {
           { id: "presentations", label: "Presentations", content: <PresentationPanel /> },
           { id: "registry", label: "Trust registry", content: <RegistrySection /> },
           { id: "dossier", label: "Person dossier", content: <DossierSection /> },
+          { id: "evidence", label: "Evidence", content: <EvidenceSection /> },
         ]}
       />
     </>

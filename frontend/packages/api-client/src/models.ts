@@ -2882,3 +2882,23 @@ export type CredentialDossier = {
   decisions: { decision_id: string; kind: string; policy_id: string; policy_version: number; outcome: string; reasons: string[]; restrictions: string[]; check_ids: string[]; consumer: string | null; created_at: string }[];
   appeals: { appeal_id: string; check_id: string; state: string; created_at: string; resolved_at: string | null }[];
 };
+
+/** An uploaded evidence document as the cell describes it (ZID-INT-002 section 05): metadata only, never the bytes. */
+export type UploadManifest = {
+  evidence_ref: string;
+  state: "AWAITING_CONTENT" | "READY" | "REJECTED" | "DELETED" | "EXPIRED";
+  reject_reason: string | null;
+  declared_type: string;
+  sniffed_type: string | null;
+  size_bytes: number;
+  sha256: string;
+  metadata_stripped: boolean;
+  scan: { state: "NOT_SCANNED" | "CLEAN" | "INFECTED" | "SCAN_ERROR"; scanner: string | null };
+  expires_at: string;
+  erased_at: string | null;
+};
+export type UploadList = { items: UploadManifest[] };
+export type UploadAnnounce = { declared_type: string; size_bytes: number; sha256: string; subject_ref?: string };
+export type UploadAnnounced = { evidence_ref: string; upload_url: string; upload_token: string; token_expires_at: string; retained_until: string; max_bytes: number };
+export type DocumentCheckResult = { check: string; status: "VERIFIED" | "NOT_VERIFIED" | "INDETERMINATE" | "UNAVAILABLE"; reasons: string[]; detail: Record<string, unknown> };
+export type DocumentValidation = { validation_id: string | null; sha256: string; sniffed_type: string | null; stored: boolean; document_results: DocumentCheckResult[]; limitations: string[] };

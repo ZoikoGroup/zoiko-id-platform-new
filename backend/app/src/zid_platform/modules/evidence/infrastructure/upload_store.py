@@ -187,3 +187,24 @@ async def delete_subject(conn: AsyncConnection, tenant_id: str, subject: str) ->
             )
         ).scalar_one()
     )
+
+
+async def list_recent(
+    conn: AsyncConnection, subject: str | None, limit: int
+) -> list[dict[str, Any]]:
+    """Uploads newest first, optionally for one person. Metadata only (the bytes column is never selected)."""
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    f"SELECT {_META} FROM evidence.upload "
+                    "WHERE (CAST(:s AS uuid) IS NULL OR subject_principal_id = CAST(:s AS uuid)) "
+                    "ORDER BY created_at DESC LIMIT :n"
+                ),
+                {"s": subject, "n": limit},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]

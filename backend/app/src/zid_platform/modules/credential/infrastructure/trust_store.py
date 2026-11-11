@@ -488,3 +488,19 @@ async def subject_appeals(conn: AsyncConnection, subject_principal_id: str) -> l
         .all()
     )
     return [dict(r) for r in rows]
+
+
+async def latest_outcome(
+    conn: AsyncConnection, subject_principal_id: str, policy_id: str, kind: str
+) -> str | None:
+    """The outcome of the most recent earlier decision for this person, policy and kind, or None if there is none."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT outcome FROM cred.eligibility_decision WHERE subject_principal_id = :s AND policy_id = :p "
+                "AND kind = :k ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"s": uuid.UUID(subject_principal_id), "p": policy_id, "k": kind},
+        )
+    ).first()
+    return str(row[0]) if row else None

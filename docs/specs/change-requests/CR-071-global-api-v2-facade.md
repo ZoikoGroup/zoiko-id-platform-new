@@ -10,6 +10,7 @@ Status: built and tested locally, uncommitted. Needs reviewer approval like ever
 - **Views** (pure, `credential/application/v2_view.py`): the eight evidence statuses of section 06.1, a separate engagement vocabulary, the section 02.1 envelope.
 - **Refactor**: `perform_check` in `credential/api/claim_checks.py` is now shared by the v1 routes and the facade (same behavior; it can run in a caller-held
   transaction so the idempotency record and the check commit together). `_engage` in `credential/api/trust.py` gained an optional connection.
+- **Final pass**: `evidence_0008` (`evidence.document_validation`, results only, cascades with its upload), `GET /v2/documents/{ref}`, `GET /v2/evidence/uploads`, new events `eligibility.recomputed` and `evidence.retention_action` (proposed, subscribable), `retry_guidance` on an UNAVAILABLE credential answer (the section 14 424 is deliberately not used), Python and TypeScript `/v2` clients (`v2.py`, `v2.ts`), web Evidence tab, RFC 9457 support in the web API client, and a guard that no route can edit a service pack.
 - **Evidence uploads**: `evidence_0005` (`evidence.upload`, bytes in the cell database; a CHECK allows bytes only for READY and scanned CLEAN), `evidence_0006` and `0007` (`evidence.erase_uploads`, a SECURITY DEFINER erasure function with an explicit tenant filter), new action `evidence.upload.manage` (R2/E2), settings `ZID_UPLOAD_RETENTION_DAYS` (required to accept uploads) and the existing `ZID_PROOF_SCANNER_ADDRESS` (clamd), worker step `evidence_purge`, privacy wiring in `zid_platform/evidence_privacy_adapter.py` (top level, because an adapter inside the evidence module would make an evidence/privacy module cycle).
 - **Migrations**: `credential_0009` `cred.source_dead_letter` (GID-060); `credential_0010` `cred.verification_case` and `cred.verification_case_task`, and a replaced `cred.erase_subject` so governed erasure reaches the case tables. Table ownership entries added; the privacy data map registers the cases.
 - **SDK**: `sdks/typescript/src/session.ts`, the section 05.1 state machine.
@@ -40,6 +41,10 @@ Signature, seal and issuer VALIDATION of documents (a PAdES/XAdES validator, tru
 
 ## Needs people before use
 A running clamd and `ZID_PROOF_SCANNER_ADDRESS` in each deployed cell; the retention period (`ZID_UPLOAD_RETENTION_DAYS`) from the privacy officer; a DPIA addendum for holding D3 documents in the cell database (databases and backups now hold identity documents: encryption at rest and backup retention are an infrastructure decision, not code).
+
+## Decisions recorded
+- Section 14 `424 source_unavailable`: not used. The check is recorded, so the answer is 201 with outcome UNAVAILABLE plus `retry_guidance`.
+- DTV-19: no route until a trustworthy birth-date source exists.
 
 ## Known test gaps
 The facade has no load or latency measurement. The case identity link is tested against a session row inserted directly; no real provider session exists.

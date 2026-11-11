@@ -664,6 +664,22 @@
         }
       }
     },
+    "eligibility.domain": {
+      "address": "zid.{env}.{region}.eligibility.domain",
+      "messages": {
+        "eligibility_recomputed": {
+          "$ref": "#/components/messages/eligibility_recomputed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "environment.priority": {
       "address": "zid.{env}.{region}.environment.priority",
       "messages": {
@@ -793,6 +809,9 @@
         },
         "evidence_receipt_verified": {
           "$ref": "#/components/messages/evidence_receipt_verified"
+        },
+        "evidence_retention_action": {
+          "$ref": "#/components/messages/evidence_retention_action"
         },
         "evidence_retention_deleted": {
           "$ref": "#/components/messages/evidence_retention_deleted"
@@ -3209,6 +3228,17 @@
         "x-zid-source": "ZID-RESILIENCE-001",
         "x-zid-status": "catalogued"
       },
+      "eligibility_recomputed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.eligibility.recomputed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person's eligibility or engagement decision for the same policy changed from the previous one; ids, the two outcomes, reason codes and the policy reference only.",
+        "title": "eligibility.recomputed",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
+      },
       "environment_quarantined": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.environment.quarantined.v1",
@@ -3494,6 +3524,17 @@
         "title": "evidence.receipt.verified",
         "x-zid-source": "ZID-EVIDENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "evidence_retention_action": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.retention_action.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Uploaded evidence was deleted or expired and its bytes erased; the reference, the action and the time only. It never claims a provider or backup deleted anything.",
+        "title": "evidence.retention_action",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "evidence_retention_deleted": {
         "contentType": "application/cloudevents+json",
@@ -6346,6 +6387,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/dr.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_eligibility_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/eligibility.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

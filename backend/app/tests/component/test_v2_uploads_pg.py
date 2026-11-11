@@ -421,3 +421,142 @@ def test_another_tenant_sees_nothing_and_erasing_a_person_removes_their_uploads(
                 )
 
     asyncio.run(go())
+
+
+def test_deleting_or_expiring_announces_the_erasure_and_a_stored_validation_goes_with_its_upload(
+    rt_url: str,
+) -> None:
+    """ZID-INT-002 section 13 (`evidence.retention_action`) and section 09 (`GET /v2/documents/{id}`)."""
+    pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n"
+    with world(rt_url) as (http, mine, tenant, _admin):
+        a = announce(http, mine, pdf, "application/pdf").json()
+        assert put(http, mine, a, pdf).status_code == 201
+        body = {
+            "evidence_ref": a["evidence_ref"],
+            "declared_type": "application/pdf",
+            "expected_sha256": sha(pdf),
+            "checks": ["integrity", "issuer", "signature"],
+        }
+        v = http.post("/v2/documents/validate", headers=mine, json=body).json()
+        assert v["stored"] is True and v["validation_id"].startswith("docval_")
+
+        got = http.get(f"/v2/documents/{v['validation_id']}", headers=mine)
+        assert got.status_code == 200, got.text
+        g = got.json()
+        assert (
+            g["evidence_ref"] == a["evidence_ref"]
+            and g["upload_state"] == "READY"
+            and g["sha256"] == sha(pdf)
+        )
+        assert {r["check"]: r["status"] for r in g["document_results"]} == {
+            "integrity": "VERIFIED",
+            "issuer": "UNAVAILABLE",
+            "signature": "INDETERMINATE",
+        }
+        assert "content" not in got.text and "%PDF" not in got.text, (
+            "the result never carries the document"
+        )
+        assert http.get(f"/v2/documents/docval_{uid()}", headers=mine).status_code == 404
+        assert http.get("/v2/documents/not-a-ref", headers=mine).status_code == 422
+
+        # pasted content leaves no stored result at all
+        import base64
+
+        pasted = http.post(
+            "/v2/documents/validate",
+            headers=mine,
+            json={
+                "content_base64": base64.b64encode(pdf).decode(),
+                "declared_type": "application/pdf",
+                "checks": ["integrity"],
+            },
+        ).json()
+        assert pasted["stored"] is False and pasted["validation_id"] is None
+
+        async def events() -> list[dict]:
+            import json as _json
+
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+                rows = (
+                    (
+                        await c.execute(
+                            text(
+                                "SELECT payload::text FROM events.outbox_event WHERE event_type LIKE '%evidence.retention_action%' ORDER BY created_at"
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                return [_json.loads(r) for r in rows]
+
+        assert asyncio.run(events()) == [], "nothing is announced while the bytes are still held"
+        gone = http.delete(f"/v2/evidence/{a['evidence_ref']}", headers=mine)
+        assert gone.status_code == 200
+        sent = asyncio.run(events())
+        assert len(sent) == 1
+        data = sent[0].get("data", sent[0])
+        assert (
+            data["evidence_ref"] == a["evidence_ref"]
+            and data["action"] == "DELETED"
+            and data["bytes_erased"] is True
+        )
+        assert "sha256" not in data and "content" not in data
+        # the stored result stays with the upload's record but says the bytes are gone
+        assert (
+            http.get(f"/v2/documents/{v['validation_id']}", headers=mine).json()["upload_state"]
+            == "DELETED"
+        )
+        # a second delete announces nothing more
+        assert http.delete(f"/v2/evidence/{a['evidence_ref']}", headers=mine).status_code == 409
+        assert len(asyncio.run(events())) == 1
+
+        # expiry announces too (the worker step calls this)
+        b = announce(http, mine, pdf, "application/pdf").json()
+        assert put(http, mine, b, pdf).status_code == 201
+
+        async def expire() -> int:
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+                await c.execute(
+                    text(
+                        "UPDATE evidence.upload SET expires_at = now() - interval '1 second', created_at = now() - interval '2 days' WHERE upload_id = :i"
+                    ),
+                    {"i": uuid.UUID(b["evidence_ref"].removeprefix("ev_"))},
+                )
+                return await svc.purge_expired(c, datetime.now(UTC))
+
+        assert asyncio.run(expire()) == 1
+        actions = [e.get("data", e)["action"] for e in asyncio.run(events())]
+        assert actions == ["DELETED", "EXPIRED"]
+
+
+def test_the_upload_list_is_metadata_only_newest_first_and_filterable_by_person(
+    rt_url: str,
+) -> None:
+    good = png_with_metadata()
+    with world(rt_url) as (http, mine, tenant, admin):
+        first, second = announce(http, mine, good).json(), announce(http, mine, good).json()
+        assert put(http, mine, first, good).status_code == 201
+        listed = http.get("/v2/evidence/uploads", headers=mine)
+        assert listed.status_code == 200, listed.text
+        refs = [i["evidence_ref"] for i in listed.json()["items"]]
+        assert refs == [second["evidence_ref"], first["evidence_ref"]], "newest first"
+        assert "content" not in listed.text and "Dana" not in listed.text
+        states = {i["evidence_ref"]: i["state"] for i in listed.json()["items"]}
+        assert states == {
+            first["evidence_ref"]: "READY",
+            second["evidence_ref"]: "AWAITING_CONTENT",
+        }
+        assert (
+            len(
+                http.get(f"/v2/evidence/uploads?subject_ref=sub_{admin}", headers=mine).json()[
+                    "items"
+                ]
+            )
+            == 2
+        )
+        assert (
+            http.get(f"/v2/evidence/uploads?subject_ref=sub_{uid()}", headers=mine).json()["items"]
+            == []
+        )
+        assert http.get("/v2/evidence/uploads?subject_ref=nope", headers=mine).status_code == 422

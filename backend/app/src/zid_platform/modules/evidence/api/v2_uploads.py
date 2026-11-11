@@ -185,3 +185,21 @@ async def delete_evidence(evidence_ref: str, request: Request, caller: CallerDep
             raise ZidError("INCOMPATIBLE_STATE", "Nothing is held to delete.", http_status=409)
         row = await store.load(conn, uid)
     return {**_ids(), **svc.manifest(row or {})}
+
+
+@router.get("/v2/evidence/uploads")
+async def list_uploads(
+    request: Request, caller: CallerDep, subject_ref: str | None = None, limit: int = 50
+) -> dict[str, Any]:
+    """The tenant's uploads as metadata (state, scan result, retention), newest first. Never the bytes."""
+    raw = (subject_ref or "").removeprefix("sub_")
+    try:
+        subject = str(uuid.UUID(raw)) if raw else None
+    except ValueError as e:
+        raise ZidError("VALIDATION_FAILED", "A reference is not valid.", http_status=422) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="evidence.upload.manage", resource="evidence-upload:list"
+        )
+        rows = await store.list_recent(conn, subject, max(1, min(limit, 200)))
+    return {**_ids(), "items": [svc.manifest(r) for r in rows]}

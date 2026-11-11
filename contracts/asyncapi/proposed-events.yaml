@@ -22,6 +22,18 @@ events:
     source: ZID-INT-002 sections 04 and 13; CR-071
     lane: domain
     source_status: "proposed"
+  eligibility.recomputed:
+    cloudevents_type: com.zoiko.id.eligibility.recomputed.v1
+    meaning: "A person's eligibility or engagement decision for the same policy changed from the previous one; ids, the two outcomes, reason codes and the policy reference only."
+    source: ZID-INT-002 section 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  evidence.retention_action:
+    cloudevents_type: com.zoiko.id.evidence.retention_action.v1
+    meaning: "Uploaded evidence was deleted or expired and its bytes erased; the reference, the action and the time only. It never claims a provider or backup deleted anything."
+    source: ZID-INT-002 section 13; CR-071
+    lane: domain
+    source_status: "proposed"
   credential.claim.recheck.due:
     cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
     meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."

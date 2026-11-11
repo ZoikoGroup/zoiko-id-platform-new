@@ -141,6 +141,25 @@ def credential_response(
         "valid_until": dim["valid_until"],
         "dimensions": [dim],
         "assertion": dict(contract),
+        **_retry_guidance(dim["outcome"], contract),
+    }
+
+
+def _retry_guidance(outcome: str, contract: Mapping[str, Any]) -> dict[str, Any]:
+    """Section 14 names HTTP 424 `source_unavailable` for a required source that could not be asked. The check IS recorded (a signed
+    result with a receipt), so the answer stays 201 with outcome UNAVAILABLE and carries the guidance 424 would have: it is retryable,
+    why, and that nothing was decided about the person. Anything else has no retry guidance."""
+    if outcome != Outcome.UNAVAILABLE.value:
+        return {}
+    fault = contract.get("source_fault") or {}
+    return {
+        "retry_guidance": {
+            "retryable": True,
+            "reason": "SOURCE_UNAVAILABLE",
+            "fault": fault.get("fault"),
+            "attempts": fault.get("attempts"),
+            "note": "The source could not be asked. Nothing was decided about the person. Repeat the check later.",
+        }
     }
 
 

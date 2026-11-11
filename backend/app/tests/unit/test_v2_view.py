@@ -141,3 +141,28 @@ def test_problem_documents_follow_rfc_9457_and_section_14(
         and "_" not in doc["type"].rsplit("/", 1)[1]
     )
     assert (st == 422) if public == "unsupported_market" else st == status
+
+
+def test_an_unavailable_source_carries_the_retry_guidance_a_424_would_have_and_nothing_else_does() -> (
+    None
+):
+    """ZID-INT-002 section 14 (424 source_unavailable): the check is recorded, so the answer stays 201 and carries the guidance."""
+    unavailable = vw.credential_response(
+        {"decision": "SOURCE_UNAVAILABLE", "source_fault": {"fault": "SOURCE_RETRIES_EXHAUSTED", "attempts": 3}},
+        ClaimType.PROFESSIONAL_LICENSE, check_id="c", request_id="r", correlation_id="k",
+    )  # fmt: skip
+    g = unavailable["retry_guidance"]
+    assert (
+        g["retryable"] is True and g["fault"] == "SOURCE_RETRIES_EXHAUSTED" and g["attempts"] == 3
+    )
+    assert "Nothing was decided about the person" in g["note"]
+    assert unavailable["dimensions"][0]["outcome"] == "UNAVAILABLE"
+    for decision in ("VERIFIED", "NOT_VERIFIED", "REVIEW", "UNVERIFIABLE", "INDETERMINATE"):
+        other = vw.credential_response(
+            {"decision": decision, "credential_status": "ACTIVE"},
+            ClaimType.ACADEMIC_AWARD,
+            check_id="c",
+            request_id="r",
+            correlation_id="k",
+        )
+        assert "retry_guidance" not in other, decision
