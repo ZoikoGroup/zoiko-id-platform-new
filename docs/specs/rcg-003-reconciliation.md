@@ -44,7 +44,7 @@ Implemented, with no console screen yet:
 - Service `modules/verification/application/policy_packs.py` (draft, revise, sign, publish, retire, governing pack; tests
   `tests/component/test_policy_pack_service_pg.py`).
 - Operator API `modules/operator_access/api/regulatory.py` under `/v1/regulatory/...`: six new operator capabilities (author, four approver
-  roles, publish) and a separation-of-duties set so the maker is never a checker; tests `tests/component/test_regulatory_api_pg.py`.
+  roles, publish) and a separation-of-duties set so the maker is never a checker; every change is audited in the platform partition (a refused attempt too); tests `tests/component/test_regulatory_api_pg.py`.
 - Kept inside the existing `verification` module and migration stream. A separate `regulatory` module is still open and would be
   a move, not a rewrite.
 

@@ -34,6 +34,10 @@ pack hash.
   separation-of-duties set (`regulatory-pack-maker-vs-checker`) means nobody holds the author capability and an approver capability, or two approver
   roles, at once. Routes: list, get, `resolution` (a preview, not a verification result), create a draft, `:revise`, `:approve`, `:publish`, `:retire`.
   No published OpenAPI contract changes (operator routes are not in them).
+- **Audit.** Every change writes one protected audit record in the platform partition (`evidence.record_audit`, `tenant_id` NULL) in the same
+  transaction as the change: `regulatory.pack.drafted`, `.revised`, `.approved` (with the role), `.published` and `.retired`, each with the pack hash.
+  A refused attempt (no capability, a rule broken, the database refusing) is recorded afterwards as `regulatory.pack.refused` with its reason code,
+  because the attempt itself rolled back. Records hold ids, codes and the hash, never the rules or the legal text; reads are not audited.
 
 ## Owner decisions (proposed values, none ratified)
 1. **Module.** Proposed: stay in `verification` for now. Alternative: a separate `regulatory` module with its own migration stream (a move, not a
@@ -47,7 +51,8 @@ pack hash.
 ## Not built, and why
 - The console screen (WF-02).
 - Wiring `resolve` into the verification flow behind the existing country gate.
-- An audit event for each change: an event must be declared in the event catalogue first.
+- An outbox event for other systems when a pack is approved or retired (`policy_pack.approved` and so on in the document): it must be declared in
+  the event catalogue first. The audit records below need no catalogue entry and are built.
 - A public, tenant-facing coverage read (`GET /coverage` in the document).
 - Registers, entitlements and the other packages (RCG-G02 to G12): see `docs/specs/rcg-003-reconciliation.md`.
 
@@ -62,7 +67,8 @@ and re-upgrade of `verification_0005` were run on a fresh database.
 one open draft per pack, a tampered pack stopping the decision, and the database refusing a bad publish when the service is skipped.
 `tests/component/test_regulatory_api_pg.py` (3 tests, real operator sessions): nobody without a token or the capability gets in; the author and
 each approver role are separate capabilities; a draft is approved by four people and published by a fifth capability; a revision and a rollback;
-the maker cannot also be granted an approver capability; a bad request is refused. `tests/unit/test_policy_packs.py` also keeps the API's role
+the maker cannot also be granted an approver capability; a bad request is refused; and the audit trail in the database (one record per change, none for
+an attempt that rolled back, a refusal record with its reason code for every refusal, no rules or legal text in any record). `tests/unit/test_policy_packs.py` also keeps the API's role
 list equal to the domain's.
 
 ## Acceptance rows

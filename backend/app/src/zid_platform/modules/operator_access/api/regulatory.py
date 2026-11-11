@@ -12,12 +12,18 @@
 Packs are platform configuration, never tenant data, so they are operator-plane routes: a customer tenant's roles grant nothing here. The
 operator gate (operator client, operator tenant, fresh strong sign-in, no delegation) comes first, then one operator capability per action.
 The capabilities form a separation-of-duties set: whoever authors a pack signs none of it, and each approver holds one role. The domain and
-the tables repeat those rules, so a caller that skips this API still cannot get around them. No audit event is emitted yet: an event must
-be declared in the event catalogue first.
+the tables repeat those rules, so a caller that skips this API still cannot get around them.
+
+Every change writes one protected audit record in the platform partition (evidence.record_audit, tenant_id None) in the same
+transaction as the change, so the two succeed or fail together: regulatory.pack.drafted, .revised, .approved, .published and .retired.
+A refused attempt (no capability, a rule broken, the database refusing) is recorded afterwards as regulatory.pack.refused with its reason
+code, because the attempt itself rolled back. Records carry ids, codes and the pack hash, never the rules or the legal text. Reads are
+not audited. An audit record needs no event-catalogue entry; an outbox event for other systems would, and is not emitted yet.
 """
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
@@ -28,6 +34,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import request_engine
+from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.operator_access.ports import has_capability, require_operator
 
 
@@ -298,12 +305,113 @@ async def resolution(
 
 # ------------------------------------------------------------------------------------ writes
 
+_AUDIT_NAMESPACE = uuid.UUID("3d1a6f0e-8c52-4b7e-9a41-5e0f2b7c9d13")
+
+
+async def _audit(
+    conn: Any,
+    op: Any,
+    *,
+    event: str,
+    action: str,
+    pack_id: str,
+    version: int | None,
+    outcome: str,
+    now: datetime,
+    reason: str | None = None,
+    details: dict[str, Any] | None = None,
+    once: bool = True,
+) -> None:
+    """One protected audit record in the platform partition. Ids, codes and the pack hash only. A success record is idempotent per event,
+    pack, version and role, so a retried request never doubles it; a refusal is its own record every time."""
+    target = pack_id if version is None else f"{pack_id}:v{version}"
+    key = f"{event}|{target}|{(details or {}).get('role', '')}"
+    await record_audit(
+        conn,
+        None,
+        AuditFacts(
+            event_type=event,
+            actor_type="OPERATOR",
+            action=action,
+            target_type="policy_pack",
+            target_ref=target,
+            outcome=outcome,
+            evidence_class=EvidenceClass.E3,
+            occurred_at=now,
+            actor_principal_id=str(op.principal_id),
+            reason_code=reason,
+            source_service="operator_access",
+            source_event_id=str(uuid.uuid5(_AUDIT_NAMESPACE, key)) if once else str(uuid.uuid4()),
+            details=details or {},
+        ),
+    )
+
+
+async def _act(
+    request: Request,
+    op: Any,
+    *,
+    event: str,
+    action: str,
+    capability: str,
+    pack_id: str,
+    version: int | None,
+    work: Any,
+    role: str | None = None,
+) -> dict[str, Any]:
+    """Check the capability, make the change and audit it in one transaction. If anything is refused, the attempt rolls back and the
+    refusal is recorded in a transaction of its own, then raised."""
+    now = datetime.now(UTC)
+    refusal: ZidError
+    code: str
+    try:
+        async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+            await _need(conn, op, capability, f"regulatory:{pack_id}")
+            pack = await work(conn, now)
+            details: dict[str, Any] = {"pack_hash": v.pack_hash(pack)}
+            if role:
+                details["role"] = role
+            await _audit(
+                conn,
+                op,
+                event=event,
+                action=action,
+                pack_id=pack.pack_id,
+                version=pack.version,
+                outcome="SUCCESS",
+                now=now,
+                details=details,
+            )
+            return _view(pack)
+    except v.PackError as e:
+        refusal, code = _fail(e), str(e.code)
+    except DBAPIError:
+        refusal, code = _database_refused(), "PACK_REFUSED"
+    except ZidError as e:
+        refusal, code = e, e.code
+    attempted: dict[str, Any] = {"attempted": event}
+    if role:
+        attempted["role"] = role
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _audit(
+            conn,
+            op,
+            event="regulatory.pack.refused",
+            action=action,
+            pack_id=pack_id,
+            version=version,
+            outcome="DENIED",
+            now=now,
+            reason=code,
+            details=attempted,
+            once=False,
+        )
+    raise refusal
+
 
 @router.post("/v1/regulatory/policy-packs", status_code=201)
 async def create_draft(body: PackDraftIn, request: Request, op: OperatorDep) -> dict[str, Any]:
-    now = datetime.now(UTC)
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _need(conn, op, AUTHOR, f"regulatory:{body.pack_id}")
+    async def work(conn: Any, now: datetime) -> Any:
         pack = v.PolicyPack(
             pack_id=body.pack_id,
             key=v.PackKey(
@@ -319,38 +427,44 @@ async def create_draft(body: PackDraftIn, request: Request, op: OperatorDep) -> 
             rules=body.rules.domain(),
             author=str(op.principal_id),
         )
-        try:
-            return _view(await v.policy_packs.open_draft(conn, pack, now=now))
-        except v.PackError as e:
-            raise _fail(e) from e
-        except DBAPIError as e:
-            raise _database_refused() from e
+        return await v.policy_packs.open_draft(conn, pack, now=now)
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.pack.drafted",
+        action="draft",
+        capability=AUTHOR,
+        pack_id=body.pack_id,
+        version=None,
+        work=work,
+    )
 
 
 @router.post("/v1/regulatory/policy-packs/{pack_id}:revise", status_code=201)
 async def revise(
     pack_id: PackIdPath, body: PackReviseIn, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
-    now = datetime.now(UTC)
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _need(conn, op, AUTHOR, f"regulatory:{pack_id}")
-        try:
-            return _view(
-                await v.policy_packs.revise_pack(
-                    conn,
-                    pack_id,
-                    author=str(op.principal_id),
-                    now=now,
-                    sources=None
-                    if body.sources is None
-                    else tuple(s.domain() for s in body.sources),
-                    rules=None if body.rules is None else body.rules.domain(),
-                )
-            )
-        except v.PackError as e:
-            raise _fail(e) from e
-        except DBAPIError as e:
-            raise _database_refused() from e
+    async def work(conn: Any, now: datetime) -> Any:
+        return await v.policy_packs.revise_pack(
+            conn,
+            pack_id,
+            author=str(op.principal_id),
+            now=now,
+            sources=None if body.sources is None else tuple(s.domain() for s in body.sources),
+            rules=None if body.rules is None else body.rules.domain(),
+        )
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.pack.revised",
+        action="revise",
+        capability=AUTHOR,
+        pack_id=pack_id,
+        version=None,
+        work=work,
+    )
 
 
 @router.post("/v1/regulatory/policy-packs/{pack_id}/versions/{version}:approve")
@@ -361,57 +475,66 @@ async def approve(
     request: Request,
     op: OperatorDep,
 ) -> dict[str, Any]:
-    now = datetime.now(UTC)
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _need(
-            conn, op, APPROVE[body.role], f"regulatory:{pack_id}"
-        )  # the capability IS the role: one person, one role
-        try:
-            return _view(
-                await v.policy_packs.sign(
-                    conn,
-                    pack_id,
-                    version,
-                    role=body.role,
-                    approver=str(op.principal_id),
-                    signed_hash=body.signed_hash,
-                    now=now,
-                )
-            )
-        except v.PackError as e:
-            raise _fail(e) from e
-        except DBAPIError as e:
-            raise _database_refused() from e
+    async def work(conn: Any, now: datetime) -> Any:
+        return await v.policy_packs.sign(
+            conn,
+            pack_id,
+            version,
+            role=body.role,
+            approver=str(op.principal_id),
+            signed_hash=body.signed_hash,
+            now=now,
+        )
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.pack.approved",
+        action="approve",
+        capability=APPROVE[body.role],  # the capability IS the role: one person, one role
+        pack_id=pack_id,
+        version=version,
+        work=work,
+        role=body.role,
+    )
 
 
 @router.post("/v1/regulatory/policy-packs/{pack_id}/versions/{version}:publish")
 async def publish(
     pack_id: PackIdPath, version: VersionPath, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
-    now = datetime.now(UTC)
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _need(conn, op, PUBLISH, f"regulatory:{pack_id}")
-        try:
-            return _view(await v.policy_packs.publish_pack(conn, pack_id, version, now=now))
-        except v.PackError as e:
-            raise _fail(e) from e
-        except DBAPIError as e:
-            raise _database_refused() from e
+    async def work(conn: Any, now: datetime) -> Any:
+        return await v.policy_packs.publish_pack(conn, pack_id, version, now=now)
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.pack.published",
+        action="publish",
+        capability=PUBLISH,
+        pack_id=pack_id,
+        version=version,
+        work=work,
+    )
 
 
 @router.post("/v1/regulatory/policy-packs/{pack_id}/versions/{version}:retire")
 async def retire(
     pack_id: PackIdPath, version: VersionPath, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
-    now = datetime.now(UTC)
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _need(conn, op, PUBLISH, f"regulatory:{pack_id}")
-        try:
-            return _view(await v.policy_packs.retire_pack(conn, pack_id, version, now=now))
-        except v.PackError as e:
-            raise _fail(e) from e
-        except DBAPIError as e:
-            raise _database_refused() from e
+    async def work(conn: Any, now: datetime) -> Any:
+        return await v.policy_packs.retire_pack(conn, pack_id, version, now=now)
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.pack.retired",
+        action="retire",
+        capability=PUBLISH,
+        pack_id=pack_id,
+        version=version,
+        work=work,
+    )
 
 
 def _database_refused() -> ZidError:

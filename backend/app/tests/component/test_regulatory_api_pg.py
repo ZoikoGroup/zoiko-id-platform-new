@@ -6,13 +6,16 @@ author signs nothing, each approver holds one role, a pack changes only through 
 
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from conftest import CELL
+from conftest import CELL, engine
 from fastapi.testclient import TestClient
 from operator_fixture import AUD, ISS, Operators, activate_grant, operators
+from sqlalchemy import text
 from zid_platform.main import create_app
 from zid_platform.modules.operator_access.domain.model import OperatorRole
 from zid_platform.settings import Settings
@@ -92,8 +95,31 @@ def _grant(
     )
 
 
+def _audit_records(owner_url: str, pack_id: str) -> list[dict[str, Any]]:
+    """The platform-partition audit records about one pack (tenant_id NULL), oldest first."""
+
+    async def read() -> list[dict[str, Any]]:
+        async with engine(owner_url) as eng, eng.connect() as c:
+            rows = (
+                await c.execute(
+                    text(
+                        "SELECT event_type, outcome, reason_code, target_ref, body FROM evidence.audit_record "
+                        "WHERE tenant_id IS NULL AND (target_ref = :p OR target_ref LIKE :v) ORDER BY created_at, audit_id"
+                    ),
+                    {"p": pack_id, "v": f"{pack_id}:v%"},
+                )
+            ).all()
+        out = [dict(r._mapping) for r in rows]
+        for r in out:
+            if isinstance(r["body"], str):
+                r["body"] = json.loads(r["body"])
+        return out
+
+    return asyncio.run(read())
+
+
 def test_a_pack_goes_from_draft_to_published_and_back_through_the_operator_plane(
-    rt_url: str,
+    rt_url: str, owner_url: str
 ) -> None:
     o, who = _people(rt_url)
     market = {"product": f"P{uuid.uuid4().hex[:10].upper()}", "purpose": "ENGAGEMENT"}
@@ -222,6 +248,53 @@ def test_a_pack_goes_from_draft_to_published_and_back_through_the_operator_plane
             call("GET", f"{base}/{pid}/versions/9", "maker").json()["error"]["code"]
             == "PACK_NOT_FOUND"
         )
+
+    # ---- the audit trail: one record per change, none for an attempt that rolled back, a refusal record for every refusal
+    records = _audit_records(owner_url, pid)
+    by_event: dict[str, list[dict[str, Any]]] = {}
+    for r in records:
+        by_event.setdefault(r["event_type"], []).append(r)
+    assert [(r["target_ref"], r["outcome"]) for r in by_event["regulatory.pack.drafted"]] == [
+        (f"{pid}:v1", "SUCCESS")
+    ]
+    assert (
+        len(by_event["regulatory.pack.approved"]) == 8
+    )  # four roles on each of two versions; the refused attempts left none
+    v1_roles = sorted(
+        r["body"]["details"]["role"]
+        for r in by_event["regulatory.pack.approved"]
+        if r["target_ref"] == f"{pid}:v1"
+    )
+    assert v1_roles == ["business_owner", "grc", "legal", "security"]
+    assert [r["target_ref"] for r in by_event["regulatory.pack.published"]] == [
+        f"{pid}:v1",
+        f"{pid}:v2",
+    ]
+    assert [r["target_ref"] for r in by_event["regulatory.pack.revised"]] == [f"{pid}:v2"]
+    assert [r["target_ref"] for r in by_event["regulatory.pack.retired"]] == [f"{pid}:v2"]
+    published_v1 = by_event["regulatory.pack.published"][0]
+    assert published_v1["body"]["details"]["pack_hash"] == digest
+    refused = by_event["regulatory.pack.refused"]
+    assert {r["reason_code"] for r in refused} >= {
+        "OPERATOR_CAPABILITY_REQUIRED",
+        "PACK_APPROVAL_HASH_MISMATCH",
+        "PACK_NOT_PUBLISHABLE",
+        "PACK_NOT_DRAFT",
+        "PACK_DRAFT_OPEN",
+        "PACK_NOT_APPROVED",
+        "PACK_EXISTS",
+    }
+    assert all(r["outcome"] == "DENIED" for r in refused)
+    assert all(
+        r["body"]["details"].get("attempted", "").startswith("regulatory.pack.") for r in refused
+    )
+    # ids, codes and the hash only: neither the rules nor the legal text ever reach the record
+    everything = " ".join(str(r["body"]) for r in records)
+    assert (
+        "LICENSE_STANDING" not in everything
+        and "Example Act" not in everything
+        and "example.test" not in everything
+    )
 
 
 def test_whoever_authors_a_pack_cannot_also_hold_an_approver_role(rt_url: str) -> None:

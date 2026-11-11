@@ -8,9 +8,9 @@
     governing_pack which approved pack governs a request, failing closed (UNAVAILABLE / REVIEW, never a default pass)
     list_packs / get_pack   reads for the operator console
 
-Who may call these (a catalogued action, step-up) is the API's job and is not built here. No audit event is emitted yet: an event
-must be declared in the event catalogue first. A pack whose stored hash no longer matches raises `PACK_STORED_HASH_MISMATCH`
-instead of being skipped, so tampering is loud and never turns into a pass.
+Who may call these (an operator capability) and the audit record of each change are the API's job (operator_access/api/regulatory.py),
+not done here. A pack whose stored hash no longer matches raises `PACK_STORED_HASH_MISMATCH` instead of being skipped, so tampering is
+loud and never turns into a pass.
 """
 
 from __future__ import annotations
