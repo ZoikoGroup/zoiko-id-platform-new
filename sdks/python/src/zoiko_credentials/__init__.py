@@ -12,6 +12,7 @@ Standard library plus `cryptography` (through `zoiko_tool_server.verify_signed`)
 
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.error
 import urllib.request
@@ -22,6 +23,7 @@ from typing import Any
 from zoiko_tool_server import GrantError, verify_signed
 
 __all__ = [
+    "ASSERTION_TYP",
     "DECISION_TYP",
     "CredentialsClient",
     "CredentialsError",
@@ -29,9 +31,13 @@ __all__ = [
     "ScopeError",
     "ZoikorumDecision",
     "ZoikorumPack",
+    "assertion_digest",
+    "verify_assertion",
 ]
 
 DECISION_TYP = "zid-decision+jwt"
+ASSERTION_TYP = "zid-assertion+jwt"
+_NOT_PART_OF_THE_BODY = ("signature", "superseded")
 CHECK_PATHS = {
     "academic": "academic",
     "license": "professional-licenses",
@@ -41,6 +47,35 @@ CHECK_PATHS = {
     "insurance": "insurance",
 }
 Transport = Callable[[str, str, Mapping[str, str], bytes | None, float], tuple[int, bytes]]
+
+
+def assertion_digest(assertion: Mapping[str, Any]) -> str:
+    """SHA-256 of the canonical body of a credential assertion: sorted keys, no spaces, UTF-8, without `signature` and
+    `superseded`. Identical to the server's digest (a pinned test vector keeps them equal)."""
+    body = {k: v for k, v in assertion.items() if k not in _NOT_PART_OF_THE_BODY}
+    raw = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def verify_assertion(assertion: Mapping[str, Any], jwks: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Check offline that an assertion is signed by the platform and that its body has not changed. Returns the assertion, or
+    raises `ScopeError` (ASSERTION_UNSIGNED, ASSERTION_SIGNATURE_INVALID, ASSERTION_TAMPERED). Verifying the body, not just the
+    signature, is the point: the signature covers a digest of every field."""
+    token = assertion.get("signature")
+    if not isinstance(token, str) or not token:
+        raise ScopeError("ASSERTION_UNSIGNED")
+    try:
+        claims = verify_signed(token, jwks, typ=ASSERTION_TYP)
+    except GrantError as e:
+        raise ScopeError("ASSERTION_SIGNATURE_INVALID", str(e)) from e
+    if (
+        claims.get("typ") != "zid-assertion"
+        or claims.get("check_id") != assertion.get("check_id")
+        or claims.get("assertion_id") != assertion.get("assertion_id")
+        or claims.get("body_sha256") != assertion_digest(assertion)
+    ):
+        raise ScopeError("ASSERTION_TAMPERED")
+    return assertion
 
 
 class CredentialsError(Exception):
@@ -113,7 +148,7 @@ class CredentialsClient:
         if kind not in CHECK_PATHS:
             raise ScopeError("CLAIM_KIND_UNKNOWN", kind)
         body = {"claim": dict(claim), "jurisdiction": dict(jurisdiction), **opts}
-        return self._call("POST", f"/credentials/{CHECK_PATHS[kind]}/checks", body)  # type: ignore[no-any-return]
+        return self._call("POST", f"/v1/credentials/{CHECK_PATHS[kind]}/checks", body)  # type: ignore[no-any-return]
 
     def disciplinary(
         self, regulator: str, jurisdiction: Mapping[str, str], reviewer_principal_id: str, **opts: Any
@@ -125,7 +160,7 @@ class CredentialsClient:
             "reviewer_principal_id": reviewer_principal_id,
             **opts,
         }
-        return self._call("POST", "/credentials/disciplinary/checks", body)  # type: ignore[no-any-return]
+        return self._call("POST", "/v1/credentials/disciplinary/checks", body)  # type: ignore[no-any-return]
 
     def verify_signed_credential(
         self, credential: str, holder_proof: str | None = None, jurisdiction: str | None = None
@@ -135,10 +170,10 @@ class CredentialsClient:
             body["holder_proof"] = holder_proof
         if jurisdiction:
             body["jurisdiction"] = jurisdiction
-        return self._call("POST", "/credentials/vc/verify", body)  # type: ignore[no-any-return]
+        return self._call("POST", "/v1/credentials/vc/verify", body)  # type: ignore[no-any-return]
 
     def assertion(self, check_id: str) -> dict[str, Any]:
-        return self._call("GET", f"/credentials/assertions/{check_id}")  # type: ignore[no-any-return]
+        return self._call("GET", f"/v1/credentials/assertions/{check_id}")  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------------------------------------ decisions
 
@@ -159,7 +194,7 @@ class CredentialsClient:
         return self._call("POST", "/v1/eligibility/engagement/evaluate", body)  # type: ignore[no-any-return]
 
     def packs(self, country: str, profession: str) -> dict[str, Any]:
-        return self._call("GET", f"/credential-packs/{country}/{profession}")  # type: ignore[no-any-return]
+        return self._call("GET", f"/v1/credential-packs/{country}/{profession}")  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------------------------------------ disclosure
 
@@ -181,26 +216,28 @@ class CredentialsClient:
         }
         if parent_grant_id:
             body["parent_grant_id"] = parent_grant_id
-        return self._call("POST", "/credentials/disclosures", body)  # type: ignore[no-any-return]
+        return self._call("POST", "/v1/credentials/disclosures", body)  # type: ignore[no-any-return]
 
     def withdraw_disclosure(self, grant_id: str) -> dict[str, Any]:
-        return self._call("POST", f"/credentials/disclosures/{grant_id}:withdraw", {})  # type: ignore[no-any-return]
+        return self._call("POST", f"/v1/credentials/disclosures/{grant_id}:withdraw", {})  # type: ignore[no-any-return]
 
     def read_disclosure(
         self, grant_id: str, check_id: str, recipient: str, consumer: str, purpose: str
     ) -> dict[str, Any]:
         body = {"check_id": check_id, "recipient": recipient, "consumer": consumer, "purpose": purpose}
-        return self._call("POST", f"/credentials/disclosures/{grant_id}:read", body)  # type: ignore[no-any-return]
+        return self._call("POST", f"/v1/credentials/disclosures/{grant_id}:read", body)  # type: ignore[no-any-return]
 
     def verify_public(self, tenant_id: str, check_id: str, grant: str) -> dict[str, Any]:
         """The bounded public view; needs no account, only a PUBLIC_VERIFIER grant the holder shared."""
-        return self._call("GET", f"/credentials/assertions/{tenant_id}.{check_id}/verify?grant={grant}", auth=False)  # type: ignore[no-any-return]
+        return self._call("GET", f"/v1/credentials/assertions/{tenant_id}.{check_id}/verify?grant={grant}", auth=False)  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------------------------------------ cases
 
     def appeal(self, check_id: str, reason: str, correction: Mapping[str, str] | None = None) -> dict[str, Any]:
         return self._call(
-            "POST", f"/credentials/cases/{check_id}/appeals", {"reason": reason, "correction": dict(correction or {})}
+            "POST",
+            f"/v1/credentials/cases/{check_id}/appeals",
+            {"reason": reason, "correction": dict(correction or {})},
         )  # type: ignore[no-any-return]
 
 

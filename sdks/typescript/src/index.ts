@@ -12,6 +12,7 @@
  */
 
 export const DECISION_TYP = "zid-decision+jwt";
+export const ASSERTION_TYP = "zid-assertion+jwt";
 
 export const CHECK_PATHS = {
   academic: "academic",
@@ -87,23 +88,23 @@ export class CredentialsClient {
 
   check(kind: ClaimKind, claim: Json, jurisdiction: Record<string, string>, opts: Json = {}): Promise<Json> {
     if (!(kind in CHECK_PATHS)) throw new ScopeError("CLAIM_KIND_UNKNOWN", String(kind));
-    return this.call("POST", `/credentials/${CHECK_PATHS[kind]}/checks`, { claim, jurisdiction, ...opts });
+    return this.call("POST", `/v1/credentials/${CHECK_PATHS[kind]}/checks`, { claim, jurisdiction, ...opts });
   }
 
   /** A sensitive check: `opts` must carry `consent_ref` or `legal_basis_ref`, and the reviewer must not be you. */
   disciplinary(regulator: string, jurisdiction: Record<string, string>, reviewerPrincipalId: string, opts: Json = {}): Promise<Json> {
-    return this.call("POST", "/credentials/disciplinary/checks", { regulator, jurisdiction, reviewer_principal_id: reviewerPrincipalId, ...opts });
+    return this.call("POST", "/v1/credentials/disciplinary/checks", { regulator, jurisdiction, reviewer_principal_id: reviewerPrincipalId, ...opts });
   }
 
   verifySignedCredential(credential: string, holderProof?: string, jurisdiction?: string): Promise<Json> {
     const body: Json = { credential };
     if (holderProof) body.holder_proof = holderProof;
     if (jurisdiction) body.jurisdiction = jurisdiction;
-    return this.call("POST", "/credentials/vc/verify", body);
+    return this.call("POST", "/v1/credentials/vc/verify", body);
   }
 
   assertion(checkId: string): Promise<Json> {
-    return this.call("GET", `/credentials/assertions/${checkId}`);
+    return this.call("GET", `/v1/credentials/assertions/${checkId}`);
   }
 
   evaluateEligibility(country: string, professionCode: string, serviceCode: string, subdivision?: string): Promise<Json> {
@@ -119,30 +120,30 @@ export class CredentialsClient {
   }
 
   packs(country: string, profession: string): Promise<Json> {
-    return this.call("GET", `/credential-packs/${country}/${profession}`);
+    return this.call("GET", `/v1/credential-packs/${country}/${profession}`);
   }
 
   createDisclosure(recipient: string, consumer: string, purpose: string, fields: string[], days = 30, parentGrantId?: string): Promise<Json> {
     const body: Json = { recipient, consumer, purpose, fields, days };
     if (parentGrantId) body.parent_grant_id = parentGrantId;
-    return this.call("POST", "/credentials/disclosures", body);
+    return this.call("POST", "/v1/credentials/disclosures", body);
   }
 
   withdrawDisclosure(grantId: string): Promise<Json> {
-    return this.call("POST", `/credentials/disclosures/${grantId}:withdraw`, {});
+    return this.call("POST", `/v1/credentials/disclosures/${grantId}:withdraw`, {});
   }
 
   readDisclosure(grantId: string, checkId: string, recipient: string, consumer: string, purpose: string): Promise<Json> {
-    return this.call("POST", `/credentials/disclosures/${grantId}:read`, { check_id: checkId, recipient, consumer, purpose });
+    return this.call("POST", `/v1/credentials/disclosures/${grantId}:read`, { check_id: checkId, recipient, consumer, purpose });
   }
 
   /** The bounded public view; needs no account, only a PUBLIC_VERIFIER grant the holder shared. */
   verifyPublic(tenantId: string, checkId: string, grant: string): Promise<Json> {
-    return this.call("GET", `/credentials/assertions/${tenantId}.${checkId}/verify?grant=${encodeURIComponent(grant)}`, undefined, false);
+    return this.call("GET", `/v1/credentials/assertions/${tenantId}.${checkId}/verify?grant=${encodeURIComponent(grant)}`, undefined, false);
   }
 
   appeal(checkId: string, reason: string, correction: Record<string, string> = {}): Promise<Json> {
-    return this.call("POST", `/credentials/cases/${checkId}/appeals`, { reason, correction });
+    return this.call("POST", `/v1/credentials/cases/${checkId}/appeals`, { reason, correction });
   }
 }
 
@@ -194,6 +195,54 @@ export async function verifySigned(token: string, jwks: Jwks, typ: string): Prom
     throw bad("unusable key");
   }
   return payload;
+}
+
+// ------------------------------------------------------------------------------------------------- signed assertions
+
+const NOT_PART_OF_THE_BODY = new Set(["signature", "superseded"]);
+
+/** JSON with sorted keys and no spaces: the same bytes as the server's canonical body (Python `sort_keys`, `(",", ":")`, UTF-8). */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** SHA-256 (hex) of the canonical body of a credential assertion, without `signature` and `superseded`. Equal to the server's. */
+export async function assertionDigest(assertion: Json): Promise<string> {
+  const body = Object.fromEntries(Object.entries(assertion).filter(([k]) => !NOT_PART_OF_THE_BODY.has(k)));
+  const bytes = new TextEncoder().encode(canonicalJson(body));
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
+  return Array.from(hash, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Check offline that an assertion is signed by the platform and that its body has not changed. The signature covers a digest of
+ * every field, so verifying the body is the point. Throws `ScopeError` ASSERTION_UNSIGNED, ASSERTION_SIGNATURE_INVALID or
+ * ASSERTION_TAMPERED. */
+export async function verifyAssertion(assertion: Json, jwks: Jwks): Promise<Json> {
+  const token = assertion.signature;
+  if (typeof token !== "string" || !token) throw new ScopeError("ASSERTION_UNSIGNED");
+  let claims: Json;
+  try {
+    claims = await verifySigned(token, jwks, ASSERTION_TYP);
+  } catch (e) {
+    throw new ScopeError("ASSERTION_SIGNATURE_INVALID", e instanceof Error ? e.message : "");
+  }
+  if (
+    claims.typ !== "zid-assertion" ||
+    claims.check_id !== assertion.check_id ||
+    claims.assertion_id !== assertion.assertion_id ||
+    claims.body_sha256 !== (await assertionDigest(assertion))
+  ) {
+    throw new ScopeError("ASSERTION_TAMPERED");
+  }
+  return assertion;
 }
 
 // ------------------------------------------------------------------------------------------------------- Zoikorum
@@ -263,3 +312,5 @@ export class RoomsPack {
     throw new ScopeError("DECISION_FOR_ANOTHER_CONSUMER", decision.consumer);
   }
 }
+
+export * from "./session.js";

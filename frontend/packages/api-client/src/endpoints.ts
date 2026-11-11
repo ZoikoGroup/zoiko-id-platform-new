@@ -257,6 +257,10 @@ export function createCellApi(t: Transport) {
       list: (q: { status?: M.IssuedCredentialStatus; limit?: number } = {}) => get<M.Items<M.IssuedCredential>>("/credentials", q),
       configurations: () => get<M.Items<M.CredentialConfigurationItem>>("/credential-configurations"),
       issuerTrust: () => get<M.Items<M.IssuerTrustItem>>("/credential-issuer-trust"),
+      /** What the platform trusts, read-only (WF-04). */
+      trustRegistry: () => get<M.TrustRegistry>("/v1/credentials/registry"),
+      /** One person's credential checks, decisions and appeals in one read (WF-02). */
+      dossier: (subjectId: string) => get<M.CredentialDossier>(`/v1/credentials/dossiers/${seg(subjectId)}`),
       relyingParties: () => get<M.Items<M.RpRegistrationItem>>("/relying-party-registrations"),
       createConfiguration: (body: ConfigurationIn) => post<M.CredentialConfiguration>("/credential-configurations", body),
       activateConfiguration: (id: string) => post<M.CredentialConfiguration>(`/credential-configurations/${seg(id)}:activate`),

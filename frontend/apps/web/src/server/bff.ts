@@ -40,6 +40,7 @@ const API_PATH_PREFIXES = [
   "/relying-party-registrations",
   "/credentials$",
   "/credentials/",
+  "/v1/credentials/",
   "/presentations",
   "/v1/authority-grants",
   "/v1/delegation-templates",

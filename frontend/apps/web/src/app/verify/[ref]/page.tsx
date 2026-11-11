@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 async function load(ref: string, grant: string): Promise<PublicView | null> {
   const { env } = server();
   try {
-    const url = `${env.cellApiUrl.replace(/\/$/, "")}/credentials/assertions/${ref}/verify?grant=${encodeURIComponent(grant)}`;
+    const url = `${env.cellApiUrl.replace(/\/$/, "")}/v1/credentials/assertions/${ref}/verify?grant=${encodeURIComponent(grant)}`;
     const res = await fetch(url, { cache: "no-store", headers: { accept: "application/json" } });
     if (!res.ok) return null;
     const body = (await res.json()) as { data?: PublicView } & PublicView;

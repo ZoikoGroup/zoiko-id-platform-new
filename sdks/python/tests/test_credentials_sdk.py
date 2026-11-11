@@ -13,12 +13,15 @@ import pytest
 from conftest import Keys
 
 from zoiko_credentials import (
+    ASSERTION_TYP,
     DECISION_TYP,
     CredentialsClient,
     CredentialsError,
     RoomsPack,
     ScopeError,
     ZoikorumPack,
+    assertion_digest,
+    verify_assertion,
 )
 
 BASE = "https://id.example"
@@ -69,7 +72,7 @@ def test_a_check_posts_to_its_route_with_the_bearer_token_and_unwraps_the_envelo
     out = c.check("license", {"license_ref": "L-1"}, {"country": "US", "subdivision": "CA"}, profession_code="LAW")
     assert out == {"check_id": "c1", "decision": "VERIFIED"}
     method, url, headers, body = fake.calls[0]
-    assert (method, url) == ("POST", f"{BASE}/credentials/professional-licenses/checks")
+    assert (method, url) == ("POST", f"{BASE}/v1/credentials/professional-licenses/checks")
     assert headers["Authorization"] == "Bearer tok-1"
     assert body == {
         "claim": {"license_ref": "L-1"},
@@ -84,7 +87,7 @@ def test_every_claim_kind_has_its_own_route_and_an_unknown_kind_never_reaches_th
     c, fake = client(*[ok({}) for _ in kinds])
     for kind in kinds:
         c.check(kind, {"x": "y"}, {"country": "US"})
-    assert [call[1] for call in fake.calls] == [f"{BASE}/credentials/{route}/checks" for route in kinds.values()]
+    assert [call[1] for call in fake.calls] == [f"{BASE}/v1/credentials/{route}/checks" for route in kinds.values()]
     with pytest.raises(ScopeError) as e:
         c.check("astrology", {}, {"country": "US"})
     assert e.value.code == "CLAIM_KIND_UNKNOWN" and len(fake.calls) == len(kinds)
@@ -113,7 +116,7 @@ def test_the_public_verifier_call_sends_no_credentials():
     method, url, headers, _ = fake.calls[0]
     assert (
         method == "GET"
-        and url.endswith("/credentials/assertions/t1.c1/verify?grant=g1")
+        and url.endswith("/v1/credentials/assertions/t1.c1/verify?grant=g1")
         and "Authorization" not in headers
     )
 
@@ -131,7 +134,7 @@ def test_disclosure_calls_name_their_terms():
         "days": 5,
         "parent_grant_id": "g0",
     }
-    assert fake.calls[1][1].endswith("/credentials/disclosures/g1:withdraw")
+    assert fake.calls[1][1].endswith("/v1/credentials/disclosures/g1:withdraw")
     assert fake.calls[2][3] == {"check_id": "c1", "recipient": "acme", "consumer": "zoikorum", "purpose": "ENGAGEMENT"}
 
 
@@ -144,8 +147,8 @@ def test_the_sensitive_check_always_names_a_reviewer_and_other_calls_are_routed_
     c.packs("US", "LAW")
     c.appeal("c1", "the record is wrong", {"license_ref": "L-1"})
     paths = [call[1].removeprefix(BASE) for call in fake.calls]
-    assert paths == ["/credentials/disciplinary/checks", "/credentials/vc/verify", "/v1/eligibility/professional/evaluate",
-                     "/v1/eligibility/engagement/evaluate", "/credential-packs/US/LAW", "/credentials/cases/c1/appeals"]  # fmt: skip
+    assert paths == ["/v1/credentials/disciplinary/checks", "/v1/credentials/vc/verify", "/v1/eligibility/professional/evaluate",
+                     "/v1/eligibility/engagement/evaluate", "/v1/credential-packs/US/LAW", "/v1/credentials/cases/c1/appeals"]  # fmt: skip
     assert fake.calls[0][3]["reviewer_principal_id"] == "reviewer-1"
     assert fake.calls[1][3] == {"credential": "a.b.c", "holder_proof": "d.e.f", "jurisdiction": "US"}
 
@@ -208,3 +211,71 @@ def test_each_pack_can_only_share_for_its_own_consumer():
     ZoikorumPack(c, {"keys": []}).share("acme", "ENGAGEMENT", ["decision"])
     RoomsPack(c).share("landlord", "TENANCY", ["decision"])
     assert [call[3]["consumer"] for call in fake.calls] == ["zoikorum", "rooms"]
+
+
+# --- offline verification of a signed assertion ---------------------------------------------------------------------------
+
+GOLDEN_BODY = {
+    "check_id": "c1",
+    "assertion_id": "asrt_c1",
+    "decision": "VERIFIED",
+    "jurisdiction": {"country": "US", "subdivision": "CA"},
+    "reason_codes": [],
+    "policy_ref": {"id": "p", "version": 1},
+    "explanation": {"limitations": ["Does not prove x \u2014 \u00e9 \u4e2d"]},
+    "primary_source_verified": True,
+    "expires_at": None,
+    "superseded": True,
+    "signature": "zzz",
+}
+# computed by the server (assertion_contract.body_digest); the same vector is pinned in the backend and TypeScript tests
+GOLDEN_DIGEST = "afd153fe44c3678a55e6b8e6f2f9d6b4d0a33b5f854f82ea49d49a8f3a141789"
+
+
+def test_the_assertion_digest_equals_the_servers_for_the_same_body():
+    assert assertion_digest(GOLDEN_BODY) == GOLDEN_DIGEST
+
+
+def _signed(keys, **over):
+    body = {k: v for k, v in GOLDEN_BODY.items() if k not in ("signature", "superseded")}
+    claims = {
+        "typ": "zid-assertion",
+        "check_id": body["check_id"],
+        "assertion_id": body["assertion_id"],
+        "body_sha256": assertion_digest(body),
+    }
+    return {**body, **over, "signature": keys.sign(claims, typ=ASSERTION_TYP)}
+
+
+def test_a_signed_assertion_verifies_offline_and_a_replaced_flag_does_not_matter():
+    keys = Keys()
+    a = _signed(keys)
+    assert verify_assertion(a, keys.jwks()) is a
+    assert verify_assertion({**a, "superseded": True}, keys.jwks())  # not part of the signed body
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"decision": "NOT_VERIFIED"}, {"policy_ref": {"id": "p", "version": 2}}, {"extra": 1}, {"reason_codes": ["X"]}],
+)
+def test_any_change_to_a_signed_assertion_is_tampering(change):
+    keys = Keys()
+    with pytest.raises(ScopeError) as e:
+        verify_assertion({**_signed(keys), **change}, keys.jwks())
+    assert e.value.code == "ASSERTION_TAMPERED"
+
+
+def test_an_unsigned_wrongly_typed_or_foreign_assertion_is_refused():
+    keys = Keys()
+    for a, code in (
+        ({**_signed(keys), "signature": None}, "ASSERTION_UNSIGNED"),
+        ({k: v for k, v in _signed(keys).items() if k != "signature"}, "ASSERTION_UNSIGNED"),
+        (
+            {**_signed(keys), "signature": keys.sign({"typ": "zid-assertion"}, typ="zid-decision+jwt")},
+            "ASSERTION_SIGNATURE_INVALID",
+        ),
+        (_signed(Keys()), "ASSERTION_SIGNATURE_INVALID"),  # signed by someone else under the same key id
+    ):
+        with pytest.raises(ScopeError) as e:
+            verify_assertion(a, keys.jwks())
+        assert e.value.code == code

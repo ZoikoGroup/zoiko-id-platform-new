@@ -2836,3 +2836,49 @@ export type ReconBoard = {
   receipt?: Record<string, unknown>;
 };
 export type ReconException = { exception_id: string; source_kind: string; source_id: string; reason: string; owner: string | null; resolution: string | null; resolved_at: string | null };
+
+/** Read-only trust registry (WF-04): scope and state only, no contacts, price references or certificate references. */
+export type TrustRegistry = {
+  issuer_registry_version: string;
+  packs_version: string;
+  tier_rules: number;
+  issuers: {
+    issuer_id: string;
+    kind: string;
+    name: string;
+    countries: string[];
+    claim_types: string[];
+    authority: string;
+    revoked_on: string | null;
+    outreach_contacts_registered: number;
+    accreditations: number;
+  }[];
+  sources: {
+    source_id: string;
+    claim_types: string[];
+    countries: string[];
+    purposes: string[];
+    processing_regions: string[];
+    valid_from: string;
+    valid_until: string | null;
+    sensitivity: string;
+    primary: boolean;
+    simulated: boolean;
+  }[];
+  policies: { policy_id: string; version: number; country: string; subdivision: string | null; profession_code: string; service_code: string }[];
+  certifications: { record_id: string; entity: string; scheme: string; country: string; service_code: string; valid_from: string; valid_until: string | null; status: string }[];
+};
+
+/** WF-02 dossier: one person's current credential checks, the decisions made from them and any appeals. */
+export type CredentialDossier = {
+  subject: string;
+  checks: {
+    check_id: string;
+    claim_type: string;
+    decision: string;
+    checked_at: string | null;
+    assertion: Record<string, unknown>;
+  }[];
+  decisions: { decision_id: string; kind: string; policy_id: string; policy_version: number; outcome: string; reasons: string[]; restrictions: string[]; check_ids: string[]; consumer: string | null; created_at: string }[];
+  appeals: { appeal_id: string; check_id: string; state: string; created_at: string; resolved_at: string | null }[];
+};

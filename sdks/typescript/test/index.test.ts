@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { CredentialsClient, CredentialsError, DECISION_TYP, RoomsPack, ScopeError, ZoikorumPack, type FetchLike, type Json } from "../src/index";
+import {
+  ASSERTION_TYP,
+  CredentialsClient,
+  CredentialsError,
+  DECISION_TYP,
+  RoomsPack,
+  ScopeError,
+  ZoikorumPack,
+  assertionDigest,
+  verifyAssertion,
+  type FetchLike,
+  type Json,
+} from "../src/index";
 
 const BASE = "https://id.example";
 
@@ -63,7 +75,7 @@ describe("client", () => {
   it("posts a check to its route with the bearer token and unwraps the envelope", async () => {
     const { c, calls } = client(ok({ check_id: "c1", decision: "VERIFIED" }));
     expect(await c.check("license", { license_ref: "L-1" }, { country: "US", subdivision: "CA" }, { profession_code: "LAW" })).toEqual({ check_id: "c1", decision: "VERIFIED" });
-    expect(calls[0]).toMatchObject({ method: "POST", url: `${BASE}/credentials/professional-licenses/checks` });
+    expect(calls[0]).toMatchObject({ method: "POST", url: `${BASE}/v1/credentials/professional-licenses/checks` });
     expect(calls[0]!.headers.authorization).toBe("Bearer tok-1");
     expect(calls[0]!.body).toEqual({ claim: { license_ref: "L-1" }, jurisdiction: { country: "US", subdivision: "CA" }, profession_code: "LAW" });
   });
@@ -72,7 +84,7 @@ describe("client", () => {
     const kinds = { academic: "academic", license: "professional-licenses", certification: "certifications", employment: "experience", cpd: "continuing-education", insurance: "insurance" } as const;
     const { c, calls } = client(...Object.keys(kinds).map(() => ok({})));
     for (const k of Object.keys(kinds) as Array<keyof typeof kinds>) await c.check(k, { x: "y" }, { country: "US" });
-    expect(calls.map((x) => x.url)).toEqual(Object.values(kinds).map((r) => `${BASE}/credentials/${r}/checks`));
+    expect(calls.map((x) => x.url)).toEqual(Object.values(kinds).map((r) => `${BASE}/v1/credentials/${r}/checks`));
     expect(() => c.check("astrology" as never, {}, { country: "US" })).toThrow(ScopeError);
     expect(calls).toHaveLength(6);
   });
@@ -89,7 +101,7 @@ describe("client", () => {
   it("sends no credentials on the public verifier call", async () => {
     const { c, calls } = client([200, { success: true, data: { decision: "VERIFIED" } }]);
     expect(await c.verifyPublic("t1", "c1", "g 1")).toEqual({ decision: "VERIFIED" });
-    expect(calls[0]!.url).toBe(`${BASE}/credentials/assertions/t1.c1/verify?grant=g%201`);
+    expect(calls[0]!.url).toBe(`${BASE}/v1/credentials/assertions/t1.c1/verify?grant=g%201`);
     expect(calls[0]!.headers.authorization).toBeUndefined();
   });
 
@@ -109,15 +121,15 @@ describe("client", () => {
     expect(calls[3]!.body).toMatchObject({ reviewer_principal_id: "reviewer-1", consent_ref: "consent-1" });
     expect(calls[4]!.body).toEqual({ credential: "a.b.c", holder_proof: "d.e.f", jurisdiction: "US" });
     expect(calls.map((x) => x.url.replace(BASE, ""))).toEqual([
-      "/credentials/disclosures",
-      "/credentials/disclosures/g1:withdraw",
-      "/credentials/disclosures/g1:read",
-      "/credentials/disciplinary/checks",
-      "/credentials/vc/verify",
+      "/v1/credentials/disclosures",
+      "/v1/credentials/disclosures/g1:withdraw",
+      "/v1/credentials/disclosures/g1:read",
+      "/v1/credentials/disciplinary/checks",
+      "/v1/credentials/vc/verify",
       "/v1/eligibility/professional/evaluate",
       "/v1/eligibility/engagement/evaluate",
-      "/credential-packs/US/LAW",
-      "/credentials/cases/c1/appeals",
+      "/v1/credential-packs/US/LAW",
+      "/v1/credentials/cases/c1/appeals",
     ]);
   });
 });
@@ -174,5 +186,59 @@ describe("Zoikorum and Rooms packs", () => {
     await new ZoikorumPack(c, { keys: [] }).share("acme", "ENGAGEMENT", ["decision"]);
     await new RoomsPack(c).share("landlord", "TENANCY", ["decision"]);
     expect(calls.map((x) => x.body!.consumer)).toEqual(["zoikorum", "rooms"]);
+  });
+});
+
+describe("signed assertions", () => {
+  // computed by the server code (assertion_contract.body_digest); the same vector is pinned in the backend and Python tests
+  const GOLDEN: Json = {
+    check_id: "c1",
+    assertion_id: "asrt_c1",
+    decision: "VERIFIED",
+    jurisdiction: { country: "US", subdivision: "CA" },
+    reason_codes: [],
+    policy_ref: { id: "p", version: 1 },
+    explanation: { limitations: ["Does not prove x \u2014 \u00e9 \u4e2d"] },
+    primary_source_verified: true,
+    expires_at: null,
+    superseded: true,
+    signature: "zzz",
+  };
+  const GOLDEN_DIGEST = "afd153fe44c3678a55e6b8e6f2f9d6b4d0a33b5f854f82ea49d49a8f3a141789";
+
+  async function signed(keys: Awaited<ReturnType<typeof makeKeys>>, over: Json = {}): Promise<Json> {
+    const body: Json = Object.fromEntries(Object.entries(GOLDEN).filter(([k]) => k !== "signature" && k !== "superseded"));
+    const claims = { typ: "zid-assertion", check_id: body.check_id, assertion_id: body.assertion_id, body_sha256: await assertionDigest(body) };
+    return { ...body, ...over, signature: await keys.sign(claims, { typ: ASSERTION_TYP }) };
+  }
+
+  it("computes the same digest as the server for the same body, key order and non-ASCII text included", async () => {
+    expect(await assertionDigest(GOLDEN)).toBe(GOLDEN_DIGEST);
+    const shuffled = Object.fromEntries(Object.entries(GOLDEN).reverse());
+    expect(await assertionDigest(shuffled)).toBe(GOLDEN_DIGEST);
+  });
+
+  it("verifies a signed assertion offline, and a replaced flag does not matter", async () => {
+    const keys = await makeKeys();
+    const a = await signed(keys);
+    expect(await verifyAssertion(a, keys.jwks)).toBe(a);
+    expect(await verifyAssertion({ ...a, superseded: true }, keys.jwks)).toBeTruthy();
+  });
+
+  it.each([[{ decision: "NOT_VERIFIED" }], [{ policy_ref: { id: "p", version: 2 } }], [{ extra: 1 }], [{ reason_codes: ["X"] }]])(
+    "treats any change to a signed assertion as tampering: %j",
+    async (change) => {
+      const keys = await makeKeys();
+      await expect(verifyAssertion({ ...(await signed(keys)), ...change }, keys.jwks)).rejects.toMatchObject({ code: "ASSERTION_TAMPERED" });
+    },
+  );
+
+  it("refuses an unsigned, wrongly typed or foreign assertion", async () => {
+    const keys = await makeKeys();
+    await expect(verifyAssertion({ ...(await signed(keys)), signature: null }, keys.jwks)).rejects.toMatchObject({ code: "ASSERTION_UNSIGNED" });
+    const wrongType = { ...(await signed(keys)), signature: await keys.sign({ typ: "zid-assertion" }, { typ: DECISION_TYP }) };
+    await expect(verifyAssertion(wrongType, keys.jwks)).rejects.toMatchObject({ code: "ASSERTION_SIGNATURE_INVALID" });
+    const other = await makeKeys();
+    await expect(verifyAssertion(await signed(other), keys.jwks)).rejects.toMatchObject({ code: "ASSERTION_SIGNATURE_INVALID" });
   });
 });
