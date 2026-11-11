@@ -66,6 +66,8 @@ _STATUS = {
     "CALLBACK_STALE": 400,
     "APPLICANT_DATA_UNAVAILABLE": 503,  # nothing was recorded: the provider retries
     "COUNTRY_CAPABILITY_UNAVAILABLE": 503,  # the provider retries once the country is enabled again
+    "REGULATORY_POLICY_UNAVAILABLE": 503,  # the same for a market whose policy pack is gone or not yet approved
+    "REGULATORY_REVIEW_REQUIRED": 503,
 }
 
 
@@ -91,6 +93,19 @@ def _callback_country_check(request: Request, country: str) -> None:
         _country_gate(request, country)
     except ZidError as e:
         raise VerificationError("COUNTRY_CAPABILITY_UNAVAILABLE", country) from e
+
+
+async def _callback_check(request: Request, tenant: str, country: str) -> None:
+    """A provider result is held, never applied, when the country was switched off since the session began (EDR-001) or its policy pack was
+    retired or never approved (ZID-RCG-003). Nothing is recorded and the provider retries (503), as for a closed country. In shadow mode the pack
+    check only logs."""
+    _callback_country_check(request, country)
+    try:
+        await enforce_packs(
+            request, _ctx().with_identity(tenant, None), country, Capability.INDIVIDUAL_VERIFICATION
+        )
+    except ZidError as e:
+        raise VerificationError(e.code, country) from e
 
 
 def _scope(caller: Caller, scope: str) -> None:
@@ -449,7 +464,7 @@ async def callback(adapter_ref: str, request: Request) -> Response:
             body=body,
             base_ctx=_ctx(),
             now=datetime.now(UTC),
-            country_check=lambda country: _callback_country_check(request, country),
+            country_check=lambda country: _callback_check(request, tenant, country),
             headers=dict(request.headers),
             secrets=_secrets(request),
             transport=_transport(request),

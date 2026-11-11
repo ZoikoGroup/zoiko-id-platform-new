@@ -48,6 +48,8 @@ Implemented, with no console screen yet:
 - The gate: `country_gate.check_packs` and `enforce_packs`, rule `gate_decision`, switch `ZID_REGULATORY_PACKS` (shadow by default). The country registry
   stays the baseline; an ENABLED capability also needs an approved pack or it is refused before the provider is asked (T01, T02). Wired at the three
   entry points of individual verification; the other entry points are one call each once the product and purpose of their capability are agreed.
+  The provider callback is held, not applied, for a missing pack as for a closed country (the provider retries); the web app explains both refusals.
+  Not done: a pack-aware public country list (public, no tenant; the authenticated coverage read is its home) and the other entry points.
 - Kept inside the existing `verification` module and migration stream. A separate `regulatory` module is still open and would be
   a move, not a rewrite.
 

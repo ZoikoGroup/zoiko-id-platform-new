@@ -42,6 +42,10 @@ pack hash.
   pack, and the reason is logged. Switch `ZID_REGULATORY_PACKS`: `shadow` (default; a would-be refusal is only logged), `enforce`, `off` (a deployed
   environment refuses it at start-up). Wired at the three entry points of individual verification: start, bulk start and reverify. Today no country
   has a regulated capability ENABLED, so nothing changes until one is.
+  The provider callback asks the same two questions (`_callback_check`): a result for a country switched off, or whose pack was retired or never
+  approved, is held and nothing is recorded; the provider retries (503, `REGULATORY_POLICY_UNAVAILABLE` or `REGULATORY_REVIEW_REQUIRED`), as for a
+  closed country. The country check on a callback may now be asynchronous. The background reconciliation worker applies no country check today and
+  therefore no pack check either. The web app explains both refusals in plain words (`features/account/regulatory-errors.ts`).
 - **Audit.** Every change writes one protected audit record in the platform partition (`evidence.record_audit`, `tenant_id` NULL) in the same
   transaction as the change: `regulatory.pack.drafted`, `.revised`, `.approved` (with the role), `.published` and `.retired`, each with the pack hash.
   A refused attempt (no capability, a rule broken, the database refusing) is recorded afterwards as `regulatory.pack.refused` with its reason code,
@@ -61,6 +65,9 @@ pack hash.
 
 ## Not built, and why
 - The console screen (WF-02).
+- A pack-aware `GET /v1/countries`: it is public, has no tenant and is the sign-up selector, so reading packs there would mean a database read per
+  request on an unauthenticated route, a pattern the API does not have. In `enforce` mode it can say ENABLED for a country the gate then refuses. The
+  right home is the authenticated coverage read of the document (`GET /coverage`, below).
 - The gate at the other entry points (business verification and sign-up, company claims, credential issuance, enterprise use): each is one call to
   `enforce_packs` once the owners agree the product and purpose of its capability. Individual verification is wired.
 - An outbox event for other systems when a pack is approved or retired (`policy_pack.approved` and so on in the document): it must be declared in
@@ -84,7 +91,13 @@ an attempt that rolled back, a refusal record with its reason code for every ref
 missing resolution is no pack, an unknown mode is an error), the start-up refusal of `off` in a deployed environment, and a guard that start, bulk start and
 reverify each call the pack gate after the country gate. `tests/component/test_policy_gate_pg.py` (10 tests, PostgreSQL): enforce and shadow, an approved
 country pack, retiring it, a draft that never opens a market, a profession-only pack, sandbox, disabled, off, a pack edited behind the application's back, and
-the clock. `tests/unit/test_policy_packs.py` also keeps the API's role
+the clock. `tests/component/test_policy_gate_http_pg.py` (7 tests, PostgreSQL, the real `POST /verifications` route and the callback check; the service behind the gate
+is a stub that records whether it was reached, so "no provider is asked" is asserted, not assumed): an enabled country with no pack is refused (422) and the
+service is never reached; an approved country pack opens it and retiring it closes it again; shadow goes on and logs; the sandbox stand-in needs no pack; a
+country the registry does not list is still answered by the country gate first; a profession-only pack needs a review; a callback is held for a missing pack,
+goes on in shadow and with an approved pack, and a closed country is still held. `tests/unit/test_verification_callback_check.py` (3 tests): an asynchronous
+check that refuses stops the callback before anything is recorded, and a synchronous one still does. `features/account/regulatory-errors.test.ts` (3 tests).
+`tests/unit/test_policy_packs.py` also keeps the API's role
 list equal to the domain's.
 
 ## Acceptance rows

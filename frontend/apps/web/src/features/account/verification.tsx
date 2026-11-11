@@ -11,6 +11,7 @@ import {
   Banner,
   Button,
   Card,
+  Code,
   CopyId,
   DataTable,
   DateTime,
@@ -23,7 +24,7 @@ import {
   humanize,
   type Column,
 } from "@zoiko/ui";
-import { Lock, ScanFace } from "lucide-react";
+import { Globe, Lock, ScanFace } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import {
@@ -39,6 +40,7 @@ import { safeNext } from "@/lib/continue";
 import { useRuntime } from "@/lib/runtime";
 
 import { DevProvider, DevSetup } from "./dev-provider";
+import { regulatoryNotice } from "./regulatory-errors";
 import { VerificationTierCard } from "./verification-tier-card";
 
 const PENDING: ReadonlySet<string> = new Set([
@@ -54,7 +56,7 @@ function isScopeError(e: unknown) {
   return e instanceof ApiError && e.code === "SCOPE_INSUFFICIENT";
 }
 
-/** SCOPE_INSUFFICIENT gets a plain explanation; everything else the uniform error view. */
+/** SCOPE_INSUFFICIENT and a country's policy pack refusal get a plain explanation; everything else the uniform error view. */
 function VerificationError({
   error,
   onRetry,
@@ -75,6 +77,19 @@ function VerificationError({
         {(error as ApiError).message.replace(/ is required\.$/, "")}). Sign out
         and sign in again; if it still happens, ask your administrator to enable
         verification for this app.
+      </Banner>
+    );
+  }
+  const notice = error instanceof ApiError ? regulatoryNotice(error.code) : null;
+  if (notice) {
+    return (
+      <Banner tone="info" icon={Globe} title={notice.title} live="polite">
+        {notice.body}
+        {(error as ApiError).correlationId ? (
+          <span className="mt-1 block text-xs">
+            Support reference: <Code>{(error as ApiError).correlationId}</Code>
+          </span>
+        ) : null}
       </Banner>
     );
   }
