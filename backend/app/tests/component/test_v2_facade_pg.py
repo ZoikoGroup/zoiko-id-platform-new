@@ -474,14 +474,21 @@ def test_the_v2_document_validation_reports_each_check_on_its_own_and_stores_not
             "BYTES_UNCHANGED_ONLY"
         ]
         assert by["issuer"]["status"] == "UNAVAILABLE"
-        assert (
-            by["signature"]["status"] == "INDETERMINATE"
-            and by["signature"]["detail"]["signatures_detected"] == 1
-        )
+        # a byte range with no readable signature behind it is reported as such: detected, never validated, never trusted
+        assert by["signature"]["status"] == "INDETERMINATE"
+        assert "SIGNATURE_UNREADABLE" in by["signature"]["reasons"]
         assert by["seal"]["status"] == "UNAVAILABLE"
         assert out["stored"] is False and out["sha256"] == body["expected_sha256"]
         # never one positive status for the document: no field says it is authentic
-        assert "authentic" not in str(out).lower().replace("not authentic", "")
+        assert not {
+            "authentic",
+            "is_authentic",
+            "document_authentic",
+            "pass",
+            "verified",
+            "valid",
+        } & set(out), "no single positive field exists"
+        assert by["issuer"]["status"] != "VERIFIED"
 
         # a tampered document, a wrong type, bad base64, and an oversize one are each refused or reported on their own
         tampered = http.post(

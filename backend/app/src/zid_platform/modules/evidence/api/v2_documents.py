@@ -26,15 +26,17 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.evidence.application import uploads
+from zid_platform.modules.evidence.application import signatures, uploads
 from zid_platform.modules.evidence.domain import documents as docs
+from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["evidence-v2"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 LIMITATIONS = [
     "A hash shows unchanged bytes, not genuine issuing authority.",
-    "An embedded signature is detected, not validated: no validator or trust list is available.",
+    "A signature is verified cryptographically and against the trust anchors this deployment configured; revocation is not checked and the signing time is the signer's own claim.",
+    "Qualified status is reported only from an authenticated trusted list; without one it is NOT_ASSESSED.",
     "A valid signature would still not mean lawful authority for the purpose.",
 ]
 
@@ -114,6 +116,11 @@ async def validate_document(
         raise ZidError(
             e.code, e.code.replace("_", " ").capitalize() + ".", http_status=status
         ) from e
+    if {"signature", "seal"} & set(
+        body.checks
+    ):  # a signed PDF is checked for real; anything else keeps the detection-only answer
+        config = getattr(request.app.state, "trust_config", None) or trust_config()
+        v = signatures.apply(v, content, config)
     validation_id: str | None = None
     if (
         upload_id is not None

@@ -27,6 +27,7 @@ CHECKS = ("integrity", "issuer", "signature", "seal")
 
 class Status(StrEnum):
     VERIFIED = "VERIFIED"
+    VERIFIED_LIMITED = "VERIFIED_LIMITED"  # true as far as it was checked, with named limitations (for example revocation not checked)
     NOT_VERIFIED = "NOT_VERIFIED"
     INDETERMINATE = "INDETERMINATE"
     UNAVAILABLE = "UNAVAILABLE"

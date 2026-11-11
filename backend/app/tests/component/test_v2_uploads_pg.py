@@ -560,3 +560,103 @@ def test_the_upload_list_is_metadata_only_newest_first_and_filterable_by_person(
             == []
         )
         assert http.get("/v2/evidence/uploads?subject_ref=nope", headers=mine).status_code == 422
+
+
+def test_a_really_signed_pdf_is_verified_through_the_api_against_the_configured_anchors(
+    rt_url: str,
+) -> None:
+    """DTV-02 end to end: upload a genuinely signed PDF, validate it by reference, and see exactly what the deployment's trust allows."""
+    import base64
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit"))
+    from pdf_signing import pki, sign_pdf
+    from zid_platform.modules.evidence.application.trust import TrustConfig
+
+    p, stranger = pki(), pki()
+    signed = sign_pdf(p)
+    tampered = sign_pdf(p, tamper_document=True)
+    with world(rt_url) as (http, mine, _tenant, _admin):
+
+        def validate(ref: str, config: TrustConfig):
+            http.app.state.trust_config = config
+            body = {
+                "evidence_ref": ref,
+                "declared_type": "application/pdf",
+                "expected_sha256": sha(signed),
+                "checks": ["integrity", "issuer", "signature", "seal"],
+            }
+            r = http.post("/v2/documents/validate", headers=mine, json=body)
+            assert r.status_code == 200, r.text
+            return {x["check"]: x for x in r.json()["document_results"]}, r.json()
+
+        up = announce(http, mine, signed, "application/pdf").json()
+        assert put(http, mine, up, signed).status_code == 201
+        ref = up["evidence_ref"]
+
+        trusted, full = validate(ref, TrustConfig(anchors=(p.root.cert,)))
+        assert trusted["signature"]["status"] == "VERIFIED_LIMITED"
+        assert {
+            "CHAIN_TO_CONFIGURED_ANCHOR",
+            "REVOCATION_NOT_CHECKED",
+            "SIGNING_TIME_NOT_TRUSTED",
+        } <= set(trusted["signature"]["reasons"])
+        assert (
+            trusted["integrity"]["status"] == "VERIFIED"
+            and trusted["issuer"]["status"] == "UNAVAILABLE"
+        ), "the issuer is still not authenticated"
+        assert (
+            trusted["seal"]["status"] == "UNAVAILABLE"
+            and trusted["seal"]["detail"]["qualified_status"] == "NOT_ASSESSED"
+        )
+        assert "signer_serial" in trusted["signature"]["detail"]["signatures"][
+            0
+        ] and "chain_certificates" not in str(full)
+
+        nothing, _ = validate(ref, TrustConfig())  # the shipped default: nothing is trusted
+        assert (
+            nothing["signature"]["status"] == "INDETERMINATE"
+            and "NO_TRUST_ANCHORS_CONFIGURED" in nothing["signature"]["reasons"]
+        )
+        other, _ = validate(ref, TrustConfig(anchors=(stranger.root.cert,)))
+        assert (
+            other["signature"]["status"] == "INDETERMINATE"
+            and "ISSUER_NOT_TRUSTED" in other["signature"]["reasons"]
+        )
+
+        # a document changed after signing: not verified, whatever is trusted
+        bad = announce(http, mine, tampered, "application/pdf").json()
+        assert put(http, mine, bad, tampered).status_code == 201
+        changed, _ = validate(bad["evidence_ref"], TrustConfig(anchors=(p.root.cert,)))
+        assert (
+            changed["signature"]["status"] == "NOT_VERIFIED"
+            and "DOCUMENT_ALTERED_AFTER_SIGNING" in changed["signature"]["reasons"]
+        )
+
+        # pasted content gets the same real check, and leaves no stored result
+        http.app.state.trust_config = TrustConfig(anchors=(p.root.cert,))
+        pasted = http.post(
+            "/v2/documents/validate",
+            headers=mine,
+            json={
+                "content_base64": base64.b64encode(signed).decode(),
+                "declared_type": "application/pdf",
+                "checks": ["signature"],
+            },
+        ).json()
+        assert (
+            pasted["stored"] is False
+            and pasted["document_results"][0]["status"] == "VERIFIED_LIMITED"
+        )
+        # the stored result is readable later, and says what it was judged against
+        stored = http.post(
+            "/v2/documents/validate",
+            headers=mine,
+            json={"evidence_ref": ref, "declared_type": "application/pdf", "checks": ["signature"]},
+        ).json()
+        later = http.get(f"/v2/documents/{stored['validation_id']}", headers=mine).json()
+        assert (
+            later["document_results"][0]["status"] == "VERIFIED_LIMITED"
+            and later["document_results"][0]["detail"]["trust_notes"]
+        )
