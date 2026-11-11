@@ -774,6 +774,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DATA-001 §6.2"
+  verify.policy_pack:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G01 jurisdiction and profession policy packs (proposed, CR-067)"
+  verify.policy_pack_approval:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G01 pack approvals bound to the pack hash (proposed, CR-067)"
   verify.provider_adapter:
     role: cell
     module: verification

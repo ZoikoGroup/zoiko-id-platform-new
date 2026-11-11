@@ -1,0 +1,48 @@
+# ZID-RCG-003 reconciliation (Step 0: Inspect)
+
+Source: *Document 03 v2.0, Global Regulatory Certification, Qualified Trust Services & Provider Accountability* (control
+ZID-RCG-003, 10 Nov 2026). The document's own rule (section 11.1 and delivery step 0): reconcile every work package to the
+current repository first, mark equivalent verified work **REUSE** with a code pointer, and build only verified gaps.
+
+**Status of this file.** A first pass from reading the country registry and keyword searches of the repository. It is not an
+audit. A row marked "not found" means the search found nothing, not that a proof of absence exists. Nothing here claims a
+feature is verified, certified or production-tested; the document's status vocabulary (VERIFIED_IN_CODE and so on) is not
+granted by this file.
+
+| Package | Deliverable (priority) | Reconciliation | Code pointer / note |
+|---|---|---|---|
+| RCG-G01 | Jurisdiction / profession applicability registry; signed policy lifecycle (P0) | **EXTEND** | Country and capability gating exists: `modules/verification/domain/countries.py`, `infrastructure/country_registry.py`, `config/country-capabilities/country-capabilities.yaml`, test `tests/unit/test_country_capabilities.py`. Missing: subdivision, profession, product, purpose; legal sources; versioned packs; approvals bound to a pack hash; maker is not approver. **Step 1 builds this** (`domain/policy_packs.py`). |
+| RCG-G02 | Legal entity / exact service qualification and license registry (P0) | **BUILD** | Only a `UK_DVS_CERTIFIED_FLOW` marker in `modules/verification/domain/providers.py`. No register-backed service record found. |
+| RCG-G03 | Partner entitlement and source authorization enforcement (P0) | **BUILD / EXTEND** | Provider adapter layer in `modules/verification`. No per-purpose, per-country entitlement record found. |
+| RCG-G04 | Professional issuer and accreditation history registry (P0) | **BUILD** | `modules/credential` is a partial base. No issuer-at-award-time record found. |
+| RCG-G05 | Practice restriction and insurance source checks (P0) | **BUILD** | Not found. |
+| RCG-G06 | Document signature and qualified trust validator adapters (P0) | **BUILD** | Not found in code (one mention in docs only). |
+| RCG-G07 | Global evidence manifest and regulated claims publisher (P0) | **EXTEND** | `modules/evidence` (ledger, receipts, bulk export); screening case replay route. Claims publisher and per-dimension manifest not found. |
+| RCG-G08 | Exact-service kill switch, impact analysis, rollback (P0) | **BUILD** | Kill switch and quarantine exist for agents and workloads (`modules/machine`), not for provider service scope. |
+| RCG-G09 | Country privacy, cross-border and biometric overlay (P0) | **EXTEND** | `config/jurisdiction-packs/` (eu-gdpr, uk-gdpr, us-ca-ccpa) and the residency code in `modules/tenant`. |
+| RCG-G10 | Regulatory release workflow and independent conformance tests (P0) | **EXTEND** | `tools/scripts/go_live_board.py`, `tools/scripts/release_gate.py` (software supply chain only), approvals in `modules/tenant`. |
+| RCG-G11 | EUDI wallet / attribute extensions (P1) | not assessed | Later. |
+| RCG-G12 | Sector / transaction monitoring, crypto approvals (P2) | not assessed | Separately regulated extension; not part of the Zoikorum launch. |
+
+## Not part of this file
+- Zoikorum, Zoiko Rooms and England Right to Rent: no mention found anywhere in the repository (zero hits).
+- The `/v2/regulatory/...` and `/v2/trust/...` routes: not checked.
+- The 48 acceptance tests (T01 to T48): only those listed under Step 1 below are implemented.
+
+## Step 1 progress (Define, G01)
+Implemented, with no API and no UI yet:
+
+- Domain (pure, no I/O): `modules/verification/domain/policy_packs.py`, tests `tests/unit/test_policy_packs.py`. Covers document
+  tests T01, T02, T03, T04, T36 and T37 at the domain level.
+- Storage: migration `verification_0005` (tables `verify.policy_pack` and `verify.policy_pack_approval`, registered in
+  `database/table-ownership.yaml` as proposed, change request CR-067), store
+  `modules/verification/infrastructure/policy_pack_store.py`, tests `tests/component/test_policy_packs_pg.py`. The database itself
+  refuses changing a published version, deleting one, editing or deleting an approval, the author approving, one person holding two
+  roles, an approval that signs another hash, and publishing without the four approvals of the current hash. A pack read back is
+  re-hashed and refused if it no longer matches what was stored.
+- The packs are platform configuration, not tenant data: no `tenant_id`, no row-level security. Runtime roles have no DELETE grant.
+- Kept inside the existing `verification` module and migration stream. A separate `regulatory` module is still open and would be
+  a move, not a rewrite.
+
+Open human decisions the document reserves for the business (section 13.1) are not decided here: legal entity per offering,
+named local legal reviewer and Privacy Officer per market, confirmed provider contracts, and the first markets and professions.
