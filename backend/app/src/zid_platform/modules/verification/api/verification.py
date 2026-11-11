@@ -32,7 +32,7 @@ from zid_errors import ZidError
 from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce
+from zid_platform.country_gate import enforce, enforce_packs
 from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.verification.application import service
 from zid_platform.modules.verification.domain.countries import Capability
@@ -78,6 +78,11 @@ def _err(e: VerificationError) -> ZidError:
 def _country_gate(request: Request, jurisdiction: str) -> None:
     """EDR-001: no identity verification in a country that has not been enabled for it (fail closed)."""
     enforce(request, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
+
+
+async def _pack_gate(request: Request, caller: Caller, jurisdiction: str) -> None:
+    """ZID-RCG-003: an enabled country also needs an approved policy pack for the market, checked before any provider is asked (T01, T02)."""
+    await enforce_packs(request, caller.ctx, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
 
 
 def _callback_country_check(request: Request, country: str) -> None:
@@ -143,6 +148,7 @@ def _session_view(s: store.VSession) -> dict[str, Any]:
 async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     _country_gate(request, body.jurisdiction)
+    await _pack_gate(request, caller, body.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),
@@ -188,6 +194,7 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
     result says started or why not. A person's short-lived handoff link is returned once, here, and never stored."""
     _scope(caller, "verification:execute")
     _country_gate(request, body.jurisdiction)
+    await _pack_gate(request, caller, body.jurisdiction)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await require_feature(
             conn,
@@ -272,6 +279,7 @@ async def reverify(
         except VerificationError as e:
             raise _err(e) from e
     _country_gate(request, old.jurisdiction)
+    await _pack_gate(request, caller, old.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),

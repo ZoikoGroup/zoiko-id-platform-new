@@ -6,22 +6,35 @@ same question the same way: is this capability open for this country, here, now?
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import Request
-from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from zid_context import RequestContext
+from zid_db import tenant_transaction
 from zid_errors import ZidError
 
+from zid_platform.api_auth import request_engine
 from zid_platform.modules.tenant.ports import declared_registration
 from zid_platform.modules.verification.ports import (
+    PACK_PURPOSE,
     SANDBOX_ENVIRONMENTS,
     Availability,
     Capability,
     CountryError,
+    PackError,
+    availability,
+    gate_decision,
+    pack_needed,
+    policy_packs,
     registry,
     require,
 )
+
+_LOG = logging.getLogger("zid.regulatory")
 
 # The national register a declaration names fixes the country of the entity (never inferred from IP or phone).
 NAMESPACE_COUNTRY = {"GB-COH": "GB"}
@@ -43,6 +56,75 @@ def enforce(request: Request, country: str, capability: Capability) -> Availabil
         )
     except CountryError as e:
         raise ZidError(e.code, str(e), http_status=422) from e
+
+
+async def check_packs(
+    engine: AsyncEngine,
+    ctx: RequestContext,
+    *,
+    mode: str,
+    environment: str,
+    reg: Any,
+    country: str,
+    capability: Capability,
+    now: datetime,
+) -> None:
+    """ZID-RCG-003 T01/T02: besides being ENABLED in the country registry, a regulated capability needs an approved policy pack for the
+    market, or it is refused before any provider is called (enforce) or only reported (shadow). The registry stays the baseline: a capability
+    that is not ENABLED there is decided by `enforce`, and no pack is read for it. The product is the capability, the purpose the standard one.
+    A pack that no longer matches its stored hash counts as no pack. Nothing here ever turns into a pass."""
+    state = availability(reg, country, capability, now=now, environment=environment)
+    if not pack_needed(mode, state):
+        return
+    resolution = None
+    failed = ""
+    try:
+        async with tenant_transaction(engine, ctx) as conn:
+            resolution = await policy_packs.governing_pack(
+                conn, country=country, product=capability.value, purpose=PACK_PURPOSE, at=now
+            )
+    except PackError as e:
+        failed = str(e)
+    decision = gate_decision(mode, state, resolution)
+    if decision.would_refuse:
+        _LOG.warning(
+            "regulatory pack check %s: %s %s in %s (%s)",
+            "refused" if not decision.allowed else "would refuse (shadow)",
+            decision.code,
+            capability.value,
+            country,
+            failed or decision.reason,
+        )
+    if not decision.allowed:
+        raise ZidError(
+            decision.code or "REGULATORY_POLICY_UNAVAILABLE",
+            (
+                f"{capability.value} in {country} needs a manual jurisdiction or policy review."
+                if decision.code == "REGULATORY_REVIEW_REQUIRED"
+                else f"No approved policy pack covers {capability.value} in {country}."
+            ),
+            http_status=422,
+        )
+
+
+async def enforce_packs(
+    request: Request, ctx: RequestContext, country: str, capability: Capability
+) -> None:
+    """The pack check for a request: the platform switch (`ZID_REGULATORY_PACKS`: off, shadow or enforce), the country registry and the
+    packs. Call it after `enforce`, before any provider is asked."""
+    mode = str(getattr(request.app.state, "regulatory_packs", "shadow"))
+    if mode == "off":
+        return
+    await check_packs(
+        request_engine(request),
+        ctx,
+        mode=mode,
+        environment=environment_of(request),
+        reg=registry(),
+        country=country,
+        capability=capability,
+        now=datetime.now(UTC),
+    )
 
 
 def namespace_country(namespace: str) -> str:

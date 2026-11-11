@@ -45,6 +45,9 @@ Implemented, with no console screen yet:
   `tests/component/test_policy_pack_service_pg.py`).
 - Operator API `modules/operator_access/api/regulatory.py` under `/v1/regulatory/...`: six new operator capabilities (author, four approver
   roles, publish) and a separation-of-duties set so the maker is never a checker; every change is audited in the platform partition (a refused attempt too); tests `tests/component/test_regulatory_api_pg.py`.
+- The gate: `country_gate.check_packs` and `enforce_packs`, rule `gate_decision`, switch `ZID_REGULATORY_PACKS` (shadow by default). The country registry
+  stays the baseline; an ENABLED capability also needs an approved pack or it is refused before the provider is asked (T01, T02). Wired at the three
+  entry points of individual verification; the other entry points are one call each once the product and purpose of their capability are agreed.
 - Kept inside the existing `verification` module and migration stream. A separate `regulatory` module is still open and would be
   a move, not a rewrite.
 

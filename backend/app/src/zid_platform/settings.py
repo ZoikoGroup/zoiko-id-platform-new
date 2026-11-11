@@ -270,6 +270,10 @@ class Settings(ServiceSettings):
     # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
     # enforce = always; off = never, which a deployed environment refuses at start-up.
     agent_builds: Literal["auto", "off", "enforce"] = "auto"
+    # ZID_REGULATORY_PACKS (ZID-RCG-003, CR-067): must a regulated capability that is ENABLED in the country registry also have an approved policy
+    # pack for the market? shadow (default) = the check runs and a would-be refusal is only logged; enforce = it is refused before any provider is
+    # called; off = never, which a deployed environment refuses at start-up. The country registry stays the baseline either way.
+    regulatory_packs: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
     # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
     # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.

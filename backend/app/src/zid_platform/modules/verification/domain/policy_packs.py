@@ -22,6 +22,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from zid_platform.modules.verification.domain.countries import Availability
+
 APPROVER_ROLES = ("legal", "grc", "security", "business_owner")
 
 
@@ -250,3 +252,44 @@ def decision_stamp(pack: PolicyPack) -> dict[str, str | int]:
 
 def stamp_matches(pack: PolicyPack, stamp: Mapping[str, str | int]) -> bool:
     return decision_stamp(pack) == dict(stamp)
+
+
+# ---- the gate: what a request is told once its country is known (ZID-RCG-003 T01, T02) -----------------------------------
+
+GATE_MODES = ("off", "shadow", "enforce")
+PACK_PURPOSE = "STANDARD"  # the purpose of the capabilities that exist today; a proposed value (CR-067), kept in one place
+
+
+@dataclass(frozen=True)
+class GateDecision:
+    allowed: bool  # may the request go on now
+    would_refuse: bool  # the pack check says no; in shadow mode the request still goes on
+    code: str | None
+    reason: str
+
+
+def pack_needed(mode: str, availability: Availability) -> bool:
+    """Whether the packs are consulted at all. The country registry stays the baseline: a capability that is not ENABLED there is decided by
+    the country gate (DISABLED is refused, SANDBOX is a development stand-in that never counts outside local and test), so no pack is read."""
+    if mode not in GATE_MODES:
+        raise PackError("PACK_GATE_MODE_UNKNOWN", mode)
+    return mode != "off" and availability is Availability.ENABLED
+
+
+def gate_decision(
+    mode: str, availability: Availability, resolution: Resolution | None
+) -> GateDecision:
+    """ENABLED in the country registry is not enough: an approved pack must also govern the request, or it is refused (enforce) or only
+    reported (shadow). No pack, no precision and no source in force never turn into a pass; a missing resolution counts as no pack."""
+    if not pack_needed(mode, availability):
+        return GateDecision(True, False, None, "off" if mode == "off" else "country_gate_decides")
+    if resolution is not None and resolution.outcome is Outcome.APPLICABLE:
+        return GateDecision(True, False, None, resolution.reason)
+    if resolution is not None and resolution.outcome is Outcome.REVIEW:
+        code, reason = "REGULATORY_REVIEW_REQUIRED", resolution.reason
+    else:
+        code, reason = (
+            "REGULATORY_POLICY_UNAVAILABLE",
+            resolution.reason if resolution else "no_resolution",
+        )
+    return GateDecision(mode == "shadow", True, code, reason)
