@@ -1,0 +1,150 @@
+# P02 approved public source registry: ENGINEERING SAMPLE spans (ZI-CHAT-CSR-008 section 05).
+# Every source is DRAFT_NOT_PUBLISHED with owner "unassigned". The spans are short, generic, standards-level explanations written so that they make
+# NO claim that Zoiko iD supports, has released or has certified anything. They exist so the retrieval and claim-verification pipeline can be
+# exercised; they are not approved publications and a production snapshot needs real, reviewed spans with a content hash per source.
+# canonical_url is informational only: user-facing links go through P03 link ids (p03_destinations.yaml), never from here.
+sources:
+  - source_id: PUB-001
+    title: "Identity, authority and evidence concepts"
+    canonical_url: "https://zoikoid.com/overview"
+    owner: unassigned
+    claim_ids: [CL-01, CL-02]
+    spans:
+      - {span_id: s1, text: "Digital trust involves three separable questions: who or what is acting (identity), what that party is allowed to do (authority), and what record shows why a decision was made (evidence)."}
+      - {span_id: s2, text: "Treating sign-in as the whole problem leaves permissions, consent and proof of decisions in separate systems that are hard to coordinate and explain."}
+  - source_id: PUB-002
+    title: "Identity use cases"
+    canonical_url: "https://zoikoid.com/enterprise"
+    owner: unassigned
+    claim_ids: [CL-01, CL-02]
+    spans:
+      - {span_id: s1, text: "Common identity use cases include workforce single sign-on, customer sign-in, partner and supplier access, developer integrations and governed access for software and AI agents."}
+      - {span_id: s2, text: "The right approach depends on who or what is being identified, which action must be authorized and what evidence is required afterwards."}
+  - source_id: PUB-003
+    title: "Layered identity architecture"
+    canonical_url: "https://zoikoid.com/architecture-guides"
+    owner: unassigned
+    claim_ids: [CL-02]
+    spans:
+      - {span_id: s1, text: "A layered identity architecture coordinates identity records, credentials, governance, policy decisions, risk signals, machine identity and developer integrations as separate but connected concerns."}
+      - {span_id: s2, text: "A description of an architecture layer states a design goal. It is not a statement that the layer is released or available to customers."}
+  - source_id: PUB-004
+    title: "Passwordless authentication and passkeys"
+    canonical_url: "https://zoikoid.com/authentication-sso"
+    owner: unassigned
+    claim_ids: [CL-03]
+    spans:
+      - {span_id: s1, text: "Passwordless sign-in replaces a typed, reusable password with a cryptographic credential, such as a passkey, held on a device or security key."}
+      - {span_id: s2, text: "A passkey uses public-key cryptography: the private key stays on the device and the service stores only the public key, which makes the sign-in resistant to phishing and credential reuse."}
+      - {span_id: s3, text: "Which devices, browsers and methods a particular product supports must be confirmed in that product's current documentation."}
+  - source_id: PUB-005
+    title: "OAuth 2.0, OpenID Connect and SAML"
+    canonical_url: "https://zoikoid.com/standards-interoperability"
+    owner: unassigned
+    claim_ids: [CL-03]
+    spans:
+      - {span_id: s1, text: "OAuth 2.0 is primarily an authorization framework that lets an application obtain limited access to resources on a user's behalf."}
+      - {span_id: s2, text: "OpenID Connect adds an identity layer on top of OAuth 2.0 so an application can learn who authenticated and how."}
+      - {span_id: s3, text: "SAML is an XML-based standard commonly used for enterprise federation and single sign-on between an identity provider and a service provider."}
+  - source_id: PUB-006
+    title: "Consent-based sharing"
+    canonical_url: "https://zoikoid.com/privacy-notice"
+    owner: unassigned
+    claim_ids: [CL-02, CL-09]
+    spans:
+      - {span_id: s1, text: "Consent-based sharing means a person is informed about a proposed use of their data and can make a choice within the applicable legal and product framework."}
+      - {span_id: s2, text: "Consent is not a substitute for every legal basis for processing, and withdrawing consent is done through the controls of the service that collected it."}
+  - source_id: PUB-007
+    title: "Authorization models and delegated authority"
+    canonical_url: "https://zoikoid.com/authorization-delegated-authority"
+    owner: unassigned
+    claim_ids: [CL-02]
+    spans:
+      - {span_id: s1, text: "Role-based access control (RBAC) grants permissions through roles assigned to people or services, while attribute-based access control (ABAC) decides using attributes of the subject, resource and context."}
+      - {span_id: s2, text: "Delegated authority defines when one person, service or organization may act for another, for a specific purpose and within defined limits."}
+      - {span_id: s3, text: "Robust designs record the scope, evidence, duration and revocation of delegated authority."}
+  - source_id: PUB-008
+    title: "Machine and workload identity"
+    canonical_url: "https://zoikoid.com/machine-agent-identity"
+    owner: unassigned
+    claim_ids: [CL-02, CL-10]
+    spans:
+      - {span_id: s1, text: "Software services, devices and workloads also need identities: each needs a verifiable identity, bounded permissions and an audit trail."}
+      - {span_id: s2, text: "Whether a particular machine-identity workflow is available is a product release question and needs a current release reference."}
+  - source_id: PUB-009
+    title: "AI agent authority"
+    canonical_url: "https://zoikoid.com/responsible-ai-agent-governance"
+    owner: unassigned
+    claim_ids: [CL-10]
+    spans:
+      - {span_id: s1, text: "An AI agent acting for a person or organization should be treated as an identifiable principal with scoped authority, lifecycle controls and revocation."}
+      - {span_id: s2, text: "Agent delegation needs a verified scope, consent where required and authority that can be revoked."}
+  - source_id: PUB-010
+    title: "Provisioning and event integrations"
+    canonical_url: "https://zoikoid.com/webhooks-events"
+    owner: unassigned
+    claim_ids: [CL-03, CL-04]
+    spans:
+      - {span_id: s1, text: "SCIM is a standard for provisioning and deprovisioning user accounts between systems."}
+      - {span_id: s2, text: "A webhook is an HTTP callback that sends an event notification to another system when something happens."}
+  - source_id: PUB-011
+    title: "Developer integration guidance"
+    canonical_url: "https://zoikoid.com/docs"
+    owner: unassigned
+    claim_ids: [CL-04]
+    spans:
+      - {span_id: s1, text: "The appropriate integration path depends on the application type, the authentication pattern, the deployment model and the identity controls required."}
+      - {span_id: s2, text: "Implementation details such as endpoints, SDK usage and credentials must come from current, published developer documentation."}
+  - source_id: PUB-012
+    title: "Digital identity wallets and cross-border interoperability"
+    canonical_url: "https://zoikoid.com/standards-interoperability"
+    owner: unassigned
+    claim_ids: [CL-05, CL-10]
+    spans:
+      - {span_id: s1, text: "A digital identity wallet lets a person store credentials and present them to relying parties of their choice."}
+      - {span_id: s2, text: "Cross-border interoperability depends on legal frameworks, technical profiles and the acceptance rules of each country and relying party."}
+  - source_id: PUB-013
+    title: "Security certification and compliance statements"
+    canonical_url: "https://zoikoid.com/trust-center"
+    owner: unassigned
+    claim_ids: [CL-06]
+    spans:
+      - {span_id: s1, text: "A certification or audit report is an independent attestation about a defined scope, entity and period; it is not implied by describing security controls."}
+      - {span_id: s2, text: "Only certifications and reports that an organization has published for the applicable service can be cited as evidence."}
+  - source_id: PUB-014
+    title: "Plans, pricing and commercial terms"
+    canonical_url: "https://zoikoid.com/pricing-overview"
+    owner: unassigned
+    claim_ids: [CL-07]
+    spans:
+      - {span_id: s1, text: "Plans, prices, service levels and trial terms apply only as stated in a current, published commercial source for the relevant market."}
+  - source_id: PUB-015
+    title: "Privacy rights requests"
+    canonical_url: "https://zoikoid.com/privacy-notice"
+    owner: unassigned
+    claim_ids: [CL-09]
+    spans:
+      - {span_id: s1, text: "Depending on the jurisdiction, people may have rights such as access, correction and deletion of their personal information."}
+      - {span_id: s2, text: "Such requests are handled through the controller's published rights-request process, which confirms the correct organization and applicable requirements."}
+  - source_id: PUB-016
+    title: "Reporting security vulnerabilities"
+    canonical_url: "https://zoikoid.com/security-contact"
+    owner: unassigned
+    claim_ids: [CL-06]
+    spans:
+      - {span_id: s1, text: "Coordinated disclosure means reporting a suspected vulnerability privately through the organization's official security channel rather than publishing details or sharing credentials."}
+  - source_id: PUB-017
+    title: "Enterprise identity onboarding"
+    canonical_url: "https://zoikoid.com/solutions-verified-onboarding"
+    owner: unassigned
+    claim_ids: [CL-02, CL-04]
+    spans:
+      - {span_id: s1, text: "Onboarding journeys often combine identification, account access, verification and permissions, and a real deployment starts with requirements discovery."}
+  - source_id: PUB-018
+    title: "Verifiable credentials"
+    canonical_url: "https://zoikoid.com/identity-guides"
+    owner: unassigned
+    claim_ids: [CL-02]
+    spans:
+      - {span_id: s1, text: "A verifiable credential is a digitally signed statement made by an issuer about a subject, which the holder can present and a verifier can check without asking the issuer each time."}
+      - {span_id: s2, text: "Verifiable credentials let a person share only the facts a verifier needs, and a verifier checks the signature, the issuer's trust status and whether the credential has been revoked."}

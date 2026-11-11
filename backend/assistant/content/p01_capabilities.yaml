@@ -1,0 +1,29 @@
+# P01 candidate capability catalogue (ZI-CHAT-CSR-008 section 04). CANDIDATES ONLY: every entry is EVIDENCE_PENDING / NOT_PUBLIC with no market
+# or audience, because public website wording is not approval, test proof, pricing evidence or jurisdictional entitlement.
+# Promotion needs the evidence named in Doc 08 (release commit, test evidence, approver, effective date) signed by the Product Release Owner.
+capabilities:
+  - {capability_id: CAP-001, display_name: "Passwordless access / passkeys", protocols: [WebAuthn, FIDO2]}  # CL-03; needs FIDO2 ceremony + RP test vectors, supported browsers, environments
+  - {capability_id: CAP-002, display_name: "MFA and risk-based step-up"}  # CL-03/06; needs factor matrix, recovery rules, step-up and negative-path tests
+  - {capability_id: CAP-003, display_name: "OIDC / OAuth 2.0 federation", protocols: [OIDC, OAuth2]}  # CL-03/04; needs discovery metadata, scopes, conformance, tenant enablement
+  - {capability_id: CAP-004, display_name: "SAML and enterprise SSO", protocols: [SAML2]}  # CL-03/04; needs metadata, signature checks, SP/IdP profiles, live runbook
+  - {capability_id: CAP-005, display_name: "SCIM provisioning and lifecycle", protocols: [SCIM2]}  # CL-03/04; needs provisioning tests, deprovisioning timing, schema and guides
+  - {capability_id: CAP-006, display_name: "KYC person verification"}  # CL-05/06; needs approved supplier/flow, proofing levels, exceptions, regions
+  - {capability_id: CAP-007, display_name: "KYB / company and ownership verification"}  # CL-05/06; needs registry coverage, beneficial owner rules, per-country basis
+  - {capability_id: CAP-008, display_name: "Professional licenses / academic qualifications"}  # CL-05/06; needs authority issuer, validity/revocation, consent and fraud checks
+  - {capability_id: CAP-009, display_name: "Reusable signed credentials / VC wallet"}  # CL-05/06; needs issuer/verifier interoperability, revocation model, release users
+  - {capability_id: CAP-010, display_name: "Consent collection and revocation"}  # CL-02/09; needs versioned notices, purpose/legal basis, user access and revocation proof
+  - {capability_id: CAP-011, display_name: "Delegated authority / representation"}  # CL-02/08; needs scope, expiry, counterparty and authorization boundary tests
+  - {capability_id: CAP-012, display_name: "Roles and policy decisions"}  # CL-03/08; needs approved role catalogue, permissions, deny tests and tenant scope
+  - {capability_id: CAP-013, display_name: "Machine and API workload identity"}  # CL-04/10; needs issuer, credential rotation, revocation and tenant identity proof
+  - {capability_id: CAP-014, display_name: "AI-agent identity and delegation"}  # CL-10; needs agent owner proof, action scope, tool denials and release entitlements
+  - {capability_id: CAP-015, display_name: "Fraud / risk scoring and behavioral signals"}  # CL-06; needs model card, provenance, consent/lawful basis, audited quality
+  - {capability_id: CAP-016, display_name: "Webhooks, SDKs and sandbox accounts"}  # CL-04; needs versioned SDK artifacts, signed docs, sample integration tests
+  - {capability_id: CAP-017, display_name: "Device trust, binding and biometric options"}  # CL-03/06; needs device/platform assurance matrix, security and privacy validation
+  - {capability_id: CAP-018, display_name: "Audit log and evidence export"}  # CL-06; needs provenance chain, audit isolation, permission model and retention
+  - {capability_id: CAP-019, display_name: "Financial services / KYC portability"}  # CL-05/07; needs partner and regulator applicability per use case and country
+  - {capability_id: CAP-020, display_name: "Telecom and marketplace verification"}  # CL-05/07; needs industry deployments, approved terms and actual pilots/releases
+  - {capability_id: CAP-021, display_name: "EUDI wallet / cross-border interoperability"}  # CL-05/10; needs wallet scheme profile, member-state acceptance and lawful basis
+  - {capability_id: CAP-022, display_name: "Global coverage, regional residency, sovereign deployment"}  # CL-05/06; needs hosted footprint, subprocessor map, legal/data residency sign-off
+  - {capability_id: CAP-023, display_name: "Free / Business / Platform offers and SLA"}  # CL-07; needs approved plan/fee limits, eligibility, effective dates, contract SLAs
+  - {capability_id: CAP-024, display_name: "ZoikoSuite / Zoikorum ecosystem integration"}  # CL-04/05; needs versioned integration contracts and product-specific release proof
+  - {capability_id: CAP-025, display_name: "Verification vendors / third-party connectors"}  # CL-04/05; needs executed contracts, permitted country use, API parity and test evidence

@@ -1,0 +1,59 @@
+# P03 official destination registry (ZI-CHAT-CSR-008 section 06). User-facing links are ONLY these ids; the server resolves them (never a URL from the model or client).
+#
+# URLs are grounded in routes that exist in the website repo (Zoiko-ID-Website, app/<route>/page.tsx) on the public site https://zoikoid.com.
+# CONFLICT NOTE: Doc 08 section 06 tells engineering not to hard-code routes such as /docs or /pricing until a human verifies ownership, TLS,
+# redirect chain and page function. These routes exist in the website code, so they are ACTIVE here for the sample, but each still needs that
+# P03 review (owner "unassigned") before a production snapshot. Authenticated product flows have no verified URL and stay SUSPENDED.
+destinations:
+  # ---------------------------------------------------------------- learn / product
+  - {link_id: OVERVIEW, label: Platform overview, url: "https://zoikoid.com/overview", purpose: LEARN, owner: unassigned}
+  - {link_id: PLATFORM-USAGE, label: How the platform is used, url: "https://zoikoid.com/platform-usage-model", purpose: LEARN, owner: unassigned}
+  - {link_id: ARCHITECTURE-GUIDES, label: Architecture guides, url: "https://zoikoid.com/architecture-guides", purpose: LEARN, owner: unassigned}
+  - {link_id: SOLUTIONS-ENTERPRISE, label: Enterprise solutions, url: "https://zoikoid.com/enterprise", purpose: LEARN, owner: unassigned}
+  - {link_id: SOLUTIONS-ONBOARDING, label: Verified onboarding solutions, url: "https://zoikoid.com/solutions-verified-onboarding", purpose: LEARN, owner: unassigned}
+  - {link_id: SOLUTIONS-AI, label: AI solutions, url: "https://zoikoid.com/solutions-ai-solutions", purpose: LEARN, owner: unassigned}
+  - {link_id: IDENTITY-GUIDES, label: Identity guides, url: "https://zoikoid.com/identity-guides", purpose: LEARN, owner: unassigned}
+  - {link_id: AUTH-GUIDE, label: Authentication and SSO guide, url: "https://zoikoid.com/authentication-sso", purpose: LEARN, owner: unassigned}
+  - {link_id: AUTHORITY-GUIDE, label: Authority explainers, url: "https://zoikoid.com/authority-explainers", purpose: LEARN, owner: unassigned}
+  - {link_id: AUTHORIZATION-GUIDE, label: Authorization and delegated authority, url: "https://zoikoid.com/authorization-delegated-authority", purpose: LEARN, owner: unassigned}
+  - {link_id: MACHINE-IDENTITY, label: Machine and agent identity, url: "https://zoikoid.com/machine-agent-identity", purpose: LEARN, owner: unassigned}
+  - {link_id: MACHINE-GUIDES, label: Machine and agent identity guides, url: "https://zoikoid.com/machine-agent-identity-guides", purpose: LEARN, owner: unassigned}
+  - {link_id: AI-AGENT-SECURITY, label: AI agent security, url: "https://zoikoid.com/ai-agent-security", purpose: LEARN, owner: unassigned}
+  - {link_id: AI-AGENT-GOVERNANCE, label: Responsible AI agent governance, url: "https://zoikoid.com/responsible-ai-agent-governance", purpose: LEARN, owner: unassigned}
+  - {link_id: STANDARDS-INTEROP, label: Standards and interoperability, url: "https://zoikoid.com/standards-interoperability", purpose: LEARN, owner: unassigned}
+  # ---------------------------------------------------------------- developers
+  - {link_id: DEVELOPER-DOCS, label: Developer documentation, url: "https://zoikoid.com/docs", purpose: DEVELOP, owner: unassigned}
+  - {link_id: API-REFERENCE, label: API reference, url: "https://zoikoid.com/api-reference", purpose: DEVELOP, owner: unassigned}
+  - {link_id: QUICKSTARTS, label: Quickstarts, url: "https://zoikoid.com/quickstarts", purpose: DEVELOP, owner: unassigned}
+  - {link_id: SANDBOX, label: Sandbox, url: "https://zoikoid.com/sandbox", purpose: DEVELOP, owner: unassigned}
+  - {link_id: INTEGRATIONS, label: APIs and integrations, url: "https://zoikoid.com/apis-integrations", purpose: DEVELOP, owner: unassigned}
+  - {link_id: WEBHOOKS-EVENTS, label: Webhooks and events, url: "https://zoikoid.com/webhooks-events", purpose: DEVELOP, owner: unassigned}
+  - {link_id: CHANGELOG, label: Changelog, url: "https://zoikoid.com/changelog", purpose: DEVELOP, owner: unassigned}
+  # ---------------------------------------------------------------- trust, security, privacy
+  - {link_id: TRUST-CENTER, label: Trust Center, url: "https://zoikoid.com/trust-center", purpose: TRUST, owner: unassigned}
+  - {link_id: ASSURANCE-STANDARDS, label: Assurance and compliance standards, url: "https://zoikoid.com/assurance-compliance-standards", purpose: TRUST, owner: unassigned}
+  - {link_id: SECURITY-OVERVIEW, label: Security overview, url: "https://zoikoid.com/security", purpose: SECURITY, owner: unassigned}
+  - {link_id: SECURITY-CONTACT, label: Security contact and reporting, url: "https://zoikoid.com/security-contact", purpose: SECURITY, owner: unassigned}
+  - {link_id: SECURITY-ADVISORIES, label: Security advisories, url: "https://zoikoid.com/security-advisories", purpose: SECURITY, owner: unassigned}
+  - {link_id: PRIVACY-NOTICE, label: Privacy notice, url: "https://zoikoid.com/privacy-notice", purpose: PRIVACY, owner: unassigned}
+  - {link_id: COOKIE-SETTINGS, label: Cookie settings, url: "https://zoikoid.com/legal-privacy-cookie-settings", purpose: PRIVACY, owner: unassigned}
+  # ---------------------------------------------------------------- sales, support, status
+  - {link_id: PRICING, label: Pricing overview, url: "https://zoikoid.com/pricing-overview", purpose: SALES, owner: unassigned}
+  - {link_id: TALK-TO-SALES, label: Talk to sales, url: "https://zoikoid.com/talk-to-sales", purpose: SALES, owner: unassigned}
+  - {link_id: TALK-TO-EXPERT, label: Talk to an expert, url: "https://zoikoid.com/talk-to-an-expert", purpose: SALES, owner: unassigned}
+  - {link_id: PROCUREMENT, label: Procurement and enterprise, url: "https://zoikoid.com/procurement-enterprise", purpose: SALES, owner: unassigned}
+  - {link_id: HELP-SUPPORT, label: Help and support, url: "https://zoikoid.com/help-support", purpose: SUPPORT, owner: unassigned}
+  - {link_id: CONTACT, label: Contact, url: "https://zoikoid.com/contact", purpose: SUPPORT, owner: unassigned}
+  - {link_id: STATUS, label: Availability and status, url: "https://zoikoid.com/availability-status", purpose: SUPPORT, owner: unassigned}
+  - {link_id: ACCESSIBILITY, label: Accessibility, url: "https://zoikoid.com/accessibility", purpose: SUPPORT, owner: unassigned}
+  # ---------------------------------------------------------------- SUSPENDED: no verified URL (never invent one)
+  # The URLs below are NOT known. The url is a `.invalid` placeholder (never resolvable) only so the schema validates; the state SUSPENDED means the
+  # resolver refuses to open them and the widget hides the action until Product/Web verify the real destination (OD-006).
+  - {link_id: SIGN-IN, label: Official sign-in, url: "https://unverified.invalid/", purpose: SIGN_IN, state: SUSPENDED, secure_route: true, owner: unassigned}  # NO VERIFIED AUTH ROUTE (Doc 08 LNK-SIGNIN)
+  - {link_id: VERIFICATION, label: Official verification process, url: "https://unverified.invalid/", purpose: VERIFY, state: SUSPENDED, secure_route: true, owner: unassigned}  # NO VERIFIED ROUTE (LNK-VERIFICATION); no document upload in chat
+  - {link_id: ACCOUNT-RECOVERY, label: Official account recovery, url: "https://unverified.invalid/", purpose: SIGN_IN, state: SUSPENDED, secure_route: true, owner: unassigned}  # NO VERIFIED ROUTE
+  - {link_id: CONSENT-CONTROLS, label: Consent controls, url: "https://unverified.invalid/", purpose: PRIVACY, state: SUSPENDED, secure_route: true, owner: unassigned}  # authenticated product feature; no verified route
+  - {link_id: DEVELOPER-CONSOLE, label: Developer console, url: "https://unverified.invalid/", purpose: DEVELOP, state: SUSPENDED, secure_route: true, owner: unassigned}  # authenticated console; no verified route
+  - {link_id: PRIVACY-REQUEST, label: Privacy rights request, url: "https://unverified.invalid/", purpose: PRIVACY, state: SUSPENDED, owner: unassigned}  # no verified rights-request route; pending Doc 09 / OD-012
+  - {link_id: ASSISTANT-LIMITATIONS, label: About this assistant, url: "https://unverified.invalid/", purpose: LEARN, state: SUSPENDED, owner: unassigned}  # no page documents the assistant yet (KB-026 CTA)
+  - {link_id: REGION-AVAILABILITY, label: Regional availability, url: "https://unverified.invalid/", purpose: LEARN, state: SUSPENDED, owner: unassigned}  # no verified per-country availability page; STATUS is service status only

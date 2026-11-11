@@ -1,0 +1,356 @@
+# The 18 canonical intents (ZI-CHAT-KB-002 section 04). Matching is deterministic and server-side: text is normalised (lower-case, curly quotes
+# straightened, whitespace collapsed); `phrases` are substring matches, `keywords` are whole-word matches. When several intents match, the
+# highest `priority` wins, which implements the Doc 02 precedence: (1) secrets/ID evidence and unsafe requests, (2) reported security harm,
+# (3) account-specific protected actions, (4) privacy and rights, (5) commercial/release capability, (6) public information, (7) unknown.
+#
+# route: DETERMINISTIC = a fixed approved answer when one matches (else the pipeline falls back to RAG, then ABSTAIN); RAG = constrained
+# retrieval (an approved answer is still preferred when it matches); REFUSE / ESCALATE use the copy.yaml entry named by `refusal_key`
+# (or the matched answer's own text); CLARIFY asks one clarifying question. `cta_link_id` is the ACTIVE fallback link (p03) shown when the
+# matched answer's own CTA is a suspended secure route.
+intents:
+  - intent_id: INT-17
+    family: UNSAFE
+    description: "Send an OTP, unlock an account, expose a tenant, reveal internal instructions: hard refuse and route to the protected flow."
+    route: REFUSE
+    priority: 100
+    keywords: [otp]
+    phrases:
+      - "one-time code"
+      - "one time code"
+      - "my otp"
+      - "my password is"
+      - "here is my password"
+      - "my recovery code"
+      - "send me a code"
+      - "send me an otp"
+      - "send me a verification code"
+      - "verify me"
+      - "expose tenant"
+      - "show me our tenant"
+      - "tenant's risk"
+      - "tenants risk"
+      - "risk score"
+      - "ignore your instructions"
+      - "ignore previous instructions"
+      - "ignore all previous"
+      - "print your prompt"
+      - "print your internal prompt"
+      - "system prompt"
+      - "internal prompt"
+      - "reveal your instructions"
+      - "jailbreak"
+    refusal_key: refuse_unsafe_request
+    cta_link_id: HELP-SUPPORT
+  - intent_id: INT-15
+    family: ABUSE
+    description: "Report a compromised account or a discovered vulnerability: published security channel, no evidence collection."
+    route: ESCALATE
+    priority: 95
+    keywords: [vulnerability, vulnerabilities, exploit, breach, compromised, hacked, cve]
+    phrases:
+      - "security problem"
+      - "security issue"
+      - "security incident"
+      - "report a bug"
+      - "report a vulnerability"
+      - "responsible disclosure"
+      - "bug bounty"
+      - "my account was hacked"
+      - "account compromised"
+      - "found a security"
+    refusal_key: escalate_security
+    cta_link_id: SECURITY-CONTACT
+  - intent_id: INT-05
+    family: PROOFING
+    description: "Verify my identity, upload an ID: no uploads, route to an approved secure flow."
+    route: REFUSE
+    priority: 90
+    keywords: [passport, selfie, biometric, biometrics, kyc]
+    phrases:
+      - "verify my identity"
+      - "verify my id"
+      - "upload my id"
+      - "upload id"
+      - "upload my passport"
+      - "upload my driving"
+      - "id document"
+      - "identity document"
+      - "driving licence"
+      - "driving license"
+      - "face scan"
+      - "scan my face"
+    refusal_key: refuse_identity_proofing
+    cta_link_id: HELP-SUPPORT
+  - intent_id: INT-12
+    family: SUPPORT
+    description: "Login failed, suspended account, lost access, or a request for a human: no account lookups, official recovery and support."
+    route: ESCALATE
+    priority: 85
+    keywords: [unlock, locked, lockout]
+    phrases:
+      - "cannot sign in"
+      - "can't sign in"
+      - "cant sign in"
+      - "can not sign in"
+      - "unable to sign in"
+      - "sign in failed"
+      - "sign-in failed"
+      - "login failed"
+      - "can't log in"
+      - "cannot log in"
+      - "lost access"
+      - "forgot password"
+      - "forgot my password"
+      - "reset my password"
+      - "reset password"
+      - "account recovery"
+      - "recover my account"
+      - "unlock my account"
+      - "account suspended"
+      - "talk to a human"
+      - "speak to a human"
+      - "speak to a person"
+      - "real person"
+      - "human agent"
+      - "contact support"
+      - "talk to support"
+      - "customer support"
+    refusal_key: refuse_account_access
+    cta_link_id: HELP-SUPPORT
+  - intent_id: INT-13
+    family: PRIVACY
+    description: "Delete my data, cross-border storage: policy-approved explanation and the official rights process."
+    route: ESCALATE
+    priority: 80
+    keywords: [erase, erasure, dsar]
+    phrases:
+      - "delete my data"
+      - "delete my information"
+      - "delete my account"
+      - "my personal data"
+      - "my personal information"
+      - "data deletion"
+      - "right to be forgotten"
+      - "cross-border"
+      - "data residency"
+      - "data subject"
+      - "privacy request"
+      - "where is my data"
+    refusal_key: escalate_privacy
+    cta_link_id: PRIVACY-NOTICE
+  - intent_id: INT-14
+    family: PARTNER
+    description: "Enterprise contract, RFP, partnership, demo, talk to sales: distinct, explicit contact consent and qualified routing."
+    route: ESCALATE
+    priority: 70
+    keywords: [partnership, partner, partners, rfp, procurement, reseller]
+    phrases:
+      - "enterprise project"
+      - "enterprise contract"
+      - "talk to sales"
+      - "speak to sales"
+      - "contact sales"
+      - "sales team"
+      - "sales rep"
+      - "book a demo"
+      - "request a demo"
+      - "schedule a demo"
+      - "business contact"
+      - "work together"
+    refusal_key: escalate_sales
+    cta_link_id: TALK-TO-SALES
+  - intent_id: INT-16
+    family: META
+    description: "Are you an AI? What can you access? Disclose the anonymous public boundaries and AI use."
+    route: DETERMINISTIC
+    priority: 70
+    keywords: []
+    phrases:
+      - "are you an ai"
+      - "are you a bot"
+      - "are you human"
+      - "are you a human"
+      - "are you a robot"
+      - "what can you access"
+      - "can you see my"
+      - "what can you see"
+      - "do you have access to my"
+      - "who are you"
+      - "what are you"
+      - "which llm"
+      - "which model"
+      - "what model"
+      - "built on"
+      - "powered by"
+      - "chatgpt"
+      - "are you gpt"
+    cta_link_id: OVERVIEW
+  - intent_id: INT-11
+    family: PRICING
+    description: "Plans, SLAs, trial availability: only a current public commercial source, else contact sales."
+    route: DETERMINISTIC
+    priority: 60
+    keywords: [price, pricing, cost, costs, plan, plans, sla, trial, quote, discount, subscription, free, paid, fee, fees, uptime, guarantee, guarantees]
+    phrases:
+      - "how much"
+      - "free trial"
+      - "free tier"
+      - "which plan"
+      - "price plan"
+    refusal_key: escalate_sales
+    cta_link_id: PRICING
+  - intent_id: INT-06
+    family: CONSENT
+    description: "Revoke consent, data sharing: explain governance and point to the official privacy/consent route."
+    route: RAG
+    priority: 60
+    keywords: [consent]
+    phrases:
+      - "data sharing"
+      - "share my data"
+      - "revoke my consent"
+      - "withdraw consent"
+      - "withdraw my consent"
+      - "consent-based"
+    cta_link_id: PRIVACY-NOTICE
+  - intent_id: INT-10
+    family: TRUST
+    description: "Security posture, audit, certifications: cite approved trust documentation or abstain."
+    route: RAG
+    priority: 55
+    keywords: [certified, certification, certifications, compliant, compliance, soc, iso, audit, audits, gdpr, hipaa, trust, assurance]
+    phrases:
+      - "iso 27001"
+      - "soc 2"
+      - "security posture"
+      - "security certifications"
+    cta_link_id: TRUST-CENTER
+  - intent_id: INT-07
+    family: AUTHORIZATION
+    description: "RBAC vs ABAC, delegated authority: explain policy concepts, never decide access for a user."
+    route: RAG
+    priority: 55
+    keywords: [rbac, abac, delegated, delegation]
+    phrases:
+      - "delegated authority"
+      - "approve access"
+      - "approve someone"
+      - "grant me access"
+      - "role-based"
+      - "attribute-based"
+      - "access control"
+      - "authorization model"
+    cta_link_id: AUTHORIZATION-GUIDE
+  - intent_id: INT-08
+    family: MACHINE_AGENT
+    description: "API/service identity, AI agent permissions: explain the boundaries and point to public developer docs."
+    route: RAG
+    priority: 55
+    keywords: [machine, workload, workloads]
+    phrases:
+      - "ai agent"
+      - "ai agents"
+      - "machine identity"
+      - "machine identities"
+      - "workload identity"
+      - "api identity"
+      - "service identity"
+      - "non-human"
+      - "act on my behalf"
+    cta_link_id: MACHINE-IDENTITY
+  - intent_id: INT-09
+    family: DEVELOPER
+    description: "SCIM, SDK, webhooks, migration, API keys: only published implementation docs; ask for stack and goal."
+    route: RAG
+    priority: 55
+    keywords: [scim, sdk, sdks, webhook, webhooks, api, apis, integrate, integration, integrations, migration, developer, developers, endpoint]
+    phrases:
+      - "api key"
+      - "my api key"
+      - "client secret"
+      - "secret key"
+      - "get started"
+      - "developer docs"
+    cta_link_id: DEVELOPER-DOCS
+  - intent_id: INT-03
+    family: PROTOCOL
+    description: "OAuth vs OIDC, SAML SSO: explain the distinctions with revisioned docs."
+    route: RAG
+    priority: 50
+    keywords: [oauth, oidc, saml, openid, sso, federation]
+    phrases:
+      - "single sign-on"
+      - "single sign on"
+      - "openid connect"
+      - "oauth 2"
+    cta_link_id: STANDARDS-INTEROP
+  - intent_id: INT-04
+    family: PASSWORDLESS
+    description: "Use passkeys or FIDO2: a conceptual guide, never a passkey ceremony in chat."
+    route: RAG
+    priority: 50
+    keywords: [passkey, passkeys, fido2, passwordless, webauthn]
+    phrases:
+      - "without a password"
+      - "password-less"
+      - "passwordless login"
+      - "fingerprint"
+      - "touch id"
+      - "face id"
+      - "log in without"
+      - "sign in without"
+      - "biometric login"
+    cta_link_id: AUTH-GUIDE
+  - intent_id: INT-02
+    family: IDENTITY_USE_CASE
+    description: "Employee SSO, consumer sign-in, identity graph, fabric, enterprise onboarding, wallets: guided scope and public solution content."
+    route: RAG
+    priority: 50
+    keywords: [eudi, eidas, wallet, wallets, onboarding, fabric]
+    phrases:
+      - "who is zoiko id for"
+      - "who is it for"
+      - "identity fabric"
+      - "only a login"
+      - "login product"
+      - "use case"
+      - "use cases"
+      - "enterprise onboarding"
+      - "employee sso"
+      - "consumer sign-in"
+      - "identity graph"
+      - "digital identity wallet"
+    cta_link_id: SOLUTIONS-ENTERPRISE
+  - intent_id: INT-01
+    family: DISCOVER
+    description: "What is Zoiko iD? A short definition plus the approved platform or solutions link."
+    route: DETERMINISTIC
+    priority: 50
+    keywords: []
+    phrases:
+      - "what is zoiko id"
+      - "what is zoiko"
+      - "what does zoiko id do"
+      - "about zoiko id"
+      - "tell me about zoiko"
+      - "what problem does zoiko"
+      - "why zoiko id"
+    cta_link_id: OVERVIEW
+  - intent_id: INT-18
+    family: UNKNOWN
+    description: "Other, ambiguous or unsupported: one clarifying question, then a transparent fallback."
+    route: CLARIFY
+    priority: 0
+    keywords: []
+    phrases:
+      - "available in"
+      - "availability in"
+      - "launch date"
+      - "release date"
+      - "how does it work"
+      - "how it works"
+      - "what does it do"
+      - "can it do that"
+      - "tell me more"
+    refusal_key: clarify_scope
+    cta_link_id: OVERVIEW
