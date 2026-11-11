@@ -1,13 +1,13 @@
 # Local workload listener (compose profile `workload`): the one place a workload's SPIFFE identity is checked on the way in. The same design as
-# deploy/gcp-vm/Caddyfile.workload; only the upstream differs, because here the cell runs from source on the host (port 8010).
+# deploy/gcp-vm/Caddyfile.workload; only the upstream differs: here the cell is the `backend` container of this compose project, on its one port, 8000.
 #
 #   * mutual TLS: a connection without a client certificate signed by the local SPIRE CA is refused in the handshake;
 #   * the verified certificate is forwarded as base64 DER in X-Forwarded-Client-Cert, REPLACING anything the client sent;
 #   * the attestation endpoint is not served here (the attestor calls the cell directly).
 #
-# The cell trusts a forwarded certificate from 127.0.0.1 (how this container reaches it on Docker Desktop) AND only when the request carries the
-# secret in .proxy/proxy_auth, which only this container and the cell can read. An address alone would let any process on this machine present a
-# certificate it only copied. (A deployed cell trusts one fixed private address and the same kind of secret: deploy/gcp-vm.)
+# The cell trusts a forwarded certificate only from this container's fixed address (172.30.0.250, ZID_MESH_TRUSTED_PROXIES) AND only when the request
+# carries the secret in .proxy/proxy_auth, which only this container and the cell can read. An address alone would let any container on the network present a
+# certificate it only copied. (A deployed cell does the same: deploy/gcp-vm.)
 {
 	admin off
 	auto_https disable_redirects
@@ -28,9 +28,9 @@ https://workload.localhost:9443 {
 	}
 
 	handle {
-		reverse_proxy host.docker.internal:8010 {
-			# uvicorn believes X-Forwarded-For from 127.0.0.1 (how this container reaches the cell) and would replace the address the cell trusts
-			# with the listener's own client. Not sending it keeps the peer the listener's address.
+		reverse_proxy backend:8000 {
+			# Not forwarding X-Forwarded-For keeps the peer the cell sees the listener's own address, which is the one it trusts, instead of an address
+			# the client could choose.
 			header_up -X-Forwarded-For
 			# the proof that this really is the listener: the cell believes a forwarded certificate only from a trusted address that also presents this
 			header_up X-Zid-Proxy-Auth {file./run/secrets/proxy_auth}

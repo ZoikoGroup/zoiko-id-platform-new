@@ -15,6 +15,7 @@ __all__ = [
     "DEPENDENCY_UNAVAILABLE",
     "INTERNAL_ERROR",
     "NOT_FOUND",
+    "PROBLEM_CODES",
     "VALIDATION_FAILED",
     "ErrorBody",
     "ErrorDetail",
@@ -22,6 +23,7 @@ __all__ = [
     "Meta",
     "SuccessEnvelope",
     "ZidError",
+    "problem_document",
 ]
 
 API_VERSION = "v1"
@@ -105,3 +107,45 @@ NOT_FOUND = "NOT_FOUND"
 VALIDATION_FAILED = "VALIDATION_FAILED"
 INTERNAL_ERROR = "INTERNAL_ERROR"
 DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# RFC 9457 Problem Details for the /v2 surface (ZID-INT-002 section 14). The canonical envelope above stays the /v1 contract.
+
+# this platform's stable code -> (public problem `code`, title)
+PROBLEM_CODES: dict[str, tuple[str, str]] = {
+    "VALIDATION_FAILED": ("invalid_request", "Invalid request"),
+    "IDEMPOTENCY_KEY_REUSED": (
+        "idempotency_conflict",
+        "Idempotency key reused with a different request",
+    ),
+    "IDEMPOTENCY_IN_PROGRESS": (
+        "incompatible_state",
+        "The original request is still being processed",
+    ),
+    "PACK_UNAVAILABLE": ("unsupported_market", "Verification route unavailable"),
+    "SOURCE_NOT_COVERED": ("unsupported_market", "Verification route unavailable"),
+    "SOURCE_CONTRACT_NOT_IN_FORCE": ("unsupported_market", "Verification route unavailable"),
+    "DEPENDENCY_UNAVAILABLE": ("provider_unavailable", "Provider unavailable"),
+    "RATE_LIMITED": ("quota_exceeded", "Quota exceeded"),
+    "UNAUTHENTICATED": ("unauthenticated", "Unauthenticated"),
+    "FORBIDDEN": ("scope_forbidden", "Scope forbidden"),
+    "NOT_FOUND": ("not_found", "Not found"),
+}
+
+
+def problem_document(
+    code: str, status: int, detail: str, *, trace_id: str
+) -> tuple[int, dict[str, Any]]:
+    """An RFC 9457 problem. An unsupported market is always 422 and never a positive result (section 14)."""
+    public, title = PROBLEM_CODES.get(code, (code.lower(), code.replace("_", " ").capitalize()))
+    if public == "unsupported_market":
+        status = 422
+    return status, {
+        "type": f"https://api.zoikoid.com/problems/{public.replace('_', '-')}",
+        "title": title,
+        "status": status,
+        "code": public,
+        "trace_id": trace_id,
+        "detail": detail,
+    }

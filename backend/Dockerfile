@@ -63,12 +63,12 @@ COPY --chown=zid:zid app/migrations /app/migrations
 COPY --chown=zid:zid policies /app/policies
 # Crypto Policy Registry and other reviewed platform configuration (DEC-F5/F6), read-only.
 COPY --chown=zid:zid config /app/config
-ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell,global \
+ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 ZID_ROLES=cell \
     ZID_MIGRATIONS_DIR=/app/migrations ZID_POLICY_DIR=/app/policies \
     ZID_CRYPTO_POLICY_REGISTRY=/app/config/crypto-profiles/crypto-policy-registry.yaml \
     ZID_JURISDICTION_PACKS=/app/config/jurisdiction-packs ZID_PLATFORM_CONFIG=/app/config
 USER zid
-EXPOSE 8000 8100
+EXPOSE 8000
 # Healthy only if EVERY configured role answers /health/live on its port.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
   CMD python -c "from zid_platform.entrypoints.supervisor import plan; import os,sys,urllib.request; sys.exit(0 if all(urllib.request.urlopen(f'http://127.0.0.1:{p.port}/health/live', timeout=2).status==200 for p in plan(os.environ)) else 1)"

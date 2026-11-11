@@ -7,6 +7,10 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.credential.application.trust_service import recheck_due
+
+__all__ = ["credentials_issued_between", "recheck_due"]
+
 
 async def credentials_issued_between(
     conn: AsyncConnection, start: datetime, end: datetime

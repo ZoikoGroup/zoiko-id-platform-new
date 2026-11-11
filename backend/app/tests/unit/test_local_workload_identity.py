@@ -43,7 +43,7 @@ def test_the_attestor_holds_its_own_key_and_a_read_only_engine_socket_and_no_oth
     assert "env_file" not in ATTESTOR
     cmd = [str(c) for c in ATTESTOR["command"]]
     assert "--registered-docker" in cmd and "--docker-socket=/var/run/docker.sock" in cmd
-    assert any(c.startswith("--cell=http://host.docker.internal:8010/") for c in cmd)
+    assert any(c.startswith("--cell=http://backend:8000/") for c in cmd)  # the cell is the backend container, on its one port
 
 
 def test_the_private_key_and_the_registration_with_your_digests_cannot_be_committed() -> None:

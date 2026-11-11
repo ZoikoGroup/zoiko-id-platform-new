@@ -474,8 +474,20 @@
     "credential.domain": {
       "address": "zid.{env}.{region}.credential.domain",
       "messages": {
+        "credential_claim_appealed": {
+          "$ref": "#/components/messages/credential_claim_appealed"
+        },
+        "credential_claim_checked": {
+          "$ref": "#/components/messages/credential_claim_checked"
+        },
+        "credential_claim_recheck_due": {
+          "$ref": "#/components/messages/credential_claim_recheck_due"
+        },
         "credential_configuration_activated": {
           "$ref": "#/components/messages/credential_configuration_activated"
+        },
+        "credential_eligibility_decided": {
+          "$ref": "#/components/messages/credential_eligibility_decided"
         },
         "credential_issuance_started": {
           "$ref": "#/components/messages/credential_issuance_started"
@@ -652,6 +664,22 @@
         }
       }
     },
+    "eligibility.domain": {
+      "address": "zid.{env}.{region}.eligibility.domain",
+      "messages": {
+        "eligibility_recomputed": {
+          "$ref": "#/components/messages/eligibility_recomputed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "environment.priority": {
       "address": "zid.{env}.{region}.environment.priority",
       "messages": {
@@ -781,6 +809,9 @@
         },
         "evidence_receipt_verified": {
           "$ref": "#/components/messages/evidence_receipt_verified"
+        },
+        "evidence_retention_action": {
+          "$ref": "#/components/messages/evidence_retention_action"
         },
         "evidence_retention_deleted": {
           "$ref": "#/components/messages/evidence_retention_deleted"
@@ -1740,6 +1771,22 @@
         }
       }
     },
+    "screening.domain": {
+      "address": "zid.{env}.{region}.screening.domain",
+      "messages": {
+        "screening_signal_raised": {
+          "$ref": "#/components/messages/screening_signal_raised"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "security.domain": {
       "address": "zid.{env}.{region}.security.domain",
       "messages": {
@@ -2011,6 +2058,9 @@
         },
         "verification_assertion_expired": {
           "$ref": "#/components/messages/verification_assertion_expired"
+        },
+        "verification_case_completed": {
+          "$ref": "#/components/messages/verification_case_completed"
         },
         "verification_completed": {
           "$ref": "#/components/messages/verification_completed"
@@ -2804,6 +2854,39 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "credential_claim_appealed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.appealed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person appealed or asked for correction of a claim check; ids only.",
+        "title": "credential.claim.appealed",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
+      },
+      "credential_claim_checked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.checked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A credential claim was checked against a source; carries the check id, claim type and decision only, never a claimed value.",
+        "title": "credential.claim.checked",
+        "x-zid-source": "ZID-GAP-001 v2.0 GID-037; CR-069",
+        "x-zid-status": "proposed"
+      },
+      "credential_claim_recheck_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.recheck.due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only.",
+        "title": "credential.claim.recheck.due",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
+      },
       "credential_configuration_activated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.credential.configuration.activated.v1",
@@ -2814,6 +2897,17 @@
         "title": "credential.configuration.activated",
         "x-zid-source": "ZID-VC-001",
         "x-zid-status": "catalogued"
+      },
+      "credential_eligibility_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.eligibility.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An eligibility or engagement decision was made for a subject; carries the decision id, outcome and policy ref, never a credential value.",
+        "title": "credential.eligibility.decided",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
       },
       "credential_issuance_started": {
         "contentType": "application/cloudevents+json",
@@ -2861,14 +2955,14 @@
       },
       "credential_status_changed": {
         "contentType": "application/cloudevents+json",
-        "name": "com.zoiko.id.credential.status.changed.v1",
+        "name": "com.zoiko.id.credential.status_changed.v1",
         "payload": {
           "$ref": "#/components/schemas/CloudEvent"
         },
-        "summary": "Known credential status changed.",
-        "title": "credential.status.changed",
-        "x-zid-source": "ZID-VC-001",
-        "x-zid-status": "catalogued"
+        "summary": "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only.",
+        "title": "credential.status_changed",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
       },
       "cross_cell_transfer_authorized": {
         "contentType": "application/cloudevents+json",
@@ -3133,6 +3227,17 @@
         "title": "dr.exercise.completed",
         "x-zid-source": "ZID-RESILIENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "eligibility_recomputed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.eligibility.recomputed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person's eligibility or engagement decision for the same policy changed from the previous one; ids, the two outcomes, reason codes and the policy reference only.",
+        "title": "eligibility.recomputed",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "environment_quarantined": {
         "contentType": "application/cloudevents+json",
@@ -3419,6 +3524,17 @@
         "title": "evidence.receipt.verified",
         "x-zid-source": "ZID-EVIDENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "evidence_retention_action": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.retention_action.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Uploaded evidence was deleted or expired and its bytes erased; the reference, the action and the time only. It never claims a provider or backup deleted anything.",
+        "title": "evidence.retention_action",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "evidence_retention_deleted": {
         "contentType": "application/cloudevents+json",
@@ -5169,6 +5285,17 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "screening_signal_raised": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.signal.raised.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A fraud or adverse-media signal opened a review item that is waiting for a person (review id, source, rule and risk tier only; no hash, count or name).",
+        "title": "screening.signal.raised",
+        "x-zid-source": "ZID-GAP-001 WP-14; CR-068",
+        "x-zid-status": "proposed"
+      },
       "security_exception_created": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.security.exception.created.v1",
@@ -5641,6 +5768,17 @@
         "title": "verification.assertion.revoked",
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_case_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.case.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Every check of a verification case has its own outcome; ids, state and per-check outcomes only.",
+        "title": "verification.case.completed",
+        "x-zid-source": "ZID-INT-002 sections 04 and 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "verification_completed": {
         "contentType": "application/cloudevents+json",
@@ -6252,6 +6390,13 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_eligibility_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/eligibility.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_environment_priority": {
       "action": "send",
       "channel": {
@@ -6536,6 +6681,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/sbom.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_screening_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/screening.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

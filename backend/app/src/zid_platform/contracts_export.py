@@ -54,11 +54,29 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD SCIM 2.0 Provisioning API",
     ),
     OPENAPI / "public" / "verification.json": (
-        ("/verifications", "/verification-", "/principals/"),
+        ("/verifications", "/verification-", "/principals/", "/v2/age-checks"),
         "Zoiko iD Identity Verification and Assurance API",
     ),
     OPENAPI / "public" / "credentials.json": (
-        ("/presentations", "/credentials", "/credential-", "/relying-party-registrations"),
+        (
+            "/presentations",
+            "/credentials",
+            "/credential-",
+            "/relying-party-registrations",
+            "/v1/credentials",
+            "/v1/credential-packs",
+            "/v2/capabilities",
+            "/v2/coverage",
+            "/v2/credentials",
+            "/v2/eligibility",
+            "/v2/zoikorum",
+            "/v2/issuer-checks",
+            "/v2/presentations",
+            "/v2/verifications",
+            "/v1/issuers",
+            "/v1/eligibility",
+            "/v1/consumers",
+        ),
         "Zoiko iD Verifiable Credentials API (OID4VP verifier, OID4VCI issuer)",
     ),
     OPENAPI / "public" / "signals.json": (
@@ -66,7 +84,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Security Signals and Shared Signals API",
     ),
     OPENAPI / "public" / "evidence.json": (
-        ("/v1/evidence/",),
+        ("/v1/evidence/", "/v2/evidence/", "/v2/documents"),
         "Zoiko iD Evidence, Audit and Provenance API (receipts, proofs, replay, export, legal holds)",
     ),
     OPENAPI / "public" / "privacy.json": (
@@ -113,7 +131,13 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Tenant Lifecycle and Administration API (bootstrap, roles, owners, lifecycle, approvals)",
     ),
     OPENAPI / "public" / "onboarding.json": (
-        ("/v1/onboarding/", "/v1/org-claims", "/v1/reviews/", "/v1/registration/"),
+        (
+            "/v1/onboarding/",
+            "/v1/org-claims",
+            "/v1/reviews/",
+            "/v1/registration/",
+            "/v2/organizations",
+        ),
         "Zoiko iD Tenant Onboarding API (organization gate, gates, plans, shadow, pilot, rollback)",
     ),
     OPENAPI / "public" / "integration.json": (
@@ -125,7 +149,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Machine Identity API (agents, blueprints, tools, SPIFFE bindings, environment quarantine)",
     ),
     OPENAPI / "public" / "webhooks.json": (
-        ("/v1/webhooks/",),
+        ("/v1/webhooks/", "/v2/webhook-endpoints", "/v2/events"),
         "Zoiko iD Webhook API (endpoints, verification, deliveries, replay)",
     ),
     OPENAPI / "public" / "notification.json": (

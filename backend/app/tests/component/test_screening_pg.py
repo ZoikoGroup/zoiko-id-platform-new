@@ -154,7 +154,7 @@ def test_lists_cases_alerts_review_rescreening_isolation_and_idempotency(rt_url:
                 _, claims = verify_jws(rows[0].jws, keys=[SIGNER.public_jwk()], typ=TYP)
                 assert claims["evidence_hash"] == rows[0].evidence_hash
                 assert {x["list_id"] for x in claims["lists"]} == {
-                    lid.value for lid in ListId if lid is not ListId.LOCAL
+                    lid.value for lid in ListId if lid not in (ListId.LOCAL, ListId.PEP)
                 }
                 blob = repr(claims) + repr(rows[0].body)
                 for private in ("Alice", "Olivia", "Smith", "Acme"):

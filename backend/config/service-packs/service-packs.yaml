@@ -1,0 +1,20 @@
+# Service packs (ZID-GAP-001 v2.0 GID-036, section 07.1). Versioned configuration, not tenant data.
+# status: PROPOSED (CR-069). Nothing below is a live service: every pack here is DESIGN, which serves local and test
+# environments only (the simulated source). A deployed environment has no usable pack, so every credential check is
+# refused there until an owner adds a LIVE_PROVEN or PARTNER_ONLY pack with its legal basis, sources, residency,
+# retention and review rules, QA gate and a matching policy_hash (docs/qa/global-trust-wave0-matrix.md, Wave 1).
+# version: 0.1.0
+#
+# feature_state: LIVE_PROVEN | PARTNER_ONLY | STAGING | DESIGN | BLOCKED. Anything not listed is UNAVAILABLE.
+# disabled_countries: ISO 3166-1 alpha-2 codes switched off whatever packs say.
+
+version: 0.1.0
+disabled_countries: []
+packs:
+  - {pack_id: sim-academic, version: 1, country_iso2: US, service_code: academic.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-license, version: 1, country_iso2: US, service_code: license.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-certification, version: 1, country_iso2: US, service_code: credential.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-employment, version: 1, country_iso2: US, service_code: employment.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-cpd, version: 1, country_iso2: US, service_code: cpd.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-insurance, version: 1, country_iso2: US, service_code: insurance.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}
+  - {pack_id: sim-disciplinary, version: 1, country_iso2: US, service_code: disciplinary.verify, feature_state: DESIGN, data_residency_region: local, allowed_processing_regions: [local], valid_from: "2026-11-11"}

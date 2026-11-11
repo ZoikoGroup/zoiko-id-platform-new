@@ -1,13 +1,21 @@
 # Local workload identity (development only)
 
-Lets a real container get a real token from the cell that runs from source on this machine: a SPIRE identity at the listener, the attestor looking at the
-running container, and the cell deciding. The same design as `deploy/gcp-vm` (README section 9), with the cell on the host instead of in a container.
+Lets a real container get a real token from the cell (the `backend` container, port 8000, the only port): a SPIRE identity at the listener, the attestor looking at the
+running container, and the cell deciding. The same design as `deploy/gcp-vm` (README section 9). The listener has the fixed address 172.30.0.250 in the compose network and the
+attestor posts to `http://backend:8000`.
 
 ## One-time setup
 ```bash
 docker compose --profile spire up -d              # then: sh local/spire/bootstrap.sh   (SPIRE server and agent)
+                                                  # bootstrap.sh rewrites local/spire/bundle.pem: the listener and the backend read it only at start-up, so RESTART
+                                                  # them after it (docker compose restart workload-edge backend), or the token request fails with SVID_CHAIN_INVALID
 sh local/workload/setup.sh                        # the attestor's key and local/workload/workloads.json
-python ~/.zoiko/launch_stack.py cell              # restart the cell: it now trusts the attestor's public key and the listener
+# Tell the cell about them: add these to the backend's `environment` in docker-compose.override.yml (not in the repository), then restart the backend:
+#   ZID_MESH_TRUSTED_PROXIES: '["172.30.0.250"]'                 # the listener's fixed address
+#   ZID_MESH_PROXY_SECRET_FILE: /run/proxy/proxy_auth
+#   ZID_ATTESTOR_KEYS_FILE: /run/attestor/attestor_keys.json
+#   ZID_SPIFFE_TRUST_DOMAIN: local-1.local.id.zoiko
+#   ZID_SPIFFE_BUNDLE_FILES: '{"local-1.local.id.zoiko": "/app/spire/bundle.pem"}'
 docker compose --profile workload up -d workload-edge attestor
 ```
 
@@ -19,7 +27,7 @@ The whole chain (who holds which grant, what each step refuses without) is in [d
 3. **Workload identity** → register a binding for the agent. The SPIFFE ID is built for you; note it.
 4. **SPIRE:** let the workload have that identity: `docker exec zoiko-id-spire-server-1 /opt/spire/bin/spire-server entry create -parentID spiffe://local-1.local.id.zoiko/node/local -spiffeID <the id> -selector unix:uid:<the container's user id>`.
 5. **Registration file:** in `local/workload/workloads.json` put that SPIFFE ID, `"environment_id": "prod"` and the container's selectors. Do not type the digest: run
-   `python -m zid_platform.entrypoints.attestor_sync --workspace <company> --registrations local/workload/workloads.json --write` (needs `ZID_CELL_DATABASE_URL`, as the launcher sets it).
+   `python -m zid_platform.entrypoints.attestor_sync --workspace <company> --registrations local/workload/workloads.json --write` (needs `ZID_CELL_DATABASE_URL`: the compose Postgres on `localhost:5432`, database `zid_cell`).
 6. **Run it:** it is already running as `payments-agent` (user id 10001, so the SPIRE selector is `unix:uid:10001`). The attestor logs `attested … level 2: 200 OK`. To run your own software instead, replace the image or start your own container with the name, label and user id the registration file names.
 7. The workload presents its SPIRE identity to `https://workload.localhost:9443/v1/machine/workload-token` and receives a token bound to that identity.
 

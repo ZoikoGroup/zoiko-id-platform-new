@@ -1,0 +1,11 @@
+# Certified provider registry (ZID-GAP-001 v2.0 DTV-07, DTV-14, DTV-15; Document 03). Versioned configuration, not tenant data.
+# status: PROPOSED (CR-069). NO certification is listed. Zoiko iD holds none today, and no partner certification has been
+# verified and recorded, so every claim of certification is refused. A record is added only with the independent evidence:
+#   - record_id, entity (ZOIKO or the partner's legal entity), scheme and scheme_version (for example UK_DVS, EU_QTSP),
+#     country, service_code, certificate_ref, valid_from, valid_until, status (ACTIVE | SUSPENDED | WITHDRAWN | EXPIRED);
+#   - component_only: true when the certification covers part of a service, which never supports a claim of the full service.
+# A service pack that names a regulatory scheme is unavailable unless a record for that scheme, place and service is in force.
+# version: 0.1.0
+
+version: 0.1.0
+certifications: []

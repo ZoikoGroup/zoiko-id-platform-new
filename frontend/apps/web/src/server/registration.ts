@@ -1,18 +1,21 @@
 import "server-only";
 
 import { server } from "@/server/bff";
-import { readCookie } from "@zoiko/auth-bff";
+import { applyDevice, readCookie, type DeviceIdentity } from "@zoiko/auth-bff";
 
 import { errorJson, sameOrigin, workspaceCookies } from "@/server/workspace";
 
 /** Relays the person-first sign-up calls to the cell's public /v1/registration routes (ZID-UX-WF-013A). Nothing here decides anything:
  * the cell validates every field again, derives the region, tenant and status, and answers every caller the same way. The body is never
  * logged, and only the fields each call takes are forwarded. */
-async function toCell(path: string, init: RequestInit): Promise<Response | { res: Response; payload: Record<string, unknown> }> {
+async function toCell(path: string, init: RequestInit, device: DeviceIdentity): Promise<Response | { res: Response; payload: Record<string, unknown> }> {
   const { env } = server();
+  // The device id is the server's own (cookie or newly minted); one the browser sent is never believed.
+  const headers = new Headers(init.headers);
+  applyDevice(headers, device);
   let res: Response;
   try {
-    res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}${path}`, { ...init, cache: "no-store" });
+    res = await fetch(`${env.cellApiUrl.replace(/\/$/, "")}${path}`, { ...init, headers, cache: "no-store" });
   } catch {
     return errorJson(503, "SERVICE_UNAVAILABLE", "The service is temporarily unavailable.");
   }
@@ -26,11 +29,12 @@ function reply(res: Response, payload: unknown, extra?: string[]): Response {
   return new Response(JSON.stringify(payload), { status: res.status, headers });
 }
 
-export async function get(path: string, params: Record<string, string | null>, extra: string[] = []): Promise<Response> {
+export async function get(req: Request, path: string, params: Record<string, string | null>, extra: string[] = []): Promise<Response> {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) q.set(k, v);
-  const out = await toCell(`${path}${q.size ? `?${q}` : ""}`, { method: "GET", headers: { accept: "application/json" } });
-  return out instanceof Response ? out : reply(out.res, out.payload, extra);
+  const device = server().bff.device(req);
+  const out = await toCell(`${path}${q.size ? `?${q}` : ""}`, { method: "GET", headers: { accept: "application/json" } }, device);
+  return out instanceof Response ? out : reply(out.res, out.payload, [...extra, ...(device.setCookie ? [device.setCookie] : [])]);
 }
 
 type Body = Record<string, unknown>;
@@ -59,10 +63,11 @@ export async function post(req: Request, path: string, fields: string[], opts: {
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
   const key = req.headers.get("idempotency-key");
   if (key) headers["idempotency-key"] = key;
-  const out = await toCell(path, { method: "POST", headers, body: JSON.stringify(forward) });
+  const device = server().bff.device(req);
+  const out = await toCell(path, { method: "POST", headers, body: JSON.stringify(forward) }, device);
   if (out instanceof Response) return out;
   const cookies = out.res.ok && opts.onOk ? opts.onOk(out.payload) : [];
-  return reply(out.res, out.payload, cookies);
+  return reply(out.res, out.payload, [...cookies, ...(device.setCookie ? [device.setCookie] : [])]);
 }
 
 /** After the link is redeemed, point this browser at the account's console client so the passkey it creates next belongs to that

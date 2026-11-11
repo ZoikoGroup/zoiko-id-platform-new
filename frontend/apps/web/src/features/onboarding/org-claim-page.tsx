@@ -311,7 +311,7 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
           const step = nextStep(s);
           return (
             <div className="space-y-6">
-              {s.outcome === "VERIFIED" && !s.closed_at && welcome ? (
+              {s.outcome === "VERIFIED" && !s.closed_at && welcome && !s.development_shortcut ? (
                 <AutoContinue to="/overview" title="Your company is verified" once={`claim-verified:${s.claim_id}`}>
                   Every check is complete. Taking you to your workspace.
                 </AutoContinue>

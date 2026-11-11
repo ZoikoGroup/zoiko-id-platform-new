@@ -176,7 +176,10 @@ async def create(
     jurisdiction: str,
     now: datetime,
     response_mode: str = "direct_post",
+    ttl: timedelta = REQUEST_TTL,
 ) -> dict[str, Any]:
+    """`ttl` may only SHORTEN the request's life (a caller asks for less exposure, never more); it is clamped to REQUEST_TTL."""
+    ttl = max(timedelta(seconds=1), min(ttl, REQUEST_TTL))
     require_role("VERIFIER")
     if response_mode not in RESPONSE_MODES:
         raise CredentialError("RESPONSE_MODE_UNSUPPORTED")
@@ -228,7 +231,7 @@ async def create(
             "dcql_query": _dcql(config, requested),
             "client_metadata": client_metadata,
             "iat": iat,
-            "exp": iat + int(REQUEST_TTL.total_seconds()),
+            "exp": iat + int(ttl.total_seconds()),
         },
         typ=REQUEST_TYP,
         extra_header={"x5c": list(settings.x5c)} if settings.x5c else None,
@@ -248,7 +251,7 @@ async def create(
             "state": state,
             "request_jwt": request_jwt,
             "created_at": now,
-            "expires_at": now + REQUEST_TTL,
+            "expires_at": now + ttl,
             "response_mode": response_mode,
             "response_key": response_key,
         },
@@ -269,7 +272,7 @@ async def create(
         "authorization_request": "openid4vp://?"
         + urlencode({"client_id": settings.client_id, "request_uri": request_uri}),
         "claims": list(requested),
-        "expires_at": (now + REQUEST_TTL).isoformat(),
+        "expires_at": (now + ttl).isoformat(),
     }
 
 
