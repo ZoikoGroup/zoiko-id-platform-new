@@ -6,6 +6,7 @@
     publish_pack   DRAFT to APPROVED, only with a source in force and the four approvals of the current hash
     retire_pack    APPROVED to RETIRED; rolling back is retiring the newer version, so the last approved one governs again
     governing_pack which approved pack governs a request, failing closed (UNAVAILABLE / REVIEW, never a default pass)
+    list_packs / get_pack   reads for the operator console
 
 Who may call these (a catalogued action, step-up) is the API's job and is not built here. No audit event is emitted yet: an event
 must be declared in the event catalogue first. A pack whose stored hash no longer matches raises `PACK_STORED_HASH_MISMATCH`
@@ -35,6 +36,22 @@ async def _get(conn: AsyncConnection, pack_id: str, version: int) -> PolicyPack:
     if pack is None:
         raise PackError("PACK_NOT_FOUND", f"{pack_id} v{version}")
     return pack
+
+
+async def list_packs(
+    conn: AsyncConnection,
+    *,
+    country: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+) -> list[PolicyPack]:
+    if status is not None and status not in {s.value for s in PackStatus}:
+        raise PackError("PACK_STATUS_UNKNOWN", status)
+    return await store.list_packs(conn, country=country, status=status, limit=limit)
+
+
+async def get_pack(conn: AsyncConnection, pack_id: str, version: int) -> PolicyPack:
+    return await _get(conn, pack_id, version)
 
 
 async def open_draft(conn: AsyncConnection, pack: PolicyPack, *, now: datetime) -> PolicyPack:

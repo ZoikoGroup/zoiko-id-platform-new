@@ -296,6 +296,7 @@ def create_app(
         )
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
+        from .modules.operator_access.api.regulatory import router as regulatory_router
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
@@ -381,6 +382,7 @@ def create_app(
             commercial_admin_router,
             commercial_finance_router,
             commercial_payment_ops_router,
+            regulatory_router,
             communication_router,
         ):
             app.include_router(router)

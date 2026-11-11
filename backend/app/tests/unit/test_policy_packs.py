@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from zid_platform.modules.verification.domain.policy_packs import (
@@ -32,7 +33,7 @@ PEOPLE = {"legal": "lena", "grc": "gus", "security": "sam", "business_owner": "b
 
 
 def _source(status: SourceStatus = SourceStatus.LAW, **kw: object) -> LegalSource:
-    base = {
+    base: dict[str, Any] = {
         "instrument": "Example Act 2024",
         "url": "https://example.test/act",
         "status": status,
@@ -42,7 +43,7 @@ def _source(status: SourceStatus = SourceStatus.LAW, **kw: object) -> LegalSourc
         "owner": "legal-team",
     }
     base.update(kw)
-    return LegalSource(**base)  # type: ignore[arg-type]
+    return LegalSource(**base)
 
 
 def _draft(
@@ -52,7 +53,7 @@ def _draft(
     sources: tuple[LegalSource, ...] | None = None,
     **key: object,
 ) -> PolicyPack:
-    k = {
+    k: dict[str, Any] = {
         "country": "GB",
         "product": "PROFESSIONAL_ELIGIBILITY",
         "purpose": "ENGAGEMENT",
@@ -62,7 +63,7 @@ def _draft(
     k.update(key)
     return PolicyPack(
         pack_id=pack_id,
-        key=PackKey(**k),  # type: ignore[arg-type]
+        key=PackKey(**k),
         version=version,
         status=PackStatus.DRAFT,
         sources=(_source(),) if sources is None else sources,
@@ -327,3 +328,21 @@ def test_t37_a_decision_stamp_keeps_pointing_at_the_version_it_used() -> None:
     assert stamp_matches(v1, stamp)
     assert not stamp_matches(v2, stamp)
     assert stamp["version"] == 1 and stamp["pack_hash"] == pack_hash(v1)
+
+
+def test_the_operator_api_uses_the_domains_approver_roles_and_real_capabilities() -> None:
+    """The API lists the four roles itself (a load-time import of the module would close a dependency cycle), so keep them equal."""
+    from zid_platform.modules.operator_access.api import regulatory as api
+    from zid_platform.modules.operator_access.domain.model import CAPABILITIES, CONFLICT_SETS
+
+    assert api.APPROVER_ROLES == APPROVER_ROLES
+    assert set(api.APPROVE) == set(APPROVER_ROLES)
+    wanted = {api.AUTHOR, api.PUBLISH, *api.APPROVE.values()}
+    assert wanted <= set(CAPABILITIES)
+    maker_vs_checker = next(
+        r for r in CONFLICT_SETS if r.name == "regulatory-pack-maker-vs-checker"
+    )
+    assert maker_vs_checker.capabilities == {
+        api.AUTHOR,
+        *api.APPROVE.values(),
+    }  # publishing is not in the set

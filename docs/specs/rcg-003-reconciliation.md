@@ -30,7 +30,7 @@ granted by this file.
 - The 48 acceptance tests (T01 to T48): only those listed under Step 1 below are implemented.
 
 ## Step 1 progress (Define, G01)
-Implemented, with no API and no UI yet:
+Implemented, with no console screen yet:
 
 - Domain (pure, no I/O): `modules/verification/domain/policy_packs.py`, tests `tests/unit/test_policy_packs.py`. Covers document
   tests T01, T02, T03, T04, T36 and T37 at the domain level.
@@ -41,6 +41,10 @@ Implemented, with no API and no UI yet:
   roles, an approval that signs another hash, and publishing without the four approvals of the current hash. A pack read back is
   re-hashed and refused if it no longer matches what was stored.
 - The packs are platform configuration, not tenant data: no `tenant_id`, no row-level security. Runtime roles have no DELETE grant.
+- Service `modules/verification/application/policy_packs.py` (draft, revise, sign, publish, retire, governing pack; tests
+  `tests/component/test_policy_pack_service_pg.py`).
+- Operator API `modules/operator_access/api/regulatory.py` under `/v1/regulatory/...`: six new operator capabilities (author, four approver
+  roles, publish) and a separation-of-duties set so the maker is never a checker; tests `tests/component/test_regulatory_api_pg.py`.
 - Kept inside the existing `verification` module and migration stream. A separate `regulatory` module is still open and would be
   a move, not a rewrite.
 

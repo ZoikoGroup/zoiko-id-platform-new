@@ -60,7 +60,7 @@ def _rules_to_json(r: Rules) -> dict[str, Any]:
         "evidence_minimum": list(r.evidence_minimum),
         "alternate_routes": list(r.alternate_routes),
         "lawful_basis": r.lawful_basis,
-        "expiry_days": r.expiry_days,
+        "validity_days": r.validity_days,
         "escalation": r.escalation,
     }
 
@@ -228,6 +228,28 @@ async def load_latest(conn: AsyncConnection, pack_id: str) -> PolicyPack | None:
     return _pack(
         row, (await _approvals(conn, [(row.pack_id, row.version)]))[(row.pack_id, row.version)]
     )
+
+
+async def list_packs(
+    conn: AsyncConnection,
+    *,
+    country: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+) -> list[PolicyPack]:
+    """Versions newest first, optionally for one country or one status. Bounded: the caller names a limit up to 500."""
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_PACK_COLUMNS} FROM verify.policy_pack "
+                "WHERE (CAST(:c AS text) IS NULL OR country = :c) AND (CAST(:s AS text) IS NULL OR status = :s) "
+                "ORDER BY created_at DESC, pack_id, version DESC LIMIT :n"
+            ),
+            {"c": country.upper() if country else None, "s": status, "n": max(1, min(limit, 500))},
+        )
+    ).all()
+    approvals = await _approvals(conn, [(r.pack_id, r.version) for r in rows])
+    return [_pack(r, approvals[(r.pack_id, r.version)]) for r in rows]
 
 
 async def load_approved(

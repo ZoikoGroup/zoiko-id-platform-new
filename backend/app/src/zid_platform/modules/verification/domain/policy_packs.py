@@ -79,7 +79,7 @@ class Rules:
     evidence_minimum: tuple[str, ...]
     alternate_routes: tuple[str, ...] = ()
     lawful_basis: str = ""
-    expiry_days: int | None = None
+    validity_days: int | None = None
     escalation: str | None = None
 
 

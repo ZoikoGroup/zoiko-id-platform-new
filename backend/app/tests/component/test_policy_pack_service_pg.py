@@ -129,7 +129,7 @@ def test_a_revision_is_a_new_draft_and_rolling_back_is_retiring_it(rt_url: str) 
     async def governing_version(c: Any) -> int:
         r = await _governing(c, m, subdivision="GB-ENG", profession="nurse")
         assert r.pack is not None
-        return r.pack.version
+        return int(r.pack.version)
 
     async def revise_and_publish(c: Any) -> tuple[int, int]:
         await _publish(c, v1)
