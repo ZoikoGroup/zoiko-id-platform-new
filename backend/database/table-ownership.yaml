@@ -884,6 +884,16 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 GID-058/060 (expiry, freshness and source ordering); CR-069"
+  cred.verification_case:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 sections 04 and 05.1 (a case groups separate checks; references only); CR-071"
+  cred.verification_case_task:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 sections 04 and 05.1 (one task and one outcome per check; never one pass); CR-071"
   cred.source_dead_letter:
     role: cell
     module: credential

@@ -294,3 +294,17 @@ def test_the_contract_shape_keeps_the_five_facts_as_separate_keys():
     assert c["assurance_tier"] == "PRIMARY_SOURCE_CONFIRMED"
     assert c["decision"] == "VERIFIED"
     assert c["subject_match"] == {"decision": "MATCHED"}
+
+
+def test_t06_a_document_with_no_conferral_source_is_neither_verified_nor_false():
+    """ZID-INT-002 T06: a diploma that looks valid but that no source was asked about stays undetermined."""
+    a = _facts(
+        source=SourceResult.NOT_QUERIED,
+        evidence=EvidenceTier.SELF_DECLARED,
+        authenticity=Authenticity.UNKNOWN,
+        status=CredentialStatus.UNKNOWN,
+        subject=SubjectMatch.NOT_CHECKED,
+        source_fields={},
+    )
+    assert a.decision is Decision.INDETERMINATE and a.reason_codes == ("PRIMARY_SOURCE_NOT_CONFIRMED",)
+    assert a.primary_source_verified is False and a.assurance_tier is EvidenceTier.SELF_DECLARED

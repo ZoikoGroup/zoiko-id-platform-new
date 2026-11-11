@@ -52,6 +52,7 @@ RESOURCES = [
     "engagement:*",
     "outreach:*",
     "decision_receipt:*",
+    "verification-case:*",
 ]
 BODY = {
     "credential_type": "professional_license",

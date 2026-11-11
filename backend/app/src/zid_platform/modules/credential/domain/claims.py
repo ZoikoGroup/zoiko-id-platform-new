@@ -235,6 +235,10 @@ def decide(
                 "NO_SOURCE_CAN_CONFIRM",
             )  # lack of a record is not fraud
         return Decision.NOT_VERIFIED, ("SOURCE_HAS_NO_RECORD",)
+    if source is SourceResult.NOT_QUERIED:
+        # nobody was asked, so nothing was found: a document alone is "pending or limited", never a negative verdict on the
+        # person (ZID-INT-002 section 15 and T06)
+        return Decision.INDETERMINATE, ("PRIMARY_SOURCE_NOT_CONFIRMED",)
     if evidence < EvidenceTier.PRIMARY_SOURCE_CONFIRMED:
         # a scan, an OCR read or a valid signature alone: integrity at best, never a source-confirmed pass
         return Decision.NOT_VERIFIED, ("PRIMARY_SOURCE_NOT_CONFIRMED",)

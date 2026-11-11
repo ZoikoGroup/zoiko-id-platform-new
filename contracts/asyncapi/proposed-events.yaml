@@ -16,6 +16,12 @@ events:
     source: ZID-GAP-001 v2.0; CR-069
     lane: domain
     source_status: "proposed"
+  verification.case.completed:
+    cloudevents_type: com.zoiko.id.verification.case.completed.v1
+    meaning: "Every check of a verification case has its own outcome; ids, state and per-check outcomes only."
+    source: ZID-INT-002 sections 04 and 13; CR-071
+    lane: domain
+    source_status: "proposed"
   credential.claim.recheck.due:
     cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
     meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."

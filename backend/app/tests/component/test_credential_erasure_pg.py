@@ -1,4 +1,4 @@
-﻿"""Governed erasure of a person's credential-check data (credential_0008, the credential privacy adapter).
+"""Governed erasure of a person's credential-check data (credential_0008, the credential privacy adapter).
 
 The guards stay: an ordinary DELETE or UPDATE is still refused. `cred.erase_subject` is the one controlled path, it is scoped to the
 caller's tenant and to one subject, it is idempotent, and it turns its bypass flag off again before it returns.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -16,6 +16,7 @@ from conftest import ctx, engine
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from zid_db import tenant_transaction
+from zid_platform.modules.credential.application import case_service
 from zid_platform.modules.credential.application import claim_checks as checks
 from zid_platform.modules.credential.application import trust_service as svc
 from zid_platform.modules.credential.infrastructure import privacy_adapter as adapter
@@ -35,6 +36,8 @@ TABLES = (
     "eligibility_decision",
     "claim_appeal",
     "outreach_request",
+    "verification_case",
+    "verification_case_task",
 )
 LIC = {
     "license_ref": "L-1",
@@ -94,6 +97,12 @@ async def populate(c, tenant: str, subject: str) -> str:
                             contacts=("registrar@sample-university.example",), days=5, now=NOW, subject=subject,
                             claim={"fields": {"institution": "Sample University", "program": "BSc Computing", "award_status": "CONFERRED"},
                                    "jurisdiction": {"country": "US"}, "profession": None})  # fmt: skip
+    await case_service.open_case(
+        c, tenant_id=tenant, subject=subject, purpose="X", country="US", subdivision=None, profile_id="p",
+        profile_version="1", consent_ref=None, callback_endpoint_id=None, client_ref=None,
+        checks=["identity", "license"], policy_packs=[], created_by=subject, created_at=NOW,
+        expires_at=NOW + timedelta(days=1),
+    )  # fmt: skip
     return r.check_id
 
 
@@ -106,6 +115,8 @@ async def counts(c, subject: str) -> dict[str, int]:
         "eligibility_decision": "SELECT count(*) FROM cred.eligibility_decision WHERE subject_principal_id = :s",
         "claim_appeal": "SELECT count(*) FROM cred.claim_appeal a JOIN cred.claim_check c USING (check_id) WHERE c.subject_principal_id = :s",
         "outreach_request": "SELECT count(*) FROM cred.outreach_request WHERE subject_principal_id = :s",
+        "verification_case": "SELECT count(*) FROM cred.verification_case WHERE subject_principal_id = :s",
+        "verification_case_task": "SELECT count(*) FROM cred.verification_case_task t JOIN cred.verification_case v USING (case_id) WHERE v.subject_principal_id = :s",
     }
     return {k: (await c.execute(text(v), {"s": s})).scalar_one() for k, v in q.items()}
 
@@ -182,7 +193,7 @@ def test_erasure_is_idempotent_and_refuses_another_tenant(rt_url: str) -> None:
                         {"t": uuid.UUID(t1), "s": uuid.UUID(a)},
                     )
                 ).scalar_one()
-                assert n1 >= 6 and n2 == 0
+                assert n1 >= 9 and n2 == 0
             with pytest.raises(DBAPIError):  # a caller in tenant 2 cannot name tenant 1
                 async with tenant_transaction(eng, ctx(t2)) as c:
                     await c.execute(
@@ -239,5 +250,6 @@ def test_every_credential_check_table_is_registered_with_the_privacy_data_map() 
         "cred.eligibility_decision",
         "cred.claim_appeal",
         "cred.outreach_request",
+        "cred.verification_case",
     ):
         assert store in names, store

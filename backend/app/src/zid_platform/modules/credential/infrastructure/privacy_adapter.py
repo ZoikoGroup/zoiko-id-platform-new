@@ -25,6 +25,7 @@ GRANT_STORE = "cred.consent_grant"
 DECISION_STORE = "cred.eligibility_decision"
 APPEAL_STORE = "cred.claim_appeal"
 OUTREACH_STORE = "cred.outreach_request"
+CASE_STORE = "cred.verification_case"
 
 
 async def _locate(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
@@ -113,6 +114,13 @@ _CHECK_STORES = {
         "credential.outreach_request",
         "VERIFY_CLAIM",
     ),
+    CASE_STORE: (
+        text(
+            "SELECT case_id AS ref, created_at FROM cred.verification_case WHERE subject_principal_id = :p"
+        ),
+        "credential.verification_case",
+        "VERIFY_CLAIM",
+    ),
 }
 
 _CHECK_EXPORTS = {
@@ -135,6 +143,9 @@ _CHECK_EXPORTS = {
     OUTREACH_STORE: text(
         "SELECT issuer_id, claim_type, state, outcome, created_at, deadline, concluded_at "
         "FROM cred.outreach_request WHERE request_id = :r"
+    ),
+    CASE_STORE: text(
+        "SELECT purpose, country, state, created_at, expires_at, closed_at FROM cred.verification_case WHERE case_id = :r"
     ),
 }
 

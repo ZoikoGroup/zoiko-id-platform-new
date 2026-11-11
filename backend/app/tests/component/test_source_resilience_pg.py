@@ -171,3 +171,34 @@ def test_without_a_policy_one_failure_is_still_just_unavailable(rt_url: str) -> 
             ] == {"fault": "SOURCE_ERROR", "attempts": 1}
 
     run(go())
+
+
+def test_t32_an_unavailable_source_never_closes_the_door_on_an_appeal(rt_url: str) -> None:
+    """ZID-INT-002 T32: when the source cannot be asked, the person can still appeal and the check is never edited."""
+    from zid_platform.modules.credential.application import trust_service as svc
+
+    tenant, subject, s = uid(), uid(), Sleepless()
+    src = FlakySim(100)
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            r = await check(c, tenant, subject, src, resilience(s))
+            assert r.assertion.decision.value == "SOURCE_UNAVAILABLE"
+            before = (
+                await c.execute(text("SELECT assertion::text FROM cred.claim_check"))
+            ).scalar_one()
+            appeal = await svc.raise_appeal(
+                c,
+                tenant_id=tenant,
+                check_id=r.check_id,
+                raised_by=subject,
+                reason="the register was down",
+                correction={},
+            )
+            assert appeal
+            after = (
+                await c.execute(text("SELECT assertion::text FROM cred.claim_check"))
+            ).scalar_one()
+            assert before == after, "an appeal never edits the check it is about"
+
+    run(go())

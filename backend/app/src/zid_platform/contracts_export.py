@@ -71,6 +71,8 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v2/eligibility",
             "/v2/zoikorum",
             "/v2/issuer-checks",
+            "/v2/presentations",
+            "/v2/verifications",
             "/v1/issuers",
             "/v1/eligibility",
             "/v1/consumers",

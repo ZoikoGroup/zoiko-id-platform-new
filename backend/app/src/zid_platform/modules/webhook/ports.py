@@ -18,3 +18,14 @@ async def searchable_endpoints(conn: AsyncConnection) -> list[tuple[str, str, st
     return [
         (e["endpoint_id"], e["url"], f"webhook · {e['status']}") for e in await list_endpoints(conn)
     ]
+
+
+async def endpoint_is_active(conn: AsyncConnection, endpoint_id: str) -> bool:
+    """Is this webhook endpoint one of the tenant's own and ACTIVE? A callback is only ever a pre-authorized destination."""
+    from zid_platform.modules.webhook.domain.webhooks import WebhookError
+    from zid_platform.modules.webhook.infrastructure.endpoint_store import load_endpoint
+
+    try:
+        return str((await load_endpoint(conn, endpoint_id))["status"]) == "ACTIVE"
+    except (WebhookError, ValueError):
+        return False
