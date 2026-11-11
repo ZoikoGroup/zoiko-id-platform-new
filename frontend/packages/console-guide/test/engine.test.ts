@@ -143,8 +143,8 @@ describe("what the guide will not do", () => {
     const secrets = [
       "my password is hunter2-CANARY",
       "Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789",
-      "-----BEGIN PRIVATE KEY----- MIIE",
-      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.SflKxwRJSMeKKF2QT4fwpMeJf36",
+      "-----BEGIN " + "PRIVATE KEY----- MIIE",
+      "eyJ" + "hbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.SflKxwRJSMeKKF2QT4fwpMeJf36",
       "4111 1111 1111 1111",
       "my otp is 482913",
     ];

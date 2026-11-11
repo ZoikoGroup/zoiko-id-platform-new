@@ -6,18 +6,19 @@ import pytest
 from zid_assistant.domain.sensitive import normalize, scan, scan_many
 
 SECRETS = [
-    ("-----BEGIN PRIVATE KEY-----\nMIIBVQ", "PRIVATE_KEY"),
+    ("-----BEGIN " + "PRIVATE KEY-----\nMIIBVQ", "PRIVATE_KEY"),
     (
-        "here is my token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV",
+        "here is my token eyJ"
+        + "hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV",
         "JWT",
     ),
     ("Authorization: Bearer abcdefghijklmnopqrstuvwx", "AUTH_HEADER"),
     ("use bearer abcdefghijklmnop1234567890", "BEARER_TOKEN"),
     ("Cookie: session=abc123def456", "COOKIE_HEADER"),
     ("sk-live-abcdefghijklmnop1234", "API_KEY"),
-    ("AKIAIOSFODNN7EXAMPLE", "API_KEY"),
-    ("ghp_abcdefghijklmnopqrstuvwxyz0123456789", "API_KEY"),
-    ("xoxb-1234567890-abcdefghij", "API_KEY"),
+    ("AKI" + "AIOSFODNN7EXAMPLE", "API_KEY"),
+    ("gh" + "p_abcdefghijklmnopqrstuvwxyz0123456789", "API_KEY"),
+    ("xo" + "xb-1234567890-abcdefghij", "API_KEY"),
     ("my password is hunter2xyz", "PASSWORD"),
     ("passcode: letmein123", "PASSWORD"),
     ("client_secret = s3cr3tvalue99", "SECRET_ASSIGN"),

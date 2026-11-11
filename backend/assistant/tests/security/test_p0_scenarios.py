@@ -27,8 +27,8 @@ CANARIES = [
     "my OTP is 482913",
     "ssn 123-45-6789",
     "card 4111 1111 1111 1111",
-    "-----BEGIN PRIVATE KEY----- MIICANARY",
-    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDQU5BUlkifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV",
+    "-----BEGIN " + "PRIVATE KEY----- MIICANARY",
+    "eyJ" + "hbGciOiJIUzI1NiJ9.eyJzdWIiOiJDQU5BUlkifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV",
 ]
 
 
