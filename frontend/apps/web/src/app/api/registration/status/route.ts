@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
  * enrollment ticket: by now the passkey step is over or abandoned, and the ticket is single use anyway. */
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("request_id") ?? cookieValue(req, REQUEST_COOKIE);
-  return get("/v1/registration/status", { request_id: id }, clearTicketCookies());
+  return get(req, "/v1/registration/status", { request_id: id }, clearTicketCookies());
 }

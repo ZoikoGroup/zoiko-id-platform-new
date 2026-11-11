@@ -253,10 +253,24 @@ export function createCellApi(t: Transport) {
       decideReview: (caseId: string, body: ReviewIn) => post<M.ReviewOutcome>(`/verification-review-cases/${seg(caseId)}/decisions`, body),
     },
 
+    /** Uploaded evidence (ZID-INT-002): bytes are kept only after a clean scan; everything here returns metadata. */
+    uploads: {
+      list: () => get<M.UploadList>("/v2/evidence/uploads"),
+      announce: (body: M.UploadAnnounce, idempotencyKey: string) => post<M.UploadAnnounced>("/v2/evidence/uploads", body, { idempotencyKey }),
+      send: (uploadUrl: string, token: string, file: Blob) =>
+        t.request<M.UploadManifest>("PUT", uploadUrl, { raw: { data: file, contentType: "application/octet-stream" }, headers: { "x-upload-token": token } }),
+      remove: (ref: string) => t.request<M.UploadManifest>("DELETE", `/v2/evidence/${seg(ref)}`),
+      validate: (body: { evidence_ref: string; declared_type: string; checks: string[]; expected_sha256?: string }) => post<M.DocumentValidation>("/v2/documents/validate", body),
+    },
+
     credentials: {
       list: (q: { status?: M.IssuedCredentialStatus; limit?: number } = {}) => get<M.Items<M.IssuedCredential>>("/credentials", q),
       configurations: () => get<M.Items<M.CredentialConfigurationItem>>("/credential-configurations"),
       issuerTrust: () => get<M.Items<M.IssuerTrustItem>>("/credential-issuer-trust"),
+      /** What the platform trusts, read-only (WF-04). */
+      trustRegistry: () => get<M.TrustRegistry>("/v1/credentials/registry"),
+      /** One person's credential checks, decisions and appeals in one read (WF-02). */
+      dossier: (subjectId: string) => get<M.CredentialDossier>(`/v1/credentials/dossiers/${seg(subjectId)}`),
       relyingParties: () => get<M.Items<M.RpRegistrationItem>>("/relying-party-registrations"),
       createConfiguration: (body: ConfigurationIn) => post<M.CredentialConfiguration>("/credential-configurations", body),
       activateConfiguration: (id: string) => post<M.CredentialConfiguration>(`/credential-configurations/${seg(id)}:activate`),
@@ -800,6 +814,10 @@ export function createOperatorApi(t: Transport) {
     breakGlass: (body: BreakGlassIn) => post<M.JitGrant & { review_id: string }>("/operator/break-glass", body),
     reviews: (state?: string) => get<M.Items<M.BreakGlassReview>>("/operator/reviews", { state }),
     completeReview: (id: string, body: BreakGlassReviewIn) => post<M.BreakGlassReview>(`/operator/reviews/${seg(id)}:complete`, body),
+    /** Fraud and adverse-media signals waiting for a person. A signal is a flag to look at: it never blocks or approves anything. */
+    signalReviews: () => get<M.Items<M.SignalReview>>("/v1/reviews/signals"),
+    challengeSignal: (id: string, body: M.SignalChallengeIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/challenge`, body),
+    resolveSignal: (id: string, body: M.SignalResolutionIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/resolution`, body),
 
     /** Commercial operator surface (ZID-COM-001). Reads are typed; every write goes through `call`, driven by the
      * action catalogue in the operator console so that each route has exactly one description of its body. */

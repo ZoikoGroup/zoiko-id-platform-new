@@ -147,6 +147,20 @@ def _session_view(s: store.VSession) -> dict[str, Any]:
 @router.post("/verifications", status_code=201)
 async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     _scope(caller, "verification:execute")
+    # CR-068: count this verification attempt (best effort, never blocks it; a refused attempt still counts, so probing is seen). The contact key is the person's stable id here.
+    from zid_platform.attempt_context import attempt_inputs
+    from zid_platform.modules.screening.ports import AttemptAction, note_attempt
+
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await note_attempt(
+            conn,
+            caller.ctx.tenant_id or "",
+            subject_ref=f"verification:{body.subject_principal_id}",
+            action=AttemptAction.VERIFICATION,
+            now=datetime.now(UTC),
+            contact=str(body.subject_principal_id),
+            **attempt_inputs(request),
+        )
     _country_gate(request, body.jurisdiction)
     await _pack_gate(request, caller, body.jurisdiction)
     try:

@@ -4,6 +4,54 @@
 # Same shape as event-catalogue.yaml. Emitting a type that is in neither file fails CI.
 
 events:
+  credential.eligibility.decided:
+    cloudevents_type: com.zoiko.id.credential.eligibility.decided.v1
+    meaning: "An eligibility or engagement decision was made for a subject; carries the decision id, outcome and policy ref, never a credential value."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.status_changed:
+    cloudevents_type: com.zoiko.id.credential.status_changed.v1
+    meaning: "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  verification.case.completed:
+    cloudevents_type: com.zoiko.id.verification.case.completed.v1
+    meaning: "Every check of a verification case has its own outcome; ids, state and per-check outcomes only."
+    source: ZID-INT-002 sections 04 and 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  eligibility.recomputed:
+    cloudevents_type: com.zoiko.id.eligibility.recomputed.v1
+    meaning: "A person's eligibility or engagement decision for the same policy changed from the previous one; ids, the two outcomes, reason codes and the policy reference only."
+    source: ZID-INT-002 section 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  evidence.retention_action:
+    cloudevents_type: com.zoiko.id.evidence.retention_action.v1
+    meaning: "Uploaded evidence was deleted or expired and its bytes erased; the reference, the action and the time only. It never claims a provider or backup deleted anything."
+    source: ZID-INT-002 section 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  credential.claim.recheck.due:
+    cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
+    meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.appealed:
+    cloudevents_type: com.zoiko.id.credential.claim.appealed.v1
+    meaning: "A person appealed or asked for correction of a claim check; ids only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.checked:
+    cloudevents_type: com.zoiko.id.credential.claim.checked.v1
+    meaning: "A credential claim was checked against a source; carries the check id, claim type and decision only, never a claimed value."
+    source: ZID-GAP-001 v2.0 GID-037; CR-069
+    lane: domain
+    source_status: "proposed"
   relationship.edge.changed:
     cloudevents_type: com.zoiko.id.relationship.edge.changed.v1
     meaning: "An authoritative relationship fact was recorded or changed; carries the tenant relation_revision (projector input, DEC-C4)."
@@ -572,5 +620,11 @@ events:
     cloudevents_type: com.zoiko.id.onboarding.organization.activated.v1
     meaning: "An organization passed its activation gate and was activated (the policy versions it rested on)."
     source: ZID-UX-WF-013C section 02, 11; CR-049
+    lane: domain
+    source_status: "proposed"
+  screening.signal.raised:
+    cloudevents_type: com.zoiko.id.screening.signal.raised.v1
+    meaning: "A fraud or adverse-media signal opened a review item that is waiting for a person (review id, source, rule and risk tier only; no hash, count or name)."
+    source: ZID-GAP-001 WP-14; CR-068
     lane: domain
     source_status: "proposed"

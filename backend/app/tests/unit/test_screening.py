@@ -514,7 +514,8 @@ def test_the_two_countries_packs_evaluate_differently() -> None:
 def test_the_shipped_policy_requires_the_five_families_and_proposes_only_gb_and_us_packs() -> None:
     c = config()
     assert set(c.policy.required_lists) == set(ListId) - {
-        ListId.LOCAL
+        ListId.LOCAL,
+        ListId.PEP,
     }  # the country's own list is asked for by a pack
     assert c.pack("GB") is not None and c.pack("GB").beneficial_owner_threshold == D(25)  # type: ignore[union-attr]
     assert c.pack("US") is not None and c.pack("US").beneficial_owner_rule is None  # type: ignore[union-attr]

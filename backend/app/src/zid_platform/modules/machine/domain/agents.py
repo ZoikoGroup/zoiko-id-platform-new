@@ -85,6 +85,26 @@ class AgentProfile:
     status: AgentStatus
     security_revision: int = 0
     parent_agent_id: str | None = None
+    expires_at: datetime | None = None  # after this the agent no longer acts (WP-10)
+
+
+# ---------------------------------------------------------------- lifecycle review (WP-10)
+
+SPONSOR_GONE = "SPONSOR_NOT_ACTIVE"
+AGENT_EXPIRED = "AGENT_EXPIRED"
+
+
+def lifecycle_breach(agent: AgentProfile, *, sponsor_active: bool, now: datetime) -> str | None:
+    """Why an ACTIVE agent must stop now, or None. An agent whose accountable sponsor has left, been disabled
+    or erased is orphaned and is suspended by policy; so is one past its expiry. Fails closed: a sponsor we
+    cannot confirm active counts as gone."""
+    if agent.status is not AgentStatus.ACTIVE:
+        return None
+    if agent.sponsor_principal_id is None or not sponsor_active:
+        return SPONSOR_GONE
+    if agent.expires_at is not None and agent.expires_at <= now:
+        return AGENT_EXPIRED
+    return None
 
 
 @dataclass(frozen=True, slots=True)

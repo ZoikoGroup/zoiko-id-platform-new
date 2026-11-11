@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AppShell, StatusBadge, StatusBarItems, type Command, type EnvironmentKind, type NavGroup } from "@zoiko/ui";
-import { Activity, ClipboardCheck, Receipt, FlaskConical, KeyRound, LifeBuoy, Server, Siren, Stamp, TriangleAlert } from "lucide-react";
+import { Activity, ClipboardCheck, Flag, Receipt, FlaskConical, KeyRound, LifeBuoy, Server, Siren, Stamp, TriangleAlert } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -17,6 +17,7 @@ const NAV: NavGroup[] = [
       { id: "approvals", label: "Approvals", href: "/approvals", icon: Stamp },
       { id: "break-glass", label: "Break-glass", href: "/break-glass", icon: Siren },
       { id: "reviews", label: "Post-reviews", href: "/reviews", icon: ClipboardCheck },
+      { id: "signals", label: "Signals", href: "/signals", icon: Flag },
     ],
   },
   {

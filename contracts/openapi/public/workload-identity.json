@@ -29,6 +29,18 @@
             "title": "Blueprint Version",
             "type": "string"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
           "max_subagent_depth": {
             "default": 0,
             "maximum": 5.0,
@@ -319,6 +331,29 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "RedeemBody": {
+        "additionalProperties": false,
+        "description": "The server says which arguments it is about to run; the grant must have been issued for exactly those.",
+        "properties": {
+          "arguments_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Arguments Digest",
+            "type": "string"
+          },
+          "grant": {
+            "maxLength": 8192,
+            "minLength": 20,
+            "title": "Grant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant",
+          "arguments_digest"
+        ],
+        "title": "RedeemBody",
+        "type": "object"
+      },
       "RevokeBody": {
         "additionalProperties": false,
         "properties": {
@@ -403,6 +438,126 @@
           "side_effect"
         ],
         "title": "ToolBody",
+        "type": "object"
+      },
+      "ToolCallBody": {
+        "additionalProperties": false,
+        "description": "No tenant and no agent here: both come from the authenticated caller.",
+        "properties": {
+          "approval_request_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Request Id"
+          },
+          "arguments_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Arguments Digest",
+            "type": "string"
+          },
+          "mandate_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Id"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "represented_principal_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Represented Principal Id"
+          },
+          "resource_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "tool_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ToolCallValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tool_id",
+          "resource_type",
+          "resource_id",
+          "arguments_digest"
+        ],
+        "title": "ToolCallBody",
+        "type": "object"
+      },
+      "ToolCallValue": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "title": "ToolCallValue",
         "type": "object"
       },
       "ValidationError": {
@@ -1620,6 +1775,93 @@
         "summary": "Release",
         "tags": [
           "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/tool-calls:authorize": {
+      "post": {
+        "operationId": "authorize_tool_call_v1_machine_tool_calls_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolCallBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Authorize Tool Call V1 Machine Tool Calls Authorize Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize Tool Call",
+        "tags": [
+          "agent-tool-gateway"
+        ]
+      }
+    },
+    "/v1/machine/tool-grants:redeem": {
+      "post": {
+        "description": "The caller is the tool's own server: the grant's audience must be the caller's principal id, so a grant that\nleaks to another service is worthless there. The chain is checked again now, and the grant is marked used.",
+        "operationId": "redeem_tool_grant_v1_machine_tool_grants_redeem_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Redeem Tool Grant V1 Machine Tool Grants Redeem Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redeem Tool Grant",
+        "tags": [
+          "agent-tool-gateway"
         ]
       }
     },

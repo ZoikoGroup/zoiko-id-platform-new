@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 from collections.abc import Iterable
 from functools import partial
@@ -417,10 +418,89 @@ def parse_local_csv(raw: bytes) -> list[Entry]:
     return out
 
 
+# ---- PEP -------------------------------------------------------------------------------------------------------------
+
+PEP_HEADER = ("source_ref", "name", "aliases", "birth", "country", "position", "level")
+PEP_LEVELS = frozenset(
+    {"HEAD_OF_STATE", "NATIONAL", "REGIONAL", "LOCAL", "INTERNATIONAL_ORG", "STATE_ENTERPRISE", "RELATIVE", "ASSOCIATE"}
+)
+
+
+def _pep_entry(n: int, ref: str, name: str, aliases: list[str], birth: str, country: str, position: str, level: str) -> Entry:
+    if not ref or not name or level not in PEP_LEVELS:
+        raise ListFormatError(
+            f"entry {n} needs source_ref, name and a level of {', '.join(sorted(PEP_LEVELS))}"
+        )
+    return Entry(
+        list_id=ListId.PEP,
+        source_ref=ref,
+        kind=PartyKind.PERSON,
+        primary_name=name,
+        aliases=tuple(dict.fromkeys(a for a in aliases if a)),
+        birth=_years(birth),
+        countries=(country.casefold(),) if country else (),
+        programs=(f"LEVEL:{level}", f"POSITION:{position}" if position else "POSITION:UNSPECIFIED"),
+    )
+
+
+def parse_pep(raw: bytes) -> list[Entry]:
+    """The PEP feed in the platform's own documented shape (a licensed source is converted to it by its owner; ZID-GAP-001 WP-14).
+
+    CSV: the first row exactly `PEP_HEADER` (source_ref,name,aliases,birth,country,position,level); several aliases in one cell are
+    separated by `|`. JSON: `{"entries": [{"source_ref", "name", "aliases": [], "birth", "country", "position", "level"}]}`.
+    `level` is one of `PEP_LEVELS`. Every entry is a PERSON; the position and level go to `programs` so a reviewer sees why the
+    person is listed. A file that does not match is refused whole. Nothing here says a person is a PEP in law: it is a list entry."""
+    text = _decode(raw)
+    entries: list[Entry] = []
+    if text.lstrip().startswith(("{", "[")):
+        try:
+            doc = json.loads(text)
+        except ValueError as e:
+            raise ListFormatError("not valid JSON") from e
+        items = doc.get("entries") if isinstance(doc, dict) else doc
+        if not isinstance(items, list):
+            raise ListFormatError("expected a list of entries")
+        for n, it in enumerate(items, start=1):
+            if not isinstance(it, dict):
+                raise ListFormatError(f"entry {n} is not an object")
+            aliases = it.get("aliases") or []
+            if not isinstance(aliases, list):
+                raise ListFormatError(f"entry {n}: aliases must be a list")
+            entries.append(
+                _pep_entry(
+                    n,
+                    str(it.get("source_ref", "")).strip(),
+                    str(it.get("name", "")).strip(),
+                    [str(a).strip() for a in aliases],
+                    str(it.get("birth", "") or ""),
+                    str(it.get("country", "") or "").strip(),
+                    str(it.get("position", "") or "").strip(),
+                    str(it.get("level", "")).strip(),
+                )
+            )
+    else:
+        rows = list(csv.reader(io.StringIO(text)))
+        if not rows or tuple(c.strip() for c in rows[0]) != PEP_HEADER:
+            raise ListFormatError(f"the first row must be exactly: {','.join(PEP_HEADER)}")
+        for n, row in enumerate(rows[1:], start=2):
+            if not any(c.strip() for c in row):
+                continue
+            if len(row) != len(PEP_HEADER):
+                raise ListFormatError(f"row {n} has {len(row)} columns, not {len(PEP_HEADER)}")
+            ref, name, aliases, birth, country, position, level = (c.strip() for c in row)
+            entries.append(_pep_entry(n, ref, name, aliases.split("|"), birth, country, position, level))
+    if not entries:
+        raise ListFormatError("no entries found")
+    if len({e.source_ref for e in entries}) != len(entries):
+        raise ListFormatError("a source_ref appears twice")
+    return entries
+
+
 PARSERS: dict[ListId, Any] = {
     ListId.OFAC_SDN: parse_ofac,
     ListId.OFAC_NON_SDN: partial(parse_ofac, list_id=ListId.OFAC_NON_SDN),
     ListId.LOCAL: parse_local_csv,
+    ListId.PEP: parse_pep,
     ListId.UK_SANCTIONS: parse_uk_csv,
     ListId.UN_SC: parse_un_xml,
     ListId.EU_CONSOLIDATED: parse_eu_xml,

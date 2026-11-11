@@ -9,6 +9,7 @@ Domain modules plug their routers in; this package holds no domain logic.
 
 from __future__ import annotations
 
+import socket
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -17,11 +18,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from zid_context import RequestContext, current_context, new_id, reset_context, set_context
 from zid_db import CheckResult, check_database, create_engine
 from zid_errors import (
+    DEPENDENCY_UNAVAILABLE,
     INTERNAL_ERROR,
     NOT_FOUND,
     VALIDATION_FAILED,
@@ -31,6 +34,7 @@ from zid_errors import (
     Meta,
     SuccessEnvelope,
     ZidError,
+    problem_document,
 )
 from zid_telemetry import configure_logging, get_logger
 from zid_telemetry.metrics import REGISTRY, Counter, Histogram, Registry
@@ -139,6 +143,36 @@ def _rls_refusal(exc: BaseException) -> bool:
     return False
 
 
+_OUTAGE_NAMES = frozenset(
+    {
+        "PostgresConnectionError",
+        "CannotConnectNowError",
+        "ConnectionDoesNotExistError",
+        "TooManyConnectionsError",
+    }
+)
+
+
+def _dependency_outage(exc: BaseException) -> bool:
+    """A dependency that is gone, not a bug: the database refused or dropped the connection, or a call ran out of time.
+    Looked for anywhere in the exception chain. A client should be told to retry (503), and operators should see an
+    outage, not an internal error. It is never an answer: the request was refused either way."""
+    seen: BaseException | None = exc
+    for _ in range(12):  # bounded: a cycle in __cause__/__context__ cannot hang the handler
+        if seen is None:
+            return False
+        if isinstance(seen, (ConnectionError, TimeoutError, socket.gaierror)):
+            return True
+        if isinstance(seen, (OperationalError, InterfaceError)):
+            return True
+        if isinstance(seen, DBAPIError) and seen.connection_invalidated:
+            return True
+        if any(cls.__name__ in _OUTAGE_NAMES for cls in type(seen).__mro__):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
 def _instruments(registry: Registry) -> tuple[Counter, Histogram]:
     requests = registry.counter(
         "zid_http_requests_total",
@@ -187,9 +221,26 @@ def early_data_refused(method: str, path: str, early_data_header: str | None) ->
 
 
 def _error_response(
-    status: int, body: ErrorBody, headers: dict[str, str] | None = None
+    status: int,
+    body: ErrorBody,
+    headers: dict[str, str] | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     ctx = current_context()
+    if request is not None and request.url.path.startswith("/v2/"):
+        # the /v2 surface speaks RFC 9457 Problem Details (ZID-INT-002 section 14); /v1 keeps the canonical envelope
+        code_status, doc = problem_document(
+            body.code, status, body.message, trace_id=ctx.request_id if ctx else "req_unknown"
+        )
+        doc["correlation_id"] = ctx.correlation_id if ctx else "cor_unknown"
+        if body.retryable:
+            doc["retryable"] = True
+        return JSONResponse(
+            doc,
+            status_code=code_status,
+            headers=headers,
+            media_type="application/problem+json",
+        )
     env = ErrorEnvelope(
         request_id=ctx.request_id if ctx else "req_unknown",
         correlation_id=ctx.correlation_id if ctx else "cor_unknown",
@@ -310,11 +361,11 @@ def create_service_app(
 
     # ---------------- error handlers: always the canonical envelope ----------------
     @app.exception_handler(ZidError)
-    async def zid_error(_: Request, exc: ZidError) -> JSONResponse:
+    async def zid_error(request: Request, exc: ZidError) -> JSONResponse:
         headers = dict(exc.headers)
         if exc.retryable:
             headers["Retry-After"] = str(max(1, (exc.retry_after_ms or 0) // 1000))
-        return _error_response(exc.http_status, exc.body(), headers or None)
+        return _error_response(exc.http_status, exc.body(), headers or None, request)
 
     @app.exception_handler(DeadlineExceeded)
     async def deadline_exceeded(_: Request, exc: DeadlineExceeded) -> JSONResponse:
@@ -327,7 +378,7 @@ def create_service_app(
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         details = [
             ErrorDetail(
                 field=".".join(str(p) for p in e.get("loc", ())), issue=e.get("type", "invalid")
@@ -335,21 +386,39 @@ def create_service_app(
             for e in exc.errors()
         ]
         return _error_response(
-            422, ErrorBody(code=VALIDATION_FAILED, message="Request is invalid.", details=details)
+            422,
+            ErrorBody(code=VALIDATION_FAILED, message="Request is invalid.", details=details),
+            request=request,
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = NOT_FOUND if exc.status_code == 404 else f"HTTP_{exc.status_code}"
         message = (
             "Resource not found." if exc.status_code == 404 else "Request could not be processed."
         )
-        return _error_response(exc.status_code, ErrorBody(code=code, message=message))
+        return _error_response(
+            exc.status_code, ErrorBody(code=code, message=message), request=request
+        )
 
     @app.exception_handler(Exception)
     async def unhandled(_: Request, exc: Exception) -> JSONResponse:
         if _rls_refusal(exc):
             isolation_violations.inc()  # SEV0 invariant: a write crossed the tenant boundary
+        if _dependency_outage(exc):
+            get_logger("zid.error").error(
+                "dependency unavailable", exc_info=exc, extra={"outcome": "dependency_unavailable"}
+            )
+            return _error_response(
+                503,
+                ErrorBody(
+                    code=DEPENDENCY_UNAVAILABLE,
+                    message="A dependency is unavailable. Retry shortly.",
+                    retryable=True,
+                    retry_after_ms=1000,
+                ),
+                headers={"Retry-After": "1"},
+            )
         get_logger("zid.error").error("unhandled error", exc_info=exc, extra={"outcome": "error"})
         return _error_response(
             500, ErrorBody(code=INTERNAL_ERROR, message="An internal error occurred.")
