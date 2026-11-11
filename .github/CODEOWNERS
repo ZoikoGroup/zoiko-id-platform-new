@@ -50,3 +50,11 @@
 /deploy/                                     @zoiko/sre @zoiko/security
 /tests/                                      @zoiko/qa
 /.github/                                    @zoiko/sre @zoiko/security
+
+# Public assistant (ZI-CHAT-ADR-006). The content folder is the publication register (P01..P05): what the assistant may claim.
+# Changing it changes public statements, so Product and Legal approve it; the isolation tests and service code need Security.
+/backend/assistant/                                      @zoiko/platform @zoiko/security
+/backend/assistant/content/                              @zoiko/product @zoiko/legal @zoiko/security
+/backend/assistant/tests/security/                       @zoiko/security
+/backend/assistant/sql/                                  @zoiko/platform @zoiko/privacy
+/frontend/packages/assistant-widget/                     @zoiko/web @zoiko/security

@@ -117,8 +117,12 @@ async def register_binding(
     # binding could name any digest, and the console filling in the right one was the only thing keeping it honest.
     release = await machine_store.load_blueprint(conn, agent.blueprint_id, agent.blueprint_version)
     if release is None or release.review is not ReviewStatus.APPROVED:
-        raise MachineError("AGENT_BLUEPRINT_NOT_APPROVED", "the agent's blueprint release is not approved")
-    if blueprint_version != agent.blueprint_version or normalize_digest(artifact_digest) != normalize_digest(release.artifact_digest):
+        raise MachineError(
+            "AGENT_BLUEPRINT_NOT_APPROVED", "the agent's blueprint release is not approved"
+        )
+    if blueprint_version != agent.blueprint_version or normalize_digest(
+        artifact_digest
+    ) != normalize_digest(release.artifact_digest):
         raise MachineError(
             "WORKLOAD_ARTIFACT_NOT_APPROVED",
             "a binding must run the artifact of its agent's approved blueprint release",

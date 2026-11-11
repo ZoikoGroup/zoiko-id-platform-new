@@ -356,6 +356,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/machine/tool-calls:authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authorize Tool Call */
+        post: operations["authorize_tool_call_v1_machine_tool_calls_authorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/machine/tool-grants:redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem Tool Grant
+         * @description The caller is the tool's own server: the grant's audience must be the caller's principal id, so a grant that
+         *     leaks to another service is worthless there. The chain is checked again now, and the grant is marked used.
+         */
+        post: operations["redeem_tool_grant_v1_machine_tool_grants_redeem_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/machine/tools": {
         parameters: {
             query?: never;
@@ -508,6 +546,8 @@ export interface components {
             blueprint_id: string;
             /** Blueprint Version */
             blueprint_version: string;
+            /** Expires At */
+            expires_at?: string | null;
             /**
              * Max Subagent Depth
              * @default 0
@@ -611,6 +651,16 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * RedeemBody
+         * @description The server says which arguments it is about to run; the grant must have been issued for exactly those.
+         */
+        RedeemBody: {
+            /** Arguments Digest */
+            arguments_digest: string;
+            /** Grant */
+            grant: string;
+        };
         /** RevokeBody */
         RevokeBody: {
             /** Reason */
@@ -645,6 +695,36 @@ export interface components {
             tool_id: string;
             /** Version */
             version: string;
+        };
+        /**
+         * ToolCallBody
+         * @description No tenant and no agent here: both come from the authenticated caller.
+         */
+        ToolCallBody: {
+            /** Approval Request Id */
+            approval_request_id?: string | null;
+            /** Arguments Digest */
+            arguments_digest: string;
+            /** Mandate Id */
+            mandate_id?: string | null;
+            /** Purpose */
+            purpose?: string | null;
+            /** Represented Principal Id */
+            represented_principal_id?: string | null;
+            /** Resource Id */
+            resource_id: string;
+            /** Resource Type */
+            resource_type: string;
+            /** Tool Id */
+            tool_id: string;
+            value?: components["schemas"]["ToolCallValue"] | null;
+        };
+        /** ToolCallValue */
+        ToolCallValue: {
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1466,6 +1546,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_tool_call_v1_machine_tool_calls_authorize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolCallBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeem_tool_grant_v1_machine_tool_grants_redeem_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

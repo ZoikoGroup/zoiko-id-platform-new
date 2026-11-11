@@ -33,6 +33,7 @@ from zid_platform.modules.configuration.ports import public_branding
 from zid_platform.modules.onboarding.application.organization import development_verification
 from zid_platform.modules.onboarding.domain.gates import OnboardingError
 from zid_platform.modules.organization.ports import RegistryError
+from zid_platform.modules.session.ports import client_tenant
 from zid_platform.modules.tenant.ports import (
     ConsoleClient,
     Declaration,
@@ -40,7 +41,6 @@ from zid_platform.modules.tenant.ports import (
     self_signup,
     workspace,
 )
-from zid_platform.modules.session.ports import client_tenant
 from zid_platform.modules.verification.ports import Capability
 from zid_platform.protected import catalog
 

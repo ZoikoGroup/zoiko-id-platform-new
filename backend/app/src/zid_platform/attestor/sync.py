@@ -66,5 +66,7 @@ def plan(raw: Mapping[str, Any], approved: Mapping[str, frozenset[str]], *, tena
         if set(want) == have:
             continue
         w["approved_digests"] = sorted(want)
-        changes.append(Change(sid, tuple(sorted(set(want) - have)), tuple(sorted(have - set(want)))))
+        changes.append(
+            Change(sid, tuple(sorted(set(want) - have)), tuple(sorted(have - set(want))))
+        )
     return Plan(out, tuple(changes), tuple(warnings))

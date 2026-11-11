@@ -74,7 +74,8 @@ class RateTableTax:
         import yaml
 
         try:
-            doc = yaml.safe_load(open(path, encoding="utf-8").read()) or {}
+            with open(path, encoding="utf-8") as handle:
+                doc = yaml.safe_load(handle.read()) or {}
         except OSError:
             return cls({}, frozenset(), False)
         rates: dict[str, tuple[str, Decimal]] = {}
@@ -83,7 +84,11 @@ class RateTableTax:
             if not Decimal(0) <= rate < Decimal(1):
                 raise ValueError(f"tax rate for {country} must be at least 0 and below 1")
             rates[str(country).upper()] = (str(spec["tax"]).upper().replace(" ", "_"), rate)
-        approved = bool(doc.get("approved")) and bool(doc.get("approved_by")) and bool(doc.get("approved_on"))
+        approved = (
+            bool(doc.get("approved"))
+            and bool(doc.get("approved_by"))
+            and bool(doc.get("approved_on"))
+        )
         return cls(rates, frozenset(str(k) for k in doc.get("exempt") or []), approved)
 
     async def lines_for(
@@ -96,7 +101,11 @@ class RateTableTax:
         out: dict[int, TaxLine] = {}
         for ln in lines:
             taxed = ln.net > 0 and ln.kind not in self.exempt
-            amount = (ln.net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if taxed else Decimal("0.00")
+            amount = (
+                (ln.net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                if taxed
+                else Decimal("0.00")
+            )
             out[ln.seq] = TaxLine(code if taxed else f"TABLE_{tax}_0", amount)
         return out
 
@@ -111,10 +120,14 @@ class FallbackTax:
     async def lines_for(
         self, *, currency: str, region: str, country: str | None, lines: Sequence[TaxableLine]
     ) -> dict[int, TaxLine] | None:
-        got = await self.primary.lines_for(currency=currency, region=region, country=country, lines=lines)
+        got = await self.primary.lines_for(
+            currency=currency, region=region, country=country, lines=lines
+        )
         if got is not None:
             return got
-        return await self.fallback.lines_for(currency=currency, region=region, country=country, lines=lines)
+        return await self.fallback.lines_for(
+            currency=currency, region=region, country=country, lines=lines
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -531,7 +544,9 @@ class StripeCustomers:
         )
         return str(body["url"]), str(body["id"])
 
-    async def complete_activation_payment(self, *, session_id: str, customer_ref: str) -> ActivationPayment:
+    async def complete_activation_payment(
+        self, *, session_id: str, customer_ref: str
+    ) -> ActivationPayment:
         """Read the session back from Stripe: it must be this customer's, a plan-activation payment, paid, and name an order."""
         if not session_id.startswith("cs_") or len(session_id) > 200:
             raise PaymentSetupError("SESSION_INVALID")

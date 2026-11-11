@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
 from zid_platform.main import _operator_origins, _operator_password_logins
 from zid_platform.modules.authentication.domain.operator_password import (
     LOCKOUT_SECONDS,

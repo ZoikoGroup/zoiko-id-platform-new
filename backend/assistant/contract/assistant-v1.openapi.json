@@ -1,0 +1,223 @@
+{
+  "info": {
+    "description": "Anonymous, public, information-only. See backend/assistant/API.md.",
+    "title": "Zoiko iD Public Assistant API",
+    "version": "v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/public/chat/v1/bootstrap": {
+      "get": {
+        "operationId": "bootstrap_api_public_chat_v1_bootstrap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bootstrap",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/feedback": {
+      "post": {
+        "operationId": "post_feedback_api_public_chat_v1_feedback_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Post Feedback",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/handoffs": {
+      "post": {
+        "operationId": "handoff_api_public_chat_v1_handoffs_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Handoff",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/intake/config": {
+      "get": {
+        "operationId": "intake_config_api_public_chat_v1_intake_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Intake Config",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/intake/sales": {
+      "post": {
+        "operationId": "intake_sales_api_public_chat_v1_intake_sales_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Intake Sales",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/intake/support": {
+      "post": {
+        "operationId": "intake_support_api_public_chat_v1_intake_support_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Intake Support",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/messages": {
+      "post": {
+        "operationId": "post_message_api_public_chat_v1_messages_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Post Message",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/out/{link_id}": {
+      "get": {
+        "operationId": "out_api_public_chat_v1_out__link_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "link_id",
+            "required": true,
+            "schema": {
+              "title": "Link Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Out",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/preferences/marketing": {
+      "post": {
+        "operationId": "marketing_api_public_chat_v1_preferences_marketing_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Marketing",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    },
+    "/api/public/chat/v1/sessions": {
+      "delete": {
+        "operationId": "delete_session_api_public_chat_v1_sessions_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Session",
+        "tags": [
+          "public-assistant"
+        ]
+      },
+      "post": {
+        "operationId": "create_session_api_public_chat_v1_sessions_post",
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "public-assistant"
+        ]
+      }
+    }
+  }
+}

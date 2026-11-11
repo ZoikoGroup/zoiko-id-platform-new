@@ -9,6 +9,8 @@ node_modules/
 # Next.js & build outputs
 .next/
 out/
+# the console guide's link redirect is a real route (src/app/guide/out), not a Next export folder
+!/apps/web/src/app/guide/out/
 build/
 dist/
 next-env.d.ts

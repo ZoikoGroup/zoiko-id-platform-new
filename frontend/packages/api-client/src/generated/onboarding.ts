@@ -690,6 +690,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reviews/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Queue */
+        get: operations["queue_v1_reviews_signals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/signals/{review_id}/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Challenge */
+        post: operations["challenge_v1_reviews_signals__review_id__challenge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/signals/{review_id}/resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolution */
+        post: operations["resolution_v1_reviews_signals__review_id__resolution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/organizations/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Organization */
+        post: operations["verify_organization_v2_organizations_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -793,6 +861,19 @@ export interface components {
             /** Namespace */
             namespace: string;
         };
+        /** OrganizationIn */
+        OrganizationIn: {
+            /** Country */
+            country: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Lei */
+            lei?: string | null;
+            /** Register Id */
+            register_id?: string | null;
+            /** Registration Number */
+            registration_number: string;
+        };
         /** PartyIn */
         PartyIn: {
             /** Birth */
@@ -826,6 +907,18 @@ export interface components {
         ResendBody: {
             /** Request Id */
             request_id: string;
+        };
+        /** ResolutionIn */
+        ResolutionIn: {
+            /** Evidence Ref */
+            evidence_ref: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "CLEARED_BY_REVIEWER" | "CONFIRMED_RISK" | "ESCALATED";
+            /** Rationale */
+            rationale: string;
         };
         /** RollbackBody */
         RollbackBody: {
@@ -937,6 +1030,13 @@ export interface components {
             };
             /** Target Mode */
             target_mode: string;
+        };
+        /** ChallengeIn */
+        zid_platform__modules__screening__api__signals__ChallengeIn: {
+            /** Evidence Ref */
+            evidence_ref: string;
+            /** Statement */
+            statement: string;
         };
     };
     responses: never;
@@ -2357,6 +2457,137 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RulingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_v1_reviews_signals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    challenge_v1_reviews_signals__review_id__challenge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__screening__api__signals__ChallengeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolution_v1_reviews_signals__review_id__resolution_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolutionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_organization_v2_organizations_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationIn"];
             };
         };
         responses: {

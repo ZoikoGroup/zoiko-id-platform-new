@@ -551,7 +551,12 @@ async def activate(
     if require_payment and not o["pilot"]:
         held = await activations.hold(conn, o, actor=actor, now=now)
         if held is not None:
-            return {**(await order_view(conn, order_id)), **held, "status": "AWAITING_PAYMENT", "already_active": False}
+            return {
+                **(await order_view(conn, order_id)),
+                **held,
+                "status": "AWAITING_PAYMENT",
+                "already_active": False,
+            }
     lines = (
         await conn.execute(
             text("SELECT sku_id, quantity FROM commercial.sales_order_line WHERE order_id = :o"),

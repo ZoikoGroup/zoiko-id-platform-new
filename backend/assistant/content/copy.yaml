@@ -1,0 +1,75 @@
+# Conversation copy and starter prompts (ZI-CHAT-UX-001 microcopy; ZI-CHAT-KB-002 sections 07 and 09). Wording follows the documents' safe examples.
+# Rules the copy keeps: never echo what the visitor typed; never claim a live agent, a created case, a sent message or a verified state;
+# never invent a link. `link_id` is a P03 id (the server resolves it; a suspended link is simply not shown).
+copy:
+  - key: welcome
+    text: "Hi, I’m the Zoiko iD AI assistant. I can explain identity infrastructure, show relevant resources, and help you find the right team. Please don’t enter passwords, verification codes, or identity documents."
+  - key: privacy_notice
+    text: "Do not enter passwords, one-time codes, identity documents or personal records. This assistant is public and cannot access accounts."
+  - key: sample_label
+    text: "Engineering sample content — not an approved publication"
+  - key: sensitive_input_blocked
+    text: "For your security, I can’t accept that message because it appears to contain a password, code, key or identity information. Nothing was saved. Please don’t share credentials here; use the official, authenticated sign-in or support route instead."
+    link_id: HELP-SUPPORT
+  - key: refuse_account_access
+    text: "I cannot view accounts, send verification codes, reset access or look up tenant records through this public assistant. Please use your organization’s official sign-in or account-recovery flow, or the published support route."
+    link_id: HELP-SUPPORT
+  - key: refuse_identity_proofing
+    text: "For your security, please do not upload identity documents or biometric information into this chat. Use the official verification process linked by your organization, or the published Zoiko iD help route."
+    link_id: HELP-SUPPORT
+  - key: refuse_credentials
+    text: "For your security, do not share one-time codes, passwords, recovery codes, API keys or passkeys in public chat. I cannot verify you or act on credentials here; use the official sign-in or verification page."
+    link_id: HELP-SUPPORT
+  - key: refuse_unsafe_request
+    text: "I can’t help with that in this public assistant. I cannot verify you, send codes, access accounts or share internal instructions. I can help with public Zoiko iD product information and documentation. What identity topic would you like to explore?"
+    link_id: HELP-SUPPORT
+  - key: abstain_no_source
+    text: "I can’t verify that from Zoiko iD’s published information. I can help you find our public documentation or contact the appropriate team."
+    link_id: OVERVIEW
+  - key: abstain_capability_unconfirmed
+    text: "I can explain the concept, but I can confirm Zoiko iD availability only where published release documentation says it is supported, and I cannot confirm that from current published information."
+    link_id: OVERVIEW
+  - key: escalate_human
+    text: "I can’t hand this chat to a person, but you can reach the right team through the published contact route. Contact details are shared only if you choose to submit them."
+    link_id: CONTACT
+  - key: escalate_sales
+    text: "I can point you to the approved business-contact route. Contact details are shared only if you choose to submit them, and this conversation is not sent."
+    link_id: TALK-TO-SALES
+  - key: escalate_support
+    text: "For help with a specific account or service, please use the official support route. I can’t see accounts or open cases from this chat."
+    link_id: HELP-SUPPORT
+  - key: escalate_security
+    text: "Do not post credentials, exploit details, private customer records or evidence files in this chat. Please use the official published security-reporting route so the appropriate team can review the report securely."
+    link_id: SECURITY-CONTACT
+  - key: escalate_privacy
+    text: "I cannot look up, export or delete personal information, or confirm where data is stored or processed, through public chat. Privacy questions and requests go through the published privacy notice and rights-request process."
+    link_id: PRIVACY-NOTICE
+  - key: greeting
+    text: "Hello! I'm the Zoiko iD assistant. Ask me about identity, passkeys, credentials, consent or integrations, or pick a topic below."
+    link_id: OVERVIEW
+  - key: thanks
+    text: "You're welcome! Ask me anything else about Zoiko iD whenever you like."
+    link_id: OVERVIEW
+  - key: clarify_scope
+    text: "I can help with public Zoiko iD product information and documentation. What identity topic would you like to explore?"
+    link_id: OVERVIEW
+  - key: model_unavailable
+    text: "The assistant is temporarily unavailable. You can still access our public documentation, sign-in and support links."
+    link_id: HELP-SUPPORT
+  - key: out_of_scope
+    text: "I can help with public Zoiko iD product information and documentation. That question is outside what I can answer here."
+    link_id: OVERVIEW
+  - key: rate_limited
+    text: "You’re sending messages quickly. Please wait a moment and try again."
+  - key: session_expired
+    text: "Your chat session has expired. Start a new conversation to continue."
+
+# Six starter prompts (ZI-CHAT-UX-001 section 09 journeys J01..J09 and the four WF-01 goal chips: Explore Solutions, Developers, Security & Trust, Pricing / Sales).
+starters:
+  - {label: "Authentication & passkeys", text: "How does passwordless authentication work?", description: "Passwordless, MFA and phishing-resistant access.", icon: lock}
+  - {label: "Verifiable credentials", text: "What are verifiable credentials?", description: "Digital identity, KYC and trusted data sharing.", icon: document}
+  - {label: "Consent & access", text: "What does consent-based sharing mean?", description: "User-controlled data sharing and fine-grained access.", icon: shield}
+  - {label: "APIs & integrations", text: "Does Zoiko iD support SCIM or webhooks?", description: "Standards, SDKs and enterprise integrations.", icon: share}
+  - {label: "What is Zoiko iD?", text: "What is Zoiko iD?"}
+  - {label: "Security and trust", text: "Do you have ISO 27001 or SOC 2?"}
+  - {label: "Pricing", text: "How much does Zoiko iD cost?"}

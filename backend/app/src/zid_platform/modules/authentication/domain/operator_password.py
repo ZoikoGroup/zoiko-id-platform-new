@@ -44,7 +44,14 @@ def hash_password(password: str, *, min_length: int = MIN_LENGTH) -> str:
 def valid_hash(stored: str) -> bool:
     try:
         scheme, n, r, p, salt, digest = stored.split("$")
-        return scheme == "scrypt" and int(n) > 1 and int(r) > 0 and int(p) > 0 and bool(_unb64(salt)) and bool(_unb64(digest))
+        return (
+            scheme == "scrypt"
+            and int(n) > 1
+            and int(r) > 0
+            and int(p) > 0
+            and bool(_unb64(salt))
+            and bool(_unb64(digest))
+        )
     except ValueError:
         return False
 

@@ -413,7 +413,11 @@ async def _principal_for(
     if link is not None:
         await touch_external_link(conn, link.link_id, now)
         return link.principal_id, False
-    provisioned = await _provisioned_lookup(conn, ident.issuer, ident.subject) if _provisioned_lookup else None
+    provisioned = (
+        await _provisioned_lookup(conn, ident.issuer, ident.subject)
+        if _provisioned_lookup
+        else None
+    )
     if provisioned is not None:
         # The company's own directory sync provisioned this very person (matched on the provider's id, never on e-mail), so signing in
         # attaches to that account instead of making a second one, whatever the connection's policy for strangers is.

@@ -318,7 +318,7 @@ def _check_signing_certificate(info: Any, signer: x509.Certificate) -> None:
         cert_hash = bytes(first["certHash"])
     elif _ATTR_SIGNING_CERT in attrs:
         sc1 = _decode(attrs[_ATTR_SIGNING_CERT][0], rfc2634.SigningCertificate())
-        expected = hashlib.sha1(der).digest()
+        expected = hashlib.sha1(der, usedforsecurity=False).digest()
         cert_hash = bytes(sc1["certs"][0]["certHash"])
     else:
         raise TimestampInvalid("token does not name its signing certificate")

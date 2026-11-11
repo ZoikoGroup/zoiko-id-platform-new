@@ -70,12 +70,16 @@ async def operator_password_sign_in(
     body: OperatorPasswordIn, request: Request, response: Response
 ) -> dict[str, Any]:
     settings = _settings(request)
-    if request.headers.get("origin") not in getattr(request.app.state, "operator_origins", frozenset()):
+    if request.headers.get("origin") not in getattr(
+        request.app.state, "operator_origins", frozenset()
+    ):
         _check_origin(request, settings)
     operator = getattr(request.app.state, "operator_settings", None)
     logins: dict[str, dict[str, str]] = getattr(request.app.state, "operator_password_logins", {})
     if operator is None or not operator.tenant_id or body.client_id not in operator.client_ids:
-        raise ZidError("OPERATOR_CLIENT_REQUIRED", "Sign in through the Operator Console.", 400)
+        raise ZidError(
+            "OPERATOR_CLIENT_REQUIRED", "Sign in through the Operator Console.", http_status=400
+        )
     tenant = await client_tenant(request_engine(request), body.client_id)
     if tenant is None or tenant != operator.tenant_id:
         raise ZidError("CLIENT_UNKNOWN", "Unknown client.", http_status=400)
@@ -103,7 +107,7 @@ async def operator_password_sign_in(
     async with tenant_transaction(request_engine(request), _ctx().with_identity(tenant, None)) as c:
         try:
             principal, _ = await load_principal(c, principal_id)
-        except Exception as e:  # noqa: BLE001 - a login naming a principal that does not exist is refused like a wrong password
+        except Exception as e:
             raise _REFUSED from e
         if principal.status is not PrincipalStatus.ACTIVE:
             raise _REFUSED
@@ -159,5 +163,9 @@ async def _record_failure(request: Request, tenant: str, now: datetime) -> None:
             aggregate_type="authentication_attempt",
             aggregate_id=str(uuid.uuid4()),
             aggregate_version=1,
-            data={"reason": "OPERATOR_PASSWORD_INVALID", "ceremony": "operator-password", "at": now.isoformat()},
+            data={
+                "reason": "OPERATOR_PASSWORD_INVALID",
+                "ceremony": "operator-password",
+                "at": now.isoformat(),
+            },
         )

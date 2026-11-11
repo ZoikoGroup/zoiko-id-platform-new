@@ -282,10 +282,18 @@ async def register_decision_client(
     only, no redirect and no secret, proving itself with a key pair whose public half is registered here."""
     try:
         client = await client_gateway().register_machine(
-            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=[DECISION_SCOPE], audience=audience, home_cell=home_cell
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            jwks=jwks,
+            scopes=[DECISION_SCOPE],
+            audience=audience,
+            home_cell=home_cell,
         )
     except ValueError as e:  # the registry's own refusal, with a stable code
-        raise IntegrationError(getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))) from e
+        raise IntegrationError(
+            getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))
+        ) from e
     await _record(
         conn,
         tenant_id,
@@ -314,10 +322,18 @@ async def register_pipeline_client(
     way round. The identity it acts as still needs the one grant, `machine.build.register`, and a person approves what it proposes."""
     try:
         client = await client_gateway().register_machine(
-            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=[PIPELINE_SCOPE], audience=audience, home_cell=home_cell
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            jwks=jwks,
+            scopes=[PIPELINE_SCOPE],
+            audience=audience,
+            home_cell=home_cell,
         )
     except ValueError as e:
-        raise IntegrationError(getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))) from e
+        raise IntegrationError(
+            getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))
+        ) from e
     await _record(
         conn,
         tenant_id,
@@ -326,7 +342,12 @@ async def register_pipeline_client(
         version=1,
         actor=actor,
         evidence=EvidenceClass.E2,
-        data={"client_id": client["client_id"], "client_type": "MACHINE", "purpose": "BUILD_PIPELINE", "status": "ACTIVE"},
+        data={
+            "client_id": client["client_id"],
+            "client_type": "MACHINE",
+            "purpose": "BUILD_PIPELINE",
+            "status": "ACTIVE",
+        },
     )
     return client
 

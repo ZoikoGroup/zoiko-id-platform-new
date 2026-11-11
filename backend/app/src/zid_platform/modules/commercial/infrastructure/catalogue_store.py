@@ -419,11 +419,18 @@ async def readiness(conn: AsyncConnection, price_book_id: str) -> dict[str, Any]
     ).all()
     free = (
         await conn.execute(
-            text("SELECT sku_id, plan_code FROM commercial.price_book_line WHERE price_book_id = :i AND unit_rate = 0 AND coalesce(minimum_amount, 0) = 0 ORDER BY plan_code, sku_id"),
+            text(
+                "SELECT sku_id, plan_code FROM commercial.price_book_line WHERE price_book_id = :i AND unit_rate = 0 AND coalesce(minimum_amount, 0) = 0 ORDER BY plan_code, sku_id"
+            ),
             {"i": uuid.UUID(price_book_id)},
         )
     ).all()
-    total = (await conn.execute(text("SELECT count(*) FROM commercial.price_book_line WHERE price_book_id = :i"), {"i": uuid.UUID(price_book_id)})).scalar_one()
+    total = (
+        await conn.execute(
+            text("SELECT count(*) FROM commercial.price_book_line WHERE price_book_id = :i"),
+            {"i": uuid.UUID(price_book_id)},
+        )
+    ).scalar_one()
     return {
         "price_book_id": price_book_id,
         "lines": int(total),

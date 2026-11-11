@@ -43,6 +43,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { PrivacySignal } from "@/components/privacy-signal";
+import { ConsoleGuide } from "@/components/console-guide";
 import { ageOf } from "@/features/alerts/shared";
 import { standing, useTenant } from "@/features/onboarding/shared";
 import { useCellQuery } from "@/lib/cell";
@@ -216,6 +217,7 @@ export function ConsoleShell({
       }
     >
       {children}
+      <ConsoleGuide />
       <PrivacySignal />
       <span className="sr-only" aria-live="polite">
         {healthState === "OUTAGE" ? "The cell API is unreachable." : ""}

@@ -28,6 +28,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.signals.application import state as state_service
 from zid_platform.modules.signals.application.ingest import CanonicalSignal, ingest
 from zid_platform.modules.signals.application.ssf import (
@@ -38,7 +39,6 @@ from zid_platform.modules.signals.application.ssf import (
 )
 from zid_platform.modules.signals.domain.rules import RULES, SignalError, State
 from zid_platform.modules.signals.infrastructure import signal_store as store
-from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["signals"])

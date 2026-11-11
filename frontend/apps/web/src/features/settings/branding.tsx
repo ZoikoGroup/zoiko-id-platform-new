@@ -90,7 +90,6 @@ function Form({ revision, value, reload }: { revision: number; value: BrandingSe
           <p className="mb-3 text-2xs uppercase tracking-wide text-ink-subtle">Preview</p>
           <div className="space-y-3">
             {safeLogo(state.logo) ? (
-              // eslint-disable-next-line @next/next/no-img-element -- an inline image chosen in this form
               <img src={safeLogo(state.logo) ?? ""} alt="Your logo" className="max-h-14 max-w-48 object-contain" />
             ) : (
               <div className="h-1.5 w-16 rounded-full" style={{ backgroundColor: swatch }} />

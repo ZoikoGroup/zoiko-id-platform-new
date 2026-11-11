@@ -45,7 +45,9 @@ def tickets(w: World, purpose: str) -> list[Any]:
     for mapped in w.rows("SELECT account_tenant_id FROM platform.registration_account"):
 
         async def work(c: Any) -> list[Any]:
-            sql = "SELECT purpose FROM authn.enrollment_ticket WHERE used_at IS NULL AND purpose = :p"
+            sql = (
+                "SELECT purpose FROM authn.enrollment_ticket WHERE used_at IS NULL AND purpose = :p"
+            )
             return list((await c.execute(text(sql), {"p": purpose})).all())
 
         out += w.run(work, str(mapped.account_tenant_id))
@@ -83,10 +85,14 @@ def test_an_ordinary_member_gets_a_link_that_hands_over_one_enrollment_ticket(wo
     assert opened.status_code == 200, opened.text
     body = opened.json()
     assert body["enrollment_ticket"] and body["next_step"] == "ENROLL_AUTHENTICATOR"
-    assert "console_client_id" in body  # which workspace this browser should sign in to (None for a tenant without a console)
+    assert (
+        "console_client_id" in body
+    )  # which workspace this browser should sign in to (None for a tenant without a console)
     assert [(c.recovery_class, c.opened_by) for c in cases(w)] == [("RC-1", "self:email")]
     again = w.http.post("/v1/registration/recovery/confirm", json={"token": link})
-    assert again.status_code == 200  # the ticket is spent by the passkey registration, not by looking
+    assert (
+        again.status_code == 200
+    )  # the ticket is spent by the passkey registration, not by looking
     assert [t.purpose for t in tickets(w, "RECOVERY")] == ["RECOVERY"]
     # asking again within ten minutes mails nothing: an inbox cannot be flooded
     sent = len(w.sender.sent)
@@ -107,7 +113,10 @@ def test_a_personal_workspace_owner_is_an_ordinary_member_and_gets_the_link(worl
     assert [c.recovery_class for c in cases(w)] == ["RC-1"]
 
 
-def test_an_administrator_keeps_the_gated_recovery_and_gets_only_a_notice(world: World, monkeypatch: Any) -> None:  # noqa: F811
+def test_an_administrator_keeps_the_gated_recovery_and_gets_only_a_notice(
+    world: World,  # noqa: F811
+    monkeypatch: Any,
+) -> None:
     w = world
 
     async def privileged(*_a: Any, **_k: Any) -> bool:

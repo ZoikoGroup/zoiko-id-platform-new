@@ -66,7 +66,6 @@ export function SignIn({
     <div className="space-y-5" style={themeVars(brand.accent_hex)}>
       <div className="text-center">
         {safeLogo(brand.logo) ? (
-          // eslint-disable-next-line @next/next/no-img-element -- an inline image the company uploaded; there is nothing to optimise or fetch
           <img src={safeLogo(brand.logo) ?? ""} alt={workspace ?? "Company logo"} className="mx-auto mb-3 max-h-14 max-w-48 object-contain" />
         ) : null}
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Sign in</h1>

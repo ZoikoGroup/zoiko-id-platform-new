@@ -40,7 +40,12 @@ class DirectoryUser:
 
 
 def to_scim(u: DirectoryUser) -> dict[str, Any]:
-    out: dict[str, Any] = {"schemas": [USER_SCHEMA], "userName": u.user_name, "externalId": u.external_id, "active": u.active}
+    out: dict[str, Any] = {
+        "schemas": [USER_SCHEMA],
+        "userName": u.user_name,
+        "externalId": u.external_id,
+        "active": u.active,
+    }
     if u.display_name:
         out["displayName"] = u.display_name
     name = {k: v for k, v in (("givenName", u.given_name), ("familyName", u.family_name)) if v}
@@ -72,12 +77,19 @@ def differs(want: Mapping[str, Any], have: Mapping[str, Any]) -> bool:
 @dataclass(slots=True)
 class Plan:
     create: list[dict[str, Any]] = field(default_factory=list)
-    update: list[tuple[str, dict[str, Any]]] = field(default_factory=list)  # (resource id, new state)
+    update: list[tuple[str, dict[str, Any]]] = field(
+        default_factory=list
+    )  # (resource id, new state)
     same: int = 0
     deactivate: list[str] = field(default_factory=list)  # resource ids
 
     def counts(self) -> dict[str, int]:
-        return {"created": len(self.create), "updated": len(self.update), "unchanged": self.same, "deactivated": len(self.deactivate)}
+        return {
+            "created": len(self.create),
+            "updated": len(self.update),
+            "unchanged": self.same,
+            "deactivated": len(self.deactivate),
+        }
 
 
 def plan(users: Sequence[DirectoryUser], existing: Sequence[Mapping[str, Any]]) -> Plan:
@@ -99,7 +111,9 @@ def plan(users: Sequence[DirectoryUser], existing: Sequence[Mapping[str, Any]]) 
             out.update.append((str(have["id"]), want))
         else:
             out.same += 1
-    out.deactivate = [str(r["id"]) for r in existing if str(r["id"]) not in seen and r.get("active", True)]
+    out.deactivate = [
+        str(r["id"]) for r in existing if str(r["id"]) not in seen and r.get("active", True)
+    ]
     return out
 
 
@@ -107,7 +121,9 @@ def check_safe(directory_size: int, active_in_source: int, deactivations: int) -
     """Refuse a run that would empty or gut the source (see the limits above); a person must look at it first."""
     if directory_size == 0 and active_in_source > 0:
         raise DirectoryError("EMPTY_DIRECTORY")
-    if deactivations > max(MASS_DEACTIVATION_FLOOR, int(active_in_source * MASS_DEACTIVATION_SHARE)):
+    if deactivations > max(
+        MASS_DEACTIVATION_FLOOR, int(active_in_source * MASS_DEACTIVATION_SHARE)
+    ):
         raise DirectoryError("MASS_DEACTIVATION")
 
 
@@ -115,4 +131,4 @@ def next_delay(interval_seconds: int, consecutive_failures: int) -> int:
     """Seconds until the next run: the interval, stretched after failures (doubling, capped), so a broken credential is not hammered."""
     if consecutive_failures <= 0:
         return interval_seconds
-    return min(interval_seconds * (2 ** min(consecutive_failures, 6)), FAILURE_BACKOFF_MAX)
+    return int(min(interval_seconds * (2 ** min(consecutive_failures, 6)), FAILURE_BACKOFF_MAX))

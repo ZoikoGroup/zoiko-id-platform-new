@@ -470,22 +470,6 @@ export interface components {
              */
             principal_id: string;
         };
-        /** ChallengeIn */
-        ChallengeIn: {
-            /** Action */
-            action: string;
-            /** Change */
-            change?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Critical
-             * @default false
-             */
-            critical: boolean;
-            /** Resource */
-            resource: string;
-        };
         /** ClientRef */
         ClientRef: {
             /** Client Id */
@@ -574,6 +558,22 @@ export interface components {
             client_id: string;
             /** Recovery Code */
             recovery_code: string;
+        };
+        /** ChallengeIn */
+        zid_platform__modules__authentication__api__step_up__ChallengeIn: {
+            /** Action */
+            action: string;
+            /** Change */
+            change?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Critical
+             * @default false
+             */
+            critical: boolean;
+            /** Resource */
+            resource: string;
         };
         /** CredentialIn */
         zid_platform__modules__authentication__api__webauthn__CredentialIn: {
@@ -1338,7 +1338,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChallengeIn"];
+                "application/json": components["schemas"]["zid_platform__modules__authentication__api__step_up__ChallengeIn"];
             };
         };
         responses: {

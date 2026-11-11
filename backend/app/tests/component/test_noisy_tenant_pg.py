@@ -41,7 +41,9 @@ def test_a_flooding_tenant_is_refused_and_a_quiet_one_is_not_affected(rt_url: st
             async with httpx.AsyncClient(transport=transport, base_url=ISS, timeout=60) as client:
                 quiet_lat: list[float] = []
 
-                async def call(headers: dict[str, str], lat: list[float] | None = None) -> httpx.Response:
+                async def call(
+                    headers: dict[str, str], lat: list[float] | None = None
+                ) -> httpx.Response:
                     started = time.perf_counter()
                     r = await client.get(URL, headers=headers)
                     if lat is not None:
@@ -58,14 +60,25 @@ def test_a_flooding_tenant_is_refused_and_a_quiet_one_is_not_affected(rt_url: st
                 flood = [call(ha) for _ in range(BURST)]
                 results = await asyncio.gather(*flood, quiet_tenant())
                 a_resp, b_resp = results[:BURST], results[BURST]
-                retry_after = next((r.headers.get("retry-after") for r in a_resp if r.status_code == 429), None)
-                return [r.status_code for r in a_resp], [r.status_code for r in b_resp], quiet_lat, retry_after
+                retry_after = next(
+                    (r.headers.get("retry-after") for r in a_resp if r.status_code == 429), None
+                )
+                return (
+                    [r.status_code for r in a_resp],
+                    [r.status_code for r in b_resp],
+                    quiet_lat,
+                    retry_after,
+                )
 
     a_codes, b_codes, b_latency, retry_after = asyncio.run(run())
 
     assert a_codes.count(200) <= LIMIT  # the noisy tenant got no more than its allowance
-    assert a_codes.count(429) >= BURST - LIMIT - 5  # and the rest were refused, not queued or dropped
+    assert (
+        a_codes.count(429) >= BURST - LIMIT - 5
+    )  # and the rest were refused, not queued or dropped
     assert set(a_codes) <= {200, 429}  # graceful denial: never a 5xx under the flood
     assert retry_after is not None and int(retry_after) >= 1  # told when to come back
     assert b_codes == [200] * QUIET  # the quiet tenant is never refused
-    assert sorted(b_latency)[int(0.95 * QUIET) - 1] < 5.0  # and is not starved while A is being refused
+    assert (
+        sorted(b_latency)[int(0.95 * QUIET) - 1] < 5.0
+    )  # and is not starved while A is being refused

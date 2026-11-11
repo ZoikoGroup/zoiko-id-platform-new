@@ -43,7 +43,9 @@ async def approved_by_workload(conn: AsyncConnection) -> dict[str, frozenset[str
     return {k: frozenset(v) for k, v in found.items()}
 
 
-async def run(workspace: str, registrations: Path, database_url: str, *, write: bool, check: bool) -> int:
+async def run(
+    workspace: str, registrations: Path, database_url: str, *, write: bool, check: bool
+) -> int:
     try:
         raw = json.loads(registrations.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -54,7 +56,9 @@ async def run(workspace: str, registrations: Path, database_url: str, *, write: 
         async with engine.connect() as c:
             t = (
                 await c.execute(
-                    text("SELECT tenant_id, home_cell_id FROM platform.tenant WHERE tenant_slug = :s"),
+                    text(
+                        "SELECT tenant_id, home_cell_id FROM platform.tenant WHERE tenant_slug = :s"
+                    ),
                     {"s": workspace},
                 )
             ).first()
@@ -62,7 +66,13 @@ async def run(workspace: str, registrations: Path, database_url: str, *, write: 
             print(f"No company with workspace name {workspace!r}.", file=sys.stderr)
             return 2
         tenant = str(t.tenant_id)
-        ctx = RequestContext("req_attestor_sync", "cor_attestor_sync", "attestor-sync", str(t.home_cell_id), tenant_id=tenant)
+        ctx = RequestContext(
+            "req_attestor_sync",
+            "cor_attestor_sync",
+            "attestor-sync",
+            str(t.home_cell_id),
+            tenant_id=tenant,
+        )
         async with tenant_transaction(engine, ctx) as conn:
             approved = await approved_by_workload(conn)
     finally:
@@ -84,7 +94,12 @@ async def run(workspace: str, registrations: Path, database_url: str, *, write: 
         registrations.write_text(json.dumps(plan.registrations, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote {registrations}. Review the difference and commit it.")
         return 0
-    print("Run again with --write to apply this." if not check else "The registration file is out of date.", file=sys.stderr)
+    print(
+        "Run again with --write to apply this."
+        if not check
+        else "The registration file is out of date.",
+        file=sys.stderr,
+    )
     return 1 if check else 0
 
 
@@ -93,13 +108,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workspace", required=True, help="the company's workspace name")
     p.add_argument("--registrations", required=True, type=Path)
     p.add_argument("--write", action="store_true")
-    p.add_argument("--check", action="store_true", help="exit 1 when the file is out of date (for a pipeline)")
+    p.add_argument(
+        "--check", action="store_true", help="exit 1 when the file is out of date (for a pipeline)"
+    )
     args = p.parse_args(argv)
     url = os.environ.get("ZID_CELL_DATABASE_URL") or os.environ.get("ZID_DATABASE_URL")
     if not url:
         print("set ZID_CELL_DATABASE_URL", file=sys.stderr)
         return 2
-    return asyncio.run(run(args.workspace, args.registrations, url, write=args.write, check=args.check))
+    return asyncio.run(
+        run(args.workspace, args.registrations, url, write=args.write, check=args.check)
+    )
 
 
 if __name__ == "__main__":
