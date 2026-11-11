@@ -270,7 +270,9 @@ def create_app(
         from .modules.commercial.api.stripe_webhook import router as stripe_webhook_router
         from .modules.communication.api.communication import router as communication_router
         from .modules.configuration.api.settings import router as settings_router
+        from .modules.credential.api.claim_checks import router as claim_checks_router
         from .modules.credential.api.credentials import router as credentials_router
+        from .modules.credential.api.trust import router as credential_trust_router
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
@@ -345,6 +347,8 @@ def create_app(
             countries_router,
             recovery_router,
             credentials_router,
+            claim_checks_router,
+            credential_trust_router,
             principals_router,
             evidence_router,
             operator_router,

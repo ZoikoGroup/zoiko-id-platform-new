@@ -58,7 +58,15 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Identity Verification and Assurance API",
     ),
     OPENAPI / "public" / "credentials.json": (
-        ("/presentations", "/credentials", "/credential-", "/relying-party-registrations"),
+        (
+            "/presentations",
+            "/credentials",
+            "/credential-",
+            "/relying-party-registrations",
+            "/v1/issuers",
+            "/v1/eligibility",
+            "/v1/consumers",
+        ),
         "Zoiko iD Verifiable Credentials API (OID4VP verifier, OID4VCI issuer)",
     ),
     OPENAPI / "public" / "signals.json": (

@@ -854,6 +854,36 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-VC-001 §13 (Token Status List for issued credentials); CR-009"
+  cred.claim_check:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-037, sections 04.1 and 08.1 (source-backed claim assertion); CR-069"
+  cred.consent_grant:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-053 (per-recipient consent, minimal disclosure, withdrawal); CR-069"
+  cred.outreach_request:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-054 (issuer outreach, dual review); CR-069"
+  cred.eligibility_decision:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-041/049 (eligibility and engagement decisions, append-only); CR-069"
+  cred.claim_appeal:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-059, section 03.1 (appeal and correction of a claim check); CR-069"
+  cred.claim_monitor:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-058/060 (expiry, freshness and source ordering); CR-069"
   signals.security_signal:
     role: cell
     module: signals

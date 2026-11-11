@@ -39,6 +39,7 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce_tenant
 from zid_platform.modules.authentication.ports import require_step_up
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.credential.application import issuer as issuing
 from zid_platform.modules.credential.application import verifier
 from zid_platform.modules.credential.domain.credentials import (
@@ -49,7 +50,6 @@ from zid_platform.modules.credential.domain.credentials import (
 from zid_platform.modules.credential.domain.vcdm import VCDM_ADAPTER
 from zid_platform.modules.credential.infrastructure import credential_store as store
 from zid_platform.modules.verification.ports import Capability
-from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["credentials"])

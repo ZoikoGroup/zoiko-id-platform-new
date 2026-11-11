@@ -227,12 +227,22 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
         except VerificationError as e:
             results.append({"subject_principal_id": str(subject), "started": False, "code": e.code})
             continue
-        item: dict[str, Any] = {"subject_principal_id": str(subject), "started": True, "verification_id": out.session_id, "status": out.status}
+        item: dict[str, Any] = {
+            "subject_principal_id": str(subject),
+            "started": True,
+            "verification_id": out.session_id,
+            "status": out.status,
+        }
         if out.handoff:
             item["handoff"] = out.handoff
         results.append(item)
     started = sum(1 for r in results if r["started"])
-    return {"requested": len(results), "started": started, "failed": len(results) - started, "items": results}
+    return {
+        "requested": len(results),
+        "started": started,
+        "failed": len(results) - started,
+        "items": results,
+    }
 
 
 @router.get("/verifications/{verification_id}")

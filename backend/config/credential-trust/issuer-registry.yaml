@@ -1,0 +1,34 @@
+﻿# Issuer and registry trust graph (ZID-GAP-001 v2.0 GID-038, GID-045). Versioned configuration, not tenant data.
+# status: PROPOSED (CR-069). Only SAMPLE issuers are listed: they exist so the local simulator source can be exercised.
+# No real school, regulator, employer or insurer is listed because none has been verified and approved by the owners.
+# An issuer that is not listed is untrusted. authority OFFICIAL needs a recorded legal or regulatory basis (set by Legal).
+# version: 0.1.0
+
+version: 0.1.0
+issuers:
+  - issuer_id: sample-university
+    kind: UNIVERSITY
+    authority: OFFICIAL
+    countries: [US]
+    claim_types: [ACADEMIC_AWARD]
+    outreach_contacts: ["registrar@sample-university.example"]
+    names:
+      - {name: "Sample State College", until: "2015-06-30"}
+      - {name: "Sample University", from: "2015-07-01"}
+    accreditations:
+      - {body: sample-accreditor, program: "BSc Computing", from: "2000-01-01"}
+  - issuer_id: sample-licensing-board
+    kind: REGULATOR
+    authority: OFFICIAL
+    countries: [US]
+    claim_types: [PROFESSIONAL_LICENSE, DISCIPLINARY_FINDING]
+    names:
+      - {name: "Sample State Licensing Board"}
+  - issuer_id: sample-insurer
+    kind: INSURER
+    authority: OFFICIAL
+    countries: [US]
+    claim_types: [INSURANCE_ASSERTION]
+    names:
+      - {name: "Sample Indemnity Insurance"}
+recognition: []

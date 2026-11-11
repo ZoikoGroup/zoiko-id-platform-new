@@ -4,6 +4,36 @@
 # Same shape as event-catalogue.yaml. Emitting a type that is in neither file fails CI.
 
 events:
+  credential.eligibility.decided:
+    cloudevents_type: com.zoiko.id.credential.eligibility.decided.v1
+    meaning: "An eligibility or engagement decision was made for a subject; carries the decision id, outcome and policy ref, never a credential value."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.status.changed:
+    cloudevents_type: com.zoiko.id.credential.claim.status.changed.v1
+    meaning: "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.recheck.due:
+    cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
+    meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.appealed:
+    cloudevents_type: com.zoiko.id.credential.claim.appealed.v1
+    meaning: "A person appealed or asked for correction of a claim check; ids only."
+    source: ZID-GAP-001 v2.0; CR-069
+    lane: domain
+    source_status: "proposed"
+  credential.claim.checked:
+    cloudevents_type: com.zoiko.id.credential.claim.checked.v1
+    meaning: "A credential claim was checked against a source; carries the check id, claim type and decision only, never a claimed value."
+    source: ZID-GAP-001 v2.0 GID-037; CR-069
+    lane: domain
+    source_status: "proposed"
   relationship.edge.changed:
     cloudevents_type: com.zoiko.id.relationship.edge.changed.v1
     meaning: "An authoritative relationship fact was recorded or changed; carries the tenant relation_revision (projector input, DEC-C4)."

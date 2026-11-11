@@ -474,8 +474,23 @@
     "credential.domain": {
       "address": "zid.{env}.{region}.credential.domain",
       "messages": {
+        "credential_claim_appealed": {
+          "$ref": "#/components/messages/credential_claim_appealed"
+        },
+        "credential_claim_checked": {
+          "$ref": "#/components/messages/credential_claim_checked"
+        },
+        "credential_claim_recheck_due": {
+          "$ref": "#/components/messages/credential_claim_recheck_due"
+        },
+        "credential_claim_status_changed": {
+          "$ref": "#/components/messages/credential_claim_status_changed"
+        },
         "credential_configuration_activated": {
           "$ref": "#/components/messages/credential_configuration_activated"
+        },
+        "credential_eligibility_decided": {
+          "$ref": "#/components/messages/credential_eligibility_decided"
         },
         "credential_issuance_started": {
           "$ref": "#/components/messages/credential_issuance_started"
@@ -2820,6 +2835,50 @@
         "x-zid-source": "ZID-OVERLAY-001",
         "x-zid-status": "catalogued"
       },
+      "credential_claim_appealed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.appealed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person appealed or asked for correction of a claim check; ids only.",
+        "title": "credential.claim.appealed",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
+      },
+      "credential_claim_checked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.checked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A credential claim was checked against a source; carries the check id, claim type and decision only, never a claimed value.",
+        "title": "credential.claim.checked",
+        "x-zid-source": "ZID-GAP-001 v2.0 GID-037; CR-069",
+        "x-zid-status": "proposed"
+      },
+      "credential_claim_recheck_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.recheck.due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only.",
+        "title": "credential.claim.recheck.due",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
+      },
+      "credential_claim_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.claim.status.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only.",
+        "title": "credential.claim.status.changed",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
+      },
       "credential_configuration_activated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.credential.configuration.activated.v1",
@@ -2830,6 +2889,17 @@
         "title": "credential.configuration.activated",
         "x-zid-source": "ZID-VC-001",
         "x-zid-status": "catalogued"
+      },
+      "credential_eligibility_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.eligibility.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An eligibility or engagement decision was made for a subject; carries the decision id, outcome and policy ref, never a credential value.",
+        "title": "credential.eligibility.decided",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
       },
       "credential_issuance_started": {
         "contentType": "application/cloudevents+json",

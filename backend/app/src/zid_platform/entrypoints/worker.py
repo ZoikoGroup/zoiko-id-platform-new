@@ -329,6 +329,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await lifecycle_sweep(conn, now)
 
+    async def credential_recheck(conn: AsyncConnection, now: datetime) -> object:
+        """GID-058: announce, once a day each, the current credential checks that expire soon or have gone stale."""
+        from zid_platform.modules.credential.ports import recheck_due
+
+        return {"announced": await recheck_due(conn, now)}
+
     async def refunds(conn: AsyncConnection, now: datetime) -> object:
         """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""
         from zid_platform.main import build_refund_port
@@ -368,6 +374,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
         ("signal_housekeeping", signal_housekeeping),
+        ("credential_recheck", credential_recheck),
         ("refunds", refunds),
     ]
 

@@ -55,7 +55,7 @@ from zid_platform.modules.screening.domain.decision import (
     ScreeningStatus,
 )
 from zid_platform.modules.screening.domain.lists import ListId, PartyKind
-from zid_platform.modules.screening.domain.matching import Party
+from zid_platform.modules.screening.domain.matching import Party, name_score
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
 from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES
 from zid_platform.modules.screening.domain.signals import Action as AttemptAction
@@ -94,6 +94,7 @@ __all__ = [
     "ingest_list",
     "ingest_pass",
     "live_kyb_cases",
+    "name_score",
     "note_attempt",
     "open_case",
     "open_signal_queue",

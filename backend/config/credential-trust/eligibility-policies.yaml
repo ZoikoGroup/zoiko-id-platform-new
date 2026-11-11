@@ -1,0 +1,24 @@
+# Eligibility policies and Zoikorum trust-tier rules (ZID-GAP-001 v2.0 GID-041, GID-048, GID-049). Versioned configuration.
+# status: PROPOSED (CR-069). The policy below is a SAMPLE for the local simulator; no real profession or place is listed.
+# A real policy needs the owners' sign-off (Zoikorum product, Legal) and states which claim types are required, whether a foreign
+# award needs recognition, and how old a source check may be. Anything not listed gives no eligibility decision at all.
+# version: 0.1.0
+
+version: 0.1.0
+policies:
+  - policy_id: sample-us-ca-law
+    version: 1
+    country: US
+    subdivision: CA
+    profession_code: LAW
+    service_code: legal.advice
+    required_claim_types: [PROFESSIONAL_LICENSE]
+    recognition_required_for: [ACADEMIC_AWARD]
+    max_assertion_age_days: 365
+tier_rules:
+  - rule_id: sample-zoikorum
+    version: 1
+    tier_a: [IDENTITY, CREDENTIAL, ELIGIBILITY, INSURANCE]
+    tier_b: [IDENTITY, CREDENTIAL]
+    tier_c: [IDENTITY]
+    mandatory: [IDENTITY]
