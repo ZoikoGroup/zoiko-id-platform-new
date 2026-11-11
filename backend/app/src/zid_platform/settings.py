@@ -87,7 +87,7 @@ class Settings(ServiceSettings):
     evidence_tsa_trust_file: str | None = None
     # ZID_EVIDENCE_TSA_REVOCATION: off | if_available (a revoked TSA certificate fails; a missing CRL is noted) | required (a missing CRL fails too)
     evidence_tsa_revocation: Literal["off", "if_available", "required"] = "if_available"
-    # ZID_EVIDENCE_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
+    # ZID_UPLOAD_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
     # unset classes are kept (the ledger entry is never purged, only the record body)
     evidence_retention_days: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
     # ZID_TENANT_KEK_IDS (JSON tenant -> KMS key id/ARN): DEDICATED_TENANT_KEY / BYOK / HYOK
@@ -195,6 +195,10 @@ class Settings(ServiceSettings):
     # ZID_PROOF_SCANNER_ADDRESS: host[:port] of the clamd malware scanner that checks uploaded proof documents; a deployed
     # environment refuses uploads without one (nothing is stored unscanned), local and test record NOT_SCANNED
     proof_scanner_address: str | None = None
+    # ZID_UPLOAD_RETENTION_DAYS: how long an uploaded evidence document is kept before its bytes are erased. The privacy officer
+    # decides it; unset means the cell accepts no evidence upload (a retention is never invented). Uploads are scanned by the same clamd
+    # as proof documents (ZID_PROOF_SCANNER_ADDRESS).
+    upload_retention_days: int | None = None
     company_evidence_kms_key_id: str | None = (
         None  # ZID_COMPANY_EVIDENCE_KMS_KEY_ID: signs company-verification and screening evidence
     )

@@ -127,6 +127,8 @@ rules:
   - {match: "POST /v1/credentials/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (checks decide, issue nothing)
   - {match: "GET /v1/credential-packs*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade (CR-071)
+  - {match: "PUT /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 evidence content upload (the route checks evidence.upload.manage itself)
+  - {match: "DELETE /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 erase uploaded evidence
   - {match: "POST /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade: checks decide, issue nothing
   - {match: "POST /v1/eligibility/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (decides, issues nothing)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069

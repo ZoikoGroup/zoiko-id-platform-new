@@ -66,6 +66,7 @@ actions:
   tool.execute:                     {min_risk_class: R2, min_evidence_class: E2, category: "agent tool call (raise per tool policy)", name_source: spec, owner: machine}
   evidence.replay:                  {min_risk_class: R2, min_evidence_class: E2, category: "deterministic replay of a decision receipt (EVIDENCE §19)", name_source: spec, owner: evidence, note: "CR-011"}
   evidence.annotate:                {min_risk_class: R2, min_evidence_class: E2, category: "append-only correction/annotation of a receipt (EVIDENCE §20)", name_source: proposed, owner: evidence, note: "CR-011"}
+  evidence.upload.manage:           {min_risk_class: R2, min_evidence_class: E2, category: "upload, scan, read back as a manifest and delete a document held as evidence; bytes live in the cell database, only after a clean scan (ZID-INT-002 section 05, CR-071)", name_source: proposed, owner: evidence, note: "CR-071"}
   evidence.case.manage:             {min_risk_class: R2, min_evidence_class: E2, category: "evidence case assembly with chain of custody (EVIDENCE §18)", name_source: proposed, owner: evidence, note: "CR-011"}
   privacy.rights.manage:            {min_risk_class: R2, min_evidence_class: E2, category: "data-rights case handling: scope, verify, review (PRIV §12-15)", name_source: proposed, owner: privacy, note: "CR-013"}
   tenant.member.manage:             {min_risk_class: R2, min_evidence_class: E2, category: "invite/revoke tenant MEMBER and ADMIN roles (OVERLAY §4); never OWNER", name_source: proposed, owner: tenant, note: "CR-015"}

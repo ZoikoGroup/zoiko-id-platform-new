@@ -45,6 +45,7 @@ ACTIONS = [
     "credential.outreach.manage",
     "evidence.read",
     "evidence.verify",
+    "evidence.upload.manage",
 ]
 RESOURCES = [
     "credential-claim:*",
@@ -54,6 +55,7 @@ RESOURCES = [
     "decision_receipt:*",
     "verification-case:*",
     "document:*",
+    "evidence-upload:*",
 ]
 BODY = {
     "credential_type": "professional_license",
@@ -218,7 +220,9 @@ def test_the_v2_facade_is_idempotent_problem_detailed_and_never_collapses_a_resu
 
 
 @contextmanager
-def world(rt_url: str) -> Iterator[tuple[TestClient, dict[str, str], str, str]]:
+def world(
+    rt_url: str, retention: int | None = 30
+) -> Iterator[tuple[TestClient, dict[str, str], str, str]]:
     """One tenant with an administrator who may run checks and decide eligibility, behind the full app."""
     tenant, admin = uid(), uid()
     ring = KeyRing(LocalSigner("issuer-v2-world"))
@@ -246,7 +250,7 @@ def world(rt_url: str) -> Iterator[tuple[TestClient, dict[str, str], str, str]]:
         now=datetime.now(UTC), session_id=sid, scope=frozenset(),
     )  # fmt: skip
     app = create_app(
-        Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test"),
+        Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", upload_retention_days=retention),
         keyring=ring,
     )  # fmt: skip
     with TestClient(app, base_url=ISS) as http:

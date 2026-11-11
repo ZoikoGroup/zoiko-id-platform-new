@@ -22,8 +22,9 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.api.evidence import http, receipt_summary
 from zid_platform.modules.evidence.application import replay
+from zid_platform.modules.evidence.application import uploads as upload_svc
 from zid_platform.modules.evidence.domain.ledger import LedgerError
-from zid_platform.modules.evidence.infrastructure import receipt_store
+from zid_platform.modules.evidence.infrastructure import receipt_store, upload_store
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["evidence-v2"])
@@ -31,7 +32,7 @@ CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 
 
 def parse_ref(ref: str) -> uuid.UUID:
-    for prefix in ("manifest_", "rcpt_"):
+    for prefix in ("manifest_", "rcpt_", "ev_"):
         if ref.startswith(prefix):
             ref = ref[len(prefix) :]
             break
@@ -45,6 +46,15 @@ def parse_ref(ref: str) -> uuid.UUID:
 async def manifest(manifest_ref: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     ident = str(parse_ref(manifest_ref))
     ctx = current_context()
+    if manifest_ref.startswith("ev_"):  # an uploaded document: metadata only, never the bytes
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await protected_action(
+                conn, caller, action="evidence.read", resource=f"evidence-upload:{ident}"
+            )
+            up = await upload_store.load(conn, ident)
+        if up is None:
+            raise ZidError("NOT_FOUND", "No such manifest.", http_status=404)
+        return {"request_id": ctx.request_id if ctx else "req_unknown", **upload_svc.manifest(up)}
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
             await protected_action(

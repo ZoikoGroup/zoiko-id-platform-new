@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -19,6 +20,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.evidence.application import uploads
 from zid_platform.modules.evidence.domain import documents as docs
 from zid_platform.protected import protected_action
 
@@ -28,7 +30,12 @@ CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 
 class V2DocumentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    content_base64: str = Field(min_length=4, max_length=(docs.MAX_BYTES * 4) // 3 + 16)
+    content_base64: str | None = Field(
+        default=None, min_length=4, max_length=(docs.MAX_BYTES * 4) // 3 + 16
+    )
+    evidence_ref: str | None = Field(
+        default=None, max_length=80
+    )  # an upload that is READY and scanned CLEAN
     declared_type: str = Field(min_length=3, max_length=40)
     expected_sha256: str | None = Field(default=None, pattern=r"^[A-Fa-f0-9]{64}$")
     checks: list[str] = Field(min_length=1, max_length=4)
@@ -40,14 +47,33 @@ class V2DocumentIn(BaseModel):
 async def validate_document(
     body: V2DocumentIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
+    if (body.content_base64 is None) == (body.evidence_ref is None):
+        raise ZidError(
+            "VALIDATION_FAILED",
+            "Send exactly one of content_base64 and evidence_ref.",
+            http_status=422,
+        )
+    content: bytes
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.verify", resource="document:validate")
-    try:
-        content = base64.b64decode(body.content_base64, validate=True)
-    except (binascii.Error, ValueError) as e:
-        raise ZidError(
-            "VALIDATION_FAILED", "content_base64 is not valid base64.", http_status=422
-        ) from e
+        held = None
+        if body.evidence_ref is not None:
+            held = await uploads.read_usable(conn, body.evidence_ref, datetime.now(UTC))
+            if (
+                held is None
+            ):  # unknown, not scanned clean, deleted or past retention: all the same answer
+                raise ZidError(
+                    "EVIDENCE_NOT_USABLE", "That evidence cannot be used.", http_status=422
+                )
+    if held is not None:
+        content = held[0]
+    else:
+        try:
+            content = base64.b64decode(body.content_base64 or "", validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise ZidError(
+                "VALIDATION_FAILED", "content_base64 is not valid base64.", http_status=422
+            ) from e
     try:
         v = docs.validate(
             content,
@@ -67,7 +93,8 @@ async def validate_document(
         "sha256": v.sha256,
         "sniffed_type": v.sniffed_type,
         "size_bytes": v.size_bytes,
-        "stored": False,
+        "stored": body.evidence_ref
+        is not None,  # an upload is held until its retention ends; pasted content never is
         "document_results": [
             {
                 "check": r.check,

@@ -40,6 +40,7 @@ from zid_platform.modules.credential.infrastructure.registries import (
     issuer_registry,
     source_contracts,
 )
+from zid_platform.modules.evidence.ports import unusable_evidence
 from zid_platform.modules.verification.ports import pack_registry, public_view
 from zid_platform.protected import protected_action
 
@@ -198,6 +199,12 @@ async def verify_credential(
         )
         if stored is not None:
             return dict(stored.body)
+        if body.evidence_refs:  # a check may rest only on evidence that was scanned clean and is still held
+            bad = await unusable_evidence(conn, body.evidence_refs, _now())
+            if bad:
+                raise ZidError(
+                    "EVIDENCE_NOT_USABLE", "Evidence is unknown, not scanned clean, deleted or expired.", http_status=422
+                )
         result = await v1.perform_check(claim_type, v1_body, request, caller, conn)
         rid, cid = _ids()
         out = vw.credential_response(

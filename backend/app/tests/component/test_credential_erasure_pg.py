@@ -253,3 +253,24 @@ def test_every_credential_check_table_is_registered_with_the_privacy_data_map() 
         "cred.verification_case",
     ):
         assert store in names, store
+
+
+def test_erasing_a_subject_in_one_tenant_never_touches_the_same_subject_id_in_another(
+    rt_url: str,
+) -> None:
+    """credential_0011: the SECURITY DEFINER function filters on its tenant, whatever role owns it."""
+    t1, t2, a = uid(), uid(), uid()
+
+    async def go() -> None:
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(t1)) as c:
+                await populate(c, t1, a)
+            async with tenant_transaction(eng, ctx(t2)) as c:
+                await populate(c, t2, a)  # the very same subject id, in another tenant
+            async with tenant_transaction(eng, ctx(t1)) as c:
+                await adapter._erase(c, entry(t1, a), "DELETE")
+                assert set((await counts(c, a)).values()) == {0}
+            async with tenant_transaction(eng, ctx(t2)) as c:
+                assert all(v >= 1 for v in (await counts(c, a)).values()), await counts(c, a)
+
+    run(go())

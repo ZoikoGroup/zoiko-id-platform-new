@@ -129,6 +129,18 @@ def create_app(
     app.state.federation_authority_hints = settings.federation_authority_hints
     app.state.verification_transport = None  # real network; tests inject a provider simulator
     app.state.credential_transport = None  # status-list / federation fetches (simulated in tests)
+    from .modules.evidence.application.scanner import SimulatorScanner, scanner_from_address
+
+    app.state.upload_retention_days = settings.upload_retention_days
+    # the real clamd when its address is set (the same one proof documents use); the EICAR-only simulator for local and test; otherwise
+    # NONE, and uploads are refused: a deployed cell never pretends to scan
+    app.state.evidence_scanner = (
+        scanner_from_address(settings.proof_scanner_address)
+        if settings.proof_scanner_address
+        else SimulatorScanner()
+        if settings.environment in ("local", "test")
+        else None
+    )
     app.state.registry_transport = None  # Companies House / GLEIF (simulated in tests)
     app.state.kyb_transport = None  # company-verification sources (real network; tests inject)
     app.state.kyb_adapters = None  # tests supply their own sources
@@ -274,14 +286,15 @@ def create_app(
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.credential.api.trust import router as credential_trust_router
         from .modules.credential.api.v2 import router as credential_v2_router
+        from .modules.credential.api.v2_cases import router as credential_v2_cases_router
         from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
         from .modules.credential.api.v2_presentations import router as credential_v2_pres_router
-        from .modules.credential.api.v2_cases import router as credential_v2_cases_router
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
+        from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
@@ -333,8 +346,8 @@ def create_app(
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.verification import router as verification_router
-        from .modules.webhook.api.webhooks import router as webhooks_router
         from .modules.webhook.api.v2 import router as webhooks_v2_router
+        from .modules.webhook.api.webhooks import router as webhooks_router
 
         for router in (
             authzen_router,
@@ -364,6 +377,7 @@ def create_app(
             evidence_router,
             evidence_v2_router,
             evidence_v2_documents_router,
+            evidence_v2_uploads_router,
             operator_router,
             lockbox_router,
             privacy_router,
@@ -932,13 +946,14 @@ def _register_invitation_hooks() -> None:
 def register_privacy_stores(registration_tenant: str | None = None) -> None:
     """Every module that keeps personal data plugs its locator/exporter/disposer into the privacy
     data map (PRIV-001 §10, §32.1 "all production personal-data stores registered")."""
+    from . import evidence_privacy_adapter as evidence_uploads
     from .modules.authentication.infrastructure import privacy_adapter as authentication
     from .modules.credential.infrastructure import privacy_adapter as credential
     from .modules.principal.infrastructure import privacy_adapter as principal
     from .modules.session.infrastructure import privacy_adapter as session
     from .modules.verification.infrastructure import privacy_adapter as verification
 
-    for adapter in (principal, authentication, session, verification, credential):
+    for adapter in (principal, authentication, session, verification, credential, evidence_uploads):
         adapter.register()
     if (
         registration_tenant

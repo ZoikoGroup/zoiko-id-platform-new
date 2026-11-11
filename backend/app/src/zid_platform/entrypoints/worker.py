@@ -335,6 +335,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return {"announced": await recheck_due(conn, now)}
 
+    async def evidence_purge(conn: AsyncConnection, now: datetime) -> object:
+        """CR-071: erase the bytes of uploaded evidence whose retention has run out (the row stays as the record)."""
+        from zid_platform.modules.evidence.ports import purge_expired_uploads
+
+        return {"purged": await purge_expired_uploads(conn, now)}
+
     async def refunds(conn: AsyncConnection, now: datetime) -> object:
         """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""
         from zid_platform.main import build_refund_port
@@ -375,6 +381,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("agent_lifecycle", agent_lifecycle),
         ("signal_housekeeping", signal_housekeeping),
         ("credential_recheck", credential_recheck),
+        ("evidence_purge", evidence_purge),
         ("refunds", refunds),
     ]
 

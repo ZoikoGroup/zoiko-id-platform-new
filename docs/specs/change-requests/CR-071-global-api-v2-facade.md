@@ -4,12 +4,13 @@ Status: built and tested locally, uncommitted. Needs reviewer approval like ever
 
 ## What changes
 - **Routes** (new, `credential/api/v2.py`): `GET /v2/capabilities`, `GET /v2/coverage`, `POST /v2/credentials/verify`, `GET /v2/credentials/{ref}`,
-  `POST /v2/eligibility/evaluate`, `GET /v2/eligibility/{ref}`, `POST /v2/zoikorum/engagement-checks`, `POST|GET /v2/issuer-checks`, `GET /v2/evidence/{ref}/manifest`, `POST|GET /v2/webhook-endpoints`, `GET /v2/events/{id}`, `POST /v2/events/{id}/replay`, `POST|GET /v2/presentations/...`, `POST|GET /v2/verifications` with `/tasks/{check}` and `/cancel`, `POST /v2/documents/validate`. Route-map rules `GET /v2/*` and `POST /v2/*` (mode R).
+  `POST /v2/eligibility/evaluate`, `GET /v2/eligibility/{ref}`, `POST /v2/zoikorum/engagement-checks`, `POST|GET /v2/issuer-checks`, `GET /v2/evidence/{ref}/manifest`, `POST|GET /v2/webhook-endpoints`, `GET /v2/events/{id}`, `POST /v2/events/{id}/replay`, `POST|GET /v2/presentations/...`, `POST|GET /v2/verifications` with `/tasks/{check}` and `/cancel`, `POST /v2/documents/validate`, `POST /v2/evidence/uploads`, `PUT /v2/evidence/uploads/{id}/content`, `DELETE /v2/evidence/{ref}`. Route-map rules `GET /v2/*` and `POST /v2/*` (mode R).
 - **Errors**: on paths under `/v2/`, errors are RFC 9457 problems (`application/problem+json`, `code`, `trace_id`). `zid_errors.problem_document`
   holds the mapping; `zid_app` renders it. `/v1` is unchanged.
 - **Views** (pure, `credential/application/v2_view.py`): the eight evidence statuses of section 06.1, a separate engagement vocabulary, the section 02.1 envelope.
 - **Refactor**: `perform_check` in `credential/api/claim_checks.py` is now shared by the v1 routes and the facade (same behavior; it can run in a caller-held
   transaction so the idempotency record and the check commit together). `_engage` in `credential/api/trust.py` gained an optional connection.
+- **Evidence uploads**: `evidence_0005` (`evidence.upload`, bytes in the cell database; a CHECK allows bytes only for READY and scanned CLEAN), `evidence_0006` and `0007` (`evidence.erase_uploads`, a SECURITY DEFINER erasure function with an explicit tenant filter), new action `evidence.upload.manage` (R2/E2), settings `ZID_UPLOAD_RETENTION_DAYS` (required to accept uploads) and the existing `ZID_PROOF_SCANNER_ADDRESS` (clamd), worker step `evidence_purge`, privacy wiring in `zid_platform/evidence_privacy_adapter.py` (top level, because an adapter inside the evidence module would make an evidence/privacy module cycle).
 - **Migrations**: `credential_0009` `cred.source_dead_letter` (GID-060); `credential_0010` `cred.verification_case` and `cred.verification_case_task`, and a replaced `cred.erase_subject` so governed erasure reaches the case tables. Table ownership entries added; the privacy data map registers the cases.
 - **SDK**: `sdks/typescript/src/session.ts`, the section 05.1 state machine.
 - **Contracts**: `contracts/openapi/public/credentials.json` regenerated (adds `/v2/...` paths).
@@ -29,12 +30,16 @@ No existing route, event, action or table is altered. The v2 routes reuse the ex
 - `sdks/python/src/zoiko_credentials/session.py`, the Python mirror of the session state machine.
 
 ## Behavior changes to review
+- `credential_0011` replaces `cred.erase_subject` so every DELETE also filters on the tenant it was called for. A test on the matching evidence function showed a SECURITY DEFINER function owned by a role that bypasses row-level security deletes one person's rows in every tenant; the credential function had the same exposure (in practice only if two tenants shared a person id). Behavior for the right tenant is unchanged.
 - `decide()` now returns INDETERMINATE (not NOT_VERIFIED) when no source was asked. A document alone is "pending or limited", never a negative verdict (ZID-INT-002 section 15 and T06).
 - `verifier.create` takes an optional `ttl` that can only shorten the request's life (default unchanged at 10 minutes).
 - `verification.case.completed` is a new proposed event, and is subscribable.
 
-## Not built (needs a component, a library, a data source or a contract that does not exist)
-Evidence uploads (malware scanning and an object store with deletion controls, plus a retention decision from the DPO for stored personal documents), signature, seal and issuer VALIDATION of documents (a PAdES/XAdES validator, trust lists and an issuer source, DTV-02; only integrity, type and signature detection exist), organization and mandate verification (no KYB source), Rooms property checks (no property or title source), every real provider adapter (no contract or sandbox), and a signed `resume_token` for cases (the document says only "if applicable"; a token that resumed a case without the caller's own authority would be a bearer capability that weakens the tenant and authorization checks, so none is issued).
+## Not built (needs a component, a data source or a contract that does not exist)
+Signature, seal and issuer VALIDATION of documents (a PAdES/XAdES validator, trust lists and an issuer source, DTV-02; integrity, type and signature detection exist), organization and mandate verification (no KYB source), Rooms property checks (no property or title source), every real provider adapter (no contract or sandbox), a signed case `resume_token` (the document says only "if applicable"; a token that resumed a case without the caller's own authority would be a bearer capability that weakens the tenant and authorization checks), and a stored validation result (`GET /v2/documents/{id}`).
+
+## Needs people before use
+A running clamd and `ZID_PROOF_SCANNER_ADDRESS` in each deployed cell; the retention period (`ZID_UPLOAD_RETENTION_DAYS`) from the privacy officer; a DPIA addendum for holding D3 documents in the cell database (databases and backups now hold identity documents: encryption at rest and backup retention are an infrastructure decision, not code).
 
 ## Known test gaps
 The facade has no load or latency measurement. The case identity link is tested against a session row inserted directly; no real provider session exists.
