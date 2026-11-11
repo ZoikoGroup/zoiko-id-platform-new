@@ -295,11 +295,51 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await sync_outcomes(conn, now)
 
+    async def claim_autoverify(conn: AsyncConnection, now: datetime) -> object:
+        """LOCAL/TEST ONLY: with ZID_ORG_CLAIM_DEV_AUTOVERIFY, create the organization as soon as a claim's identity check is complete (no page, no button)."""
+        from zid_platform.modules.onboarding.application import claims
+        from zid_platform.modules.onboarding.application.organization import auto_establish_pass
+        from zid_platform.protected import catalog
+
+        claims.configure_dev_shortcut(settings.org_claim_dev_autoverify, settings.environment)
+        return await auto_establish_pass(conn, now, catalog=catalog())
+
     async def approval_reminders(conn: AsyncConnection, now: datetime) -> object:
         """WF-013C: remind, once, about approval requests that are about to expire (an in-app alert)."""
         from zid_platform.modules.tenant.application.reminders import remind_due
 
         return await remind_due(conn, now)
+
+    async def signal_housekeeping(conn: AsyncConnection, now: datetime) -> object:
+        """CR-068: drop attempt rows no velocity window can still count (signals and their review items are never pruned)."""
+        from zid_platform.modules.screening.ports import (
+            SIGNAL_EVENT_CHANNEL,
+            prune_velocity,
+            retry_failed_notifications,
+        )
+
+        return {
+            "pruned": await prune_velocity(conn, now),
+            "retried": await retry_failed_notifications(conn, SIGNAL_EVENT_CHANNEL, now),
+        }
+
+    async def agent_lifecycle(conn: AsyncConnection, now: datetime) -> object:
+        """WP-10: suspend agents whose sponsor has left or whose expiry has passed (with their sub-agents and bindings)."""
+        from zid_platform.modules.machine.ports import lifecycle_sweep
+
+        return await lifecycle_sweep(conn, now)
+
+    async def credential_recheck(conn: AsyncConnection, now: datetime) -> object:
+        """GID-058: announce, once a day each, the current credential checks that expire soon or have gone stale."""
+        from zid_platform.modules.credential.ports import recheck_due
+
+        return {"announced": await recheck_due(conn, now)}
+
+    async def evidence_purge(conn: AsyncConnection, now: datetime) -> object:
+        """CR-071: erase the bytes of uploaded evidence whose retention has run out (the row stays as the record)."""
+        from zid_platform.modules.evidence.ports import purge_expired_uploads
+
+        return {"purged": await purge_expired_uploads(conn, now)}
 
     async def refunds(conn: AsyncConnection, now: datetime) -> object:
         """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""
@@ -336,7 +376,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("verification_reconcile", verification_reconcile),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
+        ("claim_autoverify", claim_autoverify),
         ("approval_reminders", approval_reminders),
+        ("agent_lifecycle", agent_lifecycle),
+        ("signal_housekeeping", signal_housekeeping),
+        ("credential_recheck", credential_recheck),
+        ("evidence_purge", evidence_purge),
         ("refunds", refunds),
     ]
 

@@ -264,6 +264,19 @@ async def create_claim(
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         me = await _require_admin(conn, caller)
+        # CR-068: count this claim attempt (best effort, never blocks it). The contact key is the person's stable id here.
+        from zid_platform.attempt_context import attempt_inputs
+        from zid_platform.modules.screening.ports import AttemptAction, note_attempt
+
+        await note_attempt(
+            conn,
+            tenant,
+            subject_ref=f"claim-attempt:{idempotency_key[:32]}",
+            action=AttemptAction.CLAIM,
+            now=now,
+            contact=me,
+            **attempt_inputs(request),
+        )
         try:
             view = await kyb_request_verification(
                 conn,

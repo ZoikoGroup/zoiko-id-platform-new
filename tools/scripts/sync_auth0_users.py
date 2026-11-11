@@ -241,7 +241,7 @@ def plan(auth0: list[dict[str, Any]], zoiko: list[dict[str, Any]]) -> dict[str, 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--api-base", default="http://localhost:8010", help="the cell's public address (default: the local cell)")
+    p.add_argument("--api-base", default="http://localhost:8000", help="the cell's public address (default: the local cell)")
     p.add_argument("--scim-client-id", default="hr-ed5bcaf5", help="the OAuth client of the SCIM source")
     p.add_argument("--scim-key", default=str(Path.home() / "Downloads" / "scim-connector-private-key.json"), help="the private key file for that client")
     p.add_argument("--auth0-domain", default="dev-qogbbz4c306u41k1.us.auth0.com")

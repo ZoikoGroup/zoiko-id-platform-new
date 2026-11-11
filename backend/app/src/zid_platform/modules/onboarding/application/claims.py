@@ -68,6 +68,22 @@ _DECISIONS = frozenset({"VERIFIED", "DECLINED", "RESTRICTED"})
 _CLOSED = frozenset({"WITHDRAWN", "ABANDONED"})
 
 
+_DEV_SHORTCUT = False
+
+
+def configure_dev_shortcut(enabled: bool, environment: str) -> None:
+    """LOCAL/TEST ONLY. With it on, a claim reads as VERIFIED once the claimant's own identity check is complete (see `status`). Refused in any other
+    environment, so a deployed cell can never run with it."""
+    global _DEV_SHORTCUT
+    if enabled and environment not in ("local", "test"):
+        raise RuntimeError("the development claim shortcut is for local/test only")
+    _DEV_SHORTCUT = enabled
+
+
+def dev_shortcut_enabled() -> bool:
+    return _DEV_SHORTCUT
+
+
 def final_outcome(checks: dict[str, str]) -> str:
     """The one label. VERIFIED only when every one of the four checks is complete: a registry match, a declaration or a payment completes
     none of them. Anything that is not complete never reads as VERIFIED, and the strongest problem is the one shown."""
@@ -101,7 +117,13 @@ async def status(
         "risk": _SCREENING[screening[0].status] if screening else "PENDING",
     }
     closed = kyb.closed_reason
+    # LOCAL/TEST ONLY: the company, authority and risk checks are not run; the claimant's identity check is the only one that counts. The result says so
+    # (`development_shortcut`) and is never announced as if those checks had been done (see `record_outcome`).
+    shortcut = _DEV_SHORTCUT and not closed and checks["person_assurance"] == "COMPLETED"
+    if shortcut:
+        checks = {**checks, "company": "COMPLETED", "authority": "COMPLETED", "risk": "COMPLETED"}
     return {
+        "development_shortcut": shortcut,
         "claim_id": case_id,
         "jurisdiction": kyb.jurisdiction,
         "registration_number": kyb.registration_number,
@@ -152,6 +174,8 @@ async def record_outcome(
 ) -> list[str]:
     """Remember the checks and the outcome that were just derived and announce what changed since the last time, once. Returns the
     events announced. Safe to call from anywhere a claim can change, and again and again: a call that sees nothing new announces nothing."""
+    if seen.get("development_shortcut"):  # LOCAL/TEST ONLY shortcut: checks that never ran are never announced as done
+        return []
     checks = {k: str(v) for k, v in seen["checks"].items()}
     outcome = str(seen["outcome"])
     tenant, claim = uuid.UUID(tenant_id), uuid.UUID(claim_id)

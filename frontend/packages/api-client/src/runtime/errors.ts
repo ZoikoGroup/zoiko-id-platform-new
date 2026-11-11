@@ -94,6 +94,11 @@ export class ApiError extends Error {
       const desc = typeof b.error_description === "string" ? b.error_description : undefined;
       return new ApiError({ ...common, code: err, message: desc ?? humanizeCode(err), retryAfterMs: meta.retryAfterMs });
     }
+    if (typeof b.type === "string" && typeof b.code === "string" && typeof b.status === "number") {
+      // an RFC 9457 problem from the /v2 surface (ZID-INT-002 section 14): the code is the document's public one
+      const detail = typeof b.detail === "string" ? b.detail : typeof b.title === "string" ? b.title : "The request failed.";
+      return new ApiError({ ...common, code: b.code, message: detail, retryable: b.retryable === true || undefined, retryAfterMs: meta.retryAfterMs });
+    }
     if (Array.isArray(b.schemas) && typeof b.detail === "string") {
       return new ApiError({ ...common, code: typeof b.scimType === "string" ? b.scimType : "SCIM_ERROR", message: b.detail });
     }

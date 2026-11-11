@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/bff", () => ({
-  server: () => ({ env: { cellApiUrl: "http://cell.test", publicOrigin: "http://app.test" }, bff: {} }),
+  server: () => ({ env: { cellApiUrl: "http://cell.test", publicOrigin: "http://app.test" }, bff: { device: (r: Request) => resolveDevice(r.headers.get("cookie"), false) } }),
 }));
 
-import { post, REQUEST_COOKIE } from "./registration";
+import { resolveDevice } from "@zoiko/auth-bff";
+
+import { get, post, REQUEST_COOKIE } from "./registration";
 
 const FIELDS = ["country", "journey", "email", "locale", "notice_version", "nonce"];
 let sent: Record<string, unknown> | null = null;
@@ -64,5 +66,43 @@ describe("changing the address from the same browser", () => {
     const res = await post(foreign, "/v1/registration/intents", FIELDS, { replacesHeld: true });
     expect(res.status).toBe(403);
     expect(sent).toBeNull();
+  });
+});
+
+describe("device id", () => {
+  let seenHeaders: Headers | null = null;
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        seenHeaders = new Headers(init.headers);
+        return new Response("{}", { status: 202, headers: { "content-type": "application/json" } });
+      }),
+    );
+  });
+
+  it("forwards a minted id upstream and sets the cookie on the response", async () => {
+    const res = await post(request(typed), "/v1/registration/intents", FIELDS);
+    const id = seenHeaders?.get("x-zid-device");
+    expect(id).toMatch(/^[0-9a-f]{32}$/);
+    expect(res.headers.get("set-cookie")).toContain(`zid_device=${id}`);
+  });
+
+  it("reuses the browser's id, overrides a spoofed header and sets no cookie", async () => {
+    const held = "0123456789abcdef0123456789abcdef";
+    const req = new Request("http://app.test/api/registration/intents", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://app.test", cookie: `zid_device=${held}`, "x-zid-device": "spoofed" },
+      body: JSON.stringify(typed),
+    });
+    const res = await post(req, "/v1/registration/intents", FIELDS);
+    expect(seenHeaders?.get("x-zid-device")).toBe(held);
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("forwards it on the public reads too", async () => {
+    const res = await get(new Request("http://app.test/api/registration/capabilities"), "/v1/registration/capabilities", { country: "GB" });
+    expect(seenHeaders?.get("x-zid-device")).toMatch(/^[0-9a-f]{32}$/);
+    expect(res.headers.get("set-cookie")).toContain("zid_device=");
   });
 });

@@ -123,6 +123,17 @@ rules:
   - {match: "POST /credentials", gate: {action: b.draft-routine-credential-issuance, mode: X}}
   - {match: "POST /credentials/*", gate: {action: b.revoke-ordinary-scoped-credential, mode: X}}
   - {match: "GET /credential-configurations", gate: {action: b.view-verification-state-expiration, mode: R}}
+  - {match: "GET /v1/credentials/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "POST /v1/credentials/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (checks decide, issue nothing)
+  - {match: "GET /v1/credential-packs*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "GET /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade (CR-071)
+  - {match: "PUT /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 evidence content upload (the route checks evidence.upload.manage itself)
+  - {match: "DELETE /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 erase uploaded evidence
+  - {match: "POST /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade: checks decide, issue nothing
+  - {match: "POST /v1/eligibility/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (decides, issues nothing)
+  - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "POST /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "POST /credential-configurations*", gate: {action: b.change-credential-template-assurance-policy, mode: S}}
   - {match: "GET /credential-issuer-trust", gate: {action: b.view-verification-state-expiration, mode: R}}
   - {match: "POST /credential-issuer-trust*", gate: {action: b.change-credential-template-assurance-policy, mode: S}}
@@ -172,6 +183,8 @@ rules:
   - {match: "POST /v1/machine/builds:versions", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/builds/*:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/builds/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/tool-calls:authorize", exempt: PROTOCOL, why: "an agent asks the tool gateway with its own workload credential; the policy decision and the sponsor checks decide (WP-11)"}
+  - {match: "POST /v1/machine/tool-grants:redeem", exempt: PROTOCOL, why: "a tool's own server spends a grant it was issued; the audience must be its own principal and the chain is re-checked (WP-11)"}
   - {match: "POST /v1/machine/tools", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/tools/*:activate", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/tools/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
