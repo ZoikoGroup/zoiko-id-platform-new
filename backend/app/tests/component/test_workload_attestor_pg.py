@@ -88,7 +88,12 @@ def _world(rt_url: str, tmp_path: Path, digest: str, sid: str, tenant: str, agen
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             await seed_agent(c, tenant, agent_id)
             # the agent's approved release runs the container's real image, which is what the binding must name (CR-064)
-            await c.execute(text("UPDATE agent.blueprint_release SET artifact_digest = :d WHERE blueprint_id = 'bp_pay'"), {"d": digest})
+            await c.execute(
+                text(
+                    "UPDATE agent.blueprint_release SET artifact_digest = :d WHERE blueprint_id = 'bp_pay'"
+                ),
+                {"d": digest},
+            )
             await workload.register_binding(
                 c,
                 tenant,

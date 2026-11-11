@@ -78,7 +78,10 @@ async def _name_people(conn: Any, item: dict[str, Any]) -> dict[str, Any]:
     ids = [item.get("requester_principal_id"), item.get("beneficiary_principal_id")]
     ids += [x.get("approver_principal_id") for x in votes]
     refs = await people.person_refs(conn, [i for i in ids if i])
-    for key, source in (("requester", "requester_principal_id"), ("beneficiary", "beneficiary_principal_id")):
+    for key, source in (
+        ("requester", "requester_principal_id"),
+        ("beneficiary", "beneficiary_principal_id"),
+    ):
         ref = refs.get(item.get(source) or "")
         item[key] = ref.view() if ref else None
     for x in votes:

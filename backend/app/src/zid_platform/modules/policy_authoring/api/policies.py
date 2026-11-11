@@ -23,10 +23,10 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.policy_authoring.application import service
 from zid_platform.modules.policy_authoring.infrastructure import release_store
 from zid_platform.modules.policy_runtime.ports import PolicyError, PolicyRelease
-from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import catalog, protected_action
 
 router = APIRouter(prefix="/v1/policy-releases", tags=["policy"])

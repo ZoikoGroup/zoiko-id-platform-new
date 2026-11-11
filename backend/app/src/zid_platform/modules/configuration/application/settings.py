@@ -113,7 +113,10 @@ async def muted_alert_kinds(conn: AsyncConnection) -> frozenset[str]:
 async def public_branding(conn: AsyncConnection) -> dict[str, str]:
     """Only presentation fields, safe to show before sign-in."""
     value = (await store.current(conn, "BRANDING"))["value"]
-    return {k: str(value.get(k, "")) for k in ("display_name", "accent", "support_url", "accent_hex", "welcome_text", "logo")}
+    return {
+        k: str(value.get(k, ""))
+        for k in ("display_name", "accent", "support_url", "accent_hex", "welcome_text", "logo")
+    }
 
 
 __all__ = ["SettingsError"]

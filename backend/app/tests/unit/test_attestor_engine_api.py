@@ -13,7 +13,9 @@ GOOD = "sha256:" + "ab" * 32
 OTHER = "sha256:" + "cd" * 32
 
 
-def _engine(calls: list[tuple[str, str]], *, running: bool = True, status: int = 200) -> httpx.MockTransport:
+def _engine(
+    calls: list[tuple[str, str]], *, running: bool = True, status: int = 200
+) -> httpx.MockTransport:
     def handler(req: httpx.Request) -> httpx.Response:
         calls.append((req.method, req.url.path))
         if status != 200:
@@ -37,9 +39,9 @@ def _engine(calls: list[tuple[str, str]], *, running: bool = True, status: int =
 
 def test_facts_through_the_engine_api_equal_facts_through_the_command() -> None:
     calls: list[tuple[str, str]] = []
-    f = DockerInspector(run=engine_api_runner("/var/run/docker.sock", transport=_engine(calls))).inspect(
-        "payments-agent"
-    )
+    f = DockerInspector(
+        run=engine_api_runner("/var/run/docker.sock", transport=_engine(calls))
+    ).inspect("payments-agent")
     assert f.running and f.digests == frozenset({GOOD, OTHER})
     assert f.selectors == {"docker.container": "payments-agent", "docker.label.team": "payments"}
     assert calls == [("GET", "/containers/payments-agent/json"), ("GET", f"/images/{GOOD}/json")]
@@ -81,4 +83,3 @@ def test_an_unreachable_engine_is_an_inspection_error() -> None:
     run = engine_api_runner("/s", transport=httpx.MockTransport(refuse))
     with pytest.raises(InspectionError, match="unreachable"):
         run(["docker", "inspect", "payments-agent"])
-

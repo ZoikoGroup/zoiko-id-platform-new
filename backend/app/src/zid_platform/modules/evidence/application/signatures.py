@@ -61,10 +61,16 @@ def signature_result(findings: list[cms.Finding], config: tr.TrustConfig) -> doc
     if any(f.revocation == "REVOKED" for f in findings):
         if all(f.timestamp == "VALID" for f in findings):
             return docs.CheckResult(
-                "signature", docs.Status.NOT_VERIFIED, ("CERTIFICATE_REVOKED_BEFORE_SIGNING",), detail
+                "signature",
+                docs.Status.NOT_VERIFIED,
+                ("CERTIFICATE_REVOKED_BEFORE_SIGNING",),
+                detail,
             )
         return docs.CheckResult(
-            "signature", docs.Status.NOT_VERIFIED, ("CERTIFICATE_REVOKED", "SIGNING_TIME_NOT_TRUSTED"), detail
+            "signature",
+            docs.Status.NOT_VERIFIED,
+            ("CERTIFICATE_REVOKED", "SIGNING_TIME_NOT_TRUSTED"),
+            detail,
         )
     if any(not f.covers_whole_file for f in findings):
         return docs.CheckResult(
@@ -80,10 +86,14 @@ def signature_result(findings: list[cms.Finding], config: tr.TrustConfig) -> doc
                 ("CERTIFICATE_NOT_VALID_AT_SIGNING_TIME",),
                 detail,
             )
-        reasons = ("SIGNATURE_VALID", "CERTIFICATE_NOT_VALID_NOW", "SIGNING_TIME_NOT_TRUSTED")
+        dated: tuple[str, ...] = (
+            "SIGNATURE_VALID",
+            "CERTIFICATE_NOT_VALID_NOW",
+            "SIGNING_TIME_NOT_TRUSTED",
+        )
         if any(f.timestamp_token_present for f in findings):
-            reasons = (*reasons, "TIMESTAMP_NOT_VERIFIED")
-        return docs.CheckResult("signature", docs.Status.INDETERMINATE, reasons, detail)
+            dated = (*dated, "TIMESTAMP_NOT_VERIFIED")
+        return docs.CheckResult("signature", docs.Status.INDETERMINATE, dated, detail)
     if any(f.chain is cms.Chain.NO_ANCHORS for f in findings):
         return docs.CheckResult(
             "signature",

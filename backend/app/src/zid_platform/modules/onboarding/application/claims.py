@@ -174,7 +174,9 @@ async def record_outcome(
 ) -> list[str]:
     """Remember the checks and the outcome that were just derived and announce what changed since the last time, once. Returns the
     events announced. Safe to call from anywhere a claim can change, and again and again: a call that sees nothing new announces nothing."""
-    if seen.get("development_shortcut"):  # LOCAL/TEST ONLY shortcut: checks that never ran are never announced as done
+    if seen.get(
+        "development_shortcut"
+    ):  # LOCAL/TEST ONLY shortcut: checks that never ran are never announced as done
         return []
     checks = {k: str(v) for k, v in seen["checks"].items()}
     outcome = str(seen["outcome"])

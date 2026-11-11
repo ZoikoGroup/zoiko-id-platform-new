@@ -53,7 +53,9 @@ LIMITS = {
 _buckets: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))
 TEMPLATE_VERIFY = "ZID-EM-001"
 TEMPLATE_SIGN_IN_LINK = "ZID-EM-010"  # a single-use link to create a new passkey and sign in
-TEMPLATE_RECOVERY_STARTED = "ZID-EM-013"  # an administrator's recovery keeps its gates: the email is only a notice
+TEMPLATE_RECOVERY_STARTED = (
+    "ZID-EM-013"  # an administrator's recovery keeps its gates: the email is only a notice
+)
 _NAMESPACE = uuid.UUID("5c6f6f3e-3f5a-4d0a-9d4e-4f1d8b2a7c11")
 
 
@@ -192,7 +194,9 @@ async def _send_recovery(request: Request, env: svc.Env, job: svc.RecoveryJob) -
             event_id=str(uuid.uuid4()),
             event_type="authentication.recovery.email_requested",
             tenant_id=job.tenant_id,
-            recipient=Recipient(job.address, await address_hash(job.address), None, "UTC", job.locale),
+            recipient=Recipient(
+                job.address, await address_hash(job.address), None, "UTC", job.locale
+            ),
             merge=(
                 {"single_use_signin_url": job.token, "expires_at_local": job.expires_at}
                 if link
@@ -312,8 +316,10 @@ class RecoveryBody(BaseModel):
 
 
 @router.post("/v1/registration/recovery", status_code=202)
-async def recovery(body: RecoveryBody, request: Request, background: BackgroundTasks) -> dict[str, Any]:
-    """"I can't sign in": email the account's own address a way back. Ten asks per ten minutes per client, and the answer is the same
+async def recovery(
+    body: RecoveryBody, request: Request, background: BackgroundTasks
+) -> dict[str, Any]:
+    """ "I can't sign in": email the account's own address a way back. Ten asks per ten minutes per client, and the answer is the same
     whether or not the address has an account."""
     _limit(request, "recovery")
     env = _env(request)

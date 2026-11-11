@@ -177,7 +177,9 @@ def _lists_state(inp: ScreeningInput) -> tuple[list[str], list[Snapshot]]:
         else:
             usable.append(snap)
     if any(p.split(":", 1)[1] in {x.value for x in high_risk_only} for p in problems):
-        problems.append("HIGH_RISK_APPROVAL_BLOCKED")  # a high-risk approval never rests on a list that was not current
+        problems.append(
+            "HIGH_RISK_APPROVAL_BLOCKED"
+        )  # a high-risk approval never rests on a list that was not current
     return problems, usable
 
 

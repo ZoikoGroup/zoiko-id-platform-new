@@ -26,7 +26,13 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, http_error, request_engine
 from zid_platform.modules.authority.application.service import issue_grant
 from zid_platform.modules.authority.domain.algebra import ANY, Authority, ValueLimit, Window
-from zid_platform.modules.authority.domain.grants import AuthorityError, ContinuityMode, Grant, GrantStatus, GrantType
+from zid_platform.modules.authority.domain.grants import (
+    AuthorityError,
+    ContinuityMode,
+    Grant,
+    GrantStatus,
+    GrantType,
+)
 from zid_platform.modules.commercial.ports import require_feature
 
 router = APIRouter(prefix="/v1/delegation-templates", tags=["authority"])
@@ -66,7 +72,9 @@ def _view(r: Any) -> dict[str, Any]:
         "actions": list(r.actions),
         "resources": list(r.resources),
         "purposes": list(r.purposes) if r.purposes is not None else None,
-        "value_limit": {"amount": str(r.value_amount), "currency": r.value_currency} if r.value_amount is not None else None,
+        "value_limit": {"amount": str(r.value_amount), "currency": r.value_currency}
+        if r.value_amount is not None
+        else None,
         "max_days": r.max_days,
         "delegation": {"allowed": r.delegation_allowed, "max_depth": r.max_depth},
         "min_assurance": r.min_assurance,
@@ -78,27 +86,39 @@ def _view(r: Any) -> dict[str, Any]:
 
 def _me(caller: Caller) -> str:
     if not caller.ctx.principal_id:
-        raise ZidError("UNAUTHENTICATED", "An authenticated principal is required.", http_status=401)
+        raise ZidError(
+            "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
+        )
     return caller.ctx.principal_id
 
 
 @router.get("")
 async def list_templates(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        rows = (await conn.execute(text("SELECT * FROM authz.delegation_template ORDER BY status, lower(name)"))).all()
+        rows = (
+            await conn.execute(
+                text("SELECT * FROM authz.delegation_template ORDER BY status, lower(name)")
+            )
+        ).all()
     return {"items": [_view(r) for r in rows]}
 
 
 @router.post("", status_code=201)
-async def define_template(body: TemplateBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def define_template(
+    body: TemplateBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     if (body.value_amount is None) != (body.value_currency is None):
-        raise http_error("VALIDATION_FAILED", "Give both a value limit amount and its currency, or neither.")
+        raise http_error(
+            "VALIDATION_FAILED", "Give both a value limit amount and its currency, or neither."
+        )
     try:
         amount = Decimal(body.value_amount) if body.value_amount is not None else None
         if amount is not None and (amount < 0 or not amount.is_finite()):
             raise ValueError
     except (InvalidOperation, ValueError) as exc:
-        raise http_error("VALIDATION_FAILED", "The value limit must be a non-negative decimal.") from exc
+        raise http_error(
+            "VALIDATION_FAILED", "The value limit must be a non-negative decimal."
+        ) from exc
     if not body.delegation_allowed and body.max_depth:
         raise http_error("VALIDATION_FAILED", "A depth needs delegation to be allowed.")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -117,24 +137,40 @@ async def define_template(body: TemplateBody, request: Request, caller: CallerDe
                             "VALUES (:id, :t, :n, :d, :a, :r, :p, :va, :vc, :md, :da, :dp, :ma, :rc, :u) RETURNING *"
                         ),
                         {
-                            "id": uuid.uuid4(), "t": uuid.UUID(caller.ctx.tenant_id or ""), "n": body.name.strip(), "d": body.description.strip(),
-                            "a": sorted(set(body.actions)), "r": sorted(set(body.resources)),
+                            "id": uuid.uuid4(),
+                            "t": uuid.UUID(caller.ctx.tenant_id or ""),
+                            "n": body.name.strip(),
+                            "d": body.description.strip(),
+                            "a": sorted(set(body.actions)),
+                            "r": sorted(set(body.resources)),
                             "p": sorted(set(body.purposes)) if body.purposes is not None else None,
-                            "va": amount, "vc": body.value_currency, "md": body.max_days, "da": body.delegation_allowed,
-                            "dp": body.max_depth, "ma": body.min_assurance, "rc": body.risk_class, "u": uuid.UUID(_me(caller)),
+                            "va": amount,
+                            "vc": body.value_currency,
+                            "md": body.max_days,
+                            "da": body.delegation_allowed,
+                            "dp": body.max_depth,
+                            "ma": body.min_assurance,
+                            "rc": body.risk_class,
+                            "u": uuid.UUID(_me(caller)),
                         },
                     )
                 ).one()
         except IntegrityError as e:
-            raise ZidError("TEMPLATE_EXISTS", "A template with that name already exists.", http_status=409) from e
+            raise ZidError(
+                "TEMPLATE_EXISTS", "A template with that name already exists.", http_status=409
+            ) from e
     return _view(row)
 
 
 @router.post("/{template_id}:retire")
-async def retire_template(template_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def retire_template(
+    template_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         res = await conn.execute(
-            text("UPDATE authz.delegation_template SET status = 'RETIRED', retired_at = now() WHERE template_id = :id AND status = 'ACTIVE'"),
+            text(
+                "UPDATE authz.delegation_template SET status = 'RETIRED', retired_at = now() WHERE template_id = :id AND status = 'ACTIVE'"
+            ),
             {"id": template_id},
         )
     if res.rowcount != 1:
@@ -143,7 +179,9 @@ async def retire_template(template_id: uuid.UUID, request: Request, caller: Call
 
 
 @router.post("/{template_id}:apply", status_code=201)
-async def apply_template(template_id: uuid.UUID, body: ApplyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def apply_template(
+    template_id: uuid.UUID, body: ApplyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     ctx = caller.ctx
     grantor = _me(caller)
     now = datetime.now(UTC)
@@ -153,7 +191,14 @@ async def apply_template(template_id: uuid.UUID, body: ApplyBody, request: Reque
             "advanced.advanced-delegation-workflow-templates",
             enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
-        t = (await conn.execute(text("SELECT * FROM authz.delegation_template WHERE template_id = :id AND status = 'ACTIVE'"), {"id": template_id})).first()
+        t = (
+            await conn.execute(
+                text(
+                    "SELECT * FROM authz.delegation_template WHERE template_id = :id AND status = 'ACTIVE'"
+                ),
+                {"id": template_id},
+            )
+        ).first()
         if t is None:
             raise ZidError("TEMPLATE_NOT_FOUND", "No such live template.", http_status=404)
         days = min(body.days or t.max_days, t.max_days)
@@ -171,7 +216,9 @@ async def apply_template(template_id: uuid.UUID, body: ApplyBody, request: Reque
                 data=ANY,
                 jurisdictions=ANY,
                 tools=ANY,
-                value=ValueLimit(Decimal(t.value_amount), t.value_currency) if t.value_amount is not None else None,
+                value=ValueLimit(Decimal(t.value_amount), t.value_currency)
+                if t.value_amount is not None
+                else None,
                 count=None,
                 data_bytes=None,
                 min_assurance=t.min_assurance,
@@ -189,4 +236,8 @@ async def apply_template(template_id: uuid.UUID, body: ApplyBody, request: Reque
             await issue_grant(conn, grant, risk_level=t.risk_class, now=now)
         except AuthorityError as e:
             raise http_error(e.code, str(e)) from e
-    return {"authority_grant_id": grant.grant_id, "template_id": str(template_id), "valid_to": grant.authority.window.valid_to}
+    return {
+        "authority_grant_id": grant.grant_id,
+        "template_id": str(template_id),
+        "valid_to": grant.authority.window.valid_to,
+    }

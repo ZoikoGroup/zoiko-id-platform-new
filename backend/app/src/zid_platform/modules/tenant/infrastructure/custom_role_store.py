@@ -26,7 +26,17 @@ def _view(r: Any, members: int | None = None) -> dict[str, Any]:
     return out
 
 
-async def create(conn: AsyncConnection, tenant_id: str, *, name: str, base_role: str, actions: list[str], description: str, actor: str, kind: str = "NARROW") -> dict[str, Any]:
+async def create(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    name: str,
+    base_role: str,
+    actions: list[str],
+    description: str,
+    actor: str,
+    kind: str = "NARROW",
+) -> dict[str, Any]:
     rid = uuid.uuid4()
     try:
         async with conn.begin_nested():
@@ -36,7 +46,16 @@ async def create(conn: AsyncConnection, tenant_id: str, *, name: str, base_role:
                         "INSERT INTO platform.custom_role (role_id, tenant_id, name, description, base_role, actions, created_by, kind) "
                         "VALUES (:id, :t, :n, :d, :b, :a, :u, :k) RETURNING *"
                     ),
-                    {"id": rid, "t": uuid.UUID(tenant_id), "n": name, "d": description, "b": base_role, "a": actions, "u": uuid.UUID(actor), "k": kind},
+                    {
+                        "id": rid,
+                        "t": uuid.UUID(tenant_id),
+                        "n": name,
+                        "d": description,
+                        "b": base_role,
+                        "a": actions,
+                        "u": uuid.UUID(actor),
+                        "k": kind,
+                    },
                 )
             ).one()
     except IntegrityError as e:
@@ -57,7 +76,12 @@ async def listing(conn: AsyncConnection) -> list[dict[str, Any]]:
 
 
 async def load(conn: AsyncConnection, role_id: str) -> Any:
-    r = (await conn.execute(text("SELECT * FROM platform.custom_role WHERE role_id = :id"), {"id": uuid.UUID(role_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM platform.custom_role WHERE role_id = :id"),
+            {"id": uuid.UUID(role_id)},
+        )
+    ).first()
     if r is None:
         raise CustomRoleError("CUSTOM_ROLE_NOT_FOUND", "No such custom role.")
     return r
@@ -65,23 +89,42 @@ async def load(conn: AsyncConnection, role_id: str) -> Any:
 
 async def retire(conn: AsyncConnection, role_id: str) -> None:
     await load(conn, role_id)
-    await conn.execute(text("UPDATE platform.custom_role SET status = 'RETIRED', retired_at = now() WHERE role_id = :id AND status = 'ACTIVE'"), {"id": uuid.UUID(role_id)})
-    await conn.execute(text("UPDATE platform.custom_role_assignment SET revoked_at = now() WHERE role_id = :id AND revoked_at IS NULL"), {"id": uuid.UUID(role_id)})
+    await conn.execute(
+        text(
+            "UPDATE platform.custom_role SET status = 'RETIRED', retired_at = now() WHERE role_id = :id AND status = 'ACTIVE'"
+        ),
+        {"id": uuid.UUID(role_id)},
+    )
+    await conn.execute(
+        text(
+            "UPDATE platform.custom_role_assignment SET revoked_at = now() WHERE role_id = :id AND revoked_at IS NULL"
+        ),
+        {"id": uuid.UUID(role_id)},
+    )
 
 
-async def assign(conn: AsyncConnection, tenant_id: str, role_id: str, principal_id: str, actor: str) -> None:
+async def assign(
+    conn: AsyncConnection, tenant_id: str, role_id: str, principal_id: str, actor: str
+) -> None:
     await conn.execute(
         text(
             "INSERT INTO platform.custom_role_assignment (role_id, principal_id, tenant_id, assigned_by) VALUES (:r, :p, :t, :a) "
             "ON CONFLICT (role_id, principal_id) DO UPDATE SET revoked_at = NULL, assigned_at = now(), assigned_by = :a"
         ),
-        {"r": uuid.UUID(role_id), "p": uuid.UUID(principal_id), "t": uuid.UUID(tenant_id), "a": uuid.UUID(actor)},
+        {
+            "r": uuid.UUID(role_id),
+            "p": uuid.UUID(principal_id),
+            "t": uuid.UUID(tenant_id),
+            "a": uuid.UUID(actor),
+        },
     )
 
 
 async def unassign(conn: AsyncConnection, role_id: str, principal_id: str) -> bool:
     res = await conn.execute(
-        text("UPDATE platform.custom_role_assignment SET revoked_at = now() WHERE role_id = :r AND principal_id = :p AND revoked_at IS NULL"),
+        text(
+            "UPDATE platform.custom_role_assignment SET revoked_at = now() WHERE role_id = :r AND principal_id = :p AND revoked_at IS NULL"
+        ),
         {"r": uuid.UUID(role_id), "p": uuid.UUID(principal_id)},
     )
     return res.rowcount == 1
@@ -90,11 +133,16 @@ async def unassign(conn: AsyncConnection, role_id: str, principal_id: str) -> bo
 async def members(conn: AsyncConnection, role_id: str) -> list[dict[str, str]]:
     rows = (
         await conn.execute(
-            text("SELECT principal_id, assigned_at FROM platform.custom_role_assignment WHERE role_id = :r AND revoked_at IS NULL ORDER BY assigned_at"),
+            text(
+                "SELECT principal_id, assigned_at FROM platform.custom_role_assignment WHERE role_id = :r AND revoked_at IS NULL ORDER BY assigned_at"
+            ),
             {"r": uuid.UUID(role_id)},
         )
     ).all()
-    return [{"principal_id": str(r.principal_id), "assigned_at": r.assigned_at.isoformat()} for r in rows]
+    return [
+        {"principal_id": str(r.principal_id), "assigned_at": r.assigned_at.isoformat()}
+        for r in rows
+    ]
 
 
 async def held_extensions(conn: AsyncConnection, principal_id: str) -> frozenset[str]:

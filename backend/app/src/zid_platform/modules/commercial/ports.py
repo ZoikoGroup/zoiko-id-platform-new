@@ -170,13 +170,18 @@ async def require_production_environment(
     """The plan's number of production environments: one more is refused (402) when the plan is full and enforcement is on."""
     from zid_platform.modules.commercial.application.service import production_environments_check
 
-    allowed, plan, limit = await production_environments_check(conn, used=used, enforcement=enforcement)
+    allowed, plan, limit = await production_environments_check(
+        conn, used=used, enforcement=enforcement
+    )
     if not allowed:
         raise ZidError(
             "ENTITLEMENT_REQUIRED",
             f"Your plan allows {limit} production environment{'' if limit == 1 else 's'}. Contact your account manager to change plan.",
             http_status=402,
-            details=[ErrorDetail(field="production_environments", issue="PLAN_LIMIT"), ErrorDetail(field="plan", issue=plan)],
+            details=[
+                ErrorDetail(field="production_environments", issue="PLAN_LIMIT"),
+                ErrorDetail(field="plan", issue=plan),
+            ],
         )
 
 

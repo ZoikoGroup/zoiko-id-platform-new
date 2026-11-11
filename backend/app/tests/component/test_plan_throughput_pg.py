@@ -19,7 +19,15 @@ BASE = 3
 
 def app_for(rt_url: str, o: Any) -> Any:
     return create_app(
-        Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", cell_id="uk-1", api_rate_limit_per_minute=BASE),
+        Settings(
+            database_url=rt_url,
+            token_issuer=ISS,
+            token_audience=AUD,
+            public_base_url=AUD,
+            environment="test",
+            cell_id="uk-1",
+            api_rate_limit_per_minute=BASE,
+        ),
         keyring=o.ring,
     )
 
@@ -28,7 +36,9 @@ def on_plan(owner_url: str, tenant: str, plan: str) -> None:
     async def put() -> None:
         async with engine(owner_url) as eng, eng.begin() as c:
             await c.execute(
-                text("INSERT INTO commercial.entitlement (entitlement_id, tenant_id, plan_code, state, effective_from, source) VALUES (:i, :t, :p, 'ACTIVE', now(), 'OPERATOR')"),
+                text(
+                    "INSERT INTO commercial.entitlement (entitlement_id, tenant_id, plan_code, state, effective_from, source) VALUES (:i, :t, :p, 'ACTIVE', now(), 'OPERATOR')"
+                ),
                 {"i": uuid.uuid4(), "t": uuid.UUID(tenant), "p": plan},
             )
 
@@ -49,9 +59,13 @@ def test_the_request_allowance_follows_the_plan(rt_url: str, owner_url: str) -> 
     for o, expected in ((dev, BASE), (biz, BASE * 5)):
         with TestClient(app_for(rt_url, o), base_url=ISS) as api:
             h = o.bearer(o.owner)
-            assert calls_until_refused(api, h, 60) == expected  # a Developer company: the base; a Business company: five times it
+            assert (
+                calls_until_refused(api, h, 60) == expected
+            )  # a Developer company: the base; a Business company: five times it
     with TestClient(app_for(rt_url, ent), base_url=ISS) as api:
-        assert calls_until_refused(api, ent.bearer(ent.owner), 40) == 40  # contracted: no request limit
+        assert (
+            calls_until_refused(api, ent.bearer(ent.owner), 40) == 40
+        )  # contracted: no request limit
 
 
 def test_the_usage_screen_shows_the_plans_number(rt_url: str, owner_url: str) -> None:

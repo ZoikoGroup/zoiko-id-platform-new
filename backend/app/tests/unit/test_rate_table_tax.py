@@ -7,11 +7,15 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from zid_platform.modules.commercial.ports import FallbackTax, NoTaxConfigured, RateTableTax
 from zid_platform.modules.commercial.application.adapters import TaxableLine, TaxLine
+from zid_platform.modules.commercial.ports import FallbackTax, NoTaxConfigured, RateTableTax
 
 SHIPPED = Path(__file__).resolve().parents[3] / "config" / "commercial" / "tax-rate-table.yaml"
-LINES = [TaxableLine(1, "SUBSCRIPTION", None, Decimal("100.00")), TaxableLine(2, "USAGE", None, Decimal("33.33")), TaxableLine(3, "CREDIT", None, Decimal("-5"))]
+LINES = [
+    TaxableLine(1, "SUBSCRIPTION", None, Decimal("100.00")),
+    TaxableLine(2, "USAGE", None, Decimal("33.33")),
+    TaxableLine(3, "CREDIT", None, Decimal(-5)),
+]
 
 
 def table(tmp_path: Path, *, approved: bool, extra: str = "") -> RateTableTax:
@@ -24,7 +28,9 @@ def table(tmp_path: Path, *, approved: bool, extra: str = "") -> RateTableTax:
 
 
 def ask(engine: object, country: str | None) -> dict[int, TaxLine] | None:
-    return asyncio.run(engine.lines_for(currency="GBP", region="uk-1", country=country, lines=LINES))  # type: ignore[attr-defined]
+    return asyncio.run(
+        engine.lines_for(currency="GBP", region="uk-1", country=country, lines=LINES)
+    )  # type: ignore[attr-defined]
 
 
 def test_the_shipped_table_is_off_so_nothing_changes_until_finance_approves() -> None:
@@ -33,15 +39,21 @@ def test_the_shipped_table_is_off_so_nothing_changes_until_finance_approves() ->
     assert ask(shipped, "GB") is None
 
 
-def test_an_approved_table_taxes_each_line_to_the_penny_and_skips_what_is_exempt(tmp_path: Path) -> None:
+def test_an_approved_table_taxes_each_line_to_the_penny_and_skips_what_is_exempt(
+    tmp_path: Path,
+) -> None:
     got = ask(table(tmp_path, approved=True), "gb")
     assert got is not None
     assert got[1] == TaxLine("TABLE_VAT_20", Decimal("20.00"))
     assert got[2].amount == Decimal("6.67")  # 33.33 x 20% = 6.666, rounded half up
-    assert got[3].amount == Decimal("0.00") and got[3].code == "TABLE_VAT_0"  # a credit is not taxed
+    assert (
+        got[3].amount == Decimal("0.00") and got[3].code == "TABLE_VAT_0"
+    )  # a credit is not taxed
 
 
-def test_an_unapproved_table_or_an_unlisted_country_answers_none_never_a_guess(tmp_path: Path) -> None:
+def test_an_unapproved_table_or_an_unlisted_country_answers_none_never_a_guess(
+    tmp_path: Path,
+) -> None:
     assert ask(table(tmp_path, approved=False), "GB") is None
     assert ask(table(tmp_path, approved=True), "FR") is None
     assert ask(table(tmp_path, approved=True), None) is None

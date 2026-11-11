@@ -75,11 +75,20 @@ def send(c: TestClient, text: str, mid: str = "aaaaaaaa-0001", **extra: object) 
 
 # ---------------------------------------------------------------------------------------------- P0-01
 @pytest.mark.parametrize("canary", CANARIES)
-def test_p0_01_secret_ingestion_reaches_no_model_store_log_or_cache(
-    canary: str, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_p0_01_secret_ingestion_reaches_no_model_store_log_or_cache(canary: str) -> None:
     logging.disable(logging.NOTSET)
-    caplog.set_level(logging.DEBUG)
+    # a handler of our own rather than the caplog fixture: CI runs pytest with its logging plugin switched off
+    seen: list[str] = []
+
+    class _Collect(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            seen.append(self.format(record))
+
+    root = logging.getLogger()
+    handler = _Collect(level=logging.DEBUG)
+    previous = root.level
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)
     provider = RecordingProvider()
     c, store, sessions = build(provider, ai_answers=True)
     r = send(c, f"Please help. {canary} thanks")
@@ -106,11 +115,14 @@ def test_p0_01_secret_ingestion_reaches_no_model_store_log_or_cache(
     assert (
         store.safety and store.safety[0]["category"].isupper() or "_" in store.safety[0]["category"]
     ), "only a category is kept"
+    root.removeHandler(handler)
+    root.setLevel(previous)
+    log_text = "\n".join(seen)
     assert (
-        "CANARY" not in caplog.text
-        and "hunter2" not in caplog.text
-        and "482913" not in caplog.text
-        and "4111 1111" not in caplog.text
+        "CANARY" not in log_text
+        and "hunter2" not in log_text
+        and "482913" not in log_text
+        and "4111 1111" not in log_text
     ), "no log holds it"
     assert not sessions._m, "no cached answer or text in the session store"
     c.__exit__(None, None, None)

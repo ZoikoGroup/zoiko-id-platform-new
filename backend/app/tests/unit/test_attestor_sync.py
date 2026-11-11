@@ -20,7 +20,12 @@ def sid(tenant: str, n: int) -> str:
 
 
 def entry(tenant: str, n: int, digests: list[str]) -> dict[str, object]:
-    return {"spiffe_id": sid(tenant, n), "environment_id": "prod", "selectors": {"docker.container": f"w{n}"}, "approved_digests": digests}
+    return {
+        "spiffe_id": sid(tenant, n),
+        "environment_id": "prod",
+        "selectors": {"docker.container": f"w{n}"},
+        "approved_digests": digests,
+    }
 
 
 def test_an_entry_gets_exactly_the_digests_of_its_approved_bindings() -> None:
@@ -28,7 +33,10 @@ def test_an_entry_gets_exactly_the_digests_of_its_approved_bindings() -> None:
     plan = sync.plan(raw, {sid(T1, 1): frozenset({A, B}), sid(T1, 2): frozenset({C})}, tenant_id=T1)
     got = {w["spiffe_id"]: w["approved_digests"] for w in plan.registrations["workloads"]}
     assert got == {sid(T1, 1): [A, B], sid(T1, 2): [C]}
-    assert [(c.spiffe_id, c.added, c.removed) for c in plan.changes] == [(sid(T1, 1), (B,), ()), (sid(T1, 2), (C,), ())]
+    assert [(c.spiffe_id, c.added, c.removed) for c in plan.changes] == [
+        (sid(T1, 1), (B,), ()),
+        (sid(T1, 2), (C,), ()),
+    ]
     assert plan.warnings == ()
 
 
@@ -50,7 +58,11 @@ def test_an_entry_with_nothing_approved_behind_it_is_left_alone_and_reported() -
     plan = sync.plan(raw, {}, tenant_id=T1)
     assert plan.registrations["workloads"][0]["approved_digests"] == [A], "never silently emptied"
     assert not plan.changed
-    assert len(plan.warnings) == 1 and sid(T1, 1) in plan.warnings[0] and "approved" in plan.warnings[0]
+    assert (
+        len(plan.warnings) == 1
+        and sid(T1, 1) in plan.warnings[0]
+        and "approved" in plan.warnings[0]
+    )
 
 
 def test_another_companys_entries_are_never_touched() -> None:

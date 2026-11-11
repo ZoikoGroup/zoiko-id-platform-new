@@ -19,7 +19,9 @@ D = "sha256:" + "d" * 64
 
 def _load() -> ModuleType:
     sys.path.insert(0, str(REPO / "tools" / "scripts"))
-    spec = importlib.util.spec_from_file_location("zid_tool_register_build", REPO / "tools" / "scripts" / "register_build.py")
+    spec = importlib.util.spec_from_file_location(
+        "zid_tool_register_build", REPO / "tools" / "scripts" / "register_build.py"
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -39,16 +41,31 @@ def key(tmp_path: Path) -> Path:
     k = ec.generate_private_key(ec.SECP256R1())
     nums = k.private_numbers()
     f = tmp_path / "ci.jwk"
-    f.write_text(json.dumps({"kty": "EC", "crv": "P-256", "kid": "ci-1", "d": _b64(nums.private_value), "x": _b64(nums.public_numbers.x), "y": _b64(nums.public_numbers.y)}))
+    f.write_text(
+        json.dumps(
+            {
+                "kty": "EC",
+                "crv": "P-256",
+                "kid": "ci-1",
+                "d": _b64(nums.private_value),
+                "x": _b64(nums.public_numbers.x),
+                "y": _b64(nums.public_numbers.y),
+            }
+        )
+    )
     return f
 
 
-def api(register_status: int = 201, error_code: str | None = None, seen: dict | None = None) -> httpx.Client:
+def api(
+    register_status: int = 201, error_code: str | None = None, seen: dict | None = None
+) -> httpx.Client:
     seen = seen if seen is not None else {}
 
     def handler(req: httpx.Request) -> httpx.Response:
         if req.url.path == "/oauth2/token":
-            seen["grant"] = dict(x.split("=", 1) for x in req.content.decode().split("&"))["grant_type"]
+            seen["grant"] = dict(x.split("=", 1) for x in req.content.decode().split("&"))[
+                "grant_type"
+            ]
             return httpx.Response(200, json={"access_token": "tok-SECRET", "expires_in": 300})
         seen["auth"] = req.headers.get("authorization")
         seen["path"] = req.url.path
@@ -61,30 +78,68 @@ def api(register_status: int = 201, error_code: str | None = None, seen: dict | 
 
 
 def run(argv: list[str], http: httpx.Client, key: Path, **kw: object) -> int:
-    return T.main(["--api-base", "https://api.example.com", "--client-id", "ci", "--key", str(key), "--name", "Bot 1.4", *argv], http=http, **kw)
+    return T.main(
+        [
+            "--api-base",
+            "https://api.example.com",
+            "--client-id",
+            "ci",
+            "--key",
+            str(key),
+            "--name",
+            "Bot 1.4",
+            *argv,
+        ],
+        http=http,
+        **kw,
+    )
 
 
-def test_it_signs_in_as_an_application_and_registers_exactly_what_it_was_given(key: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_it_signs_in_as_an_application_and_registers_exactly_what_it_was_given(
+    key: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     seen: dict = {}
-    assert run(["--digest", D, "--source", "ghcr.io/acme/bot:1.4", "--provenance", "https://ci/run/1"], api(seen=seen), key) == 0
-    assert seen["grant"] == "client_credentials" and seen["auth"] == "Bearer tok-SECRET" and seen["path"] == "/v1/machine/builds"
-    assert seen["body"] == {"name": "Bot 1.4", "artifact_digest": D, "source_ref": "ghcr.io/acme/bot:1.4", "provenance_ref": "https://ci/run/1"}
+    assert (
+        run(
+            ["--digest", D, "--source", "ghcr.io/acme/bot:1.4", "--provenance", "https://ci/run/1"],
+            api(seen=seen),
+            key,
+        )
+        == 0
+    )
+    assert (
+        seen["grant"] == "client_credentials"
+        and seen["auth"] == "Bearer tok-SECRET"
+        and seen["path"] == "/v1/machine/builds"
+    )
+    assert seen["body"] == {
+        "name": "Bot 1.4",
+        "artifact_digest": D,
+        "source_ref": "ghcr.io/acme/bot:1.4",
+        "provenance_ref": "https://ci/run/1",
+    }
     out = capsys.readouterr()
     assert "waiting for a person to approve" in out.out
     assert "tok-SECRET" not in out.out + out.err and "BEGIN" not in out.out + out.err
 
 
-def test_it_never_prints_the_token_or_the_key_even_when_refused(key: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_it_never_prints_the_token_or_the_key_even_when_refused(
+    key: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     assert run(["--digest", D], api(403, "FORBIDDEN"), key) == 1
     out = capsys.readouterr()
     assert "HTTP 403 FORBIDDEN" in out.err and "tok-SECRET" not in out.out + out.err
     assert json.loads(key.read_text())["d"] not in out.out + out.err
 
 
-def test_a_rerun_of_the_same_build_is_only_an_error_when_asked_to_be(key: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_rerun_of_the_same_build_is_only_an_error_when_asked_to_be(
+    key: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     assert run(["--digest", D], api(409, "BUILD_EXISTS"), key) == 1
     assert run(["--digest", D, "--allow-existing"], api(409, "BUILD_EXISTS"), key) == 0
-    assert run(["--digest", D, "--allow-existing"], api(409, "SOMETHING_ELSE"), key) == 1, "only 'already registered' is forgiven"
+    assert run(["--digest", D, "--allow-existing"], api(409, "SOMETHING_ELSE"), key) == 1, (
+        "only 'already registered' is forgiven"
+    )
 
 
 def test_a_bad_digest_is_refused_before_anything_is_sent(key: Path) -> None:
@@ -103,7 +158,9 @@ def test_the_digest_can_be_read_from_a_local_image() -> None:
         return f"ghcr.io/other/thing@sha256:{'1' * 64}\nghcr.io/acme/bot@{D}\n"
 
     assert T.digest_from_image("image-id", "acme/bot:1.4", fake) == D
-    assert T.digest_from_image("repo-digest", "ghcr.io/acme/bot:1.4", fake) == D, "the digest recorded for THIS repository, not another"
+    assert T.digest_from_image("repo-digest", "ghcr.io/acme/bot:1.4", fake) == D, (
+        "the digest recorded for THIS repository, not another"
+    )
     assert calls[0][:2] == ["docker", "inspect"]
 
 

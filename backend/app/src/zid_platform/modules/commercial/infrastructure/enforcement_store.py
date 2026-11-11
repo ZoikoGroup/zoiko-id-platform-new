@@ -11,7 +11,13 @@ async def company_mode(conn: AsyncConnection, deployment: str) -> str:
         return deployment
     try:
         async with conn.begin_nested():
-            row = (await conn.execute(text("SELECT mode FROM commercial.enforcement_policy WHERE tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"))).first()
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT mode FROM commercial.enforcement_policy WHERE tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+                    )
+                )
+            ).first()
     except Exception:  # noqa: BLE001 - a policy that cannot be read must not loosen or break a gate
         return deployment
     return "enforce" if row is not None and row.mode == "ENFORCE" else deployment
@@ -23,7 +29,10 @@ async def read(conn: AsyncConnection, tenant_id: str, deployment: str) -> dict[s
 
     row = (
         await conn.execute(
-            text("SELECT mode, reason, set_by, set_at FROM commercial.enforcement_policy WHERE tenant_id = :t"), {"t": uuid.UUID(tenant_id)}
+            text(
+                "SELECT mode, reason, set_by, set_at FROM commercial.enforcement_policy WHERE tenant_id = :t"
+            ),
+            {"t": uuid.UUID(tenant_id)},
         )
     ).first()
     own = row.mode if row is not None else None
@@ -37,7 +46,9 @@ async def read(conn: AsyncConnection, tenant_id: str, deployment: str) -> dict[s
     }
 
 
-async def write(conn: AsyncConnection, tenant_id: str, *, mode: str, reason: str, actor: str) -> None:
+async def write(
+    conn: AsyncConnection, tenant_id: str, *, mode: str, reason: str, actor: str
+) -> None:
     import uuid
 
     await conn.execute(

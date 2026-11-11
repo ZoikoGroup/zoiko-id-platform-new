@@ -13,7 +13,9 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[4]
 YAML = REPO / "backend" / "config" / "roles" / "role-matrix.yaml"
-FIXTURE = REPO / "frontend" / "packages" / "console-guide" / "test" / "fixtures" / "role-matrix.json"
+FIXTURE = (
+    REPO / "frontend" / "packages" / "console-guide" / "test" / "fixtures" / "role-matrix.json"
+)
 
 
 def projected() -> dict[str, object]:
@@ -26,7 +28,12 @@ def projected() -> dict[str, object]:
                 "matrix": key,
                 "title": m["title"],
                 "actions": [
-                    {"action": a["id"], "feature": a["feature"], "permissions": a["cells"], "rule": a["rule"]}
+                    {
+                        "action": a["id"],
+                        "feature": a["feature"],
+                        "permissions": a["cells"],
+                        "rule": a["rule"],
+                    }
                     for a in m["actions"]
                 ],
             }
@@ -37,8 +44,12 @@ def projected() -> dict[str, object]:
 
 def test_the_guide_fixture_matches_the_published_role_matrix() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    fixture.pop("policy_hash")  # the real hash is computed at runtime; the fixture carries a stand-in
-    assert fixture == projected(), "regenerate frontend/packages/console-guide/test/fixtures/role-matrix.json from role-matrix.yaml"
+    fixture.pop(
+        "policy_hash"
+    )  # the real hash is computed at runtime; the fixture carries a stand-in
+    assert fixture == projected(), (
+        "regenerate frontend/packages/console-guide/test/fixtures/role-matrix.json from role-matrix.yaml"
+    )
 
 
 def test_every_customer_role_in_the_matrix_is_one_the_guide_knows() -> None:

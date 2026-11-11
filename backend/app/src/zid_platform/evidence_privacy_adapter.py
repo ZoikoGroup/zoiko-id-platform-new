@@ -30,17 +30,17 @@ async def _locate(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
             "region": None,
             "retention_policy_code": None,  # the DPO defines it; the privacy module then applies its default
         }
-        for r in await evidence.uploads_by_subject(conn, subject)
+        for r in await evidence.uploads_by_subject(conn, subject)  # type: ignore[no-untyped-call]
     ]
 
 
 async def _export(conn: AsyncConnection, entry: Row[Any]) -> dict[str, Any]:
-    row = await evidence.upload_summary(conn, entry.object_ref)
+    row = await evidence.upload_summary(conn, entry.object_ref)  # type: ignore[no-untyped-call]
     return row or {}
 
 
 async def _dispose(conn: AsyncConnection, entry: Row[Any], action: str) -> None:
-    await evidence.erase_uploads(conn, str(entry.tenant_id), str(entry.subject_principal_id))
+    await evidence.erase_uploads(conn, str(entry.tenant_id), str(entry.subject_principal_id))  # type: ignore[no-untyped-call]
 
 
 def register() -> None:

@@ -15,7 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.commercial.application.change_log import log_change
 
-MOVES = {"REQUESTED": frozenset({"IN_PROGRESS", "DECLINED"}), "IN_PROGRESS": frozenset({"ACTIVE", "DECLINED"})}
+MOVES = {
+    "REQUESTED": frozenset({"IN_PROGRESS", "DECLINED"}),
+    "IN_PROGRESS": frozenset({"ACTIVE", "DECLINED"}),
+}
 MAX_NOTE = 1000
 
 
@@ -29,12 +32,19 @@ class ServiceRequestError(ValueError):
 def check_move(current: str, target: str, note: str | None) -> str:
     """The cleaned note for a move that is allowed, or the reason it is not."""
     if target not in MOVES.get(current, frozenset()):
-        raise ServiceRequestError("SERVICE_REQUEST_MOVE_REFUSED", f"A {current.lower().replace('_', ' ')} request cannot become {target.lower().replace('_', ' ')}.")
+        raise ServiceRequestError(
+            "SERVICE_REQUEST_MOVE_REFUSED",
+            f"A {current.lower().replace('_', ' ')} request cannot become {target.lower().replace('_', ' ')}.",
+        )
     clean = (note or "").strip()
     if len(clean) > MAX_NOTE:
-        raise ServiceRequestError("VALIDATION_FAILED", f"The note is longer than {MAX_NOTE} characters.")
+        raise ServiceRequestError(
+            "VALIDATION_FAILED", f"The note is longer than {MAX_NOTE} characters."
+        )
     if target == "DECLINED" and len(clean) < 3:
-        raise ServiceRequestError("SERVICE_REQUEST_NOTE_REQUIRED", "Say why it is declined; the company reads it.")
+        raise ServiceRequestError(
+            "SERVICE_REQUEST_NOTE_REQUIRED", "Say why it is declined; the company reads it."
+        )
     return clean
 
 
@@ -63,8 +73,17 @@ async def open_requests(conn: AsyncConnection) -> list[dict[str, Any]]:
     ]
 
 
-async def move(conn: AsyncConnection, request_id: str, *, target: str, operator_id: str, note: str | None) -> dict[str, Any]:
-    row = (await conn.execute(text("SELECT tenant_id, service, status FROM commercial.service_request WHERE request_id = :i"), {"i": uuid.UUID(request_id)})).first()
+async def move(
+    conn: AsyncConnection, request_id: str, *, target: str, operator_id: str, note: str | None
+) -> dict[str, Any]:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, service, status FROM commercial.service_request WHERE request_id = :i"
+            ),
+            {"i": uuid.UUID(request_id)},
+        )
+    ).first()
     if row is None:
         raise ServiceRequestError("SERVICE_REQUEST_NOT_FOUND", "No such service request.")
     clean = check_move(row.status, target, note)
@@ -74,10 +93,20 @@ async def move(conn: AsyncConnection, request_id: str, *, target: str, operator_
             "UPDATE commercial.service_request SET status = :s, note = :n, moved_by = :by, moved_at = :at, updated_at = :at "
             "WHERE request_id = :i AND status = :cur"
         ),
-        {"s": target, "n": clean, "by": uuid.UUID(operator_id), "at": now, "i": uuid.UUID(request_id), "cur": row.status},
+        {
+            "s": target,
+            "n": clean,
+            "by": uuid.UUID(operator_id),
+            "at": now,
+            "i": uuid.UUID(request_id),
+            "cur": row.status,
+        },
     )
     if res.rowcount != 1:
-        raise ServiceRequestError("SERVICE_REQUEST_MOVE_REFUSED", "The request changed while you were moving it; reload and try again.")
+        raise ServiceRequestError(
+            "SERVICE_REQUEST_MOVE_REFUSED",
+            "The request changed while you were moving it; reload and try again.",
+        )
     await log_change(
         conn,
         kind=f"SERVICE_REQUEST_{target}",
@@ -87,4 +116,10 @@ async def move(conn: AsyncConnection, request_id: str, *, target: str, operator_
         reason=clean or None,
         detail={"service": row.service},
     )
-    return {"request_id": request_id, "status": target, "tenant_id": str(row.tenant_id), "service": row.service, "note": clean}
+    return {
+        "request_id": request_id,
+        "status": target,
+        "tenant_id": str(row.tenant_id),
+        "service": row.service,
+        "note": clean,
+    }

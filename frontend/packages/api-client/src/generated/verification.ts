@@ -34,6 +34,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/age-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Age Check */
+        post: operations["age_check_v2_age_checks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/verification-adapters": {
         parameters: {
             query?: never;
@@ -318,6 +335,13 @@ export interface components {
             /** Subject Principal Ids */
             subject_principal_ids: string[];
         };
+        /** EstimateIn */
+        EstimateIn: {
+            /** Estimated Age */
+            estimated_age: number;
+            /** Margin */
+            margin: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -365,6 +389,14 @@ export interface components {
             decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
             /** Reason Codes */
             reason_codes: string[];
+        };
+        /** V2AgeIn */
+        V2AgeIn: {
+            /** Birth Date */
+            birth_date?: string | null;
+            estimate?: components["schemas"]["EstimateIn"] | null;
+            /** Threshold */
+            threshold: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -450,6 +482,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    age_check_v2_age_checks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["V2AgeIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

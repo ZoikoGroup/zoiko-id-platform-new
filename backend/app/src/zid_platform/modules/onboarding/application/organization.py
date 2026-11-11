@@ -331,10 +331,17 @@ async def establish_from_verified_claim(
         )
     if claims.dev_shortcut_enabled():
         # LOCAL/TEST ONLY (refused at start-up anywhere else): no register lookup. The synthetic root says what it is, exactly as `development_verification`.
-        name = (case.legal_name or "Company").strip()[:200] or "Company"  # the name the applicant gave, never a register's
+        name = (case.legal_name or "Company").strip()[
+            :200
+        ] or "Company"  # the name the applicant gave, never a register's
         if tenant.status is TenantStatus.DRAFT:
             await transition(
-                conn, tenant_id, Move.ADVANCE, reason_code="ORGANIZATION_SUBMITTED", actor=case.requested_by, now=now
+                conn,
+                tenant_id,
+                Move.ADVANCE,
+                reason_code="ORGANIZATION_SUBMITTED",
+                actor=case.requested_by,
+                now=now,
             )
         root = await establish_development_root(
             conn, tenant_id, holder_principal_id=case.requested_by, legal_name=name, now=now
@@ -414,7 +421,7 @@ async def auto_establish_pass(
     if not claims.dev_shortcut_enabled():
         return {}
     out: dict[str, int] = {}
-    for tenant, claim in await claims.kyb_open_claims(conn):
+    for tenant, claim in await claims.kyb_open_claims(conn):  # type: ignore[attr-defined]
         try:
             async with conn.begin_nested(), in_tenant(conn, tenant):
                 current = await load_tenant(conn, tenant)

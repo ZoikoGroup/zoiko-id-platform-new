@@ -258,7 +258,13 @@ async def export_audit(
                       AND (CAST(:ts AS timestamptz) IS NULL OR (created_at, audit_id) > (CAST(:ts AS timestamptz), CAST(:id AS uuid)))
                     ORDER BY created_at ASC, audit_id ASC LIMIT :n
                 """),
-                {"t": event_type, "settled": settled_before, "ts": after[0] if after else None, "id": after[1] if after else None, "n": limit},
+                {
+                    "t": event_type,
+                    "settled": settled_before,
+                    "ts": after[0] if after else None,
+                    "id": after[1] if after else None,
+                    "n": limit,
+                },
             )
         ).all()
     )

@@ -16,7 +16,12 @@ from zid_platform.workload_identity import trust_policy_from_settings
 
 
 def settings(**kw: Any) -> Settings:
-    return Settings(token_issuer="https://i.example", token_audience="https://a.example", public_base_url="https://a.example", **kw)
+    return Settings(
+        token_issuer="https://i.example",
+        token_audience="https://a.example",
+        public_base_url="https://a.example",
+        **kw,
+    )
 
 
 def start(**kw: Any) -> None:
@@ -24,13 +29,18 @@ def start(**kw: Any) -> None:
 
 
 def test_no_secret_file_means_no_secret_and_the_address_rule_alone() -> None:
-    assert trust_policy_from_settings(settings(mesh_trusted_proxies=("127.0.0.1",))).proxy_secret is None
+    assert (
+        trust_policy_from_settings(settings(mesh_trusted_proxies=("127.0.0.1",))).proxy_secret
+        is None
+    )
 
 
 def test_the_secret_is_read_from_a_file_and_trimmed(tmp_path: Path) -> None:
     f = tmp_path / "secret"
     f.write_text("a" * 40 + "\n", encoding="utf-8")
-    policy = trust_policy_from_settings(settings(mesh_trusted_proxies=("127.0.0.1",), mesh_proxy_secret_file=str(f)))
+    policy = trust_policy_from_settings(
+        settings(mesh_trusted_proxies=("127.0.0.1",), mesh_proxy_secret_file=str(f))
+    )
     assert policy.proxy_secret == b"a" * 40
 
 
@@ -38,7 +48,9 @@ def test_a_short_secret_is_refused_rather_than_used(tmp_path: Path) -> None:
     f = tmp_path / "secret"
     f.write_text("short", encoding="utf-8")
     with pytest.raises(RuntimeError, match="at least 32 characters"):
-        trust_policy_from_settings(settings(mesh_trusted_proxies=("127.0.0.1",), mesh_proxy_secret_file=str(f)))
+        trust_policy_from_settings(
+            settings(mesh_trusted_proxies=("127.0.0.1",), mesh_proxy_secret_file=str(f))
+        )
 
 
 @pytest.mark.parametrize("env", ["staging", "production", "prod"])
@@ -56,8 +68,12 @@ def test_the_secret_satisfies_the_deployed_rule(tmp_path: Path) -> None:
     f = tmp_path / "secret"
     f.write_text("k" * 40, encoding="utf-8")
     # a deployed cell needs more than this to start (a key provider, for one), so look only at whether THIS rule fired
-    with pytest.raises(Exception) as e:  # noqa: PT011 - any later refusal is fine; this rule's message must not be the one
-        start(environment="production", mesh_trusted_proxies=("172.30.0.250",), mesh_proxy_secret_file=str(f))
+    with pytest.raises(Exception) as e:
+        start(
+            environment="production",
+            mesh_trusted_proxies=("172.30.0.250",),
+            mesh_proxy_secret_file=str(f),
+        )
     assert "ZID_MESH_PROXY_SECRET_FILE" not in str(e.value)
 
 

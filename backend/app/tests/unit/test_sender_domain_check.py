@@ -32,7 +32,9 @@ def _levels(findings: list) -> dict[str, str]:
 def test_a_complete_strict_setup_has_no_error_or_warning() -> None:
     dns = {
         "mail.example": ["v=spf1 include:_spf.provider.example -all"],
-        "_dmarc.mail.example": ["v=DMARC1; p=reject; rua=mailto:dmarc@mail.example; adkim=s; aspf=s"],
+        "_dmarc.mail.example": [
+            "v=DMARC1; p=reject; rua=mailto:dmarc@mail.example; adkim=s; aspf=s"
+        ],
         "s1._domainkey.mail.example": ["v=DKIM1; k=rsa; p=MIIBIjANBgkq"],
     }
     out = T.check_domain("Mail.Example.", ["s1"], lambda n: dns.get(n, []))
@@ -87,7 +89,9 @@ def test_no_selector_given_says_dkim_was_not_checked() -> None:
     assert _levels(out)["DKIM"] == "WARN"
 
 
-def test_a_dns_failure_is_exit_2_never_a_pass_or_a_missing_record(capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_dns_failure_is_exit_2_never_a_pass_or_a_missing_record(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     def boom(name: str) -> list[str]:
         raise T.LookupFailed("resolver down")
 
@@ -96,7 +100,7 @@ def test_a_dns_failure_is_exit_2_never_a_pass_or_a_missing_record(capsys: pytest
 
 
 def test_exit_code_is_one_on_any_error_and_zero_otherwise() -> None:
-    bad = lambda n: []  # noqa: E731
+    bad = lambda n: []
     assert T.main(["mail.example", "--dkim-selector", "s1"], resolve=bad) == 1
     good = {
         "mail.example": ["v=spf1 -all"],

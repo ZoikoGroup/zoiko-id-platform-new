@@ -266,7 +266,9 @@ async def register_build(body: BuildBody, request: Request, caller: CallerDep) -
     async def go(conn: Any) -> dict[str, Any]:
         # registering is its own, lower authority so a build pipeline can hold it without being able to approve its own builds
         await protected_action(conn, caller, action="machine.build.register", resource="build:new")
-        return await service.register_build(conn, _tenant(caller), actor=_actor(caller), **body.model_dump())
+        return await service.register_build(
+            conn, _tenant(caller), actor=_actor(caller), **body.model_dump()
+        )
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
@@ -335,22 +337,33 @@ async def build_versions(body: ResolveBody, request: Request, caller: CallerDep)
         )
     except registry.RegistryError as e:
         raise ZidError(e.code, str(e), http_status=_LOOKUP_STATUS.get(e.code, 502)) from e
-    return {"image": body.image.strip(), "registry": found.host, "repository": found.repository, "tags": list(found.tags)}
+    return {
+        "image": body.image.strip(),
+        "registry": found.host,
+        "repository": found.repository,
+        "tags": list(found.tags),
+    }
 
 
 @router.post("/builds/{build_id}:approve")
 async def approve_build(build_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action="machine.build.manage", resource=f"build:{build_id}")
+        await protected_action(
+            conn, caller, action="machine.build.manage", resource=f"build:{build_id}"
+        )
         return await service.approve_build(conn, _tenant(caller), build_id, actor=_actor(caller))
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
 @router.post("/builds/{build_id}:revoke")
-async def revoke_build(build_id: str, body: ReasonBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def revoke_build(
+    build_id: str, body: ReasonBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        await protected_action(conn, caller, action="machine.build.manage", resource=f"build:{build_id}")
+        await protected_action(
+            conn, caller, action="machine.build.manage", resource=f"build:{build_id}"
+        )
         return await service.revoke_build(
             conn, _tenant(caller), build_id, reason=body.reason_code, actor=_actor(caller)
         )
