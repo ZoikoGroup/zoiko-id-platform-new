@@ -213,6 +213,23 @@ async def load(conn: AsyncConnection, pack_id: str, version: int) -> PolicyPack 
     return _pack(row, (await _approvals(conn, [(pack_id, version)]))[(pack_id, version)])
 
 
+async def load_latest(conn: AsyncConnection, pack_id: str) -> PolicyPack | None:
+    """The highest version of a pack, whatever its status."""
+    row = (
+        await conn.execute(
+            text(
+                f"SELECT {_PACK_COLUMNS} FROM verify.policy_pack WHERE pack_id = :p ORDER BY version DESC LIMIT 1"
+            ),
+            {"p": pack_id},
+        )
+    ).first()
+    if row is None:
+        return None
+    return _pack(
+        row, (await _approvals(conn, [(row.pack_id, row.version)]))[(row.pack_id, row.version)]
+    )
+
+
 async def load_approved(
     conn: AsyncConnection, *, country: str, product: str, purpose: str
 ) -> list[PolicyPack]:
