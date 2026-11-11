@@ -197,3 +197,15 @@ Tests added in this pass: component `test_vc_verify_pg.py` (7), `test_credential
 | DTV-15 | Built (as a gate) | The same for an EU qualified trust service provider claim | Actual authorization and trust-list entry |
 
 Not touched and not buildable from code alone: DTV-02 (signature validation needs a PAdES/XAdES library and trust lists), DTV-03, DTV-16 to 19, DTV-26 to 28, DTV-32 to 34, DTV-05, 08 and 10 (market and consumer packs). Documents 03 to 05 beyond DTV-07 (DPIA sign-off, independent UAT, release authorization) are people and evidence, not code.
+
+## Status update, fourth pass (2026-11-11, later still)
+
+| Package | State | What changed | What is still open |
+|---|---|---|---|
+| GID-063 | Built for Python and TypeScript | `sdks/typescript` (`@zoiko/credentials`, no runtime dependencies, WebCrypto signature checks, 15 tests, tsc clean) | Go, Java and .NET: not built. Those toolchains are not installed on this machine, so nothing could be compiled or tested; I did not write untested code |
+| GID-064 | Proposal only | `docs/specs/change-requests/CR-070-credential-check-meter-PROPOSAL.md` | The meter register is an owner-ratified record pinned by a test; a price book is a CFO/CCO decision |
+| DTV-19 | Domain built, not wired to a route | `verification/domain/age.py`: threshold answers (at least / under / undetermined) with no birth date out, a self-declared date never passes, an estimate decides only when its margin plus a 2-year buffer clears the line, and a documented check is offered instead of a refusal | A route and a provider for estimation |
+| Privacy | Gap found and fixed | The privacy module's erasure did not cover any `cred.*` data, and the claim-check tables are immutable by trigger. `credential_0008` adds `cred.erase_subject` (SECURITY DEFINER, current tenant only, idempotent) and the credential privacy adapter registers all six tables for discovery, export and erasure. Tested, including that ordinary deletes stay refused | Retention periods and rectification sources are DPO decisions |
+| Documents 04/05 | Evidence prepared, sign-off pending | `docs/privacy/dpia-credential-trust-DRAFT.md` (from the code as built); the document's 36 GLB cases are in `docs/traceability/acceptance-tests.csv` (GLB-01 to 36, each linked to a real test, all IN_PROGRESS, none VERIFIED); `test_glb_invariants.py` proves GLB-25 structurally | DPIA sign-off and an independent UAT run are human steps |
+
+Still not built, and why: DTV-02 (document signature validation needs a PAdES/XAdES library that is not installed and a trust-list source), GID-051 (EU e-seal validation, same reason), DTV-16 (document intelligence), DTV-26 to 28 and 32 to 34 (external providers or regulated product lines gated by Legal), translations and WCAG audit evidence (need translators and an audit), Go/Java/.NET SDKs (no toolchains here).
