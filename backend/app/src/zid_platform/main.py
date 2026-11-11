@@ -281,6 +281,7 @@ def create_app(
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
+        from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
@@ -362,6 +363,7 @@ def create_app(
             principals_router,
             evidence_router,
             evidence_v2_router,
+            evidence_v2_documents_router,
             operator_router,
             lockbox_router,
             privacy_router,

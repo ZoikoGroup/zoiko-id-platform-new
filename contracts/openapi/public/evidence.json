@@ -303,6 +303,77 @@
         "title": "PackageBody",
         "type": "object"
       },
+      "V2DocumentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Checks",
+            "type": "array"
+          },
+          "content_base64": {
+            "maxLength": 2796218,
+            "minLength": 4,
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "declared_type": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Declared Type",
+            "type": "string"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Fa-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Sha256"
+          },
+          "jurisdiction": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          }
+        },
+        "required": [
+          "content_base64",
+          "declared_type",
+          "checks"
+        ],
+        "title": "V2DocumentIn",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1710,6 +1781,49 @@
         "summary": "Verify",
         "tags": [
           "evidence"
+        ]
+      }
+    },
+    "/v2/documents/validate": {
+      "post": {
+        "operationId": "validate_document_v2_documents_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2DocumentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate Document V2 Documents Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Document",
+        "tags": [
+          "evidence-v2"
         ]
       }
     },

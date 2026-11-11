@@ -53,6 +53,7 @@ RESOURCES = [
     "outreach:*",
     "decision_receipt:*",
     "verification-case:*",
+    "document:*",
 ]
 BODY = {
     "credential_type": "professional_license",
@@ -443,3 +444,64 @@ def test_the_v2_issuer_check_shows_its_nonce_once_and_the_manifest_carries_commi
         assert mj["verification"]
         assert http.get(f"/v2/evidence/manifest_{uid()}/manifest", headers=mine).status_code == 404
         assert http.get("/v2/evidence/not-a-ref/manifest", headers=mine).status_code == 422
+
+
+def test_the_v2_document_validation_reports_each_check_on_its_own_and_stores_nothing(
+    rt_url: str,
+) -> None:
+    import base64
+    import hashlib
+
+    pdf = b"%PDF-1.7\n1 0 obj << /Type /Sig /SubFilter /ETSI.CAdES.detached /ByteRange [0 10 20 5] >> endobj\n%%EOF\n"
+    body = {
+        "content_base64": base64.b64encode(pdf).decode(),
+        "declared_type": "application/pdf",
+        "expected_sha256": hashlib.sha256(pdf).hexdigest(),
+        "checks": ["integrity", "issuer", "signature", "seal"],
+        "jurisdiction": {"country": "DE"},
+        "purpose": "business_authority",
+    }
+    with world(rt_url) as (http, mine, tenant, _admin):
+        r = http.post("/v2/documents/validate", headers=mine, json=body)
+        assert r.status_code == 200, r.text
+        out = r.json()
+        by = {x["check"]: x for x in out["document_results"]}
+        assert by["integrity"]["status"] == "VERIFIED" and by["integrity"]["reasons"] == [
+            "BYTES_UNCHANGED_ONLY"
+        ]
+        assert by["issuer"]["status"] == "UNAVAILABLE"
+        assert (
+            by["signature"]["status"] == "INDETERMINATE"
+            and by["signature"]["detail"]["signatures_detected"] == 1
+        )
+        assert by["seal"]["status"] == "UNAVAILABLE"
+        assert out["stored"] is False and out["sha256"] == body["expected_sha256"]
+        # never one positive status for the document: no field says it is authentic
+        assert "authentic" not in str(out).lower().replace("not authentic", "")
+
+        # a tampered document, a wrong type, bad base64, and an oversize one are each refused or reported on their own
+        tampered = http.post(
+            "/v2/documents/validate",
+            headers=mine,
+            json={**body, "content_base64": base64.b64encode(pdf + b" ").decode()},
+        )
+        assert tampered.json()["document_results"][0]["reasons"] == ["DIGEST_MISMATCH"]
+        assert (
+            http.post(
+                "/v2/documents/validate",
+                headers=mine,
+                json={**body, "declared_type": "application/zip"},
+            ).json()["code"]
+            == "type_not_allowed"
+        )
+        assert (
+            http.post(
+                "/v2/documents/validate", headers=mine, json={**body, "content_base64": "@@@@"}
+            ).status_code
+            == 422
+        )
+        huge = base64.b64encode(b"%PDF-" + b"0" * (2 * 1024 * 1024 + 10)).decode()
+        assert http.post(
+            "/v2/documents/validate", headers=mine, json={**body, "content_base64": huge}
+        ).status_code in (413, 422)
+        assert http.post("/v2/documents/validate", json=body).status_code in (401, 403)
