@@ -209,3 +209,14 @@ Not touched and not buildable from code alone: DTV-02 (signature validation need
 | Documents 04/05 | Evidence prepared, sign-off pending | `docs/privacy/dpia-credential-trust-DRAFT.md` (from the code as built); the document's 36 GLB cases are in `docs/traceability/acceptance-tests.csv` (GLB-01 to 36, each linked to a real test, all IN_PROGRESS, none VERIFIED); `test_glb_invariants.py` proves GLB-25 structurally | DPIA sign-off and an independent UAT run are human steps |
 
 Still not built, and why: DTV-02 (document signature validation needs a PAdES/XAdES library that is not installed and a trust-list source), GID-051 (EU e-seal validation, same reason), DTV-16 (document intelligence), DTV-26 to 28 and 32 to 34 (external providers or regulated product lines gated by Legal), translations and WCAG audit evidence (need translators and an audit), Go/Java/.NET SDKs (no toolchains here).
+
+## Status update, fifth pass (2026-11-11, end of day)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| PDF gap 1 to 4 (paths, full 08.1 contract, signed binding, receipts, event name) | Built and tested | `/v1/credentials/...` paths; complete signed assertion; receipt per check and per status change; `credential.status_changed`; SDK `verify_assertion` with a shared golden digest | Signing needs a configured key; without one the signature is `null` |
+| GID-060 | Built | Retry, rate limit and circuit breaker around source calls; dead-letter store `cred.source_dead_letter` (`credential_0009`, applied to `zid_cell`) with list and replay routes | No real source exists to tune the limits against |
+| Section 11 fairness | Built as a regression harness | Name matching no longer refuses people for stroke letters or for scripts it cannot read (they go to review as `SCRIPT_NOT_COMPARABLE`) | Synthetic data only; not a validated fairness evaluation |
+| WF-02 and WF-04 | Built, read only | `GET /v1/credentials/dossiers/{subject}` and `GET /v1/credentials/registry`; two new tabs on the Credentials admin page ("Person dossier", "Trust registry") | No editing screens by design: registries change through reviewed configuration. No browser test of the new tabs; the web type check is clean |
+| Section 16 | Draft | `docs/specs/overlays/ZID-GAP-001-v1.1-overlay-notes-DRAFT.md` | Owner approval; Document 05 de-duplication needs its source scenarios |
+| DTV-19 | Still domain only | Not wired to a route | Needs a route and an estimation provider |

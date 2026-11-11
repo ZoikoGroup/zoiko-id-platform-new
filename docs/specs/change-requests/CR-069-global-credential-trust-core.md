@@ -59,3 +59,10 @@ Real sources, issuers, packs and policies; issuer outreach keys; a price book an
 - **Rules**: employment disclosure limits are applied in the check; a disciplinary result feeds the engagement decision (restriction, review hold) and the RESTRICTIONS dimension; reason codes have plain-language text (`domain/reasons.py`).
 - **Web**: public verifier page `/verify/{ref}`. **SDK**: `zoiko_credentials` (Python). `zoiko_tool_server` gained `verify_signed` (a backward-compatible public wrapper over its existing JWS check).
 - **Not done**: GID-064 (meter and price book), EDC seal validation, other-language SDKs, translations of the reason text.
+
+## Addendum: fifth slice
+
+- **Migration `credential_0009`**: `cred.source_dead_letter` (tenant-scoped, row-level security, unique per tenant, check and event, no foreign key, no personal data of its own).
+- **Routes**: `GET /v1/credentials/monitoring/dead-letters`, `POST /v1/credentials/monitoring/dead-letters/{id}/replay`, `GET /v1/credentials/registry`, `GET /v1/credentials/dossiers/{subject}`. `POST /v1/credentials/monitoring` now answers 200 with `dead_lettered: true` for an unknown or replaced check instead of 404.
+- **Behavior**: source calls use retry, rate limit and circuit breaker; name matching routes unreadable scripts to review (`SCRIPT_NOT_COMPARABLE`).
+- **Web**: Credentials admin gains "Trust registry" and "Person dossier" tabs; the web BFF forwards `/v1/credentials/`.
