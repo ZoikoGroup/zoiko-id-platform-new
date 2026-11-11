@@ -274,9 +274,11 @@ def create_app(
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.credential.api.trust import router as credential_trust_router
         from .modules.credential.api.v2 import router as credential_v2_router
+        from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
+        from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
@@ -329,6 +331,7 @@ def create_app(
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.webhook.api.webhooks import router as webhooks_router
+        from .modules.webhook.api.v2 import router as webhooks_v2_router
 
         for router in (
             authzen_router,
@@ -351,8 +354,10 @@ def create_app(
             claim_checks_router,
             credential_trust_router,
             credential_v2_router,
+            credential_v2_issuer_router,
             principals_router,
             evidence_router,
+            evidence_v2_router,
             operator_router,
             lockbox_router,
             privacy_router,
@@ -383,6 +388,7 @@ def create_app(
             policy_router,
             workloads_router,
             webhooks_router,
+            webhooks_v2_router,
             alerts_router,
             search_router,
             agents_router,

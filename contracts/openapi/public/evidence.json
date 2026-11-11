@@ -1712,6 +1712,50 @@
           "evidence"
         ]
       }
+    },
+    "/v2/evidence/{manifest_ref}/manifest": {
+      "get": {
+        "operationId": "manifest_v2_evidence__manifest_ref__manifest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifest_ref",
+            "required": true,
+            "schema": {
+              "title": "Manifest Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Manifest V2 Evidence  Manifest Ref  Manifest Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Manifest",
+        "tags": [
+          "evidence-v2"
+        ]
+      }
     }
   }
 }

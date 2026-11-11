@@ -356,6 +356,7 @@ SUBSCRIBABLE = {
     "com.zoiko.id.mandate.revoked.v1": "Mandate revoked",
     "com.zoiko.id.verification.completed.v1": "Verification final",
     "com.zoiko.id.credential.status.changed.v1": "Credential status update",
+    "com.zoiko.id.credential.status_changed.v1": "Credential claim status changed (a source revoked, suspended or expired a checked claim)",
     "com.zoiko.id.privacy.consent.withdrawn.v1": "Consent withdrawn",
     "com.zoiko.id.policy.release.changed.v1": "Policy release drafted, reviewed or published",
 }

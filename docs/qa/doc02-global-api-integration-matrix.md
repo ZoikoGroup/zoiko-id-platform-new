@@ -22,24 +22,24 @@ claim or a production result: every source in the repository is a sample or a si
 | Discovery | `GET /v2/capabilities`, `GET /v2/coverage` | VERIFIED_IN_CODE | Readiness is stated honestly (PROVIDER_DEPENDENT); coverage counts only contracted, in-force, non-simulated sources, so today it is empty |
 | Credential checks | `POST /v2/credentials/verify`, `GET /v2/credentials/{ref}` | VERIFIED_IN_CODE | Issuer claim and award claim are kept apart in the request; the signed five-fact assertion is returned unchanged |
 | License eligibility | `POST /v2/eligibility/evaluate`, `GET /v2/eligibility/{ref}` | VERIFIED_IN_CODE | No policy for the exact scope means no decision (404), never a default |
-| Consumer bind (Zoikorum) | `POST /v2/zoikorum/engagement-checks` | IMPLEMENTED_UNVERIFIED as a route | The engagement logic is tested through the v1 service (`test_credential_trust_pg.py`); the `/v2` route itself has no HTTP test yet | One decision per requested service; the overall answer is the worst of them; signed for Zoikorum alone |
+| Consumer bind (Zoikorum) | `POST /v2/zoikorum/engagement-checks` | VERIFIED_IN_CODE | `test_v2_facade_pg.py`: signed per service, never ELIGIBLE without verified identity, replay returns the same signature, a changed body is a conflict, an unknown service has no policy | One decision per requested service; the overall answer is the worst of them; signed for Zoikorum alone |
 | Consumer bind (Rooms) | `POST /v2/rooms/property-checks` | SPECIFIED_ONLY | No property, title or mandate source or module exists |
-| Cases | `POST /v2/verifications` | SPECIFIED_ONLY as a v2 route | The v1 verification module exists; a facade is not written |
-| Evidence | `/v2/evidence/uploads`, manifest | SPECIFIED_ONLY | |
+| Cases | `POST /v2/verifications` | SPECIFIED_ONLY as a v2 route | The v1 module starts an identity-provider session from a profile. A case that spans identity, degree, license and insurance needs a case orchestrator that does not exist, so a partial facade was not written |
+| Evidence | `GET /v2/evidence/{ref}/manifest` | VERIFIED_IN_CODE | Commitments and a verification result; no claimed value. Uploads (`POST /v2/evidence/uploads`) are PROVIDER_DEPENDENT: they need malware scanning, content sniffing and an object store with deletion controls |
 | Documents | `/v2/documents/validate` | PROVIDER_DEPENDENT | Signature and seal validation needs a PAdES/XAdES library and trust lists (DTV-02) |
-| Issuer outreach | `/v2/issuer-checks` | IMPLEMENTED_UNVERIFIED as v1 | v1 outreach exists and is tested; no v2 facade |
+| Issuer outreach | `/v2/issuer-checks` | VERIFIED_IN_CODE (`/v2/issuer-checks`) | The nonce is shown once and the stored replay record never holds it; an unknown or lookalike issuer is never contacted |
 | Business / authority | `/v2/organizations/verify`, `/v2/mandates/verify` | SPECIFIED_ONLY as v2 | v1 mandates exist; KYB sources do not |
-| Presentations | `/v2/presentations/requests` | SPECIFIED_ONLY as v2 | A v1 OID4VP verifier exists in the credential module |
-| Events | `/v2/webhook-endpoints`, `/v2/events/{id}` | SPECIFIED_ONLY as v2 | A v1 webhook module exists |
+| Presentations | `/v2/presentations/requests` | SPECIFIED_ONLY as v2 | The v1 OID4VP verifier needs a `configuration_id` the document's request does not carry; choosing one from the requested claims would be inventing policy |
+| Events | `/v2/webhook-endpoints`, `/v2/events/{id}` | VERIFIED_IN_CODE (`/v2/webhook-endpoints`, `/v2/events/{id}`, replay) | `webhook/api/v2.py`, `test_webhook_v2_pg.py`; same destination rules as v1. `credential.status_changed` is now subscribable |
 
 ## Sections 05 to 14
 
 | Area | Label | Evidence or gap |
 |---|---|---|
-| 05.1 SDK state machine | VERIFIED_IN_CODE (TypeScript) | `sdks/typescript/src/session.ts` and its tests: no capture before consent, a corrupt payload retries, OCR never completes a session, an outage stays pending, a human decision needs an authority, no FAILED state. Python mirror and the capture UI are not built |
+| 05.1 SDK state machine | VERIFIED_IN_CODE (TypeScript and Python) | `sdks/typescript/src/session.ts` and its tests: no capture before consent, a corrupt payload retries, OCR never completes a session, an outage stays pending, a human decision needs an authority, no FAILED state. The Python mirror is tested and checked against the TypeScript state list. The capture UI is not built |
 | 06.1 outcome vocabulary | VERIFIED_IN_CODE | `v2_view.py` can only restate or lower a decision (a test runs every decision). Engagement eligibility is a separate vocabulary, proven disjoint |
-| 07 pack contract and fail-closed rules | IMPLEMENTED_UNVERIFIED | The service pack and trust registries exist (CR-069). Dry-run scenario comparison and a tested rollback path are not built |
-| 08 ProviderAdapter | PROVIDER_DEPENDENT | No provider contract, entitlement or sandbox is available, so no adapter was written (a stub would imply a capability that does not exist) |
+| 07 pack contract and fail-closed rules | VERIFIED_IN_CODE for dry run and rollback | `verification/domain/pack_diff.py`: compares two registries over every scenario, lists widening changes for the approver, proves a rollback answers identically. The maker/checker approval workflow around it is existing CR-069 work |
+| 08 ProviderAdapter | Contract and guards VERIFIED_IN_CODE; every adapter PROVIDER_DEPENDENT | `verification/domain/provider_adapter.py`: the adapter Protocol, entitlement checks (expiry, revocation, country, purpose, region, assurance), routing that ranks only lawful providers, a failover that cannot lower assurance without an approval, webhook verification (exact bytes, window, replay, key rotation) and a deletion statement that waits for the provider. No Veriff, Yoti or Sumsub adapter exists: that needs a contract and a sandbox |
 | 09 documents and signatures | PROVIDER_DEPENDENT / REGULATORY_GATED | Hash integrity exists for evidence; document analysis, signature validation and QTSP status do not |
 | 13 events | IMPLEMENTED_UNVERIFIED | `credential.status_changed` is emitted and signed events exist for status changes; the other event families and the outbound dead-letter redrive are owned by the webhook module and were not changed. Inbound source events that cannot be applied are dead-lettered (`credential_0009`) |
 | 14 error model | VERIFIED_IN_CODE for invalid_request, idempotency_conflict, unsupported_market and not-found (tested over HTTP); the other mapped names (provider_unavailable, quota_exceeded, unauthenticated, scope_forbidden) are unit-tested only | The document's codes are mapped from this platform's own codes. A source that cannot be asked is returned as outcome UNAVAILABLE with a fault code, not as HTTP 424 |
@@ -47,12 +47,7 @@ claim or a production result: every source in the repository is a sample or a si
 
 ## Section 16 acceptance matrix
 
-18 of 36 scenarios are linked to a real test in `docs/traceability/acceptance-tests.csv` (`INT2-T01`, T02, T03, T08 to T15, T21, T23, T26, T28,
-T31, T33, T35), each IN_PROGRESS; none is VERIFIED because VERIFIED needs reviewer sign-off. Not linked, and why: T04 policy rollback, T05
-lookalike issuer, T06 diploma without a conferral source, T07 accreditation at award date (logic exists, no test is named for the scenario), T16
-forged webhook signature, T17 provider contract expiry, T18 failover reducing assurance, T19 to T20 provider-specific, T22 restrictions mapped to
-activities, T24 and T25 Rooms, T27 certificate time, T29 selective disclosure, T30 LEI, T32 appeals access, T34 admin override, T36 provider
-invoicing. Several of those have a unit test that nearly matches; linking requires a person to confirm the match rather than guess.
+29 of 36 scenarios are linked to a real test in `docs/traceability/acceptance-tests.csv` (`INT2-T01` to T18 except T19 and T20, then T21 to T23, T26, T28, T29, T31 to T33, T35, T36), each IN_PROGRESS; none is VERIFIED because VERIFIED needs reviewer sign-off. Not linked, and why: T19 and T20 are provider-specific (Sumsub, Yoti) and no adapter exists; T24 and T25 are Rooms (no module); T27 needs certificate time-of-signing validation (DTV-02); T30 needs LEI/vLEI sources; T34 (cross-tenant raw evidence export and broad admin override) has route-level tests in the evidence module but none I could name for this exact scenario without guessing. T06, T32 and T36 are linked to the nearest real test and the row says what that test does and does not cover.
 
 ## Decisions Document 02 says to sign, not invent
 Launch wave and source coverage by country and profession; whether Zoiko iD seeks regulated trust-service authorization; controller and

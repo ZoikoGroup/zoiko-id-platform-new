@@ -70,6 +70,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v2/credentials",
             "/v2/eligibility",
             "/v2/zoikorum",
+            "/v2/issuer-checks",
             "/v1/issuers",
             "/v1/eligibility",
             "/v1/consumers",
@@ -81,7 +82,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Security Signals and Shared Signals API",
     ),
     OPENAPI / "public" / "evidence.json": (
-        ("/v1/evidence/",),
+        ("/v1/evidence/", "/v2/evidence/"),
         "Zoiko iD Evidence, Audit and Provenance API (receipts, proofs, replay, export, legal holds)",
     ),
     OPENAPI / "public" / "privacy.json": (
@@ -140,7 +141,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Machine Identity API (agents, blueprints, tools, SPIFFE bindings, environment quarantine)",
     ),
     OPENAPI / "public" / "webhooks.json": (
-        ("/v1/webhooks/",),
+        ("/v1/webhooks/", "/v2/webhook-endpoints", "/v2/events"),
         "Zoiko iD Webhook API (endpoints, verification, deliveries, replay)",
     ),
     OPENAPI / "public" / "notification.json": (
