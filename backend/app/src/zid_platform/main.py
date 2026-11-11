@@ -273,6 +273,7 @@ def create_app(
         from .modules.credential.api.claim_checks import router as claim_checks_router
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.credential.api.trust import router as credential_trust_router
+        from .modules.credential.api.v2 import router as credential_v2_router
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
@@ -280,7 +281,6 @@ def create_app(
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
-        from .modules.screening.api.signals import router as screening_signals_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
         from .modules.metering.api.usage import router as usage_router
@@ -311,6 +311,7 @@ def create_app(
         from .modules.provisioning.api.directory import router as directory_sync_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.resilience.api.platform import router as resilience_router
+        from .modules.screening.api.signals import router as screening_signals_router
         from .modules.search.api.search import router as search_router
         from .modules.session.api.oauth import router as oauth_router
         from .modules.session.api.sessions import router as sessions_router
@@ -349,6 +350,7 @@ def create_app(
             credentials_router,
             claim_checks_router,
             credential_trust_router,
+            credential_v2_router,
             principals_router,
             evidence_router,
             operator_router,
@@ -450,7 +452,9 @@ def _operator_password_logins(settings: Settings) -> dict[str, dict[str, str]]:
             raise RuntimeError(f"operator login {key}: principal_id must be a uuid") from e
         stored = entry.get("password_hash")
         if stored is None and local and entry.get("password"):
-            stored = hash_password(entry["password"], min_length=1)  # local convenience; never a deployed cell
+            stored = hash_password(
+                entry["password"], min_length=1
+            )  # local convenience; never a deployed cell
         if stored is None or not valid_hash(stored):
             raise RuntimeError(
                 f"operator login {key}: a scrypt password_hash is required (entrypoints/hash_operator_password.py)"
@@ -553,8 +557,13 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
 
     from .modules.commercial.ports import FallbackTax, RateTableTax
 
-    config_root = _Path(os.environ.get("ZID_PLATFORM_CONFIG") or _Path(__file__).resolve().parents[3] / "config")
-    app.state.tax_port = FallbackTax(app.state.tax_port, RateTableTax.from_file(config_root / "commercial" / "tax-rate-table.yaml"))
+    config_root = _Path(
+        os.environ.get("ZID_PLATFORM_CONFIG") or _Path(__file__).resolve().parents[3] / "config"
+    )
+    app.state.tax_port = FallbackTax(
+        app.state.tax_port,
+        RateTableTax.from_file(config_root / "commercial" / "tax-rate-table.yaml"),
+    )
     app.state.refund_port = build_refund_port(settings)
     if settings.attestor_keys_file:
         import json as _json
@@ -591,9 +600,12 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         "AUTH_EVENT": (sessions_created_between, key_auth, "HUMAN"),
         "VC_ISSUED": (credentials_issued_between, key_vc_issued, "HUMAN"),
     }
+
     async def plan_feature_gate(conn: Any, feature_id: str) -> None:
         """The plan check for a feature, for the modules that must not import commercial (they find it on app.state)."""
-        await require_feature(conn, feature_id, enforcement=getattr(app.state, "commercial_enforcement", "shadow"))
+        await require_feature(
+            conn, feature_id, enforcement=getattr(app.state, "commercial_enforcement", "shadow")
+        )
 
     app.state.plan_feature_gate = plan_feature_gate
     app.state.commercial_counters = {
@@ -755,7 +767,11 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
     from .modules.operator_access.ports import OperatorSettings
     from .protected import catalog
 
-    if settings.environment in ("local", "test") and not settings.local_keystore and settings.key_provider != "db":
+    if (
+        settings.environment in ("local", "test")
+        and not settings.local_keystore
+        and settings.key_provider != "db"
+    ):
         current_runtime()  # one process-wide development runtime (in-memory keys)
     else:
         configure_runtime(runtime_from_settings(settings))

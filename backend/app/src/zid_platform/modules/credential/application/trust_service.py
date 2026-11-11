@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
+from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks
 from zid_platform.modules.credential.domain import eligibility as el
 from zid_platform.modules.credential.domain import lifecycle as lc
@@ -34,6 +35,7 @@ from zid_platform.modules.credential.domain.claims import (
     SubjectMatch,
 )
 from zid_platform.modules.credential.infrastructure import claim_store, trust_store
+from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
 from zid_platform.modules.verification.ports import person_assurance_current
 
 
@@ -563,6 +565,8 @@ async def conclude_outreach(
     registry: tg.Registry | None,
     environment: str,
     now: datetime,
+    signer: ac.Signer | None = None,
+    actor: str | None = None,
 ) -> str | None:
     """Turn a finished outreach into a claim check, once. An issuer's confirmation (after dual review) is a primary-source
     answer; a denial or "not held" is a reachable source with no record; silence or a rejected answer is UNVERIFIABLE, never a
@@ -619,7 +623,7 @@ async def conclude_outreach(
         source=_OutreachSource(request_id, answer),
         now=now,
         environment=environment,
-        gate=claim_checks.Gate(registry=registry),
+        gate=claim_checks.Gate(registry=registry, signer=signer, actor=actor),
     )
     await trust_store.conclude_outreach(conn, request_id, result.check_id, now)
     return result.check_id
@@ -670,6 +674,8 @@ async def apply_source_event(
     check_id: str,
     event: lc.SourceEvent,
     now: datetime,
+    signer: ac.Signer | None = None,
+    actor: str | None = None,
 ) -> tuple[bool, str]:
     """Apply a source's status event to a check. Returns (changed, effective_status). The newest valid observation wins; an older
     one is only recorded. A real change adds a superseding check (the old one is never edited) and emits the event."""
@@ -705,7 +711,52 @@ async def apply_source_event(
         new["decision"] = "NOT_VERIFIED"
         new["reason_codes"] = [f"CREDENTIAL_{new_status.value}"]
     new["professional_eligibility"] = "NOT_EVALUATED"
+    new["previous_check_id"] = check_id
     new_id = str(uuid.uuid4())
+    subject = str(row["subject_principal_id"])
+    reasons = tuple(new.get("reason_codes") or ()) or ("STATUS_CHANGED_ACTIVE",)
+    receipt_id = await record_decision_receipt(
+        conn,
+        tenant_id,
+        ReceiptFacts(
+            decision_id=new_id,
+            decision_type="CREDENTIAL",
+            evidence_class=EvidenceClass.E2,
+            action="credential.monitor.manage",
+            resource_class="credential-claim",
+            outcome=str(new["decision"]),
+            reason_codes=reasons,
+            risk_class="R2",
+            effective_at=now,
+            actor_principal_id=actor or subject,
+            represented_principal_id=subject if actor and actor != subject else None,
+            resource_ref=f"credential-claim:{row['claim_type']}",
+            assurance_summary={"tier": old.get("assurance_tier"), "source_result": "RESPONDED"},
+        ),
+        floor=EvidenceClass.E2,
+        material={
+            "previous_check": check_id,
+            "event": event.event_id,
+            "status": new_status.value,
+            "decision": new["decision"],
+        },
+    )
+    new = ac.seal(
+        ac.complete(
+            new,
+            check_id=new_id,
+            subject=subject,
+            consumer=str(old.get("consumer") or "direct"),
+            consent_ref=old.get("consent_ref"),
+            receipts=[receipt_id] if receipt_id else [],
+            pack_id=row["pack_id"],
+            pack_version=row["pack_version"],
+            source_result="RESPONDED",
+            source_id=row["source_id"],
+        ),
+        signer,
+        now,
+    )
     await claim_store.insert_check(
         conn,
         check_id=new_id,
@@ -737,7 +788,7 @@ async def apply_source_event(
     )
     await emit(
         conn,
-        name="credential.claim.status.changed",
+        name="credential.status_changed",
         tenant_id=tenant_id,
         aggregate_type="claim_check",
         aggregate_id=new_id,
@@ -775,3 +826,75 @@ async def recheck_due(
             {"n": now + push, "c": m["check_id"]},
         )
     return len(due)
+
+
+# ------------------------------------------------------------------------------------------------------ dead letters
+
+
+async def keep_unapplied_event(
+    conn: AsyncConnection, *, tenant_id: str, check_id: str, event: lc.SourceEvent, reason: str
+) -> tuple[str, bool]:
+    """A source event for a check we do not hold, or one a newer check has replaced, is kept (GID-060), once per (check, event),
+    instead of being lost or answered with an error the source retries forever. Returns (letter_id, first_time)."""
+    return await trust_store.dead_letter(
+        conn,
+        tenant_id=tenant_id,
+        check_id=check_id,
+        event_id=event.event_id,
+        status=event.status.value,
+        observed_at=event.observed_at,
+        sequence=event.sequence,
+        reason=reason,
+    )
+
+
+async def replay_dead_letter(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    letter_id: str,
+    by: str,
+    now: datetime,
+    signer: ac.Signer | None = None,
+) -> str:
+    """Try a kept event again. Returns the letter's new state: REPLAYED if it applied (or was already seen), OPEN if the check is
+    still not there. A superseded check will never take it, so that letter is DISCARDED with the reason on record."""
+    row = await trust_store.load_dead_letter(conn, letter_id)
+    if row is None or row["state"] != "OPEN":
+        raise LookupError("LETTER_NOT_OPEN")
+    event = lc.SourceEvent(
+        row["event_id"],
+        str(row["check_id"]),
+        CredentialStatus(row["status"]),
+        row["observed_at"],
+        row["sequence"],
+    )
+    try:
+        await apply_source_event(
+            conn,
+            tenant_id=tenant_id,
+            check_id=str(row["check_id"]),
+            event=event,
+            now=now,
+            signer=signer,
+            actor=by,
+        )
+    except LookupError as e:
+        if str(e) == "CHECK_SUPERSEDED":
+            await trust_store.resolve_dead_letter(
+                conn, letter_id, state="DISCARDED", by=by, now=now
+            )
+            return "DISCARDED"
+        await trust_store.dead_letter(
+            conn,
+            tenant_id=tenant_id,
+            check_id=str(row["check_id"]),
+            event_id=row["event_id"],
+            status=row["status"],
+            observed_at=row["observed_at"],
+            sequence=row["sequence"],
+            reason=str(e),
+        )
+        return "OPEN"
+    await trust_store.resolve_dead_letter(conn, letter_id, state="REPLAYED", by=by, now=now)
+    return "REPLAYED"

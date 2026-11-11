@@ -483,9 +483,6 @@
         "credential_claim_recheck_due": {
           "$ref": "#/components/messages/credential_claim_recheck_due"
         },
-        "credential_claim_status_changed": {
-          "$ref": "#/components/messages/credential_claim_status_changed"
-        },
         "credential_configuration_activated": {
           "$ref": "#/components/messages/credential_configuration_activated"
         },
@@ -2868,17 +2865,6 @@
         "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
         "x-zid-status": "proposed"
       },
-      "credential_claim_status_changed": {
-        "contentType": "application/cloudevents+json",
-        "name": "com.zoiko.id.credential.claim.status.changed.v1",
-        "payload": {
-          "$ref": "#/components/schemas/CloudEvent"
-        },
-        "summary": "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only.",
-        "title": "credential.claim.status.changed",
-        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
-        "x-zid-status": "proposed"
-      },
       "credential_configuration_activated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.credential.configuration.activated.v1",
@@ -2947,14 +2933,14 @@
       },
       "credential_status_changed": {
         "contentType": "application/cloudevents+json",
-        "name": "com.zoiko.id.credential.status.changed.v1",
+        "name": "com.zoiko.id.credential.status_changed.v1",
         "payload": {
           "$ref": "#/components/schemas/CloudEvent"
         },
-        "summary": "Known credential status changed.",
-        "title": "credential.status.changed",
-        "x-zid-source": "ZID-VC-001",
-        "x-zid-status": "catalogued"
+        "summary": "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only.",
+        "title": "credential.status_changed",
+        "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
+        "x-zid-status": "proposed"
       },
       "cross_cell_transfer_authorized": {
         "contentType": "application/cloudevents+json",

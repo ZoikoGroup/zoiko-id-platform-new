@@ -342,3 +342,149 @@ async def next_event_version(conn: AsyncConnection, aggregate_type: str, aggrega
         {"t": aggregate_type, "i": aggregate_id},
     )
     return int(row.scalar_one())
+
+
+# ------------------------------------------------------------------------------------------------------ dead letters
+
+
+async def dead_letter(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    check_id: str,
+    event_id: str,
+    status: str,
+    observed_at: datetime,
+    sequence: int | None,
+    reason: str,
+) -> tuple[str, bool]:
+    """Keep an event that could not be applied. One row per (check, event): a redelivery only counts another attempt.
+    Returns (letter_id, first_time)."""
+    letter_id = uuid.uuid4()
+    row = (
+        await conn.execute(
+            text(
+                "INSERT INTO cred.source_dead_letter (letter_id, tenant_id, check_id, event_id, status, observed_at, "
+                "sequence, reason) VALUES (:l, :t, :c, :e, :s, :o, :q, :r) "
+                "ON CONFLICT (tenant_id, check_id, event_id) DO UPDATE "
+                "SET attempts = cred.source_dead_letter.attempts + 1, reason = EXCLUDED.reason "
+                "RETURNING letter_id, (xmax = 0) AS first_time"
+            ),
+            {
+                "l": letter_id,
+                "t": uuid.UUID(tenant_id),
+                "c": uuid.UUID(check_id),
+                "e": event_id,
+                "s": status,
+                "o": observed_at,
+                "q": sequence,
+                "r": reason,
+            },
+        )
+    ).one()
+    return str(row[0]), bool(row[1])
+
+
+async def list_dead_letters(
+    conn: AsyncConnection, *, state: str = "OPEN", limit: int = 100
+) -> list[dict[str, Any]]:
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT letter_id, check_id, event_id, status, observed_at, sequence, reason, attempts, state, "
+                    "received_at, resolved_at FROM cred.source_dead_letter WHERE state = :s "
+                    "ORDER BY received_at LIMIT :n"
+                ),
+                {"s": state, "n": limit},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]
+
+
+async def load_dead_letter(conn: AsyncConnection, letter_id: str) -> dict[str, Any] | None:
+    row = (
+        (
+            await conn.execute(
+                text("SELECT * FROM cred.source_dead_letter WHERE letter_id = :l FOR UPDATE"),
+                {"l": uuid.UUID(letter_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return dict(row) if row else None
+
+
+async def resolve_dead_letter(
+    conn: AsyncConnection, letter_id: str, *, state: str, by: str, now: datetime
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE cred.source_dead_letter SET state = :s, resolved_at = :n, resolved_by = :b "
+            "WHERE letter_id = :l AND state = 'OPEN'"
+        ),
+        {"s": state, "n": now, "b": uuid.UUID(by), "l": uuid.UUID(letter_id)},
+    )
+
+
+# ----------------------------------------------------------------------------------------------------------- dossier
+
+
+async def subject_decisions(
+    conn: AsyncConnection, subject_principal_id: str, limit: int = 20
+) -> list[dict[str, Any]]:
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT decision_id, kind, policy_id, policy_version, outcome, reasons, restrictions, check_ids, "
+                    "consumer, created_at FROM cred.eligibility_decision WHERE subject_principal_id = :s "
+                    "ORDER BY created_at DESC LIMIT :n"
+                ),
+                {"s": uuid.UUID(subject_principal_id), "n": limit},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]
+
+
+async def load_decision(conn: AsyncConnection, decision_id: str) -> dict[str, Any] | None:
+    row = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT decision_id, subject_principal_id, kind, policy_id, policy_version, outcome, reasons, "
+                    "restrictions, check_ids, consumer, created_at FROM cred.eligibility_decision "
+                    "WHERE decision_id = :d"
+                ),
+                {"d": uuid.UUID(decision_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return dict(row) if row else None
+
+
+async def subject_appeals(conn: AsyncConnection, subject_principal_id: str) -> list[dict[str, Any]]:
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT a.appeal_id, a.check_id, a.state, a.created_at, a.resolved_at FROM cred.claim_appeal a "
+                    "JOIN cred.claim_check c ON c.check_id = a.check_id WHERE c.subject_principal_id = :s "
+                    "ORDER BY a.created_at DESC"
+                ),
+                {"s": uuid.UUID(subject_principal_id)},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]

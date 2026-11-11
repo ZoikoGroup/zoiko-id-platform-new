@@ -6,16 +6,16 @@
     POST /v1/eligibility/professional/evaluate              policy decision for one place + service (credential.eligibility.evaluate)
     POST /v1/eligibility/engagement/evaluate                one piece of work: credential, identity, insurance, tier
     POST /v1/consumers/zoikorum/decisions                   the same, signed, for the Zoikorum consumer only
-    POST /credentials/disclosures                           a person grants a recipient named fields (credential.disclosure.manage)
-    POST /credentials/disclosures/{id}:withdraw             stops this grant and every one derived from it
-    POST /credentials/disclosures/{id}:read                 what a recipient may see of one check
-    GET  /credentials/assertions/{tenant}.{check}/verify    bounded public view under a PUBLIC_VERIFIER grant (no account)
-    POST /credentials/source-outreach                       ask an issuer's registered contact (credential.outreach.manage)
-    POST /credentials/source-outreach/{id}:response         record the issuer's signed answer
-    POST /credentials/source-outreach/{id}:review           dual control: two other people
-    POST /credentials/cases/{check_id}/appeals              a person asks for correction or human review (credential.appeal.manage)
-    POST /credentials/appeals/{id}:resolve                  resolved by someone other than who raised it
-    POST /credentials/monitoring                            a source's status event for a check (credential.monitor.manage)
+    POST /v1/credentials/disclosures                           a person grants a recipient named fields (credential.disclosure.manage)
+    POST /v1/credentials/disclosures/{id}:withdraw             stops this grant and every one derived from it
+    POST /v1/credentials/disclosures/{id}:read                 what a recipient may see of one check
+    GET  /v1/credentials/assertions/{tenant}.{check}/verify    bounded public view under a PUBLIC_VERIFIER grant (no account)
+    POST /v1/credentials/source-outreach                       ask an issuer's registered contact (credential.outreach.manage)
+    POST /v1/credentials/source-outreach/{id}:response         record the issuer's signed answer
+    POST /v1/credentials/source-outreach/{id}:review           dual control: two other people
+    POST /v1/credentials/cases/{check_id}/appeals              a person asks for correction or human review (credential.appeal.manage)
+    POST /v1/credentials/appeals/{id}:resolve                  resolved by someone other than who raised it
+    POST /v1/credentials/monitoring                            a source's status event for a check (credential.monitor.manage)
 
 Every eligibility result is recomputed from the subject's CURRENT checks; nothing is cached across places, services or time.
 """
@@ -33,6 +33,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.credential.api.claim_checks import signer_for
 from zid_platform.modules.credential.application import trust_service as svc
 from zid_platform.modules.credential.application import vc_verify, verifier
 from zid_platform.modules.credential.domain import eligibility as el
@@ -51,8 +52,9 @@ from zid_platform.modules.credential.infrastructure.registries import (
     find_policy,
     issuer_registry,
     policies,
+    source_contracts,
 )
-from zid_platform.modules.verification.ports import PackError, pack_registry
+from zid_platform.modules.verification.ports import PackError, certification_registry, pack_registry
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["credential-trust"])
@@ -215,7 +217,11 @@ class CredEngagementIn(CredEligibilityIn):
 
 
 async def _engage(
-    body: CredEngagementIn, request: Request, caller: Caller, consumer: str
+    body: CredEngagementIn,
+    request: Request,
+    caller: Caller,
+    consumer: str,
+    conn: Any = None,
 ) -> svc.EngagementResult:
     policy = _policy(body)
     rule = policies()[1][0] if policies()[1] else None
@@ -228,12 +234,11 @@ async def _engage(
         body.service_code,
         body.insurance_required,
     )
-    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await _gate(
-            conn, caller, "credential.eligibility.evaluate", f"engagement:{policy.policy_id}"
-        )
+
+    async def run_in(c: Any) -> svc.EngagementResult:
+        await _gate(c, caller, "credential.eligibility.evaluate", f"engagement:{policy.policy_id}")
         return await svc.evaluate_engagement(
-            conn,
+            c,
             tenant_id=caller.ctx.tenant_id or "",
             subject=_subject(caller, body.subject_principal_id),
             request=req,
@@ -244,6 +249,11 @@ async def _engage(
             consumer=consumer,
             engagement_days=body.engagement_days,
         )
+
+    if conn is not None:
+        return await run_in(conn)
+    async with tenant_transaction(request_engine(request), caller.ctx) as c:
+        return await run_in(c)
 
 
 def _engagement_body(r: svc.EngagementResult) -> dict[str, Any]:
@@ -294,7 +304,7 @@ class CredGrantIn(BaseModel):
     parent_grant_id: uuid.UUID | None = None
 
 
-@router.post("/credentials/disclosures", status_code=201)
+@router.post("/v1/credentials/disclosures", status_code=201)
 async def create_grant(body: CredGrantIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     subject = _subject(
         caller, None
@@ -323,7 +333,7 @@ async def create_grant(body: CredGrantIn, request: Request, caller: CallerDep) -
     }
 
 
-@router.post("/credentials/disclosures/{grant_id}:withdraw")
+@router.post("/v1/credentials/disclosures/{grant_id}:withdraw")
 async def withdraw_grant(
     grant_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -346,7 +356,7 @@ class CredReadIn(BaseModel):
     purpose: str
 
 
-@router.post("/credentials/disclosures/{grant_id}:read")
+@router.post("/v1/credentials/disclosures/{grant_id}:read")
 async def read_grant(
     grant_id: uuid.UUID, body: CredReadIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -367,7 +377,7 @@ async def read_grant(
     return {"grant_id": str(grant_id), "disclosed": data}
 
 
-@router.get("/credentials/assertions/{ref}/verify")
+@router.get("/v1/credentials/assertions/{ref}/verify")
 async def public_verify(
     ref: str, request: Request, grant: Annotated[uuid.UUID, Query()]
 ) -> dict[str, Any]:
@@ -408,7 +418,7 @@ class CredOutreachIn(BaseModel):
     profession_code: str | None = Field(default=None, max_length=32)
 
 
-@router.post("/credentials/source-outreach", status_code=201)
+@router.post("/v1/credentials/source-outreach", status_code=201)
 async def open_outreach(
     body: CredOutreachIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -466,7 +476,7 @@ class CredResponseIn(BaseModel):
     signature_b64: str = Field(min_length=1, max_length=2000)
 
 
-@router.post("/credentials/source-outreach/{request_id}:response")
+@router.post("/v1/credentials/source-outreach/{request_id}:response")
 async def record_response(
     request_id: uuid.UUID, body: CredResponseIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -510,7 +520,7 @@ class CredOutreachReviewIn(BaseModel):
     approve: bool
 
 
-@router.post("/credentials/source-outreach/{request_id}:review")
+@router.post("/v1/credentials/source-outreach/{request_id}:review")
 async def review_outreach(
     request_id: uuid.UUID, body: CredOutreachReviewIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -546,12 +556,14 @@ async def _conclude(conn: Any, request: Request, caller: Caller, request_id: str
             registry=issuer_registry(),
             environment=str(getattr(request.app.state, "environment", "production")),
             now=_now(),
+            signer=signer_for(request),
+            actor=caller.ctx.principal_id,
         )
     except (ClaimError, PackError) as e:
         raise _err(e) from e
 
 
-@router.post("/credentials/source-outreach/{request_id}:conclude")
+@router.post("/v1/credentials/source-outreach/{request_id}:conclude")
 async def conclude_outreach(
     request_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -571,7 +583,7 @@ class CredAppealIn(BaseModel):
     correction: dict[str, str] = Field(default_factory=dict, max_length=20)
 
 
-@router.post("/credentials/cases/{check_id}/appeals", status_code=201)
+@router.post("/v1/credentials/cases/{check_id}/appeals", status_code=201)
 async def raise_appeal(
     check_id: uuid.UUID, body: CredAppealIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -597,7 +609,7 @@ class CredResolveAppealIn(BaseModel):
     resolution: str = Field(min_length=1, max_length=2000)
 
 
-@router.post("/credentials/appeals/{appeal_id}:resolve")
+@router.post("/v1/credentials/appeals/{appeal_id}:resolve")
 async def resolve_appeal(
     appeal_id: uuid.UUID, body: CredResolveAppealIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -627,7 +639,7 @@ class CredMonitorIn(BaseModel):
     sequence: int | None = Field(default=None, ge=0)
 
 
-@router.post("/credentials/monitoring")
+@router.post("/v1/credentials/monitoring")
 async def source_event(body: CredMonitorIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     event = lc.SourceEvent(
         body.event_id,
@@ -645,10 +657,64 @@ async def source_event(body: CredMonitorIn, request: Request, caller: CallerDep)
                 check_id=str(body.check_id),
                 event=event,
                 now=_now(),
+                signer=signer_for(request),
+                actor=caller.ctx.principal_id,
             )
         except LookupError as e:
-            raise ZidError(str(e), "Check not found or no longer current.", http_status=404) from e
+            # kept, not lost and not a 404 the source retries forever (GID-060); a person replays or discards it
+            letter_id, first = await svc.keep_unapplied_event(
+                conn,
+                tenant_id=caller.ctx.tenant_id or "",
+                check_id=str(body.check_id),
+                event=event,
+                reason=str(e),
+            )
+            return {
+                "check_id": str(body.check_id),
+                "changed": False,
+                "dead_lettered": True,
+                "letter_id": letter_id,
+                "reason": str(e),
+                "first_delivery": first,
+            }
     return {"check_id": str(body.check_id), "changed": changed, "status": status}
+
+
+@router.get("/v1/credentials/monitoring/dead-letters")
+async def list_dead_letters(
+    request: Request,
+    caller: CallerDep,
+    state: str = Query(default="OPEN", pattern=r"^(OPEN|REPLAYED|DISCARDED)$"),
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _gate(conn, caller, "credential.monitor.manage", "monitor:dead-letters")
+        rows = await trust_store.list_dead_letters(conn, state=state)
+    return {
+        "items": [
+            {k: (str(v) if k in {"letter_id", "check_id"} else v) for k, v in r.items()}
+            for r in rows
+        ]
+    }
+
+
+@router.post("/v1/credentials/monitoring/dead-letters/{letter_id}/replay")
+async def replay_dead_letter(
+    letter_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _gate(conn, caller, "credential.monitor.manage", f"monitor:dead-letter:{letter_id}")
+        try:
+            state = await svc.replay_dead_letter(
+                conn,
+                tenant_id=caller.ctx.tenant_id or "",
+                letter_id=str(letter_id),
+                by=caller.ctx.principal_id,
+                now=_now(),
+                signer=signer_for(request),
+            )
+        except LookupError as e:
+            raise ZidError(str(e), "That letter is not open.", http_status=404) from e
+    return {"letter_id": str(letter_id), "state": state}
 
 
 # ------------------------------------------------------------------------------------------------ signed credentials
@@ -665,7 +731,7 @@ class CredVcVerifyIn(BaseModel):
     jurisdiction: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
 
 
-@router.post("/credentials/vc/verify")
+@router.post("/v1/credentials/vc/verify")
 async def verify_signed_credential(
     body: CredVcVerifyIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -697,3 +763,126 @@ async def verify_signed_credential(
                 e.code, e.code.replace("_", " ").capitalize() + ".", http_status=422
             ) from e
     return out.to_contract()
+
+
+# ------------------------------------------------------------------------------------------- registry and dossier views
+
+
+def _iso(v: Any) -> Any:
+    return v.isoformat() if hasattr(v, "isoformat") else v
+
+
+@router.get("/v1/credentials/registry")
+async def registry_view(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Read-only view of what the platform trusts (WF-04): issuers, source contracts, eligibility policies, certifications and the
+    pack version. It shows scope and state only: no outreach addresses, price-book references or certificate references."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _gate(conn, caller, "credential.read", "registry:*")
+    reg = issuer_registry()
+    pols, rules = policies()
+    return {
+        "issuer_registry_version": reg.version,
+        "issuers": [
+            {
+                "issuer_id": i.issuer_id,
+                "kind": i.kind.value,
+                "name": next(
+                    (n.name for n in i.names if n.until is None), i.names[0].name if i.names else ""
+                ),
+                "countries": sorted(i.countries),
+                "claim_types": sorted(i.claim_types),
+                "authority": i.authority.value,
+                "revoked_on": _iso(i.revoked_on),
+                "outreach_contacts_registered": len(i.outreach_contacts),
+                "accreditations": len(i.accreditations),
+            }
+            for i in reg.issuers.values()
+        ],
+        "sources": [
+            {
+                "source_id": s.source_id,
+                "claim_types": sorted(s.claim_types),
+                "countries": sorted(s.countries),
+                "purposes": sorted(s.purposes),
+                "processing_regions": sorted(s.processing_regions),
+                "valid_from": _iso(s.valid_from),
+                "valid_until": _iso(s.valid_until),
+                "sensitivity": s.sensitivity.value,
+                "primary": s.primary,
+                "simulated": s.simulated,
+            }
+            for s in source_contracts()
+        ],
+        "policies": [
+            {
+                "policy_id": p.policy_id,
+                "version": p.version,
+                "country": p.country,
+                "subdivision": p.subdivision,
+                "profession_code": p.profession_code,
+                "service_code": p.service_code,
+            }
+            for p in pols
+        ],
+        "tier_rules": len(rules),
+        "certifications": [
+            {
+                "record_id": c.record_id,
+                "entity": c.entity,
+                "scheme": c.scheme,
+                "country": c.country,
+                "service_code": c.service_code,
+                "valid_from": _iso(c.valid_from),
+                "valid_until": _iso(c.valid_until),
+                "status": c.status.value,
+            }
+            for c in certification_registry().records
+        ],
+        "packs_version": pack_registry().version,
+    }
+
+
+@router.get("/v1/credentials/dossiers/{subject_id}")
+async def dossier(subject_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """WF-02: what a Zoikorum reviewer needs about one person's credential checks in one answer: the current checks (five separate
+    facts each), the decisions made from them, and any appeals. It reads; it decides nothing."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _gate(conn, caller, "credential.read", f"dossier:{subject_id}")
+        live = await trust_store.live_checks(conn, str(subject_id))
+        decisions = await trust_store.subject_decisions(conn, str(subject_id))
+        appeals = await trust_store.subject_appeals(conn, str(subject_id))
+    facts = (
+        "credential_status",
+        "issuer_authenticity",
+        "primary_source_verified",
+        "professional_eligibility",
+        "current_consumer_entitlement",
+        "assurance_tier",
+        "reason_codes",
+        "reason_text",
+        "subject_match",
+    )
+    return {
+        "subject": str(subject_id),
+        "checks": [
+            {
+                "check_id": str(c["check_id"]),
+                "claim_type": c["claim_type"],
+                "decision": c["decision"],
+                "checked_at": _iso(c["source_checked_at"]),
+                "assertion": {k: c["assertion"].get(k) for k in facts},
+            }
+            for c in live
+        ],
+        "decisions": [
+            {
+                **{k: _iso(v) for k, v in d.items() if k not in {"decision_id", "check_ids"}},
+                "decision_id": str(d["decision_id"]),
+                "check_ids": [str(x) for x in d["check_ids"]],
+            }
+            for d in decisions
+        ],
+        "appeals": [
+            {k: (str(v) if k.endswith("_id") else _iso(v)) for k, v in a.items()} for a in appeals
+        ],
+    }

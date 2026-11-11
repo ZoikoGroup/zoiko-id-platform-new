@@ -884,6 +884,11 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 GID-058/060 (expiry, freshness and source ordering); CR-069"
+  cred.source_dead_letter:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-060 (source events that could not be applied are kept, not lost); CR-069"
   signals.security_signal:
     role: cell
     module: signals

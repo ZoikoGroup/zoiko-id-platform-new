@@ -123,9 +123,11 @@ rules:
   - {match: "POST /credentials", gate: {action: b.draft-routine-credential-issuance, mode: X}}
   - {match: "POST /credentials/*", gate: {action: b.revoke-ordinary-scoped-credential, mode: X}}
   - {match: "GET /credential-configurations", gate: {action: b.view-verification-state-expiration, mode: R}}
-  - {match: "GET /credentials/assertions/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
-  - {match: "GET /credential-packs", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
-  - {match: "GET /credential-packs/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "GET /v1/credentials/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "POST /v1/credentials/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (checks decide, issue nothing)
+  - {match: "GET /v1/credential-packs*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
+  - {match: "GET /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade (CR-071)
+  - {match: "POST /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade: checks decide, issue nothing
   - {match: "POST /v1/eligibility/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (decides, issues nothing)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069

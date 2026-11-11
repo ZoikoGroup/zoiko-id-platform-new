@@ -23,6 +23,8 @@ from typing import Any, Protocol
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
+from zid_platform.modules.credential.application import assertion_contract as ac
+from zid_platform.modules.credential.application import resilience as rs
 from zid_platform.modules.credential.application.identity_match import Holder, match_holder
 from zid_platform.modules.credential.domain import sources as src
 from zid_platform.modules.credential.domain import standing
@@ -47,6 +49,7 @@ from zid_platform.modules.credential.domain.evidence_quality import EvidenceKind
 from zid_platform.modules.credential.domain.reasons import describe_all
 from zid_platform.modules.credential.infrastructure import claim_store as store
 from zid_platform.modules.credential.infrastructure import trust_store
+from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
 from zid_platform.modules.verification.ports import (
     SANDBOX_ENVIRONMENTS,
     CertRegistry,
@@ -196,8 +199,119 @@ class Gate:
     employment_permitted_fields: frozenset[str] | None = None
     # when given, a pack that names a regulatory scheme is unavailable unless some entity holds it in force (DTV-07)
     certifications: CertRegistry | None = None
+    # who asked, for which consumer, and how to sign the finished assertion (section 08.1); the API always supplies a signer
+    actor: str | None = None
+    consumer: str = "direct"
+    signer: ac.Signer | None = None
+    # retry, rate limit and circuit breaker for source calls (GID-060); None means one plain attempt. Share ONE instance per process.
+    resilience: rs.Resilience | None = None
     freshness_days: int = 365
     recheck_lead_days: int = 30
+
+
+async def _finalize(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    subject: str,
+    gate: Gate,
+    claim_value: str,
+    assertion: Assertion,
+    extras: Mapping[str, Any],
+    answer: SourceAnswer,
+    pack: ServicePack,
+    jurisdiction: Mapping[str, str],
+    digest: bytes,
+    now: datetime,
+) -> tuple[str, dict[str, Any]]:
+    """Give the check its id, write its signed evidence receipt in this transaction, complete it into the section 08.1 contract and
+    sign it. The receipt commits to the inputs (a digest of the claim, never its values) and the outcome; it is what an auditor opens."""
+    check_id = str(uuid.uuid4())
+    decision = assertion.decision.value
+    reasons = tuple(assertion.reason_codes) or (
+        ("CLAIM_VERIFIED",) if decision == "VERIFIED" else ("NO_REASON_RECORDED",)
+    )
+    actor = gate.actor or subject
+    receipt_id = await record_decision_receipt(
+        conn,
+        tenant_id,
+        ReceiptFacts(
+            decision_id=check_id,
+            decision_type="CREDENTIAL",
+            evidence_class=EvidenceClass.E2,
+            action="credential.claim.verify",
+            resource_class="credential-claim",
+            outcome=decision,
+            reason_codes=reasons,
+            risk_class="R2",
+            effective_at=now,
+            actor_principal_id=actor,
+            represented_principal_id=subject if subject != actor else None,
+            resource_ref=f"credential-claim:{claim_value}",
+            assurance_summary={
+                "tier": assertion.assurance_tier.name,
+                "source_result": answer.result.value,
+            },
+        ),
+        floor=EvidenceClass.E2,
+        material={
+            "claim_type": claim_value,
+            "claimed_digest": digest.hex(),
+            "jurisdiction": dict(jurisdiction),
+            "pack": f"{pack.pack_id}@{pack.version}",
+            "source": answer.source_id,
+            "source_result": answer.result.value,
+            "tier": assertion.assurance_tier.name,
+            "decision": decision,
+        },
+    )
+    body = ac.complete(
+        {**assertion.to_contract(), **extras},
+        check_id=check_id,
+        subject=subject,
+        consumer=gate.consumer,
+        consent_ref=gate.consent_ref,
+        receipts=[receipt_id] if receipt_id else [],
+        pack_id=pack.pack_id,
+        pack_version=pack.version,
+        source_result=answer.result.value,
+        source_id=answer.source_id,
+    )
+    return check_id, ac.seal(body, gate.signer, now)
+
+
+async def _ask(
+    gate: Gate,
+    source: ClaimSource,
+    claim: ClaimType,
+    asked: Mapping[str, Any],
+    jurisdiction: Mapping[str, str],
+    now: datetime,
+) -> tuple[SourceAnswer, dict[str, Any] | None]:
+    """Ask the source, with the deployment's resilience policy when there is one. A source that cannot be asked is UNAVAILABLE
+    (never a verdict on the person), and the reason is a code and an attempt count, never the source's own error text."""
+    sid = getattr(source, "source_id", "unknown")
+
+    def unavailable(reference: str | None) -> SourceAnswer:
+        return SourceAnswer(
+            source_id=sid,
+            result=SourceResult.UNAVAILABLE,
+            checked_at=now,
+            fields={},
+            reference=reference,
+        )
+
+    if gate.resilience is None:
+        try:
+            return await source.lookup(claim, asked, jurisdiction, now), None
+        except Exception:  # noqa: BLE001 - any source fault is "could not ask"
+            return unavailable(None), {"fault": rs.Fault.PERMANENT.value, "attempts": 1}
+    outcome = await gate.resilience.call(
+        sid, lambda: source.lookup(claim, asked, jurisdiction, now)
+    )
+    if outcome.ok and outcome.value is not None:
+        return outcome.value, None
+    return unavailable(outcome.fault.value if outcome.fault else None), rs.describe(outcome)
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,12 +322,8 @@ class CheckResult:
     extras: Mapping[str, Any]
 
     def to_contract(self) -> dict[str, Any]:
-        return {
-            "check_id": self.check_id,
-            "policy_ref": {"id": self.pack.pack_id, "version": self.pack.version},
-            **self.assertion.to_contract(),
-            **self.extras,
-        }
+        """The complete, signed section 08.1 contract (what is stored and what a reader receives)."""
+        return dict(self.extras)
 
 
 ISSUER_NAME_FIELDS = ("institution", "regulator", "issuer", "insurer")
@@ -351,6 +461,7 @@ async def run_check(
                         accreditation = None
     answer: SourceAnswer
     employment_disclosed: dict[str, Any] | None = None
+    source_fault: dict[str, Any] | None = None
     if stop is not None:
         decision, reasons, authenticity = stop
         assertion = unqueried_assertion(
@@ -383,15 +494,7 @@ async def run_check(
             chosen, refused = src.choose(mine, req)
             if chosen is None:  # never queried: nothing is asked, cached or reused
                 raise src.SourceError(next(iter(refused.values()), "SOURCE_NO_CONTRACT"))
-        try:
-            answer = await source.lookup(claim, claimed, jurisdiction, now)
-        except Exception:  # noqa: BLE001 - any source fault is "could not ask", never a verdict on the person
-            answer = SourceAnswer(
-                source_id=getattr(source, "source_id", "unknown"),
-                result=SourceResult.UNAVAILABLE,
-                checked_at=now,
-                fields={},
-            )
+        answer, source_fault = await _ask(gate, source, claim, claimed, jurisdiction, now)
         status = answer.status
         standing_restrictions = []
         if (
@@ -474,7 +577,25 @@ async def run_check(
     extras["source_checked_at"] = answer.checked_at.isoformat()
     extras["explanation"] = explanation.as_dict()
     extras["reason_text"] = describe_all(list(assertion.reason_codes))  # words, not just codes
-    check_id = str(uuid.uuid4())
+    if source_fault:
+        extras["source_fault"] = (
+            source_fault  # a code and a count: why the source could not be asked
+        )
+    digest = claimed_digest(claim, claimed)
+    check_id, final = await _finalize(
+        conn,
+        tenant_id=tenant_id,
+        subject=subject_principal_id,
+        gate=gate,
+        claim_value=claim.value,
+        assertion=assertion,
+        extras=extras,
+        answer=answer,
+        pack=pack,
+        jurisdiction=jurisdiction,
+        digest=digest,
+        now=now,
+    )
     await store.insert_check(
         conn,
         check_id=check_id,
@@ -486,12 +607,12 @@ async def run_check(
         pack_id=pack.pack_id,
         pack_version=pack.version,
         jurisdiction=dict(jurisdiction),
-        claimed_digest=claimed_digest(claim, claimed),
+        claimed_digest=digest,
         source_id=answer.source_id,
         source_reference=answer.reference,
         source_result=answer.result.value,
         source_checked_at=answer.checked_at,
-        assertion={**assertion.to_contract(), **extras},
+        assertion=final,
     )
     fresh = now + timedelta(days=gate.freshness_days)
     next_check = min(fresh, expires - timedelta(days=gate.recheck_lead_days)) if expires else fresh
@@ -517,7 +638,7 @@ async def run_check(
             "decision": assertion.decision.value,
         },
     )
-    return CheckResult(check_id, pack, assertion, extras)
+    return CheckResult(check_id, pack, assertion, final)
 
 
 DISCIPLINARY_SERVICE = "disciplinary.verify"
@@ -597,15 +718,9 @@ async def run_disciplinary_check(
     asked: dict[str, Any] = {"regulator": regulator}
     if reference:
         asked["reference"] = reference
-    try:
-        answer = await source.lookup(ClaimType.DISCIPLINARY_FINDING, asked, jurisdiction, now)
-    except Exception:  # noqa: BLE001 - a source fault is "could not ask", never a finding
-        answer = SourceAnswer(
-            source_id=getattr(source, "source_id", "unknown"),
-            result=SourceResult.UNAVAILABLE,
-            checked_at=now,
-            fields={},
-        )
+    answer, source_fault = await _ask(
+        gate, source, ClaimType.DISCIPLINARY_FINDING, asked, jurisdiction, now
+    )
     subject = answer.subject
     name = answer.fields.get("subject_name") if answer.result is SourceResult.RESPONDED else None
     if holder is not None and name:
@@ -657,7 +772,23 @@ async def run_disciplinary_check(
         checked_at=answer.checked_at,
     ).as_dict()
     extras["reason_text"] = describe_all(list(assertion.reason_codes))
-    check_id = str(uuid.uuid4())
+    if source_fault:
+        extras["source_fault"] = source_fault
+    digest = claimed_digest(ClaimType.DISCIPLINARY_FINDING, {"regulator": regulator})
+    check_id, final = await _finalize(
+        conn,
+        tenant_id=tenant_id,
+        subject=subject_principal_id,
+        gate=gate,
+        claim_value=ClaimType.DISCIPLINARY_FINDING.value,
+        assertion=assertion,
+        extras=extras,
+        answer=answer,
+        pack=pack,
+        jurisdiction=jurisdiction,
+        digest=digest,
+        now=now,
+    )
     await store.insert_check(
         conn,
         check_id=check_id,
@@ -669,12 +800,12 @@ async def run_disciplinary_check(
         pack_id=pack.pack_id,
         pack_version=pack.version,
         jurisdiction=dict(jurisdiction),
-        claimed_digest=claimed_digest(ClaimType.DISCIPLINARY_FINDING, {"regulator": regulator}),
+        claimed_digest=digest,
         source_id=answer.source_id,
         source_reference=answer.reference,
         source_result=answer.result.value,
         source_checked_at=answer.checked_at,
-        assertion={**assertion.to_contract(), **extras},
+        assertion=final,
     )
     await trust_store.insert_monitor(
         conn,
@@ -699,4 +830,4 @@ async def run_disciplinary_check(
             "decision": assertion.decision.value,
         },
     )
-    return CheckResult(check_id, pack, assertion, extras)
+    return CheckResult(check_id, pack, assertion, final)

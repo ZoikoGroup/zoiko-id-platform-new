@@ -34,6 +34,7 @@ from zid_errors import (
     Meta,
     SuccessEnvelope,
     ZidError,
+    problem_document,
 )
 from zid_telemetry import configure_logging, get_logger
 from zid_telemetry.metrics import REGISTRY, Counter, Histogram, Registry
@@ -220,9 +221,26 @@ def early_data_refused(method: str, path: str, early_data_header: str | None) ->
 
 
 def _error_response(
-    status: int, body: ErrorBody, headers: dict[str, str] | None = None
+    status: int,
+    body: ErrorBody,
+    headers: dict[str, str] | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     ctx = current_context()
+    if request is not None and request.url.path.startswith("/v2/"):
+        # the /v2 surface speaks RFC 9457 Problem Details (ZID-INT-002 section 14); /v1 keeps the canonical envelope
+        code_status, doc = problem_document(
+            body.code, status, body.message, trace_id=ctx.request_id if ctx else "req_unknown"
+        )
+        doc["correlation_id"] = ctx.correlation_id if ctx else "cor_unknown"
+        if body.retryable:
+            doc["retryable"] = True
+        return JSONResponse(
+            doc,
+            status_code=code_status,
+            headers=headers,
+            media_type="application/problem+json",
+        )
     env = ErrorEnvelope(
         request_id=ctx.request_id if ctx else "req_unknown",
         correlation_id=ctx.correlation_id if ctx else "cor_unknown",
@@ -343,11 +361,11 @@ def create_service_app(
 
     # ---------------- error handlers: always the canonical envelope ----------------
     @app.exception_handler(ZidError)
-    async def zid_error(_: Request, exc: ZidError) -> JSONResponse:
+    async def zid_error(request: Request, exc: ZidError) -> JSONResponse:
         headers = dict(exc.headers)
         if exc.retryable:
             headers["Retry-After"] = str(max(1, (exc.retry_after_ms or 0) // 1000))
-        return _error_response(exc.http_status, exc.body(), headers or None)
+        return _error_response(exc.http_status, exc.body(), headers or None, request)
 
     @app.exception_handler(DeadlineExceeded)
     async def deadline_exceeded(_: Request, exc: DeadlineExceeded) -> JSONResponse:
@@ -360,7 +378,7 @@ def create_service_app(
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         details = [
             ErrorDetail(
                 field=".".join(str(p) for p in e.get("loc", ())), issue=e.get("type", "invalid")
@@ -368,16 +386,20 @@ def create_service_app(
             for e in exc.errors()
         ]
         return _error_response(
-            422, ErrorBody(code=VALIDATION_FAILED, message="Request is invalid.", details=details)
+            422,
+            ErrorBody(code=VALIDATION_FAILED, message="Request is invalid.", details=details),
+            request=request,
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = NOT_FOUND if exc.status_code == 404 else f"HTTP_{exc.status_code}"
         message = (
             "Resource not found." if exc.status_code == 404 else "Request could not be processed."
         )
-        return _error_response(exc.status_code, ErrorBody(code=code, message=message))
+        return _error_response(
+            exc.status_code, ErrorBody(code=code, message=message), request=request
+        )
 
     @app.exception_handler(Exception)
     async def unhandled(_: Request, exc: Exception) -> JSONResponse:

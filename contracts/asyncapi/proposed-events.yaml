@@ -10,8 +10,8 @@ events:
     source: ZID-GAP-001 v2.0; CR-069
     lane: domain
     source_status: "proposed"
-  credential.claim.status.changed:
-    cloudevents_type: com.zoiko.id.credential.claim.status.changed.v1
+  credential.status_changed:
+    cloudevents_type: com.zoiko.id.credential.status_changed.v1
     meaning: "A source reported a status change for a monitored claim check and a superseding check was recorded; ids and status only."
     source: ZID-GAP-001 v2.0; CR-069
     lane: domain

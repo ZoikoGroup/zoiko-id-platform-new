@@ -1,4 +1,4 @@
-﻿"""Credential trust end to end on PostgreSQL (CR-069): gates, standing, eligibility, monitoring, disclosure, outreach, appeals.
+"""Credential trust end to end on PostgreSQL (CR-069): gates, standing, eligibility, monitoring, disclosure, outreach, appeals.
 
 GLB-01/04/31  eligibility is recomputed per place and service; a suspended license blocks
 GLB-10/26     a later status change supersedes the check; an older late event changes nothing
@@ -413,7 +413,7 @@ def test_a_newer_status_event_supersedes_the_check_and_an_older_late_one_changes
             ev_count = (
                 await c.execute(
                     text(
-                        "SELECT count(*) FROM events.outbox_event WHERE event_type LIKE '%claim.status.changed%'"
+                        "SELECT count(*) FROM events.outbox_event WHERE event_type LIKE '%credential.status_changed%'"
                     )
                 )
             ).scalar_one()
@@ -464,9 +464,7 @@ def test_due_checks_are_announced_once_per_day(rt_url: str) -> None:
             await check(
                 c, tenant, subject, claimed={**license_claim(), "effective_until": "2026-11-20"}
             )
-            assert (
-                await svc.recheck_due(c, now=NOW) == 1
-            )  # expires inside the lead time: due now
+            assert await svc.recheck_due(c, now=NOW) == 1  # expires inside the lead time: due now
             assert await svc.recheck_due(c, now=NOW) == 0  # pushed a day
             assert await svc.recheck_due(c, now=NOW + timedelta(days=2)) == 1
 

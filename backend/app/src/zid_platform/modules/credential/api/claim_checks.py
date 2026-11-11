@@ -1,13 +1,13 @@
 """Credential claim checks (ZID-GAP-001 v2.0 GID-037; section 08; CR-069).
 
-    POST /credentials/academic/checks                     academic award
-    POST /credentials/professional-licenses/checks        professional license
-    POST /credentials/certifications/checks               industry certificate
-    POST /credentials/experience/checks                   employment
-    POST /credentials/continuing-education/checks         CPD
-    POST /credentials/insurance/checks                    professional indemnity / insurance
-    GET  /credentials/assertions/{check_id}               the stored assertion (credential.read)
-    GET  /credential-packs                                which service packs a caller may rely on (public scope and state only)
+    POST /v1/credentials/academic/checks                     academic award
+    POST /v1/credentials/professional-licenses/checks        professional license
+    POST /v1/credentials/certifications/checks               industry certificate
+    POST /v1/credentials/experience/checks                   employment
+    POST /v1/credentials/continuing-education/checks         CPD
+    POST /v1/credentials/insurance/checks                    professional indemnity / insurance
+    GET  /v1/credentials/assertions/{check_id}               the stored assertion (credential.read)
+    GET  /v1/credential-packs                                which service packs a caller may rely on (public scope and state only)
 
 Every check needs a service pack for the country and service: no pack, no check (`PACK_UNAVAILABLE`, 422). The five
 facts in the response (credential status, issuer authenticity, primary-source verification, professional eligibility,
@@ -23,11 +23,14 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks as checks
+from zid_platform.modules.credential.application import resilience as rs
 from zid_platform.modules.credential.application.identity_match import Holder
 from zid_platform.modules.credential.domain.claims import ClaimError, ClaimType
 from zid_platform.modules.credential.domain.sources import SourceError, coverage
@@ -93,6 +96,9 @@ class CredCheckIn(BaseModel):
     name_change_evidence: bool = False
     birth_year: int | None = Field(default=None, ge=1900, le=2100)
     purpose: str = Field(default="PROFESSIONAL_ENGAGEMENT", max_length=64)
+    # section 08.1: which consumer the assertion is for, and the consent it was requested under
+    consumer: str = Field(default="direct", pattern=r"^[a-z][a-z0-9_-]{1,31}$")
+    consent_ref: str | None = Field(default=None, max_length=200)
 
 
 def _err(e: ClaimError | PackError | SourceError) -> ZidError:
@@ -119,7 +125,32 @@ def _source(request: Request) -> checks.ClaimSource:
         ) from e
 
 
-def _gate(request: Request, purpose: str) -> checks.Gate:
+def signer_for(request: Request) -> ac.Signer:
+    """The platform's credential signing key, used to sign every assertion. No key, no assertion (503): an unsigned
+    assertion is never returned by the API."""
+    keyrings = getattr(request.app.state, "keyrings", None)
+    if keyrings is None:
+        raise ZidError("DEPENDENCY_UNAVAILABLE", "No signing key is configured.", http_status=503)
+    ring = keyrings.credential
+    return lambda claims: ring.sign(claims, typ=ac.SIGNATURE_TYP)  # type: ignore[no-any-return]
+
+
+def _resilience(request: Request) -> rs.Resilience:
+    """One retry, rate-limit and circuit-breaker state per process, shared by every request: a breaker that each request
+    recreated would never open."""
+    state = request.app.state
+    if getattr(state, "source_resilience", None) is None:
+        state.source_resilience = rs.Resilience()
+    return state.source_resilience  # type: ignore[no-any-return]
+
+
+def _gate(
+    request: Request,
+    purpose: str,
+    caller: Caller | None = None,
+    consent_ref: str | None = None,
+    consumer: str = "direct",
+) -> checks.Gate:
     """The deployment's controls: the issuer registry and the source contracts. The region is the cell's own region."""
     return checks.Gate(
         registry=issuer_registry(),
@@ -127,52 +158,75 @@ def _gate(request: Request, purpose: str) -> checks.Gate:
         purpose=purpose,
         processing_region=str(getattr(request.app.state, "processing_region", "local")),
         certifications=certification_registry(),
+        actor=(caller.ctx.principal_id if caller else None),
+        consumer=consumer,
+        consent_ref=consent_ref,
+        signer=signer_for(request),
+        resilience=_resilience(request),
     )
+
+
+async def perform_check(
+    claim_type: ClaimType,
+    body: CredCheckIn,
+    request: Request,
+    caller: Caller,
+    conn: AsyncConnection | None = None,
+) -> checks.CheckResult:
+    """Run one claim check for the caller: authorize, ask the source, sign, write the receipt. Shared by the /v1 routes and the
+    /v2 facade so both behave identically. Pass `conn` to run inside a transaction the caller already holds (the /v2 route
+    keeps its idempotency record and the check in ONE transaction)."""
+    subject = str(body.subject_principal_id or caller.ctx.principal_id or "")
+    if not subject:
+        raise ZidError("SUBJECT_REQUIRED", "A subject is required.", http_status=422)
+
+    async def run_in(c: AsyncConnection) -> checks.CheckResult:
+        await protected_action(
+            c,
+            caller,
+            action="credential.claim.verify",
+            resource=f"credential-claim:{claim_type.value}",
+        )
+        try:
+            return await checks.run_check(
+                c,
+                tenant_id=caller.ctx.tenant_id or "",
+                subject_principal_id=subject,
+                kind=claim_type.value,
+                claimed=body.claim,
+                jurisdiction=body.jurisdiction.model_dump(exclude_none=True),
+                profession=body.profession_code,
+                packs=pack_registry(),
+                source=_source(request),
+                now=datetime.now(UTC),
+                environment=_environment(request),
+                gate=_gate(request, body.purpose, caller, body.consent_ref, body.consumer),
+                holder=(
+                    Holder(
+                        body.holder_name,
+                        tuple(body.former_names),
+                        body.name_change_evidence,
+                        body.birth_year,
+                    )
+                    if body.holder_name
+                    else None
+                ),
+            )
+        except (ClaimError, PackError, SourceError) as e:
+            raise _err(e) from e
+
+    if conn is not None:
+        return await run_in(conn)
+    async with tenant_transaction(request_engine(request), caller.ctx) as c:
+        return await run_in(c)
 
 
 def _register(path: str, claim_type: ClaimType) -> None:
     async def run(body: CredCheckIn, request: Request, caller: CallerDep) -> dict[str, Any]:
-        subject = str(body.subject_principal_id or caller.ctx.principal_id or "")
-        if not subject:
-            raise ZidError("SUBJECT_REQUIRED", "A subject is required.", http_status=422)
-        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            await protected_action(
-                conn,
-                caller,
-                action="credential.claim.verify",
-                resource=f"credential-claim:{claim_type.value}",
-            )
-            try:
-                result = await checks.run_check(
-                    conn,
-                    tenant_id=caller.ctx.tenant_id or "",
-                    subject_principal_id=subject,
-                    kind=claim_type.value,
-                    claimed=body.claim,
-                    jurisdiction=body.jurisdiction.model_dump(exclude_none=True),
-                    profession=body.profession_code,
-                    packs=pack_registry(),
-                    source=_source(request),
-                    now=datetime.now(UTC),
-                    environment=_environment(request),
-                    gate=_gate(request, body.purpose),
-                    holder=(
-                        Holder(
-                            body.holder_name,
-                            tuple(body.former_names),
-                            body.name_change_evidence,
-                            body.birth_year,
-                        )
-                        if body.holder_name
-                        else None
-                    ),
-                )
-            except (ClaimError, PackError, SourceError) as e:
-                raise _err(e) from e
-        return result.to_contract()
+        return (await perform_check(claim_type, body, request, caller)).to_contract()
 
     run.__name__ = f"check_{claim_type.value.lower()}"
-    router.add_api_route(f"/credentials/{path}/checks", run, methods=["POST"], status_code=201)
+    router.add_api_route(f"/v1/credentials/{path}/checks", run, methods=["POST"], status_code=201)
 
 
 for _path, _type in _ROUTES.items():
@@ -197,7 +251,7 @@ class CredDisciplinaryCheckIn(BaseModel):
     purpose: str = Field(default="PROFESSIONAL_ENGAGEMENT", max_length=64)
 
 
-@router.post("/credentials/disciplinary/checks", status_code=201)
+@router.post("/v1/credentials/disciplinary/checks", status_code=201)
 async def check_disciplinary(
     body: CredDisciplinaryCheckIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -220,7 +274,7 @@ async def check_disciplinary(
             action="credential.disciplinary.check",
             resource="credential-claim:DISCIPLINARY",
         )
-        base = _gate(request, body.purpose)
+        base = _gate(request, body.purpose, caller, body.consent_ref)
         gate = replace(
             base,
             consent_ref=body.consent_ref,
@@ -257,7 +311,7 @@ async def check_disciplinary(
     return result.to_contract()
 
 
-@router.get("/credentials/assertions/{check_id}")
+@router.get("/v1/credentials/assertions/{check_id}")
 async def read_assertion(
     check_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -268,16 +322,11 @@ async def read_assertion(
         row = await store.load_check(conn, str(check_id))
     if row is None:
         raise ZidError("NOT_FOUND", "Not found.", http_status=404)
-    return {
-        "check_id": str(row["check_id"]),
-        "policy_ref": {"id": row["pack_id"], "version": row["pack_version"]},
-        "source_checked_at": row["source_checked_at"].isoformat(),
-        "superseded": row["superseded_at"] is not None,
-        **row["assertion"],
-    }
+    # the stored body is what was signed: return it as is, plus whether a newer check has replaced it
+    return {**row["assertion"], "superseded": row["superseded_at"] is not None}
 
 
-@router.get("/credential-packs")
+@router.get("/v1/credential-packs")
 async def list_packs(request: Request, caller: CallerDep) -> dict[str, Any]:
     registry = pack_registry()
     return {
@@ -286,7 +335,7 @@ async def list_packs(request: Request, caller: CallerDep) -> dict[str, Any]:
     }
 
 
-@router.get("/credential-packs/{country}/{profession}")
+@router.get("/v1/credential-packs/{country}/{profession}")
 async def packs_for(
     country: str, profession: str, request: Request, caller: CallerDep
 ) -> dict[str, Any]:

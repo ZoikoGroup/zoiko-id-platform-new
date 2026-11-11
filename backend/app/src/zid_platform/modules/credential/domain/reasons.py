@@ -89,6 +89,22 @@ EN: dict[str, tuple[str, str, str]] = {
         "We cannot say whether this record meets the rule, because the rule has not been configured for this check.",
         "A person will review. No action is needed from you.",
     ),
+    # --- receipts (the evidence record always carries a reason)
+    "CLAIM_VERIFIED": (
+        "The claim was confirmed",
+        "The source confirmed this claim at the time shown.",
+        "No action is needed.",
+    ),
+    "NO_REASON_RECORDED": (
+        "No further reason on record",
+        "This outcome has no more specific reason on record.",
+        "A reviewer can add context if you appeal.",
+    ),
+    "STATUS_CHANGED_ACTIVE": (
+        "The status changed to active",
+        "The source now reports the credential as active.",
+        "No action is needed.",
+    ),
     # --- accreditation
     "NO_ACCREDITATION_RECORD": (
         "No accreditation record",
@@ -284,6 +300,11 @@ EN: dict[str, tuple[str, str, str]] = {
         "The name only partly matches",
         "The names are similar but not close enough to be sure.",
         "A person will compare the details.",
+    ),
+    "SCRIPT_NOT_COMPARABLE": (
+        "A person needs to compare the names",
+        "One of the names is written in a script that cannot be compared automatically. That is never treated as a different person.",
+        "A reviewer will compare the names. You may add a document that shows both spellings.",
     ),
     "NAME_DIFFERENT": (
         "The names are different",
