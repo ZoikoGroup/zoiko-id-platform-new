@@ -150,6 +150,29 @@
         "title": "BulkStartIn",
         "type": "object"
       },
+      "EstimateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_age": {
+            "maximum": 130.0,
+            "minimum": 0.0,
+            "title": "Estimated Age",
+            "type": "number"
+          },
+          "margin": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "estimated_age",
+          "margin"
+        ],
+        "title": "EstimateIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -277,6 +300,42 @@
           "reason_codes"
         ],
         "title": "ReviewIn",
+        "type": "object"
+      },
+      "V2AgeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
+          "estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstimateIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "threshold"
+        ],
+        "title": "V2AgeIn",
         "type": "object"
       },
       "ValidationError": {
@@ -464,6 +523,49 @@
         "summary": "Assertions",
         "tags": [
           "verification"
+        ]
+      }
+    },
+    "/v2/age-checks": {
+      "post": {
+        "operationId": "age_check_v2_age_checks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2AgeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Age Check V2 Age Checks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Age Check",
+        "tags": [
+          "verification-v2"
         ]
       }
     },

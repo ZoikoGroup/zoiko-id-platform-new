@@ -122,11 +122,10 @@ def _when(text: str | None) -> datetime | None:
         return None
 
 
-def parse_trusted_list(
-    xml: bytes, signers: Sequence[x509.Certificate], name: str = "list"
-) -> TrustedList:
-    """Parse one list. It is `authenticated` only if its signature verifies against a pinned signer; otherwise it is returned with no
-    services, so nothing in it can be relied on."""
+def _authenticated_root(
+    xml: bytes, signers: Sequence[x509.Certificate]
+) -> tuple[etree._Element | None, str | None]:
+    """The parsed document and no problem if its signature verifies against a pinned signer; otherwise no document and the reason."""
     from cryptography.hazmat.primitives.serialization import Encoding
 
     # a trusted list never needs a DTD, entity or external reference: refuse any before lxml sees the bytes (the repo's XML gate, as for SAML)
@@ -136,17 +135,72 @@ def parse_trusted_list(
             xml, parser=etree.XMLParser(resolve_entities=False, no_network=True)
         )
     except (DefusedXmlException, etree.XMLSyntaxError, ValueError, SafeET.ParseError):
-        return TrustedList(name, False, problem="NOT_XML_OR_UNSAFE")
-    verified = False
+        return None, "NOT_XML_OR_UNSAFE"
     for signer in signers:
         try:
             XMLVerifier().verify(xml, x509_cert=signer.public_bytes(Encoding.PEM).decode())
-            verified = True
-            break
+            return root, None
         except Exception:  # noqa: BLE001, S112 - any failure to verify against this signer means "not verified by it"
             continue
-    if not verified:
-        return TrustedList(name, False, problem="LIST_SIGNATURE_NOT_VERIFIED")
+    return None, "LIST_SIGNATURE_NOT_VERIFIED"
+
+
+@dataclass(frozen=True, slots=True)
+class Pointer:
+    """One national list the list of lists points to: where it is and the certificates ITS signature must verify against."""
+
+    territory: str
+    location: str
+    signers: tuple[x509.Certificate, ...]
+
+
+def list_pointers(xml: bytes, signers: Sequence[x509.Certificate]) -> tuple[Pointer, ...]:
+    """The member lists a list of lists (the EU LOTL) names. Empty unless the list of lists itself verifies against a pinned signer: a
+    pointer from an unauthenticated document is never followed."""
+    root, _ = _authenticated_root(xml, signers)
+    if root is None:
+        return ()
+    out: list[Pointer] = []
+    for ptr in root.iter(f"{TSL}OtherTSLPointer"):
+        location = (ptr.findtext(f"{TSL}TSLLocation") or "").strip()
+        territory = (ptr.findtext(f".//{TSL}SchemeTerritory") or "").strip()
+        mime = " ".join(t.text or "" for t in ptr.iter() if t.tag.endswith("MimeType"))
+        if not location.startswith("https://") or not territory or (mime and "xml" not in mime):
+            continue  # only https and only the machine-readable form; the PDF edition is for people
+        certs: list[x509.Certificate] = []
+        for c in ptr.iter(f"{TSL}X509Certificate"):
+            try:
+                certs.append(
+                    x509.load_der_x509_certificate(
+                        base64.b64decode("".join((c.text or "").split()))
+                    )
+                )
+            except ValueError:
+                continue
+        if certs:
+            out.append(Pointer(territory, location, tuple(certs)))
+    return tuple(out)
+
+
+def qualified_ca_certificates(trusted: TrustedList, at: datetime) -> list[x509.Certificate]:
+    """The certificates an authenticated list names as granted qualified-certificate CA services at `at`: what EU validators use as anchors."""
+    if not trusted.authenticated:
+        return []
+    return [
+        s.certificate
+        for s in trusted.services
+        if s.service_type.endswith(CA_QC) and (_status_at(s, at) or "").endswith(GRANTED)
+    ]
+
+
+def parse_trusted_list(
+    xml: bytes, signers: Sequence[x509.Certificate], name: str = "list"
+) -> TrustedList:
+    """Parse one list. It is `authenticated` only if its signature verifies against a pinned signer; otherwise it is returned with no
+    services, so nothing in it can be relied on."""
+    root, problem = _authenticated_root(xml, signers)
+    if root is None:
+        return TrustedList(name, False, problem=problem)
     services: list[Service] = []
     for svc in root.iter(f"{TSL}ServiceInformation"):
         cert_b64 = svc.findtext(f".//{TSL}X509Certificate")

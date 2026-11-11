@@ -90,7 +90,7 @@ def test_an_unknown_code_never_raises_and_never_invents_a_meaning():
 
 
 def test_a_locale_without_text_falls_back_to_english_and_says_so():
-    assert reasons.describe("PROOF_INVALID", "fr-CA")["locale_used"] == "en"
+    assert reasons.describe("PROOF_INVALID", "ja-JP")["locale_used"] == "en"
     assert reasons.describe("PROOF_INVALID", "en-GB")["locale_used"] == "en"
     reasons.LOCALES["xx"] = {"PROOF_INVALID": ("T", "E", "N")}
     try:
@@ -120,3 +120,21 @@ def test_every_text_is_complete_plain_and_does_not_accuse(code):
 def test_describe_all_keeps_order():
     out = reasons.describe_all(["WORK_EXCLUDED", "PROOF_INVALID"])
     assert [d["code"] for d in out] == ["WORK_EXCLUDED", "PROOF_INVALID"]
+
+
+def test_spanish_and_french_cover_every_code_and_are_marked_as_unreviewed_drafts():
+    assert set(reasons.LOCALES["es"]) == set(reasons.EN) == set(reasons.LOCALES["fr"])
+    for loc in ("es", "fr-CA", "es-MX"):
+        d = reasons.describe("PROOF_INVALID", loc)
+        assert (
+            d["locale_used"] == loc.split("-")[0] and d["translation"] == "MACHINE_DRAFT_UNREVIEWED"
+        )
+        assert d["title"] != reasons.EN["PROOF_INVALID"][0]
+    assert reasons.describe("PROOF_INVALID", "en")["translation"] == "SOURCE"
+    # a dynamic code has only English text: it says so rather than passing English off as French
+    d = reasons.describe("PROFESSIONAL_LICENSE_MISSING", "fr")
+    assert d["locale_used"] == "en" and d["translation"] == "SOURCE"
+    # the same words in every language: no entry is empty, and none is just the English copied across
+    for loc in ("es", "fr"):
+        for code, (t, e, n) in reasons.LOCALES[loc].items():
+            assert t and e and n and (t, e, n) != reasons.EN[code], (loc, code)

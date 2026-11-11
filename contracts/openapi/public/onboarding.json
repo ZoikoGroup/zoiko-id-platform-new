@@ -360,6 +360,60 @@
         "title": "OrganizationBody",
         "type": "object"
       },
+      "OrganizationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "lei": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lei"
+          },
+          "register_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Register Id"
+          },
+          "registration_number": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Registration Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "registration_number",
+          "legal_name"
+        ],
+        "title": "OrganizationIn",
+        "type": "object"
+      },
       "PartyIn": {
         "additionalProperties": false,
         "properties": {
@@ -2933,6 +2987,49 @@
         "summary": "Resolution",
         "tags": [
           "screening-signals"
+        ]
+      }
+    },
+    "/v2/organizations/verify": {
+      "post": {
+        "operationId": "verify_organization_v2_organizations_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Organization V2 Organizations Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Organization",
+        "tags": [
+          "organizations-v2"
         ]
       }
     }

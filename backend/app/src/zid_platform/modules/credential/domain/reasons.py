@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from typing import Final
 
+from zid_platform.modules.credential.domain import reasons_es, reasons_fr
+
 DEFAULT_LOCALE: Final = "en"
 
 CLAIM_NAMES = {
@@ -339,7 +341,14 @@ EN: dict[str, tuple[str, str, str]] = {
     ),
 }
 
-LOCALES: dict[str, dict[str, tuple[str, str, str]]] = {DEFAULT_LOCALE: EN}
+LOCALES: dict[str, dict[str, tuple[str, str, str]]] = {
+    DEFAULT_LOCALE: EN,
+    "es": reasons_es.TEXT,
+    "fr": reasons_fr.TEXT,
+}
+# Which texts are reviewed. English is the source. A locale is listed here ONLY after a native-speaker and legal review; until then
+# `describe` says MACHINE_DRAFT_UNREVIEWED so no screen presents a draft as reviewed.
+REVIEWED_LOCALES: frozenset[str] = frozenset({DEFAULT_LOCALE})
 _STATUS_TEXT = {
     "SUSPENDED": ("suspended", "has been suspended"),
     "REVOKED": ("revoked", "has been revoked"),
@@ -436,6 +445,9 @@ def describe(code: str, locale: str = DEFAULT_LOCALE) -> dict[str, object]:
         "next_step": step,
         "known": known,
         "locale_used": used if known else DEFAULT_LOCALE,
+        "translation": "SOURCE"
+        if (used if known else DEFAULT_LOCALE) == DEFAULT_LOCALE
+        else ("REVIEWED" if used in REVIEWED_LOCALES else "MACHINE_DRAFT_UNREVIEWED"),
     }
 
 

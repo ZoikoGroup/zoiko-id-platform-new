@@ -59,8 +59,8 @@ Eligibility and engagement decisions are computed by rules. Safeguards built and
 is never a failure (it is REVIEW, SOURCE_UNAVAILABLE, UNVERIFIABLE or INDETERMINATE); a name-only match is never an adverse finding; an
 award recorded as attended is not shown as a degree; no decision function accepts a risk, fraud, device or network signal (a test fails if
 one is added); every reason has plain-language text; a person decides anything ambiguous. **Not built or measured:** no fairness or
-cohort evaluation of name matching (transliteration and former names are handled by rules, but no accuracy data exists), no WCAG audit,
-no translations. These are required before any real launch (**DPO**, QA).
+cohort evaluation of name matching (transliteration and former names are handled by rules, but no accuracy data exists), only an automated accessibility audit of the public pages (see the v2 addendum) and no human audit,
+only unreviewed machine-drafted Spanish and French reason text. These are required before any real launch (**DPO**, QA).
 
 ## 7. Risks and mitigations
 

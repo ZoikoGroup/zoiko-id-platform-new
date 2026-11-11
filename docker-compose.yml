@@ -83,6 +83,8 @@ services:
       # Authenticated requests per tenant per minute (0 = off). Turn it off for single-tenant load tests.
       ZID_API_RATE_LIMIT_PER_MINUTE: ${ZID_API_RATE_LIMIT_PER_MINUTE:-600}
       ZID_CELL_ID: local-1
+      # ENGINEERING DEFAULT for local development only: 30 days. The privacy officer sets the real value per deployment (ZID-GAP-001); a deployed cell with none set refuses uploads.
+      ZID_UPLOAD_RETENTION_DAYS: ${ZID_UPLOAD_RETENTION_DAYS:-30}
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD:-zid_runtime_local_only}@postgres:5432/zid_cell   # runtime role: row-level security applies (see local/postgres/runtime_role.sql)
       # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
       ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
@@ -121,6 +123,21 @@ services:
     command: ["python", "-m", "zid_platform.entrypoints.worker"]
     healthcheck:
       disable: true
+
+  # Real malware scanner for evidence uploads and proof documents (ClamAV, free and open source):
+  #   docker compose --profile scan up -d clamd    then set ZID_PROOF_SCANNER_ADDRESS=clamd:3310 on the backend
+  # Without it a local cell uses the EICAR simulator (environment local or test only); a deployed cell with no scanner refuses uploads.
+  clamd:
+    profiles: ["scan"]
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    ports: ["127.0.0.1:3310:3310"]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   # Session store for the frontends (DEC-H1). The frontends run on the host and reach it here.
   valkey:

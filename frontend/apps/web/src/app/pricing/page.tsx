@@ -62,7 +62,7 @@ export default async function Page() {
             <h2 id="plans-h" className="text-xl font-semibold">
               Plans
             </h2>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden overflow-x-auto md:block" role="region" aria-labelledby="plans-h" tabIndex={0}>
               <table className="w-full min-w-3xl text-sm">
                 <caption className="sr-only">Plans and what each includes per month</caption>
                 <thead>
@@ -115,7 +115,7 @@ export default async function Page() {
               <h2 id="meters-h" className="text-xl font-semibold">
                 What you pay above what a plan includes
               </h2>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" role="region" aria-labelledby="meters-h" tabIndex={0}>
                 <table className="w-full min-w-xl text-sm">
                   <caption className="sr-only">Rates above the included amounts, by plan</caption>
                   <thead>

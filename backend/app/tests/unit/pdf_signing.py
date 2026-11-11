@@ -317,3 +317,30 @@ def trusted_list_xml(
         method=methods.enveloped, signature_algorithm="rsa-sha256", digest_algorithm="sha256"
     ).sign(root, key=key_pem, cert=sign_with.pem().decode())
     return etree.tostring(signed)
+
+
+def list_of_lists_xml(
+    pointers: list[tuple[str, str, Party]], *, sign_with: Party | None = None
+) -> bytes:
+    """An EU-style list of lists: one OtherTSLPointer per (territory, https location, the national list's signer)."""
+    items = "".join(
+        f"<OtherTSLPointer><ServiceDigitalIdentities><ServiceDigitalIdentity><DigitalId><X509Certificate>"
+        f"{base64.b64encode(signer.cert.public_bytes(Encoding.DER)).decode()}</X509Certificate></DigitalId></ServiceDigitalIdentity>"
+        f"</ServiceDigitalIdentities><TSLLocation>{location}</TSLLocation><AdditionalInformation>"
+        f"<OtherInformation><TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType></OtherInformation>"
+        f"<OtherInformation><SchemeTerritory>{territory}</SchemeTerritory></OtherInformation>"
+        f"<OtherInformation><MimeType>application/vnd.etsi.tsl+xml</MimeType></OtherInformation>"
+        f"</AdditionalInformation></OtherTSLPointer>"
+        for territory, location, signer in pointers
+    )
+    xml = f'<TrustServiceStatusList xmlns="{TL_NS}"><SchemeInformation><PointersToOtherTSL>{items}</PointersToOtherTSL></SchemeInformation></TrustServiceStatusList>'
+    if sign_with is None:
+        return xml.encode()
+    root = etree.fromstring(xml.encode())
+    key_pem = sign_with.key.private_bytes(
+        Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    )  # type: ignore[attr-defined]
+    signed = XMLSigner(
+        method=methods.enveloped, signature_algorithm="rsa-sha256", digest_algorithm="sha256"
+    ).sign(root, key=key_pem, cert=sign_with.pem().decode())
+    return etree.tostring(signed)
