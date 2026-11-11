@@ -243,6 +243,9 @@ class Settings(ServiceSettings):
     # Cell role. ZID_GLOBAL_LOCATOR_URL: the global plane the worker publishes records to;
     # ZID_DIRECTORY_KMS_KEY_ID: the cell's deployed record-signing key (local/test: dev "federation").
     global_locator_url: str | None = None
+    # ZID_SERVE_GLOBAL_PLANE: this cell process also serves the global plane (locator + discovery) on its own port,
+    # in the same database, instead of a second `global` process on another port. Cell role only.
+    serve_global_plane: bool = False
     directory_kms_key_id: str | None = None
     # --- Workload identity (DEC-F7; zid_context.spiffe) ------------------------------------------
     # ZID_SPIFFE_TRUST_DOMAIN: this cell+environment's governed trust domain (default
@@ -261,6 +264,20 @@ class Settings(ServiceSettings):
     attestor_keys_file: str | None = None
     spiffe_federated_domains: tuple[str, ...] = ()
     mesh_trusted_proxies: tuple[str, ...] = ()
+    # ZID_MESH_PROXY_SECRET_FILE: a file holding the secret the workload listener adds to every request it forwards. With it set, a forwarded
+    # client certificate is honored only from a trusted proxy that also presents it. A deployed environment with trusted proxies requires it.
+    mesh_proxy_secret_file: str | None = None
+    # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
+    # enforce = always; off = never, which a deployed environment refuses at start-up.
+    agent_builds: Literal["auto", "off", "enforce"] = "auto"
+    # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
+    # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
+    # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.
+    build_registries: tuple[str, ...] = ()
+    build_registries_private: tuple[str, ...] = ()
+    # ZID_BUILD_IMAGES (JSON list): the image repositories people register builds from, e.g. ["ghcr.io/acme/invoice-bot"]. The console offers them to pick
+    # (then pick a version), so nobody types an image name. Repositories already registered are offered too. Needs the host in ZID_BUILD_REGISTRIES.
+    build_images: tuple[str, ...] = ()
     # ZID_SECRET_BROKER: env (ZID_SECRET__<REF>; local/test only) | openbao (deployed cells)
     secret_broker: Literal["env", "openbao"] = "env"
     openbao_addr: str | None = None  # ZID_OPENBAO_ADDR: the cell's OpenBao, e.g. https://bao:8200

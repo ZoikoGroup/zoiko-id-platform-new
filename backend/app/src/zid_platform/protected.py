@@ -10,6 +10,7 @@ requires it, carry an APPROVED transaction-bound approval from a second administ
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -30,6 +31,7 @@ from zid_platform.modules.decision.ports import (
     action_spec,
     evaluate_request,
 )
+from zid_platform.modules.session.ports import signed_key_service_caller
 from zid_platform.modules.signals.ports import security_view
 
 # A SUSPENDED tenant gets no protected decisions except its governed lifecycle (resume/offboard;
@@ -98,6 +100,18 @@ async def protected_action(
             "A second administrator must approve this exact change.",
             http_status=403,
         )
+    # CR-066: an action the catalogue marks `machine_callable` may be called by a signed-key service client, which has no session and so no passkey.
+    # Its signed key (proof of possession) counts as phishing-resistant, AAL-Z2, for THAT action only; any other action still sees the caller's real level.
+    authn = caller.authn
+    if (
+        catalog().get(action, {}).get("machine_callable") is True
+        and caller.session_id is None
+        and authn.level < 2
+        and await signed_key_service_caller(
+            conn, client_id=caller.client_id, principal_id=caller.ctx.principal_id or ""
+        )
+    ):
+        authn = replace(authn, level=2)
     # FR-SIG-006: protected actions are R2/R3 - they never act on a cached security state,
     # but read the committed one inside this very transaction.
     fresh = await security_view(
@@ -123,10 +137,8 @@ async def protected_action(
             approval_state=approval_state,
         ),
         executor_id=caller.ctx.principal_id or "",
-        authority_request=AuthorityRequest(
-            action, resource, now, actor_assurance=caller.authn.level
-        ),
-        authn=caller.authn,
+        authority_request=AuthorityRequest(action, resource, now, actor_assurance=authn.level),
+        authn=authn,
         security_state=fresh.state,
         catalog=catalog(),
     )

@@ -35,11 +35,13 @@ def create_app(
     from .modules.operations.ports import catalogue_journeys, service_catalogue
 
     ops_catalogue = service_catalogue(settings.ops_catalogue_path)
+    # one process, one port: a cell may also serve the global plane (locator + discovery) from the same database
+    with_global = role is Role.CELL and settings.serve_global_plane
     spec = ServiceSpec(
         name=f"zoiko-id-{role.value}",
         plane="global" if role is Role.GLOBAL else "cell",
-        modules=modules_for(role),
-        required_schemas=schemas_for(role),
+        modules=modules_for(role, with_global=with_global),
+        required_schemas=schemas_for(role, with_global=with_global),
         journeys=[
             Journey(n, prefix, latency) for n, prefix, latency in catalogue_journeys(ops_catalogue)
         ],
@@ -97,6 +99,26 @@ def create_app(
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
     app.state.environment = settings.environment
+    if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_AGENT_BUILDS=off would let any typed digest back a blueprint release; outside local, test and dev "
+            "builds must be approved (set it to auto or enforce)"
+        )
+    app.state.agent_builds = settings.agent_builds
+    app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
+    app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
+    app.state.build_images = tuple(i.strip() for i in settings.build_images if i.strip())
+    app.state.registry_transport = None  # tests supply a simulated registry
+    app.state.registry_resolver = None
+    if (
+        settings.mesh_trusted_proxies
+        and not settings.mesh_proxy_secret_file
+        and settings.environment not in ("local", "test", "dev")
+    ):
+        raise RuntimeError(
+            "ZID_MESH_TRUSTED_PROXIES names a proxy whose forwarded certificate is believed; outside local, test and dev it must also "
+            "prove itself: set ZID_MESH_PROXY_SECRET_FILE"
+        )
     app.state.proof_scanner_address = settings.proof_scanner_address
     app.state.proof_scanner = None  # tests supply their own scanner
     app.state.federation_authority_hints = settings.federation_authority_hints
@@ -209,7 +231,7 @@ def create_app(
     app.state.webhook_client = None  # real network; tests inject
     if settings.dev_simulators and role is Role.CELL:
         _configure_simulators(app)
-    if role is Role.GLOBAL:
+    if role is Role.GLOBAL or with_global:
         _configure_global_plane(app, settings)
     if role is Role.CELL:
         _configure_phase_f(app, settings)
@@ -646,6 +668,7 @@ def _configure_global_plane(app: FastAPI, settings: Settings) -> None:
         dev_purpose="discovery",
         kid="discovery-global",
         kms_key_id=settings.discovery_kms_key_id,
+        plane="global",  # its key lives in global_directory, also when this cell serves the plane
     )
     app.state.discovery_ring = KeyRing(signer) if signer else None
     app.state.discovery_ttl_s = settings.discovery_ttl_s

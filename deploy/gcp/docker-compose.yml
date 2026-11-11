@@ -89,7 +89,6 @@ services:
     environment:
       <<: *backend-env
       ZID_CELL_DATABASE_URL: ${ZID_OWNER_CELL_DATABASE_URL}
-      ZID_GLOBAL_DATABASE_URL: ${ZID_OWNER_GLOBAL_DATABASE_URL}
     command:
       - python
       - -m
@@ -103,18 +102,12 @@ services:
     environment:
       <<: *backend-env
       ZID_ROLES: cell
+      ZID_SERVE_GLOBAL_PLANE: "true"  # locator + discovery are served on this same port, from the same database
+      # People enter an image name (ghcr.io/acme/bot:1.4) and the console works the digest out from the registry, so nobody types a sha256.
+      # Only the hosts named here are ever contacted; anonymous access only (a private image is registered by the build pipeline instead).
+      ZID_BUILD_REGISTRIES: '${ZID_BUILD_REGISTRIES:-["ghcr.io"]}'
       ZID_CELL_DATABASE_URL: ${ZID_RUNTIME_CELL_DATABASE_URL} # zid_runtime: row-level security applies
     expose: ["8000"]
-
-  global:
-    <<: *backend
-    depends_on:
-      migrate: {condition: service_completed_successfully}
-    environment:
-      <<: *backend-env
-      ZID_ROLES: global
-      ZID_GLOBAL_DATABASE_URL: ${ZID_RUNTIME_GLOBAL_DATABASE_URL}
-    expose: ["8100"]
 
   worker:
     <<: *backend
@@ -221,7 +214,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on: [web, cell, global]
+    depends_on: [web, cell]
 
   caddy-lb:
     profiles: ["lb"]
@@ -233,7 +226,7 @@ services:
       OPERATOR_ALLOWED_CIDRS: ${OPERATOR_ALLOWED_CIDRS:-127.0.0.1/32}
     volumes:
       - ./Caddyfile.lb:/etc/caddy/Caddyfile:ro
-    depends_on: [web, cell, global]
+    depends_on: [web, cell]
 
 volumes:
   identity:

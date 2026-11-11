@@ -57,5 +57,20 @@ services:
               "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@${ZID_DB_HOST}:5432/spicedb?sslmode=require"]
     ports: ["${ZID_SERVICES_BIND:-0.0.0.0}:8443:8443"]
 
+  # Workload identity (profile `workload-identity`): the SPIRE server issues every workload's identity for this cell's trust domain.
+  # Its CA key and registrations live in ZID_SPIRE_DATA_DIR on this VM (workload-identity.sh server-init makes it, owner 1000, mode 700):
+  # keep that directory on the snapshotted disk. Reachable from the app VM(s) only (port 8081; firewall by network tag).
+  spire-server:
+    profiles: ["workload-identity"]
+    image: ghcr.io/spiffe/spire-server:1.13.2
+    restart: unless-stopped
+    command: ["-config", "/opt/spire/conf/server/server.conf", "-expandEnv"]
+    environment:
+      ZID_SPIFFE_TRUST_DOMAIN: ${ZID_SPIFFE_TRUST_DOMAIN:-}
+    volumes:
+      - ./spire/server.conf:/opt/spire/conf/server/server.conf:ro
+      - ${ZID_SPIRE_DATA_DIR:-/var/lib/zid/spire-server}:/run/spire/data
+    ports: ["${ZID_SERVICES_BIND:-0.0.0.0}:8081:8081"]
+
 volumes:
   redpanda-data:

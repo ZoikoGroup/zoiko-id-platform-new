@@ -7,30 +7,42 @@ import { useState } from "react";
 import { ApiErrorView, useCellQuery } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
-import { AGENTS_KEY, BLUEPRINTS_KEY, splitList, TOOLS_KEY, UUID_RE } from "./shared";
+import { PrincipalField, useMe } from "../authority/shared";
+import { MODEL_PROVIDERS, NEEDS } from "./agents-logic";
+import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
+import { AGENTS_KEY, BLUEPRINTS_KEY, TOOLS_KEY, UUID_RE } from "./shared";
 
 export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: boolean; onClose: () => void; onCreated: (id: string) => void }) {
   const { api, protect } = useRuntime();
   const qc = useQueryClient();
   const toast = useToast();
+  const me = useMe();
   const blueprints = useCellQuery(BLUEPRINTS_KEY, (a) => a.agents.blueprints(), { enabled: isOpen });
   const tools = useCellQuery(TOOLS_KEY, (a) => a.agents.tools(), { enabled: isOpen });
+  const company = useCellQuery(["tenant", "me"], (a) => a.tenant.me(), { enabled: isOpen });
 
   const [name, setName] = useState("");
   const [blueprint, setBlueprint] = useState("");
-  const [sponsor, setSponsor] = useState("");
-  const [operator, setOperator] = useState("");
-  const [org, setOrg] = useState("");
+  const [sponsorPick, setSponsorPick] = useState("");
+  const [operatorPick, setOperatorPick] = useState("");
+  const [orgPick, setOrgPick] = useState("");
   const [model, setModel] = useState("");
-  const [toolIds, setToolIds] = useState("");
+  const [toolIds, setToolIds] = useState<string[]>([]);
   const [depth, setDepth] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // The accountable person and the operator default to the person registering; the owning organization is the company itself.
+  const sponsor = sponsorPick || me || "";
+  const operator = operatorPick || me || "";
+  const companyId = company.data?.organization_id ?? "";
+  const org = orgPick || companyId;
+
   const approved = (blueprints.data?.items ?? []).filter((b) => b.review_status === "APPROVED");
   const options = approved.map((b) => ({ id: `${b.blueprint_id}@${b.version}`, label: `${b.blueprint_id} @ ${b.version}` }));
-  const registered = (tools.data?.items ?? []).map((t) => t.tool_id);
+  // A freshly approved blueprint is the one most people want: offer it without a click when there is exactly one.
+  const chosenBlueprint = blueprint || (options.length === 1 ? (options[0]?.id ?? "") : "");
 
   function close() {
     if (pending) return;
@@ -42,15 +54,13 @@ export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: bo
   async function submit() {
     setFormError(null);
     setError(null);
-    const [blueprintId, version] = blueprint.split("@");
+    const [blueprintId, version] = chosenBlueprint.split("@");
     if (name.trim().length < 2) return setFormError("Give the agent a name (a label, not an identifier).");
     if (!blueprintId || !version) return setFormError("Choose an approved blueprint release.");
-    if (!UUID_RE.test(sponsor.trim())) return setFormError("The sponsor must be a principal ID (a person or organization who is accountable).");
-    if (!UUID_RE.test(operator.trim())) return setFormError("The operator must be a principal ID.");
+    if (!UUID_RE.test(sponsor.trim())) return setFormError("Choose the sponsor: the person accountable for this agent.");
+    if (!UUID_RE.test(operator.trim())) return setFormError("Choose the operator: who runs the deployed agent.");
     if (org.trim() && !UUID_RE.test(org.trim())) return setFormError("The owning organization must be an organization ID.");
-    const list = splitList(toolIds);
-    const unknown = list.filter((t) => !registered.includes(t));
-    if (unknown.length) return setFormError(`Not registered: ${unknown.join(", ")}. Register the tool first.`);
+    if (!toolIds.length) return setFormError("Tick at least one tool the agent may ever use.");
     setPending(true);
     try {
       const created = await protect(() =>
@@ -61,8 +71,8 @@ export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: bo
           operator_principal_id: operator.trim(),
           sponsor_principal_id: sponsor.trim(),
           owning_organization_id: org.trim() || null,
-          model_provider: model.trim(),
-          allowed_tools: list,
+          model_provider: model,
+          allowed_tools: toolIds,
           max_subagent_depth: depth,
         }),
       );
@@ -92,34 +102,52 @@ export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: bo
       }
     >
       <div className="space-y-4">
-        <TextField label="Agent name" isRequired value={name} onChange={setName} description="A human label; the identity is the generated principal ID." />
+        <AuthorityNotice needs={NEEDS.agent} what="register an agent" />
+        <TextField label="Agent name" isRequired value={name} onChange={setName} placeholder="Acme Invoice Agent" description="A label people recognise; the identity itself is generated." />
         <Select
           label="Blueprint release"
+          isRequired
+          placeholder={options.length ? "Choose the design it is built from…" : "No approved blueprint yet"}
           options={options}
-          value={blueprint}
+          value={chosenBlueprint || null}
           onChange={setBlueprint}
-          description={options.length ? "Only approved releases can be used." : "No approved blueprint yet: draft and approve one under Blueprints."}
+          description={options.length ? "Only approved releases can be used." : "Draft a blueprint under Blueprints; a second person approves it."}
         />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Sponsor principal ID" isRequired mono value={sponsor} onChange={setSponsor} description="The accountable person or organization." />
-          <TextField label="Operator principal ID" isRequired mono value={operator} onChange={setOperator} description="Who runs the deployed agent." />
+          <PersonSelect label="Sponsor" isRequired value={sponsor} onChange={setSponsorPick} description="The accountable person." />
+          <PersonSelect label="Operator" isRequired value={operator} onChange={setOperatorPick} description="Who runs the deployed agent." />
         </div>
-        <TextField label="Owning organization ID" mono value={org} onChange={setOrg} description="Required to activate. The publisher comes from the blueprint." />
-        <TextField label="Model provider (metadata)" value={model} onChange={setModel} description="Never part of identity or authority." />
-        <TextField
-          label="Allowed tools"
-          mono
-          value={toolIds}
-          onChange={setToolIds}
-          description={`The most this agent may ever use; a mandate can narrow it. Registered: ${registered.join(", ") || "none yet"}.`}
-        />
-        <Select
-          label="Maximum sub-agent depth"
-          options={[0, 1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: n === 0 ? "0 (no sub-agents)" : String(n) }))}
-          value={String(depth)}
-          onChange={(v) => setDepth(Number(v))}
-          description="A sub-agent can never be deeper than its parent allows."
-        />
+        {companyId ? (
+          <p className="text-sm text-ink-muted">
+            Owning organization: <span className="font-medium text-ink">{company.data?.display_name}</span>
+          </p>
+        ) : company.isSuccess ? (
+          <PrincipalField label="Owning organization" value={orgPick} onChange={setOrgPick} preferTypes={["ORGANIZATION"]} description="Required to activate." />
+        ) : null}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-ink">
+            Tools it may use <span aria-hidden className="text-danger-fg">*</span>
+          </p>
+          <p className="text-xs text-ink-subtle">The most this agent may ever use; a mandate can narrow it further. A draft tool can be ticked now and activated later.</p>
+          <ToolChecklist tools={tools.data?.items ?? []} value={toolIds} onChange={setToolIds} emptyHint="No tools yet. Register one under Tools first." />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select
+            label="Model provider"
+            placeholder="Not stated"
+            options={MODEL_PROVIDERS}
+            value={model || null}
+            onChange={setModel}
+            description="For your records only. Never part of identity or authority."
+          />
+          <Select
+            label="Maximum sub-agent depth"
+            options={[0, 1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: n === 0 ? "0 (no sub-agents)" : String(n) }))}
+            value={String(depth)}
+            onChange={(v) => setDepth(Number(v))}
+            description="A sub-agent can never be deeper than its parent allows."
+          />
+        </div>
         {formError ? <Banner tone="danger" title="Check the form" live="polite">{formError}</Banner> : null}
         {error ? <ApiErrorView error={error} /> : null}
       </div>

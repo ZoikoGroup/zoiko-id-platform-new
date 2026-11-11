@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiErrorView, listInput, newIdempotencyKey, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { ACTION_CHOICES, ChoiceList, RESOURCE_CHOICES } from "./choice-list";
+import { ACTION_GROUPS, AreaPicker, ChoiceList, RESOURCE_GROUPS } from "./choice-list";
 import { reviewRequired, scopeBreadth } from "./scope-review";
 
 import {
@@ -204,10 +204,11 @@ export function IssueGrantDialog({ onClose, onIssued }: { onClose: () => void; o
               options={CURRENCIES}
             />
           </div>
+          <AreaPicker actions={f.actions} resources={f.resources} onActions={set("actions")} onResources={set("resources")} />
           <ChoiceList
             label="Actions"
             description="Tick what they may do."
-            choices={ACTION_CHOICES}
+            groups={ACTION_GROUPS}
             value={f.actions}
             onChange={set("actions")}
             otherLabel="Another action name"
@@ -216,7 +217,7 @@ export function IssueGrantDialog({ onClose, onIssued }: { onClose: () => void; o
           <ChoiceList
             label="Resources"
             description="Tick what it applies to."
-            choices={RESOURCE_CHOICES}
+            groups={RESOURCE_GROUPS}
             value={f.resources}
             onChange={set("resources")}
             otherLabel="Another resource"

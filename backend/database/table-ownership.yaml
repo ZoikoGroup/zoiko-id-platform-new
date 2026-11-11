@@ -619,6 +619,11 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (ZID-MACHINE-001 §3; CR-007)"
+  agent.build_artifact:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-MACHINE-001 §3, §9; CR-064)"
   agent.tool_capability:
     role: cell
     module: machine

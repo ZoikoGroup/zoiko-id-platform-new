@@ -19,16 +19,12 @@ as_role() { local role="$1" pw="$2"; shift 2; PGPASSWORD="$pw" psql -v ON_ERROR_
 pre() {
   : "${ZID_OWNER_PASSWORD:?}" "${ZID_RUNTIME_PASSWORD:?}" "${ZID_WORKER_PASSWORD:?}" "${ZID_OPENBAO_DB_PASSWORD:?}" "${ZID_SPICEDB_DB_PASSWORD:?}"
   echo "== databases"
-  for DB in zid_cell zid_global; do
-    admin -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DB'" | grep -q 1 || admin -d postgres -c "CREATE DATABASE $DB"
-  done
+  admin -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='zid_cell'" | grep -q 1 || admin -d postgres -c "CREATE DATABASE zid_cell"
   echo "== roles: owner (migrations), runtime (row-level security applies), worker (bypasses it)"
-  for DB in zid_cell zid_global; do
-    admin -d "$DB" -v owner_pw="$ZID_OWNER_PASSWORD" -v runtime_pw="$ZID_RUNTIME_PASSWORD" -v worker_pw="$ZID_WORKER_PASSWORD" -f "$GCP/01_roles.sql" >/dev/null
-  done
+  admin -d zid_cell -v owner_pw="$ZID_OWNER_PASSWORD" -v runtime_pw="$ZID_RUNTIME_PASSWORD" -v worker_pw="$ZID_WORKER_PASSWORD" -f "$GCP/01_roles.sql" >/dev/null
   echo "== namespaces, as the owner"
   as_role zid_owner "$ZID_OWNER_PASSWORD" -d zid_cell -f "$SCHEMAS/001_cell_schemas.sql" >/dev/null
-  as_role zid_owner "$ZID_OWNER_PASSWORD" -d zid_global -f "$SCHEMAS/001_global_schemas.sql" >/dev/null
+  as_role zid_owner "$ZID_OWNER_PASSWORD" -d zid_cell -f "$SCHEMAS/001_global_schemas.sql" >/dev/null
   echo "== the services VM's databases (OpenBao, SpiceDB)"
   admin -d postgres -v openbao_pw="$ZID_OPENBAO_DB_PASSWORD" -v spicedb_pw="$ZID_SPICEDB_DB_PASSWORD" -f db/05_service_databases.sql >/dev/null
   as_role openbao "$ZID_OPENBAO_DB_PASSWORD" -d openbao >/dev/null <<'SQL'
@@ -43,7 +39,7 @@ SQL
 post() {
   : "${ZID_RELAY_PASSWORD:?}"
   echo "== privileges for the runtime and worker roles (re-run after any migration that adds a schema)"
-  for DB in zid_cell zid_global; do admin -d "$DB" -f "$GCP/02_grants.sql" >/dev/null; done
+  admin -d zid_cell -f "$GCP/02_grants.sql" >/dev/null
   echo "== the event relay's own role"
   admin -d zid_cell -v relay_pw="$ZID_RELAY_PASSWORD" -f "$GCP/04_relay_role.sql" >/dev/null
   echo "done."

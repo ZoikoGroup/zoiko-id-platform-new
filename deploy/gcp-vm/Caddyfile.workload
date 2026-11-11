@@ -1,0 +1,40 @@
+# Workload listener (profile `workload-identity`): the one place a workload's SPIFFE identity (X.509-SVID) is checked on the way in.
+# It is a separate Caddy from the public edge on purpose: it needs the SPIRE trust bundle at start-up, and a missing bundle must never
+# stop the public console and API.
+#
+#   * mutual TLS: a connection without a client certificate signed by this cell's SPIRE CA is refused in the handshake;
+#   * the verified certificate is forwarded to the cell as base64 DER in X-Forwarded-Client-Cert, REPLACING whatever the client sent
+#     (a header the client could set would let anyone claim an identity). The cell accepts that header only from this container's
+#     address (ZID_MESH_TRUSTED_PROXIES), verifies the certificate against the same bundle again, and maps the SPIFFE ID to a
+#     registered workload binding: an SVID alone authorizes nothing;
+#   * the attestation endpoint is internal (the attestor calls the cell directly) and is not served here.
+#
+# Reachable from the private network only (publish 9443 on a private address; firewall tag zid-workload). Its own certificate is
+# issued by Caddy's internal CA: give workloads that root (`workload-identity.sh edge-ca`), because a private name cannot get a public one.
+{
+	admin off
+	auto_https disable_redirects
+}
+
+https://workload.{$ZID_DOMAIN}:9443 {
+	tls {
+		issuer internal
+		client_auth {
+			mode require_and_verify
+			trust_pool file /run/secrets/spire_bundle.pem
+		}
+	}
+
+	@internal path /v1/machine/attestations:verify
+	handle @internal {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy cell:8000 {
+			header_up X-Forwarded-Client-Cert "Cert=\"{http.request.tls.client.certificate_der_base64}\""
+			# the proof that this really is the listener: the cell believes a forwarded certificate only from its address AND with this secret
+			header_up X-Zid-Proxy-Auth {file./run/secrets/mesh_proxy_secret}
+		}
+	}
+}

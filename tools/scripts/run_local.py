@@ -1,16 +1,16 @@
 """Run the Zoiko iD backend locally in ONE terminal (development only).
 
-Starts each role as its own process (cell and global must stay separate processes: the global
-plane holds no personal data and uses its own database — ZID-TENANCY-001 §2, DEC-D6),
-prefixes their output with the role name, and stops both on Ctrl+C.
+Starts the cell role as one process on one port (8000). It also serves the global plane (locator + discovery,
+no personal data, own schema global_directory) from the same database, DEC-D6. Output is prefixed with the role
+name, and Ctrl+C stops it.
 
 Usage (from backend/, with UV_PROJECT_ENVIRONMENT set as in the README):
-    python -m uv run python ../tools/scripts/run_local.py            # cell + global
+    python -m uv run python ../tools/scripts/run_local.py            # cell (+ the global plane), port 8000
     python -m uv run python ../tools/scripts/run_local.py --only cell
     python -m uv run python ../tools/scripts/run_local.py --no-reload
 
 Database: start it with `docker compose up -d postgres`. URLs are built from ZID_DB_PASSWORD and
-ZID_DB_HOST_PORT (same as docker-compose.yml) or overridden with ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL.
+ZID_DB_HOST_PORT (same as docker-compose.yml) or overridden with ZID_CELL_DATABASE_URL .
 """
 
 from __future__ import annotations
@@ -32,14 +32,13 @@ _ENV_LOADED = load_backend_env()
 _PW = os.environ.get("ZID_DB_PASSWORD", "zid_local_only")
 _PORT = os.environ.get("ZID_DB_HOST_PORT", "5432")
 LOCAL_DB = f"postgresql+asyncpg://zid:{_PW}@localhost:{_PORT}/{{db}}"
+_CELL_DB = os.environ.get("ZID_CELL_DATABASE_URL", LOCAL_DB.format(db="zid_cell"))
+# One process on one port: the cell also serves the global plane (locator + discovery) from the same database.
 ROLES = {
-    "cell": {"port": 8000, "cell_id": "local-1",
-             "db": os.environ.get("ZID_CELL_DATABASE_URL", LOCAL_DB.format(db="zid_cell"))},
-    "global": {"port": 8100, "cell_id": "global",
-               "db": os.environ.get("ZID_GLOBAL_DATABASE_URL", LOCAL_DB.format(db="zid_global"))},
+    "cell": {"port": 8000, "cell_id": "local-1", "db": _CELL_DB},
 }
 _TTY = sys.stdout.isatty()  # colors only in a real terminal, never in log files
-COLORS = {"cell": "\033[36m", "global": "\033[35m"} if _TTY else {"cell": "", "global": ""}
+COLORS = {"cell": "\033[36m"} if _TTY else {"cell": ""}
 RESET = "\033[0m" if _TTY else ""
 
 
@@ -55,7 +54,8 @@ def stream(role: str, proc: subprocess.Popen[bytes]) -> None:
 def start(role: str, reload: bool) -> subprocess.Popen[bytes]:
     cfg = ROLES[role]
     env = {**os.environ, "ZID_ROLE": role, "ZID_CELL_ID": cfg["cell_id"], "ZID_DATABASE_URL": cfg["db"],
-           "ZID_ENVIRONMENT": "local", "PYTHONUNBUFFERED": "1"}
+           "ZID_ENVIRONMENT": "local", "PYTHONUNBUFFERED": "1",
+           "ZID_SERVE_GLOBAL_PLANE": "true"}
     cmd = [sys.executable, "-m", "uvicorn", "zid_platform.entrypoints.api:app",
            "--host", "127.0.0.1", "--port", str(cfg["port"]), "--no-access-log"]
     if reload:
@@ -79,7 +79,7 @@ def main() -> int:
     for role in roles:
         print(f"{COLORS[role]}[{role:<6}]{RESET} http://localhost:{ROLES[role]['port']}  "
               f"(docs: /docs, readiness: /health/ready)", flush=True)
-    print("Press Ctrl+C to stop all roles.", flush=True)
+    print("Press Ctrl+C to stop.", flush=True)
     try:
         while True:
             for role, proc in procs.items():

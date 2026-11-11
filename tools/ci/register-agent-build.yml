@@ -1,0 +1,86 @@
+# TEMPLATE, not part of this repository's own CI: copy it to .github/workflows/ in the repository of an AGENT (the software an agent runs).
+# Not yet run against a real registry or a real Zoiko iD: try it on a test agent first.
+#
+# On every push to main it builds the agent's image, pushes it, takes the digest from the registry (nobody types one), and registers that
+# build with Zoiko iD. It does NOT approve it: a person approves the build under Agents & tools > Builds, and only then can a release run it.
+# The pipeline holds one authority, `machine.build.register`; it cannot approve, revoke or draft a release, so a stolen pipeline credential can
+# propose software but never get it run.
+#
+# One-time setup in the agent's repository (Settings > Secrets and variables > Actions):
+#   ZID_API_BASE        https://api.<your domain>
+#   ZID_CLIENT_ID       the application (OAuth client) created for this pipeline, with ONLY machine.build.register
+#   ZID_CLIENT_KEY      that application's private key, as a JWK (a secret; it is never printed)
+# and set PLATFORM_TOOLS_REF below to the commit of the Zoiko iD repository whose tools/scripts you trust (pin a full SHA, not a branch).
+name: register-agent-build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}   # the agent's image; the console can look this host up (ZID_BUILD_REGISTRIES names ghcr.io)
+  PLATFORM_TOOLS_REPO: ZoikoGroup/Zoiko-ID-Platform
+  PLATFORM_TOOLS_REF: REPLACE_WITH_A_FULL_COMMIT_SHA
+
+jobs:
+  build-and-register:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to the registry with the job token
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+      - if: ${{ !github.event.repository.private }}  # GitHub attestations are unavailable to private repositories
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Fetch the registration script (pinned commit of the Zoiko iD repository)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ env.PLATFORM_TOOLS_REPO }}
+          ref: ${{ env.PLATFORM_TOOLS_REF }}
+          path: .zid-tools
+          sparse-checkout: tools/scripts
+          persist-credentials: false
+      - name: Install the script's two dependencies in a virtual environment (the runner's own Python)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zid-venv"
+          "$RUNNER_TEMP/zid-venv/bin/pip" install --quiet httpx cryptography
+      - name: Register the build (it then waits for a person to approve it)
+        env:
+          ZID_API_BASE: ${{ secrets.ZID_API_BASE }}
+          ZID_CLIENT_ID: ${{ secrets.ZID_CLIENT_ID }}
+          ZID_CLIENT_KEY: ${{ secrets.ZID_CLIENT_KEY }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          umask 077
+          printf '%s' "$ZID_CLIENT_KEY" > "$RUNNER_TEMP/zid-client.jwk"
+          "$RUNNER_TEMP/zid-venv/bin/python" .zid-tools/tools/scripts/register_build.py \
+            --api-base "$ZID_API_BASE" \
+            --client-id "$ZID_CLIENT_ID" \
+            --key "$RUNNER_TEMP/zid-client.jwk" \
+            --name "${{ github.event.repository.name }} ${{ github.sha }}" \
+            --digest "$DIGEST" \
+            --source "${IMAGE}:sha-${{ github.sha }}" \
+            --provenance "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --allow-existing
+          rm -f "$RUNNER_TEMP/zid-client.jwk"

@@ -59,7 +59,7 @@ def _software_parts(
     return PostgresKeyStore(url, schema, actor), MasterKeys.from_file(master_file)
 
 
-def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
+def software_keys(settings: Settings, *, plane: str | None = None) -> tuple[KeyStore, MasterKeys]:
     """The key store and master keys of `ZID_KEY_PROVIDER=db`. Outside local/test it needs the operator's written acceptance
     that software keys are standard assurance (CR-060): a host compromise exposes them, and they are not FIPS-validated."""
     if (
@@ -94,13 +94,15 @@ def software_keys(settings: Settings) -> tuple[KeyStore, MasterKeys]:
     )
     if not url:
         raise RuntimeError("ZID_KEY_PROVIDER=db needs a database connection for the key store")
-    schema = "global_directory" if settings.role is Role.GLOBAL else "keys"
+    # The global plane keeps its keys in its own table, whichever process serves it: a cell that also serves the plane (ZID_SERVE_GLOBAL_PLANE) asks for
+    # plane="global" for the discovery key, so that key stays where it was when the plane was a process of its own, and the cell's keys stay in `keys`.
+    schema = "global_directory" if (settings.role is Role.GLOBAL or plane == "global") else "keys"
     actor = os.environ.get("ZID_KEY_ACTOR") or f"process:{settings.role.value}"
     return _software_parts(url, schema, settings.key_master_file, actor)
 
 
-def _software_signers(settings: Settings) -> SoftwareSigners:
-    store, masters = software_keys(settings)
+def _software_signers(settings: Settings, *, plane: str | None = None) -> SoftwareSigners:
+    store, masters = software_keys(settings, plane=plane)
     return SoftwareSigners(store=store, masters=masters)
 
 
@@ -264,13 +266,14 @@ def placement_signer(
     kid: str,
     kms_key_id: str | None,
     kms_client: object | None = None,
+    plane: str | None = None,
 ) -> Signer | None:
     """Signer for placement statements (DEC-G3): a cell's directory records, the global plane's
     discovery answers. Local/test: the development key `dev_purpose` from ZID_DEV_SIGNING_KEYS (shared
     by the processes of one machine) or a fresh one; deployed: the KMS key, or None (not configured). With the db
     provider the key is stored under the signer's `kid`."""
     if settings.key_provider == "db":
-        return _software_signers(settings).signer(kid, kid=kid)
+        return _software_signers(settings, plane=plane).signer(kid, kid=kid)
     if settings.environment in ("local", "test") and settings.key_provider == "local":
         pem = settings.dev_signing_keys.get(dev_purpose)
         return (

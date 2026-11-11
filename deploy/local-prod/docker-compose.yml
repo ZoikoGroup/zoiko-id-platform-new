@@ -8,7 +8,7 @@
 #   postgres  database VM                       valkey    web-session cache (rebuildable, holds no business data)
 #   openbao   secrets VM (stores in Postgres)   redpanda  Kafka VM (the event platform)
 #   spicedb   relationship store (stores in Postgres; the event consumer projects into it)
-#   cell / global / worker / outbox-relay / consumer / web   the app VM(s)         mailpit   the SMTP relay (TLS)
+#   cell / worker / outbox-relay / consumer / web   the app VM(s)         mailpit   the SMTP relay (TLS)
 # Not rehearsed: the public edge (Caddy and TLS certificates), DNS, and the second database VM (standby). Synthetic data only.
 name: zoiko-id-rehearsal
 
@@ -182,7 +182,6 @@ services:
     environment:
       <<: *backend-env
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_cell
-      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_global
       ZID_KEY_ACTOR: process:migrate
     command: ["python", "-m", "zid_platform.entrypoints.migrate"]
     healthcheck: {disable: true}
@@ -195,19 +194,13 @@ services:
     environment:
       <<: *backend-env
       ZID_ROLES: cell
+      ZID_SERVE_GLOBAL_PLANE: "true"  # locator + discovery are served on this same port, from the same database
+      # People enter an image name (ghcr.io/acme/bot:1.4) and the console works the digest out from the registry, so nobody types a sha256.
+      # Only the hosts named here are ever contacted; anonymous access only (a private image is registered by the build pipeline instead).
+      ZID_BUILD_REGISTRIES: '${ZID_BUILD_REGISTRIES:-["ghcr.io"]}'
       # the runtime role: row-level security applies, so one company can never read another's rows
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_cell
     ports: ["127.0.0.1:18000:8000"]
-
-  global:
-    <<: *backend
-    depends_on:
-      migrate: {condition: service_completed_successfully}
-    environment:
-      <<: *backend-env
-      ZID_ROLES: global
-      ZID_GLOBAL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_global
-    ports: ["127.0.0.1:18100:8100"]
 
   worker:
     <<: *backend

@@ -9,6 +9,9 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { useRuntime } from "@/lib/runtime";
 
+import { RISK_OPTIONS } from "../authority/shared";
+import { ACTION_OPTIONS, CUSTOM_PRESET, NEEDS, TOOL_PRESETS, forcesMandate } from "./agents-logic";
+import { AuthorityNotice, ServerSelect } from "./pickers";
 import { TOOLS_KEY, UUID_RE } from "./shared";
 
 const EFFECTS: { id: ToolSideEffect; label: string; description: string }[] = [
@@ -155,14 +158,18 @@ export function ToolsSection() {
   );
 }
 
+const OTHER_ACTION = "__other__";
+
 function RegisterToolDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { api, protect } = useRuntime();
   const qc = useQueryClient();
   const toast = useToast();
+  const [preset, setPreset] = useState("");
   const [id, setId] = useState("");
-  const [version, setVersion] = useState("1");
+  const [version, setVersion] = useState("1.0.0");
   const [server, setServer] = useState("");
   const [action, setAction] = useState("");
+  const [otherAction, setOtherAction] = useState(false);
   const [risk, setRisk] = useState("1");
   const [effect, setEffect] = useState<ToolSideEffect>("NONE");
   const [mandate, setMandate] = useState(false);
@@ -170,7 +177,21 @@ function RegisterToolDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const forced = effect === "IRREVERSIBLE" || effect === "EXTERNAL_TRANSACTION";
+  const forced = forcesMandate(effect);
+
+  /** Picking what the tool does fills the rest; each field can still be changed afterwards. */
+  function choosePreset(p: string) {
+    setPreset(p);
+    const t = TOOL_PRESETS.find((x) => x.id === p);
+    if (!t) return;
+    setId(t.toolId);
+    setAction(t.action);
+    setOtherAction(false);
+    setRisk(String(t.risk));
+    setEffect(t.effect);
+    setMandate(t.mandate);
+    setHuman(t.human);
+  }
 
   function close() {
     if (pending) return;
@@ -182,15 +203,15 @@ function RegisterToolDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   async function submit() {
     setFormError(null);
     setError(null);
-    if (!/^[a-z0-9][a-z0-9._-]{1,62}$/.test(id.trim())) return setFormError("Tool ID: lowercase letters, digits, dot, dash or underscore.");
-    if (!UUID_RE.test(server.trim())) return setFormError("The hosting server must be a registered service or application principal ID.");
-    if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(action.trim())) return setFormError("The authorization action should look like domain.resource.verb.");
+    if (!/^[a-z0-9][a-z0-9._-]{1,62}$/.test(id.trim())) return setFormError("Tool name: lowercase letters, digits, dot, dash or underscore.");
+    if (!UUID_RE.test(server.trim())) return setFormError("Choose the service or application that hosts the tool.");
+    if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(action.trim())) return setFormError("Choose what the tool is allowed to do (an action such as invoice.approve).");
     setPending(true);
     try {
       await protect(() =>
         api.agents.registerTool({
           tool_id: id.trim(),
-          version: version.trim() || "1",
+          version: version.trim() || "1.0.0",
           server_principal_id: server.trim(),
           canonical_action: action.trim(),
           default_risk_class: Number(risk) as 0 | 1 | 2 | 3,
@@ -209,6 +230,8 @@ function RegisterToolDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
     }
   }
 
+  const actionChoices = [...ACTION_OPTIONS, { id: OTHER_ACTION, label: "Another action…", description: "For an action not in this list." }];
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -224,24 +247,40 @@ function RegisterToolDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
       }
     >
       <div className="space-y-4">
+        <AuthorityNotice needs={NEEDS.tool} what="register a tool" />
+        <Select
+          label="What should this tool do?"
+          placeholder="Choose the usual kind, or set it up yourself…"
+          value={preset || null}
+          onChange={choosePreset}
+          options={[...TOOL_PRESETS.map((p) => ({ id: p.id, label: p.label, description: p.description })), { id: CUSTOM_PRESET, label: "Something else", description: "Fill in every field yourself." }]}
+          description="Fills in the name, action, risk and approvals below. You can change any of them."
+        />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Tool ID" isRequired mono value={id} onChange={setId} placeholder="payments.release" />
+          <TextField label="Tool name" isRequired mono value={id} onChange={setId} placeholder="payments.release" />
           <TextField label="Version" mono value={version} onChange={setVersion} />
         </div>
-        <TextField label="Hosting server principal ID" isRequired mono value={server} onChange={setServer} description="The registered service or application (for example an MCP server) that hosts the tool." />
-        <TextField label="Authorization action" isRequired mono value={action} onChange={setAction} placeholder="payment.release" description="Every call is decided by the policy engine against this action." />
+        <ServerSelect value={server} onChange={setServer} description="The registered service or application (for example an MCP server) that hosts the tool." />
+        <Select
+          label="Allowed action"
+          isRequired
+          placeholder="Choose what it may do…"
+          value={otherAction ? OTHER_ACTION : action || null}
+          onChange={(v) => {
+            if (v === OTHER_ACTION) {
+              setOtherAction(true);
+              setAction("");
+            } else {
+              setOtherAction(false);
+              setAction(v);
+            }
+          }}
+          options={actionChoices}
+          description="Every call is decided by the policy engine against this action."
+        />
+        {otherAction ? <TextField label="Action name" isRequired mono value={action} onChange={setAction} placeholder="domain.resource.verb" /> : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="Risk floor"
-            options={[
-              { id: "0", label: "R0 Low" },
-              { id: "1", label: "R1 Moderate" },
-              { id: "2", label: "R2 High" },
-              { id: "3", label: "R3 Critical action" },
-            ]}
-            value={risk}
-            onChange={setRisk}
-          />
+          <Select label="Risk floor" options={RISK_OPTIONS} value={risk} onChange={setRisk} />
           <Select label="Side effects" options={EFFECTS} value={effect} onChange={(v) => setEffect(v as ToolSideEffect)} />
         </div>
         <div className="flex flex-col gap-2">

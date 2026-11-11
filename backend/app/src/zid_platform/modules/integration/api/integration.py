@@ -264,23 +264,22 @@ async def transition_application(
 
 class OAuthClientBody(BaseModel):
     """`purpose` SIGN_IN (default): a client people sign in through (redirect addresses required). DECISIONS: the machine client an application uses to
-    ask the decision API (a signed key, no redirect address, no scopes to choose); a client people sign in through cannot get a machine token."""
+    ask the decision API (a signed key, no redirect address, no scopes to choose). BUILD_PIPELINE: the machine client a build pipeline uses to register
+    builds (the same shape, its own scope). A client people sign in through cannot get a machine token."""
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=80)
     client_type: Literal["PUBLIC", "CONFIDENTIAL"]
-    purpose: Literal["SIGN_IN", "DECISIONS"] = "SIGN_IN"
+    purpose: Literal["SIGN_IN", "DECISIONS", "BUILD_PIPELINE"] = "SIGN_IN"
     redirect_uris: list[str] = Field(default_factory=list, max_length=10)
     scopes: list[str] = Field(default_factory=lambda: ["openid"], max_length=10)
     jwks: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def _by_purpose(self) -> OAuthClientBody:
-        if self.purpose == "DECISIONS":
+        if self.purpose in ("DECISIONS", "BUILD_PIPELINE"):
             if self.jwks is None or self.redirect_uris or self.client_type != "CONFIDENTIAL":
-                raise ValueError(
-                    "a decisions client is CONFIDENTIAL, has public keys and no redirect addresses"
-                )
+                raise ValueError("a machine client is CONFIDENTIAL, has public keys and no redirect addresses")
         elif not self.redirect_uris:
             raise ValueError("a sign-in client needs at least one redirect address")
         return self
@@ -310,7 +309,23 @@ async def register_oauth_client(
             conn, caller, action=APP_ACTION, resource="integration_application:*"
         )
         try:
-            if body.purpose == "DECISIONS":
+            if body.purpose == "BUILD_PIPELINE":
+                assert body.jwks is not None  # the model checks it
+                await require_feature(
+                    conn,
+                    "standard.service-identities-m2m-management",
+                    enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+                )
+                c = await service.register_pipeline_client(
+                    conn,
+                    tenant,
+                    name=body.name,
+                    jwks=body.jwks,
+                    audience=request.app.state.token_audience,
+                    home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+                    actor=_me(caller),
+                )
+            elif body.purpose == "DECISIONS":
                 assert body.jwks is not None  # the model checks it
                 await require_feature(
                     conn,

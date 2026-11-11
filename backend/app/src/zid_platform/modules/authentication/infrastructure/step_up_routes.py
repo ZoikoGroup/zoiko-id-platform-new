@@ -27,6 +27,9 @@ class RouteAction:
     pattern: re.Pattern[str]
     action: str
     critical: bool = False
+    machine_exempt: bool = (
+        False  # CR-066: a signed-key service caller needs no human proof for this rule
+    )
 
 
 def normalise(path_format: str) -> str:
@@ -55,7 +58,20 @@ def parse(doc: dict[str, Any], catalogue: Catalogue) -> tuple[RouteAction, ...]:
             raise StepUpError(
                 "ROUTE_MAP_INVALID", f"{match}: {action} is not an action of the step-up catalogue"
             )
-        out.append(RouteAction(match, _pattern(match), action, bool(raw.get("critical", False))))
+        machine = raw.get("machine")
+        if machine not in (None, "exempt"):
+            raise StepUpError(
+                "ROUTE_MAP_INVALID", f"{match}: machine must be 'exempt' or absent, not {machine!r}"
+            )
+        out.append(
+            RouteAction(
+                match,
+                _pattern(match),
+                action,
+                bool(raw.get("critical", False)),
+                machine == "exempt",
+            )
+        )
     if not out:
         raise StepUpError("ROUTE_MAP_INVALID", "an empty route map guards nothing")
     return tuple(out)

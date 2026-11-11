@@ -32,6 +32,9 @@ ID_TOKEN_TYP = "JWT"
 GRANT_AUTHORIZATION_CODE = "authorization_code"
 GRANT_REFRESH_TOKEN = "refresh_token"
 GRANT_CLIENT_CREDENTIALS = "client_credentials"
+# The scope of a build pipeline's machine client (CR-066): what its token is for, proposing a build. Only a client that holds it can use the signed-key
+# exemption for `machine.build.register`; the integration module issues clients with it (its own copy, `PIPELINE_SCOPE`, is checked equal by a test).
+BUILD_PIPELINE_SCOPE = "machine.build:register"
 GRANT_TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange"
 TOKEN_TYPE_ACCESS = "urn:ietf:params:oauth:token-type:access_token"
 SUPPORTED_GRANTS = frozenset(

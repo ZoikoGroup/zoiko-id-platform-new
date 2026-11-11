@@ -314,7 +314,45 @@ async def _approval_requested(c: BuildContext) -> Merge | None:
     }
 
 
+async def _workspace_created(c: BuildContext) -> Merge | None:
+    return await _organization_event(c)
+
+
+# Why a session ended, in words a person can read. Only a deliberate or security-driven end is mailed: a
+# routine sign-out or a token rotation is not news, and an unknown reason is described no further than it is
+# known ("a security event"), never from the raw string.
+_QUIET_REASONS = frozenset({"logout", "rotated"})
+
+
+def _session_reason_label(reason: str) -> str:
+    if reason == "global_logout":
+        return "you chose to sign out everywhere"
+    if reason.startswith("admin:"):
+        return "an administrator of your organization ended them"
+    return "a security event was detected on the account"
+
+
+async def _sessions_revoked(c: BuildContext) -> Merge | None:
+    reason = str(c.data.get("reason", ""))
+    if not reason or reason in _QUIET_REASONS:
+        return None
+    return {
+        "event_at_local": c.event_time,
+        "reason_public_label": _session_reason_label(reason),
+        "trusted_sessions_url": None,
+    }
+
+
 EVENT_ROUTES: Mapping[str, tuple[Route, ...]] = {
+    "tenant.created": (Route("ZID-EM-088", "role:OWNER", _workspace_created),),
+    "session.revoked": (
+        Route(
+            "ZID-EM-022",
+            "principal:principal_id",
+            _sessions_revoked,
+            when=lambda d: d.get("reason") not in _QUIET_REASONS,
+        ),
+    ),
     "governance.approval.case_created": (
         Route("ZID-EM-074", "role:OWNER", _approval_requested),
         Route("ZID-EM-074", "role:SECURITY", _approval_requested),

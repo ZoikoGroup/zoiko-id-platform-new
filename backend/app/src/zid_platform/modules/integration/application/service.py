@@ -264,6 +264,7 @@ async def register_oauth_client(
     return client
 
 
+PIPELINE_SCOPE = "machine.build:register"  # a build pipeline's token is for proposing a build (CR-066); the session module holds the same string, a test keeps them equal
 DECISION_SCOPE = "access:evaluate"  # what a decision caller's token is for (the decision API itself is open to any of the tenant's clients)
 
 
@@ -302,6 +303,38 @@ async def register_decision_client(
         actor=actor,
         evidence=EvidenceClass.E2,
         data={"client_id": client["client_id"], "client_type": "MACHINE", "status": "ACTIVE"},
+    )
+    return client
+
+
+async def register_pipeline_client(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    name: str,
+    jwks: dict[str, Any],
+    audience: str,
+    home_cell: str,
+    actor: str,
+) -> dict[str, Any]:
+    """Register the OAuth client a build pipeline uses to propose builds (CR-066): a machine client like a decision client (`client_credentials`
+    only, a signed key, no redirect, no secret) with its own scope, so a client made for decisions cannot be used to register builds, and the other
+    way round. The identity it acts as still needs the one grant, `machine.build.register`, and a person approves what it proposes."""
+    try:
+        client = await client_gateway().register_machine(
+            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=[PIPELINE_SCOPE], audience=audience, home_cell=home_cell
+        )
+    except ValueError as e:
+        raise IntegrationError(getattr(e, "code", "VALIDATION_FAILED"), getattr(e, "detail", str(e))) from e
+    await _record(
+        conn,
+        tenant_id,
+        "integration.application.changed",
+        target=("oauth_client", client["client_id"]),
+        version=1,
+        actor=actor,
+        evidence=EvidenceClass.E2,
+        data={"client_id": client["client_id"], "client_type": "MACHINE", "purpose": "BUILD_PIPELINE", "status": "ACTIVE"},
     )
     return client
 
@@ -675,13 +708,18 @@ async def offboard_integrations(
     """OVL-30: every connector quarantined (credentials revoked, sources suspended) and every
     application retired. Idempotent."""
     quarantined = retired = 0
-    for c in await store.list_connectors(conn, tenant_id=tenant_id):
+    # Run by the worker, which bypasses row-level security: name the tenant, or this would drain every company's integrations.
+    for c in await store.list_connectors(conn, tenant_id):
+        if c.tenant_id != tenant_id:
+            raise RuntimeError("offboarding reached another tenant's connector")
         if c.health is not Health.QUARANTINED:
             await quarantine(
                 conn, tenant_id, c.connector_id, reason="TENANT_OFFBOARDING", actor=actor
             )
             quarantined += 1
-    for a in await store.list_applications(conn, tenant_id=tenant_id):
+    for a in await store.list_applications(conn, tenant_id):
+        if a.tenant_id != tenant_id:
+            raise RuntimeError("offboarding reached another tenant's application")
         if a.status is not AppStatus.RETIRED:
             await move_application(
                 conn, tenant_id, a.application_id, AppStatus.RETIRED, actor=actor or ""
