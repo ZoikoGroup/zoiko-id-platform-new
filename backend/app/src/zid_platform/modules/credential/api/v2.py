@@ -95,7 +95,7 @@ class V2CredentialIn(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list, max_length=20)
     jurisdiction: V2Jurisdiction
     source_preference: str = Field(default="authoritative_first", pattern=r"^authoritative_first$")
-    purpose: str = Field(default="professional_engagement", max_length=64)
+    purpose: str = Field(default="professional_onboarding", max_length=64)
     consent_ref: str | None = Field(default=None, max_length=200)
     consumer: str = Field(default="direct", pattern=r"^[a-z][a-z0-9_-]{1,31}$")
 

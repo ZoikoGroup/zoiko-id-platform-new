@@ -19,8 +19,7 @@ No existing route, event, action or table is altered. The v2 routes reuse the ex
 `credential.eligibility.evaluate`); no new action is added.
 
 ## Deliberate choices to review
-- The v2 default purpose is `professional_engagement`, because that is a permitted purpose in the sample source contracts. The document's example
-  `professional_onboarding` is refused today (SOURCE_PURPOSE_NOT_PERMITTED) until an owner adds it to a contract.
+- `PROFESSIONAL_ONBOARDING` was added to the permitted purposes of the sample `simulator` source contract on the requester's instruction (2026-11-11), so the document's own example purpose works and is the v2 default. It is a SAMPLE row: a real source contract must list its own permitted purposes, and Legal owns that list.
 - A source that cannot be asked returns outcome UNAVAILABLE with a fault code, not HTTP 424.
 - The facade does not invent readiness: every capability is PROVIDER_DEPENDENT and coverage lists only contracted non-simulated sources (none today).
 
@@ -34,7 +33,7 @@ No existing route, event, action or table is altered. The v2 routes reuse the ex
 - `verifier.create` takes an optional `ttl` that can only shorten the request's life (default unchanged at 10 minutes).
 - `verification.case.completed` is a new proposed event, and is subscribable.
 
-## Not built (needs a component, a library or a contract that does not exist)
+## Not built (needs a component, a library, a data source or a contract that does not exist)
 Evidence uploads (malware scanning and an object store with deletion controls, plus a retention decision from the DPO for stored personal documents), signature, seal and issuer VALIDATION of documents (a PAdES/XAdES validator, trust lists and an issuer source, DTV-02; only integrity, type and signature detection exist), organization and mandate verification (no KYB source), Rooms property checks (no property or title source), every real provider adapter (no contract or sandbox), and a signed `resume_token` for cases (the document says only "if applicable"; a token that resumed a case without the caller's own authority would be a bearer capability that weakens the tenant and authorization checks, so none is issued).
 
 ## Known test gaps
