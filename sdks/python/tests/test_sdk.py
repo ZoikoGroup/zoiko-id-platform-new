@@ -45,7 +45,9 @@ def test_wrong_tenant(keys: Keys) -> None:
 
 
 def test_wrong_arguments(keys: Keys) -> None:
-    assert code_of(keys.sign(claims_for(DIGEST)), keys, arguments_digest=args_digest({"x": 1})) == "TOOL_GRANT_ARGUMENTS"
+    assert (
+        code_of(keys.sign(claims_for(DIGEST)), keys, arguments_digest=args_digest({"x": 1})) == "TOOL_GRANT_ARGUMENTS"
+    )
 
 
 def test_expired_and_not_yet_valid(keys: Keys) -> None:

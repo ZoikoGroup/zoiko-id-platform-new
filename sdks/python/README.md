@@ -16,3 +16,22 @@ else:
 
 `accept` verifies the grant offline, then redeems it once at the platform. See `examples/invoice_tool_server.py` and
 `docs/sdk/tool-server-sdk.md`. Tests: `pytest sdks/python` (no platform needed).
+
+## zoiko-credentials (credential trust client and consumer packs)
+
+`zoiko_credentials` is the client for the credential-trust API (claim checks, eligibility and engagement decisions, consented
+disclosure, appeals) plus thin packs for Zoikorum and Zoiko Rooms. The packs only narrow what the client does; the server enforces
+every rule. A Zoikorum decision is signed, verified offline, and refused by the Rooms pack.
+
+```python
+from zoiko_credentials import CredentialsClient, ZoikorumPack
+
+client = CredentialsClient("https://id.example", ACCESS_TOKEN)
+zoikorum = ZoikorumPack(client, jwks=PINNED_JWKS)
+decision = zoikorum.decide("US", "LAW", "legal.advice", subdivision="CA")
+if decision.ready:   # READY only; a tier or a profile badge never authorizes work
+    start_engagement(decision.token)
+```
+
+Nothing here is live until an operator adds real sources, packs and policies; until then every check is refused in a deployed
+environment. Tests: `pytest sdks/python` (no platform needed).

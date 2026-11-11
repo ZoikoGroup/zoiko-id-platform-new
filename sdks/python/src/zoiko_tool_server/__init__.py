@@ -30,6 +30,7 @@ __all__ = [
     "fetch_jwks",
     "redeem",
     "verify_grant",
+    "verify_signed",
 ]
 
 GRANT_TYP = "action-grant+jwt"
@@ -90,7 +91,7 @@ def _check_signature(jwk: Mapping[str, Any], alg: str, data: bytes, sig: bytes) 
         raise _invalid("unusable key") from e
 
 
-def _decode(token: str, jwks: Mapping[str, Any]) -> dict[str, Any]:
+def _decode(token: str, jwks: Mapping[str, Any], typ: str = GRANT_TYP) -> dict[str, Any]:
     parts = token.split(".") if isinstance(token, str) else []
     if len(parts) != 3:
         raise _invalid("not a compact JWS")
@@ -105,17 +106,25 @@ def _decode(token: str, jwks: Mapping[str, Any]) -> dict[str, Any]:
     alg = header.get("alg")
     if alg not in ALLOWED_ALGS:
         raise _invalid(f"algorithm not allowed: {alg}")
-    if header.get("typ") != GRANT_TYP:
+    if header.get("typ") != typ:
         raise _invalid("wrong token type")
     if "jku" in header or "x5u" in header or "x5c" in header or "jwk" in header:
         raise _invalid("remote or embedded keys are never followed")
     kid = header.get("kid")
     keys = jwks.get("keys") if isinstance(jwks, Mapping) else None
-    matches = [k for k in keys if isinstance(k, Mapping) and k.get("kid") == kid] if isinstance(keys, list) and kid else []
+    matches = (
+        [k for k in keys if isinstance(k, Mapping) and k.get("kid") == kid] if isinstance(keys, list) and kid else []
+    )
     if len(matches) != 1:
         raise _invalid("unknown key id")
     _check_signature(matches[0], str(alg), f"{parts[0]}.{parts[1]}".encode("ascii"), sig)
     return payload
+
+
+def verify_signed(token: str, jwks: Mapping[str, Any], *, typ: str) -> dict[str, Any]:
+    """Verify any compact JWS offline against pinned keys, for one named `typ` (ES256 or Ed25519 only, no remote keys).
+    Raises `GrantError`. Used by other Zoiko SDKs that receive signed decisions; it checks the signature, not the claims."""
+    return _decode(token, jwks, typ)
 
 
 def verify_grant(
@@ -151,9 +160,7 @@ def verify_grant(
     return claims
 
 
-def redeem(
-    base_url: str, access_token: str, grant: str, arguments_digest: str, timeout: float = 10
-) -> dict[str, Any]:
+def redeem(base_url: str, access_token: str, grant: str, arguments_digest: str, timeout: float = 10) -> dict[str, Any]:
     """Spend the grant at the platform (the single-use authority). 200 -> call details; 409 -> TOOL_GRANT_USED;
     anything else -> GrantError with the server's code. A platform that cannot be reached is a refusal too."""
     request = urllib.request.Request(
