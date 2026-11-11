@@ -629,6 +629,11 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (ZID-MACHINE-001 §15; CR-007)"
+  agent.tool_grant:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-GAP-001 WP-11; CR-067)"
   agent.agent_profile:
     role: cell
     module: machine
@@ -764,6 +769,21 @@ tables:
     module: screening
     tenant_scoped: true
     source: "ZID-ED-04 appeals and corrections (CR-044)"
+  verify.screening_velocity_event:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 velocity attempts, hashed keys only (CR-068)"
+  verify.screening_signal:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 fraud and adverse-media signals, append-only (CR-068)"
+  verify.screening_signal_review:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-GAP-001 WP-14 review items for signals (CR-068)"
   verify.verification_assertion:
     role: cell
     module: verification
@@ -834,6 +854,61 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-VC-001 §13 (Token Status List for issued credentials); CR-009"
+  cred.claim_check:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-037, sections 04.1 and 08.1 (source-backed claim assertion); CR-069"
+  cred.consent_grant:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-053 (per-recipient consent, minimal disclosure, withdrawal); CR-069"
+  cred.outreach_request:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-054 (issuer outreach, dual review); CR-069"
+  cred.eligibility_decision:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-041/049 (eligibility and engagement decisions, append-only); CR-069"
+  cred.claim_appeal:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-059, section 03.1 (appeal and correction of a claim check); CR-069"
+  cred.claim_monitor:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-058/060 (expiry, freshness and source ordering); CR-069"
+  evidence.document_validation:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-INT-002 section 09 (a stored validation result of an uploaded document; results only, never the document); CR-071"
+  evidence.upload:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-INT-002 section 05 (uploaded evidence held in the cell database, bytes only after a clean scan); CR-071"
+  cred.verification_case:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 sections 04 and 05.1 (a case groups separate checks; references only); CR-071"
+  cred.verification_case_task:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 sections 04 and 05.1 (one task and one outcome per check; never one pass); CR-071"
+  cred.source_dead_letter:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 GID-060 (source events that could not be applied are kept, not lost); CR-069"
   signals.security_signal:
     role: cell
     module: signals

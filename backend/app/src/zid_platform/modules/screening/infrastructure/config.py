@@ -57,6 +57,10 @@ def parse(doc: dict[str, Any]) -> ScreeningConfig:
         raise ScreeningError("CONFIG_INVALID", "unknown list in required_lists") from e
     if not required:
         raise ScreeningError("CONFIG_INVALID", "no required lists: nothing could ever be screened")
+    try:
+        high_risk = tuple(ListId(x) for x in p.get("high_risk_required_lists") or ())
+    except ValueError as e:
+        raise ScreeningError("CONFIG_INVALID", "unknown list in high_risk_required_lists") from e
     version = str(doc.get("version", "0"))
     policy = Policy(
         version=version,
@@ -64,6 +68,7 @@ def parse(doc: dict[str, Any]) -> ScreeningConfig:
         list_max_age=timedelta(hours=int(p.get("list_max_age_hours", 48))),
         validity=timedelta(days=int(p.get("validity_days", 365))),
         validity_elevated=timedelta(days=int(p.get("validity_elevated_days", 90))),
+        high_risk_required_lists=high_risk,
         match=MatchPolicy(
             version=version,
             threshold=float(p.get("match_threshold", 0.88)),

@@ -15,6 +15,7 @@
  * approvals) and its answers are passed through unchanged. */
 import { createHash } from "node:crypto";
 
+import { applyDevice, resolveDevice } from "./device";
 import { clearCookie, readCookie, serializeCookie, sessionCookieName } from "./cookies";
 import { randomToken, type ConsoleSession, type SessionStore } from "./session";
 
@@ -41,6 +42,8 @@ export type BffConfig = {
   redirectUri?: string;
   scopes: string[];
   secureCookies: boolean;
+  /** First-party device cookie (fraud and abuse signals). On unless false. */
+  deviceCookie?: boolean;
   sessionTtlSeconds: number;
   /** Upstream path prefixes reachable through `proxy` (a trailing "$" means exact match). */
   apiPathPrefixes: string[];
@@ -267,6 +270,8 @@ export function createBff(config: BffConfig) {
     }
   }
 
+  const deviceFor = (req: Request) => resolveDevice(req.headers.get("cookie"), config.secureCookies, config.deviceCookie !== false);
+
   const sessionCookie = (session: ConsoleSession) =>
     serializeCookie(cookieName, session.id, config.sessionTtlSeconds, config.secureCookies);
 
@@ -275,6 +280,9 @@ export function createBff(config: BffConfig) {
     authorizePath(returnTo: string, clientId?: string): Promise<string> {
       return beginAuthorization(returnTo, clientId ?? config.clientId);
     },
+
+    /** The device id for a browser request: reused from its cookie, or minted (with the Set-Cookie to send). */
+    device: deviceFor,
 
     /** The workspace client this request signs in through (cookie, else the default). */
     clientFor(cookieHeader: string | null): string {
@@ -380,6 +388,8 @@ export function createBff(config: BffConfig) {
       }
       const cellCookie = cellCookieHeader(req);
       if (cellCookie) headers.set("cookie", cellCookie);
+      const device = deviceFor(req);
+      applyDevice(headers, device);
       const method = req.method.toUpperCase();
       let res: Response;
       try {
@@ -401,6 +411,7 @@ export function createBff(config: BffConfig) {
       for (const c of setCookieHeaders(res)) {
         if (c.trim().startsWith(`${CELL_SESSION_COOKIE}=`)) out.append("set-cookie", c);
       }
+      if (device.setCookie) out.append("set-cookie", device.setCookie);
       return new Response(res.body, { status: res.status, headers: out });
     },
 
@@ -431,6 +442,8 @@ export function createBff(config: BffConfig) {
         const v = req.headers.get(h);
         if (v) headers.set(h, v);
       }
+      const device = deviceFor(req);
+      applyDevice(headers, device);
       let res: Response;
       try {
         res = await doFetch(`${upstream}${target}${new URL(req.url).search}`, {
@@ -449,6 +462,7 @@ export function createBff(config: BffConfig) {
         if (v) out.set(h, v);
       }
       if (!out.has("x-correlation-id")) out.set("x-correlation-id", correlationId);
+      if (device.setCookie) out.append("set-cookie", device.setCookie);
       return new Response(res.body, { status: res.status, headers: out });
     },
   };

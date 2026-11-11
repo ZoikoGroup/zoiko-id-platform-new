@@ -97,9 +97,10 @@ async def save_agent(conn: AsyncConnection, a: AgentProfile) -> None:
         text("""
             INSERT INTO agent.agent_profile (agent_principal_id, tenant_id, agent_name, blueprint_id, blueprint_version,
                 publisher_principal_id, operator_principal_id, sponsor_principal_id, owning_organization_id,
-                parent_agent_principal_id, model_provider, allowed_tools, max_subagent_depth, status, security_revision)
+                parent_agent_principal_id, model_provider, allowed_tools, max_subagent_depth, status, security_revision,
+                expires_at)
             VALUES (:id, :t, :n, :b, :v, :pub, :op, :sp, :org, :parent, :mp, :tools, :depth,
-                    CAST(:st AS agent.agent_status), :rev)
+                    CAST(:st AS agent.agent_status), :rev, :exp)
         """),
         {
             "id": uuid.UUID(a.agent_principal_id),
@@ -117,6 +118,7 @@ async def save_agent(conn: AsyncConnection, a: AgentProfile) -> None:
             "depth": a.max_subagent_depth,
             "st": a.status.value,
             "rev": a.security_revision,
+            "exp": a.expires_at,
         },
     )
 
@@ -143,6 +145,7 @@ def _agent(row: Row[Any]) -> AgentProfile:
         parent_agent_id=str(m["parent_agent_principal_id"])
         if m["parent_agent_principal_id"]
         else None,
+        expires_at=m.get("expires_at"),
     )
 
 

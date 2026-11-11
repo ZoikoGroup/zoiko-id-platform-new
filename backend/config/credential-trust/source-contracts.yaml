@@ -1,0 +1,27 @@
+# Source and contract registry (ZID-GAP-001 v2.0 GID-055, GID-056, GID-057). Versioned configuration, not tenant data.
+# status: PROPOSED (CR-069). Only the local SIMULATOR is listed. A real registrar, regulator or aggregator is added here only
+# when a contract exists: its permissible purposes, regions, lawful transfer mechanism, refresh SLA and price book reference.
+# A provider that has a product but no row here is never queried (GLB-15). A sensitive source (CRIMINAL, DISCIPLINARY,
+# SANCTIONS) also needs a consent or legal basis, an authorized user and an assigned reviewer on every request (GLB-18).
+# version: 0.1.0
+
+version: 0.1.0
+sources:
+  - source_id: simulator
+    simulated: true   # never counted as coverage (GID-065); usable for local and test only
+    primary: true
+    claim_types: [ACADEMIC_AWARD, PROFESSIONAL_LICENSE, INDUSTRY_CERTIFICATE, CPD_RECORD, EMPLOYMENT_ASSERTION, INSURANCE_ASSERTION]
+    countries: [US]
+    purposes: [PROFESSIONAL_ENGAGEMENT, PROFESSIONAL_ONBOARDING, EMPLOYMENT_SCREENING]
+    processing_regions: [local]
+    valid_from: "2026-11-11"
+    sensitivity: STANDARD
+  - source_id: simulator-disciplinary
+    simulated: true   # a stand-in for a regulator's sanctions register; never counted as coverage
+    primary: true
+    claim_types: [DISCIPLINARY_FINDING]
+    countries: [US]
+    purposes: [PROFESSIONAL_ENGAGEMENT]
+    processing_regions: [local]
+    valid_from: "2026-11-11"
+    sensitivity: DISCIPLINARY   # needs a consent or legal basis, an authorized user and an assigned reviewer on every request

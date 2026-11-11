@@ -844,6 +844,49 @@ export type BreakGlassReview = {
   reviewed_at: Iso | null;
 };
 
+/** A fraud or adverse-media signal waiting for a person (reviewer plane). `detail` carries hashes only, never an address or a device identifier. */
+export type SignalReviewStatus = "OPEN" | "CHALLENGED" | "RESOLVED";
+export type SignalNotifyState = "PENDING" | "SENT" | "FAILED";
+export type SignalSource = "VELOCITY" | "ADVERSE_MEDIA";
+export type SignalRiskTier = "LOW" | "ELEVATED" | "HIGH";
+export type SignalOutcome = "CLEARED_BY_REVIEWER" | "CONFIRMED_RISK" | "ESCALATED";
+export type VelocityDetail = {
+  rule?: string;
+  dimension?: "DEVICE" | "CONTACT" | "NETWORK";
+  action?: "SIGNUP" | "VERIFICATION" | "CLAIM";
+  count?: number;
+  threshold?: number;
+  window_seconds?: number;
+  key_hash?: string;
+};
+export type AdverseMediaDetail = {
+  provider?: string;
+  queried_at?: Iso;
+  outcome?: string;
+  hit_count?: number;
+  severity?: string;
+  rationale?: string;
+  reasons?: string[];
+};
+export type SignalReview = {
+  review_id: string;
+  signal_id: string;
+  dedupe_key: string;
+  status: SignalReviewStatus;
+  notify_state: SignalNotifyState;
+  outcome: string | null;
+  resolved_by: string | null;
+  rationale: string | null;
+  evidence_ref: string | null;
+  source: SignalSource;
+  rule: string;
+  detail: VelocityDetail & AdverseMediaDetail;
+  risk_tier: SignalRiskTier;
+  created_at: Iso;
+};
+export type SignalChallengeIn = { statement: string; evidence_ref: string };
+export type SignalResolutionIn = { outcome: SignalOutcome; rationale: string; evidence_ref: string };
+
 /* Phase G: tenant lifecycle, team and invitations (ZID-OVERLAY-001 §2-4). */
 export type TenantStatus =
   | "DRAFT"
@@ -2418,6 +2461,8 @@ export type OrgClaimStatus = {
   registration_number: string;
   state: OrgClaimState;
   outcome: OrgClaimOutcome;
+  /** Local and test environments only: the claim reads as verified from the claimant's identity check alone, with no company check or review. */
+  development_shortcut?: boolean;
   relationship: OrgClaimRelationship | null;
   submitted_at: Iso | null;
   closed_at: Iso | null;
@@ -2791,3 +2836,69 @@ export type ReconBoard = {
   receipt?: Record<string, unknown>;
 };
 export type ReconException = { exception_id: string; source_kind: string; source_id: string; reason: string; owner: string | null; resolution: string | null; resolved_at: string | null };
+
+/** Read-only trust registry (WF-04): scope and state only, no contacts, price references or certificate references. */
+export type TrustRegistry = {
+  issuer_registry_version: string;
+  packs_version: string;
+  tier_rules: number;
+  issuers: {
+    issuer_id: string;
+    kind: string;
+    name: string;
+    countries: string[];
+    claim_types: string[];
+    authority: string;
+    revoked_on: string | null;
+    outreach_contacts_registered: number;
+    accreditations: number;
+  }[];
+  sources: {
+    source_id: string;
+    claim_types: string[];
+    countries: string[];
+    purposes: string[];
+    processing_regions: string[];
+    valid_from: string;
+    valid_until: string | null;
+    sensitivity: string;
+    primary: boolean;
+    simulated: boolean;
+  }[];
+  policies: { policy_id: string; version: number; country: string; subdivision: string | null; profession_code: string; service_code: string }[];
+  certifications: { record_id: string; entity: string; scheme: string; country: string; service_code: string; valid_from: string; valid_until: string | null; status: string }[];
+};
+
+/** WF-02 dossier: one person's current credential checks, the decisions made from them and any appeals. */
+export type CredentialDossier = {
+  subject: string;
+  checks: {
+    check_id: string;
+    claim_type: string;
+    decision: string;
+    checked_at: string | null;
+    assertion: Record<string, unknown>;
+  }[];
+  decisions: { decision_id: string; kind: string; policy_id: string; policy_version: number; outcome: string; reasons: string[]; restrictions: string[]; check_ids: string[]; consumer: string | null; created_at: string }[];
+  appeals: { appeal_id: string; check_id: string; state: string; created_at: string; resolved_at: string | null }[];
+};
+
+/** An uploaded evidence document as the cell describes it (ZID-INT-002 section 05): metadata only, never the bytes. */
+export type UploadManifest = {
+  evidence_ref: string;
+  state: "AWAITING_CONTENT" | "READY" | "REJECTED" | "DELETED" | "EXPIRED";
+  reject_reason: string | null;
+  declared_type: string;
+  sniffed_type: string | null;
+  size_bytes: number;
+  sha256: string;
+  metadata_stripped: boolean;
+  scan: { state: "NOT_SCANNED" | "CLEAN" | "INFECTED" | "SCAN_ERROR"; scanner: string | null };
+  expires_at: string;
+  erased_at: string | null;
+};
+export type UploadList = { items: UploadManifest[] };
+export type UploadAnnounce = { declared_type: string; size_bytes: number; sha256: string; subject_ref?: string };
+export type UploadAnnounced = { evidence_ref: string; upload_url: string; upload_token: string; token_expires_at: string; retained_until: string; max_bytes: number };
+export type DocumentCheckResult = { check: string; status: "VERIFIED" | "NOT_VERIFIED" | "INDETERMINATE" | "UNAVAILABLE"; reasons: string[]; detail: Record<string, unknown> };
+export type DocumentValidation = { validation_id: string | null; sha256: string; sniffed_type: string | null; stored: boolean; document_results: DocumentCheckResult[]; limitations: string[] };

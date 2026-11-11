@@ -101,6 +101,8 @@ class Policy:
     validity: timedelta  # how long a clear outcome stands
     validity_elevated: timedelta  # for elevated risk: refreshed more often
     match: MatchPolicy = field(default_factory=MatchPolicy)
+    # lists that are required only when the case is elevated (high) risk: a stale or missing one blocks that approval (CR-068)
+    high_risk_required_lists: tuple[ListId, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +164,10 @@ def _lists_state(inp: ScreeningInput) -> tuple[list[str], list[Snapshot]]:
     required = list(inp.policy.required_lists)
     if inp.pack is not None and inp.pack.local_list_required and ListId.LOCAL not in required:
         required.append(ListId.LOCAL)  # the country's own list, where its pack says it is needed
+    high_risk_only = [
+        x for x in inp.policy.high_risk_required_lists if inp.elevated_risk and x not in required
+    ]
+    required += high_risk_only
     for list_id in required:
         snap = inp.snapshots.get(list_id)
         if snap is None or snap.size == 0:
@@ -170,6 +176,8 @@ def _lists_state(inp: ScreeningInput) -> tuple[list[str], list[Snapshot]]:
             problems.append(f"LIST_STALE:{list_id.value}")
         else:
             usable.append(snap)
+    if any(p.split(":", 1)[1] in {x.value for x in high_risk_only} for p in problems):
+        problems.append("HIGH_RISK_APPROVAL_BLOCKED")  # a high-risk approval never rests on a list that was not current
     return problems, usable
 
 
@@ -210,7 +218,8 @@ def decide(inp: ScreeningInput) -> Decision:
     matches: list[Match] = []
     for subject in (*inp.subjects, *listed):
         matches += screen_party(subject.party, usable, inp.policy.match)
-    alerted = frozenset(m.party_ref for m in matches)
+    # a PEP match is not a designation: it must never make an ownership chain look sanctioned
+    alerted = frozenset(m.party_ref for m in matches if m.list_id is not ListId.PEP)
 
     reasons: list[str] = []
     ownership: OwnershipResult | None = None
@@ -224,6 +233,8 @@ def decide(inp: ScreeningInput) -> Decision:
         reasons += [f"OWNER_NOT_SCREENED:{r}" for r in ownership.identify if r not in owner_refs]
     if matches:
         reasons.append("SCREENING_ALERT")
+        if any(m.list_id is ListId.PEP for m in matches):
+            reasons.append("PEP_MATCH")  # exposure, not a finding: a person decides
         reasons += sorted({f"ALERT_{m.strength.value}" for m in matches})
     gaps = reconcile_register(inp)
     if inp.register is not None and inp.register.status == "UNAVAILABLE":

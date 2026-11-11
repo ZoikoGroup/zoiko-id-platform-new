@@ -61,3 +61,18 @@ backend/.venv/Scripts/python tools/scripts/decision_baseline.py <tenant_id> <pri
 ZID_API_RATE_LIMIT_PER_MINUTE=0 docker compose up -d backend
 docker run --rm -v "$PWD/tests/load/decision-gate:/scripts:ro" -e SMOKE=1 -e ZID_CELL_URL=http://host.docker.internal:8000 -e ZID_TOKEN=<token> grafana/k6:0.54.0 run /scripts/decision-gate.js
 ```
+
+## Update 2026-11-10: the cost of a decision, counted (the gate is still NOT met)
+
+Latency follows the number of SQL statements and transactions a decision sends, so that count is now held by a test:
+`backend/app/tests/component/test_decision_cost_pg.py` records every statement of one warm `POST /access/v1/evaluation` and fails if it grows past a budget.
+
+| | 2026-10-24 baseline | 2026-11-10 |
+|---|---|---|
+| SQL statements per warm decision | about 60 | 38 |
+| Transactions per warm decision | about 8 | 3 |
+
+Part of the drop was already in the code when this was re-counted; the part done now is one `set_config` statement per transaction instead of two (`zid_db.tenant_transaction`, which every tenant transaction opens through), saving three statements per decision. Still repeated in the hot path: four evidence provenance inserts, two reads of the principal, two reads of the evidence subject key and two evidence-scope switches.
+
+This is a statement count on one machine, not a latency or throughput measurement: the serial latency and the throughput ceiling above were NOT re-measured here, and the 10,000 decisions/s per cell gate needs a PERF cell, several workers and a shared rate limiter (steps 2 to 4 above). Do not read the lower count as the gate being near.
+
