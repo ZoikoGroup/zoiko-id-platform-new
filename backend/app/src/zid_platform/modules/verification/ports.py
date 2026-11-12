@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.verification.application import policy_packs
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
 from zid_platform.modules.verification.application.entitlements import (
@@ -33,6 +34,26 @@ from zid_platform.modules.verification.domain.countries import (
     availability,
     require,
 )
+from zid_platform.modules.verification.domain.policy_packs import (
+    APPROVER_ROLES,
+    GATE_MODES,
+    PACK_PURPOSE,
+    GateDecision,
+    LegalSource,
+    Outcome,
+    PackKey,
+    PackStatus,
+    PolicyPack,
+    Resolution,
+    Rules,
+    SourceStatus,
+    gate_decision,
+    pack_hash,
+    pack_needed,
+)
+
+# `PackError` is the service pack registry's (service_packs); the policy pack lifecycle's own error keeps its own name.
+from zid_platform.modules.verification.domain.policy_packs import PackError as PolicyPackError
 from zid_platform.modules.verification.domain.product_lines import (
     LineRegistry,
     LineState,
@@ -68,6 +89,9 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
 )
 
 __all__ = [
+    "APPROVER_ROLES",
+    "GATE_MODES",
+    "PACK_PURPOSE",
     "SANDBOX_ENVIRONMENTS",
     "Availability",
     "Capability",
@@ -78,15 +102,25 @@ __all__ = [
     "Entitlement",
     "EntitlementNotFound",
     "EntitlementStatus",
+    "GateDecision",
+    "LegalSource",
     "LineRegistry",
     "LineState",
+    "Outcome",
     "PackError",
+    "PackKey",
     "PackRegistry",
+    "PackStatus",
+    "PolicyPack",
+    "PolicyPackError",
     "ProductLine",
     "ProductLineError",
     "Refusal",
+    "Resolution",
     "RouteRequest",
+    "Rules",
     "ServicePack",
+    "SourceStatus",
     "WebhookRefusal",
     "assurance",
     "availability",
@@ -95,8 +129,12 @@ __all__ = [
     "claim_matches",
     "entitlement_refusals",
     "fresh_reproof",
+    "gate_decision",
+    "pack_hash",
+    "pack_needed",
     "pack_registry",
     "person_assurance_current",
+    "policy_packs",
     "product_line_registry",
     "public_view",
     "reconcile_delayed",

@@ -457,10 +457,17 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
 
         async def provision() -> None:
             async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-                await create_principal(c, Principal(prov_principal, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+                await create_principal(
+                    c,
+                    Principal(
+                        prov_principal, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"
+                    ),
+                )
                 t = uuid.UUID(tenant)
                 await c.execute(
-                    text("INSERT INTO platform.provisioning_source (source_id, tenant_id, client_id, display_name, status) VALUES (:s, :t, :c, 'HR', 'ACTIVE')"),
+                    text(
+                        "INSERT INTO platform.provisioning_source (source_id, tenant_id, client_id, display_name, status) VALUES (:s, :t, :c, 'HR', 'ACTIVE')"
+                    ),
                     {"s": uuid.UUID(prov_source), "t": t, "c": f"hr-{prov_source[:8]}"},
                 )
                 await c.execute(
@@ -468,14 +475,25 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
                         "INSERT INTO platform.scim_resource (resource_id, tenant_id, source_id, resource_type, external_id, principal_id, user_name, active, "
                         "attributes, version, created_at, updated_at) VALUES (:r, :t, :s, 'User', 'auth0|prov-1', :p, 'prov1@acme.example', true, '{}', 1, now(), now())"
                     ),
-                    {"r": uuid.uuid4(), "t": t, "s": uuid.UUID(prov_source), "p": uuid.UUID(prov_principal)},
+                    {
+                        "r": uuid.uuid4(),
+                        "t": t,
+                        "s": uuid.UUID(prov_source),
+                        "p": uuid.UUID(prov_principal),
+                    },
                 )
                 await c.execute(
                     text(
                         "INSERT INTO platform.directory_sync (sync_id, tenant_id, source_id, connector_id, provider, display_name, settings) "
                         "VALUES (:i, :t, :s, :k, 'AUTH0', 'Directory', CAST(:cfg AS jsonb))"
                     ),
-                    {"i": uuid.uuid4(), "t": t, "s": uuid.UUID(prov_source), "k": uuid.uuid4(), "cfg": '{"domain": "login.directory.example"}'},
+                    {
+                        "i": uuid.uuid4(),
+                        "t": t,
+                        "s": uuid.UUID(prov_source),
+                        "k": uuid.uuid4(),
+                        "cfg": '{"domain": "login.directory.example"}',
+                    },
                 )
 
         asyncio.run(provision())
@@ -497,7 +515,9 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         def directory_login(subject: str) -> Any:
             idp.subject, idp.claims = subject, {"iss": dir_idp}
             r = http.get(f"/federation/connections/{dir_id}/login", params={"client_id": web})
-            return callback(idp.authorize(r.headers["location"]).replace(f"iss={IDP}", f"iss={dir_idp}"))
+            return callback(
+                idp.authorize(r.headers["location"]).replace(f"iss={IDP}", f"iss={dir_idp}")
+            )
 
         first = directory_login("auth0|prov-1")
         assert first.status_code == 200, first.text
@@ -520,7 +540,9 @@ def test_oidc_federation_linking_rollover_and_outage(rt_url: str, owner_url: str
         return dict(rows)
 
     f = asyncio.run(facts())
-    assert f["com.zoiko.id.federation.link.created.v1"] == 3  # alice (explicit) + JIT principal + the provisioned person
+    assert (
+        f["com.zoiko.id.federation.link.created.v1"] == 3
+    )  # alice (explicit) + JIT principal + the provisioned person
     assert (
         f["com.zoiko.id.federation.metadata.changed.v1"] == 6
     )  # 3 created, 2 rotated, 1 quarantined

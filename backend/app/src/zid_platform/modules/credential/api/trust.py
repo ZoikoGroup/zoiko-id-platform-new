@@ -713,7 +713,7 @@ async def replay_dead_letter(
                 conn,
                 tenant_id=caller.ctx.tenant_id or "",
                 letter_id=str(letter_id),
-                by=caller.ctx.principal_id,
+                by=caller.ctx.principal_id or "",
                 now=_now(),
                 signer=signer_for(request),
             )

@@ -28,7 +28,30 @@ ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /src
 COPY . .
 RUN uv sync --frozen --all-packages
-RUN uv run --frozen pytest -q libs app
+RUN uv run --frozen pytest -q libs app assistant/tests/unit assistant/tests/security assistant/tests/golden
+
+# ---------- public assistant (ZI-CHAT-ADR-006 ADR-02): a SEPARATE image, never the platform image ----------
+#   docker build --target assistant -t zid/public-assistant backend/
+# Its own dependency closure (no identity libraries), own user, own port (8210). Content and SQL ship beside the venv.
+FROM ${PYTHON_IMAGE} AS assistant-builder
+COPY --from=uv /uv /usr/local/bin/uv
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/app/.venv
+WORKDIR /src
+COPY . .
+RUN uv sync --frozen --no-dev --no-editable --package zoiko-id-public-assistant
+
+FROM ${PYTHON_IMAGE} AS assistant
+RUN groupadd --system --gid 10002 zidpa && useradd --system --uid 10002 --gid zidpa --no-create-home zidpa
+COPY --from=assistant-builder --chown=zidpa:zidpa /app/.venv /app/.venv
+COPY --chown=zidpa:zidpa assistant/content /app/content
+COPY --chown=zidpa:zidpa assistant/sql /app/sql
+ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1     ZID_ASSISTANT_CONTENT_DIR=/app/content ZID_ASSISTANT_SQL_DIR=/app/sql ZID_ASSISTANT_BIND_HOST=0.0.0.0
+# G0 evidence, enforced at build time: this image must contain NO platform code (ADR-02). The build fails if it ever does.
+RUN python -c "import importlib.util, sys; sys.exit(1 if importlib.util.find_spec('zid_platform') else 0)"
+USER zidpa
+EXPOSE 8210
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8210/health/live', timeout=2).status==200 else 1)"
+CMD ["python", "-m", "zid_assistant"]
 
 # ---------- runtime: no build tools, non-root ----------
 FROM ${PYTHON_IMAGE} AS runtime

@@ -66,7 +66,9 @@ async def insert(
 async def get(conn: AsyncConnection, build_id: str, *, lock: bool = False) -> dict[str, Any] | None:
     row = (
         await conn.execute(
-            text(f"SELECT {_COLUMNS} FROM agent.build_artifact WHERE build_id = :i{' FOR UPDATE' if lock else ''}"),
+            text(
+                f"SELECT {_COLUMNS} FROM agent.build_artifact WHERE build_id = :i{' FOR UPDATE' if lock else ''}"
+            ),
             {"i": uuid.UUID(build_id)},
         )
     ).first()
@@ -83,7 +85,9 @@ async def by_digest(conn: AsyncConnection, artifact_digest: str) -> dict[str, An
     return _view(row) if row else None
 
 
-async def list_builds(conn: AsyncConnection, *, status: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+async def list_builds(
+    conn: AsyncConnection, *, status: str | None = None, limit: int = 200
+) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
             text(

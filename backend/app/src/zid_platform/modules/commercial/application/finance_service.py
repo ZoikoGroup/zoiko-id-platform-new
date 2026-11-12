@@ -30,9 +30,38 @@ ROLES = (
     "DISPUTES_SPECIALIST", "FINANCE_EXECUTOR",
 )  # fmt: skip
 SANDBOX = frozenset({"local", "test"})  # a deployed environment never acts on an unsigned policy
+AUTOMATION_ROLES = frozenset(
+    {"REVOPS", "FINANCE_EXECUTOR"}
+)  # these only open or run what people approved, so an automation may hold them
 
 
 # ---------------------------------------------------------------------------------------------------------------- appointments
+
+
+async def require_person(conn: AsyncConnection, principal: str, role: str) -> None:
+    """A role that approves or decides is held by an active person (ZID-COM-CL-004 C12 and section 08): a service, workload, application or AI agent
+    never signs as the CFO, the Founder or any approver, and an unknown principal holds nothing. Only the two roles that run work are open to an automation."""
+    if role in AUTOMATION_ROLES:
+        return
+    row = (
+        await conn.execute(
+            text(
+                "SELECT principal_type::text AS kind, status::text AS state FROM core.principal WHERE principal_id = :p"
+            ),
+            {"p": uuid.UUID(principal)},
+        )
+    ).first()
+    if row is None:
+        raise FinanceError(
+            "PRINCIPAL_UNKNOWN", "only a known person of the operator plane can hold this role"
+        )
+    if row.kind != "HUMAN":
+        raise FinanceError(
+            "NOT_A_PERSON",
+            "a service, workload, application or AI agent cannot hold a role that approves; appoint a person",
+        )
+    if row.state != "ACTIVE":
+        raise FinanceError("PRINCIPAL_NOT_ACTIVE", "this person's account is not active")
 
 
 async def appoint(
@@ -54,6 +83,7 @@ async def appoint(
         raise FinanceError(
             "SELF_APPOINTMENT", "nobody appoints themselves or raises their own limit"
         )
+    await require_person(conn, principal, role)
     if effective_to is not None and effective_to <= effective_from:
         raise FinanceError("WINDOW_INVALID", "an appointment ends after it starts")
     aid = uuid.uuid4()

@@ -11,13 +11,25 @@ import pytest
 from zid_platform.modules.machine.infrastructure import registry
 from zid_platform.modules.machine.infrastructure.registry import RegistryError
 
-MANIFEST = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","layers":[]}'
+MANIFEST = (
+    b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","layers":[]}'
+)
 DIGEST = "sha256:" + hashlib.sha256(MANIFEST).hexdigest()
-PUBLIC = lambda host: {"8.8.8.8"}  # noqa: E731 - a global address (documentation ranges are not global, and the guard rightly refuses them)
+PUBLIC = lambda host: {"8.8.8.8"}
 
 
-def run(image: str, handler: Any, *, allowed: tuple[str, ...] = ("ghcr.io",), **kw: Any) -> registry.Resolved:
-    return asyncio.run(registry.resolve(image, allowed=allowed, transport=httpx.MockTransport(handler), resolver=kw.pop("resolver", PUBLIC), **kw))
+def run(
+    image: str, handler: Any, *, allowed: tuple[str, ...] = ("ghcr.io",), **kw: Any
+) -> registry.Resolved:
+    return asyncio.run(
+        registry.resolve(
+            image,
+            allowed=allowed,
+            transport=httpx.MockTransport(handler),
+            resolver=kw.pop("resolver", PUBLIC),
+            **kw,
+        )
+    )
 
 
 def fails(image: str, handler: Any, code: str, **kw: Any) -> None:
@@ -27,7 +39,14 @@ def fails(image: str, handler: Any, code: str, **kw: Any) -> None:
 
 
 def public(req: httpx.Request) -> httpx.Response:
-    return httpx.Response(200, content=MANIFEST, headers={"content-type": "application/vnd.oci.image.manifest.v1+json", "docker-content-digest": DIGEST})
+    return httpx.Response(
+        200,
+        content=MANIFEST,
+        headers={
+            "content-type": "application/vnd.oci.image.manifest.v1+json",
+            "docker-content-digest": DIGEST,
+        },
+    )
 
 
 # ------------------------------------------------------------------------------------------------ names
@@ -51,8 +70,23 @@ def test_names_are_read_as_docker_reads_them(given: str, host: str, repo: str, r
 
 @pytest.mark.parametrize(
     "bad",
-    ["", "  ", "https://ghcr.io/acme/bot", "ghcr.io/acme/bot:ta g", "ghcr.io/ACME/bot", "ghcr.io/../etc/passwd", "ghcr.io/acme/bot?x=1", "user:pw@ghcr.io/a/b",
-     "ghcr.io/acme//bot", "ghcr.io/acme/bot@sha256:short", "ghcr.io/a@b@c", "a" * 500, "ghcr.io/acme/bot:" + "t" * 200, "ghcr.io/acme/bot\\evil", "ghcr.io/acme/bot%2e"],
+    [
+        "",
+        "  ",
+        "https://ghcr.io/acme/bot",
+        "ghcr.io/acme/bot:ta g",
+        "ghcr.io/ACME/bot",
+        "ghcr.io/../etc/passwd",
+        "ghcr.io/acme/bot?x=1",
+        "user:pw@ghcr.io/a/b",
+        "ghcr.io/acme//bot",
+        "ghcr.io/acme/bot@sha256:short",
+        "ghcr.io/a@b@c",
+        "a" * 500,
+        "ghcr.io/acme/bot:" + "t" * 200,
+        "ghcr.io/acme/bot\\evil",
+        "ghcr.io/acme/bot%2e",
+    ],
 )
 def test_anything_that_is_not_an_image_name_is_refused_before_a_request_is_made(bad: str) -> None:
     with pytest.raises(RegistryError) as e:
@@ -83,7 +117,19 @@ def test_a_registry_that_was_not_named_is_never_contacted() -> None:
     assert called == []
 
 
-@pytest.mark.parametrize("address", ["127.0.0.1", "10.1.2.3", "192.168.0.9", "169.254.169.254", "172.16.0.1", "::1", "fe80::1", "100.64.0.1"])
+@pytest.mark.parametrize(
+    "address",
+    [
+        "127.0.0.1",
+        "10.1.2.3",
+        "192.168.0.9",
+        "169.254.169.254",
+        "172.16.0.1",
+        "::1",
+        "fe80::1",
+        "100.64.0.1",
+    ],
+)
 def test_a_registry_that_resolves_to_a_private_address_is_not_contacted(address: str) -> None:
     called: list[str] = []
 
@@ -96,16 +142,31 @@ def test_a_registry_that_resolves_to_a_private_address_is_not_contacted(address:
 
 
 def test_a_private_address_is_allowed_only_where_the_operator_named_it_for_that() -> None:
-    got = run("localhost:5000/bot:1", public, allowed=("localhost:5000",), private_ok=("localhost:5000",), resolver=lambda h: {"127.0.0.1"})
+    got = run(
+        "localhost:5000/bot:1",
+        public,
+        allowed=("localhost:5000",),
+        private_ok=("localhost:5000",),
+        resolver=lambda h: {"127.0.0.1"},
+    )
     assert got.digest == DIGEST
 
 
 def test_one_address_in_a_mixed_answer_is_enough_to_refuse() -> None:
-    fails("ghcr.io/acme/bot:1", public, "REGISTRY_NOT_ALLOWED", resolver=lambda h: {"8.8.8.8", "10.0.0.5"})
+    fails(
+        "ghcr.io/acme/bot:1",
+        public,
+        "REGISTRY_NOT_ALLOWED",
+        resolver=lambda h: {"8.8.8.8", "10.0.0.5"},
+    )
 
 
 def test_a_redirect_is_not_followed() -> None:
-    fails("ghcr.io/acme/bot:1", lambda r: httpx.Response(302, headers={"location": "http://169.254.169.254/"}), "REGISTRY_UNREACHABLE")
+    fails(
+        "ghcr.io/acme/bot:1",
+        lambda r: httpx.Response(302, headers={"location": "http://169.254.169.254/"}),
+        "REGISTRY_UNREACHABLE",
+    )
 
 
 # ------------------------------------------------------------------------------------------------ the answer
@@ -116,7 +177,13 @@ def test_the_digest_is_the_hash_of_the_manifest_the_registry_sent() -> None:
 
 
 def test_a_digest_header_that_disagrees_with_the_manifest_is_refused() -> None:
-    fails("ghcr.io/acme/bot:1", lambda r: httpx.Response(200, content=MANIFEST, headers={"docker-content-digest": "sha256:" + "0" * 64}), "REGISTRY_UNREACHABLE")
+    fails(
+        "ghcr.io/acme/bot:1",
+        lambda r: httpx.Response(
+            200, content=MANIFEST, headers={"docker-content-digest": "sha256:" + "0" * 64}
+        ),
+        "REGISTRY_UNREACHABLE",
+    )
 
 
 def test_asking_for_a_digest_gets_that_digest_or_an_error() -> None:
@@ -135,7 +202,11 @@ def test_an_unknown_image_is_not_found_and_a_broken_registry_is_unreachable() ->
 
 
 def test_a_manifest_bigger_than_the_cap_is_refused() -> None:
-    fails("ghcr.io/acme/bot:1", lambda r: httpx.Response(200, content=b"x" * (registry.MAX_MANIFEST + 1)), "REGISTRY_UNREACHABLE")
+    fails(
+        "ghcr.io/acme/bot:1",
+        lambda r: httpx.Response(200, content=b"x" * (registry.MAX_MANIFEST + 1)),
+        "REGISTRY_UNREACHABLE",
+    )
 
 
 # ------------------------------------------------------------------------------------------------ anonymous token
@@ -149,7 +220,12 @@ def token_flow(token_status: int = 200, realm: str = "https://ghcr.io/token") ->
         if req.headers.get("authorization") == "Bearer anon-token":
             seen["authed"] = True
             return public(req)
-        return httpx.Response(401, headers={"www-authenticate": f'Bearer realm="{realm}",service="ghcr.io",scope="repository:acme/bot:pull"'})
+        return httpx.Response(
+            401,
+            headers={
+                "www-authenticate": f'Bearer realm="{realm}",service="ghcr.io",scope="repository:acme/bot:pull"'
+            },
+        )
 
     handler.seen = seen  # type: ignore[attr-defined]
     return handler
@@ -158,15 +234,33 @@ def token_flow(token_status: int = 200, realm: str = "https://ghcr.io/token") ->
 def test_a_public_image_is_read_with_an_anonymous_token_the_registry_names() -> None:
     h = token_flow()
     assert run("ghcr.io/acme/bot:1", h).digest == DIGEST
-    assert h.seen["authed"] and h.seen["token_query"] == {"service": "ghcr.io", "scope": "repository:acme/bot:pull"}
+    assert h.seen["authed"] and h.seen["token_query"] == {
+        "service": "ghcr.io",
+        "scope": "repository:acme/bot:pull",
+    }
 
 
 def test_a_private_image_is_reported_as_needing_a_credential_never_guessed_at() -> None:
     fails("ghcr.io/acme/bot:1", token_flow(token_status=401), "REGISTRY_AUTH_REQUIRED")
-    fails("ghcr.io/acme/bot:1", lambda r: httpx.Response(401, headers={"www-authenticate": 'Basic realm="x"'}), "REGISTRY_AUTH_REQUIRED")
+    fails(
+        "ghcr.io/acme/bot:1",
+        lambda r: httpx.Response(401, headers={"www-authenticate": 'Basic realm="x"'}),
+        "REGISTRY_AUTH_REQUIRED",
+    )
 
 
 def test_the_token_service_is_held_to_the_same_rules_as_the_registry() -> None:
-    fails("ghcr.io/acme/bot:1", token_flow(realm="http://ghcr.io/token"), "REGISTRY_UNREACHABLE")  # not https
-    fails("ghcr.io/acme/bot:1", token_flow(realm="https://attacker.example/token"), "REGISTRY_NOT_ALLOWED")  # not named
-    fails("ghcr.io/acme/bot:1", token_flow(realm="https://ghcr.io/token"), "REGISTRY_NOT_ALLOWED", resolver=lambda h: {"10.0.0.1"})  # resolves privately
+    fails(
+        "ghcr.io/acme/bot:1", token_flow(realm="http://ghcr.io/token"), "REGISTRY_UNREACHABLE"
+    )  # not https
+    fails(
+        "ghcr.io/acme/bot:1",
+        token_flow(realm="https://attacker.example/token"),
+        "REGISTRY_NOT_ALLOWED",
+    )  # not named
+    fails(
+        "ghcr.io/acme/bot:1",
+        token_flow(realm="https://ghcr.io/token"),
+        "REGISTRY_NOT_ALLOWED",
+        resolver=lambda h: {"10.0.0.1"},
+    )  # resolves privately

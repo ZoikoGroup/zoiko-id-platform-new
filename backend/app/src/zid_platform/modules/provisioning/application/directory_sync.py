@@ -36,9 +36,8 @@ from zid_platform.modules.provisioning.domain.directory import (
     next_delay,
     plan,
 )
-from zid_platform.modules.provisioning.infrastructure import auth0_directory
+from zid_platform.modules.provisioning.infrastructure import auth0_directory, scim_store
 from zid_platform.modules.provisioning.infrastructure import directory_store as store
-from zid_platform.modules.provisioning.infrastructure import scim_store
 from zid_platform.modules.provisioning.infrastructure.directory_store import Sync
 from zid_platform.modules.provisioning.infrastructure.scim_store import ScimError, Source
 
@@ -64,13 +63,20 @@ async def create_sync(
     src = await scim_store.get_source(conn, source_id)
     if src is None or src.status != "ACTIVE":
         raise DirectoryError("SOURCE_NOT_ACTIVE")
-    if await store.for_source(conn, source_id) is not None:  # before anything is registered: one sync per source
+    if (
+        await store.for_source(conn, source_id) is not None
+    ):  # before anything is registered: one sync per source
         raise DirectoryError("SYNC_EXISTS")
     cfg = _provider(provider).check_settings(settings)
     if not secret or len(secret) > 512:
         raise DirectoryError("SETTINGS_INVALID", "a client secret is required")
     connector_id = await register_directory_connector(
-        conn, tenant_id, display_name=display_name, source_ref=f"directory_sync:{source_id}", owner=owner, actor=actor
+        conn,
+        tenant_id,
+        display_name=display_name,
+        source_ref=f"directory_sync:{source_id}",
+        owner=owner,
+        actor=actor,
     )
     await set_connector_secret(conn, tenant_id, connector_id, secret=secret, actor=actor)
     return await store.create(
@@ -83,7 +89,9 @@ async def _users_of(conn: AsyncConnection, src: Source) -> list[Any]:
     found: list[Any] = []
     start = 1
     while True:
-        total, items = await scim_store.query(conn, src.source_id, "User", attribute=None, value=None, start=start, count=PAGE)
+        total, items = await scim_store.query(
+            conn, src.source_id, "User", attribute=None, value=None, start=start, count=PAGE
+        )
         found += items
         start += PAGE
         if not items or len(found) >= total:
@@ -111,47 +119,77 @@ async def run_sync(
 
     async def attempt(work: Callable[[], Awaitable[object]]) -> None:
         try:
-            async with conn.begin_nested():  # one person who cannot be applied never undoes or stops the rest
+            async with (
+                conn.begin_nested()
+            ):  # one person who cannot be applied never undoes or stops the rest
                 await work()
         except ScimError as e:
             counts["failed"] += 1
-            log.warning("directory sync %s: a person was refused (%s)", sync.sync_id[:8], e.scim_type or e.status)
+            log.warning(
+                "directory sync %s: a person was refused (%s)",
+                sync.sync_id[:8],
+                e.scim_type or e.status,
+            )
 
     for want in todo.create:
 
         async def create(want: dict[str, Any] = want) -> None:
             r = await scim.create_user(conn, src, want, home_cell=home_cell, now=now)
             if want["active"]:  # a blocked person is provisioned but joins nothing
-                await apply_event(conn, src, user_id=r.resource_id, event=LifecycleEvent.JOINER, effective_at=now, now=now)
+                await apply_event(
+                    conn,
+                    src,
+                    user_id=r.resource_id,
+                    event=LifecycleEvent.JOINER,
+                    effective_at=now,
+                    now=now,
+                )
 
         await attempt(create)
     for resource_id, want in todo.update:
-        await attempt(lambda rid=resource_id, w=want: scim.replace_user(conn, src, rid, w, if_match=None, now=now))  # type: ignore[misc]
-    off = {"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"], "Operations": [{"op": "replace", "path": "active", "value": False}]}
+        await attempt(
+            lambda rid=resource_id, w=want: scim.replace_user(  # type: ignore[misc]
+                conn, src, rid, w, if_match=None, now=now
+            )
+        )
+    off = {
+        "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+        "Operations": [{"op": "replace", "path": "active", "value": False}],
+    }
     for resource_id in todo.deactivate:
-        await attempt(lambda rid=resource_id: scim.patch_user(conn, src, rid, off, if_match=None, now=now))  # type: ignore[misc]
+        await attempt(
+            lambda rid=resource_id: scim.patch_user(conn, src, rid, off, if_match=None, now=now)  # type: ignore[misc]
+        )
     return counts
 
 
-async def sync_pass(conn: AsyncConnection, now: datetime, *, http: httpx.AsyncClient, home_cell: str) -> dict[str, int]:
+async def sync_pass(
+    conn: AsyncConnection, now: datetime, *, http: httpx.AsyncClient, home_cell: str
+) -> dict[str, int]:
     """Worker pass (sees every company): run each sync that is due, each in its own company's scope and its own savepoint."""
     ran = failed = 0
     for sync in await store.due(conn, now):
         ok, error, counts = True, None, {}
         try:
-            async with conn.begin_nested():
-                async with in_tenant(conn, sync.tenant_id):
-                    counts = await run_sync(conn, sync, http=http, home_cell=home_cell, now=now)
+            async with conn.begin_nested(), in_tenant(conn, sync.tenant_id):
+                counts = await run_sync(conn, sync, http=http, home_cell=home_cell, now=now)
             error = "SOME_PEOPLE_REFUSED" if counts.get("failed") else None
         except DirectoryError as e:
             ok, error = False, e.code
-        except Exception:  # noqa: BLE001 - one company's problem must not stop the others
+        except Exception:
             log.exception("directory sync %s failed", sync.sync_id[:8])
             ok, error = False, "SYNC_ERROR"
         failures = 0 if ok else sync.consecutive_failures + 1
         async with in_tenant(conn, sync.tenant_id):
             await store.record_run(
-                conn, sync, ok=ok, error=error, counts=counts, now=now, delay_s=next_delay(sync.interval_seconds, failures), failures=failures
+                conn,
+                sync,
+                ok=ok,
+                error=error,
+                counts=counts,
+                now=now,
+                delay_s=next_delay(sync.interval_seconds, failures),
+                failures=failures,
             )
             await record_interaction(conn, f"directory_sync:{sync.source_id}", ok=ok)
         ran += 1

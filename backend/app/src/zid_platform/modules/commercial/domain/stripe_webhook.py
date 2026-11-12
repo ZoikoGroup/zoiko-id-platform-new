@@ -33,7 +33,9 @@ class StripeEvent:
     data: dict[str, Any]
     livemode: bool = False
     merchant_ref: str = ""
-    order_id: str | None = None  # a plan-activation payment names its order instead of an invoice (CR-062)
+    order_id: str | None = (
+        None  # a plan-activation payment names its order instead of an invoice (CR-062)
+    )
 
 
 def verify_signature(
@@ -94,7 +96,9 @@ def parse_event(raw: bytes) -> StripeEvent:
         data=obj,
         livemode=bool(body.get("livemode")),
         merchant_ref=str(body.get("account") or ""),
-        order_id=str(meta["order_id"]) if meta.get("order_id") and meta.get("purpose") in (None, "plan_activation") else None,
+        order_id=str(meta["order_id"])
+        if meta.get("order_id") and meta.get("purpose") in (None, "plan_activation")
+        else None,
     )
 
 

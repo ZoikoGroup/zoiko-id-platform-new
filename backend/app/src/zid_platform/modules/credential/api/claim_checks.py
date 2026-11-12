@@ -132,7 +132,7 @@ def signer_for(request: Request) -> ac.Signer:
     if keyrings is None:
         raise ZidError("DEPENDENCY_UNAVAILABLE", "No signing key is configured.", http_status=503)
     ring = keyrings.credential
-    return lambda claims: ring.sign(claims, typ=ac.SIGNATURE_TYP)  # type: ignore[no-any-return]
+    return lambda claims: ring.sign(claims, typ=ac.SIGNATURE_TYP)
 
 
 def _resilience(request: Request) -> rs.Resilience:
@@ -354,7 +354,8 @@ async def packs_for(
         if v["country"] != code or v["profession"] not in (None, profession):
             continue
         claim = next(
-            (t.value for t, svc in checks.SERVICE_CODES.items() if svc == v["service"]), None
+            (t.value for t, svc in checks.SERVICE_CODES.items() if svc == v["service"]),  # type: ignore[attr-defined]
+            None,
         )
         out.append(
             {

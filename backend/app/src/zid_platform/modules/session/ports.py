@@ -129,7 +129,13 @@ class OAuthClientGateway:
         """A machine client for an application that asks the decision API (a PEP): `client_credentials` only, a signed key, no redirect, its own
         service principal. The same kind of client a SCIM connector uses; a person-sign-in client cannot get a machine token."""
         return await register_service_client(
-            conn, tenant_id=tenant_id, name=name, jwks=jwks, scopes=scopes, audience=audience, home_cell=home_cell
+            conn,
+            tenant_id=tenant_id,
+            name=name,
+            jwks=jwks,
+            scopes=scopes,
+            audience=audience,
+            home_cell=home_cell,
         )
 
     async def get(self, conn: AsyncConnection, client_id: str) -> dict[str, Any] | None:
@@ -195,7 +201,9 @@ async def usable_service_client(conn: AsyncConnection, client_id: str, *, scope:
     )
 
 
-async def signed_key_service_caller(conn: AsyncConnection, *, client_id: str, principal_id: str) -> bool:
+async def signed_key_service_caller(
+    conn: AsyncConnection, *, client_id: str, principal_id: str
+) -> bool:
     """True only when the caller IS an ACTIVE machine client that proves itself with a signed key and acts as its own service identity (CR-066).
 
     Read from the client's own record, in the caller's tenant (RLS), never from anything the caller sent: `client_credentials` only (no person signs in

@@ -127,7 +127,10 @@ async def production_environments_check(
             plan_code = str(current["plan_code"]) if current else DEFAULT_PLAN
             limit = (
                 await conn.execute(
-                    text("SELECT production_environments FROM commercial.plan WHERE plan_code = :p"), {"p": plan_code}
+                    text(
+                        "SELECT production_environments FROM commercial.plan WHERE plan_code = :p"
+                    ),
+                    {"p": plan_code},
                 )
             ).scalar()
     except Exception:
@@ -136,7 +139,12 @@ async def production_environments_check(
     if limit is None or used < int(limit):
         return True, plan_code, None if limit is None else int(limit)
     if enforcement != "enforce":
-        log.warning("plan shadow denial: production_environments used=%s limit=%s plan=%s", used, limit, plan_code)
+        log.warning(
+            "plan shadow denial: production_environments used=%s limit=%s plan=%s",
+            used,
+            limit,
+            plan_code,
+        )
         return True, plan_code, int(limit)
     return False, plan_code, int(limit)
 

@@ -427,7 +427,7 @@ def _signer_certificate(certs: Sequence[x509.Certificate], s: _Signer) -> x509.C
                 ext = c.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_KEY_IDENTIFIER).value
             except x509.ExtensionNotFound:
                 continue
-            if ext.digest == s.sid_ski:
+            if ext.digest == s.sid_ski:  # type: ignore[attr-defined]
                 return c
     return None
 
@@ -513,7 +513,7 @@ def _issued_by(cert: x509.Certificate, issuer: x509.Certificate) -> bool:
 
 def _is_ca(cert: x509.Certificate) -> bool:
     try:
-        return bool(cert.extensions.get_extension_for_oid(ExtensionOID.BASIC_CONSTRAINTS).value.ca)
+        return bool(cert.extensions.get_extension_for_oid(ExtensionOID.BASIC_CONSTRAINTS).value.ca)  # type: ignore[attr-defined]
     except x509.ExtensionNotFound:
         return False
 
@@ -657,7 +657,7 @@ def check_revocation(
             if crl.next_update_utc is not None and crl.next_update_utc < now:
                 continue  # a list past its next update says nothing current
             try:
-                if not crl.is_signature_valid(issuer.public_key()):
+                if not crl.is_signature_valid(issuer.public_key()):  # type: ignore[arg-type]
                     continue
             except (ValueError, TypeError):
                 continue

@@ -1,0 +1,18 @@
+# P04 claim classes (ZI-CHAT-CSR-008 section 08). `kind` decides which gate an affirmative claim must pass (see domain/content.py ClaimKind):
+#   CONCEPT       general education, no product assertion
+#   PRODUCT       asserts what Zoiko iD supports: needs a P01 capability that is RELEASED for the market/audience
+#   SENSITIVE     certification, legal, residency, regulated proof: needs P04 sign-off (approved: true + named approvers)
+#   COMMERCIAL    price, plan, SLA: needs an approved P05 fact
+#   SECURE_ROUTE  account / authorization / private verification actions: always denied in public chat, secure official route only
+# `approved: false` everywhere: no sign-off exists (all 24 open decisions are OPEN).
+claims:
+  - {claim_id: CL-01, name: "Approved corporate positioning and Identity + Authority + Evidence narrative", kind: CONCEPT}  # default REVIEW: needs an approved P02 overview
+  - {claim_id: CL-02, name: "Proposed ten-layer architecture and high-level conceptual descriptions", kind: CONCEPT}  # CONCEPT_ONLY, no operational wording
+  - {claim_id: CL-03, name: "Specific OIDC / OAuth / SAML / SCIM / FIDO2 / device capability", kind: PRODUCT}  # HOLD until P01 + P02
+  - {claim_id: CL-04, name: "Specific SDK, integration, connector, API or event capability", kind: PRODUCT}  # HOLD until P01 + P02 + P03
+  - {claim_id: CL-05, name: "Countries, KYC/KYB, regulated proof, cross-border interoperability", kind: SENSITIVE}  # HOLD until P01 + P02 + P04
+  - {claim_id: CL-06, name: "Security, compliance, certification, trust and assurance", kind: SENSITIVE}  # HOLD until independent proof + P04
+  - {claim_id: CL-07, name: "Pricing, plan, SLA, free tier, discounts and lead times", kind: COMMERCIAL}  # HOLD until P05 + P02/P03
+  - {claim_id: CL-08, name: "Account, password, passkey, authorization or private verification actions", kind: SECURE_ROUTE}  # DENY in public chat; safe official route only
+  - {claim_id: CL-09, name: "Privacy notices, user rights, consent processing", kind: SENSITIVE}  # HOLD destination until P03 and Document 09
+  - {claim_id: CL-10, name: "AI agents, roadmap, decentralized credentials, EUDI", kind: CONCEPT}  # CONCEPT_ONLY or LIMITED, never presumed released

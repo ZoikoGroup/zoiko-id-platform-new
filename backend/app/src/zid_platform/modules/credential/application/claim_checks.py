@@ -126,7 +126,11 @@ class SimulatorSource:
             (str(v) for v in claimed.values() if isinstance(v, str) and v.startswith("SIM-")),
             "SIM-OK",
         )
-        base = {"source_id": self.source_id, "checked_at": now, "reference": f"sim-{tag}"}
+        base: dict[str, Any] = {
+            "source_id": self.source_id,
+            "checked_at": now,
+            "reference": f"sim-{tag}",
+        }
         if claim is ClaimType.DISCIPLINARY_FINDING:
             return self._disciplinary(tag, base)
         confirmed: dict[str, Any] = {k: v for k, v in claimed.items() if k != "award_status"}
@@ -475,7 +479,7 @@ async def run_check(
             evidence=EvidenceTier.SELF_DECLARED,
         )
         standing_restrictions: list[str] = []
-        entity_is_subject = None
+        entity_is_subject: bool | None = None
     else:
         if gate.contracts is not None:
             mine = [c for c in gate.contracts if c.source_id == getattr(source, "source_id", "")]
@@ -527,7 +531,7 @@ async def run_check(
             subject, _ = match_holder(
                 holder, str(source_name), source_birth_year=answer.fields.get("birth_year")
             )
-        entity_is_subject: bool | None = None
+        entity_is_subject = None
         if claim is ClaimType.INSURANCE_ASSERTION and holder is not None:
             entity_is_subject = " ".join(
                 str(answer.fields.get("insured_entity", "")).casefold().split()

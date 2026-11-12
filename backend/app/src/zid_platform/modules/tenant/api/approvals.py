@@ -552,9 +552,7 @@ async def list_reviewers(request: Request, caller: CallerDep) -> dict[str, Any]:
         rows = await store.reviewers(conn)
         refs = await people.person_refs(conn, [r.principal_id for r in rows])
     return {
-        "items": [
-            {**reviewer_svc.public(r), "person": refs[r.principal_id].view()} for r in rows
-        ]
+        "items": [{**reviewer_svc.public(r), "person": refs[r.principal_id].view()} for r in rows]
     }
 
 

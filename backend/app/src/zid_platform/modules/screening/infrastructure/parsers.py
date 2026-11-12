@@ -422,11 +422,29 @@ def parse_local_csv(raw: bytes) -> list[Entry]:
 
 PEP_HEADER = ("source_ref", "name", "aliases", "birth", "country", "position", "level")
 PEP_LEVELS = frozenset(
-    {"HEAD_OF_STATE", "NATIONAL", "REGIONAL", "LOCAL", "INTERNATIONAL_ORG", "STATE_ENTERPRISE", "RELATIVE", "ASSOCIATE"}
+    {
+        "HEAD_OF_STATE",
+        "NATIONAL",
+        "REGIONAL",
+        "LOCAL",
+        "INTERNATIONAL_ORG",
+        "STATE_ENTERPRISE",
+        "RELATIVE",
+        "ASSOCIATE",
+    }
 )
 
 
-def _pep_entry(n: int, ref: str, name: str, aliases: list[str], birth: str, country: str, position: str, level: str) -> Entry:
+def _pep_entry(
+    n: int,
+    ref: str,
+    name: str,
+    aliases: list[str],
+    birth: str,
+    country: str,
+    position: str,
+    level: str,
+) -> Entry:
     if not ref or not name or level not in PEP_LEVELS:
         raise ListFormatError(
             f"entry {n} needs source_ref, name and a level of {', '.join(sorted(PEP_LEVELS))}"
@@ -488,7 +506,9 @@ def parse_pep(raw: bytes) -> list[Entry]:
             if len(row) != len(PEP_HEADER):
                 raise ListFormatError(f"row {n} has {len(row)} columns, not {len(PEP_HEADER)}")
             ref, name, aliases, birth, country, position, level = (c.strip() for c in row)
-            entries.append(_pep_entry(n, ref, name, aliases.split("|"), birth, country, position, level))
+            entries.append(
+                _pep_entry(n, ref, name, aliases.split("|"), birth, country, position, level)
+            )
     if not entries:
         raise ListFormatError("no entries found")
     if len({e.source_ref for e in entries}) != len(entries):

@@ -102,7 +102,7 @@ async def _facts(
         )
         for r in rows
     ]
-    return facts, rows
+    return facts, rows  # type: ignore[return-value]
 
 
 @dataclass(frozen=True, slots=True)

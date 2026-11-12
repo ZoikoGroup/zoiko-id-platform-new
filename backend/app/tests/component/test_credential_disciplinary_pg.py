@@ -1,4 +1,4 @@
-﻿"""Disciplinary checks (GID-046, GID-057) and employment disclosure limits (GID-044), CR-069.
+"""Disciplinary checks (GID-046, GID-057) and employment disclosure limits (GID-044), CR-069.
 
 GLB-18  a sensitive check without a basis, an authorized user or a reviewer is refused and nothing is asked
 GLB-22  a same-name match is a REVIEW, never an adverse decision

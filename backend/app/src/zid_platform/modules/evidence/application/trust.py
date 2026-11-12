@@ -31,7 +31,7 @@ from cryptography.x509 import ocsp
 from defusedxml import DefusedXmlException
 from defusedxml import ElementTree as SafeET
 from lxml import etree
-from signxml import XMLVerifier
+from signxml import XMLVerifier  # type: ignore[attr-defined]
 
 TSL = "{http://uri.etsi.org/02231/v2#}"
 OID_QC_STATEMENTS = x509.ObjectIdentifier("1.3.6.1.5.5.7.1.3")

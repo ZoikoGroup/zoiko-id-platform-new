@@ -34,9 +34,16 @@ from zid_platform.protected import protected_action
 router = APIRouter(tags=["scim"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 Trimmed = StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
-RUN_NOW_GAP = timedelta(seconds=60)  # every run reads the provider, so "run now" is not a way to hammer it
+RUN_NOW_GAP = timedelta(
+    seconds=60
+)  # every run reads the provider, so "run now" is not a way to hammer it
 
-_STATUS = {"SETTINGS_INVALID": 422, "PROVIDER_UNKNOWN": 422, "SOURCE_NOT_ACTIVE": 409, "SYNC_EXISTS": 409}
+_STATUS = {
+    "SETTINGS_INVALID": 422,
+    "PROVIDER_UNKNOWN": 422,
+    "SOURCE_NOT_ACTIVE": 409,
+    "SYNC_EXISTS": 409,
+}
 _MESSAGES = {
     "SETTINGS_INVALID": "Check the Auth0 domain, the client id and the secret.",
     "PROVIDER_UNKNOWN": "That directory provider is not supported.",
@@ -50,8 +57,12 @@ class DirectorySyncIn(BaseModel):
     source_id: uuid.UUID
     provider: Literal["AUTH0"]
     display_name: Annotated[str, Trimmed]
-    settings: dict[str, str] = Field(max_length=8)  # the provider's addresses and ids; the secret is separate
-    secret: SecretStr = Field(min_length=1, max_length=512)  # write-only: sealed at once, never returned
+    settings: dict[str, str] = Field(
+        max_length=8
+    )  # the provider's addresses and ids; the secret is separate
+    secret: SecretStr = Field(
+        min_length=1, max_length=512
+    )  # write-only: sealed at once, never returned
     interval_seconds: int = Field(default=INTERVAL_DEFAULT, ge=300, le=86400)
     approval_request_id: Annotated[str, Trimmed] | None = None
 
@@ -68,7 +79,11 @@ class DirectorySyncActionIn(BaseModel):
 
 
 def _error(e: DirectoryError) -> ZidError:
-    return ZidError(e.code, _MESSAGES.get(e.code, "The directory sync could not be saved."), http_status=_STATUS.get(e.code, 422))
+    return ZidError(
+        e.code,
+        _MESSAGES.get(e.code, "The directory sync could not be saved."),
+        http_status=_STATUS.get(e.code, 422),
+    )
 
 
 def view(s: store.Sync) -> dict[str, Any]:
@@ -104,7 +119,9 @@ async def _load(conn: Any, sync_id: uuid.UUID) -> store.Sync:
 @router.get("/provisioning/directory-syncs")
 async def list_syncs(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="provisioning.source.read", resource="provisioning_source:*")
+        await protected_action(
+            conn, caller, action="provisioning.source.read", resource="provisioning_source:*"
+        )
         return {"items": [view(s) for s in await store.listing(conn)]}
 
 
@@ -143,7 +160,9 @@ async def create_sync(body: DirectorySyncIn, request: Request, caller: CallerDep
 
 
 @router.post("/provisioning/directory-syncs/{sync_id}:run", status_code=202)
-async def run_now(sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def run_now(
+    sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     now = datetime.now(UTC)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         s = await _load(conn, sync_id)
@@ -156,12 +175,20 @@ async def run_now(sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Requ
             approval_request_id=body.approval_request_id,
         )
         if s.last_run_at is not None and now - s.last_run_at < RUN_NOW_GAP:
-            raise ZidError("RATE_LIMITED", "It ran a moment ago. Try again in a minute.", http_status=429, retryable=True, retry_after_ms=60000)
+            raise ZidError(
+                "RATE_LIMITED",
+                "It ran a moment ago. Try again in a minute.",
+                http_status=429,
+                retryable=True,
+                retry_after_ms=60000,
+            )
         await store.run_now(conn, s.sync_id, now)
         return {"sync_id": s.sync_id, "status": "QUEUED"}
 
 
-async def _set_status(sync_id: uuid.UUID, status: str, body: DirectorySyncActionIn, request: Request, caller: Caller) -> dict[str, Any]:
+async def _set_status(
+    sync_id: uuid.UUID, status: str, body: DirectorySyncActionIn, request: Request, caller: Caller
+) -> dict[str, Any]:
     now = datetime.now(UTC)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         s = await _load(conn, sync_id)
@@ -179,17 +206,23 @@ async def _set_status(sync_id: uuid.UUID, status: str, body: DirectorySyncAction
 
 
 @router.post("/provisioning/directory-syncs/{sync_id}:pause")
-async def pause(sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def pause(
+    sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     return await _set_status(sync_id, "PAUSED", body, request, caller)
 
 
 @router.post("/provisioning/directory-syncs/{sync_id}:resume")
-async def resume(sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def resume(
+    sync_id: uuid.UUID, body: DirectorySyncActionIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     return await _set_status(sync_id, "ACTIVE", body, request, caller)
 
 
 @router.put("/provisioning/directory-syncs/{sync_id}/credential")
-async def put_credential(sync_id: uuid.UUID, body: DirectorySyncCredentialIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def put_credential(
+    sync_id: uuid.UUID, body: DirectorySyncCredentialIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     tenant_id = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         s = await _load(conn, sync_id)
@@ -201,5 +234,11 @@ async def put_credential(sync_id: uuid.UUID, body: DirectorySyncCredentialIn, re
             change=f"directory:credential:{s.sync_id}",
             approval_request_id=body.approval_request_id,
         )
-        version = await set_connector_secret(conn, tenant_id, s.connector_id, secret=body.secret.get_secret_value(), actor=_owner(caller))
+        version = await set_connector_secret(
+            conn,
+            tenant_id,
+            s.connector_id,
+            secret=body.secret.get_secret_value(),
+            actor=_owner(caller),
+        )
     return {"sync_id": str(sync_id), "version": version}  # the value is never echoed
