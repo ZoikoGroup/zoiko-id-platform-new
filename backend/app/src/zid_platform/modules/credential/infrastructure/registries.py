@@ -8,13 +8,16 @@ partial registry. Every file ships SAMPLE rows only: nothing real is listed unti
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.credential.domain import eligibility as el
+from zid_platform.modules.credential.domain import practice as pr
 from zid_platform.modules.credential.domain import sources as src
 from zid_platform.modules.credential.domain import trust_graph as tg
 
@@ -78,6 +81,26 @@ def source_contracts() -> tuple[src.SourceContract, ...]:
 @lru_cache(maxsize=1)
 def policies() -> tuple[list[el.EligibilityPolicy], list[el.TierRule]]:
     return parse_policies(_doc("eligibility-policies.yaml"))
+
+
+async def current_issuer_registry(conn: AsyncConnection) -> tg.Registry:
+    """The registry a check uses now: the configured registry with the issuer ledger (CR-075) layered over it. A statement recorded through the
+    operator API replaces the configured row for that issuer; with no statements this is exactly the configured registry. Read per request, so
+    every server process sees a new statement on its next request."""
+    from zid_platform.modules.credential.infrastructure.issuer_history_store import registry_at
+
+    return await registry_at(conn, datetime.now(UTC), base=issuer_registry())
+
+
+@lru_cache(maxsize=1)
+def practice_rules() -> tuple[pr.PracticeRule, ...]:
+    return tuple(pr.parse(_doc("practice-rules.yaml")))
+
+
+def find_practice_rule(policy_id: str) -> pr.PracticeRule | None:
+    """The highest version of the practice rule for this policy; None if the owners have published none (the engagement is then decided as before)."""
+    found = [r for r in practice_rules() if r.policy_id == policy_id]
+    return max(found, key=lambda r: r.version) if found else None
 
 
 def find_policy(

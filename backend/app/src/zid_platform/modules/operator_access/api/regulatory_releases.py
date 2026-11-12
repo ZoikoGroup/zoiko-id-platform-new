@@ -26,13 +26,12 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
-from sqlalchemy.exc import DBAPIError
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import request_engine
-from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
-from zid_platform.modules.operator_access.ports import has_capability, require_operator
+from zid_platform.modules.operator_access.ports import require_operator
+from zid_platform.operator_actions import Actions
 
 
 class _Verification:
@@ -55,6 +54,7 @@ OperatorDep = Annotated[Any, Depends(require_operator)]
 AUTHOR = "regulatory.release.author"
 LAUNCH = "regulatory.release.launch"
 RECORD_ATTESTATION = "regulatory.attestation.record"
+RECORD_ENTITLEMENT = "regulatory.entitlement.record"
 ATTEST = {r: f"regulatory.release.attest_{r}" for r in ATTESTOR_ROLES}
 APPROVE = {r: f"regulatory.release.approve_{r}" for r in APPROVER_ROLES}
 ALL_RELEASE_CAPABILITIES = (AUTHOR, LAUNCH, *ATTEST.values(), *APPROVE.values())
@@ -81,43 +81,30 @@ _STATUS = {
     "RELEASE_ROLE_MISMATCH": 403,
     "RELEASE_STORED_HASH_MISMATCH": 500,
     "ATTESTATION_OUT_OF_ORDER": 409,
+    "ENTITLEMENT_OUT_OF_ORDER": 409,
 }
 
 
-def _fail(e: Any) -> ZidError:
-    text = str(e)
-    detail = text.split(": ", 1)[1] if ": " in text else ""
-    return ZidError(
-        e.code,
-        detail or e.code.replace("_", " ").capitalize() + ".",
-        http_status=_STATUS.get(e.code, 422),
+def _errors() -> tuple[type[BaseException], ...]:
+    return (
+        v.release_model.ReleaseError,
+        v.attestation_model.AttestationError,
+        v.entitlement_model.EntitlementError,
+        v.PolicyPackError,
     )
 
 
-def _denied(capability: str) -> ZidError:
-    return ZidError(
-        "OPERATOR_CAPABILITY_REQUIRED",
-        f"This needs an approved, unexpired {capability} grant.",
-        http_status=403,
-    )
-
-
-async def _need(conn: Any, op: Any, capability: str, resource: str) -> None:
-    if not await has_capability(
-        conn, str(op.principal_id), capability, None, resource, datetime.now(UTC)
-    ):
-        raise _denied(capability)
-
-
-async def _need_any(conn: Any, op: Any, capabilities: tuple[str, ...], resource: str) -> None:
-    for capability in capabilities:
-        if await has_capability(
-            conn, str(op.principal_id), capability, None, resource, datetime.now(UTC)
-        ):
-            return
-    raise ZidError(
-        "OPERATOR_CAPABILITY_REQUIRED", "This needs a market release capability.", http_status=403
-    )
+actions = Actions(
+    namespace=uuid.UUID("7b2e4c18-5d90-4f3a-b1c6-0a8e9d27f451"),
+    refused_event="regulatory.release.refused",
+    status=_STATUS,
+    errors=_errors,
+    refused_code="RELEASE_REFUSED",
+    capability_hint="a market release capability",
+)
+_fail = actions.fail
+_need_any = actions.need_any
+_act = actions.act
 
 
 def _iso(d: datetime | date | None) -> str | None:
@@ -233,119 +220,20 @@ class AttestationIn(SupplierScopeIn):
     evidence_locator: str = Field(min_length=3, max_length=256)
 
 
-# ------------------------------------------------------------------------------------ audit
+class EntitlementIn(BaseModel):
+    """What Zoiko may use one provider for in one country, capability and purpose (CR-074)."""
 
-
-_AUDIT_NAMESPACE = uuid.UUID("7b2e4c18-5d90-4f3a-b1c6-0a8e9d27f451")
-
-
-async def _audit(
-    conn: Any,
-    op: Any,
-    *,
-    event: str,
-    action: str,
-    target_type: str,
-    target: str,
-    outcome: str,
-    now: datetime,
-    reason: str | None = None,
-    details: dict[str, Any] | None = None,
-    once: bool = True,
-) -> None:
-    """One protected audit record in the platform partition. A success record is idempotent per event, target and role, so a retried
-    request never doubles it; a refusal is its own record every time."""
-    facts = details or {}
-    key = f"{event}|{target}|{facts.get('role', '')}|{facts.get('gate', '')}"
-    await record_audit(
-        conn,
-        None,
-        AuditFacts(
-            event_type=event,
-            actor_type="OPERATOR",
-            action=action,
-            target_type=target_type,
-            target_ref=target,
-            outcome=outcome,
-            evidence_class=EvidenceClass.E3,
-            occurred_at=now,
-            actor_principal_id=str(op.principal_id),
-            reason_code=reason,
-            source_service="operator_access",
-            source_event_id=str(uuid.uuid5(_AUDIT_NAMESPACE, key)) if once else str(uuid.uuid4()),
-            details=details or {},
-        ),
-    )
-
-
-async def _act(
-    request: Request,
-    op: Any,
-    *,
-    event: str,
-    action: str,
-    capability: str,
-    target_type: str,
-    target: str,
-    work: Any,
-    role: str | None = None,
-) -> dict[str, Any]:
-    """Check the capability, make the change and audit it in one transaction. A refusal rolls the attempt back and is audited in a
-    transaction of its own, then raised. `work(conn, now)` returns (response, audit target, audit details)."""
-    now = datetime.now(UTC)
-    refusal: ZidError
-    code: str
-    try:
-        async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-            await _need(conn, op, capability, f"regulatory:{target}")
-            response, audited, details = await work(conn, now)
-            if role:
-                details["role"] = role
-            await _audit(
-                conn,
-                op,
-                event=event,
-                action=action,
-                target_type=target_type,
-                target=audited,
-                outcome="SUCCESS",
-                now=now,
-                details=details,
-            )
-            return response  # type: ignore[no-any-return]
-    except (v.release_model.ReleaseError, v.attestation_model.AttestationError) as e:
-        refusal, code = _fail(e), str(e.code)
-    except v.PolicyPackError as e:
-        refusal, code = ZidError(e.code, str(e), http_status=500), str(e.code)
-    except DBAPIError:
-        refusal, code = (
-            ZidError(
-                "RELEASE_REFUSED",
-                "The database refused the change; nothing was stored.",
-                http_status=409,
-            ),
-            "RELEASE_REFUSED",
-        )
-    except ZidError as e:
-        refusal, code = e, e.code
-    attempted: dict[str, Any] = {"attempted": event}
-    if role:
-        attempted["role"] = role
-    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
-        await _audit(
-            conn,
-            op,
-            event="regulatory.release.refused",
-            action=action,
-            target_type=target_type,
-            target=target,
-            outcome="DENIED",
-            now=now,
-            reason=code,
-            details=attempted,
-            once=False,
-        )
-    raise refusal
+    model_config = ConfigDict(extra="forbid")
+    provider: str = Field(min_length=1, max_length=128)
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    capability: str = Field(pattern=CODE)
+    purpose: str = Field(pattern=CODE)
+    status: Literal["GRANTED", "SUSPENDED", "WITHDRAWN"]
+    effective_at: AwareDatetime
+    valid_from: AwareDatetime
+    valid_until: AwareDatetime | None = None
+    contract_ref: str = Field(min_length=3, max_length=256)
+    terms_ref: str = Field(min_length=3, max_length=256)
 
 
 def _ref(r: Any) -> str:
@@ -597,6 +485,7 @@ async def launch_release(
         request,
         op,
         event="regulatory.release.launched",
+        publish="verification.market.launched",
         action="launch",
         capability=LAUNCH,
         target_type="market_release",
@@ -615,6 +504,7 @@ async def withdraw_release(
         request,
         op,
         event="regulatory.release.withdrawn",
+        publish="verification.market.withdrawn",
         action="withdraw",
         capability=LAUNCH,
         target_type="market_release",
@@ -669,9 +559,434 @@ async def record_attestation(
         request,
         op,
         event="regulatory.attestation.recorded",
+        publish="verification.certification.changed",
         action="record",
         capability=RECORD_ATTESTATION,
         target_type="certification_attestation",
         target=target,
         work=work,
     )
+
+
+def _entitlement_scope_view(s: Any) -> dict[str, str]:
+    return {
+        "provider": s.provider,
+        "country": s.country,
+        "capability": s.capability,
+        "purpose": s.purpose,
+    }
+
+
+@router.get("/v1/regulatory/entitlements")
+async def list_entitlements(
+    request: Request,
+    op: OperatorDep,
+    provider: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+) -> dict[str, Any]:
+    """The scopes recorded for a provider and today's decision for each: entitled, or denied and why."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(
+            conn,
+            op,
+            (RECORD_ENTITLEMENT, RECORD_ATTESTATION, *ALL_RELEASE_CAPABILITIES),
+            "regulatory:entitlements",
+        )
+        scopes = await v.entitlements.scopes_of(conn, provider=provider)
+        decisions = await v.entitlements.decide_scopes(conn, scopes, at=datetime.now(UTC))
+        return {
+            "items": [
+                {
+                    **_entitlement_scope_view(s),
+                    "outcome": d.outcome.value,
+                    "reason": d.reason,
+                    "contract_ref": d.grant.contract_ref if d.grant else None,
+                    "valid_until": _iso(d.grant.valid_until) if d.grant else None,
+                }
+                for s, d in decisions.items()
+            ]
+        }
+
+
+@router.post("/v1/regulatory/entitlements", status_code=201)
+async def record_entitlement(
+    body: EntitlementIn, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    scope = v.entitlement_model.Scope(body.provider, body.country, body.capability, body.purpose)
+    target = f"{scope.provider}/{scope.country}/{scope.capability}/{scope.purpose}"
+
+    async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        grant = v.entitlement_model.Grant(
+            grant_id=f"ent-{uuid.uuid4().hex}",
+            scope=scope,
+            status=v.entitlement_model.Status(body.status),
+            effective_at=body.effective_at,
+            valid_from=body.valid_from,
+            valid_until=body.valid_until,
+            contract_ref=body.contract_ref,
+            terms_ref=body.terms_ref,
+            recorded_by=str(op.principal_id),
+            recorded_at=now,
+        )
+        saved = await v.entitlements.record(conn, grant, now=now)
+        d = await v.entitlements.decide_scope(conn, scope, at=now)
+        return (
+            {
+                "grant_id": saved.grant_id,
+                **_entitlement_scope_view(scope),
+                "status": saved.status.value,
+                "outcome": d.outcome.value,
+                "reason": d.reason,
+            },
+            f"{target}:{saved.grant_id}",
+            {"status": saved.status.value, "contract_ref": saved.contract_ref},
+        )
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.entitlement.recorded",
+        publish="verification.provider.entitlement_changed",
+        action="record",
+        capability=RECORD_ENTITLEMENT,
+        target_type="provider_entitlement",
+        target=target,
+        work=work,
+    )
+
+
+# ------------------------------------------------------------------------------------ regulated claims (CR-077)
+
+READ_CLAIMS = (RECORD_ATTESTATION, RECORD_ENTITLEMENT, *ALL_RELEASE_CAPABILITIES)
+AUDIENCE = Literal["PUBLIC_WEBSITE", "PRODUCT_LABEL", "SALES", "SUPPORT", "API"]
+
+
+def _templates(request: Request) -> Any:
+    """The approved claim templates: the configured file, or a set an app was given (tests, a staging review)."""
+    given = getattr(request.app.state, "claim_templates", None)
+    return given if given is not None else v.claim_templates()
+
+
+@router.get("/v1/regulatory/claims")
+async def list_claims(
+    request: Request,
+    op: OperatorDep,
+    audience: Annotated[AUDIENCE | None, Query()] = None,
+    publishable_only: Annotated[bool, Query()] = False,
+) -> dict[str, Any]:
+    """Every claim template (latest version) and whether it may be shown now, with every reason it may not. `publishable_only` returns what a
+    website, label or sales sheet may show for `audience`, and nothing else."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:claims")
+        now = datetime.now(UTC)
+        if publishable_only:
+            if audience is None:
+                raise ZidError(
+                    "CLAIM_AUDIENCE_REQUIRED",
+                    "Say which audience the claims are for.",
+                    http_status=422,
+                )
+            return {
+                "items": await v.regulated_claims.publishable(
+                    conn, _templates(request), at=now, audience=audience
+                )
+            }
+        judged = await v.regulated_claims.judge(
+            conn, _templates(request), at=now, audience=audience
+        )
+        return {
+            "items": [
+                {
+                    "template_id": t.template_id,
+                    "version": t.version,
+                    "text": t.text,
+                    "audiences": sorted(t.audiences),
+                    "countries": sorted(t.countries),
+                    "template_hash": d.template_hash,
+                    "publishable": d.publishable,
+                    "reasons": list(d.reasons),
+                }
+                for t, d in judged
+            ]
+        }
+
+
+@router.get("/v1/regulatory/claims/{template_id}/proof")
+async def claim_proof(
+    template_id: Annotated[str, Path(pattern=r"^[a-z0-9][a-z0-9-]{0,127}$")],
+    request: Request,
+    op: OperatorDep,
+    at: Annotated[AwareDatetime | None, Query()] = None,
+) -> dict[str, Any]:
+    """The exportable proof bundle for one claim at a moment (default now): the template and its hash, each certification snapshot and proof
+    hash, each market release and its hash, the outcome and its reasons, and a digest over all of it. Exporting it is audited."""
+    when = at or datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, f"regulatory:{template_id}")
+        try:
+            bundle: dict[str, Any] = await v.regulated_claims.proof(
+                conn, _templates(request), template_id, at=when
+            )
+        except v.claim_model.ClaimTemplateError as e:
+            raise ZidError(e.code, str(e), http_status=404) from e
+        await actions.audit(
+            conn,
+            op,
+            event="regulatory.claim.proof_exported",
+            action="export",
+            target_type="claim_template",
+            target=f"{template_id}:v{bundle['template']['version']}",
+            outcome="SUCCESS",
+            now=datetime.now(UTC),
+            details={"digest": bundle["digest"], "publishable": bundle["publishable"]},
+            once=False,
+        )
+        return bundle
+
+
+# ------------------------------------------------------------------------------------ privacy overlays (CR-079)
+
+
+def _overlays(request: Request) -> Any:
+    given = getattr(request.app.state, "privacy_overlays", None)
+    return given if given is not None else v.privacy_overlays()
+
+
+@router.get("/v1/regulatory/privacy-overlays")
+async def list_privacy_overlays(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Each country's privacy overlay with the hash its approvers sign and what, if anything, makes it unusable."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:privacy-overlays")
+    m = v.privacy_overlay_model
+    return {
+        "items": [
+            {
+                "country": o.country,
+                "version": o.version,
+                "overlay_hash": m.overlay_hash(o),
+                "home_regions": sorted(o.home_regions),
+                "transfer_regions": dict(sorted(o.transfer_regions.items())),
+                "provider_regions": dict(sorted(o.provider_regions.items())),
+                "biometrics": o.biometrics.value,
+                "dpia_required": o.dpia_required,
+                "problems": m.problems(o),
+            }
+            for _, o in sorted(_overlays(request).items())
+        ]
+    }
+
+
+@router.get("/v1/regulatory/privacy-route-check")
+async def privacy_route_check(
+    request: Request,
+    op: OperatorDep,
+    country: Annotated[str, Query(pattern=r"^[A-Z]{2}$")],
+    provider: Annotated[str, Query(min_length=1, max_length=128)],
+    biometric: Annotated[bool, Query()] = False,
+    consent: Annotated[bool, Query()] = False,
+) -> dict[str, Any]:
+    """Would this country's data be routed to this provider, with or without biometrics? A preview for operators: the same rule the start applies."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:privacy-overlays")
+    d = v.privacy_overlay_model.route(
+        _overlays(request).get(country), provider=provider, biometric=biometric, consent=consent
+    )
+    return {
+        "allowed": d.allowed,
+        "reasons": list(d.reasons),
+        "region": d.region,
+        "mechanism": d.mechanism,
+    }
+
+
+# ------------------------------------------------------------------------------------ monitoring scope (CR-081)
+
+
+class _Screening:
+    """The screening module's public interface, imported on first use."""
+
+    def __getattr__(self, name: str) -> Any:
+        import zid_platform.modules.screening.ports as ports  # noqa: PLR0402
+
+        return getattr(ports, name)
+
+
+screening_ports = _Screening()
+
+
+@router.get("/v1/regulatory/monitoring-check")
+async def monitoring_check(
+    request: Request,
+    op: OperatorDep,
+    country: Annotated[str, Query(pattern=r"^[A-Z]{2}$")],
+    kind: Annotated[
+        Literal[
+            "SANCTIONS_ONGOING",
+            "PEP",
+            "ADVERSE_MEDIA",
+            "TRANSACTION_MONITORING",
+            "BANK_OWNERSHIP",
+            "CRYPTO_TRAVEL_RULE",
+            "CRYPTO_WALLET_SCREENING",
+        ],
+        Query(),
+    ],
+    sector: Annotated[str, Query(pattern=r"^[A-Z][A-Z0-9_]{0,63}$")] = "ANY",
+) -> dict[str, Any]:
+    """May ongoing monitoring of this kind run in this country for this sector now? The same rule the monitoring jobs apply (no global background
+    monitoring by default)."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:monitoring")
+    d = screening_ports.monitoring_allowed(
+        country=country,
+        kind=screening_ports.MonitoringKind(kind),
+        sector=sector,
+        at=datetime.now(UTC),
+    )
+    return {"allowed": d.allowed, "reasons": list(d.reasons), "approval_id": d.approval_id}
+
+
+# ------------------------------------------------------------------------------------ England Right to Rent (CR-084)
+
+
+@router.get("/v1/regulatory/right-to-rent/check")
+async def right_to_rent_check(
+    request: Request,
+    op: OperatorDep,
+    country: Annotated[str, Query(pattern=r"^[A-Z]{2}$")],
+    route: Annotated[Literal["DIGITAL_IDSP", "HOME_OFFICE_SHARE_CODE", "LANDLORD_MANUAL"], Query()],
+    subdivision: Annotated[str | None, Query(pattern=r"^[A-Z]{2}-[A-Z0-9]{1,3}$")] = None,
+    provider: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+) -> dict[str, Any]:
+    """Does England Right to Rent apply to this property, and may this route produce evidence now? The same decision Zoiko Rooms asks; the
+    landlord always keeps the statutory responsibility."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:right-to-rent")
+        d = await v.right_to_rent.decide_for(
+            conn,
+            property_country=country,
+            property_subdivision=subdivision,
+            route=v.rtr_model.Route(route),
+            provider=provider,
+            at=datetime.now(UTC),
+        )
+    return {
+        "outcome": d.outcome.value,
+        "route": d.route.value if d.route else None,
+        "reasons": list(d.reasons),
+        "zoiko_evidence": d.zoiko_evidence,
+        "statutory_excuse_by_zoiko": d.statutory_excuse_by_zoiko,
+        "retention": d.retention,
+    }
+
+
+# ------------------------------------------------------------------------------------ readiness (CR-086)
+
+_REGULATED = (
+    "INDIVIDUAL_VERIFICATION",
+    "BUSINESS_VERIFICATION",
+    "CREDENTIAL_ISSUANCE",
+    "ENTERPRISE_USE",
+)
+
+
+@router.get("/v1/regulatory/readiness")
+async def readiness(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """What switching every regulatory check to enforce would refuse today, country by capability, and which owner-supplied configuration is still
+    empty. A report for the people who decide to enforce (ZID-RCG-003 section 13, "global availability is earned market-by-market"); it changes
+    nothing."""
+    now = datetime.now(UTC)
+    reg = v.registry()
+    env = str(getattr(request.app.state, "environment", "production"))
+    overlays = v.privacy_overlays()
+    countries: list[dict[str, Any]] = []
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:readiness")
+        for code in sorted(reg.countries):
+            caps: list[dict[str, Any]] = []
+            for name in _REGULATED:
+                capability = v.Capability(name)
+                entry = reg.countries[code].capabilities.get(capability)
+                if entry is None:
+                    continue
+                provider = entry.provider
+                refuse: list[str] = []
+                pack = await v.policy_packs.governing_pack(
+                    conn, country=code, product=name, purpose=v.PACK_PURPOSE, at=now
+                )
+                if pack.outcome is not v.Outcome.APPLICABLE:
+                    refuse.append(f"pack:{pack.reason}")
+                market = await v.market_releases.market_open(
+                    conn, v.release_model.MarketKey(code, name, v.PACK_PURPOSE), now=now
+                )
+                if not market.open:
+                    refuse.append(f"release:{market.reason}")
+                if provider is None:
+                    refuse.append("entitlement:no_provider")
+                else:
+                    ent = await v.entitlements.decide_scope(
+                        conn,
+                        v.entitlement_model.Scope(provider, code, name, v.PACK_PURPOSE),
+                        at=now,
+                    )
+                    if not ent.entitled:
+                        refuse.append(f"entitlement:{ent.reason}")
+                    stopped = await v.suspensions.blocking_for(
+                        conn,
+                        v.suspension_model.Invocation(
+                            provider=provider, service_id=name, country=code, purpose=v.PACK_PURPOSE
+                        ),
+                        at=now,
+                    )
+                    refuse.extend(f"suspended:{s.suspension_id}" for s in stopped)
+                if name == "INDIVIDUAL_VERIFICATION":
+                    route = v.privacy_overlay_model.route(
+                        overlays.get(code), provider=provider, biometric=False, consent=None
+                    )
+                    refuse.extend(f"privacy:{r}" for r in route.reasons)
+                caps.append(
+                    {
+                        "capability": name,
+                        "availability": v.availability(
+                            reg, code, capability, now=now, environment=env
+                        ).value,
+                        "provider": provider,
+                        "would_refuse": refuse,
+                        "missing": sorted({r.split(":", 1)[0] for r in refuse}),
+                    }
+                )
+            if caps:
+                sanctions = screening_ports.monitoring_allowed(
+                    country=code, kind=screening_ports.MonitoringKind("SANCTIONS_ONGOING"), at=now
+                )
+                caps.append(
+                    {
+                        "capability": "SANCTIONS_ONGOING_MONITORING",
+                        "availability": "-",
+                        "provider": None,
+                        "would_refuse": [f"monitoring:{r}" for r in sanctions.reasons],
+                        "missing": [] if sanctions.allowed else ["monitoring"],
+                    }
+                )
+                countries.append({"country": code, "capabilities": caps})
+    state = request.app.state
+    empty: list[str] = [
+        name
+        for name, items in (
+            ("claim templates", v.claim_templates()),
+            ("privacy overlays", overlays),
+        )
+        if not items
+    ]
+    return {
+        "countries": countries,
+        "modes": {
+            "regulatory_packs": str(getattr(state, "regulatory_packs", "shadow")),
+            "market_releases": str(getattr(state, "market_releases", "shadow")),
+            "provider_entitlements": str(getattr(state, "provider_entitlements", "shadow")),
+            "privacy_overlay": str(getattr(state, "privacy_overlay", "shadow")),
+            "eudi_wallet": str(getattr(state, "eudi_wallet", "shadow")),
+            "monitoring_scope": str(getattr(state, "monitoring_scope", "shadow")),
+            "kill_switch": "always enforced",
+        },
+        "empty_configuration": empty,
+    }

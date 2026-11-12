@@ -17,11 +17,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import secrets
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
@@ -45,7 +46,8 @@ from zid_outbox import emit
 
 from zid_platform import egress
 from zid_platform.modules.commercial.ports import key_vc_presented, record_billable
-from zid_platform.modules.credential.domain import vcdm
+from zid_platform.modules.credential.application import eudi_gate
+from zid_platform.modules.credential.domain import eudi, vcdm
 from zid_platform.modules.credential.domain.credentials import (
     KB_TYP,
     MDOC_ADAPTER,
@@ -201,6 +203,15 @@ async def create(
         recipient_class="relying_party",
     )
     requested = minimize(claims, config, allowed)
+    # CR-080: a request to an EUDI Wallet also needs Zoiko's own registration as a wallet-relying party in that Member State (no-op otherwise)
+    eudi_gate.check_create(
+        credential_type=config.credential_type,
+        member_state=jurisdiction,
+        intended_use=re.sub(r"[^A-Z0-9]+", "_", purpose.upper()).strip("_"),
+        claims=requested,
+        client_id=settings.client_id,
+        at=now,
+    )
     pid, nonce, state = str(uuid.uuid4()), secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     iat = int(now.timestamp())
     client_metadata: dict[str, Any] = {
@@ -236,6 +247,9 @@ async def create(
         typ=REQUEST_TYP,
         extra_header={"x5c": list(settings.x5c)} if settings.x5c else None,
     )
+    eudi_gate.check_request_object(
+        config.credential_type, request_jwt, now_epoch=iat
+    )  # CR-080: interoperability profile
     await store.create_presentation(
         conn,
         tenant_id,
@@ -377,6 +391,22 @@ async def _status(
         return "UNKNOWN"
 
 
+def _issued_at(value: Any) -> str | None:
+    """The credential's own issuance time as ISO text: a JWT `iat`/`nbf` (seconds) or an mdoc `signed` time; None when it does not say."""
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return datetime.fromtimestamp(value, UTC).isoformat()
+    if isinstance(value, datetime):
+        return (value if value.tzinfo else value.replace(tzinfo=UTC)).isoformat()
+    text_value = getattr(value, "value", value)  # a CBOR tag 0 carries its text in .value
+    if isinstance(text_value, str):
+        try:
+            parsed = datetime.fromisoformat(text_value)  # Python 3.11+ reads a trailing Z
+        except ValueError:
+            return None
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).isoformat()
+    return None
+
+
 async def _sd_jwt(
     conn: AsyncConnection,
     settings: VerifierSettings,
@@ -463,6 +493,9 @@ async def _sd_jwt(
         jurisdiction=jurisdiction,
         decided_at=now,
     )
+    basis["issued_at"] = _issued_at(
+        payload.get("iat")
+    )  # CR-080: what an attestation was is judged at issuance
     return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound, basis)
 
 
@@ -555,6 +588,7 @@ async def _vc_jwt(
         jurisdiction=jurisdiction,
         decided_at=now,
     )
+    basis["issued_at"] = _issued_at(vc.get("iat") or vc.get("nbf"))  # CR-080
     return Verified(issuer, {c: claims[c] for c in requested if c in claims}, status, bound, basis)
 
 
@@ -658,6 +692,7 @@ async def _mdoc(
         jurisdiction=jurisdiction,
         decided_at=now,
     )
+    basis["issued_at"] = _issued_at((mso.get("validityInfo") or {}).get("signed"))  # CR-080
     return Verified(
         rows[0]["issuer_identifier"], claims, status, config.holder_binding_required, basis
     )
@@ -722,6 +757,28 @@ async def _decrypt_response(conn: AsyncConnection, jwe_value: str) -> dict[str, 
         for k, v in payload.items()
         if k in ("state", "vp_token", "error", "error_description")
     }
+
+
+async def _with_eudi_class(
+    conn: AsyncConnection, verified: Verified, credential_type: str, country: str
+) -> Verified:
+    """Add the attestation class to the decision basis. Without an issuance time the class cannot be qualified: it is recorded as such."""
+    issued = verified.basis.get("issued_at")
+    if issued:
+        cls, why = await eudi_gate.classify_presented(
+            conn,
+            attestation_type=credential_type,
+            issuer_entity=verified.issuer,
+            issuer_country=country,
+            issued_at=datetime.fromisoformat(issued),
+        )
+    else:
+        cls, why = eudi.classify(
+            credential_type, issuer_is_public_body=False, qualified_at_issuance=None
+        )
+        why = (*why, "ISSUANCE_TIME_UNKNOWN")
+    basis = {**verified.basis, "eudi_class": cls.value, "eudi_class_reasons": list(why)}
+    return replace(verified, basis=basis)
 
 
 async def respond(
@@ -848,6 +905,12 @@ async def respond(
                 now=now,
             )
             reasons.append(f"ASSURANCE:{outcome}")
+        if eudi.is_eudi_type(
+            config.credential_type
+        ):  # CR-080: PID, QEAA, PuB-EAA or EAA, judged at the issuance date
+            verified = await _with_eudi_class(
+                conn, verified, config.credential_type, str(p["jurisdiction"])
+            )
         commitments = {
             c: store.sha256(f"{p['presentation_id']}|{c}|{v}").hex()
             for c, v in verified.claims.items()

@@ -49,8 +49,8 @@ from zid_platform.modules.credential.domain.claims import (
 from zid_platform.modules.credential.domain.credentials import CredentialError
 from zid_platform.modules.credential.infrastructure import trust_store
 from zid_platform.modules.credential.infrastructure.registries import (
+    current_issuer_registry,
     find_policy,
-    issuer_registry,
     policies,
     source_contracts,
 )
@@ -116,8 +116,9 @@ async def resolve_issuer(
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _gate(conn, caller, "credential.read", "issuer:*")
+        registry = await current_issuer_registry(conn)
     on = datetime.fromisoformat(body.on).date() if body.on else _now().date()
-    res = tg.resolve(issuer_registry(), body.name, country=body.country, on=on)
+    res = tg.resolve(registry, body.name, country=body.country, on=on)
     return {
         "match": res.match.value,
         "issuer_id": res.issuer_id,
@@ -130,7 +131,7 @@ async def resolve_issuer(
 async def issuer_trust(issuer_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _gate(conn, caller, "credential.read", f"issuer:{issuer_id}")
-    issuer = issuer_registry().issuers.get(issuer_id)
+        issuer = (await current_issuer_registry(conn)).issuers.get(issuer_id)
     if issuer is None:
         raise ZidError("ISSUER_NOT_FOUND", "Issuer not found.", http_status=404)
     return {
@@ -198,7 +199,7 @@ async def evaluate_professional(
             tenant_id=caller.ctx.tenant_id or "",
             subject=subject,
             policy=policy,
-            registry=issuer_registry(),
+            registry=await current_issuer_registry(conn),
             now=_now(),
         )
     return {
@@ -244,7 +245,7 @@ async def _engage(
             request=req,
             policy=policy,
             rule=rule,
-            registry=issuer_registry(),
+            registry=await current_issuer_registry(c),
             now=_now(),
             consumer=consumer,
             engagement_days=body.engagement_days,
@@ -422,7 +423,8 @@ class CredOutreachIn(BaseModel):
 async def open_outreach(
     body: CredOutreachIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
-    issuer = issuer_registry().issuers.get(body.issuer_id)
+    async with tenant_transaction(request_engine(request), caller.ctx) as read:
+        issuer = (await current_issuer_registry(read)).issuers.get(body.issuer_id)
     if issuer is None:
         raise ZidError("ISSUER_NOT_FOUND", "Issuer not found.", http_status=404)
     attached: dict[str, Any] | None = None
@@ -485,7 +487,7 @@ async def record_response(
         row = await trust_store.load_outreach(conn, str(request_id))
         if row is None:
             raise ZidError("REQUEST_NOT_FOUND", "Request not found.", http_status=404)
-        issuer = issuer_registry().issuers.get(row["issuer_id"])
+        issuer = (await current_issuer_registry(conn)).issuers.get(row["issuer_id"])
         verifiers = getattr(request.app.state, "outreach_verifiers", {})
         verify = verifiers.get(row["issuer_id"])
         if issuer is None or verify is None:
@@ -553,7 +555,7 @@ async def _conclude(conn: Any, request: Request, caller: Caller, request_id: str
             tenant_id=caller.ctx.tenant_id or "",
             request_id=request_id,
             packs=pack_registry(),
-            registry=issuer_registry(),
+            registry=await current_issuer_registry(conn),
             environment=str(getattr(request.app.state, "environment", "production")),
             now=_now(),
             signer=signer_for(request),
@@ -778,7 +780,7 @@ async def registry_view(request: Request, caller: CallerDep) -> dict[str, Any]:
     pack version. It shows scope and state only: no outreach addresses, price-book references or certificate references."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _gate(conn, caller, "credential.read", "registry:*")
-    reg = issuer_registry()
+        reg = await current_issuer_registry(conn)
     pols, rules = policies()
     return {
         "issuer_registry_version": reg.version,

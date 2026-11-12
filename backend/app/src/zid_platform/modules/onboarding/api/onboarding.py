@@ -29,7 +29,7 @@ from zid_db import tenant_transaction
 from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce, enforce_tenant, namespace_country
+from zid_platform.country_gate import enforce_regulated, enforce_tenant, namespace_country
 from zid_platform.modules.onboarding.application import gates as gate_service
 from zid_platform.modules.onboarding.application import plans as plan_service
 from zid_platform.modules.onboarding.application.organization import submit_organization
@@ -130,7 +130,9 @@ async def organization(
         raise ZidError(
             "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
         )
-    enforce(request, namespace_country(body.namespace), Capability.BUSINESS_VERIFICATION)  # EDR-001
+    await enforce_regulated(  # EDR-001 and ZID-RCG-003
+        request, namespace_country(body.namespace), Capability.BUSINESS_VERIFICATION, caller.ctx
+    )
     adapter = registry_adapter(request, body.namespace)
     corroborate = [(registry_adapter(request, "LEI"), body.lei)] if body.lei else []
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:

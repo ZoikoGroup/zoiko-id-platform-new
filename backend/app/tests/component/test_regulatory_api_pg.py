@@ -295,6 +295,16 @@ def test_a_pack_goes_from_draft_to_published_and_back_through_the_operator_plane
         and "Example Act" not in everything
         and "example.test" not in everything
     )
+    # publishing and retiring are announced on the outbox (ZID-RCG-003 09.2 policy_pack.approved / .retired), with the pack hash only
+    from test_suspension_pg import _outbox
+
+    outbox = _outbox(owner_url, "policy_pack", f"{pid}:v%")
+    assert [(e["event_type"], e["aggregate_id"]) for e in outbox] == [
+        ("com.zoiko.id.verification.policy_pack.approved.v1", f"{pid}:v1"),
+        ("com.zoiko.id.verification.policy_pack.approved.v1", f"{pid}:v2"),
+        ("com.zoiko.id.verification.policy_pack.retired.v1", f"{pid}:v2"),
+    ]
+    assert outbox[0]["payload"]["pack_hash"] == digest and "LICENSE_STANDING" not in str(outbox)
 
 
 def test_whoever_authors_a_pack_cannot_also_hold_an_approver_role(rt_url: str) -> None:

@@ -292,6 +292,22 @@ class Settings(ServiceSettings):
     # approvals) that still covers the packs in force and whose supplier certifications are certified on fresh evidence? Same meaning as above:
     # shadow (default) only logs, enforce refuses with MARKET_NOT_RELEASED, off never checks and a deployed environment refuses it at start-up.
     market_releases: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_PROVIDER_ENTITLEMENTS (ZID-RCG-003 RCG-G03, CR-074): must the provider the registry names for an ENABLED capability hold a GRANTED
+    # entitlement for that country, capability and purpose? Same meaning: shadow (default) only logs, enforce refuses with PROVIDER_NOT_ENTITLED,
+    # off is refused outside local, test and dev.
+    provider_entitlements: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_PRIVACY_OVERLAY (ZID-RCG-003 RCG-G09, CR-079): must an ENABLED country's verification start pass its approved privacy overlay (provider
+    # region and lawful transfer, biometric permission and consent, DPIA)? shadow (default) only logs; enforce refuses with CROSS_BORDER_ROUTE_DENIED,
+    # BIOMETRIC_ROUTE_NOT_PERMITTED (naming the alternate profiles) or PRIVACY_OVERLAY_UNAVAILABLE; off is refused outside local, test and dev.
+    privacy_overlay: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_EUDI_WALLET (ZID-RCG-003 RCG-G11, CR-080): must a request to an EUDI Wallet (a PID or an EU attestation type) be made under Zoiko's
+    # registration as a wallet-relying party in that Member State, for a registered use and attributes, signed with the registered access
+    # certificate, and conform to the interoperability profile? shadow (default) only logs; enforce refuses; off is refused outside local, test and dev.
+    eudi_wallet: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_MONITORING_SCOPE (ZID-RCG-003 RCG-G12, CR-081): does ongoing monitoring (today the scheduled sanctions re-screen; later PEP, adverse
+    # media, transaction and crypto monitoring) run only where a Legal and Compliance approval covers the country, kind and sector? shadow (default)
+    # only logs; enforce holds everything not approved (no global background monitoring); off is refused outside local, test and dev.
+    monitoring_scope: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
     # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
     # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.

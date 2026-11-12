@@ -1,0 +1,27 @@
+# Monitoring approvals: sector, transaction and crypto monitoring scope (ZID-RCG-003 RCG-G12, section 03.1 Fraud/AML; CR-081).
+# Versioned configuration, not tenant data.
+# status: PROPOSED. NO approval is listed: there is no global background monitoring by default. Until Legal and Compliance approve monitoring of a
+# kind in a country, ongoing monitoring there is reported (shadow) or held (enforce, ZID_MONITORING_SCOPE). Screening a company at onboarding is not
+# governed here.
+#
+# An approval names: the country, the kind (SANCTIONS_ONGOING, PEP, ADVERSE_MEDIA, TRANSACTION_MONITORING, BANK_OWNERSHIP, CRYPTO_TRAVEL_RULE,
+# CRYPTO_WALLET_SCREENING), the sectors it covers (or ANY), the legal basis and the authorizing contract (references), its dates, for a crypto kind
+# the crypto-specific authorization (a MiCA CASP licence, a VASP registration), and two approvals (legal, compliance) signing the approval hash.
+# Example, kept as a comment:
+#
+#   - approval_id: gb-sanctions-ongoing
+#     version: 1
+#     country: GB
+#     kind: SANCTIONS_ONGOING
+#     sectors: [ANY]
+#     legal_basis_ref: LEGAL-MLR2017-REG28
+#     contract_ref: CONTRACT-SCREENING-2027
+#     valid_from: "2027-01-01T00:00:00+00:00"
+#     approvals:
+#       legal: {reference: LEGAL-77, signed_hash: "<the approval hash>"}
+#       compliance: {reference: MLRO-12, signed_hash: "<the approval hash>"}
+#
+# version: 0.1.0
+
+version: 0.1.0
+approvals: []

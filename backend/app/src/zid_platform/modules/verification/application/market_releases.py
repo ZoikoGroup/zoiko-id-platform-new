@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.verification.application import suspensions
 from zid_platform.modules.verification.domain import market_release as md
 from zid_platform.modules.verification.domain.attestation import DEFAULT_STALE_AFTER, Scope
 from zid_platform.modules.verification.domain.policy_packs import pack_hash
@@ -103,8 +104,14 @@ async def freeze_release(
 ) -> md.MarketRelease:
     release = await _get(conn, release_id, version)
     refs = await packs_in_force(conn, release.market)
-    decisions = await attestation_store.decide_scopes(
-        conn, list(suppliers), at=now, stale_after=stale_after
+    decisions = (
+        await suspensions.hold_suspended(  # a suspended supplier is never certified (CR-078)
+            conn,
+            await attestation_store.decide_scopes(
+                conn, list(suppliers), at=now, stale_after=stale_after
+            ),
+            at=now,
+        )
     )
     frozen = md.freeze(release, refs, decisions)
     await store.freeze(conn, frozen, now=now)
@@ -180,5 +187,9 @@ async def market_open(
         {s for r in releases if r.status is md.ReleaseStatus.LAUNCHED for s in r.supplier_scopes},
         key=lambda c: (c.entity, c.scheme, c.country, c.service_code),
     )
-    suppliers = await attestation_store.decide_scopes(conn, scopes, at=now, stale_after=stale_after)
+    suppliers = await suspensions.hold_suspended(  # a kill switch on a pinned supplier closes the market at once (CR-078)
+        conn,
+        await attestation_store.decide_scopes(conn, scopes, at=now, stale_after=stale_after),
+        at=now,
+    )
     return md.market_decision(releases, market, await packs_in_force(conn, market), suppliers)

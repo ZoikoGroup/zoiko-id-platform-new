@@ -25,7 +25,7 @@ from zid_errors import ZidError
 from zid_idempotency import Scope, begin, complete
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce
+from zid_platform.country_gate import enforce_regulated
 from zid_platform.modules.credential.api import claim_checks as v1
 from zid_platform.modules.credential.api.v2 import V2IssuerClaim, V2Jurisdiction
 from zid_platform.modules.credential.application import case_service as svc
@@ -118,7 +118,12 @@ async def open_case(
         service = cs.SERVICE_OF.get(kind)
         if service is None:  # identity: the country must be open for identity verification
             try:
-                enforce(request, body.jurisdiction.country, Capability.INDIVIDUAL_VERIFICATION)
+                await enforce_regulated(
+                    request,
+                    body.jurisdiction.country,
+                    Capability.INDIVIDUAL_VERIFICATION,
+                    caller.ctx,
+                )
             except ZidError:
                 unavailable.append(kind)
             continue

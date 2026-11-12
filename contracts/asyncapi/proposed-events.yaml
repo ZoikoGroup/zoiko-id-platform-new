@@ -628,3 +628,63 @@ events:
     source: ZID-GAP-001 WP-14; CR-068
     lane: domain
     source_status: "proposed"
+  verification.policy_pack.approved:
+    cloudevents_type: com.zoiko.id.verification.policy_pack.approved.v1
+    meaning: "A jurisdiction and profession policy pack version was published after its four approvals; pack id, version and hash only (ZID-RCG-003 09.2 policy_pack.approved)."
+    source: ZID-RCG-003 RCG-G01; CR-067
+    lane: domain
+    source_status: "proposed"
+  verification.policy_pack.retired:
+    cloudevents_type: com.zoiko.id.verification.policy_pack.retired.v1
+    meaning: "A policy pack version was retired; the last approved version governs again; pack id, version and hash only (09.2 policy_pack.retired)."
+    source: ZID-RCG-003 RCG-G01; CR-067
+    lane: domain
+    source_status: "proposed"
+  verification.market.launched:
+    cloudevents_type: com.zoiko.id.verification.market.launched.v1
+    meaning: "A market release was launched and its market is open; release id, version and hash only."
+    source: ZID-RCG-003 RCG-G10; CR-072
+    lane: domain
+    source_status: "proposed"
+  verification.market.withdrawn:
+    cloudevents_type: com.zoiko.id.verification.market.withdrawn.v1
+    meaning: "A market release was withdrawn and its market closed; release id and version only."
+    source: ZID-RCG-003 RCG-G10; CR-072
+    lane: domain
+    source_status: "proposed"
+  verification.certification.changed:
+    cloudevents_type: com.zoiko.id.verification.certification.changed.v1
+    meaning: "An official-register attestation of a provider's certification was recorded; the scope, snapshot id, status and proof hash only (09.2 certification.changed)."
+    source: ZID-RCG-003 RCG-G02; CR-073
+    lane: domain
+    source_status: "proposed"
+  verification.provider.entitlement_changed:
+    cloudevents_type: com.zoiko.id.verification.provider.entitlement_changed.v1
+    meaning: "A provider entitlement statement was recorded (granted, suspended or withdrawn); the scope, status and contract reference only (09.2 provider.entitlement_changed)."
+    source: ZID-RCG-003 RCG-G03; CR-074
+    lane: domain
+    source_status: "proposed"
+  verification.provider.scope_suspended:
+    cloudevents_type: com.zoiko.id.verification.provider.scope_suspended.v1
+    meaning: "An exact provider scope was suspended (the kill switch); the suspension id, trigger, scope fields, evidence reference and impact counts only (09.2 provider.scope_suspended)."
+    source: ZID-RCG-003 RCG-G08; CR-078
+    lane: priority
+    source_status: "proposed"
+  verification.provider.scope_restored:
+    cloudevents_type: com.zoiko.id.verification.provider.scope_restored.v1
+    meaning: "A provider suspension was lifted by another person; the suspension id, version, scope fields and evidence reference only."
+    source: ZID-RCG-003 RCG-G08; CR-078
+    lane: domain
+    source_status: "proposed"
+  credential.issuer_status_changed:
+    cloudevents_type: com.zoiko.id.credential.issuer_status_changed.v1
+    meaning: "A dated statement about an issuer, its names or accreditations was recorded; issuer id, sequence, statement kind and source hash only (09.2 credential.issuer_status_changed)."
+    source: ZID-RCG-003 RCG-G04; CR-075
+    lane: domain
+    source_status: "proposed"
+  evidence.bundle.exported:
+    cloudevents_type: com.zoiko.id.evidence.bundle.exported.v1
+    meaning: "A regulatory evidence bundle was exported with a stated purpose and legal basis; bundle id, digest, purpose and legal basis reference only (ZID-RCG-003 09.2 audit.exported)."
+    source: ZID-RCG-003 09.2; CR-085
+    lane: evidence
+    source_status: "proposed"

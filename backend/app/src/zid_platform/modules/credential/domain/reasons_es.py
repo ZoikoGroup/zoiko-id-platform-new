@@ -92,6 +92,116 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "El programa no estaba cubierto por una acreditación en la fecha en que se concedió el título, aunque lo esté ahora.",
         "Puede presentar un recurso con pruebas de la acreditación en la fecha de concesión.",
     ),
+    "UNKNOWN_HISTORICAL_ISSUER": (
+        "No conocemos esta institución",
+        "No tenemos historial registrado de esta institución en el momento de la comprobación, así que no podemos decir que estuviera autorizada para conceder esta credencial.",
+        "Una persona puede verificar la institución con una fuente oficial.",
+    ),
+    "AUTHORITY_NOT_RECORDED": (
+        "La autoridad de la institución no está registrada",
+        "No tenemos registrada una base legal o reglamentaria para que esta institución emita este tipo de credencial.",
+        "Una persona puede comprobar la autoridad de la institución con una fuente oficial.",
+    ),
+    "ISSUER_REVOKED_AT_AWARD_DATE": (
+        "La institución ya no estaba reconocida",
+        "El reconocimiento de la institución ya se había retirado en la fecha en que se concedió el título.",
+        "Puede presentar un recurso con pruebas de que estaba reconocida en la fecha de concesión.",
+    ),
+    "NOT_TRUSTED_FOR_CLAIM_TYPE": (
+        "La institución no figura para este tipo de declaración",
+        "Esta institución no figura como autoridad para este tipo de credencial.",
+        "Una persona puede comprobar si otra fuente puede confirmarlo.",
+    ),
+    "QUALIFICATION_VERIFIED": (
+        "La titulación está verificada",
+        "La titulación se comprobó y se confirmó. Es independiente de que esta persona pueda ejercer este servicio aquí.",
+        "No tiene que hacer nada respecto a la titulación.",
+    ),
+    "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
+        "No se ha establecido el permiso para ejercer",
+        "No pudimos establecer que esta persona pueda ofrecer este servicio en este lugar, aunque otras comprobaciones fueran correctas.",
+        "Una persona puede revisarlo, o puede aportar las pruebas que faltan.",
+    ),
+    "CONDITION_BLOCKS_SERVICE": (
+        "Una condición de la licencia cierra este servicio",
+        "Una condición de la licencia implica que este servicio no está abierto a esta persona en este lugar.",
+        "Puede presentar un recurso con pruebas de que la condición ya no se aplica.",
+    ),
+    "CONDITION_NEEDS_REVIEW": (
+        "Una condición de la licencia necesita revisión",
+        "Una condición de la licencia debe revisarse antes de que este servicio pueda seguir adelante.",
+        "Un revisor lo examinará; puede añadir contexto.",
+    ),
+    "CONDITION_NOT_CLASSIFIED": (
+        "Una condición de la licencia no se reconoce",
+        "Una condición de la licencia no tiene regla en nuestro sistema, así que no podemos tratarla como permiso para este servicio.",
+        "Un revisor lo examinará.",
+    ),
+    "COVERAGE_LIMIT_NOT_REPORTED": (
+        "No se indica el límite de la cobertura",
+        "El registro del seguro no indica un límite de cobertura, así que no podemos saber si es suficiente.",
+        "Pida a la aseguradora que confirme el límite.",
+    ),
+    "COVERAGE_CURRENCY_MISMATCH": (
+        "La cobertura está en otra moneda",
+        "El límite de la cobertura está en una moneda distinta de la exigida. No convertimos entre monedas.",
+        "Aporte una cobertura en la moneda exigida.",
+    ),
+    "COVERAGE_LIMIT_BELOW_MINIMUM": (
+        "El límite de la cobertura es demasiado bajo",
+        "El límite de la cobertura es inferior al mínimo exigido para este servicio.",
+        "Aumente la cobertura o aporte una cobertura adicional.",
+    ),
+    "PRACTICE_CLASS_NOT_COVERED": (
+        "La cobertura es para otro tipo de ejercicio",
+        "El registro del seguro no cubre el tipo de ejercicio que necesita este servicio.",
+        "Pida a la aseguradora que confirme la cobertura de este ejercicio.",
+    ),
+    "COVER_BASIS_NOT_REPORTED": (
+        "No se indica la base de la cobertura",
+        "El registro del seguro no dice si la cobertura es por reclamación o por ocurrencia.",
+        "Pida a la aseguradora que confirme la base de la cobertura.",
+    ),
+    "RETROACTIVE_DATE_MISSING": (
+        "Falta la fecha retroactiva",
+        "Una cobertura por reclamación necesita una fecha retroactiva y el registro no la indica.",
+        "Pida a la aseguradora que confirme la fecha retroactiva.",
+    ),
+    "RETROACTIVE_DATE_AFTER_WORK_START": (
+        "La cobertura empieza demasiado tarde",
+        "La fecha retroactiva de esta cobertura por reclamación es posterior al inicio del trabajo, así que el trabajo anterior no estaría cubierto.",
+        "Aporte una cobertura con una fecha retroactiva anterior.",
+    ),
+    "ACCESS_CERTIFICATE_MISSING": (
+        "La solicitud no está firmada con un certificado registrado",
+        "Una solicitud a una cartera de identidad digital de la UE debe firmarse con el certificado registrado para ello, y esta no lo estaba.",
+        "Zoiko iD debe configurar su certificado registrado antes de consultar la cartera.",
+    ),
+    "ACCESS_CERTIFICATE_MISMATCH": (
+        "La solicitud está firmada con otro certificado",
+        "La solicitud está firmada con un certificado distinto del registrado para las carteras de identidad digital de la UE.",
+        "Zoiko iD debe firmar con su certificado registrado.",
+    ),
+    "INTENDED_USE_NOT_REGISTERED": (
+        "Este uso no está registrado",
+        "Zoiko iD no está registrado para pedir información a una cartera de identidad digital de la UE con esta finalidad.",
+        "No tiene que hacer nada; la solicitud no se envió.",
+    ),
+    "ATTESTATION_TYPE_NOT_REGISTERED": (
+        "Este tipo de credencial no está registrado",
+        "Zoiko iD no está registrado para pedir este tipo de credencial a una cartera de identidad digital de la UE con esta finalidad.",
+        "No tiene que hacer nada; la solicitud no se envió.",
+    ),
+    "PID_PROVIDER_NOT_LISTED": (
+        "El proveedor de datos de identidad no está reconocido",
+        "Los datos de identificación personal no proceden de un proveedor que podamos confirmar en una lista oficial.",
+        "Utilice otra forma de verificar su identidad.",
+    ),
+    "QEAA_STATUS_NOT_ESTABLISHED": (
+        "No es una certificación cualificada",
+        "No se confirmó que el emisor fuera un proveedor cualificado para esta certificación en la fecha de emisión, por lo que se trata como una certificación ordinaria.",
+        "No tiene que hacer nada; la certificación se sigue leyendo, en su nivel adecuado.",
+    ),
     "LICENSE_NOT_YET_EFFECTIVE": (
         "La licencia aún no ha empezado",
         "El regulador indica una fecha de inicio que todavía no ha llegado.",

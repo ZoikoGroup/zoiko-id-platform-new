@@ -1,0 +1,27 @@
+# Approved public claim templates (ZID-RCG-003 RCG-G07, WF-07, T05, T33; CR-077). Versioned configuration, not tenant data.
+# status: PROPOSED. NO template is listed: Zoiko iD makes no regulated claim until Legal and the claims owner approve one. Sales copy, product
+# labels, trust marks and website text may say only what a template here says, and only while every certification and market it rests on holds.
+#
+# A template names: the exact text, the audiences, the countries it speaks for (never global; each one backed by a basis), its basis (exact
+# certification scopes from official-register attestations, and/or launched market releases), optional dates, and two approvals (legal,
+# claims_owner), each signing the template hash shown by GET /v1/regulatory/claims. Editing a template after approval breaks the hash and blocks it.
+# Example, kept as a comment so nothing is claimed by accident:
+#
+#   - template_id: gb-rtr-certified-partner
+#     version: 1
+#     text: "Right to Rent checks in England are performed with a certified identity service provider."
+#     audiences: [PUBLIC_WEBSITE, SALES]
+#     countries: [GB]
+#     certifications:
+#       - {entity: PARTNER-ENTITY, scheme: UK_DIATF, country: GB, service_code: RTR}
+#     markets:
+#       - {country: GB, product: INDIVIDUAL_VERIFICATION, purpose: STANDARD}
+#     effective_from: "2027-01-01T00:00:00+00:00"
+#     approvals:
+#       legal: {reference: LEGAL-123, signed_hash: "<the template hash>"}
+#       claims_owner: {reference: MKT-45, signed_hash: "<the template hash>"}
+#
+# version: 0.1.0
+
+version: 0.1.0
+templates: []

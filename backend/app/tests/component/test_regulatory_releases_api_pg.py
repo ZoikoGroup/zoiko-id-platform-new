@@ -62,6 +62,7 @@ def _people(rt_url: str) -> tuple[Operators, dict[str, str]]:
     names = (
         "author",
         "recorder",
+        "vendor",
         "launcher",
         *(f"att_{r}" for r in ATTESTORS),
         *(f"app_{r}" for r in APPROVERS),
@@ -76,10 +77,11 @@ def _people(rt_url: str) -> tuple[Operators, dict[str, str]]:
 def _grant(
     api: TestClient, o: Operators, who: dict[str, str], person: str, capability: str
 ) -> None:
-    one = capability in ("regulatory.release.author",) or capability.startswith(
-        ("regulatory.release.attest_", "regulatory.attestation.")
-    )
-    approvers = (who["approver_1"],) if one else (who["approver_1"], who["approver_2"])
+    # as many approvers as the catalogue says the capability needs
+    from zid_platform.modules.operator_access.domain.model import CAPABILITIES
+
+    two = CAPABILITIES[capability].two_person
+    approvers = (who["approver_1"], who["approver_2"]) if two else (who["approver_1"],)
     activate_grant(api, o, who[person], approvers, capability=capability, resource_scope=SCOPE)
 
 
@@ -400,3 +402,67 @@ def test_a_bad_request_is_refused_before_it_reaches_the_release(rt_url: str) -> 
         )
         naive = _attestation(supplier) | {"fetched_at": "2026-01-01T00:00:00"}  # no time zone
         assert post("/v1/regulatory/attestations", "recorder", naive) == 422
+
+
+def _entitlement(
+    provider: str, status: str = "GRANTED", ago: timedelta = timedelta(hours=1)
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    return {
+        "provider": provider,
+        "country": "GB",
+        "capability": "INDIVIDUAL_VERIFICATION",
+        "purpose": "STANDARD",
+        "status": status,
+        "effective_at": (now - ago).isoformat(),
+        "valid_from": (now - timedelta(days=30)).isoformat(),
+        "valid_until": (now + timedelta(days=300)).isoformat(),
+        "contract_ref": "CONTRACT-2026-17",
+        "terms_ref": "TERMS-ACME-V3",
+    }
+
+
+def test_an_entitlement_is_recorded_listed_and_audited_through_the_operator_plane(
+    rt_url: str, owner_url: str
+) -> None:
+    o, who = _people(rt_url)
+    provider = f"prov-{uuid.uuid4().hex[:8]}"
+    url = "/v1/regulatory/entitlements"
+    with TestClient(_app(rt_url, o), base_url=ISS) as api:
+
+        def call(method: str, path: str, person: str, **kw: Any) -> Any:
+            return api.request(method, path, headers=o.bearer(who[person]), **kw)
+
+        assert api.post(url, json=_entitlement(provider)).status_code == 401
+        r = call("POST", url, "vendor", json=_entitlement(provider))
+        assert r.status_code == 403 and r.json()["error"]["code"] == "OPERATOR_CAPABILITY_REQUIRED"
+
+        _grant(api, o, who, "vendor", "regulatory.entitlement.record")
+        r = call("POST", url, "vendor", json=_entitlement(provider))
+        assert r.status_code == 201, r.text
+        assert (r.json()["outcome"], r.json()["reason"]) == ("ENTITLED", "entitled")
+        assert call("POST", url, "author", json=_entitlement(provider)).status_code == 403
+        r = call("POST", url, "vendor", json=_entitlement(provider, ago=timedelta(days=2)))
+        assert r.status_code == 409 and r.json()["error"]["code"] == "ENTITLEMENT_OUT_OF_ORDER"
+        bad = _entitlement(provider) | {"terms_ref": "x"}
+        assert call("POST", url, "vendor", json=bad).status_code == 422
+
+        r = call(
+            "POST", url, "vendor", json=_entitlement(provider, "SUSPENDED", timedelta(minutes=1))
+        )
+        assert r.status_code == 201 and (r.json()["outcome"], r.json()["reason"]) == (
+            "DENIED",
+            "suspended",
+        )
+        listed = call("GET", url, "vendor", params={"provider": provider}).json()["items"]
+        assert [(i["country"], i["outcome"], i["reason"]) for i in listed] == [
+            ("GB", "DENIED", "suspended")
+        ]
+
+    records = _audit(owner_url, f"{provider}/%")
+    recorded = [r for r in records if r["event_type"] == "regulatory.entitlement.recorded"]
+    assert [r["body"]["details"]["status"] for r in recorded] == ["GRANTED", "SUSPENDED"]
+    assert any(r["reason_code"] == "ENTITLEMENT_OUT_OF_ORDER" for r in records)
+    assert "TERMS-ACME" not in " ".join(
+        str(r["body"]) for r in records
+    )  # references to the contract only, never the terms

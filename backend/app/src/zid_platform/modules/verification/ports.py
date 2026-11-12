@@ -4,7 +4,13 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.verification.application import market_releases, policy_packs
+from zid_platform.modules.verification.application import (
+    market_releases,
+    policy_packs,
+    regulated_claims,
+    right_to_rent,
+    suspensions,
+)
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.service import (
     assurance,
@@ -17,7 +23,13 @@ from zid_platform.modules.verification.application.service import (
     shared_assertions,
 )
 from zid_platform.modules.verification.domain import attestation as attestation_model
+from zid_platform.modules.verification.domain import conformance as conformance_model
+from zid_platform.modules.verification.domain import entitlement as entitlement_model
 from zid_platform.modules.verification.domain import market_release as release_model
+from zid_platform.modules.verification.domain import privacy_overlay as privacy_overlay_model
+from zid_platform.modules.verification.domain import regulated_claims as claim_model
+from zid_platform.modules.verification.domain import right_to_rent as rtr_model
+from zid_platform.modules.verification.domain import suspension as suspension_model
 from zid_platform.modules.verification.domain.certification import (
     CertClaim,
     CertificationError,
@@ -60,11 +72,16 @@ from zid_platform.modules.verification.domain.service_packs import (
     resolve,
 )
 from zid_platform.modules.verification.infrastructure import attestation_store as attestations
+from zid_platform.modules.verification.infrastructure import conformance_store as conformance
+from zid_platform.modules.verification.infrastructure import entitlement_store as entitlements
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
+from zid_platform.modules.verification.infrastructure.claim_templates import claim_templates
+from zid_platform.modules.verification.infrastructure.conformance_matrix import conformance_matrix
 from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
+from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
 
 __all__ = [
     "APPROVER_ROLES",
@@ -96,6 +113,13 @@ __all__ = [
     "availability",
     "certification_registry",
     "claim_matches",
+    "claim_model",
+    "claim_templates",
+    "conformance",
+    "conformance_matrix",
+    "conformance_model",
+    "entitlement_model",
+    "entitlements",
     "fresh_reproof",
     "gate_decision",
     "market_releases",
@@ -104,18 +128,25 @@ __all__ = [
     "pack_registry",
     "person_assurance_current",
     "policy_packs",
+    "privacy_overlay_model",
+    "privacy_overlays",
     "public_view",
     "reconcile_delayed",
     "reconstruct_decision",
     "record_presentation",
     "refuse_unbacked_claim",
     "registry",
+    "regulated_claims",
     "release_model",
     "require",
     "resolve",
     "revoke",
+    "right_to_rent",
+    "rtr_model",
     "seed_representative_proofing",
     "shared_assertions",
+    "suspension_model",
+    "suspensions",
     "verification_session_view",
 ]
 

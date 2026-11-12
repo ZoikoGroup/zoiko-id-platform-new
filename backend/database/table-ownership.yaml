@@ -804,6 +804,31 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G02 official-register attestation snapshots, append-only (proposed, CR-073)"
+  verify.provider_entitlement:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G03 partner entitlement statements, append-only (proposed, CR-074)"
+  verify.provider_suspension:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G08 exact-scope provider suspensions (kill switch), versioned and append-only (proposed, CR-078)"
+  verify.conformance_run:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 section 12 independent conformance runs (48 cases), append-only (proposed, CR-083)"
+  verify.register_response:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G02 preserved official-register responses behind connector attestations, append-only (proposed, CR-087)"
+  verify.conformance_review:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 section 12 independent review of a conformance run, append-only (proposed, CR-083)"
   verify.market_release:
     role: cell
     module: verification
@@ -874,6 +899,11 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-VC-001 §4, §15 (typed issuer trust registry); CR-009"
+  cred.issuer_statement:
+    role: cell
+    module: credential
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G04 issuer and accreditation history with provenance, append-only (proposed, CR-075)"
   cred.rp_registration:
     role: cell
     module: credential

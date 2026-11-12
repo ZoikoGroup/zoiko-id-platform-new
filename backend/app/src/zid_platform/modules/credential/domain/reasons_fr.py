@@ -92,6 +92,116 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "Le programme n'était pas couvert par une accréditation à la date de remise du diplôme, même s'il l'est aujourd'hui.",
         "Vous pouvez faire appel avec une preuve d'accréditation à la date d'obtention.",
     ),
+    "UNKNOWN_HISTORICAL_ISSUER": (
+        "Nous ne connaissons pas cet établissement",
+        "Nous n'avons aucun historique enregistré de cet établissement au moment de la vérification ; nous ne pouvons donc pas dire qu'il était autorisé à délivrer cette attestation.",
+        "Une personne peut vérifier l'établissement auprès d'une source officielle.",
+    ),
+    "AUTHORITY_NOT_RECORDED": (
+        "L'autorité de l'établissement n'est pas enregistrée",
+        "Nous n'avons enregistré aucune base légale ou réglementaire permettant à cet établissement de délivrer ce type d'attestation.",
+        "Une personne peut vérifier l'autorité de l'établissement auprès d'une source officielle.",
+    ),
+    "ISSUER_REVOKED_AT_AWARD_DATE": (
+        "L'établissement n'était plus reconnu",
+        "La reconnaissance de l'établissement avait été retirée à la date de remise du diplôme.",
+        "Vous pouvez faire appel avec une preuve qu'il était reconnu à la date d'obtention.",
+    ),
+    "NOT_TRUSTED_FOR_CLAIM_TYPE": (
+        "L'établissement n'est pas enregistré pour ce type de déclaration",
+        "Cet établissement n'est pas enregistré comme autorité pour ce type d'attestation.",
+        "Une personne peut vérifier si une autre source peut le confirmer.",
+    ),
+    "QUALIFICATION_VERIFIED": (
+        "La qualification est vérifiée",
+        "La qualification elle-même a été contrôlée et confirmée. C'est distinct du droit de cette personne d'exercer ce service ici.",
+        "Vous n'avez rien à faire pour la qualification.",
+    ),
+    "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
+        "Le droit d'exercer n'est pas établi",
+        "Nous n'avons pas pu établir que cette personne peut proposer ce service à cet endroit, même si d'autres contrôles ont réussi.",
+        "Une personne peut l'examiner, ou vous pouvez fournir les preuves manquantes.",
+    ),
+    "CONDITION_BLOCKS_SERVICE": (
+        "Une condition de la licence ferme ce service",
+        "Une condition de la licence signifie que ce service n'est pas ouvert à cette personne à cet endroit.",
+        "Vous pouvez faire appel avec une preuve que la condition ne s'applique plus.",
+    ),
+    "CONDITION_NEEDS_REVIEW": (
+        "Une condition de la licence doit être examinée",
+        "Une condition de la licence doit être examinée avant que ce service puisse se poursuivre.",
+        "Un examinateur l'examinera ; vous pouvez ajouter du contexte.",
+    ),
+    "CONDITION_NOT_CLASSIFIED": (
+        "Une condition de la licence n'est pas reconnue",
+        "Une condition de la licence ne correspond à aucune de nos règles ; nous ne pouvons donc pas la traiter comme autorisant ce service.",
+        "Un examinateur l'examinera.",
+    ),
+    "COVERAGE_LIMIT_NOT_REPORTED": (
+        "Le plafond de garantie n'est pas indiqué",
+        "Le dossier d'assurance n'indique aucun plafond de garantie ; nous ne pouvons donc pas savoir s'il suffit.",
+        "Demandez à l'assureur de confirmer le plafond.",
+    ),
+    "COVERAGE_CURRENCY_MISMATCH": (
+        "La garantie est dans une autre devise",
+        "Le plafond de garantie est dans une devise différente de celle exigée. Nous ne convertissons pas les devises.",
+        "Fournissez une garantie dans la devise exigée.",
+    ),
+    "COVERAGE_LIMIT_BELOW_MINIMUM": (
+        "Le plafond de garantie est trop bas",
+        "Le plafond de garantie est inférieur au minimum exigé pour ce service.",
+        "Augmentez la garantie ou fournissez une garantie complémentaire.",
+    ),
+    "PRACTICE_CLASS_NOT_COVERED": (
+        "La garantie concerne un autre type d'exercice",
+        "Le dossier d'assurance ne couvre pas le type d'exercice dont ce service a besoin.",
+        "Demandez à l'assureur de confirmer la garantie pour cet exercice.",
+    ),
+    "COVER_BASIS_NOT_REPORTED": (
+        "La base de la garantie n'est pas indiquée",
+        "Le dossier d'assurance ne dit pas si la garantie est déclenchée par la réclamation ou par le fait dommageable.",
+        "Demandez à l'assureur de confirmer la base de la garantie.",
+    ),
+    "RETROACTIVE_DATE_MISSING": (
+        "La date de rétroactivité est absente",
+        "Une garantie déclenchée par la réclamation exige une date de rétroactivité, et le dossier n'en donne aucune.",
+        "Demandez à l'assureur de confirmer la date de rétroactivité.",
+    ),
+    "RETROACTIVE_DATE_AFTER_WORK_START": (
+        "La garantie commence trop tard",
+        "La date de rétroactivité de cette garantie est postérieure au début du travail ; le travail antérieur ne serait donc pas couvert.",
+        "Fournissez une garantie avec une date de rétroactivité plus ancienne.",
+    ),
+    "ACCESS_CERTIFICATE_MISSING": (
+        "La demande n'est pas signée avec un certificat enregistré",
+        "Une demande à un portefeuille d'identité numérique de l'UE doit être signée avec le certificat enregistré à cet effet, et celle-ci ne l'était pas.",
+        "Zoiko iD doit configurer son certificat enregistré avant d'interroger le portefeuille.",
+    ),
+    "ACCESS_CERTIFICATE_MISMATCH": (
+        "La demande est signée avec un autre certificat",
+        "La demande est signée avec un certificat différent de celui enregistré pour les portefeuilles d'identité numérique de l'UE.",
+        "Zoiko iD doit signer avec son certificat enregistré.",
+    ),
+    "INTENDED_USE_NOT_REGISTERED": (
+        "Cet usage n'est pas enregistré",
+        "Zoiko iD n'est pas enregistré pour demander des informations à un portefeuille d'identité numérique de l'UE à cette fin.",
+        "Vous n'avez rien à faire ; la demande n'a pas été envoyée.",
+    ),
+    "ATTESTATION_TYPE_NOT_REGISTERED": (
+        "Ce type d'attestation n'est pas enregistré",
+        "Zoiko iD n'est pas enregistré pour demander ce type d'attestation à un portefeuille d'identité numérique de l'UE à cette fin.",
+        "Vous n'avez rien à faire ; la demande n'a pas été envoyée.",
+    ),
+    "PID_PROVIDER_NOT_LISTED": (
+        "Le fournisseur des données d'identité n'est pas reconnu",
+        "Les données d'identification personnelle ne proviennent pas d'un fournisseur que nous pouvons confirmer sur une liste officielle.",
+        "Utilisez un autre moyen de vérifier votre identité.",
+    ),
+    "QEAA_STATUS_NOT_ESTABLISHED": (
+        "Ce n'est pas une attestation qualifiée",
+        "L'émetteur n'a pas été confirmé comme prestataire qualifié pour cette attestation à sa date d'émission ; elle est donc traitée comme une attestation ordinaire.",
+        "Vous n'avez rien à faire ; l'attestation est toujours lue, à son juste niveau.",
+    ),
     "LICENSE_NOT_YET_EFFECTIVE": (
         "La licence n'a pas encore commencé",
         "Le régulateur indique une date de début qui n'est pas encore arrivée.",

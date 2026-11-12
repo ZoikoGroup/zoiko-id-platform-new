@@ -210,6 +210,42 @@ def _release_capabilities() -> tuple[Capability, ...]:
             two_person=False,
             minutes=240,
         ),
+        cap(
+            "regulatory.conformance.record",
+            "Record a conformance run of the 48 acceptance cases (commit, environment, outcomes); cannot review it (CR-083)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "regulatory.conformance.review",
+            "Independently accept or reject a conformance run by signing its hash; never one's own run (CR-083)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "regulatory.suspension.apply",
+            "Emergency, exact-scope suspension of a provider's service, scheme, country or purpose (the kill switch); takes effect at once (CR-078)",
+            two_person=False,
+            minutes=60,
+        ),
+        cap(
+            "regulatory.suspension.lift",
+            "Lift a provider suspension (the rollback), by someone other than whoever applied it, with evidence (CR-078)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "regulatory.issuer.record",
+            "Record a dated statement about an issuer, its names and its accreditations, with the official source and its proof; a correction of past facts needs a reason (CR-075)",
+            two_person=True,
+            minutes=120,
+        ),
+        cap(
+            "regulatory.entitlement.record",
+            "Record, suspend or withdraw what Zoiko may use a provider for in a country, with the contract and terms it rests on (CR-074)",
+            two_person=True,
+            minutes=120,
+        ),
     )
 
 
@@ -534,6 +570,11 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
             }
         ),
         "Whoever prepares a market release signs no gate or approval of it, and holds one signing role only (ZID-RCG-003 RG-08)",
+    ),
+    ConflictRule(
+        "regulatory-conformance-runner-vs-reviewer",
+        frozenset({"regulatory.conformance.record", "regulatory.conformance.review"}),
+        "Whoever records a conformance run is not its independent reviewer (ZID-RCG-003 section 12)",
     ),
 )
 
