@@ -24,7 +24,11 @@ from zid_platform.modules.evidence.domain import analysis
 
 ALLOWED_TYPES = ("application/pdf", "image/png", "image/jpeg")  # what may be UPLOADED and kept
 # What may be validated in memory: signed XML (XAdES / XML-DSig) too. It is never stored, so it is not an upload type.
-VALIDATION_TYPES = (*ALLOWED_TYPES, "application/xml")
+ASIC_TYPES = (
+    "application/vnd.etsi.asic-s+zip",
+    "application/vnd.etsi.asic-e+zip",
+)  # validated, never uploaded: a container is the caller's evidence
+VALIDATION_TYPES = (*ALLOWED_TYPES, "application/xml", *ASIC_TYPES)
 XML_TYPE = "application/xml"
 MAX_BYTES = 2 * 1024 * 1024  # validated in memory and never stored
 CHECKS = ("integrity", "issuer", "signature", "seal", "analysis")
@@ -60,6 +64,18 @@ class Validation:
     results: tuple[CheckResult, ...]
 
 
+def _asic_type(content: bytes) -> str | None:
+    """An ASiC container names its type in its first, stored ZIP entry `mimetype` (ETSI EN 319 162)."""
+    if len(content) < 38 or not content.startswith(b"PK\x03\x04"):
+        return None
+    if int.from_bytes(content[8:10], "little") != 0 or content[30:38] != b"mimetype":
+        return None
+    size = int.from_bytes(content[18:22], "little")
+    start = 38 + int.from_bytes(content[28:30], "little")
+    body = content[start : start + size].decode("ascii", "ignore")
+    return body if body in ASIC_TYPES else None
+
+
 def sniff(content: bytes) -> str | None:
     """The type the bytes ARE, from their leading bytes; None if it is not an allowed type."""
     if content.startswith(b"%PDF-"):
@@ -68,6 +84,9 @@ def sniff(content: bytes) -> str | None:
         return "image/png"
     if content.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
+    asic = _asic_type(content)
+    if asic:
+        return asic
     head = content.lstrip(b"\xef\xbb\xbf \t\r\n")[:1]
     if (
         head == b"<"
@@ -175,6 +194,13 @@ def _integrity(digest: str, kind: str | None, declared: str, expected: str | Non
 
 
 def _signature(kind: str | None, count: int) -> CheckResult:
+    if kind in ASIC_TYPES:
+        return CheckResult(
+            "signature",
+            Status.INDETERMINATE,
+            ("SIGNATURE_PRESENT_NOT_VALIDATED", "NO_SIGNATURE_VALIDATOR"),
+            {"signatures_detected": 0, "container": kind},
+        )
     if kind not in {"application/pdf", XML_TYPE}:
         return CheckResult(
             "signature", Status.UNAVAILABLE, ("NOT_APPLICABLE_TO_TYPE",), {"signatures_detected": 0}

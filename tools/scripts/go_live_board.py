@@ -78,6 +78,21 @@ def _counsel_fields() -> list[dict[str, str]]:
     return module.fields()
 
 
+def _uat() -> dict[str, Any]:
+    """ZID-UAT-005: the 104-case register. Developer evidence is counted apart from independent verdicts, which this repository does not hold."""
+    spec = importlib.util.spec_from_file_location(
+        "uat_register", ROOT / "tools" / "scripts" / "uat_register.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["uat_register"] = module
+    spec.loader.exec_module(module)
+    rows = module.load()
+    out = module.summary(rows)
+    out["problems"] = len(module.problems(rows))
+    return out
+
+
 def _privacy() -> dict[str, Any]:
     """ZID-PRI-004 facts that live in the repository. The per-market gate state lives in each DPIA package (the API), not here."""
     linked: dict[str, bool] = {}
@@ -183,6 +198,7 @@ def build() -> dict[str, Any]:
     return {
         "countries": countries,
         "privacy": _privacy(),
+        "uat": _uat(),
         "release": {
             "disposition": book["disposition"],
             "ratifications": [
@@ -295,6 +311,18 @@ def render(b: dict[str, Any]) -> str:
         f"- Counsel's open fields: **{pv['counsel_open_fields']}** across {pv['counsel_open_files']} files (`docs/signoff/counsel-worksheet.md`). Each is a legal statement for a market; until it is filled the platform blocks or routes to a person.",
         f"- Acceptance tests linked to a test: **{ac['linked']} of {ac['total']}**, {ac['mechanism_only']} of them mechanism-only. Not linked: {', '.join(ac['unlinked']) or 'none'}.",
         "- Owner pack: `docs/signoff/privacy-biometric-owner-pack.md`. Nothing here is a signed DPIA, a test result or a certification.",
+    ]
+    u = b["uat"]
+    out += [
+        "",
+        "## Independent UAT register (ZID-UAT-005)",
+        "",
+        "A case is settled only by an independent run with an evidence manifest. This repository holds none, so every case reads NOT_RUN; a developer test is shown separately and is not a verdict.",
+        "",
+        f"- Cases: **{u['cases']}**; independent PASS: **{u['independent_pass']}**; NOT_RUN: **{u['not_run']}**; register problems: **{u['problems']}**.",
+        f"- With a developer test that exercises the scenario: **{u['with_developer_evidence']}** ({u['partial_or_mechanism']} partial or mechanism-only).",
+        f"- Need a third party: **{u['third_party']}**; need an independent audit or exercise: **{u['people']}**. Proposed P0 (to be confirmed by the QA lead): **{u['proposed_p0']}**.",
+        "- Detail: `docs/qa/uat-register-report.md`; design: `docs/specs/change-requests/CR-074-independent-assurance-plane-DESIGN.md`.",
     ]
     out += [
         "",

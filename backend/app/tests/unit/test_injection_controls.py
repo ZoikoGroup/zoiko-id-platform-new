@@ -44,6 +44,16 @@ REVIEWED_IDENTIFIERS: dict[str, str] = {
 # Reviewed by site: (file suffix, function, interpolated expression) -> why it is not user input.
 REVIEWED_SITES: dict[tuple[str, str, str], str] = {
     (
+        "assurance/infrastructure/store.py",
+        "_one",
+        "sql",
+    ): "private helper; every caller passes a literal statement with bound parameters",
+    (
+        "assurance/infrastructure/store.py",
+        "_all",
+        "sql",
+    ): "private helper; every caller passes a literal statement with bound parameters",
+    (
         "entrypoints/maintenance.py",
         "run_once",
         "where",

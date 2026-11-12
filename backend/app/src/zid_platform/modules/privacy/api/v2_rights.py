@@ -120,7 +120,7 @@ async def proof_of_authority(
     return {**_ids(), **await _run(request, caller, MANAGE, f"rights_request:{request_id}", go)}
 
 
-class ReviewIn(BaseModel):
+class PrivV2RequestReviewIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rule: str = Field(min_length=2, max_length=128)
     evidence: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
@@ -134,7 +134,7 @@ _OUTCOME = {"DENY": "DENIED", "PARTIAL": "PARTIALLY_DENIED", "WITHDRAW": "WITHDR
 
 @router.post("/v2/privacy/requests/{request_id}/review-decisions")
 async def review_decision(
-    request_id: uuid.UUID, body: ReviewIn, request: Request, caller: CallerDep
+    request_id: uuid.UUID, body: PrivV2RequestReviewIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     me = _me(caller)
     if body.action in _OUTCOME and not body.evidence:

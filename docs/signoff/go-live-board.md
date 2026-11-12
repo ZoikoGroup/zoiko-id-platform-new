@@ -74,4 +74,13 @@ Every gate is signed per country, product, provider and model version; the state
 - Acceptance tests linked to a test: **50 of 50**, 8 of them mechanism-only. Not linked: none.
 - Owner pack: `docs/signoff/privacy-biometric-owner-pack.md`. Nothing here is a signed DPIA, a test result or a certification.
 
+## Independent UAT register (ZID-UAT-005)
+
+A case is settled only by an independent run with an evidence manifest. This repository holds none, so every case reads NOT_RUN; a developer test is shown separately and is not a verdict.
+
+- Cases: **104**; independent PASS: **0**; NOT_RUN: **104**; register problems: **0**.
+- With a developer test that exercises the scenario: **64** (33 partial or mechanism-only).
+- Need a third party: **35**; need an independent audit or exercise: **6**. Proposed P0 (to be confirmed by the QA lead): **42**.
+- Detail: `docs/qa/uat-register-report.md`; design: `docs/specs/change-requests/CR-074-independent-assurance-plane-DESIGN.md`.
+
 5 no-go conditions are tracked in `deploy/release/ratification.json`; `python tools/scripts/ratification.py --report` lists each with what closes it.

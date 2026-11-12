@@ -22,9 +22,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from zid_context import current_context
 from zid_db import tenant_transaction
 from zid_errors import ZidError
-from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.verification.application.entitlements import (
+    EntitlementNotFound,
+    change_status,
+)
 from zid_platform.modules.verification.domain import provider_adapter as pa
 from zid_platform.modules.verification.infrastructure import entitlement_store as store
 from zid_platform.protected import protected_action
@@ -150,34 +153,15 @@ async def _change(
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         tenant = await _guard(conn, caller, f"provider-entitlement:{provider_id}")
-        current = await store.live(conn, provider_id, service)
-        if current is None:
+        try:
+            row = await change_status(conn, tenant, provider_id, service, status, reason)
+        except EntitlementNotFound as e:
             raise ZidError(
                 "ENTITLEMENT_NOT_FOUND",
                 "There is no live entitlement for this provider and service.",
                 http_status=404,
-            )
-        ident = str(current["entitlement_id"])
-        await store.set_status(conn, ident, status, reason)
-        if status == "REVOKED":
-            await emit(
-                conn,
-                name="provider.entitlement_revoked",
-                tenant_id=tenant,
-                aggregate_type="provider_entitlement",
-                aggregate_id=ident,
-                aggregate_version=1,
-                data={
-                    "entitlement_id": ident,
-                    "provider_id": provider_id,
-                    "service_code": service,
-                    "previous_status": current["status"],
-                },
-            )
-        rows = [
-            r for r in await store.listing(conn, provider_id) if str(r["entitlement_id"]) == ident
-        ]
-    return {**_ids(), **_public(rows[0]), "limitations": LIMITATIONS}
+            ) from e
+    return {**_ids(), **_public(row), "limitations": LIMITATIONS}
 
 
 @router.post("/v2/providers/{provider_id}/entitlements/{service}/suspend")

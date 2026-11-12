@@ -104,3 +104,14 @@ def test_the_written_board_is_current() -> None:
     assert (REPO / "docs" / "signoff" / "go-live-board.md").read_text(
         encoding="utf-8"
     ) == board.render(board.build()), "run tools/scripts/go_live_board.py --write"
+
+
+def test_the_uat_section_counts_the_register_and_shows_no_independent_pass() -> None:
+    board = load("go_live_board").build()
+    u = board["uat"]
+    assert u["cases"] == 104 and u["problems"] == 0
+    assert u["independent_pass"] == 0 and u["not_run"] == 104, (
+        "this repository holds no independent evidence"
+    )
+    assert u["third_party"] + u["people"] < u["cases"]
+    assert "Independent UAT register" in load("go_live_board").render(board)

@@ -1475,6 +1475,43 @@
         "title": "PrivV2ReceiptIn",
         "type": "object"
       },
+      "PrivV2RequestReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "FULFIL",
+              "DENY",
+              "PARTIAL",
+              "WITHDRAW"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "rule": {
+            "maxLength": 128,
+            "minLength": 2,
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "action"
+        ],
+        "title": "PrivV2RequestReviewIn",
+        "type": "object"
+      },
       "PrivV2ReviewDecisionIn": {
         "additionalProperties": false,
         "properties": {
@@ -2564,43 +2601,6 @@
           "approval_request_id"
         ],
         "title": "RoleBody",
-        "type": "object"
-      },
-      "zid_platform__modules__privacy__api__v2_rights__ReviewIn": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "enum": [
-              "FULFIL",
-              "DENY",
-              "PARTIAL",
-              "WITHDRAW"
-            ],
-            "title": "Action",
-            "type": "string"
-          },
-          "evidence": {
-            "items": {
-              "maxLength": 200,
-              "minLength": 1,
-              "type": "string"
-            },
-            "maxItems": 20,
-            "title": "Evidence",
-            "type": "array"
-          },
-          "rule": {
-            "maxLength": 128,
-            "minLength": 2,
-            "title": "Rule",
-            "type": "string"
-          }
-        },
-        "required": [
-          "rule",
-          "action"
-        ],
-        "title": "ReviewIn",
         "type": "object"
       }
     }
@@ -6057,7 +6057,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__v2_rights__ReviewIn"
+                "$ref": "#/components/schemas/PrivV2RequestReviewIn"
               }
             }
           },

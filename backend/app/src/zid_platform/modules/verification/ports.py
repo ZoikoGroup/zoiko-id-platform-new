@@ -5,6 +5,10 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
+from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
+from zid_platform.modules.verification.application.entitlements import (
+    change_status as change_entitlement_status,
+)
 from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
@@ -36,6 +40,17 @@ from zid_platform.modules.verification.domain.product_lines import (
     ProductLineError,
     require_available,
 )
+from zid_platform.modules.verification.domain.provider_adapter import (
+    Entitlement,
+    EntitlementStatus,
+    Refusal,
+    RouteRequest,
+    WebhookRefusal,
+    entitlement_refusals,
+    route,
+    sign_webhook,
+    verify_webhook,
+)
 from zid_platform.modules.verification.domain.service_packs import (
     PackError,
     PackRegistry,
@@ -60,17 +75,25 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "Entitlement",
+    "EntitlementNotFound",
+    "EntitlementStatus",
     "LineRegistry",
     "LineState",
     "PackError",
     "PackRegistry",
     "ProductLine",
     "ProductLineError",
+    "Refusal",
+    "RouteRequest",
     "ServicePack",
+    "WebhookRefusal",
     "assurance",
     "availability",
     "certification_registry",
+    "change_entitlement_status",
     "claim_matches",
+    "entitlement_refusals",
     "fresh_reproof",
     "pack_registry",
     "person_assurance_current",
@@ -85,9 +108,12 @@ __all__ = [
     "require_available",
     "resolve",
     "revoke",
+    "route",
     "seed_representative_proofing",
     "shared_assertions",
+    "sign_webhook",
     "verification_session_view",
+    "verify_webhook",
 ]
 
 

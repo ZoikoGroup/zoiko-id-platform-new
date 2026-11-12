@@ -269,6 +269,7 @@ def create_app(
         app.state.organization_state = (
             organization_state  # read by verification (it cannot import onboarding)
         )
+        from .modules.assurance.api.v2 import router as assurance_v2_router
         from .modules.authentication.api.recovery import router as recovery_router
         from .modules.authentication.api.step_up import router as step_up_router
         from .modules.authentication.api.webauthn import router as webauthn_router
@@ -420,6 +421,7 @@ def create_app(
             privacy_policy_v2_router,
             privacy_sessions_v2_router,
             privacy_holds_v2_router,
+            assurance_v2_router,
             org_claim_proofs_router,
             org_claim_screening_router,
             signup_router,

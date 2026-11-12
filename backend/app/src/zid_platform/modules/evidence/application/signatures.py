@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from zid_platform.modules.evidence.application import cms, xades
+from zid_platform.modules.evidence.application import asic, cms, xades
 from zid_platform.modules.evidence.application import trust as tr
 from zid_platform.modules.evidence.domain import documents as docs
 
@@ -163,6 +163,8 @@ def apply(
     v: docs.Validation, pdf: bytes, config: tr.TrustConfig, *, at: datetime | None = None
 ) -> docs.Validation:
     """Replace the detection-only `signature` and `seal` results of `v` with real ones, when the document is a PDF that carries a signature."""
+    if v.sniffed_type in docs.ASIC_TYPES:
+        return apply_asic(v, pdf, config, at=at)
     if v.sniffed_type not in {"application/pdf", docs.XML_TYPE}:
         return v
     when = at or datetime.now(UTC)
@@ -194,6 +196,73 @@ def apply(
                 r,
                 reasons=reasons,
                 detail={**r.detail, "document_timestamps": stamps, "ltv_state": state},
+            )
+        results.append(r)
+    return replace(out, results=tuple(results))
+
+
+def apply_asic(
+    v: docs.Validation, container: bytes, config: tr.TrustConfig, *, at: datetime | None = None
+) -> docs.Validation:
+    """Replace the `signature` and `seal` results with those of the CAdES signatures inside an ASiC container. A broken container, a changed or
+    unsigned data file, or a signature kind this validator does not read is named and never passes as valid."""
+    when = at or datetime.now(UTC)
+    try:
+        c = asic.read(container)
+    except asic.AsicError as e:
+        failed = docs.CheckResult(
+            "signature",
+            docs.Status.NOT_VERIFIED,
+            (e.code,),
+            {"container": v.sniffed_type, "detail": e.detail},
+        )
+        return replace(v, results=tuple(failed if r.check == "signature" else r for r in v.results))
+    findings: list[cms.Finding] = []
+    for _name, sig, signed in c.cades:
+        findings += cms.inspect_cades(
+            sig,
+            signed,
+            anchors=config.anchors,
+            at=when,
+            tsa_roots=config.tsa_roots,
+            crls=config.crls,
+            ocsp_responses=config.ocsp_responses,
+        )
+    out = _replace(v, findings, config, when) if findings else v
+    results = []
+    for r in out.results:
+        if r.check == "signature":
+            detail = {
+                **r.detail,
+                "container": c.kind,
+                "data_files": sorted(c.data),
+                "container_problems": list(c.problems),
+                "unsupported": list(c.unsupported),
+            }
+            if c.problems:
+                r = docs.CheckResult(
+                    "signature",
+                    docs.Status.NOT_VERIFIED,
+                    tuple(dict.fromkeys([*c.problems, *r.reasons]))[:12],
+                    detail,
+                )
+            elif not findings:
+                r = docs.CheckResult(
+                    "signature",
+                    docs.Status.INDETERMINATE,
+                    tuple(c.unsupported) or ("NO_SIGNATURE_FOUND",),
+                    detail,
+                )
+            elif c.unsupported:
+                status = (
+                    r.status if r.status is docs.Status.NOT_VERIFIED else docs.Status.INDETERMINATE
+                )
+                r = docs.CheckResult(r.check, status, (*r.reasons, *c.unsupported), detail)
+            else:
+                r = docs.CheckResult(r.check, r.status, r.reasons, detail)
+        elif r.check == "seal" and not findings:
+            r = docs.CheckResult(
+                "seal", docs.Status.UNAVAILABLE, ("NO_SIGNATURE_TO_ASSESS",), r.detail
             )
         results.append(r)
     return replace(out, results=tuple(results))

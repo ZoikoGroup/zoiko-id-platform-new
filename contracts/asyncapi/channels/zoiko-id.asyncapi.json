@@ -131,6 +131,31 @@
         }
       }
     },
+    "assurance.domain": {
+      "address": "zid.{env}.{region}.assurance.domain",
+      "messages": {
+        "assurance_case_expired": {
+          "$ref": "#/components/messages/assurance_case_expired"
+        },
+        "assurance_evidence_tampered": {
+          "$ref": "#/components/messages/assurance_evidence_tampered"
+        },
+        "assurance_release_decided": {
+          "$ref": "#/components/messages/assurance_release_decided"
+        },
+        "assurance_release_rolled_back": {
+          "$ref": "#/components/messages/assurance_release_rolled_back"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "authentication.domain": {
       "address": "zid.{env}.{region}.authentication.domain",
       "messages": {
@@ -2407,6 +2432,50 @@
         "title": "artifact.signed",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "assurance_case_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.case.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A UAT case that had an independent PASS no longer counts because an input it was pinned to changed; ids and the reason only.",
+        "title": "assurance.case.expired",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_evidence_tampered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.evidence.tampered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A signed manifest or its event chain failed verification and the releases built on it were locked; ids and problem codes only.",
+        "title": "assurance.evidence.tampered",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_release_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.release.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A release role signed a decision on a candidate and the candidate's status was recomputed; ids, the role, the decision and the status only.",
+        "title": "assurance.release.decided",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_release_rolled_back": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.release.rolled_back.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A release scope was disabled by a release role holder; ids and the scope only. Evidence is kept.",
+        "title": "assurance.release.rolled_back",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
       },
       "authentication_failed": {
         "contentType": "application/cloudevents+json",
@@ -6308,6 +6377,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/artifact.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_assurance_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/assurance.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
