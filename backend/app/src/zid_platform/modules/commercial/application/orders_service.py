@@ -188,6 +188,7 @@ async def create_quote(
         prepaid_discount_pct=prepaid_discount,
         liability_capped=liability_capped,
         residency_commitment=residency_commitment,
+        account_currency=account[0],
     )
     v = rules.validate(quote, await _catalogue(conn, price_book_id), await _bands(conn))
     payload = {

@@ -82,6 +82,29 @@ async def load_content(conn: AsyncConnection, upload_id: str) -> bytes | None:
     return bytes(row[0]) if row and row[0] is not None else None
 
 
+async def load_sealed(conn: AsyncConnection, upload_id: str) -> dict[str, Any] | None:
+    """The stored bytes (ciphertext when encrypted) with what is needed to open them."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT content, content_encrypted, wrapped_dek, dek_kek_id, dek_kek_version, tenant_id FROM evidence.upload "
+                "WHERE upload_id = :i AND state = 'READY' AND scan_state = 'CLEAN'"
+            ),
+            {"i": uuid.UUID(upload_id)},
+        )
+    ).first()
+    if row is None or row[0] is None:
+        return None
+    return {
+        "content": bytes(row[0]),
+        "encrypted": bool(row[1]),
+        "wrapped_dek": bytes(row[2]) if row[2] is not None else None,
+        "kek_id": row[3],
+        "kek_version": row[4],
+        "tenant_id": str(row[5]),
+    }
+
+
 async def accept(
     conn: AsyncConnection,
     upload_id: str,
@@ -92,13 +115,21 @@ async def accept(
     exif_stripped: bool,
     scanner: str,
     now: datetime,
+    wrapped_dek: bytes | None = None,
+    dek_kek_id: str | None = None,
+    dek_kek_version: int | None = None,
 ) -> None:
     await conn.execute(
         text(
             "UPDATE evidence.upload SET state = 'READY', scan_state = 'CLEAN', scanner = :sc, content = :c, sniffed_type = :st, "
-            "stored_sha256 = :h, exif_stripped = :x, content_at = :n WHERE upload_id = :i AND state = 'AWAITING_CONTENT'"
+            "stored_sha256 = :h, exif_stripped = :x, content_at = :n, content_encrypted = :enc, wrapped_dek = :wd, "
+            "dek_kek_id = :kid, dek_kek_version = :kv WHERE upload_id = :i AND state = 'AWAITING_CONTENT'"
         ),
         {
+            "enc": wrapped_dek is not None,
+            "wd": wrapped_dek,
+            "kid": dek_kek_id,
+            "kv": dek_kek_version,
             "sc": scanner,
             "c": content,
             "st": sniffed_type,
@@ -124,7 +155,7 @@ async def reject(
     await conn.execute(
         text(
             "UPDATE evidence.upload SET state = 'REJECTED', reject_reason = :r, scan_state = :ss, scanner = :sc, "
-            "sniffed_type = :st, content = NULL, content_at = :n WHERE upload_id = :i AND state = 'AWAITING_CONTENT'"
+            "sniffed_type = :st, content = NULL, wrapped_dek = NULL, content_at = :n WHERE upload_id = :i AND state = 'AWAITING_CONTENT'"
         ),
         {
             "r": reason,
@@ -141,7 +172,7 @@ async def erase(conn: AsyncConnection, upload_id: str, *, state: str, now: datet
     """Remove the bytes and mark the upload DELETED or EXPIRED. The row stays as the record that it existed."""
     result = await conn.execute(
         text(
-            "UPDATE evidence.upload SET state = :s, content = NULL, erased_at = :n "
+            "UPDATE evidence.upload SET state = :s, content = NULL, wrapped_dek = NULL, erased_at = :n "
             "WHERE upload_id = :i AND state IN ('READY', 'AWAITING_CONTENT')"
         ),
         {"s": state, "n": now, "i": uuid.UUID(upload_id)},

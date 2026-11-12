@@ -1,0 +1,21 @@
+# status: ACTIVE (a consumer contract: the published API must keep providing everything listed here)
+# version: 0.1.0
+# What Zoiko Rooms (the marketplace consuming property authority) relies on. A consumer contract test fails if the published API or event
+# catalogue stops providing any of it. Rooms owns the listing decision; this API only answers the evidence (ZID-INT-002 sections 11 and 13).
+consumer: zoiko-rooms
+requests:
+  - method: post
+    path: /v2/rooms/property-checks
+    required_request_fields: [property_ref, host_ref, relationship, jurisdiction, requested_dimensions]
+    response_keys: [listing_authority, listing_authority_note, dimensions, evidence, checked_at, valid_until, limitations, authority_changed_event_emitted]
+    # Rooms must be able to treat these as the whole vocabulary and must never see a stronger word than REVIEW_REQUIRED.
+    listing_authority_values: [UNKNOWN, INDETERMINATE, NOT_VERIFIED, REVIEW_REQUIRED, VERIFIED_LIMITED]
+    never_returned: [ELIGIBLE, VERIFIED]
+  - method: post
+    path: /v2/mandates/verify
+    required_request_fields: [organization_ref, subject_ref, authority_claim]
+    response_keys: [authority, authority_assurance, legal_entity, evidence, valid_until, limitations]
+events:
+  - property.authority_changed   # invalidate or re-review a listing
+  - eligibility.recomputed       # a person's eligibility moved
+  - credential.status_changed    # a claim a listing relied on was revoked, suspended or expired

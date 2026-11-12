@@ -1,0 +1,22 @@
+# status: DRAFT. What a jurisdiction requires before sensitive (biometric) collection, by pack (ZID-PRI-004 sections 06, 12 and 16).
+# Engineers must not fill these in: whether a written notice, a separate release or consent, a published retention schedule or a necessity assessment
+# is required is a legal statement set by counsel for the market, with its approval reference and effective date. Until then sensitive collection under
+# a pack listed here is DENIED (BIOMETRIC_COLLECTION_RULES_NOT_SET_BY_COUNSEL). A pack not listed here is not touched.
+# Switches counsel may set: written_notice_required, release_required, retention_schedule_required, necessity_assessment_required.
+# approval_ref: null
+# version: 0.1.0
+packs:
+  us-il-bipa:
+    approval_ref: COUNSEL
+    effective_from: COUNSEL
+    written_notice_required: COUNSEL
+    release_required: COUNSEL
+    retention_schedule_required: COUNSEL
+  us-ca-ccpa:
+    approval_ref: COUNSEL
+    effective_from: COUNSEL
+    written_notice_required: COUNSEL
+  au-privacy:
+    approval_ref: COUNSEL
+    effective_from: COUNSEL
+    necessity_assessment_required: COUNSEL

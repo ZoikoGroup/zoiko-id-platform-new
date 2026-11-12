@@ -1,0 +1,31 @@
+# Regulated product lines (ZID-GAP-001 v2.0 DTV-26..28, DTV-32..34; CR-073 section D). Versioned configuration, not tenant data.
+# status: PROPOSED. Every line is DESIGN: it exists as a name and does nothing. Nothing here collects or stores data.
+#
+# To switch a line on, ALL of this must be recorded first, by the people named in CR-073 (the file does not load otherwise):
+#   - state: STAGING or LIVE
+#   - legal_basis_ref: the Legal reference for the regulated activity in each listed country
+#   - partner_contract_ref: the signed partner contract (every line except source_of_funds needs a licensed partner)
+#   - approved_by: the owner who approved it (LIVE only)
+#   - countries: the ISO country codes it may run in; a country not listed is unavailable
+# version: 0.1.0
+
+version: 0.1.0
+lines:
+  open_banking_ownership:   # DTV-26 account-ownership assertion from an authorised AISP/PISP or aggregator
+    dtv: DTV-26
+    state: DESIGN
+  payment_ownership:        # DTV-27 tokenized payment-method ownership; PCI scope statement needed from Finance and Security
+    dtv: DTV-27
+    state: DESIGN
+  source_of_funds:          # DTV-28 versioned questionnaires, evidence and review; ours, but the questionnaires are the compliance officer's
+    dtv: DTV-28
+    state: DESIGN
+  transaction_monitoring:   # DTV-32 regulated product line, separately gated
+    dtv: DTV-32
+    state: DESIGN
+  travel_rule:              # DTV-33 crypto Travel Rule through a VASP protocol partner
+    dtv: DTV-33
+    state: DESIGN
+  onchain_screening:        # DTV-34 blockchain analytics partner and risk model, legal gating
+    dtv: DTV-34
+    state: DESIGN

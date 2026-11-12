@@ -21,4 +21,13 @@ for (const group of groups) {
     written.push(name);
   }
 }
+// The standalone TypeScript SDK (sdks/typescript, no runtime dependencies) ships the same generated types for the /v2 facades it calls.
+const sdkOut = resolve(here, "../../../../sdks/typescript/src/generated");
+mkdirSync(sdkOut, { recursive: true });
+for (const name of ["credentials", "evidence", "verification"]) {
+  const ast = await openapiTS(pathToFileURL(join(contracts, "public", `${name}.json`)));
+  const header = `// GENERATED from contracts/openapi/public/${name}.json by frontend/packages/api-client/openapi/codegen.mjs. Do not edit.
+`;
+  writeFileSync(join(sdkOut, `${name}.ts`), header + astToString(ast));
+}
 console.log(`generated ${written.length} contract types: ${written.join(", ")}`);

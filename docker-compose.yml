@@ -188,6 +188,21 @@ services:
       retries: 10
       start_period: 120s
 
+  # OCR for the document extraction route (Tesseract, free and open source), in its own sandbox so the backend links no imaging library:
+  #   docker compose --profile ocr up -d --build ocr    then set ZID_OCR_URL=http://ocr:8090 on the backend (http://127.0.0.1:8090 from the host)
+  # Without it the extraction route answers 503 for an image: nothing is read and nothing is guessed.
+  ocr:
+    profiles: ["ocr"]
+    build: ./tools/ocr-sidecar
+    restart: unless-stopped
+    ports: ["127.0.0.1:8090:8090"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+
   # Session store for the frontends (DEC-H1). The frontends run on the host and reach it here.
   valkey:
     image: valkey/valkey:8.0-alpine

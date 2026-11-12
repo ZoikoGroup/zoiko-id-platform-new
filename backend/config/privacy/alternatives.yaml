@@ -1,0 +1,7 @@
+# Ways to complete a verification without a biometric capture (ZID-PRI-004 section 06: "no inaccessible CAPTCHA or unexplained inability
+# to proceed"). Every purpose that could use a biometric route must offer at least one of these. Product decides the list; whether a
+# mode is lawful for a market is for counsel, and a mode a market does not support is removed here.
+modes:
+  - {id: ASSISTED_DOCUMENT_REVIEW, label: "A person reviews your document", biometric: false}
+  - {id: IN_PERSON_REVIEW, label: "Verify in person", biometric: false}
+  - {id: MANUAL_REVIEW, label: "Ask for a manual review", biometric: false}

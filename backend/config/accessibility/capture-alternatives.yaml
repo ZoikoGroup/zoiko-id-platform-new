@@ -1,0 +1,35 @@
+# Accessible alternatives to camera capture (ZID-GAP-001 v2.0 GID-062, DTV-12, GLB-30). Versioned configuration, not tenant data.
+# status: PROPOSED. These describe routes a person can take instead of taking a selfie or photographing a document. Which of them a deployment
+# can really run depends on the identity provider's contract (an accessible-route clause), on staffed in-person or assisted channels, and on the
+# reviewers who handle manual review: none of that is proven here. A route is listed because the platform can OFFER it; the provider contract
+# and the operations team decide whether it is available in a country.
+#
+# Rules the loader enforces: every country (and the default) lists at least one route, and every listed code is defined below.
+# version: 0.1.0
+
+version: 0.1.0
+alternatives:
+  - code: DOCUMENT_CHECK_IN_PERSON
+    title: "Show your document in person"
+    how: "Take your document to an approved location where a trained person checks it with you. You do not need to use a camera."
+    assurance_note: "A trained person checks the document in front of you. The level of assurance depends on the checking rules of the location and the country, and can differ from remote capture."
+    suits: [CANNOT_USE_CAMERA, CANNOT_HOLD_STEADY, ASSISTIVE_TECHNOLOGY_INCOMPATIBLE, NO_USABLE_CAMERA, PREFER_NOT_TO_SAY]
+    needs_human: true
+  - code: ASSISTED_REMOTE_CHECK
+    title: "Get help from a person on a call"
+    how: "A trained person helps you through the check by phone or video, and can take the steps for you where the rules allow."
+    assurance_note: "A person supports the check remotely. Where a step cannot be done without a camera, the route says so before you start."
+    suits: [CANNOT_USE_CAMERA, CANNOT_HOLD_STEADY, ASSISTIVE_TECHNOLOGY_INCOMPATIBLE]
+    needs_human: true
+  - code: MANUAL_REVIEW_OF_OTHER_EVIDENCE
+    title: "Send other evidence for a person to review"
+    how: "Send documents you already have, such as a scan or an existing certified copy. A reviewer who is not the person who asked looks at them."
+    assurance_note: "A reviewer decides on the evidence sent. The decision has the same appeal path as any other and is never made by a score alone."
+    suits: [NO_USABLE_CAMERA, ASSISTIVE_TECHNOLOGY_INCOMPATIBLE, PREFER_NOT_TO_SAY]
+    needs_human: true
+
+# routes offered when a country has no entry of its own
+default: [DOCUMENT_CHECK_IN_PERSON, ASSISTED_REMOTE_CHECK, MANUAL_REVIEW_OF_OTHER_EVIDENCE]
+
+# a country can offer fewer or different routes, but never none
+countries: {}
