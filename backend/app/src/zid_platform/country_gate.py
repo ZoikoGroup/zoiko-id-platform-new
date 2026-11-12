@@ -25,7 +25,7 @@ from zid_platform.modules.verification.ports import (
     Availability,
     Capability,
     CountryError,
-    PackError,
+    PolicyPackError,
     availability,
     gate_decision,
     pack_needed,
@@ -83,7 +83,7 @@ async def check_packs(
             resolution = await policy_packs.governing_pack(
                 conn, country=country, product=capability.value, purpose=PACK_PURPOSE, at=now
             )
-    except PackError as e:
+    except PolicyPackError as e:
         failed = str(e)
     decision = gate_decision(mode, state, resolution)
     if decision.would_refuse:

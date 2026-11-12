@@ -248,7 +248,7 @@ async def list_policy_packs(
             packs = await v.policy_packs.list_packs(
                 conn, country=country, status=status, limit=limit
             )
-        except v.PackError as e:
+        except v.PolicyPackError as e:
             raise _fail(e) from e
         return {"items": [_view(p) for p in packs]}
 
@@ -261,7 +261,7 @@ async def get_policy_pack(
         await _need_any(conn, op, f"regulatory:{pack_id}")
         try:
             return _view(await v.policy_packs.get_pack(conn, pack_id, version))
-        except v.PackError as e:
+        except v.PolicyPackError as e:
             raise _fail(e) from e
 
 
@@ -288,7 +288,7 @@ async def resolution(
                 subdivision=subdivision,
                 profession=profession,
             )
-        except v.PackError as e:
+        except v.PolicyPackError as e:
             raise _fail(e) from e
         return {
             "outcome": r.outcome.value,
@@ -383,7 +383,7 @@ async def _act(
                 details=details,
             )
             return _view(pack)
-    except v.PackError as e:
+    except v.PolicyPackError as e:
         refusal, code = _fail(e), str(e.code)
     except DBAPIError:
         refusal, code = _database_refused(), "PACK_REFUSED"
