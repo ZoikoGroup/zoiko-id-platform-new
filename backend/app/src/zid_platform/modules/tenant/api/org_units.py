@@ -50,7 +50,9 @@ class MemberBody(BaseModel):
 
 def _me(caller: Caller) -> str:
     if not caller.ctx.principal_id:
-        raise ZidError("UNAUTHENTICATED", "An authenticated principal is required.", http_status=401)
+        raise ZidError(
+            "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
+        )
     return caller.ctx.principal_id
 
 
@@ -85,18 +87,33 @@ async def tree(request: Request, caller: CallerDep) -> dict[str, Any]:
 async def add_unit(body: UnitBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await require_feature(conn, "advanced.multi-org-hierarchy-group-governance", enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"))
+        await require_feature(
+            conn,
+            "advanced.multi-org-hierarchy-group-governance",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
         depth = 0
         if body.parent_unit_id:
             parent = (
-                await conn.execute(text("SELECT depth, status FROM platform.org_unit WHERE unit_id = :p"), {"p": body.parent_unit_id})
+                await conn.execute(
+                    text("SELECT depth, status FROM platform.org_unit WHERE unit_id = :p"),
+                    {"p": body.parent_unit_id},
+                )
             ).first()
             if parent is None or parent.status != "ACTIVE":
                 raise ZidError("ORG_UNIT_NOT_FOUND", "No such live parent unit.", http_status=404)
             depth = parent.depth + 1
             if depth > MAX_DEPTH:
-                raise ZidError("ORG_UNIT_TOO_DEEP", f"A hierarchy has at most {MAX_DEPTH + 1} levels.", http_status=422)
-        if (await conn.execute(text("SELECT count(*) FROM platform.org_unit WHERE status = 'ACTIVE'"))).scalar_one() >= MAX_UNITS:
+                raise ZidError(
+                    "ORG_UNIT_TOO_DEEP",
+                    f"A hierarchy has at most {MAX_DEPTH + 1} levels.",
+                    http_status=422,
+                )
+        if (
+            await conn.execute(
+                text("SELECT count(*) FROM platform.org_unit WHERE status = 'ACTIVE'")
+            )
+        ).scalar_one() >= MAX_UNITS:
             raise ZidError("ORG_UNIT_LIMIT", f"At most {MAX_UNITS} units.", http_status=409)
         uid = uuid.uuid4()
         try:
@@ -106,53 +123,110 @@ async def add_unit(body: UnitBody, request: Request, caller: CallerDep) -> dict[
                         "INSERT INTO platform.org_unit (unit_id, tenant_id, parent_unit_id, name, kind, depth, created_by) "
                         "VALUES (:id, :t, :p, :n, :k, :d, :u)"
                     ),
-                    {"id": uid, "t": uuid.UUID(tenant), "p": body.parent_unit_id, "n": body.name.strip(), "k": body.kind, "d": depth, "u": uuid.UUID(_me(caller))},
+                    {
+                        "id": uid,
+                        "t": uuid.UUID(tenant),
+                        "p": body.parent_unit_id,
+                        "n": body.name.strip(),
+                        "k": body.kind,
+                        "d": depth,
+                        "u": uuid.UUID(_me(caller)),
+                    },
                 )
         except IntegrityError as e:
-            raise ZidError("ORG_UNIT_EXISTS", "A unit with that name already exists there.", http_status=409) from e
+            raise ZidError(
+                "ORG_UNIT_EXISTS", "A unit with that name already exists there.", http_status=409
+            ) from e
     return {"unit_id": str(uid), "depth": depth}
 
 
 @router.post("/{unit_id}:retire", dependencies=[Depends(EDIT)])
 async def retire_unit(unit_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        if (await conn.execute(text("SELECT count(*) FROM platform.org_unit WHERE parent_unit_id = :u AND status = 'ACTIVE'"), {"u": unit_id})).scalar_one():
+        if (
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM platform.org_unit WHERE parent_unit_id = :u AND status = 'ACTIVE'"
+                ),
+                {"u": unit_id},
+            )
+        ).scalar_one():
             raise ZidError("ORG_UNIT_HAS_CHILDREN", "Retire its sub-units first.", http_status=409)
-        res = await conn.execute(text("UPDATE platform.org_unit SET status = 'RETIRED', retired_at = now() WHERE unit_id = :u AND status = 'ACTIVE'"), {"u": unit_id})
+        res = await conn.execute(
+            text(
+                "UPDATE platform.org_unit SET status = 'RETIRED', retired_at = now() WHERE unit_id = :u AND status = 'ACTIVE'"
+            ),
+            {"u": unit_id},
+        )
         if res.rowcount != 1:
             raise ZidError("ORG_UNIT_NOT_FOUND", "No such live unit.", http_status=404)
-        await conn.execute(text("UPDATE platform.org_unit_member SET removed_at = now() WHERE unit_id = :u AND removed_at IS NULL"), {"u": unit_id})
+        await conn.execute(
+            text(
+                "UPDATE platform.org_unit_member SET removed_at = now() WHERE unit_id = :u AND removed_at IS NULL"
+            ),
+            {"u": unit_id},
+        )
     return {"unit_id": str(unit_id), "status": "RETIRED"}
 
 
 @router.post("/{unit_id}/members", status_code=201, dependencies=[Depends(EDIT)])
-async def add_member(unit_id: uuid.UUID, body: MemberBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def add_member(
+    unit_id: uuid.UUID, body: MemberBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await require_feature(conn, "advanced.multi-org-hierarchy-group-governance", enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"))
-        live = (await conn.execute(text("SELECT 1 FROM platform.org_unit WHERE unit_id = :u AND status = 'ACTIVE'"), {"u": unit_id})).first()
+        await require_feature(
+            conn,
+            "advanced.multi-org-hierarchy-group-governance",
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
+        live = (
+            await conn.execute(
+                text("SELECT 1 FROM platform.org_unit WHERE unit_id = :u AND status = 'ACTIVE'"),
+                {"u": unit_id},
+            )
+        ).first()
         if live is None:
             raise ZidError("ORG_UNIT_NOT_FOUND", "No such live unit.", http_status=404)
-        person = (await conn.execute(text("SELECT 1 FROM core.principal WHERE principal_id = :p AND status = 'ACTIVE'"), {"p": body.principal_id})).first()
+        person = (
+            await conn.execute(
+                text("SELECT 1 FROM core.principal WHERE principal_id = :p AND status = 'ACTIVE'"),
+                {"p": body.principal_id},
+            )
+        ).first()
         if person is None:
-            raise ZidError("PRINCIPAL_NOT_FOUND", "No such active person in this company.", http_status=404)
+            raise ZidError(
+                "PRINCIPAL_NOT_FOUND", "No such active person in this company.", http_status=404
+            )
         await conn.execute(
             text(
                 "INSERT INTO platform.org_unit_member (unit_id, principal_id, tenant_id, title, added_by) VALUES (:u, :p, :t, :ti, :a) "
                 "ON CONFLICT (unit_id, principal_id) DO UPDATE SET removed_at = NULL, title = :ti, added_by = :a, added_at = now()"
             ),
-            {"u": unit_id, "p": body.principal_id, "t": uuid.UUID(tenant), "ti": body.title.strip(), "a": uuid.UUID(_me(caller))},
+            {
+                "u": unit_id,
+                "p": body.principal_id,
+                "t": uuid.UUID(tenant),
+                "ti": body.title.strip(),
+                "a": uuid.UUID(_me(caller)),
+            },
         )
     return {"unit_id": str(unit_id), "principal_id": str(body.principal_id)}
 
 
 @router.post("/{unit_id}/members/{principal_id}:remove", dependencies=[Depends(EDIT)])
-async def remove_member(unit_id: uuid.UUID, principal_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def remove_member(
+    unit_id: uuid.UUID, principal_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         res = await conn.execute(
-            text("UPDATE platform.org_unit_member SET removed_at = now() WHERE unit_id = :u AND principal_id = :p AND removed_at IS NULL"),
+            text(
+                "UPDATE platform.org_unit_member SET removed_at = now() WHERE unit_id = :u AND principal_id = :p AND removed_at IS NULL"
+            ),
             {"u": unit_id, "p": principal_id},
         )
     if res.rowcount != 1:
-        raise ZidError("ORG_UNIT_MEMBER_NOT_FOUND", "That person is not in this unit.", http_status=404)
+        raise ZidError(
+            "ORG_UNIT_MEMBER_NOT_FOUND", "That person is not in this unit.", http_status=404
+        )
     return {"unit_id": str(unit_id), "principal_id": str(principal_id), "removed": True}

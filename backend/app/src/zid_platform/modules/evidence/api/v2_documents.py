@@ -15,8 +15,9 @@ import base64
 import binascii
 import json
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,10 +28,12 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.application import signatures, uploads
+from zid_platform.modules.evidence.application.issuer_hook import issuer_binding
 from zid_platform.modules.evidence.domain import documents as docs
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 from zid_platform.protected import protected_action
 
+MAX_SIGNATURE_B64 = 131072  # a CAdES signature with its chain is a few kilobytes
 router = APIRouter(tags=["evidence-v2"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 LIMITATIONS = [
@@ -39,6 +42,12 @@ LIMITATIONS = [
     "Qualified status is reported only from an authenticated trusted list; without one it is NOT_ASSESSED.",
     "A valid signature would still not mean lawful authority for the purpose.",
 ]
+
+
+class IssuerClaim(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)  # the issuer the document says it comes from
+    country: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
 
 
 class V2DocumentIn(BaseModel):
@@ -50,10 +59,77 @@ class V2DocumentIn(BaseModel):
         default=None, max_length=80
     )  # an upload that is READY and scanned CLEAN
     declared_type: str = Field(min_length=3, max_length=40)
+    signature_base64: str | None = Field(
+        default=None, min_length=4, max_length=MAX_SIGNATURE_B64
+    )  # a detached CAdES signature (.p7s) over the content
     expected_sha256: str | None = Field(default=None, pattern=r"^[A-Fa-f0-9]{64}$")
-    checks: list[str] = Field(min_length=1, max_length=4)
+    checks: list[str] = Field(min_length=1, max_length=5)
+    issuer_claim: IssuerClaim | None = (
+        None  # makes the `issuer` check answer from the issuer registry
+    )
     jurisdiction: dict[str, str] | None = None
     purpose: str | None = Field(default=None, max_length=64)
+
+
+def _issuer_result(
+    v: docs.Validation, body: V2DocumentIn, content: bytes, config: Any, detached: bytes | None
+) -> docs.CheckResult:
+    """The `issuer` check from the issuer trust graph. The document's own claim is never the answer: the name is resolved in the registry, and the
+    signer is bound only through a certificate the owners recorded for that issuer. A valid signature from a certificate nobody recorded is not
+    issuer-authentic (T26)."""
+    assert body.issuer_claim is not None
+    sig = next((r for r in v.results if r.check == "signature"), None)
+    if sig is None:
+        probe = docs.validate(
+            content, declared_type=body.declared_type, expected_sha256=None, checks=["signature"]
+        )
+        probe = (
+            signatures.apply_detached(probe, content, detached, config)
+            if detached is not None
+            else signatures.apply(probe, content, config)
+        )
+        sig = probe.results[0]
+    sha = None
+    if sig.status in {docs.Status.VERIFIED, docs.Status.VERIFIED_LIMITED}:
+        found = cast("list[dict[str, Any]]", sig.detail.get("signatures") or [])
+        sha = found[0].get("signer_sha256") if found else None
+    bind = issuer_binding()
+    if bind is None:
+        return docs.CheckResult(
+            "issuer", docs.Status.UNAVAILABLE, ("NO_ISSUER_SOURCE",), {"source": "issuer_registry"}
+        )
+    got = bind(body.issuer_claim.name, body.issuer_claim.country, sha, on=datetime.now(UTC).date())
+    detail: dict[str, object] = {
+        "claimed_name": body.issuer_claim.name,
+        "match": got["match"],
+        "issuer_id": got["issuer_id"],
+        "binding": got["binding"],
+        "candidates": got["candidates"],
+        "source": "issuer_registry",
+    }
+    if got["match"] == "UNKNOWN":
+        return docs.CheckResult(
+            "issuer", docs.Status.INDETERMINATE, ("ISSUER_NOT_IN_REGISTRY",), detail
+        )
+    if got["match"] == "LOOKALIKE":
+        return docs.CheckResult(
+            "issuer", docs.Status.INDETERMINATE, ("ISSUER_NAME_AMBIGUOUS_OR_LOOKALIKE",), detail
+        )
+    if got["binding"] == "BOUND":
+        return docs.CheckResult(
+            "issuer",
+            docs.Status.VERIFIED_LIMITED,
+            ("ISSUER_RESOLVED", "SEAL_BOUND_TO_A_RECORDED_CERTIFICATE"),
+            detail,
+        )
+    if got["binding"] == "ISSUER_REVOKED":
+        return docs.CheckResult("issuer", docs.Status.NOT_VERIFIED, ("ISSUER_REVOKED",), detail)
+    return docs.CheckResult(
+        "issuer",
+        docs.Status.INDETERMINATE,
+        ("ISSUER_KNOWN_BUT_DOCUMENT_NOT_BOUND_TO_IT",),
+        detail,
+    )
 
 
 def _ids() -> dict[str, str]:
@@ -116,11 +192,26 @@ async def validate_document(
         raise ZidError(
             e.code, e.code.replace("_", " ").capitalize() + ".", http_status=status
         ) from e
-    if {"signature", "seal"} & set(
-        body.checks
-    ):  # a signed PDF is checked for real; anything else keeps the detection-only answer
+    detached_bytes: bytes | None = None
+    if (
+        {"signature", "seal"} & set(body.checks)
+    ):  # a signed PDF or XML, or a detached CAdES signature, is checked for real; anything else keeps the detection-only answer
         config = getattr(request.app.state, "trust_config", None) or trust_config()
-        v = signatures.apply(v, content, config)
+        if body.signature_base64 is not None:
+            try:
+                detached = base64.b64decode(body.signature_base64, validate=True)
+            except (binascii.Error, ValueError) as e:
+                raise ZidError(
+                    "VALIDATION_FAILED", "signature_base64 is not valid base64.", http_status=422
+                ) from e
+            detached_bytes = detached
+            v = signatures.apply_detached(v, content, detached, config)
+        else:
+            v = signatures.apply(v, content, config)
+    if body.issuer_claim is not None and "issuer" in body.checks:
+        cfg = getattr(request.app.state, "trust_config", None) or trust_config()
+        replaced = _issuer_result(v, body, content, cfg, detached_bytes)
+        v = replace(v, results=tuple(replaced if r.check == "issuer" else r for r in v.results))
     validation_id: str | None = None
     if (
         upload_id is not None

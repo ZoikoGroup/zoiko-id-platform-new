@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 from conftest import ctx, engine
+from finance_people import appoint_person
 from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_platform.modules.commercial.application import commitment_service as commitments
-from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.domain.commitment import CommitmentError
 from zid_platform.modules.commercial.domain.orders import OrderError, QuoteLine
@@ -380,14 +380,9 @@ def test_the_top_tier_takes_two_people_and_nonstandard_terms_wait_for_review(
                     ),
                     "NOT_A_REVIEWER",
                 )
-            async with eng.begin() as c:
-                await finance.appoint(
-                    c,
-                    principal=controller,
-                    role="CONTROLLER",
-                    appointed_by=uid(),
-                    effective_from=datetime.now(UTC) - timedelta(days=1),
-                )
+            await appoint_person(
+                eng, controller, "CONTROLLER", start=datetime.now(UTC) - timedelta(days=1)
+            )
             async with tenant_transaction(eng, ctx(odd)) as c:
                 marked = await commitments.mark_reviewed(
                     c, tenant_id=odd, request_id=r["request_id"], reviewer=controller

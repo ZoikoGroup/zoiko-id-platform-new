@@ -17,6 +17,7 @@ from onboarding_fixture import AUD, ISS, onboard
 from sqlalchemy import text
 from zid_platform.main import create_app
 from zid_platform.modules.decision.api import authzen
+from zid_platform.modules.decision.application import access
 from zid_platform.modules.signals.ports import CACHE
 from zid_platform.modules.tenant.ports import forget
 from zid_platform.settings import Settings
@@ -59,7 +60,7 @@ def test_a_metering_failure_never_changes_or_blocks_a_decision(
 
     with TestClient(_app(rt_url, o)) as api:
         healthy = _ask(api, o, "d0")
-        monkeypatch.setattr(authzen, "record_billable", broken)
+        monkeypatch.setattr(access, "record_billable", broken)
         degraded = _ask(api, o, "d1")
     assert healthy.status_code == degraded.status_code == 200, degraded.text
     assert healthy.json()["decision"] == degraded.json()["decision"]

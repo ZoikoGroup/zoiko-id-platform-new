@@ -71,6 +71,7 @@ class SpiffeId:
     def __str__(self) -> str:
         return f"spiffe://{self.trust_domain}{self.path}"
 
+
 PROXY_AUTH_HEADER = "x-zid-proxy-auth"
 
 

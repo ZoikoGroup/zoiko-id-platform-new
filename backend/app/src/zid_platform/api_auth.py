@@ -124,7 +124,9 @@ async def authenticated_caller(request: Request) -> Caller:
     request.state.metered = (auth.ctx.tenant_id or "", auth.claims.client_id)
     limiter = getattr(request.app.state, "rate_limiter", None)
     if limiter is not None and auth.ctx.tenant_id:
-        resolve_limit = getattr(request.app.state, "plan_request_limit", None)  # the company's plan allowance, when a plan decides it
+        resolve_limit = getattr(
+            request.app.state, "plan_request_limit", None
+        )  # the company's plan allowance, when a plan decides it
         plan_limit = await resolve_limit(engine, auth.ctx) if resolve_limit is not None else None
         verdict = limiter.check(auth.ctx.tenant_id, time.monotonic(), plan_limit)
         if not verdict.allowed:

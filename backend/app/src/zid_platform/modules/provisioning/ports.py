@@ -31,7 +31,9 @@ async def count_active_sources(conn: AsyncConnection) -> int:
     )
 
 
-async def directory_sync_pass(conn: AsyncConnection, now: datetime, *, http: object, home_cell: str) -> dict[str, int]:
+async def directory_sync_pass(
+    conn: AsyncConnection, now: datetime, *, http: object, home_cell: str
+) -> dict[str, int]:
     """Worker pass: run every directory sync that is due (each company in its own scope)."""
     from zid_platform.modules.provisioning.application.directory_sync import sync_pass
 
@@ -85,4 +87,10 @@ async def directory_principal(conn: AsyncConnection, external_id: str) -> str | 
     return str(rows[0].principal_id) if len(rows) == 1 else None
 
 
-__all__ = ["count_active_sources", "directory_person", "directory_principal", "directory_sync_pass", "set_source_status"]
+__all__ = [
+    "count_active_sources",
+    "directory_person",
+    "directory_principal",
+    "directory_sync_pass",
+    "set_source_status",
+]

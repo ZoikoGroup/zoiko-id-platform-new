@@ -52,13 +52,21 @@ def _view(r: Any) -> dict[str, Any]:
 
 async def _plan_allows(conn: AsyncConnection, service: str, enforcement: str) -> None:
     if service == "DEDICATED_ISOLATION":
-        await require_feature(conn, "advanced.dedicated-isolation-private-deployment", enforcement=enforcement)
+        await require_feature(
+            conn, "advanced.dedicated-isolation-private-deployment", enforcement=enforcement
+        )
     elif service == "SOVEREIGN_SERVICE":
-        await require_feature(conn, "advanced.sovereign-service-configuration", enforcement=enforcement)
+        await require_feature(
+            conn, "advanced.sovereign-service-configuration", enforcement=enforcement
+        )
     elif service == "KEY_CUSTODY":
-        await require_feature(conn, "advanced.byok-hyok-and-specialized-key-custody", enforcement=enforcement)
+        await require_feature(
+            conn, "advanced.byok-hyok-and-specialized-key-custody", enforcement=enforcement
+        )
     else:
-        await require_feature(conn, "advanced.custom-sla-named-support-onboarding", enforcement=enforcement)
+        await require_feature(
+            conn, "advanced.custom-sla-named-support-onboarding", enforcement=enforcement
+        )
 
 
 @router.get("")
@@ -66,7 +74,11 @@ async def list_requests(request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="commercial.read", resource=f"tenant:{tenant}")
-        rows = (await conn.execute(text("SELECT * FROM commercial.service_request ORDER BY created_at DESC LIMIT 100"))).all()
+        rows = (
+            await conn.execute(
+                text("SELECT * FROM commercial.service_request ORDER BY created_at DESC LIMIT 100")
+            )
+        ).all()
     return {"items": [_view(r) for r in rows]}
 
 
@@ -74,10 +86,16 @@ async def list_requests(request: Request, caller: CallerDep) -> dict[str, Any]:
 async def ask(body: RequestBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     if not caller.ctx.principal_id:
-        raise ZidError("UNAUTHENTICATED", "An authenticated principal is required.", http_status=401)
+        raise ZidError(
+            "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
+        )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="tenant.lifecycle.manage", resource=f"tenant:{tenant}")
-        await _plan_allows(conn, body.service, getattr(request.app.state, "commercial_enforcement", "shadow"))
+        await protected_action(
+            conn, caller, action="tenant.lifecycle.manage", resource=f"tenant:{tenant}"
+        )
+        await _plan_allows(
+            conn, body.service, getattr(request.app.state, "commercial_enforcement", "shadow")
+        )
         try:
             async with conn.begin_nested():
                 row = (
@@ -86,11 +104,22 @@ async def ask(body: RequestBody, request: Request, caller: CallerDep) -> dict[st
                             "INSERT INTO commercial.service_request (request_id, tenant_id, service, details, contact, requested_by) "
                             "VALUES (:id, :t, :s, :d, :c, :u) RETURNING *"
                         ),
-                        {"id": uuid.uuid4(), "t": uuid.UUID(tenant), "s": body.service, "d": body.details.strip(), "c": body.contact.strip(), "u": uuid.UUID(caller.ctx.principal_id)},
+                        {
+                            "id": uuid.uuid4(),
+                            "t": uuid.UUID(tenant),
+                            "s": body.service,
+                            "d": body.details.strip(),
+                            "c": body.contact.strip(),
+                            "u": uuid.UUID(caller.ctx.principal_id),
+                        },
                     )
                 ).one()
         except IntegrityError as e:
-            raise ZidError("SERVICE_REQUEST_OPEN", "There is already an open request for this service.", http_status=409) from e
+            raise ZidError(
+                "SERVICE_REQUEST_OPEN",
+                "There is already an open request for this service.",
+                http_status=409,
+            ) from e
     return _view(row)
 
 
@@ -98,9 +127,13 @@ async def ask(body: RequestBody, request: Request, caller: CallerDep) -> dict[st
 async def withdraw(request_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action="tenant.lifecycle.manage", resource=f"tenant:{tenant}")
+        await protected_action(
+            conn, caller, action="tenant.lifecycle.manage", resource=f"tenant:{tenant}"
+        )
         res = await conn.execute(
-            text("UPDATE commercial.service_request SET status = 'WITHDRAWN', updated_at = now() WHERE request_id = :id AND status IN ('REQUESTED', 'IN_PROGRESS')"),
+            text(
+                "UPDATE commercial.service_request SET status = 'WITHDRAWN', updated_at = now() WHERE request_id = :id AND status IN ('REQUESTED', 'IN_PROGRESS')"
+            ),
             {"id": request_id},
         )
     if res.rowcount != 1:

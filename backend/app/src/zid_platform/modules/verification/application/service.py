@@ -14,6 +14,7 @@ Provider payloads end at the adapter boundary: only canonical facts reach the re
 
 from __future__ import annotations
 
+import inspect
 import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
@@ -410,7 +411,7 @@ async def provider_callback(
     body: bytes,
     base_ctx: RequestContext,
     now: datetime,
-    country_check: Callable[[str], None] | None = None,
+    country_check: Callable[[str], Awaitable[None] | None] | None = None,
     headers: Mapping[str, str] | None = None,
     secrets: Secrets | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
@@ -439,14 +440,17 @@ async def _ingest(
     ref: str,
     result: ProviderResult,
     body: bytes,
-    country_check: Callable[[str], None] | None,
+    country_check: Callable[[str], Awaitable[None] | None] | None,
     now: datetime,
 ) -> str:
     """Apply one provider result to its session. Shared by the signed callback and by the poll that reconciles a delayed one."""
     s = await store.session_by_ref(conn, adapter_id, ref)
     if s is not None and country_check is not None:
-        # EDR-001: a disabled country applies no result and records nothing
-        country_check(s.jurisdiction)
+        # EDR-001: a disabled country applies no result and records nothing. The check may need the database (the policy pack for
+        # the market, ZID-RCG-003), so it may be asynchronous; either way a refusal here stops before anything is recorded.
+        checked = country_check(s.jurisdiction)
+        if inspect.isawaitable(checked):
+            await checked
     seen = await store.record_callback(
         conn,
         tenant_id=tenant_id,
@@ -499,7 +503,7 @@ async def reconcile_delayed(
     *,
     secrets: Secrets | None,
     transport: httpx.AsyncBaseTransport | None = None,
-    country_check: Callable[[str], None] | None = None,
+    country_check: Callable[[str], Awaitable[None] | None] | None = None,
     limit: int = 25,
     only_tenant: str | None = None,
 ) -> dict[str, int]:

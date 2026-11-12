@@ -124,6 +124,55 @@ services:
     healthcheck:
       disable: true
 
+  # Public assistant (ZI-CHAT-ADR-006): anonymous, information-only, ISOLATED from the platform. It has its own image, its own database
+  # and role (zid_assistant, no access to any platform schema), its own session store and NO identity configuration.
+  #   docker compose --profile assistant up -d --build assistant-valkey assistant-migrate assistant
+  # Everything is OFF by default: set the ZID_ASSISTANT_* flags in the environment to turn features on (see docs/phases/phase-m).
+  assistant-valkey:
+    profiles: ["assistant"]
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  assistant-migrate:
+    profiles: ["assistant"]
+    build:
+      context: ./backend
+      target: assistant
+    image: zid/public-assistant:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "zid_assistant.migrate"]
+    environment:
+      ZID_ASSISTANT_ENVIRONMENT: local
+      ZID_ASSISTANT_MIGRATION_DATABASE_URL: postgresql+asyncpg://zid:${ZID_DB_PASSWORD:-zid_local_only}@postgres:5432/zid_assistant
+    restart: "no"
+    healthcheck:
+      disable: true
+
+  assistant:
+    profiles: ["assistant"]
+    image: zid/public-assistant:local
+    restart: unless-stopped
+    depends_on:
+      assistant-migrate:
+        condition: service_completed_successfully
+      assistant-valkey:
+        condition: service_healthy
+    environment:
+      ZID_ASSISTANT_ENVIRONMENT: local
+      ZID_ASSISTANT_ENABLED: ${ZID_ASSISTANT_ENABLED:-false}
+      ZID_ASSISTANT_ALLOWED_ORIGINS: ${ZID_ASSISTANT_ALLOWED_ORIGINS:-["http://localhost:3000"]}
+      ZID_ASSISTANT_DATABASE_URL: postgresql+asyncpg://zid_assistant:${ZID_ASSISTANT_RUNTIME_PASSWORD:-zid_assistant_local_only}@postgres:5432/zid_assistant
+      ZID_ASSISTANT_VALKEY_URL: redis://assistant-valkey:6379/0
+    ports:
+      - "127.0.0.1:8210:8210"
+
   # Real malware scanner for evidence uploads and proof documents (ClamAV, free and open source):
   #   docker compose --profile scan up -d clamd    then set ZID_PROOF_SCANNER_ADDRESS=clamd:3310 on the backend
   # Without it a local cell uses the EICAR simulator (environment local or test only); a deployed cell with no scanner refuses uploads.
@@ -138,6 +187,21 @@ services:
       timeout: 10s
       retries: 10
       start_period: 120s
+
+  # OCR for the document extraction route (Tesseract, free and open source), in its own sandbox so the backend links no imaging library:
+  #   docker compose --profile ocr up -d --build ocr    then set ZID_OCR_URL=http://ocr:8090 on the backend (http://127.0.0.1:8090 from the host)
+  # Without it the extraction route answers 503 for an image: nothing is read and nothing is guessed.
+  ocr:
+    profiles: ["ocr"]
+    build: ./tools/ocr-sidecar
+    restart: unless-stopped
+    ports: ["127.0.0.1:8090:8090"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
 
   # Session store for the frontends (DEC-H1). The frontends run on the host and reach it here.
   valkey:

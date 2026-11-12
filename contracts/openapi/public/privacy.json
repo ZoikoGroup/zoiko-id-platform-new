@@ -235,6 +235,57 @@
         "title": "AdmBody",
         "type": "object"
       },
+      "AdmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction_pack_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Jurisdiction Pack Id",
+            "type": "string"
+          },
+          "safeguards_offered": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Safeguards Offered",
+            "type": "array"
+          },
+          "significant": {
+            "title": "Significant",
+            "type": "boolean"
+          },
+          "solely_automated": {
+            "title": "Solely Automated",
+            "type": "boolean"
+          },
+          "special_category": {
+            "default": false,
+            "title": "Special Category",
+            "type": "boolean"
+          },
+          "special_condition_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Condition Ref"
+          }
+        },
+        "required": [
+          "jurisdiction_pack_id",
+          "significant",
+          "solely_automated"
+        ],
+        "title": "AdmIn",
+        "type": "object"
+      },
       "ConsentBody": {
         "additionalProperties": false,
         "properties": {
@@ -288,6 +339,244 @@
         "title": "ConsentBody",
         "type": "object"
       },
+      "ConsentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Activity Code",
+            "type": "string"
+          },
+          "affirmative_action": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Affirmative Action",
+            "type": "string"
+          },
+          "capture_method": {
+            "pattern": "^(WEB|MOBILE|API|PAPER_VERIFIED|OTHER)$",
+            "title": "Capture Method",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "notice_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Notice Version",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_code",
+          "purpose_code",
+          "notice_version",
+          "capture_method",
+          "affirmative_action"
+        ],
+        "title": "ConsentIn",
+        "type": "object"
+      },
+      "EntitlementIn": {
+        "additionalProperties": false,
+        "properties": {
+          "assurance": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Assurance",
+            "type": "integer"
+          },
+          "cost_rank": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Cost Rank",
+            "type": "integer"
+          },
+          "countries": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Countries",
+            "type": "array"
+          },
+          "processing_regions": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Processing Regions",
+            "type": "array"
+          },
+          "purposes": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "service_code": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Service Code",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "service_code",
+          "countries",
+          "purposes",
+          "processing_regions",
+          "valid_from",
+          "assurance"
+        ],
+        "title": "EntitlementIn",
+        "type": "object"
+      },
+      "EvaluationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "legal_hold_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Legal Hold Refs",
+            "type": "array"
+          },
+          "object_ref": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Object Ref",
+            "type": "string"
+          },
+          "purpose_id": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_ref",
+          "purpose_id"
+        ],
+        "title": "EvaluationIn",
+        "type": "object"
+      },
+      "ExportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "claims": {
+            "additionalProperties": true,
+            "maxProperties": 200,
+            "title": "Claims",
+            "type": "object"
+          },
+          "include": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Include",
+            "type": "array"
+          },
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "recipient": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "default": 3600,
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "claims",
+          "include",
+          "recipient",
+          "purpose"
+        ],
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "ExportVerifyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_recipient": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Recipient"
+          },
+          "token": {
+            "maxLength": 20000,
+            "minLength": 20,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ExportVerifyIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -299,6 +588,66 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HoldIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approvers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Approvers",
+            "type": "array"
+          },
+          "authorization": {
+            "format": "uuid",
+            "title": "Authorization",
+            "type": "string"
+          },
+          "basis": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Basis",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          },
+          "review_at": {
+            "format": "date-time",
+            "title": "Review At",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "authorization",
+          "basis",
+          "reference",
+          "scope",
+          "review_at"
+        ],
+        "title": "HoldIn",
         "type": "object"
       },
       "NoticeBody": {
@@ -426,6 +775,894 @@
         "title": "PreferenceBody",
         "type": "object"
       },
+      "PrivV2AckIn": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$",
+            "title": "Language",
+            "type": "string"
+          },
+          "notice_version": {
+            "maxLength": 100,
+            "title": "Notice Version",
+            "type": "string"
+          },
+          "subject_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Ref"
+          }
+        },
+        "required": [
+          "notice_version",
+          "language"
+        ],
+        "title": "PrivV2AckIn",
+        "type": "object"
+      },
+      "PrivV2AttestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "statement": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "PrivV2AttestIn",
+        "type": "object"
+      },
+      "PrivV2BreachIn": {
+        "additionalProperties": false,
+        "properties": {
+          "detected_at": {
+            "format": "date-time",
+            "title": "Detected At",
+            "type": "string"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "severity": {
+            "enum": [
+              "LOW",
+              "MODERATE",
+              "HIGH",
+              "CRITICAL"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "subjects_estimate": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjects Estimate"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "severity",
+          "jurisdictions",
+          "detected_at"
+        ],
+        "title": "PrivV2BreachIn",
+        "type": "object"
+      },
+      "PrivV2ChangeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "SUBPROCESSOR_ADDED",
+              "SUBPROCESSOR_REMOVED",
+              "LOCATION_ADDED",
+              "LOCATION_REMOVED"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "notified_at": {
+            "format": "date-time",
+            "title": "Notified At",
+            "type": "string"
+          },
+          "processor_id": {
+            "maxLength": 64,
+            "title": "Processor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "processor_id",
+          "kind",
+          "detail",
+          "notified_at"
+        ],
+        "title": "PrivV2ChangeIn",
+        "type": "object"
+      },
+      "PrivV2DecideIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approve"
+        ],
+        "title": "PrivV2DecideIn",
+        "type": "object"
+      },
+      "PrivV2ErasureIn": {
+        "additionalProperties": false,
+        "properties": {
+          "legal_basis": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Legal Basis",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "default": "ALL",
+            "enum": [
+              "ALL",
+              "PROVIDERS_ONLY",
+              "FIRST_PARTY_ONLY"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "subject_ref": {
+            "maxLength": 100,
+            "title": "Subject Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_ref",
+          "reason",
+          "legal_basis"
+        ],
+        "title": "PrivV2ErasureIn",
+        "type": "object"
+      },
+      "PrivV2EvaluationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "accessible_alternative_confirmed": {
+            "default": false,
+            "title": "Accessible Alternative Confirmed",
+            "type": "boolean"
+          },
+          "audit_attributes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Audit Attributes",
+            "type": "array"
+          },
+          "cohorts": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Cohorts",
+            "type": "integer"
+          },
+          "evaluator_ref": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Evaluator Ref",
+            "type": "string"
+          },
+          "independent": {
+            "title": "Independent",
+            "type": "boolean"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "title": "Metrics",
+            "type": "object"
+          },
+          "model_ref": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Model Ref",
+            "type": "string"
+          },
+          "report_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ref"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_ref",
+          "version",
+          "evaluator_ref",
+          "independent",
+          "cohorts"
+        ],
+        "title": "PrivV2EvaluationIn",
+        "type": "object"
+      },
+      "PrivV2GateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_uri": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Evidence Uri",
+            "type": "string"
+          },
+          "gate": {
+            "enum": [
+              "G0",
+              "G1",
+              "G2",
+              "G3",
+              "G4",
+              "G5",
+              "G6",
+              "G7"
+            ],
+            "title": "Gate",
+            "type": "string"
+          },
+          "role": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate",
+          "role",
+          "evidence_uri"
+        ],
+        "title": "PrivV2GateIn",
+        "type": "object"
+      },
+      "PrivV2KeyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "public_key": {
+            "maxLength": 100,
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key"
+        ],
+        "title": "PrivV2KeyIn",
+        "type": "object"
+      },
+      "PrivV2ModelIn": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Sha256"
+          },
+          "kind": {
+            "enum": [
+              "face_match",
+              "pad",
+              "fraud",
+              "document"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "live_features": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Live Features",
+            "type": "array"
+          },
+          "model_ref": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Model Ref",
+            "type": "string"
+          },
+          "provider_service_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Service Ref"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_ref",
+          "version",
+          "kind"
+        ],
+        "title": "PrivV2ModelIn",
+        "type": "object"
+      },
+      "PrivV2NotifiedIn": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction": {
+            "pattern": "^[A-Za-z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "notified_at": {
+            "format": "date-time",
+            "title": "Notified At",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jurisdiction",
+          "notified_at",
+          "reference"
+        ],
+        "title": "PrivV2NotifiedIn",
+        "type": "object"
+      },
+      "PrivV2ObserveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "seen_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Seen Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seen_version"
+        ],
+        "title": "PrivV2ObserveIn",
+        "type": "object"
+      },
+      "PrivV2PackageDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "valid_days": {
+            "default": 365,
+            "maximum": 1095.0,
+            "minimum": 1.0,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "approve",
+          "rationale"
+        ],
+        "title": "PrivV2PackageDecisionIn",
+        "type": "object"
+      },
+      "PrivV2PackageIn": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Controller",
+            "type": "string"
+          },
+          "market": {
+            "pattern": "^[A-Za-z]{2}(-[A-Za-z0-9]{1,8})?$",
+            "title": "Market",
+            "type": "string"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "product": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Product",
+            "type": "string"
+          },
+          "provider_service_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Service Ref"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market",
+          "product",
+          "version",
+          "controller",
+          "purpose_code"
+        ],
+        "title": "PrivV2PackageIn",
+        "type": "object"
+      },
+      "PrivV2PurposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Activity Code",
+            "type": "string"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "data_category": {
+            "enum": [
+              "D0",
+              "D1",
+              "D2",
+              "D3",
+              "D4"
+            ],
+            "title": "Data Category",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction Pack Id"
+          },
+          "necessity_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Necessity Ref"
+          },
+          "notice_version": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice Version"
+          },
+          "provider_service_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Service Ref"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "release_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Ref"
+          },
+          "retention_policy_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Policy Ref"
+          },
+          "subject_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Ref"
+          },
+          "subregion": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subregion"
+          }
+        },
+        "required": [
+          "activity_code",
+          "purpose_code",
+          "data_category"
+        ],
+        "title": "PrivV2PurposeIn",
+        "type": "object"
+      },
+      "PrivV2ReceiptIn": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted_at": {
+            "maxLength": 40,
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "object_count": {
+            "minimum": 0.0,
+            "title": "Object Count",
+            "type": "integer"
+          },
+          "signature": {
+            "maxLength": 200,
+            "title": "Signature",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "task_id",
+          "deleted_at",
+          "object_count",
+          "signature"
+        ],
+        "title": "PrivV2ReceiptIn",
+        "type": "object"
+      },
+      "PrivV2RequestReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "FULFIL",
+              "DENY",
+              "PARTIAL",
+              "WITHDRAW"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "rule": {
+            "maxLength": 128,
+            "minLength": 2,
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "action"
+        ],
+        "title": "PrivV2RequestReviewIn",
+        "type": "object"
+      },
+      "PrivV2ReviewDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "correction_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Ref"
+          },
+          "outcome": {
+            "enum": [
+              "UPHELD",
+              "OVERTURNED",
+              "CORRECTED"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "rationale"
+        ],
+        "title": "PrivV2ReviewDecisionIn",
+        "type": "object"
+      },
+      "PrivV2ReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "statement": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "PrivV2ReviewIn",
+        "type": "object"
+      },
+      "PrivV2RisksIn": {
+        "additionalProperties": false,
+        "properties": {
+          "consultation_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consultation Ref"
+          },
+          "risks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Risks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "risks"
+        ],
+        "title": "PrivV2RisksIn",
+        "type": "object"
+      },
+      "PrivV2TransferIn": {
+        "additionalProperties": false,
+        "properties": {
+          "data_category": {
+            "enum": [
+              "D0",
+              "D1",
+              "D2",
+              "D3",
+              "D4"
+            ],
+            "title": "Data Category",
+            "type": "string"
+          },
+          "destination_country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Destination Country",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction Pack Id"
+          },
+          "origin_country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Origin Country",
+            "type": "string"
+          },
+          "processor_id": {
+            "maxLength": 64,
+            "title": "Processor Id",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "remote_access_countries": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Remote Access Countries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "processor_id",
+          "purpose_code",
+          "data_category",
+          "origin_country",
+          "destination_country"
+        ],
+        "title": "PrivV2TransferIn",
+        "type": "object"
+      },
       "ProcessorBody": {
         "additionalProperties": false,
         "properties": {
@@ -539,6 +1776,34 @@
         "title": "ProcessorBody",
         "type": "object"
       },
+      "ProofIn": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Level",
+            "type": "integer"
+          },
+          "method": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Method",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verified",
+          "level",
+          "method"
+        ],
+        "title": "ProofIn",
+        "type": "object"
+      },
       "PurposeBody": {
         "additionalProperties": false,
         "properties": {
@@ -605,6 +1870,83 @@
           "data_categories"
         ],
         "title": "PurposeBody",
+        "type": "object"
+      },
+      "ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
+      "RequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "jurisdiction": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "represented_by": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Represented By"
+          },
+          "right": {
+            "enum": [
+              "ACCESS",
+              "RECTIFICATION",
+              "ERASURE",
+              "RESTRICTION",
+              "OBJECTION",
+              "PORTABILITY",
+              "OPT_OUT_SALE_SHARING",
+              "LIMIT_SENSITIVE_PI",
+              "ADMT_ACCESS",
+              "ADMT_OPT_OUT",
+              "COMPLAINT",
+              "HUMAN_REVIEW"
+            ],
+            "title": "Right",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Scope",
+            "type": "object"
+          },
+          "subject_ref": {
+            "pattern": "^(sub_)?[0-9a-fA-F-]{36}$",
+            "title": "Subject Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "right",
+          "subject_ref",
+          "jurisdiction"
+        ],
+        "title": "RequestIn",
         "type": "object"
       },
       "RetentionBody": {
@@ -723,6 +2065,322 @@
         "title": "RightsBody",
         "type": "object"
       },
+      "RouteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "downgrade_approval_ref": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downgrade Approval Ref"
+          },
+          "failing_over_from": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failing Over From"
+          },
+          "processing_region": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Processing Region",
+            "type": "string"
+          },
+          "purpose": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "required_assurance": {
+            "default": 0,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Required Assurance",
+            "type": "integer"
+          },
+          "service_code": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Service Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "service_code",
+          "purpose",
+          "processing_region"
+        ],
+        "title": "RouteIn",
+        "type": "object"
+      },
+      "RoutingIn": {
+        "additionalProperties": false,
+        "properties": {
+          "capture_quality_ok": {
+            "default": true,
+            "title": "Capture Quality Ok",
+            "type": "boolean"
+          },
+          "high_impact": {
+            "default": false,
+            "title": "High Impact",
+            "type": "boolean"
+          },
+          "injection_suspected": {
+            "default": false,
+            "title": "Injection Suspected",
+            "type": "boolean"
+          },
+          "match_band": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Band"
+          },
+          "pad_band": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pad Band"
+          }
+        },
+        "title": "RoutingIn",
+        "type": "object"
+      },
+      "Scope": {
+        "additionalProperties": false,
+        "properties": {
+          "object_types": {
+            "items": {
+              "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Object Types",
+            "type": "array"
+          },
+          "subject_principal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Subject Principal Ids",
+            "type": "array"
+          }
+        },
+        "title": "Scope",
+        "type": "object"
+      },
+      "SessionConsentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative_action": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Affirmative Action",
+            "type": "string"
+          },
+          "capture_method": {
+            "pattern": "^(WEB|MOBILE|API|PAPER_VERIFIED|OTHER)$",
+            "title": "Capture Method",
+            "type": "string"
+          },
+          "notice_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Notice Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notice_version",
+          "capture_method",
+          "affirmative_action"
+        ],
+        "title": "SessionConsentIn",
+        "type": "object"
+      },
+      "SessionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Activity Code",
+            "type": "string"
+          },
+          "alternative_mode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternative Mode"
+          },
+          "assurance_goal": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assurance Goal"
+          },
+          "data_category": {
+            "default": "D3",
+            "enum": [
+              "D0",
+              "D1",
+              "D2",
+              "D3",
+              "D4"
+            ],
+            "title": "Data Category",
+            "type": "string"
+          },
+          "jurisdiction_pack_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction Pack Id"
+          },
+          "notice_version": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice Version"
+          },
+          "provider_service_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Service Ref"
+          },
+          "purpose_id": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Id",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "subject_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Ref"
+          },
+          "subregion": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subregion"
+          }
+        },
+        "required": [
+          "purpose_id",
+          "activity_code"
+        ],
+        "title": "SessionIn",
+        "type": "object"
+      },
+      "TaskIn": {
+        "additionalProperties": false,
+        "properties": {
+          "ack_ref": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Ack Ref",
+            "type": "string"
+          },
+          "item_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "ack_ref"
+        ],
+        "title": "TaskIn",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -802,6 +2460,35 @@
           }
         },
         "title": "WithdrawBody",
+        "type": "object"
+      },
+      "WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "withdrawn by subject",
+            "maxLength": 200,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "WithdrawIn",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__evidence__ReleaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReleaseBody",
         "type": "object"
       },
       "zid_platform__modules__privacy__api__privacy__CloseBody": {
@@ -2442,6 +4129,2972 @@
         "summary": "Package",
         "tags": [
           "privacy"
+        ]
+      }
+    },
+    "/v2/decisions/{decision_id}/appeals": {
+      "post": {
+        "operationId": "appeal_v2_decisions__decision_id__appeals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appeal V2 Decisions  Decision Id  Appeals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/decisions/{decision_id}/human-reviews": {
+      "post": {
+        "operationId": "human_review_v2_decisions__decision_id__human_reviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Human Review V2 Decisions  Decision Id  Human Reviews Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Human Review",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/adm-evaluations": {
+      "post": {
+        "operationId": "adm_evaluation_v2_privacy_adm_evaluations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Adm Evaluation V2 Privacy Adm Evaluations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adm Evaluation",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/authorization-evaluations": {
+      "post": {
+        "operationId": "_purpose_v2_privacy_authorization_evaluations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2PurposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response  Purpose V2 Privacy Authorization Evaluations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": " Purpose",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches": {
+      "post": {
+        "operationId": "open_breach_v2_privacy_breaches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2BreachIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Breach V2 Privacy Breaches Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Breach",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}": {
+      "get": {
+        "operationId": "get_breach_v2_privacy_breaches__breach_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Breach V2 Privacy Breaches  Breach Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Breach",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}/close": {
+      "post": {
+        "operationId": "close_breach_v2_privacy_breaches__breach_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Breach V2 Privacy Breaches  Breach Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Breach",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}/notifications": {
+      "post": {
+        "operationId": "notified_v2_privacy_breaches__breach_id__notifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2NotifiedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Notified V2 Privacy Breaches  Breach Id  Notifications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notified",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/consent-records": {
+      "post": {
+        "operationId": "give_consent_v2_privacy_consent_records_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Give Consent V2 Privacy Consent Records Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Consent",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/consent-records/{consent_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_consent_v2_privacy_consent_records__consent_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Consent V2 Privacy Consent Records  Consent Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Consent",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/dpia-packages": {
+      "post": {
+        "operationId": "create_package_v2_privacy_dpia_packages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2PackageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Package V2 Privacy Dpia Packages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Package",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/dpia-packages/{package_id}": {
+      "get": {
+        "operationId": "get_package_v2_privacy_dpia_packages__package_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Package V2 Privacy Dpia Packages  Package Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Package",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/dpia-packages/{package_id}/decisions": {
+      "post": {
+        "operationId": "decide_package_v2_privacy_dpia_packages__package_id__decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2PackageDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Package V2 Privacy Dpia Packages  Package Id  Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Package",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/dpia-packages/{package_id}/gate-signoffs": {
+      "post": {
+        "operationId": "sign_gate_v2_privacy_dpia_packages__package_id__gate_signoffs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2GateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Gate V2 Privacy Dpia Packages  Package Id  Gate Signoffs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Gate",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/dpia-packages/{package_id}/risks": {
+      "put": {
+        "operationId": "set_risks_v2_privacy_dpia_packages__package_id__risks_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2RisksIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Risks V2 Privacy Dpia Packages  Package Id  Risks Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Risks",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/erasure-jobs": {
+      "post": {
+        "operationId": "open_job_v2_privacy_erasure_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ErasureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Job V2 Privacy Erasure Jobs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Job",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/erasure-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_v2_privacy_erasure_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Job V2 Privacy Erasure Jobs  Job Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/erasure-jobs/{job_id}/proof": {
+      "get": {
+        "operationId": "get_proof_v2_privacy_erasure_jobs__job_id__proof_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Proof V2 Privacy Erasure Jobs  Job Id  Proof Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Proof",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/erasure-jobs/{job_id}/tasks/{task_id}:attest": {
+      "post": {
+        "operationId": "attest_v2_privacy_erasure_jobs__job_id__tasks__task_id__attest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2AttestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Attest V2 Privacy Erasure Jobs  Job Id  Tasks  Task Id  Attest Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attest",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/exports": {
+      "post": {
+        "description": "A signed, expiring, recipient-bound export of the named claims only (AT-047). The caller supplies the source claims; nothing is stored.",
+        "operationId": "create_export_v2_privacy_exports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Export V2 Privacy Exports Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Export",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/exports:verify": {
+      "post": {
+        "operationId": "verify_export_v2_privacy_exports_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Export V2 Privacy Exports Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Export",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/holds": {
+      "post": {
+        "operationId": "create_hold_v2_privacy_holds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Hold V2 Privacy Holds Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Hold",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/holds/{hold_id}/release": {
+      "post": {
+        "operationId": "release_hold_v2_privacy_holds__hold_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hold_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Hold Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__evidence__ReleaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Hold V2 Privacy Holds  Hold Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Hold",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/kpis": {
+      "get": {
+        "operationId": "kpis_v2_privacy_kpis_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 366,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Kpis V2 Privacy Kpis Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kpis",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/model-evaluations": {
+      "post": {
+        "operationId": "record_model_evaluation_v2_privacy_model_evaluations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2EvaluationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Model Evaluation V2 Privacy Model Evaluations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Model Evaluation",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/models": {
+      "post": {
+        "operationId": "register_model_v2_privacy_models_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ModelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Model V2 Privacy Models Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Model",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/models/{model_ref}/versions/{version}": {
+      "get": {
+        "operationId": "get_model_v2_privacy_models__model_ref__versions__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_ref",
+            "required": true,
+            "schema": {
+              "title": "Model Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Model V2 Privacy Models  Model Ref  Versions  Version  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/models/{model_ref}/versions/{version}:promote": {
+      "post": {
+        "operationId": "promote_model_v2_privacy_models__model_ref__versions__version__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_ref",
+            "required": true,
+            "schema": {
+              "title": "Model Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Promote Model V2 Privacy Models  Model Ref  Versions  Version  Promote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Model",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/models/{model_ref}/versions/{version}:rollback": {
+      "post": {
+        "operationId": "rollback_model_v2_privacy_models__model_ref__versions__version__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_ref",
+            "required": true,
+            "schema": {
+              "title": "Model Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback Model V2 Privacy Models  Model Ref  Versions  Version  Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Model",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/models/{model_ref}:observe": {
+      "post": {
+        "operationId": "observe_model_v2_privacy_models__model_ref__observe_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_ref",
+            "required": true,
+            "schema": {
+              "title": "Model Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ObserveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Observe Model V2 Privacy Models  Model Ref  Observe Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Observe Model",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/outcome-routing": {
+      "post": {
+        "operationId": "outcome_route_v2_privacy_outcome_routing_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Outcome Route V2 Privacy Outcome Routing Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Outcome Route",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/processors/{processor_id}/receipt-key": {
+      "post": {
+        "operationId": "receipt_key_v2_privacy_processors__processor_id__receipt_key_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "processor_id",
+            "required": true,
+            "schema": {
+              "title": "Processor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2KeyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Receipt Key V2 Privacy Processors  Processor Id  Receipt Key Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Receipt Key",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/provider-controls/{service_id}": {
+      "get": {
+        "operationId": "provider_controls_v2_privacy_provider_controls__service_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_id",
+            "required": true,
+            "schema": {
+              "title": "Service Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "country",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Country",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Provider Controls V2 Privacy Provider Controls  Service Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider Controls",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/purpose-decisions": {
+      "post": {
+        "operationId": "_purpose_v2_privacy_purpose_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2PurposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response  Purpose V2 Privacy Purpose Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": " Purpose",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/release-gates/{market}/{product}/{version}": {
+      "get": {
+        "operationId": "release_gate_v2_privacy_release_gates__market___product___version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product",
+            "required": true,
+            "schema": {
+              "title": "Product",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Gate V2 Privacy Release Gates  Market   Product   Version  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Gate",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests": {
+      "post": {
+        "operationId": "open_request_v2_privacy_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Request V2 Privacy Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Request",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests/{request_id}/export": {
+      "get": {
+        "description": "Only the person the data is about, with fresh strong authentication; never an administrator, never another person's data.",
+        "operationId": "export_v2_privacy_requests__request_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Export V2 Privacy Requests  Request Id  Export Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests/{request_id}/processor-tasks": {
+      "post": {
+        "operationId": "processor_task_v2_privacy_requests__request_id__processor_tasks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Processor Task V2 Privacy Requests  Request Id  Processor Tasks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Processor Task",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests/{request_id}/proof-of-authority": {
+      "post": {
+        "operationId": "proof_of_authority_v2_privacy_requests__request_id__proof_of_authority_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProofIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Proof Of Authority V2 Privacy Requests  Request Id  Proof Of Authority Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Proof Of Authority",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests/{request_id}/review-decisions": {
+      "post": {
+        "operationId": "review_decision_v2_privacy_requests__request_id__review_decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2RequestReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Decision V2 Privacy Requests  Request Id  Review Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Decision",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/requests/{request_id}/status": {
+      "get": {
+        "operationId": "status_v2_privacy_requests__request_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Status V2 Privacy Requests  Request Id  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/retention-evaluations": {
+      "post": {
+        "operationId": "evaluate_retention_v2_privacy_retention_evaluations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evaluate Retention V2 Privacy Retention Evaluations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluate Retention",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/retention-policies/{policy_id}": {
+      "get": {
+        "operationId": "get_policy_v2_privacy_retention_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy V2 Privacy Retention Policies  Policy Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/reviews/{review_id}": {
+      "get": {
+        "operationId": "get_review_v2_privacy_reviews__review_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Review V2 Privacy Reviews  Review Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/reviews/{review_id}/decisions": {
+      "post": {
+        "operationId": "decide_review_v2_privacy_reviews__review_id__decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReviewDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Review V2 Privacy Reviews  Review Id  Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Review",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/subprocessor-changes": {
+      "post": {
+        "operationId": "notify_change_v2_privacy_subprocessor_changes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ChangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Notify Change V2 Privacy Subprocessor Changes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notify Change",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/subprocessor-changes/{change_id}:decide": {
+      "post": {
+        "operationId": "decide_change_v2_privacy_subprocessor_changes__change_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "title": "Change Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2DecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Change V2 Privacy Subprocessor Changes  Change Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Change",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/transfer-decisions": {
+      "post": {
+        "operationId": "transfer_v2_privacy_transfer_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2TransferIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Transfer V2 Privacy Transfer Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transfer",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/providers/entitlements": {
+      "get": {
+        "operationId": "list_entitlements_v2_providers_entitlements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Entitlements V2 Providers Entitlements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Entitlements",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/route": {
+      "post": {
+        "operationId": "dry_run_route_v2_providers_route_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dry Run Route V2 Providers Route Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dry Run Route",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/deletion-receipts": {
+      "post": {
+        "operationId": "deletion_receipt_v2_providers__provider_id__deletion_receipts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReceiptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Deletion Receipt V2 Providers  Provider Id  Deletion Receipts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deletion Receipt",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements": {
+      "post": {
+        "operationId": "record_entitlement_v2_providers__provider_id__entitlements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntitlementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Entitlement V2 Providers  Provider Id  Entitlements Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/revoke": {
+      "post": {
+        "operationId": "revoke_entitlement_v2_providers__provider_id__entitlements__service__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Entitlement V2 Providers  Provider Id  Entitlements  Service  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/suspend": {
+      "post": {
+        "operationId": "suspend_entitlement_v2_providers__provider_id__entitlements__service__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Entitlement V2 Providers  Provider Id  Entitlements  Service  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions": {
+      "post": {
+        "operationId": "create_session_v2_verification_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Session V2 Verification Sessions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/alternatives": {
+      "get": {
+        "operationId": "alternatives_v2_verification_sessions__session_ref__alternatives_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Alternatives V2 Verification Sessions  Session Ref  Alternatives Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alternatives",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/cancel": {
+      "post": {
+        "operationId": "cancel_session_v2_verification_sessions__session_ref__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Session V2 Verification Sessions  Session Ref  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Session",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/consent-records": {
+      "post": {
+        "operationId": "session_consent_v2_verification_sessions__session_ref__consent_records_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionConsentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session Consent V2 Verification Sessions  Session Ref  Consent Records Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Consent",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/notices/acknowledgments": {
+      "post": {
+        "operationId": "acknowledge_v2_verification_sessions__session_ref__notices_acknowledgments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2AckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Acknowledge V2 Verification Sessions  Session Ref  Notices Acknowledgments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/subject-status": {
+      "get": {
+        "operationId": "subject_status_v2_verification_sessions__session_ref__subject_status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Subject Status V2 Verification Sessions  Session Ref  Subject Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Subject Status",
+        "tags": [
+          "privacy-v2"
         ]
       }
     }

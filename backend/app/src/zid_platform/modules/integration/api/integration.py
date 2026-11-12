@@ -204,10 +204,18 @@ async def register_application(
         await protected_action(
             conn, caller, action=APP_ACTION, resource="integration_application:*"
         )
-        if body.environment == Environment.PROD:  # the plan's production environments (a retired application no longer counts)
-            live = [a for a in await store.list_applications(conn) if a.environment == Environment.PROD.value and a.status != "RETIRED"]
+        if (
+            body.environment == Environment.PROD
+        ):  # the plan's production environments (a retired application no longer counts)
+            live = [
+                a
+                for a in await store.list_applications(conn)
+                if a.environment == Environment.PROD.value and a.status != "RETIRED"
+            ]
             await require_production_environment(
-                conn, used=len(live), enforcement=getattr(request.app.state, "commercial_enforcement", "shadow")
+                conn,
+                used=len(live),
+                enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
             )
         try:
             a = await service.register_application(
@@ -271,7 +279,9 @@ class OAuthClientBody(BaseModel):
     def _by_purpose(self) -> OAuthClientBody:
         if self.purpose in ("DECISIONS", "BUILD_PIPELINE"):
             if self.jwks is None or self.redirect_uris or self.client_type != "CONFIDENTIAL":
-                raise ValueError("a machine client is CONFIDENTIAL, has public keys and no redirect addresses")
+                raise ValueError(
+                    "a machine client is CONFIDENTIAL, has public keys and no redirect addresses"
+                )
         elif not self.redirect_uris:
             raise ValueError("a sign-in client needs at least one redirect address")
         return self

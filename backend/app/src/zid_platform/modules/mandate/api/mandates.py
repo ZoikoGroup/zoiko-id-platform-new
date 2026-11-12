@@ -37,6 +37,7 @@ from zid_platform.api_auth import (
     http_error,
     request_engine,
 )
+from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.mandate.application.service import (
     MandateRequest,
     activate_mandate,
@@ -64,7 +65,6 @@ from zid_platform.modules.mandate.infrastructure.mandate_store import (
     load_terms,
     set_mandate_status,
 )
-from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["mandate"])

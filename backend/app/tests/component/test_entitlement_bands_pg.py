@@ -405,9 +405,11 @@ def test_the_period_resets_and_the_summary_is_a_route(rt_url: str) -> None:
         assert s.status_code == 200, s.text
         meters = {m["meter"]: m for m in s.json()["meters"]}
         assert (
-            len(meters) == 8 and meters["api.request"]["reserved"] == 5
-        )  # last quarter's reservation is not this period's
+            len(meters) == 10 and meters["api.request"]["reserved"] == 5
+        )  # the record's eight plus the two CR-070 definitions; last quarter's reservation is not this period's
         assert all(m["priced"] is False for m in meters.values())
+        for key in ("credential.check", "credential.sensitive_check"):
+            assert meters[key]["committed"] == 0 and meters[key]["reserved"] == 0
         assert http.get("/v1/usage/summary").status_code == 401
 
 

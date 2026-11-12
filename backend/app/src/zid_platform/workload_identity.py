@@ -32,7 +32,9 @@ def _proxy_secret(settings: Settings) -> bytes | None:
         return None
     secret = Path(settings.mesh_proxy_secret_file).read_text(encoding="utf-8").strip()
     if len(secret) < 32:
-        raise RuntimeError("ZID_MESH_PROXY_SECRET_FILE must hold at least 32 characters (openssl rand -hex 32)")
+        raise RuntimeError(
+            "ZID_MESH_PROXY_SECRET_FILE must hold at least 32 characters (openssl rand -hex 32)"
+        )
     return secret.encode("utf-8")
 
 

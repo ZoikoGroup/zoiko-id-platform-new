@@ -115,9 +115,9 @@ def test_a_clean_upload_is_kept_stripped_and_readable_only_as_a_manifest(rt_url:
         assert b"Dana Lee" not in bytes(stored["content"]) and b"GPS" not in bytes(
             stored["content"]
         )
-        assert (
-            stored["stored_sha256"] == sha(bytes(stored["content"])) == m["sha256"] != sha(content)
-        )
+        assert stored["stored_sha256"] == m["sha256"] != sha(content)
+        # at rest the bytes are ciphertext, so the digest is of what was cleaned, not of what is stored
+        assert sha(bytes(stored["content"])) != stored["stored_sha256"]
 
         # the manifest is metadata only: no bytes, no claimed text
         got = http.get(f"/v2/evidence/{a['evidence_ref']}/manifest", headers=mine)
@@ -218,7 +218,7 @@ def test_the_token_is_for_one_upload_and_a_cell_without_retention_accepts_nothin
 
 def test_only_ready_and_clean_evidence_can_back_a_check_or_be_validated(rt_url: str) -> None:
     pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n"
-    with world(rt_url) as (http, mine, tenant, _admin):
+    with world(rt_url) as (http, mine, _tenant, _admin):
         ok = announce(http, mine, pdf, "application/pdf").json()
         assert put(http, mine, ok, pdf).status_code == 201
         rejected = announce(http, mine, pdf, "application/pdf").json()
@@ -534,7 +534,7 @@ def test_the_upload_list_is_metadata_only_newest_first_and_filterable_by_person(
     rt_url: str,
 ) -> None:
     good = png_with_metadata()
-    with world(rt_url) as (http, mine, tenant, admin):
+    with world(rt_url) as (http, mine, _tenant, admin):
         first, second = announce(http, mine, good).json(), announce(http, mine, good).json()
         assert put(http, mine, first, good).status_code == 201
         listed = http.get("/v2/evidence/uploads", headers=mine)

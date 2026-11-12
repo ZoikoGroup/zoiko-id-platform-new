@@ -1,0 +1,220 @@
+# The 28 curated launch answers KB-001..KB-028 (ZI-CHAT-CONTENT-005 section 04). The `text` is the exact draft copy from the document.
+# EVERY entry is DRAFT_NOT_PUBLISHED: none is approved. `match` holds extra trigger phrases (lower-case) for the deterministic matcher, on top
+# of the question wording. `cta_link_id` follows the doc's "CTA key"; where that key maps to a SUSPENDED secure route in p03 the pipeline falls
+# back to the intent's active link. Entries whose claim is CL-08 (SECURE_ROUTE) are always served as a refusal with a route, never as an answer.
+answers:
+  - answer_id: KB-001
+    question: "What is Zoiko iD?"
+    text: "Zoiko iD is designed as identity infrastructure for the modern internet. Its approach connects identity, authority and evidence so digital interactions can be understood and governed, rather than treating sign-in as the whole problem."
+    intent_id: INT-01
+    claim_ids: [CL-01]
+    cta_link_id: OVERVIEW
+    source_ids: [PUB-001]
+    match: ["what is zoiko id", "what is zoiko", "what does zoiko id do", "tell me about zoiko id", "about zoiko id"]
+  - answer_id: KB-002
+    question: "What problem does Zoiko iD address?"
+    text: "Organizations often manage sign-in, credentials, permissions, consent and proof of decisions in separate systems. Zoiko iD’s architectural goal is to make these trust decisions easier to coordinate and explain across digital services."
+    intent_id: INT-01
+    claim_ids: [CL-01, CL-02]
+    cta_link_id: PLATFORM-USAGE
+    source_ids: [PUB-001]
+    match: ["what problem does zoiko id address", "what problem does zoiko id solve", "why zoiko id", "what is the problem it solves"]
+  - answer_id: KB-003
+    question: "Who is Zoiko iD for?"
+    text: "Zoiko iD’s proposed use cases span enterprise teams, developers and organizations designing identity-led products. The right approach depends on who is being identified, what action must be authorized and what evidence is required."
+    intent_id: INT-02
+    claim_ids: [CL-01, CL-02]
+    cta_link_id: SOLUTIONS-ENTERPRISE
+    source_ids: [PUB-002]
+    match: ["who is zoiko id for", "who is it for", "who uses zoiko id", "who should use zoiko id", "use cases"]
+  - answer_id: KB-004
+    question: "Is Zoiko iD only a login product?"
+    text: "No. Its architecture covers authentication alongside credential verification, consent, authorization, risk controls and integration. Those categories describe the planned platform scope; specific feature availability must be verified separately."
+    intent_id: INT-02
+    claim_ids: [CL-01, CL-02]
+    cta_link_id: ARCHITECTURE-GUIDES
+    source_ids: [PUB-002, PUB-003]
+    match: ["is zoiko id only a login product", "only a login", "login product", "just a login", "just sign in"]
+  - answer_id: KB-005
+    question: "What is the Identity Fabric?"
+    text: "The Identity Fabric is Zoiko iD’s architectural model for coordinating identity records, credentials, governance, policy decisions, risk signals, machine identity and developer integrations. It is not itself a claim that every layer is publicly released."
+    intent_id: INT-02
+    claim_ids: [CL-02]
+    cta_link_id: ARCHITECTURE-GUIDES
+    source_ids: [PUB-003]
+    match: ["what is the identity fabric", "identity fabric", "explain the identity fabric", "ten layers", "ten-layer"]
+  - answer_id: KB-006
+    question: "How does passwordless authentication work?"
+    text: "Passwordless sign-in can use a device-bound cryptographic credential, such as a passkey, instead of asking a person to type a reusable password. The exact method, device support and availability in Zoiko iD must be confirmed in current product documentation."
+    intent_id: INT-04
+    claim_ids: [CL-03]
+    cta_link_id: AUTH-GUIDE
+    source_ids: [PUB-004]
+    match: ["how does passwordless authentication work", "how do passkeys work", "what is a passkey", "can i enable passkeys", "passwordless login", "use passkeys", "fido2"]
+  - answer_id: KB-007
+    question: "What is the difference between OAuth, OIDC and SAML?"
+    text: "OAuth 2.0 is primarily an authorization framework. OpenID Connect adds an identity layer for authentication, while SAML is commonly used for enterprise federation. I can explain their roles, but I cannot confirm Zoiko iD protocol support without a published release reference."
+    intent_id: INT-03
+    claim_ids: [CL-03]
+    cta_link_id: STANDARDS-INTEROP
+    source_ids: [PUB-005]
+    match: ["difference between oauth, oidc and saml", "oauth vs oidc", "oauth versus openid connect", "oidc vs saml", "how does sso work", "what is saml"]
+  - answer_id: KB-008
+    question: "Can I upload my ID document here?"
+    text: "Please do not upload identity documents or personal verification evidence to this public chat. If a secure verification process is available for your service, use its separately authenticated, official instructions."
+    intent_id: INT-05
+    claim_ids: [CL-08]
+    cta_link_id: VERIFICATION
+    match: ["can i upload my id document here", "upload my id", "upload id", "verify my identity", "verify my id", "send my passport"]
+  - answer_id: KB-009
+    question: "What does consent-based sharing mean?"
+    text: "Consent-based sharing means that a person is informed about a proposed data use and can make a choice within the applicable legal and product framework. Consent is not a substitute for every legal basis, and this chat cannot grant or withdraw consent for an account."
+    intent_id: INT-06
+    claim_ids: [CL-02, CL-09]
+    cta_link_id: PRIVACY-NOTICE
+    source_ids: [PUB-006]
+    match: ["what does consent-based sharing mean", "what is consent-based sharing", "what is consent", "how does consent work"]
+  - answer_id: KB-010
+    question: "Can you revoke my consent?"
+    text: "I cannot view or change any personal consent settings in a public conversation. Use the official authenticated consent controls or contact the published privacy channel for the relevant service."
+    intent_id: INT-06
+    claim_ids: [CL-08, CL-09]
+    cta_link_id: CONSENT-CONTROLS
+    match: ["can you revoke my consent", "revoke my consent", "withdraw my consent", "withdraw consent", "change my consent"]
+  - answer_id: KB-011
+    question: "What is delegated authority?"
+    text: "Delegated authority defines when one person, service or organization may act for another, for a specific purpose and within defined limits. Robust designs record the scope, evidence, duration and revocation of that authority."
+    intent_id: INT-07
+    claim_ids: [CL-02]
+    cta_link_id: AUTHORITY-GUIDE
+    source_ids: [PUB-007]
+    match: ["what is delegated authority", "delegated authority", "what is delegation"]
+  - answer_id: KB-012
+    question: "Can this chatbot approve someone’s access?"
+    text: "No. This assistant explains identity and policy concepts. It cannot grant roles, approve access, change account permissions or make a binding authorization decision."
+    intent_id: INT-07
+    claim_ids: [CL-08]
+    cta_link_id: SIGN-IN
+    match: ["can this chatbot approve someone's access", "approve access", "approve someone", "grant me access", "give me access", "change my permissions"]
+  - answer_id: KB-013
+    question: "Does Zoiko iD cover machine identities?"
+    text: "The Zoiko iD architecture includes machine and workload identity concepts: systems need identity, bounded permissions and an audit trail too. Availability of particular machine-identity workflows or products needs a current release source."
+    intent_id: INT-08
+    claim_ids: [CL-02, CL-10]
+    cta_link_id: MACHINE-IDENTITY
+    source_ids: [PUB-008]
+    match: ["does zoiko id cover machine identities", "machine identity", "machine identities", "workload identity", "service identity", "api identity"]
+  - answer_id: KB-014
+    question: "Can AI agents act on my behalf using Zoiko iD?"
+    text: "Governed AI-agent authority is part of Zoiko iD’s strategic architecture, but I cannot confirm a released agent-identity service or create an agent delegation here. Any future flow must use verified scope, consent where required and revocable authority."
+    intent_id: INT-08
+    claim_ids: [CL-10]
+    cta_link_id: AI-AGENT-GOVERNANCE
+    source_ids: [PUB-009]
+    match: ["can ai agents act on my behalf", "ai agent", "ai agents", "how do ai agents get permissions", "agent permissions", "agent identity"]
+  - answer_id: KB-015
+    question: "How do developers integrate Zoiko iD?"
+    text: "The appropriate integration path depends on your application type, authentication pattern, deployment and required identity controls. Please use the current public developer guides; I cannot provide unverified endpoint names, SDK instructions or credentials."
+    intent_id: INT-09
+    claim_ids: [CL-04]
+    cta_link_id: DEVELOPER-DOCS
+    source_ids: [PUB-011]
+    match: ["how do developers integrate zoiko id", "how do i integrate", "integrate zoiko id", "get started", "developer docs", "sdk", "migration"]
+  - answer_id: KB-016
+    question: "Does Zoiko iD support SCIM or webhooks?"
+    text: "SCIM and webhooks can support identity provisioning and event-driven integrations generally. I cannot confirm that Zoiko iD currently offers either without a published feature reference, supported version and setup guide."
+    intent_id: INT-09
+    claim_ids: [CL-03, CL-04]
+    cta_link_id: INTEGRATIONS
+    source_ids: [PUB-010]
+    match: ["does zoiko id support scim or webhooks", "scim", "webhook", "webhooks", "provisioning"]
+  - answer_id: KB-017
+    question: "Can you generate my API key?"
+    text: "No. Never share an API key or secret in this chat. Keys must be created and managed only through an officially authenticated developer or administrator workflow, where one is available."
+    intent_id: INT-09
+    claim_ids: [CL-08]
+    cta_link_id: DEVELOPER-CONSOLE
+    match: ["can you generate my api key", "generate my api key", "generate an api key", "get my api key", "my api key", "create an api key", "client secret"]
+  - answer_id: KB-018
+    question: "Can Zoiko iD help with enterprise onboarding?"
+    text: "Its identity architecture is relevant to onboarding journeys that combine identification, account access, verification and permissions. A real deployment requires requirements discovery and confirmation of released modules and supported integrations."
+    intent_id: INT-02
+    claim_ids: [CL-02, CL-04]
+    cta_link_id: SOLUTIONS-ONBOARDING
+    source_ids: [PUB-017]
+    match: ["can zoiko id help with enterprise onboarding", "enterprise onboarding", "employee onboarding", "customer onboarding"]
+  - answer_id: KB-019
+    question: "What about European digital identity wallets?"
+    text: "European digital identity interoperability is strategically relevant to Zoiko iD, particularly relying-party and delegated-authority use cases. I cannot confirm wallet certification, country availability, production interoperability or a launch date from this chat."
+    intent_id: INT-02
+    claim_ids: [CL-05, CL-10]
+    cta_link_id: STANDARDS-INTEROP
+    source_ids: [PUB-012]
+    match: ["what about european digital identity wallets", "european digital identity", "eudi", "eidas", "digital identity wallet", "identity wallet"]
+  - answer_id: KB-020
+    question: "Is Zoiko iD certified or compliant with a specific standard?"
+    text: "I can summarize only certifications, assurance reports and compliance statements expressly published by Zoiko iD for the applicable entity and service. I cannot independently certify a service or infer compliance from its design."
+    intent_id: INT-10
+    claim_ids: [CL-06]
+    cta_link_id: TRUST-CENTER
+    source_ids: [PUB-013]
+    match: ["is zoiko id certified", "is zoiko id compliant", "iso 27001", "soc 2", "do you have iso", "certified or compliant", "security certifications", "is this iso-certified"]
+  - answer_id: KB-021
+    question: "How much does Zoiko iD cost?"
+    text: "I cannot confirm current plans, pricing or commercial terms without an approved public pricing source. For a tailored enterprise evaluation, use the published sales contact route."
+    intent_id: INT-11
+    claim_ids: [CL-07]
+    cta_link_id: PRICING
+    source_ids: [PUB-014]
+    match: ["how much does zoiko id cost", "how much", "what is the price", "pricing", "what does it cost", "which price plan", "free trial", "free tier", "is it free", "free plan", "free to use", "for free", "any fees", "uptime", "guarantee"]
+  - answer_id: KB-022
+    question: "I cannot sign in. Can you unlock my account?"
+    text: "I cannot access your account, diagnose private sign-in records, reset credentials or unlock a profile. Please use the official sign-in recovery or support process for the service you are trying to access."
+    intent_id: INT-12
+    claim_ids: [CL-08]
+    cta_link_id: ACCOUNT-RECOVERY
+    match: ["i cannot sign in", "can you unlock my account", "unlock my account", "my sign-in failed", "sign in failed", "cannot log in", "i lost access", "reset my password", "forgot my password"]
+  - answer_id: KB-023
+    question: "Can you delete my information?"
+    text: "I cannot look up, export or delete personal information through public chat. Privacy requests must go through the published rights-request process, which can confirm the correct organization and applicable requirements."
+    intent_id: INT-13
+    claim_ids: [CL-08, CL-09]
+    cta_link_id: PRIVACY-REQUEST
+    source_ids: [PUB-015]
+    match: ["can you delete my information", "delete my information", "delete my data", "delete my account", "forget everything i entered", "right to be forgotten", "privacy request"]
+  - answer_id: KB-024
+    question: "How do I report a security problem?"
+    text: "Do not post credentials, exploit details, private customer records or evidence files in this chat. Use the official published security-reporting route so the appropriate team can review the report securely."
+    intent_id: INT-15
+    claim_ids: [CL-06, CL-08]
+    cta_link_id: SECURITY-CONTACT
+    source_ids: [PUB-016]
+    match: ["how do i report a security problem", "report a security problem", "report a vulnerability", "found a vulnerability", "security issue", "security incident", "my account was hacked"]
+  - answer_id: KB-025
+    question: "Can we discuss a partnership or enterprise project?"
+    text: "Yes. I can help identify whether the discussion concerns enterprise identity, developer integration, digital credentials or delegated authority, then point you to the approved business-contact form. Contact details are shared only if you choose to submit them."
+    intent_id: INT-14
+    claim_ids: [CL-01, CL-07]
+    cta_link_id: TALK-TO-SALES
+    match: ["can we discuss a partnership", "partnership", "enterprise project", "enterprise contract", "talk to sales", "contact sales", "request a demo", "book a demo", "rfp"]
+  - answer_id: KB-026
+    question: "Are you an AI, and can you see my identity?"
+    text: "I am a public AI assistant for Zoiko iD information. I do not have access to your account, private identity records, credentials, tenant settings or internal authorization decisions. Please avoid sharing sensitive information here."
+    intent_id: INT-16
+    claim_ids: [CL-08]
+    cta_link_id: ASSISTANT-LIMITATIONS
+    match: ["are you an ai", "can you see my identity", "are you a bot", "are you human", "what can you access", "can you see my account", "who are you", "which llm", "which model", "what model", "built on", "powered by", "chatgpt"]
+  - answer_id: KB-027
+    question: "Can you confirm this feature is available in my country?"
+    text: "I can't confirm that without an approved, current feature catalogue specifying the country, customer segment and release state. I can direct you to current published availability information or an official contact channel."
+    intent_id: INT-18
+    claim_ids: [CL-05, CL-07]
+    cta_link_id: REGION-AVAILABILITY
+    match: ["can you confirm this feature is available in my country", "available in my country", "available in my region", "is it available in", "country availability", "which countries", "available in", "launch date", "release date", "when will"]
+  - answer_id: KB-028
+    question: "Here is my one-time code. Please verify me."
+    text: "For your security, do not share one-time codes, passwords, recovery codes or passkeys in public chat. I cannot verify you here; return to the official sign-in or verification page."
+    intent_id: INT-17
+    claim_ids: [CL-08]
+    cta_link_id: SIGN-IN
+    match: ["here is my one-time code", "please verify me", "verify me", "my one-time code", "send me a code", "send me an otp", "my otp"]

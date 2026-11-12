@@ -261,7 +261,9 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
             await protected_action(
                 conn, caller, action="evidence.export", resource=f"decision_receipt:{rid}"
             )
-            gate = getattr(request.app.state, "plan_feature_gate", None)  # handed in by main.py: evidence must not import commercial
+            gate = getattr(
+                request.app.state, "plan_feature_gate", None
+            )  # handed in by main.py: evidence must not import commercial
             if gate is not None:
                 await gate(conn, "advanced.advanced-evidence-export-and-analytics")
             return await replay.export_package(
@@ -404,22 +406,32 @@ async def audit_events(
     }
 
 
-SETTLE = timedelta(seconds=5)  # a record is exported once it is this old: transactions that could still add an earlier one have finished
+SETTLE = timedelta(
+    seconds=5
+)  # a record is exported once it is this old: transactions that could still add an earlier one have finished
 EXPORT_SCHEMA = "zid.audit.v1"
 
 
 def _cursor(created_at: datetime, audit_id: uuid.UUID) -> str:
-    return base64.urlsafe_b64encode(f"{created_at.isoformat()}|{audit_id}".encode()).decode().rstrip("=")
+    return (
+        base64.urlsafe_b64encode(f"{created_at.isoformat()}|{audit_id}".encode())
+        .decode()
+        .rstrip("=")
+    )
 
 
 def _after(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
     if not cursor:
         return None
     try:
-        stamp, ident = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode().split("|")
+        stamp, ident = (
+            base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode().split("|")
+        )
         return datetime.fromisoformat(stamp), uuid.UUID(ident)
     except (ValueError, UnicodeDecodeError) as e:
-        raise ZidError("VALIDATION_FAILED", "after is not a cursor this export gave.", http_status=422) from e
+        raise ZidError(
+            "VALIDATION_FAILED", "after is not a cursor this export gave.", http_status=422
+        ) from e
 
 
 @router.get("/audit-events/export")
@@ -439,11 +451,17 @@ async def export_audit_events(
     start = _after(after)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.read", resource="audit_record:*")
-        gate = getattr(request.app.state, "plan_feature_gate", None)  # handed in by main.py: evidence must not import commercial
+        gate = getattr(
+            request.app.state, "plan_feature_gate", None
+        )  # handed in by main.py: evidence must not import commercial
         if gate is not None:
             await gate(conn, "advanced.custom-event-streams-siem-integrations")
         rows = await receipt_store.export_audit(
-            conn, after=start, event_type=event_type, limit=limit + 1, settled_before=datetime.now(UTC) - SETTLE
+            conn,
+            after=start,
+            event_type=event_type,
+            limit=limit + 1,
+            settled_before=datetime.now(UTC) - SETTLE,
         )
     more = len(rows) > limit
     rows = rows[:limit]
@@ -469,7 +487,11 @@ async def export_audit_events(
     next_cursor = _cursor(rows[-1].created_at, rows[-1].audit_id) if rows else (after or "")
     if format == "ndjson":
         body = "".join(json.dumps(i, separators=(",", ":")) + chr(10) for i in items)
-        return Response(body, media_type="application/x-ndjson", headers={"X-Next-Cursor": next_cursor, "X-Has-More": str(more).lower()})
+        return Response(
+            body,
+            media_type="application/x-ndjson",
+            headers={"X-Next-Cursor": next_cursor, "X-Has-More": str(more).lower()},
+        )
     return {"schema": EXPORT_SCHEMA, "items": items, "next_cursor": next_cursor, "has_more": more}
 
 

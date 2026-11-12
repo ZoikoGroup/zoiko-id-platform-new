@@ -1,0 +1,23 @@
+# status: DRAFT. Safeguards a significant, solely automated decision must offer, by jurisdiction pack (ZID-PRI-004 sections 10, 16 and 22).
+# Engineers must not fill these in: what a safeguard set contains is a legal statement set by counsel for the market, with its approval reference and
+# effective date. Until then the platform BLOCKS a significant solely automated decision in that pack and routes it to a person (fail closed).
+# Example of the shape counsel fills (an illustration of the fields, NOT a statement of what any law requires):
+#   required_safeguards: [<names counsel chooses, e.g. a notice, a way to make representations, human intervention, a way to contest>]
+#   special_category_condition_required: true
+#   approval_ref: <counsel's reference>
+#   effective_from: <date the rule set takes effect>
+# approval_ref: null
+# version: 0.1.0
+packs:
+  uk-gdpr:
+    required_safeguards: COUNSEL
+    approval_ref: COUNSEL
+    effective_from: COUNSEL
+  eu-gdpr:
+    required_safeguards: COUNSEL
+    approval_ref: COUNSEL
+    effective_from: COUNSEL
+  us-ca-ccpa:
+    required_safeguards: COUNSEL
+    approval_ref: COUNSEL
+    effective_from: COUNSEL

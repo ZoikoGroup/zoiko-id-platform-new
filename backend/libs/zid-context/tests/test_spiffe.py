@@ -12,7 +12,14 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.oid import NameOID
-from zid_context.spiffe import PROXY_AUTH_HEADER, SpiffeError, SpiffeId, TrustPolicy, peer_spiffe_id, verify_x509_svid
+from zid_context.spiffe import (
+    PROXY_AUTH_HEADER,
+    SpiffeError,
+    SpiffeId,
+    TrustPolicy,
+    peer_spiffe_id,
+    verify_x509_svid,
+)
 
 NOW = datetime.now(UTC)
 
@@ -126,22 +133,39 @@ def test_peer_identity_comes_from_the_mesh_never_from_a_caller_header() -> None:
         peer_spiffe_id({"client": ("127.0.0.1", 1)}, {"x-spiffe-id": WORKLOAD}, POLICY)
 
 
-def test_a_proxy_may_forward_the_certificate_as_base64_der_and_it_is_verified_just_the_same() -> None:
+def test_a_proxy_may_forward_the_certificate_as_base64_der_and_it_is_verified_just_the_same() -> (
+    None
+):
     """Caddy cannot put a PEM in a header (raw newlines), so it forwards base64 DER. The form changes how bytes are read, not what is trusted."""
     der = svid(UK, [WORKLOAD])
     proxy = {"client": ("127.0.0.1", 1)}
     ok = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(der).decode()}"'}
     assert str(peer_spiffe_id(proxy, ok, POLICY)) == WORKLOAD
     other = ca("other")
-    foreign = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(svid(other, [WORKLOAD])).decode()}"'}
-    with pytest.raises(SpiffeError, match="SVID_CHAIN_INVALID"):  # a readable certificate from a CA we do not trust
+    foreign = {
+        "x-forwarded-client-cert": f'Cert="{base64.b64encode(svid(other, [WORKLOAD])).decode()}"'
+    }
+    with pytest.raises(
+        SpiffeError, match="SVID_CHAIN_INVALID"
+    ):  # a readable certificate from a CA we do not trust
         peer_spiffe_id(proxy, foreign, POLICY)
     with pytest.raises(SpiffeError, match="SVID_MISSING"):  # not from the proxy
         peer_spiffe_id({"client": ("10.0.0.9", 1)}, ok, POLICY)
 
 
-@pytest.mark.parametrize("junk", ['Cert="forged"', 'Cert=""', 'Cert="AAAA"', 'Cert="%%%"', "Cert=-----BEGIN CERTIFICATE-----junk"])
-def test_an_unreadable_forwarded_certificate_is_no_certificate_never_a_server_error(junk: str) -> None:
+@pytest.mark.parametrize(
+    "junk",
+    [
+        'Cert="forged"',
+        'Cert=""',
+        'Cert="AAAA"',
+        'Cert="%%%"',
+        "Cert=-----BEGIN CERTIFICATE-----junk",
+    ],
+)
+def test_an_unreadable_forwarded_certificate_is_no_certificate_never_a_server_error(
+    junk: str,
+) -> None:
     with pytest.raises(SpiffeError, match="SVID_MISSING"):
         peer_spiffe_id({"client": ("127.0.0.1", 1)}, {"x-forwarded-client-cert": junk}, POLICY)
 
@@ -151,28 +175,54 @@ SECRET = b"s" * 40
 
 def test_with_a_proxy_secret_an_address_alone_is_not_enough() -> None:
     """Any process on a shared host can connect from the trusted address. Only the real proxy knows the secret it adds."""
-    policy = TrustPolicy(POLICY.own_domain, POLICY.bundles, trusted_proxies=frozenset({"127.0.0.1"}), proxy_secret=SECRET)
+    policy = TrustPolicy(
+        POLICY.own_domain,
+        POLICY.bundles,
+        trusted_proxies=frozenset({"127.0.0.1"}),
+        proxy_secret=SECRET,
+    )
     der = svid(UK, [WORKLOAD])
     cert = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(der).decode()}"'}
     proxy = {"client": ("127.0.0.1", 1)}
-    assert str(peer_spiffe_id(proxy, {**cert, PROXY_AUTH_HEADER: SECRET.decode()}, policy)) == WORKLOAD
-    for headers in (cert, {**cert, PROXY_AUTH_HEADER: "wrong" * 8}, {**cert, PROXY_AUTH_HEADER: ""}, {**cert, PROXY_AUTH_HEADER: SECRET.decode()[:-1]}):
+    assert (
+        str(peer_spiffe_id(proxy, {**cert, PROXY_AUTH_HEADER: SECRET.decode()}, policy)) == WORKLOAD
+    )
+    for headers in (
+        cert,
+        {**cert, PROXY_AUTH_HEADER: "wrong" * 8},
+        {**cert, PROXY_AUTH_HEADER: ""},
+        {**cert, PROXY_AUTH_HEADER: SECRET.decode()[:-1]},
+    ):
         with pytest.raises(SpiffeError, match="SVID_MISSING"):
             peer_spiffe_id(proxy, headers, policy)
-    with pytest.raises(SpiffeError, match="SVID_MISSING"):  # the right secret from an address that is not a trusted proxy
-        peer_spiffe_id({"client": ("10.0.0.9", 1)}, {**cert, PROXY_AUTH_HEADER: SECRET.decode()}, policy)
+    with pytest.raises(
+        SpiffeError, match="SVID_MISSING"
+    ):  # the right secret from an address that is not a trusted proxy
+        peer_spiffe_id(
+            {"client": ("10.0.0.9", 1)}, {**cert, PROXY_AUTH_HEADER: SECRET.decode()}, policy
+        )
 
 
 def test_without_a_proxy_secret_the_trusted_address_still_works_as_before() -> None:
-    policy = TrustPolicy(POLICY.own_domain, POLICY.bundles, trusted_proxies=frozenset({"127.0.0.1"}))
+    policy = TrustPolicy(
+        POLICY.own_domain, POLICY.bundles, trusted_proxies=frozenset({"127.0.0.1"})
+    )
     der = svid(UK, [WORKLOAD])
     cert = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(der).decode()}"'}
     assert str(peer_spiffe_id({"client": ("127.0.0.1", 1)}, cert, policy)) == WORKLOAD
 
 
 def test_the_secret_never_makes_an_unverifiable_certificate_acceptable() -> None:
-    policy = TrustPolicy(POLICY.own_domain, POLICY.bundles, trusted_proxies=frozenset({"127.0.0.1"}), proxy_secret=SECRET)
+    policy = TrustPolicy(
+        POLICY.own_domain,
+        POLICY.bundles,
+        trusted_proxies=frozenset({"127.0.0.1"}),
+        proxy_secret=SECRET,
+    )
     other = ca("other")
-    cert = {"x-forwarded-client-cert": f'Cert="{base64.b64encode(svid(other, [WORKLOAD])).decode()}"', PROXY_AUTH_HEADER: SECRET.decode()}
+    cert = {
+        "x-forwarded-client-cert": f'Cert="{base64.b64encode(svid(other, [WORKLOAD])).decode()}"',
+        PROXY_AUTH_HEADER: SECRET.decode(),
+    }
     with pytest.raises(SpiffeError, match="SVID_CHAIN_INVALID"):
         peer_spiffe_id({"client": ("127.0.0.1", 1)}, cert, policy)

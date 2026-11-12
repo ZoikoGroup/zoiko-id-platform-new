@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from conftest import ctx, engine
+from finance_people import appoint_person
 from onboarding_fixture import onboard
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -22,7 +23,6 @@ from test_invoicing_pg import ENTITY, LAST, rated_month, uid
 from test_owner_payment_pg import NoTax
 from zid_db import tenant_transaction
 from zid_platform.modules.commercial.application import dispute_service as disputes
-from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application import invoicing_service as inv
 from zid_platform.modules.commercial.application import orders_service
 from zid_platform.modules.commercial.application import recon_service as recon
@@ -37,15 +37,8 @@ D = Decimal
 
 async def cast(eng: Any, *roles: str) -> dict[str, str]:
     people = {r: uid() for r in roles}
-    async with eng.begin() as c:
-        for role, person in people.items():
-            await finance.appoint(
-                c,
-                principal=person,
-                role=role,
-                appointed_by=uid(),
-                effective_from=NOW - timedelta(days=200),
-            )
+    for role, person in people.items():
+        await appoint_person(eng, person, role, start=NOW - timedelta(days=200))
     return people
 
 

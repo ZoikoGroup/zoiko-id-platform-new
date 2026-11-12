@@ -32,7 +32,7 @@ from zid_errors import ZidError
 from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce
+from zid_platform.country_gate import enforce, enforce_packs
 from zid_platform.modules.commercial.ports import require_feature
 from zid_platform.modules.verification.application import service
 from zid_platform.modules.verification.domain.countries import Capability
@@ -66,6 +66,8 @@ _STATUS = {
     "CALLBACK_STALE": 400,
     "APPLICANT_DATA_UNAVAILABLE": 503,  # nothing was recorded: the provider retries
     "COUNTRY_CAPABILITY_UNAVAILABLE": 503,  # the provider retries once the country is enabled again
+    "REGULATORY_POLICY_UNAVAILABLE": 503,  # the same for a market whose policy pack is gone or not yet approved
+    "REGULATORY_REVIEW_REQUIRED": 503,
 }
 
 
@@ -80,12 +82,30 @@ def _country_gate(request: Request, jurisdiction: str) -> None:
     enforce(request, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
 
 
+async def _pack_gate(request: Request, caller: Caller, jurisdiction: str) -> None:
+    """ZID-RCG-003: an enabled country also needs an approved policy pack for the market, checked before any provider is asked (T01, T02)."""
+    await enforce_packs(request, caller.ctx, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
+
+
 def _callback_country_check(request: Request, country: str) -> None:
     """A provider result for a country switched off since the session began is held, never applied."""
     try:
         _country_gate(request, country)
     except ZidError as e:
         raise VerificationError("COUNTRY_CAPABILITY_UNAVAILABLE", country) from e
+
+
+async def _callback_check(request: Request, tenant: str, country: str) -> None:
+    """A provider result is held, never applied, when the country was switched off since the session began (EDR-001) or its policy pack was
+    retired or never approved (ZID-RCG-003). Nothing is recorded and the provider retries (503), as for a closed country. In shadow mode the pack
+    check only logs."""
+    _callback_country_check(request, country)
+    try:
+        await enforce_packs(
+            request, _ctx().with_identity(tenant, None), country, Capability.INDIVIDUAL_VERIFICATION
+        )
+    except ZidError as e:
+        raise VerificationError(e.code, country) from e
 
 
 def _scope(caller: Caller, scope: str) -> None:
@@ -157,6 +177,7 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
             **attempt_inputs(request),
         )
     _country_gate(request, body.jurisdiction)
+    await _pack_gate(request, caller, body.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),
@@ -202,6 +223,7 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
     result says started or why not. A person's short-lived handoff link is returned once, here, and never stored."""
     _scope(caller, "verification:execute")
     _country_gate(request, body.jurisdiction)
+    await _pack_gate(request, caller, body.jurisdiction)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await require_feature(
             conn,
@@ -286,6 +308,7 @@ async def reverify(
         except VerificationError as e:
             raise _err(e) from e
     _country_gate(request, old.jurisdiction)
+    await _pack_gate(request, caller, old.jurisdiction)
     try:
         out = await service.start(
             request_engine(request),
@@ -455,7 +478,7 @@ async def callback(adapter_ref: str, request: Request) -> Response:
             body=body,
             base_ctx=_ctx(),
             now=datetime.now(UTC),
-            country_check=lambda country: _callback_country_check(request, country),
+            country_check=lambda country: _callback_check(request, tenant, country),
             headers=dict(request.headers),
             secrets=_secrets(request),
             transport=_transport(request),

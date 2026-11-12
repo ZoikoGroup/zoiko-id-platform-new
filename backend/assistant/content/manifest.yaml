@@ -1,0 +1,10 @@
+# Snapshot manifest (ZI-CHAT-CSR-008). ENGINEERING SAMPLE: nothing in this snapshot is approved or published.
+snapshot_id: sample-2026-11-11
+version: 0.1.0
+sample: true
+locale_default: en-US
+notes: >-
+  Engineering sample content authored from ZI-CHAT-CONTENT-005 (28 draft answers), ZI-CHAT-KB-002 (18 intents) and
+  ZI-CHAT-CSR-008 (P01 to P05 candidates). Every answer is DRAFT_NOT_PUBLISHED, every capability is EVIDENCE_PENDING and NOT_PUBLIC,
+  every source is DRAFT_NOT_PUBLISHED and no P04 claim or P05 fact is approved. It exists to exercise the pipeline and must never be
+  treated as approved public content. A production snapshot needs signed P01..P05 records, named owners and gates G1/G2.

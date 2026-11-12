@@ -794,6 +794,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DATA-001 §6.2"
+  verify.policy_pack:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G01 jurisdiction and profession policy packs (proposed, CR-067)"
+  verify.policy_pack_approval:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G01 pack approvals bound to the pack hash (proposed, CR-067)"
   verify.provider_adapter:
     role: cell
     module: verification
@@ -869,6 +879,16 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 GID-054 (issuer outreach, dual review); CR-069"
+  cred.property_check_state:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 section 13 (last property-check answer per property and host, outcomes only, so a change can be announced); CR-071"
+  verify.provider_entitlement:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-INT-002 section 08 (runtime provider entitlement scope and status, never a contract or credential); CR-071"
   cred.eligibility_decision:
     role: cell
     module: credential
@@ -889,6 +909,81 @@ tables:
     module: evidence
     tenant_scoped: true
     source: "ZID-INT-002 section 09 (a stored validation result of an uploaded document; results only, never the document); CR-071"
+  evidence.uat_baseline:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (a signed, versioned import of the requirement and UAT case registers); CR-074"
+  evidence.uat_case:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (the mandatory UAT cases of one baseline (id, suite, risk, dependency, assertion)); CR-074"
+  evidence.uat_fixture:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (a named synthetic fixture); CR-074"
+  evidence.uat_fixture_revision:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (fixture revisions, reviewed by a second person and locked by hash once approved); CR-074"
+  evidence.uat_run:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (a frozen test run (release unit, build, config and fixture digests, tester)); CR-074"
+  evidence.uat_event:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (append-only hash-chained run events); CR-074"
+  evidence.uat_manifest:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (append-only signed evidence manifests, one per case result); CR-074"
+  evidence.uat_defect:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (defects raised against cases); CR-074"
+  evidence.uat_release_candidate:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (a snapshot of evidence-backed state for one release unit); CR-074"
+  evidence.uat_release_signature:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (append-only signed role decisions on a release candidate); CR-074"
+  evidence.uat_rollback:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (append-only scoped emergency disable records); CR-074"
+  evidence.uat_role_assignment:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 (who holds which assurance role); CR-074"
+  evidence.uat_policy:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 section 05 (a signed assurance and SLO policy proposal: the thresholds a person set, never defaults); CR-074"
+  evidence.uat_policy_signature:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 section 05 (append-only signatures on a policy by three distinct role holders); CR-074"
+  evidence.uat_registry_snapshot:
+    role: cell
+    module: assurance
+    tenant_scoped: true
+    source: "ZID-UAT-005 OPS-03 (append-only snapshots of an official register, so drift is found by comparing two of them); CR-074"
   evidence.upload:
     role: cell
     module: evidence
@@ -1069,6 +1164,71 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRIV-001 §20 (CR-013)"
+  privacy.purpose_decision:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §19 purpose decisions (CR-072)"
+  privacy.notice_acknowledgment:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §07 notice acknowledgments (CR-072)"
+  privacy.erasure_job:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §13 erasure jobs (CR-072)"
+  privacy.erasure_task:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §13 erasure tasks and provider receipts (CR-072)"
+  privacy.transfer_decision:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §16/§19 transfer decisions (CR-072)"
+  privacy.subprocessor_change:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §09/§22 subprocessor change notices (CR-072)"
+  privacy.model_version:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (versions and state); CR-072"
+  privacy.model_evaluation:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (append-only evaluations); CR-072"
+  privacy.model_observation:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (append-only drift observations); CR-072"
+  privacy.verification_session:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §07 privacy-safe verification session (why capture may or may not happen; never an image, template or score); CR-072"
+  privacy.dpia_package:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §02/§18/§23 DPIA packages and release gates (CR-072)"
+  privacy.decision_review:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §10/§11 appeals and human review (CR-072)"
+  privacy.breach_case:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §09/§24 breach cases and regulator clocks (CR-072)"
   authn.federation_connection:
     role: cell
     module: federation

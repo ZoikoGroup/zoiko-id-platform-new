@@ -557,7 +557,9 @@ async def void(conn: AsyncConnection, invoice_id: str) -> None:
         text("UPDATE commercial.invoice SET status = 'VOID' WHERE invoice_id = :i"),
         {"i": uuid.UUID(invoice_id)},
     )
-    await activations.release_credits(conn, str(i["tenant_id"]), invoice_id)  # what it took off a paid activation is available again
+    await activations.release_credits(
+        conn, str(i["tenant_id"]), invoice_id
+    )  # what it took off a paid activation is available again
 
 
 async def document(conn: AsyncConnection, invoice_id: str) -> str:

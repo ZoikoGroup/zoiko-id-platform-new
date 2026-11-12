@@ -50,10 +50,20 @@ async def limits(request: Request, caller: CallerDep) -> dict[str, Any]:
             "resets_in_s": 0,
         }
     resolve_limit = getattr(request.app.state, "plan_request_limit", None)
-    plan_limit = await resolve_limit(request_engine(request), caller.ctx) if resolve_limit is not None else None
+    plan_limit = (
+        await resolve_limit(request_engine(request), caller.ctx)
+        if resolve_limit is not None
+        else None
+    )
     v = limiter.peek(caller.ctx.tenant_id or "", time.monotonic(), plan_limit)
     if plan_limit == 0:  # the plan has no request limit (contracted)
-        return {"enforced": False, "scope": "tenant", "limit_per_minute": 0, "used_this_minute": 0, "resets_in_s": 0}
+        return {
+            "enforced": False,
+            "scope": "tenant",
+            "limit_per_minute": 0,
+            "used_this_minute": 0,
+            "resets_in_s": 0,
+        }
     return {
         "enforced": True,
         "scope": "tenant",

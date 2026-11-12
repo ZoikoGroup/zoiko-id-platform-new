@@ -111,6 +111,7 @@ async def require_platform_authorization(
 async def bootstrap(
     settings: Settings, database_url: str, *, issue_ticket_link: bool, now: datetime | None = None
 ) -> str | None:
+    from zid_platform.modules.authentication.domain.operator_password import operator_principal_id
     from zid_platform.modules.authentication.infrastructure.authenticator_store import issue_ticket
     from zid_platform.modules.operator_access.application.service import register_operator
     from zid_platform.modules.operator_access.infrastructure.store import load_profile
@@ -122,8 +123,6 @@ async def bootstrap(
     from zid_platform.modules.principal.infrastructure.principal_store import create_principal
     from zid_platform.modules.session.domain.oauth import OAuthClient
     from zid_platform.modules.session.infrastructure.oauth_store import create_client, load_client
-
-    from zid_platform.modules.authentication.domain.operator_password import operator_principal_id
 
     tenant = settings.operator_tenant_id
     if not tenant or not (settings.operator_bootstrap_principal_id or settings.operator_email):

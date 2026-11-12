@@ -49,11 +49,11 @@ from zid_platform.modules.tenant.domain.role_matrix import (
     effective_rights,
 )
 from zid_platform.modules.tenant.infrastructure import tenant_store as store
-from zid_platform.modules.tenant.infrastructure.route_map import route_matrix_enforced
 from zid_platform.modules.tenant.infrastructure.role_matrix import (
     direct_admin_invitation_allowed,
     role_matrix,
 )
+from zid_platform.modules.tenant.infrastructure.route_map import route_matrix_enforced
 from zid_platform.modules.tenant.infrastructure.tenant_store import RoleAssignment, Tenant
 from zid_platform.protected import approved_by_second_admin, protected_action
 
@@ -416,7 +416,9 @@ async def read_my_permissions(request: Request, caller: CallerDep) -> dict[str, 
 @router.post("/v1/tenant/members", status_code=201)
 async def invite_member(body: Invite, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
-    display_name = _clean_name(body.display_name)  # an unusable name stops the invitation before anything is written
+    display_name = _clean_name(
+        body.display_name
+    )  # an unusable name stops the invitation before anything is written
     refusal_error: ZidError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(

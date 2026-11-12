@@ -109,16 +109,32 @@ def test_an_application_that_asks_for_decisions_gets_a_machine_client(rt_url: st
 
     o = onboard(rt_url)
     app = create_app(
-        Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", cell_id="uk-1"),
+        Settings(
+            database_url=rt_url,
+            token_issuer=ISS,
+            token_audience=AUD,
+            public_base_url=AUD,
+            environment="test",
+            cell_id="uk-1",
+        ),
         keyring=o.ring,
     )
     h = o.bearer(o.owner)
-    body = {"name": "Payroll (access decisions)", "client_type": "CONFIDENTIAL", "purpose": "DECISIONS", "jwks": {"keys": [PUBLIC_JWK]}}
+    body = {
+        "name": "Payroll (access decisions)",
+        "client_type": "CONFIDENTIAL",
+        "purpose": "DECISIONS",
+        "jwks": {"keys": [PUBLIC_JWK]},
+    }
     with TestClient(app, base_url=ISS) as api:
         made = api.post("/v1/integration/oauth-clients", json=body, headers=h)
         assert made.status_code == 201, made.text
         client = made.json()
-        assert client["client_type"] == "CONFIDENTIAL" and client["redirect_uris"] == [] and client["scopes"] == ["access:evaluate"]
+        assert (
+            client["client_type"] == "CONFIDENTIAL"
+            and client["redirect_uris"] == []
+            and client["scopes"] == ["access:evaluate"]
+        )
         assert client["token_auth_method"] == "private_key_jwt" and client["key_ids"] == ["k1"]
         assert "secret" not in made.text.lower()
         # what the decision caller must not be: a client people sign in through, a public client, one without a key, one with a redirect
@@ -134,9 +150,20 @@ def test_an_application_that_asks_for_decisions_gets_a_machine_client(rt_url: st
 
     async def stored() -> tuple[list[str], bool, str | None]:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
-            row = (await c.execute(text("SELECT grant_types, service_principal_id FROM authn.oauth_client WHERE client_id = :c"), {"c": client["client_id"]})).one()
+            row = (
+                await c.execute(
+                    text(
+                        "SELECT grant_types, service_principal_id FROM authn.oauth_client WHERE client_id = :c"
+                    ),
+                    {"c": client["client_id"]},
+                )
+            ).one()
             usable = await usable_service_client(c, client["client_id"], scope="access:evaluate")
-            return list(row.grant_types), usable, str(row.service_principal_id) if row.service_principal_id else None
+            return (
+                list(row.grant_types),
+                usable,
+                str(row.service_principal_id) if row.service_principal_id else None,
+            )
 
     grants, usable, principal = asyncio.run(stored())
     assert grants == ["client_credentials"] and usable is True and principal is not None

@@ -138,3 +138,29 @@ def test_spanish_and_french_cover_every_code_and_are_marked_as_unreviewed_drafts
     for loc in ("es", "fr"):
         for code, (t, e, n) in reasons.LOCALES[loc].items():
             assert t and e and n and (t, e, n) != reasons.EN[code], (loc, code)
+
+
+def test_every_locale_has_a_review_record_and_a_reviewed_one_names_its_reviewer() -> None:
+    assert set(reasons.LOCALES) == set(reasons.LOCALE_REVIEWS)
+    for loc, rec in reasons.LOCALE_REVIEWS.items():
+        assert rec["status"] in {"SOURCE", "DRAFT", "REVIEWED"}, loc
+        if rec["status"] == "REVIEWED":
+            assert rec.get("reviewer") and rec.get("reviewed_on"), (
+                f"{loc}: reviewed with no reviewer or date"
+            )
+            assert len(rec["reviewed_on"]) == 10, f"{loc}: reviewed_on must be YYYY-MM-DD"
+        else:
+            assert "reviewer" not in rec, f"{loc}: a draft or source text must not name a reviewer"
+
+
+def test_a_reviewed_locale_is_reported_with_who_reviewed_it_and_a_draft_is_not(monkeypatch) -> None:
+    monkeypatch.setitem(
+        reasons.LOCALE_REVIEWS,
+        "es",
+        {"status": "REVIEWED", "reviewer": "A. Reviewer", "reviewed_on": "2026-12-01"},
+    )
+    monkeypatch.setattr(reasons, "REVIEWED_LOCALES", frozenset({"en", "es"}))
+    d = reasons.describe("PROOF_INVALID", "es")
+    assert d["translation"] == "REVIEWED" and d["reviewed_by"] == "A. Reviewer"
+    draft = reasons.describe("PROOF_INVALID", "fr")
+    assert draft["translation"] == "MACHINE_DRAFT_UNREVIEWED" and "reviewed_by" not in draft

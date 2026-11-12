@@ -22,7 +22,10 @@ from typing import Any, Literal, Protocol
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.screening.application.signal_events import publish_signal_raised
+from zid_platform.modules.screening.application.signal_events import (
+    publish_signal_corrected,
+    publish_signal_raised,
+)
 from zid_platform.modules.screening.domain.decision import ScreeningError
 from zid_platform.modules.screening.domain.matching import Party
 from zid_platform.modules.screening.domain.signals import (
@@ -334,6 +337,10 @@ async def resolve(
     )  # fmt: skip
     resolved = await store.get_review(conn, tenant_id, review_id)
     assert resolved is not None
+    if (
+        outcome == "CLEARED_BY_REVIEWER"
+    ):  # a cleared signal is a correction: whatever relied on it is told to decide again (AT-019)
+        await publish_signal_corrected(conn, tenant_id, resolved)
     return resolved
 
 

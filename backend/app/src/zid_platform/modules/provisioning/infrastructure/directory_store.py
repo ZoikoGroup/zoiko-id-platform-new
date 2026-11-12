@@ -61,34 +61,59 @@ async def create(
                     f"INSERT INTO platform.directory_sync (sync_id, tenant_id, source_id, connector_id, provider, display_name, settings, interval_seconds, "
                     f"next_run_at, created_at, updated_at) VALUES (:id, :t, :s, :c, :p, :n, CAST(:cfg AS jsonb), :i, :now, :now, :now) RETURNING {_COLS}"
                 ),
-                {"id": uuid.uuid4(), "t": uuid.UUID(tenant_id), "s": uuid.UUID(source_id), "c": uuid.UUID(connector_id), "p": provider,
-                 "n": display_name, "cfg": json.dumps(settings), "i": interval_seconds, "now": now},
-            )  # fmt: skip
+                {
+                    "id": uuid.uuid4(),
+                    "t": uuid.UUID(tenant_id),
+                    "s": uuid.UUID(source_id),
+                    "c": uuid.UUID(connector_id),
+                    "p": provider,
+                    "n": display_name,
+                    "cfg": json.dumps(settings),
+                    "i": interval_seconds,
+                    "now": now,
+                },
+            )
         ).one()
     except IntegrityError as e:
-        raise DirectoryError("SYNC_EXISTS", "this provisioning source already has a directory sync") from e
+        raise DirectoryError(
+            "SYNC_EXISTS", "this provisioning source already has a directory sync"
+        ) from e
     return _sync(row)
 
 
 async def get(conn: AsyncConnection, sync_id: str) -> Sync | None:
-    row = (await conn.execute(text(f"SELECT {_COLS} FROM platform.directory_sync WHERE sync_id = :id"), {"id": uuid.UUID(sync_id)})).first()
+    row = (
+        await conn.execute(
+            text(f"SELECT {_COLS} FROM platform.directory_sync WHERE sync_id = :id"),
+            {"id": uuid.UUID(sync_id)},
+        )
+    ).first()
     return None if row is None else _sync(row)
 
 
 async def for_source(conn: AsyncConnection, source_id: str) -> Sync | None:
-    row = (await conn.execute(text(f"SELECT {_COLS} FROM platform.directory_sync WHERE source_id = :id"), {"id": uuid.UUID(source_id)})).first()
+    row = (
+        await conn.execute(
+            text(f"SELECT {_COLS} FROM platform.directory_sync WHERE source_id = :id"),
+            {"id": uuid.UUID(source_id)},
+        )
+    ).first()
     return None if row is None else _sync(row)
 
 
 async def listing(conn: AsyncConnection) -> list[Sync]:
-    rows = await conn.execute(text(f"SELECT {_COLS} FROM platform.directory_sync ORDER BY created_at"))
+    rows = await conn.execute(
+        text(f"SELECT {_COLS} FROM platform.directory_sync ORDER BY created_at")
+    )
     return [_sync(r) for r in rows]
 
 
 async def due(conn: AsyncConnection, now: datetime, limit: int = 20) -> list[Sync]:
     """Worker pass (sees every company): ACTIVE syncs whose time has come, oldest first."""
     rows = await conn.execute(
-        text(f"SELECT {_COLS} FROM platform.directory_sync WHERE status = 'ACTIVE' AND next_run_at <= :now ORDER BY next_run_at LIMIT :n"),
+        text(
+            f"SELECT {_COLS} FROM platform.directory_sync WHERE status = 'ACTIVE' AND next_run_at <= :now ORDER BY next_run_at LIMIT :n"
+        ),
         {"now": now, "n": limit},
     )
     return [_sync(r) for r in rows]
@@ -107,7 +132,9 @@ async def record_run(
     )  # fmt: skip
 
 
-async def set_status(conn: AsyncConnection, sync_id: str, status: str, now: datetime) -> Sync | None:
+async def set_status(
+    conn: AsyncConnection, sync_id: str, status: str, now: datetime
+) -> Sync | None:
     row = (
         await conn.execute(
             text(
@@ -123,6 +150,8 @@ async def set_status(conn: AsyncConnection, sync_id: str, status: str, now: date
 async def run_now(conn: AsyncConnection, sync_id: str, now: datetime) -> None:
     """Ask the worker to run this sync on its next pass."""
     await conn.execute(
-        text("UPDATE platform.directory_sync SET next_run_at = :now, updated_at = :now WHERE sync_id = :id AND status = 'ACTIVE'"),
+        text(
+            "UPDATE platform.directory_sync SET next_run_at = :now, updated_at = :now WHERE sync_id = :id AND status = 'ACTIVE'"
+        ),
         {"now": now, "id": uuid.UUID(sync_id)},
     )

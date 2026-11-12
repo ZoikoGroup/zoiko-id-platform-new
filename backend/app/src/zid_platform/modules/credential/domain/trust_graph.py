@@ -58,6 +58,22 @@ class Accreditation:
 
 
 @dataclass(frozen=True, slots=True)
+class SealSigner:
+    """A certificate an issuer seals its credentials with: pinned by the SHA-256 of the certificate (hex), and optionally by the
+    organization identifier it carries (for example an EU legal-person identifier). Recorded by the owners, never inferred."""
+
+    sha256: str | None
+    organization_identifier: str | None = None
+    valid_from: date | None = None
+    valid_until: date | None = None
+
+    def covers(self, on: date) -> bool:
+        return (self.valid_from is None or self.valid_from <= on) and (
+            self.valid_until is None or on <= self.valid_until
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class NameUse:
     name: str
     from_: date | None = None
@@ -78,6 +94,7 @@ class Issuer:
     outreach_contacts: tuple[
         str, ...
     ] = ()  # registered out of band; the only addresses outreach may use
+    seal_signers: tuple[SealSigner, ...] = ()  # the certificates its e-seals come from (GID-051)
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +243,61 @@ def recognition(
     return Recognition.UNRECOGNIZED, None
 
 
+class Binding(StrEnum):
+    BOUND = "BOUND"  # the seal's certificate is one the resolved issuer is recorded as sealing with
+    NOT_BOUND = "NOT_BOUND"  # the issuer is known, but this certificate is not one of its recorded seal signers
+    ISSUER_UNKNOWN = "ISSUER_UNKNOWN"  # no issuer of that name is recorded
+    AMBIGUOUS = (
+        "AMBIGUOUS"  # a lookalike, or two issuers answer to the name: a person decides, never bound
+    )
+    ISSUER_REVOKED = (
+        "ISSUER_REVOKED"  # the issuer was withdrawn from the registry before the date asked
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SealBinding:
+    result: Binding
+    issuer_id: str | None = None
+    candidates: tuple[str, ...] = ()
+
+
+def bind_seal(
+    registry: Registry,
+    awarding_body: str | None,
+    signer_sha256: str | None,
+    signer_organization_identifier: str | None,
+    *,
+    country: str | None = None,
+    on: date,
+) -> SealBinding:
+    """Is the sealer the awarding body the credential names? The NAME is resolved through the registry like any other issuer name
+    (exact after folding, former names by period, lookalikes refused); the BINDING is then a match on a pinned certificate
+    fingerprint or organization identifier the owners recorded for that issuer. A similar-looking name never binds."""
+    if not awarding_body:
+        return SealBinding(Binding.ISSUER_UNKNOWN)
+    res = resolve(registry, awarding_body, country=country, on=on)
+    if res.match is Match.UNKNOWN or res.issuer_id is None and not res.candidates:
+        return SealBinding(Binding.ISSUER_UNKNOWN)
+    if res.issuer_id is None:
+        return SealBinding(Binding.AMBIGUOUS, None, res.candidates)
+    issuer = registry.issuers[res.issuer_id]
+    if issuer.revoked_on is not None and issuer.revoked_on <= on:
+        return SealBinding(Binding.ISSUER_REVOKED, issuer.issuer_id)
+    for ss in issuer.seal_signers:
+        if not ss.covers(on):
+            continue
+        if ss.sha256 and signer_sha256 and ss.sha256 == signer_sha256.lower():
+            return SealBinding(Binding.BOUND, issuer.issuer_id)
+        if (
+            ss.organization_identifier
+            and signer_organization_identifier
+            and ss.organization_identifier == signer_organization_identifier
+        ):
+            return SealBinding(Binding.BOUND, issuer.issuer_id)
+    return SealBinding(Binding.NOT_BOUND, issuer.issuer_id)
+
+
 def parse(doc: Mapping[str, Any]) -> Registry:
     """Build a registry from a loaded config document; malformed rows are refused, not skipped."""
     issuers: dict[str, Issuer] = {}
@@ -253,7 +325,21 @@ def parse(doc: Mapping[str, Any]) -> Registry:
                 revoked_on=_d(raw.get("revoked_on")),
                 successor_of=raw.get("successor_of"),
                 outreach_contacts=tuple(raw.get("outreach_contacts") or ()),
+                seal_signers=tuple(
+                    SealSigner(
+                        (s.get("sha256") or "").lower() or None,
+                        s.get("organization_identifier"),
+                        _d(s.get("from")),
+                        _d(s.get("until")),
+                    )
+                    for s in raw.get("seal_signers") or []
+                ),
             )
+            for ss in issuer.seal_signers:
+                if not ss.sha256 and not ss.organization_identifier:
+                    raise TrustGraphError(
+                        "TRUST_GRAPH_INVALID", f"{issuer.issuer_id}: empty seal signer"
+                    )
             if issuer.issuer_id in issuers:
                 raise TrustGraphError("TRUST_GRAPH_INVALID", f"duplicate {issuer.issuer_id}")
             issuers[issuer.issuer_id] = issuer

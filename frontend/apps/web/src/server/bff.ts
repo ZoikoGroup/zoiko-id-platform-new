@@ -43,6 +43,7 @@ const API_PATH_PREFIXES = [
   "/v1/credentials/",
   "/v2/evidence/",
   "/v2/documents/",
+  "/v2/assurance/",
   "/presentations",
   "/v1/authority-grants",
   "/v1/delegation-templates",

@@ -46,15 +46,15 @@ __all__ = [
     "Application",
     "active_application_count",
     "connector_fresh",
+    "connector_secret",
     "map_record",
     "offboard_integrations",
     "pep_application",
     "purge_connector_secrets",
     "record_interaction",
     "register_directory_connector",
-    "set_connector_secret",
-    "connector_secret",
     "route_login",
+    "set_connector_secret",
 ]
 
 
@@ -78,7 +78,13 @@ async def searchable_connectors(conn: AsyncConnection) -> list[tuple[str, str, s
 
 
 async def register_directory_connector(
-    conn: AsyncConnection, tenant_id: str, *, display_name: str, source_ref: str, owner: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    display_name: str,
+    source_ref: str,
+    owner: str,
+    actor: str,
 ) -> str:
     """A DIRECTORY connector (a company's own directory read by a sync job) with a secret as its credential; returns its id.
 
@@ -103,7 +109,9 @@ async def register_directory_connector(
         capabilities=[Capability.PROVISIONING, Capability.DIRECTORY_LOOKUP],
         source_of_truth_scope=["identity.profile"],
         auth_profile=AuthProfile.SECRET,
-        freshness=timedelta(hours=26),  # a daily-or-better sync that has missed a whole day is stale
+        freshness=timedelta(
+            hours=26
+        ),  # a daily-or-better sync that has missed a whole day is stale
         owner=owner,
         disable_behavior=DisableBehavior.FAIL_CLOSED_HIGH_RISK,
         actor=actor,
@@ -120,7 +128,13 @@ async def set_connector_secret(
     from zid_platform.modules.integration.application.service import set_credential
 
     return await set_credential(
-        conn, tenant_id, connector_id, secret=secret, not_after=None, overlap=timedelta(0), actor=actor
+        conn,
+        tenant_id,
+        connector_id,
+        secret=secret,
+        not_after=None,
+        overlap=timedelta(0),
+        actor=actor,
     )
 
 

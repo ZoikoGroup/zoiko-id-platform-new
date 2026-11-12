@@ -10,6 +10,7 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 from admin_fixture import make_admin
 from conftest import CELL, ctx, engine
@@ -161,6 +162,27 @@ def test_grant_mandate_and_approval_apis(rt_url: str, owner_url: str) -> None:
         )
         gid = grant["authority_grant_id"]
         assert client.get(f"/v1/authority-grants/{gid}").json()["actions"] == ["invoice.approve"]
+
+        # the issue is also an append-only audit record: who, whom, and when, written once (the replay above did not write a second)
+        async def audited(event_type: str) -> list[Any]:
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+                return list(
+                    (
+                        await c.execute(
+                            text(
+                                "SELECT actor_type, actor_handle, body FROM evidence.audit_record "
+                                "WHERE event_type = :e AND target_ref = :g"
+                            ),
+                            {"e": event_type, "g": gid},
+                        )
+                    ).mappings()
+                )
+
+        issued = asyncio.run(audited("authority.grant.issued"))
+        assert len(issued) == 1 and issued[0]["actor_type"] == "HUMAN" and issued[0]["actor_handle"]
+        details = issued[0]["body"]["details"]
+        assert details["grantee_principal_id"] == clerk and details["actions"] == 1
+        assert issued[0]["body"]["outcome"] == "SUCCESS"
         chain = client.get(f"/v1/authority-grants/{gid}/chain", params={"risk_class": 2}).json()
         assert (
             chain["valid"]
@@ -307,6 +329,8 @@ def test_grant_mandate_and_approval_apis(rt_url: str, owner_url: str) -> None:
         assert client.post(f"/v1/mandates/{mid}:pause").json()["status"] == "PAUSED"
         act_as(cfo)
         assert client.post(f"/v1/authority-grants/{gid}:revoke").json()["status"] == "REVOKED"
+        revoked = asyncio.run(audited("authority.grant.revoked"))
+        assert len(revoked) == 1 and revoked[0]["body"]["details"]["grantee_principal_id"] == clerk
         assert client.post(f"/v1/authority-grants/{uid()}:revoke").status_code == 404
         r = client.post(f"/v1/mandates/{mid}:activate", params={"risk_class": 2})
         assert r.status_code == 403 and r.json()["error"]["code"] != "MANDATE_SOURCE_INVALID"

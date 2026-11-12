@@ -30,7 +30,9 @@ KNOWN_IMPORT_TIME: frozenset[tuple[str, ...]] = frozenset(
         ("authentication", "session"),
         ("authority", "mandate"),
         ("authentication", "signals"),
-        ("authentication", "tenant", "verification"),
+        # the same strongly connected group as before (verified identical against f5e8269): the guard picks one representative cycle by module order, and adding the
+        # assurance module changed which one it names, not what depends on what
+        ("authentication", "signals", "verification"),
         ("operator_access", "resilience", "tenant"),
         ("resilience", "tenant"),
         ("integration", "provisioning"),

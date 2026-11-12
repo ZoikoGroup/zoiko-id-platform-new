@@ -251,12 +251,32 @@ def test_a_cell_that_also_serves_the_global_plane_keeps_the_discovery_key_in_the
     upgrade(owner_url, role="global")
     f, _ = master
     s = settings(owner_url, f, key_provider_db_ack="accept-software-keys", serve_global_plane=True)
-    assert crypto_runtime.placement_signer(s, dev_purpose="discovery", kid="discovery-served", kms_key_id=None, plane="global") is not None
-    assert crypto_runtime.placement_signer(s, dev_purpose="federation", kid="directory-eu-1-served", kms_key_id=None) is not None
-    assert fetch(owner_url, "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-served'") == [("discovery-served",)]
-    assert fetch(owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-served'") == [(0,)]
-    assert fetch(owner_url, "SELECT key_id FROM keys.key_version WHERE key_id = 'directory-eu-1-served'") == [("directory-eu-1-served",)]
-    assert fetch(owner_url, "SELECT count(*) FROM global_directory.key_version WHERE key_id = 'directory-eu-1-served'") == [(0,)]
+    assert (
+        crypto_runtime.placement_signer(
+            s, dev_purpose="discovery", kid="discovery-served", kms_key_id=None, plane="global"
+        )
+        is not None
+    )
+    assert (
+        crypto_runtime.placement_signer(
+            s, dev_purpose="federation", kid="directory-eu-1-served", kms_key_id=None
+        )
+        is not None
+    )
+    assert fetch(
+        owner_url,
+        "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-served'",
+    ) == [("discovery-served",)]
+    assert fetch(
+        owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-served'"
+    ) == [(0,)]
+    assert fetch(
+        owner_url, "SELECT key_id FROM keys.key_version WHERE key_id = 'directory-eu-1-served'"
+    ) == [("directory-eu-1-served",)]
+    assert fetch(
+        owner_url,
+        "SELECT count(*) FROM global_directory.key_version WHERE key_id = 'directory-eu-1-served'",
+    ) == [(0,)]
 
 
 def test_the_global_plane_keeps_its_keys_in_its_own_table(
@@ -272,7 +292,8 @@ def test_the_global_plane_keeps_its_keys_in_its_own_table(
         "discovery-global", kid="discovery-global"
     )
     assert fetch(
-        owner_url, "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-global'"
+        owner_url,
+        "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-global'",
     ) == [("discovery-global",)]
     assert fetch(
         owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-global'"
@@ -389,7 +410,9 @@ def test_the_worker_copies_key_events_into_the_ledger_once_and_the_ledger_still_
     SoftwareSigners(
         store=PostgresKeyStore(rt_url, "keys", "cli:anil@laptop"), masters=masters
     ).signer("evidence-eu-1", kid="evidence-eu-1")
-    configure_runtime(development_runtime("kv-1"))  # its own cell id: the platform partition is shared with other tests, which sign with other throw-away keys
+    configure_runtime(
+        development_runtime("kv-1")
+    )  # its own cell id: the platform partition is shared with other tests, which sign with other throw-away keys
 
     async def audit_rows(c: object) -> list[tuple]:  # type: ignore[type-arg]
         rows = await c.execute(  # type: ignore[attr-defined]
