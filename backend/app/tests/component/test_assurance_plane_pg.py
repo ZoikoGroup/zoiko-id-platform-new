@@ -473,10 +473,10 @@ def test_only_a_release_with_every_case_passed_every_gate_and_every_role_signed_
                 )
 
             async def pass_case(case_id: str, **over: Any) -> dict[str, Any]:
-                args = dict(
-                    run_id=run["run_id"], case_id=case_id, result="PASS", requirement_ids=["R"], trace_refs=["t"], provider_receipt_refs=[],
-                    source_snapshot_refs=[], oracle_version="v1", defect_id=None, human_approval_refs=[],
-                )  # fmt: skip
+                args: dict[str, Any] = {
+                    "run_id": run["run_id"], "case_id": case_id, "result": "PASS", "requirement_ids": ["R"], "trace_refs": ["t"],
+                    "provider_receipt_refs": [], "source_snapshot_refs": [], "oracle_version": "v1", "defect_id": None, "human_approval_refs": [],
+                }  # fmt: skip
                 return await svc.sign_manifest(c, tenant, tester, **{**args, **over})
 
             for x in FULL[:-1]:

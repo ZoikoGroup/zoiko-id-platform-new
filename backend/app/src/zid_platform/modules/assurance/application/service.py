@@ -345,7 +345,7 @@ async def sign_manifest(
         d = await store.get_defect(conn, defect_id) if defect_id else None
         if d is None or d["case_id"] != case_id:
             raise RuleError("FAIL_NEEDS_A_DEFECT", "raise a defect for this case first")
-    policy_check = None
+    policy_check: dict[str, Any] | None = None
     if measurements and run["kind"] == "DEVELOPER":
         policy_check = {
             "policy_id": None,
@@ -524,7 +524,8 @@ async def create_candidate(
     expired: list[str] = []
     for c in cases:
         m = latest.get(c["case_id"])
-        status, why = (Status(m["verdict"]), []) if m else (Status.NOT_RUN, [])
+        why: list[str] = []
+        status = Status(m["verdict"]) if m else Status.NOT_RUN
         if m:
             pinned = {**(m["pins"] or {}), "build_sha256": m["build_sha256"]}
             status, why = rules.age(

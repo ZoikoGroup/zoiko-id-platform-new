@@ -49,7 +49,11 @@ def test_intake_routes_answer_within_the_p95_target_locally(rt_url: str, capsys)
     mine = o.bearer(o.owner)
     samples: list[Sample] = []
     with TestClient(app, base_url=ISS) as http:
-        for method, path, body in PROBES:  # one warm-up each: pool and imports are not what is measured
+        for (
+            method,
+            path,
+            body,
+        ) in PROBES:  # one warm-up each: pool and imports are not what is measured
             http.request(method, path, headers=mine, json=body)
         for _ in range(SAMPLES):
             for method, path, body in PROBES:

@@ -25,7 +25,8 @@ def parity(
     reference: Mapping[str, Any], candidate: Mapping[str, Any], *, keys: Sequence[str]
 ) -> dict[str, Any]:
     """Which normalized claims agree. A key missing on one side is a difference, never ignored. `assurance` is compared as a number: lower is flagged."""
-    equal, different = [], []
+    equal: list[Any] = []
+    different: list[Any] = []
     for k in keys:
         (
             equal

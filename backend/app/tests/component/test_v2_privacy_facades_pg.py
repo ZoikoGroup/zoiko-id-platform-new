@@ -99,7 +99,9 @@ def test_sessions_enable_capture_only_while_every_prerequisite_holds(rt_url: str
             json={"notice_version": notice, "capture_method": "WEB", "affirmative_action": "ticked box"},
         )  # fmt: skip
         assert given.status_code == 201, given.text
-        assert given.json()["session"]["capture_enabled"] is True, given.json()["session"]["blockers"]
+        assert given.json()["session"]["capture_enabled"] is True, given.json()["session"][
+            "blockers"
+        ]
 
         # AT-003: consent withdrawn mid-session: no new capture, the status moves at once
         gone = api.post(
