@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 from conftest import engine
-from sqlalchemy import text
+from pack_test_support import tampered
 from sqlalchemy.exc import DBAPIError
 from test_policy_packs_pg import NOW, PEOPLE, _draft
 from zid_platform.modules.verification.application import policy_packs as svc
@@ -205,25 +205,12 @@ def test_a_tampered_published_pack_stops_the_decision_loudly(rt_url: str, owner_
     m = _market()
     pack = _draft(**m)
     _run(rt_url, lambda c: _publish(c, pack))
-
-    async def tamper(
-        c: Any,
-    ) -> None:  # only the table owner can; the trigger that forbids it is switched off for the edit
-        await c.execute(text("ALTER TABLE verify.policy_pack DISABLE TRIGGER policy_pack_guard"))
-        try:
-            await c.execute(
-                text(
-                    "UPDATE verify.policy_pack SET rules = jsonb_set(rules, '{lawful_basis}', '\"nothing\"') WHERE pack_id = :p"
-                ),
-                {"p": pack.pack_id},
-            )
-        finally:
-            await c.execute(text("ALTER TABLE verify.policy_pack ENABLE TRIGGER policy_pack_guard"))
-
-    _run(owner_url, tamper)
-    with pytest.raises(PackError) as e:
-        _run(rt_url, lambda c: _governing(c, m, subdivision="GB-ENG", profession="nurse"))
-    assert e.value.code == "PACK_STORED_HASH_MISMATCH"  # not skipped, not a pass
+    with tampered(
+        owner_url, pack.pack_id
+    ):  # restored afterwards, so no corrupted pack stays in the shared database
+        with pytest.raises(PackError) as e:
+            _run(rt_url, lambda c: _governing(c, m, subdivision="GB-ENG", profession="nurse"))
+        assert e.value.code == "PACK_STORED_HASH_MISMATCH"  # not skipped, not a pass
 
 
 def test_the_database_still_refuses_what_the_service_would_let_through(rt_url: str) -> None:

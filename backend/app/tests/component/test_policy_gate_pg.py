@@ -7,14 +7,13 @@ Each test uses its own country, because the database is shared and the capabilit
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from conftest import ctx, engine
-from sqlalchemy import text
+from pack_test_support import captured, tampered
 from test_policy_pack_service_pg import _publish
 from test_policy_packs_pg import NOW as PACK_NOW
 from test_policy_packs_pg import _draft
@@ -96,16 +95,10 @@ def test_t01_an_enabled_market_with_no_approved_pack_is_refused_in_enforce(rt_ur
     _refused(rt_url, "IE", "REGULATORY_POLICY_UNAVAILABLE")
 
 
-def test_the_same_market_in_shadow_goes_on_and_says_it_would_have_been_refused(
-    rt_url: str, caplog: pytest.LogCaptureFixture
-) -> None:
-    with caplog.at_level(logging.WARNING, logger="zid.regulatory"):
+def test_the_same_market_in_shadow_goes_on_and_says_it_would_have_been_refused(rt_url: str) -> None:
+    with captured("zid.regulatory") as logs:
         _check(rt_url, "NL", mode="shadow")
-    assert any(
-        "would refuse (shadow)" in r.getMessage()
-        and "REGULATORY_POLICY_UNAVAILABLE" in r.getMessage()
-        for r in caplog.records
-    )
+    assert any("would refuse (shadow)" in m and "REGULATORY_POLICY_UNAVAILABLE" in m for m in logs)
 
 
 def test_an_approved_country_pack_lets_the_request_go_on_and_retiring_it_closes_the_market_again(
@@ -157,39 +150,20 @@ def test_off_never_asks(rt_url: str) -> None:
 
 
 def test_a_published_pack_edited_behind_the_applications_back_closes_the_market_loudly(
-    rt_url: str, owner_url: str, caplog: pytest.LogCaptureFixture
+    rt_url: str, owner_url: str
 ) -> None:
     pack = _pack("IT")
     _publish_it(rt_url, pack)
     _check(rt_url, "IT")
-
-    async def tamper() -> None:
-        async with (
-            engine(owner_url) as eng,
-            eng.begin() as c,
-        ):  # only the owner can, and only with the guard trigger off
-            await c.execute(
-                text("ALTER TABLE verify.policy_pack DISABLE TRIGGER policy_pack_guard")
-            )
-            try:
-                await c.execute(
-                    text(
-                        "UPDATE verify.policy_pack SET rules = jsonb_set(rules, '{lawful_basis}', '\"nothing\"') WHERE pack_id = :p"
-                    ),
-                    {"p": pack.pack_id},
-                )
-            finally:
-                await c.execute(
-                    text("ALTER TABLE verify.policy_pack ENABLE TRIGGER policy_pack_guard")
-                )
-
-    asyncio.run(tamper())
-    with caplog.at_level(logging.WARNING, logger="zid.regulatory"):
-        _refused(rt_url, "IT", "REGULATORY_POLICY_UNAVAILABLE")
-    assert any(
-        "PACK_STORED_HASH_MISMATCH" in r.getMessage() for r in caplog.records
-    )  # the reason is logged, not hidden
-    _check(rt_url, "IT", mode="shadow")  # shadow still goes on
+    with tampered(
+        owner_url, pack.pack_id
+    ):  # restored afterwards, so no corrupted pack stays in the shared database
+        with captured("zid.regulatory") as logs:
+            _refused(rt_url, "IT", "REGULATORY_POLICY_UNAVAILABLE")
+        assert any(
+            "PACK_STORED_HASH_MISMATCH" in m for m in logs
+        )  # the reason is logged, not hidden
+        _check(rt_url, "IT", mode="shadow")  # shadow still goes on
 
 
 def test_the_clock_decides_whether_a_source_is_in_force(rt_url: str) -> None:

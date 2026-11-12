@@ -7,7 +7,6 @@ The country registry is replaced by one with enabled countries, because none is 
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -18,6 +17,7 @@ import pytest
 from admin_fixture import make_admin
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
+from pack_test_support import captured
 from test_policy_pack_service_pg import _publish
 from test_policy_packs_pg import _draft
 from zid_crypto import KeyRing, LocalSigner
@@ -201,15 +201,13 @@ def test_an_approved_country_pack_opens_the_route_and_retiring_it_closes_it_agai
     assert len(world.reached) == before + 1
 
 
-def test_shadow_goes_on_and_logs_what_would_have_been_refused(
-    world: World, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_shadow_goes_on_and_logs_what_would_have_been_refused(world: World) -> None:
     before = len(world.reached)
-    with caplog.at_level(logging.WARNING, logger="zid.regulatory"):
+    with captured("zid.regulatory") as logs:
         r = world.start("US", "shadow")
     assert (r.status_code, _code(r)) == (409, "STUBBED_START")
     assert len(world.reached) == before + 1
-    assert any("would refuse (shadow)" in rec.getMessage() for rec in caplog.records)
+    assert any("would refuse (shadow)" in m for m in logs)
 
 
 def test_the_development_sandbox_needs_no_pack_and_a_closed_country_is_still_refused_first(
