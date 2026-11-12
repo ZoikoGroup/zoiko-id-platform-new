@@ -330,3 +330,77 @@ def test_the_highest_launched_version_decides_and_other_markets_are_ignored() ->
     )
     assert market_decision([other], MARKET, [PACK]).reason == "no_release"
     assert market_decision([v1, other], MARKET, [PACK]).release == v1
+
+
+# ---- suppliers: RG-02 is checked by the system, and a lost certification closes the market (T06, T07) --------------------------------
+
+from zid_platform.modules.verification.domain.attestation import Decision as SupplierDecision
+from zid_platform.modules.verification.domain.attestation import Outcome as SupplierOutcome
+from zid_platform.modules.verification.domain.attestation import Scope as SupplierScope
+
+RTR = SupplierScope("PARTNER-A", "UK_DVS", "GB", "RTR")
+IDV = SupplierScope("PARTNER-A", "UK_DVS", "GB", "IDV")
+CERTIFIED = SupplierDecision(SupplierOutcome.CERTIFIED, "attested")
+
+
+def _held(reason: str) -> SupplierDecision:
+    return SupplierDecision(SupplierOutcome.HOLD, reason)
+
+
+def _with_suppliers(suppliers: dict[SupplierScope, SupplierDecision]) -> MarketRelease:
+    return freeze(_all_gates(new_release("rel-gb-iv", MARKET, author="maker")), (PACK,), suppliers)
+
+
+def test_a_supplier_that_is_not_certified_now_blocks_the_freeze_with_its_reason() -> None:
+    with pytest.raises(ReleaseError) as e:
+        _with_suppliers({RTR: CERTIFIED, IDV: _held("attestation_stale")})
+    assert e.value.code == "RELEASE_NOT_FREEZABLE"
+    assert "RELEASE_SUPPLIER_NOT_CERTIFIED:PARTNER-A/UK_DVS/GB/IDV:attestation_stale" in str(
+        e.value
+    )
+    assert "PARTNER-A/UK_DVS/GB/RTR" not in str(e.value)  # the certified one is not blamed
+
+
+def test_the_supplier_scopes_are_pinned_into_the_hash_in_any_order() -> None:
+    both = _with_suppliers({RTR: CERTIFIED, IDV: CERTIFIED})
+    assert both.supplier_scopes == (IDV, RTR)  # sorted
+    assert both.release_hash == _with_suppliers({IDV: CERTIFIED, RTR: CERTIFIED}).release_hash
+    assert (
+        both.release_hash != _frozen().release_hash
+    )  # a release that relies on a provider is not the same release
+    assert both.release_hash != _with_suppliers({RTR: CERTIFIED}).release_hash
+
+
+def test_a_release_with_no_suppliers_relies_on_no_certified_provider_and_freezes_as_before() -> (
+    None
+):
+    assert _frozen().supplier_scopes == ()
+
+
+def test_a_market_closes_when_a_supplier_it_pinned_is_no_longer_certified_and_reopens_when_it_is_again() -> (
+    None
+):
+    live = launch(_approved(_with_suppliers({RTR: CERTIFIED})))
+    assert market_decision([live], MARKET, [PACK], {RTR: CERTIFIED}).open
+    for reason in ("attestation_stale", "withdrawn", "suspended", "no_attestation"):
+        d = market_decision([live], MARKET, [PACK], {RTR: _held(reason)})
+        assert (d.open, d.reason) == (False, f"supplier_hold:PARTNER-A/UK_DVS/GB/RTR:{reason}")
+    assert market_decision(
+        [live], MARKET, [PACK], {RTR: CERTIFIED}
+    ).open  # a fresh attestation reopens it: nothing was rewritten
+
+
+def test_no_decision_for_a_pinned_supplier_is_a_closed_market_never_an_open_one() -> None:
+    live = launch(_approved(_with_suppliers({RTR: CERTIFIED})))
+    assert (
+        market_decision([live], MARKET, [PACK]).reason
+        == "supplier_hold:PARTNER-A/UK_DVS/GB/RTR:no_decision"
+    )
+    assert not market_decision(
+        [live], MARKET, [PACK], {IDV: CERTIFIED}
+    ).open  # a decision about another scope is not an answer
+
+
+def test_a_supplier_the_release_did_not_pin_does_not_matter() -> None:
+    live = launch(_approved())  # pins no suppliers
+    assert market_decision([live], MARKET, [PACK], {RTR: _held("withdrawn")}).open

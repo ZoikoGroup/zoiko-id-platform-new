@@ -4,7 +4,7 @@ Revision ID: verification_0006
 Revises: verification_0005
 Create Date: 2026-11-12
 
-market_release: one immutable version of the release of one market (country, product, purpose). It pins the approved policy packs it covers.
+market_release: one immutable version of the release of one market (country, product, purpose). It pins the approved policy packs it covers and the supplier certifications it relies on.
 Platform configuration, not tenant data: no tenant_id, no row-level security. market_release_gate: every gate result ever recorded, append-only, numbered in order by the database (no
 sequence: the runtime role has no sequence privileges); the latest per gate counts. market_release_approval: who signed which release hash in which role, append-only. The database repeats the domain
 rules so a caller that skips the domain code still cannot get around them: a release is frozen only with all seven gates PASSED and a pinned
@@ -32,6 +32,7 @@ def upgrade() -> None:
             status        text NOT NULL CHECK (status IN ('DRAFT', 'FROZEN', 'RELEASEABLE', 'LAUNCHED', 'WITHDRAWN')),
             author        text NOT NULL CHECK (length(author) BETWEEN 1 AND 128),
             pack_refs     jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(pack_refs) = 'array'),
+            supplier_scopes jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(supplier_scopes) = 'array'),
             release_hash  text CHECK (release_hash IS NULL OR release_hash ~ '^[0-9a-f]{64}$'),
             created_at    timestamptz NOT NULL,
             frozen_at     timestamptz,
@@ -102,10 +103,10 @@ def upgrade() -> None:
                 END IF;
                 RETURN NEW;
             END IF;
-            IF (NEW.release_id, NEW.version, NEW.country, NEW.product, NEW.purpose, NEW.author, NEW.pack_refs, NEW.release_hash,
+            IF (NEW.release_id, NEW.version, NEW.country, NEW.product, NEW.purpose, NEW.author, NEW.pack_refs, NEW.supplier_scopes, NEW.release_hash,
                 NEW.created_at, NEW.frozen_at)
                IS DISTINCT FROM
-               (OLD.release_id, OLD.version, OLD.country, OLD.product, OLD.purpose, OLD.author, OLD.pack_refs, OLD.release_hash,
+               (OLD.release_id, OLD.version, OLD.country, OLD.product, OLD.purpose, OLD.author, OLD.pack_refs, OLD.supplier_scopes, OLD.release_hash,
                 OLD.created_at, OLD.frozen_at) THEN
                 RAISE EXCEPTION 'a frozen market release cannot be changed; make a new version' USING ERRCODE = 'check_violation';
             END IF;

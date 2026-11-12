@@ -365,3 +365,35 @@ def test_releases_are_listed_newest_first_and_can_be_filtered(rt_url: str) -> No
 
     mine = [r for r in _run(rt_url, work) if r.market == market]
     assert [(r.release_id, r.status) for r in mine] == [(rid, md.ReleaseStatus.FROZEN)]
+
+
+def test_the_supplier_scopes_a_release_relies_on_are_pinned_hashed_and_immutable_once_frozen(
+    rt_url: str,
+) -> None:
+    from zid_platform.modules.verification.domain.attestation import Decision, Outcome, Scope
+
+    market, rid = _market(), _rid()
+    rtr = Scope("PARTNER-A", "UK_DVS", "GB", "RTR")
+
+    async def work(c: Any) -> tuple[md.MarketRelease, md.MarketRelease | None]:
+        r = md.freeze(
+            await _draft(c, market, rid), (PACK,), {rtr: Decision(Outcome.CERTIFIED, "attested")}
+        )
+        await store.freeze(c, r, now=NOW)
+        return r, await store.load(c, rid, 1)
+
+    frozen, loaded = _run(rt_url, work)
+    assert loaded is not None and loaded.supplier_scopes == (rtr,)
+    assert (
+        loaded.release_hash == frozen.release_hash == md.compute_hash(loaded)
+    )  # read back, and still the hash that was approved
+
+    async def edit(c: Any) -> None:
+        await c.execute(
+            text(
+                "UPDATE verify.market_release SET supplier_scopes = '[]'::jsonb WHERE release_id = :id AND version = 1"
+            ),
+            {"id": rid},
+        )
+
+    _refused(rt_url, edit, "cannot be changed")

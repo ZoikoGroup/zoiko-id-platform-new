@@ -5,13 +5,15 @@ document's seven evidence gates, then four independent approvals of its hash. Ru
 - every gate RG-01 to RG-07 needs a PASSED result with an evidence reference, recorded by someone holding that gate's role and never by the
   release's author; a later result for the same gate replaces the earlier one, and the history is kept;
 - a release is frozen only when no gate is missing or failed and at least one approved pack is pinned (RG-01 is checked by the system as well as
-  attested); freezing computes the release hash over the market, the pinned pack hashes and the evidence behind each gate;
+  attested), and every supplier certification it relies on is certified at that moment (RG-02, checked by the system too); freezing computes the
+  release hash over the market, the pinned pack hashes, the supplier scopes and the evidence behind each gate;
 - RG-08: legal, security/GRC, QA and product owner each sign the exact hash, each a different person, none of them the author and none of them
   someone who recorded evidence for this release, so the people who prove a gate never approve it;
 - a release is RELEASEABLE only with all four approvals; only a RELEASEABLE release can be LAUNCHED; withdrawing closes the market at once;
 - any change is a new DRAFT version with no gate results and no approvals: nothing carries over, because evidence is current or it is nothing;
-- a market is open only while a LAUNCHED release exists AND still covers every approved pack in force: a pack published or retired after the
-  release breaks it (a pack edited after approval invalidates the release, document T03).
+- a market is open only while a LAUNCHED release exists, still covers every approved pack in force (a pack published after the release breaks
+  it: a pack edited after approval invalidates the release, document T03), and every supplier scope it pinned is still certified on fresh
+  evidence (a lost, suspended or stale certification closes the market, T06 and T07).
 
 Nothing here says a gate is true: a result is somebody's attestation with an evidence reference, never the evidence itself.
 """
@@ -26,6 +28,9 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+
+from zid_platform.modules.verification.domain.attestation import Decision as SupplierDecision
+from zid_platform.modules.verification.domain.attestation import Scope as SupplierScope
 
 ATTESTOR_ROLES = ("legal", "regulatory_ops", "security", "privacy", "qa", "vendor_mgmt")
 RELEASE_APPROVER_ROLES = ("legal", "security_grc", "qa", "product_owner")
@@ -146,6 +151,9 @@ class MarketRelease:
     status: ReleaseStatus
     author: str
     pack_refs: tuple[PackRef, ...] = ()
+    supplier_scopes: tuple[
+        SupplierScope, ...
+    ] = ()  # the certifications the market relies on, pinned at the freeze
     results: tuple[GateResult, ...] = ()  # the whole history, oldest first
     approvals: Mapping[str, ReleaseApproval] = field(default_factory=dict)
     release_hash: str | None = None
@@ -183,6 +191,10 @@ def gate_blockers(release: MarketRelease) -> list[str]:
     return problems
 
 
+def _scope_key(c: SupplierScope) -> tuple[str, str, str, str]:
+    return (c.entity, c.scheme, c.country, c.service_code)
+
+
 def compute_hash(release: MarketRelease, pack_refs: Iterable[PackRef] | None = None) -> str:
     refs = sorted(
         release.pack_refs if pack_refs is None else tuple(pack_refs),
@@ -193,6 +205,10 @@ def compute_hash(release: MarketRelease, pack_refs: Iterable[PackRef] | None = N
         "version": release.version,
         "market": [release.market.country, release.market.product, release.market.purpose],
         "packs": [[p.pack_id, p.version, p.pack_hash] for p in refs],
+        "suppliers": [
+            [c.entity, c.scheme, c.country, c.service_code]
+            for c in sorted(release.supplier_scopes, key=_scope_key)
+        ],
         "gates": [
             [g, r.evidence_ref, r.role, r.recorded_by]
             for g, r in sorted(current_results(release).items())
@@ -236,18 +252,36 @@ def record_gate(
     )
 
 
-def freeze(release: MarketRelease, pack_refs: Iterable[PackRef]) -> MarketRelease:
+def _label(c: SupplierScope) -> str:
+    return f"{c.entity}/{c.scheme}/{c.country}/{c.service_code}"
+
+
+def freeze(
+    release: MarketRelease,
+    pack_refs: Iterable[PackRef],
+    suppliers: Mapping[SupplierScope, SupplierDecision] | None = None,
+) -> MarketRelease:
+    """`suppliers` is each certification the market will rely on, with the decision the attestations give for it now. All must be certified:
+    RG-02 is attested by a person and checked by the system. No suppliers means the market relies on no certified provider."""
     if release.status is not ReleaseStatus.DRAFT:
         raise ReleaseError("RELEASE_NOT_DRAFT", release.status.value)
     refs = tuple(pack_refs)
+    scopes = suppliers or {}
     problems = gate_blockers(release)
     if not refs:
         problems.insert(
             0, "RELEASE_NO_APPROVED_PACK"
         )  # RG-01 is also checked by the system: no approved pack in force, nothing to release
+    for scope, decision in sorted(scopes.items(), key=lambda kv: _scope_key(kv[0])):
+        if not decision.certified:
+            problems.append(f"RELEASE_SUPPLIER_NOT_CERTIFIED:{_label(scope)}:{decision.reason}")
     if problems:
         raise ReleaseError("RELEASE_NOT_FREEZABLE", ", ".join(problems))
-    pinned = replace(release, pack_refs=tuple(sorted(refs, key=lambda p: (p.pack_id, p.version))))
+    pinned = replace(
+        release,
+        pack_refs=tuple(sorted(refs, key=lambda p: (p.pack_id, p.version))),
+        supplier_scopes=tuple(sorted(scopes, key=_scope_key)),
+    )
     return replace(pinned, status=ReleaseStatus.FROZEN, release_hash=compute_hash(pinned))
 
 
@@ -309,9 +343,13 @@ def _covers(release: MarketRelease, packs_in_force: Iterable[PackRef]) -> bool:
 
 
 def market_decision(
-    releases: Iterable[MarketRelease], market: MarketKey, packs_in_force: Iterable[PackRef]
+    releases: Iterable[MarketRelease],
+    market: MarketKey,
+    packs_in_force: Iterable[PackRef],
+    suppliers: Mapping[SupplierScope, SupplierDecision] | None = None,
 ) -> MarketDecision:
-    """Whether the market is open now. Fail closed: no release, one not launched, a withdrawn one, or a pack changed since the release all say no."""
+    """Whether the market is open now. Fail closed: no release, one not launched, a withdrawn one, a pack changed since the release, or a supplier
+    scope the release pinned that is not certified on fresh evidence now (or that nobody gave a decision for) all say no."""
     mine = [r for r in releases if r.market == market]
     if not mine:
         return MarketDecision(False, "no_release")
@@ -326,4 +364,13 @@ def market_decision(
     best = max(launched, key=lambda r: r.version)
     if not _covers(best, packs_in_force):
         return MarketDecision(False, "pack_changed_after_release", best)
+    known = suppliers or {}
+    for scope in best.supplier_scopes:
+        decision = known.get(scope)
+        if decision is None or not decision.certified:
+            return MarketDecision(
+                False,
+                f"supplier_hold:{_label(scope)}:{decision.reason if decision else 'no_decision'}",
+                best,
+            )
     return MarketDecision(True, "release_launched", best)

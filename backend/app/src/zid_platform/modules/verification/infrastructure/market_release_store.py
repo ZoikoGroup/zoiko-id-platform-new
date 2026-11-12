@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.verification.domain.attestation import Scope as SupplierScope
 from zid_platform.modules.verification.domain.market_release import (
     RELEASE_APPROVER_ROLES,
     GateResult,
@@ -28,7 +29,7 @@ from zid_platform.modules.verification.domain.market_release import (
     compute_hash,
 )
 
-_COLUMNS = "release_id, version, country, product, purpose, status, author, pack_refs, release_hash"
+_COLUMNS = "release_id, version, country, product, purpose, status, author, pack_refs, supplier_scopes, release_hash"
 
 
 def _loads(value: Any) -> Any:
@@ -78,7 +79,7 @@ async def freeze(conn: AsyncConnection, frozen: MarketRelease, *, now: datetime)
     """DRAFT to FROZEN with the pinned packs and the hash. The table refuses it unless all seven gates have passed and a pack is pinned."""
     done = await conn.execute(
         text(
-            "UPDATE verify.market_release SET status = 'FROZEN', pack_refs = CAST(:refs AS jsonb), release_hash = :h, frozen_at = :now "
+            "UPDATE verify.market_release SET status = 'FROZEN', pack_refs = CAST(:refs AS jsonb), supplier_scopes = CAST(:sup AS jsonb), release_hash = :h, frozen_at = :now "
             "WHERE release_id = :id AND version = :v AND status = 'DRAFT'"
         ),
         {
@@ -86,6 +87,17 @@ async def freeze(conn: AsyncConnection, frozen: MarketRelease, *, now: datetime)
                 [
                     {"pack_id": p.pack_id, "version": p.version, "pack_hash": p.pack_hash}
                     for p in frozen.pack_refs
+                ]
+            ),
+            "sup": json.dumps(
+                [
+                    {
+                        "entity": c.entity,
+                        "scheme": c.scheme,
+                        "country": c.country,
+                        "service_code": c.service_code,
+                    }
+                    for c in frozen.supplier_scopes
                 ]
             ),
             "h": frozen.release_hash,
@@ -201,6 +213,10 @@ async def _assemble(conn: AsyncConnection, rows: Sequence[Any]) -> list[MarketRe
             market=MarketKey(r.country, r.product, r.purpose),
             status=ReleaseStatus(r.status),
             author=r.author,
+            supplier_scopes=tuple(
+                SupplierScope(c["entity"], c["scheme"], c["country"], c["service_code"])
+                for c in _loads(r.supplier_scopes)
+            ),
             pack_refs=tuple(
                 PackRef(p["pack_id"], int(p["version"]), p["pack_hash"])
                 for p in _loads(r.pack_refs)
