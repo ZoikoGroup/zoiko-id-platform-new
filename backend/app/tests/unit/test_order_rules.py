@@ -286,3 +286,27 @@ def test_a_floor_reason_adds_its_own_approver_that_the_percentage_approvers_cann
         BANDS,
     )
     assert hard.status == "REJECTED"  # no approval set can release it
+
+
+def test_glb_35_a_price_book_in_one_currency_never_prices_an_account_billed_in_another() -> None:
+    """GLB-35: a quote built from a GBP book (the UK illustrative price) must not activate for an account billed in USD."""
+    gbp_book = quote(currency="GBP", account_currency="USD")
+    v = validate(gbp_book, CAT, BANDS)
+    assert "PRICE_BOOK_CURRENCY_MISMATCH" in v.reasons and v.status == "REJECTED"
+    same = validate(quote(currency="GBP", account_currency="GBP"), CAT, BANDS)
+    assert "PRICE_BOOK_CURRENCY_MISMATCH" not in same.reasons
+    # a caller that does not state the account currency is not accused of a mismatch (existing callers keep working)
+    assert "PRICE_BOOK_CURRENCY_MISMATCH" not in validate(quote(), CAT, BANDS).reasons
+
+
+def test_a_credential_check_line_is_refused_while_no_price_book_line_exists_for_it() -> None:
+    """CR-070: the two credential check meters are definitions only. A SKU that is not in the catalogue is refused, never priced at zero."""
+    v = validate(
+        quote(
+            QuoteLine(1, "ZID-BASE", "BUSINESS", D(1)),
+            QuoteLine(2, "ZID-CRED-CHECK", "BUSINESS", D(5)),
+        ),
+        CAT,
+        BANDS,
+    )
+    assert "SKU_UNKNOWN" in v.reasons and v.status == "REJECTED"

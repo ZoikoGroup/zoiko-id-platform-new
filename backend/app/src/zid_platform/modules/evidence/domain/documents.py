@@ -20,7 +20,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-ALLOWED_TYPES = ("application/pdf", "image/png", "image/jpeg")
+ALLOWED_TYPES = ("application/pdf", "image/png", "image/jpeg")  # what may be UPLOADED and kept
+# What may be validated in memory: signed XML (XAdES / XML-DSig) too. It is never stored, so it is not an upload type.
+VALIDATION_TYPES = (*ALLOWED_TYPES, "application/xml")
+XML_TYPE = "application/xml"
 MAX_BYTES = 2 * 1024 * 1024  # validated in memory and never stored
 CHECKS = ("integrity", "issuer", "signature", "seal")
 
@@ -63,6 +66,11 @@ def sniff(content: bytes) -> str | None:
         return "image/png"
     if content.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
+    head = content.lstrip(b"\xef\xbb\xbf \t\r\n")[:1]
+    if (
+        head == b"<"
+    ):  # XML begins with a tag or a declaration; whether it is well formed is the validator's question
+        return XML_TYPE
     return None
 
 
@@ -71,8 +79,17 @@ _SIG = re.compile(rb"/Type\s*/Sig\b|/FT\s*/Sig\b")
 _SEAL = re.compile(rb"/SubFilter\s*/(ETSI\.CAdES\.detached|ETSI\.RFC3161)")
 
 
+_XML_SIG = re.compile(rb"<(?:[A-Za-z_][\w.-]*:)?Signature[\s>/]")
+_DSIG_NS = b"http://www.w3.org/2000/09/xmldsig#"
+_XADES_NS = b"http://uri.etsi.org/01903/"
+
+
 def signatures_present(content: bytes) -> tuple[int, bool]:
     """(how many embedded signature dictionaries a PDF appears to contain, whether any names an ETSI sub-filter). A detection only."""
+    if sniff(content) == XML_TYPE:
+        if _DSIG_NS not in content:
+            return 0, False
+        return len(_XML_SIG.findall(content)), _XADES_NS in content
     if not content.startswith(b"%PDF-"):
         return 0, False
     return min(len(_BYTERANGE.findall(content)), len(_SIG.findall(content))), bool(
@@ -93,7 +110,7 @@ def validate(
         raise DocumentError("EMPTY_DOCUMENT")
     if len(content) > max_bytes:
         raise DocumentError("DOCUMENT_TOO_LARGE", f"limit {max_bytes} bytes")
-    if declared_type not in ALLOWED_TYPES:
+    if declared_type not in VALIDATION_TYPES:
         raise DocumentError("TYPE_NOT_ALLOWED", declared_type)
     wanted = list(dict.fromkeys(checks))
     unknown = [c for c in wanted if c not in CHECKS]
@@ -136,7 +153,7 @@ def _integrity(digest: str, kind: str | None, declared: str, expected: str | Non
 
 
 def _signature(kind: str | None, count: int) -> CheckResult:
-    if kind != "application/pdf":
+    if kind not in {"application/pdf", XML_TYPE}:
         return CheckResult(
             "signature", Status.UNAVAILABLE, ("NOT_APPLICABLE_TO_TYPE",), {"signatures_detected": 0}
         )
@@ -158,7 +175,7 @@ def _signature(kind: str | None, count: int) -> CheckResult:
 
 
 def _seal(kind: str | None, count: int, etsi: bool) -> CheckResult:
-    if kind != "application/pdf":
+    if kind not in {"application/pdf", XML_TYPE}:
         return CheckResult("seal", Status.UNAVAILABLE, ("NOT_APPLICABLE_TO_TYPE",), {})
     reasons = (
         ("SEAL_NOT_VALIDATED", "NO_TRUST_LIST")

@@ -35,6 +35,7 @@ from zid_platform.modules.evidence.application.runtime import (
     current_runtime,
     runtime_from_settings,
 )
+from zid_platform.modules.evidence.application.seals import SealCheck, check_signed_xml
 from zid_platform.modules.evidence.application.vault import (
     ErasureResult,
     TenantErasure,
@@ -61,11 +62,13 @@ __all__ = [
     "Node",
     "ReceiptFacts",
     "ReplayResult",
+    "SealCheck",
     "TenantErasure",
     "WorkerReport",
     "actor_handle",
     "add_edges",
     "artifact",
+    "check_signed_xml",
     "commitment",
     "configure_runtime",
     "current_runtime",

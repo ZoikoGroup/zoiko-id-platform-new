@@ -198,7 +198,7 @@ def test_an_unreadable_status_list_is_not_acceptance(rt_url: str) -> None:
     run(go())
 
 
-def test_glb_36_an_eu_digital_credential_seal_is_refused_not_guessed_and_junk_is_malformed(
+def test_glb_36_a_jws_secured_eu_digital_credential_is_a_claim_never_a_qualified_seal_or_a_licence(
     rt_url: str,
 ) -> None:
     w, tenant = World("edc"), uid()
@@ -207,9 +207,23 @@ def test_glb_36_an_eu_digital_credential_seal_is_refused_not_guessed_and_junk_is
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
             await w.trust(c, tenant, types=["EuropeanDigitalCredential"])
             edc = w.credential("EuropeanDigitalCredential")
-            with pytest.raises(CredentialError) as e:
-                await verify(w, c, edc, w.proof(edc))
-            assert e.value.code == "EDC_SEAL_VALIDATION_NOT_AVAILABLE"
+            r = await verify(w, c, edc, w.proof(edc))
+            assert r["kind"] == "EDC" and r["integrity"] is True, r["reason_codes"]
+            assert r["assurance_tier"] == "ISSUER_AUTHENTICATED"
+            assert r["qualified_seal"] == "NOT_ASSESSED", "a JWS is not a qualified e-seal"
+            assert r["primary_source_verified"] is False and r["statutory_license"] is False
+            # a claim worth accepting: signed by a trusted issuer, bound to its holder, status read from the issuer. A rescinded
+            # degree is the status endpoint's job (GLB-36), and the primary source is a separate check
+            assert r["credential_status"] == "ACTIVE" and r["accepted_as_claim"] is True
+            assert r["reason_codes"] == []
+
+            # an issuer that is not trusted for this credential type: genuine signature, integrity only (GLB-07)
+            other = World("edc2")
+            await other.trust(c, tenant, types=["SomethingElse"])
+            wrong = other.credential("EuropeanDigitalCredential")
+            r2 = await verify(other, c, wrong, other.proof(wrong))
+            assert "ISSUER_NOT_IN_REGISTRY" in r2["reason_codes"] and not r2["accepted_as_claim"]
+
             for junk in (
                 "not-a-jwt-at-all-but-long-enough",
                 sign_jws(w.holder, {"a": 1}, typ="JWT"),
@@ -217,5 +231,310 @@ def test_glb_36_an_eu_digital_credential_seal_is_refused_not_guessed_and_junk_is
                 with pytest.raises(CredentialError) as e:
                     await verify(w, c, junk, None)
                 assert e.value.code == "VC_MALFORMED"
+
+    run(go())
+
+
+# ---------------------------------------------------------------- Data Integrity proofs (eddsa-rdfc-2022), offline
+
+_B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def _b58(data: bytes) -> str:
+    n = int.from_bytes(data, "big")
+    out = ""
+    while n:
+        n, r = divmod(n, 58)
+        out = _B58[r] + out
+    return "1" * (len(data) - len(data.lstrip(b"\x00"))) + out
+
+
+def _contexts():
+    from pathlib import Path
+
+    from zid_platform.modules.credential.application import data_integrity as di
+
+    # plus one TEST-ONLY context that defines the EDC type, standing in for the real Europass context, which is not bundled
+    edc_test_context = {
+        "@context": {
+            "@version": 1.1,
+            "EuropeanDigitalCredential": "https://data.europa.eu/snb/model/context#EuropeanDigitalCredential",
+        }
+    }
+    return di.BundledContexts(
+        Path(__file__).resolve().parents[3] / "config" / "jsonld-contexts",
+        {EDC_TEST_CONTEXT: edc_test_context},
+    )
+
+
+EDC_TEST_CONTEXT = "https://example.test/contexts/edc"
+
+
+def _di_credential(issuer: str, ctype: str = BADGE) -> dict[str, Any]:
+    return {
+        "@context": [
+            "https://www.w3.org/ns/credentials/v2",
+            "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json",
+        ],
+        "id": "urn:uuid:" + uid(),
+        "type": ["VerifiableCredential", ctype],
+        "issuer": {"id": issuer, "type": ["Profile"], "name": "Example University"},
+        "validFrom": "2026-01-01T00:00:00Z",
+        "name": "BSc Chemistry",
+        "credentialSubject": {
+            "type": ["AchievementSubject"],
+            "achievement": {
+                "id": "urn:uuid:" + uid(),
+                "type": ["Achievement"],
+                "name": "BSc Chemistry",
+                "description": "A degree",
+                "criteria": {"narrative": "Complete the programme"},
+            },
+        },
+    }
+
+
+def _sign_di(doc: dict[str, Any], key, vm: str) -> dict[str, Any]:
+    from zid_platform.modules.credential.application import data_integrity as di
+
+    proof = {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-rdfc-2022",
+        "created": "2026-11-12T00:00:00Z",
+        "verificationMethod": vm,
+        "proofPurpose": "assertionMethod",
+    }
+    h = di.hashes_for(doc, {**proof, "@context": doc["@context"]}, _contexts())
+    return {**doc, "proof": {**proof, "proofValue": "z" + _b58(key.sign(h.combined))}}
+
+
+def _ed_jwks(key, kid: str) -> dict[str, Any]:
+    import base64
+
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    raw = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    x = base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+    return {"keys": [{"kty": "OKP", "crv": "Ed25519", "x": x, "kid": kid, "use": "sig"}]}
+
+
+async def _trust_ed(conn, tenant: str, issuer: str, key, kid: str, types: list[str]) -> None:
+    await store.create_trust(
+        conn,
+        tenant,
+        {
+            "issuer_identifier": issuer,
+            "credential_types": types,
+            "trust_source": "PINNED",
+            "jwks": _ed_jwks(key, kid),
+            "valid_to": datetime.now(UTC) + timedelta(days=30),
+        },
+    )
+
+
+async def _verify_di(w: World, conn, vc: dict[str, Any]) -> dict[str, Any]:
+    out = await vc_verify.verify_vc_di(
+        conn, w.settings, _contexts(), vc=vc, jurisdiction=None, now=datetime.now(UTC)
+    )
+    return out.to_contract()
+
+
+def test_a_data_integrity_credential_from_a_trusted_issuer_is_integrity_and_authenticity_but_not_a_claim_without_a_holder(
+    rt_url: str,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    w, tenant = World("di"), uid()
+    key = Ed25519PrivateKey.generate()
+    issuer = "https://di.registry.example"
+    vm = issuer + "#key-1"
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await _trust_ed(c, tenant, issuer, key, "key-1", [BADGE])
+            good = _sign_di(_di_credential(issuer), key, vm)
+            r = await _verify_di(w, c, good)
+            assert r["kind"] == "OPEN_BADGE" and r["integrity"] is True
+            assert (
+                r["issuer_authenticity"] == "CONFIRMED"
+                and r["assurance_tier"] == "ISSUER_AUTHENTICATED"
+            )
+            assert r["primary_source_verified"] is False and r["statutory_license"] is False
+            # no holder presentation: it is never accepted as a claim on its own
+            assert r["holder_bound"] is False and r["accepted_as_claim"] is False
+            assert "HOLDER_BINDING_FAILED" in r["reason_codes"]
+
+            # a changed credential, a different key, and a key the issuer never pinned all fail by name
+            forged = {**good, "name": "MD Medicine"}
+            f = await _verify_di(w, c, forged)
+            assert f["integrity"] is False and "SIGNATURE_INVALID" in f["reason_codes"]
+            other = _sign_di(_di_credential(issuer), Ed25519PrivateKey.generate(), vm)
+            assert (await _verify_di(w, c, other))["integrity"] is False
+            unpinned = _sign_di(_di_credential(issuer), key, issuer + "#key-unknown")
+            assert (await _verify_di(w, c, unpinned))["integrity"] is False
+
+    run(go())
+
+
+def test_a_data_integrity_credential_from_an_issuer_not_trusted_for_its_type_is_integrity_only(
+    rt_url: str,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    w, tenant = World("di2"), uid()
+    key, issuer = Ed25519PrivateKey.generate(), "https://di2.registry.example"
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await _trust_ed(c, tenant, issuer, key, "k", ["SomethingElse"])
+            r = await _verify_di(w, c, _sign_di(_di_credential(issuer), key, issuer + "#k"))
+            assert r["integrity"] is True and r["issuer_authenticity"] == "NOT_CONFIRMED"
+            assert "ISSUER_NOT_IN_REGISTRY" in r["reason_codes"] and not r["accepted_as_claim"]
+            # an issuer nobody registered at all
+            nobody = _sign_di(
+                _di_credential("https://nobody.example"), key, "https://nobody.example#k"
+            )
+            assert (await _verify_di(w, c, nobody))["integrity"] is False
+
+    run(go())
+
+
+def test_a_context_that_is_not_bundled_is_refused_and_nothing_is_fetched(rt_url: str) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    w, tenant = World("di3"), uid()
+    key, issuer = Ed25519PrivateKey.generate(), "https://di3.registry.example"
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await _trust_ed(c, tenant, issuer, key, "k", [BADGE])
+            doc = _sign_di(_di_credential(issuer), key, issuer + "#k")
+            doc["@context"] = [*doc["@context"], "https://attacker.example/ctx"]
+            r = await _verify_di(w, c, doc)
+            assert r["integrity"] is False and "CONTEXT_NOT_BUNDLED" in r["reason_codes"]
+
+    run(go())
+
+
+def test_a_data_integrity_edc_is_sealed_by_its_proof_and_never_a_qualified_seal(
+    rt_url: str,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    w, tenant = World("di4"), uid()
+    key, issuer = Ed25519PrivateKey.generate(), "https://di4.registry.example"
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await _trust_ed(c, tenant, issuer, key, "k", ["EuropeanDigitalCredential"])
+            doc = _di_credential(issuer, "EuropeanDigitalCredential")
+            doc["@context"] = [
+                *doc["@context"],
+                EDC_TEST_CONTEXT,
+            ]  # an EDC must carry a context that defines its own type
+            r = await _verify_di(w, c, _sign_di(doc, key, issuer + "#k"))
+            assert r["kind"] == "EDC" and r["integrity"] is True, r["reason_codes"]
+            assert r["qualified_seal"] == "NOT_ASSESSED"
+
+            # without that context its type is undefined, so nothing about the credential is signed in any meaningful sense: refused
+            bare = _di_credential(issuer, "EuropeanDigitalCredential")
+            refused = await _verify_di(w, c, _sign_di(bare, key, issuer + "#k"))
+            assert refused["integrity"] is False
+            assert "PROPERTIES_NOT_DEFINED_BY_CONTEXT" in refused["reason_codes"]
+            assert r["primary_source_verified"] is False and r["statutory_license"] is False
+
+    run(go())
+
+
+# ---------------------------------------------------------------- the second suite: ecdsa-rdfc-2019 (P-256), against a pinned EC key
+
+
+def _sign_di_ecdsa(doc: dict[str, Any], key, vm: str) -> dict[str, Any]:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+    from zid_platform.modules.credential.application import data_integrity as di
+
+    proof = {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "ecdsa-rdfc-2019",
+        "created": "2026-11-12T00:00:00Z",
+        "verificationMethod": vm,
+        "proofPurpose": "assertionMethod",
+    }
+    h = di.hashes_for(doc, {**proof, "@context": doc["@context"]}, _contexts())
+    r, s = decode_dss_signature(key.sign(h.combined, ec.ECDSA(hashes.SHA256())))
+    raw = r.to_bytes(32, "big") + s.to_bytes(32, "big")
+    return {**doc, "proof": {**proof, "proofValue": "z" + _b58(raw)}}
+
+
+def _ec_jwks(key, kid: str) -> dict[str, Any]:
+    import base64
+
+    nums = key.public_key().public_numbers()
+
+    def b64(n: int) -> str:
+        return base64.urlsafe_b64encode(n.to_bytes(32, "big")).rstrip(b"=").decode()
+
+    return {
+        "keys": [
+            {
+                "kty": "EC",
+                "crv": "P-256",
+                "x": b64(nums.x),
+                "y": b64(nums.y),
+                "kid": kid,
+                "use": "sig",
+            }
+        ]
+    }
+
+
+def test_a_p256_data_integrity_credential_verifies_against_the_issuers_pinned_ec_key(
+    rt_url: str,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    w, tenant = World("di5"), uid()
+    key = ec.generate_private_key(ec.SECP256R1())
+    issuer = "https://di5.registry.example"
+    vm = issuer + "#ec-1"
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await store.create_trust(
+                c,
+                tenant,
+                {
+                    "issuer_identifier": issuer,
+                    "credential_types": [BADGE],
+                    "trust_source": "PINNED",
+                    "jwks": _ec_jwks(key, "ec-1"),
+                    "valid_to": datetime.now(UTC) + timedelta(days=30),
+                },
+            )
+            good = _sign_di_ecdsa(_di_credential(issuer), key, vm)
+            r = await _verify_di(w, c, good)
+            assert r["integrity"] is True and r["issuer_authenticity"] == "CONFIRMED", r[
+                "reason_codes"
+            ]
+            assert (
+                r["assurance_tier"] == "ISSUER_AUTHENTICATED"
+                and r["primary_source_verified"] is False
+            )
+
+            assert (await _verify_di(w, c, {**good, "name": "MD Medicine"}))["integrity"] is False
+            other = _sign_di_ecdsa(
+                _di_credential(issuer), ec.generate_private_key(ec.SECP256R1()), vm
+            )
+            assert (await _verify_di(w, c, other))["integrity"] is False
+
+            # an Ed25519 key pinned under the same name is never tried for an ECDSA proof
+            tenant2 = uid()
+            async with tenant_transaction(eng, ctx(tenant2)) as c2:
+                ed = Ed25519PrivateKey.generate()
+                await _trust_ed(c2, tenant2, issuer, ed, "ec-1", [BADGE])
+                assert (await _verify_di(w, c2, good))["integrity"] is False
 
     run(go())

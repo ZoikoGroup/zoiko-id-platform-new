@@ -29,6 +29,13 @@ from zid_platform.modules.verification.domain.countries import (
     availability,
     require,
 )
+from zid_platform.modules.verification.domain.product_lines import (
+    LineRegistry,
+    LineState,
+    ProductLine,
+    ProductLineError,
+    require_available,
+)
 from zid_platform.modules.verification.domain.service_packs import (
     PackError,
     PackRegistry,
@@ -41,6 +48,9 @@ from zid_platform.modules.verification.infrastructure.certification_registry imp
 )
 from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
+from zid_platform.modules.verification.infrastructure.product_line_registry import (
+    product_line_registry,
+)
 
 __all__ = [
     "SANDBOX_ENVIRONMENTS",
@@ -50,8 +60,12 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "LineRegistry",
+    "LineState",
     "PackError",
     "PackRegistry",
+    "ProductLine",
+    "ProductLineError",
     "ServicePack",
     "assurance",
     "availability",
@@ -60,6 +74,7 @@ __all__ = [
     "fresh_reproof",
     "pack_registry",
     "person_assurance_current",
+    "product_line_registry",
     "public_view",
     "reconcile_delayed",
     "reconstruct_decision",
@@ -67,6 +82,7 @@ __all__ = [
     "refuse_unbacked_claim",
     "registry",
     "require",
+    "require_available",
     "resolve",
     "revoke",
     "seed_representative_proofing",

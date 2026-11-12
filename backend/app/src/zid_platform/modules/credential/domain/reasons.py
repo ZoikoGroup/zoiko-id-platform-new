@@ -346,9 +346,18 @@ LOCALES: dict[str, dict[str, tuple[str, str, str]]] = {
     "es": reasons_es.TEXT,
     "fr": reasons_fr.TEXT,
 }
-# Which texts are reviewed. English is the source. A locale is listed here ONLY after a native-speaker and legal review; until then
-# `describe` says MACHINE_DRAFT_UNREVIEWED so no screen presents a draft as reviewed.
-REVIEWED_LOCALES: frozenset[str] = frozenset({DEFAULT_LOCALE})
+# Review record per locale. English is the source. A locale becomes REVIEWED ONLY after a native-speaker and legal review, and the record
+# then carries who reviewed it and on what date: `{"status": "REVIEWED", "reviewer": "...", "reviewed_on": "YYYY-MM-DD"}`. Until then
+# `describe` says MACHINE_DRAFT_UNREVIEWED so no screen presents a draft as reviewed. A test refuses a REVIEWED entry with no reviewer or
+# date, and a DRAFT entry that names one.
+LOCALE_REVIEWS: dict[str, dict[str, str]] = {
+    DEFAULT_LOCALE: {"status": "SOURCE"},
+    "es": {"status": "DRAFT"},
+    "fr": {"status": "DRAFT"},
+}
+REVIEWED_LOCALES: frozenset[str] = frozenset(
+    loc for loc, r in LOCALE_REVIEWS.items() if r["status"] in {"SOURCE", "REVIEWED"}
+)
 _STATUS_TEXT = {
     "SUSPENDED": ("suspended", "has been suspended"),
     "REVOKED": ("revoked", "has been revoked"),
@@ -438,7 +447,15 @@ def describe(code: str, locale: str = DEFAULT_LOCALE) -> dict[str, object]:
         )
         known, used = True, DEFAULT_LOCALE
     title, explanation, step = entry or _NEUTRAL
+    shown = used if known else DEFAULT_LOCALE
+    review = LOCALE_REVIEWS.get(shown, {})
+    out_review: dict[str, str] = (
+        {"reviewed_by": review["reviewer"], "reviewed_on": review["reviewed_on"]}
+        if review.get("status") == "REVIEWED"
+        else {}
+    )
     return {
+        **out_review,
         "code": code,
         "title": title,
         "explanation": explanation,

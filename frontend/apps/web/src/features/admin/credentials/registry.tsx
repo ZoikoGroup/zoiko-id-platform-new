@@ -5,6 +5,7 @@ import { Banner, Card, DataTable, EmptyState, StatusBadge, type Column } from "@
 import { Library } from "lucide-react";
 
 import { useCellQuery } from "@/lib/cell";
+import { UserText } from "@/lib/user-text";
 
 import { AdminQueryView } from "../identity-providers/shared";
 
@@ -16,7 +17,7 @@ type Source = TrustRegistry["sources"][number];
 const list = (v: string[]) => (v.length ? v.join(", ") : "—");
 
 const ISSUER_COLUMNS: Column<Issuer>[] = [
-  { key: "name", header: "Issuer", render: (i) => <span className="font-medium text-ink">{i.name}</span> },
+  { key: "name", header: "Issuer", render: (i) => <UserText className="font-medium text-ink">{i.name}</UserText> },
   { key: "kind", header: "Kind", render: (i) => i.kind },
   { key: "countries", header: "Countries", render: (i) => list(i.countries) },
   { key: "claims", header: "Claim types", render: (i) => list(i.claim_types) },

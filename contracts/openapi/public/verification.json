@@ -569,6 +569,68 @@
         ]
       }
     },
+    "/v2/capture-alternatives": {
+      "get": {
+        "operationId": "list_alternatives_v2_capture_alternatives_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "country",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Country",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Alternatives V2 Capture Alternatives Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Alternatives",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
     "/verification-adapters": {
       "get": {
         "operationId": "adapters_verification_adapters_get",

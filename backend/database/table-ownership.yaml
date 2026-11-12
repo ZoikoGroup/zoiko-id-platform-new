@@ -1069,6 +1069,51 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRIV-001 §20 (CR-013)"
+  privacy.purpose_decision:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §19 purpose decisions (CR-072)"
+  privacy.notice_acknowledgment:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §07 notice acknowledgments (CR-072)"
+  privacy.erasure_job:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §13 erasure jobs (CR-072)"
+  privacy.erasure_task:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §13 erasure tasks and provider receipts (CR-072)"
+  privacy.transfer_decision:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §16/§19 transfer decisions (CR-072)"
+  privacy.subprocessor_change:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §09/§22 subprocessor change notices (CR-072)"
+  privacy.dpia_package:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §02/§18/§23 DPIA packages and release gates (CR-072)"
+  privacy.decision_review:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §10/§11 appeals and human review (CR-072)"
+  privacy.breach_case:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §09/§24 breach cases and regulator clocks (CR-072)"
   authn.federation_connection:
     role: cell
     module: federation

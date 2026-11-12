@@ -23,8 +23,10 @@ Every eligibility result is recomputed from the subject's CURRENT checks; nothin
 from __future__ import annotations
 
 import base64
+import json
 import uuid
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -34,8 +36,8 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.credential.api.claim_checks import signer_for
+from zid_platform.modules.credential.application import data_integrity, vc_verify, verifier
 from zid_platform.modules.credential.application import trust_service as svc
-from zid_platform.modules.credential.application import vc_verify, verifier
 from zid_platform.modules.credential.domain import eligibility as el
 from zid_platform.modules.credential.domain import lifecycle as lc
 from zid_platform.modules.credential.domain import outreach as oc
@@ -48,6 +50,9 @@ from zid_platform.modules.credential.domain.claims import (
 )
 from zid_platform.modules.credential.domain.credentials import CredentialError
 from zid_platform.modules.credential.infrastructure import trust_store
+from zid_platform.modules.credential.infrastructure.registries import (
+    CONFIG as REGISTRY_CONFIG,
+)
 from zid_platform.modules.credential.infrastructure.registries import (
     find_policy,
     issuer_registry,
@@ -763,6 +768,68 @@ async def verify_signed_credential(
                 e.code, e.code.replace("_", " ").capitalize() + ".", http_status=422
             ) from e
     return out.to_contract()
+
+
+MAX_DI_BYTES = 256 * 1024
+
+
+class CredDiVerifyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    credential: dict[
+        str, Any
+    ]  # a JSON-LD credential secured by a DataIntegrityProof (eddsa-rdfc-2022 or ecdsa-rdfc-2019)
+    jurisdiction: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
+
+    def model_post_init(self, _ctx: Any) -> None:
+        if len(json.dumps(self.credential, separators=(",", ":"))) > MAX_DI_BYTES:
+            raise ValueError("the credential is too large")
+
+
+@lru_cache(maxsize=1)
+def _jsonld_contexts() -> data_integrity.BundledContexts:
+    """The hash-pinned JSON-LD contexts the verifier may use. Read once; a file that no longer matches its hash stops the load."""
+    return data_integrity.BundledContexts(REGISTRY_CONFIG / "jsonld-contexts")
+
+
+@router.post("/v1/credentials/vc/verify-data-integrity")
+async def verify_data_integrity_credential(
+    body: CredDiVerifyIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Verify a JSON-LD credential secured by a Data Integrity proof, offline, against the issuer's pinned Ed25519 key. Same five separate
+    facts as `/v1/credentials/vc/verify`; never a primary-source confirmation or a license. A context that is not bundled is refused, nothing
+    is fetched, and a credential with no holder presentation is never accepted as a claim on its own."""
+    oauth = getattr(request.app.state, "oauth_settings", None)
+    keyrings = getattr(request.app.state, "keyrings", None)
+    if oauth is None or keyrings is None:
+        raise ZidError("DEPENDENCY_UNAVAILABLE", "No verifier is configured.", http_status=503)
+    settings = verifier.VerifierSettings(
+        oauth.issuer,
+        keyrings.verifier,
+        getattr(request.app.state, "credential_transport", None),
+        tuple(getattr(request.app.state, "verifier_x5c", ())),
+    )
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _gate(conn, caller, "credential.claim.verify", "credential-claim:VC")
+        try:
+            out = await vc_verify.verify_vc_di(
+                conn,
+                settings,
+                _jsonld_contexts(),
+                vc=body.credential,
+                jurisdiction=body.jurisdiction,
+                now=_now(),
+            )
+        except CredentialError as e:
+            raise ZidError(
+                e.code, e.code.replace("_", " ").capitalize() + ".", http_status=422
+            ) from e
+    return {
+        **out.to_contract(),
+        "proof_type": "DataIntegrityProof",
+        "cryptosuite": (body.credential.get("proof") or {}).get("cryptosuite")
+        if isinstance(body.credential.get("proof"), dict)
+        else None,
+    }
 
 
 # ------------------------------------------------------------------------------------------- registry and dossier views

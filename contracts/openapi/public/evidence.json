@@ -383,6 +383,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "signature_base64": {
+            "anyOf": [
+              {
+                "maxLength": 131072,
+                "minLength": 4,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature Base64"
           }
         },
         "required": [
@@ -390,6 +403,81 @@
           "checks"
         ],
         "title": "V2DocumentIn",
+        "type": "object"
+      },
+      "V2ExtractIn": {
+        "additionalProperties": false,
+        "properties": {
+          "barcode_text": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode Text"
+          },
+          "image_base64": {
+            "anyOf": [
+              {
+                "maxLength": 8388624,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Base64"
+          },
+          "mrz_lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrz Lines"
+          },
+          "pdf_base64": {
+            "anyOf": [
+              {
+                "maxLength": 2796218,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Base64"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          }
+        },
+        "title": "V2ExtractIn",
         "type": "object"
       },
       "V2UploadIn": {
@@ -1840,6 +1928,49 @@
         "summary": "Verify",
         "tags": [
           "evidence"
+        ]
+      }
+    },
+    "/v2/documents/extract": {
+      "post": {
+        "operationId": "extract_v2_documents_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2ExtractIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Extract V2 Documents Extract Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract",
+        "tags": [
+          "evidence-v2"
         ]
       }
     },

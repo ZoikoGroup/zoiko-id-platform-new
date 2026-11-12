@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from zid_platform.modules.evidence.application import cms
+from zid_platform.modules.evidence.application import cms, xades
 from zid_platform.modules.evidence.application import trust as tr
 from zid_platform.modules.evidence.domain import documents as docs
 
@@ -61,14 +61,25 @@ def signature_result(findings: list[cms.Finding], config: tr.TrustConfig) -> doc
     if any(f.revocation == "REVOKED" for f in findings):
         if all(f.timestamp == "VALID" for f in findings):
             return docs.CheckResult(
-                "signature", docs.Status.NOT_VERIFIED, ("CERTIFICATE_REVOKED_BEFORE_SIGNING",), detail
+                "signature",
+                docs.Status.NOT_VERIFIED,
+                ("CERTIFICATE_REVOKED_BEFORE_SIGNING",),
+                detail,
             )
         return docs.CheckResult(
-            "signature", docs.Status.NOT_VERIFIED, ("CERTIFICATE_REVOKED", "SIGNING_TIME_NOT_TRUSTED"), detail
+            "signature",
+            docs.Status.NOT_VERIFIED,
+            ("CERTIFICATE_REVOKED", "SIGNING_TIME_NOT_TRUSTED"),
+            detail,
         )
     if any(not f.covers_whole_file for f in findings):
+        uncovered = (
+            "REFERENCE_DOES_NOT_COVER_DOCUMENT"
+            if any("REFERENCE_DOES_NOT_COVER_DOCUMENT" in f.problems for f in findings)
+            else "CONTENT_ADDED_AFTER_SIGNING"
+        )
         return docs.CheckResult(
-            "signature", docs.Status.INDETERMINATE, ("CONTENT_ADDED_AFTER_SIGNING", *ALWAYS), detail
+            "signature", docs.Status.INDETERMINATE, (uncovered, *ALWAYS), detail
         )
     if any(f.chain is cms.Chain.EXPIRED for f in findings):
         if all(
@@ -152,14 +163,68 @@ def apply(
     v: docs.Validation, pdf: bytes, config: tr.TrustConfig, *, at: datetime | None = None
 ) -> docs.Validation:
     """Replace the detection-only `signature` and `seal` results of `v` with real ones, when the document is a PDF that carries a signature."""
-    if v.sniffed_type != "application/pdf":
+    if v.sniffed_type not in {"application/pdf", docs.XML_TYPE}:
         return v
     when = at or datetime.now(UTC)
-    findings = cms.inspect_pdf(
-        pdf, anchors=config.anchors, at=when, tsa_roots=config.tsa_roots, crls=config.crls
+    inspect = xades.inspect_xml if v.sniffed_type == docs.XML_TYPE else cms.inspect_pdf
+    findings = inspect(
+        pdf,
+        anchors=config.anchors,
+        at=when,
+        tsa_roots=config.tsa_roots,
+        crls=config.crls,
+        ocsp_responses=config.ocsp_responses,
     )
     if not findings:
         return v  # no signature: the domain's NO_SIGNATURE_FOUND stands
+    out = _replace(v, findings, config, when)
+    if v.sniffed_type != "application/pdf":
+        return out
+    stamps = cms.inspect_document_timestamps(pdf, tsa_roots=config.tsa_roots, at=when)
+    state = cms.archive_state(stamps)
+    results = []
+    for r in out.results:
+        if r.check == "signature" and stamps:
+            reasons = (
+                (*r.reasons, "DOCUMENT_TIMESTAMP_PROBLEM")
+                if state == "ARCHIVE_BROKEN"
+                else r.reasons
+            )
+            r = replace(
+                r,
+                reasons=reasons,
+                detail={**r.detail, "document_timestamps": stamps, "ltv_state": state},
+            )
+        results.append(r)
+    return replace(out, results=tuple(results))
+
+
+def apply_detached(
+    v: docs.Validation,
+    content: bytes,
+    signature: bytes,
+    config: tr.TrustConfig,
+    *,
+    at: datetime | None = None,
+) -> docs.Validation:
+    """Replace the `signature` and `seal` results with those of a standalone CAdES signature (a detached .p7s) over `content`, which can
+    be any allowed type. The signature file is the caller's evidence; the content is what it must match."""
+    when = at or datetime.now(UTC)
+    findings = cms.inspect_cades(
+        signature,
+        content,
+        anchors=config.anchors,
+        at=when,
+        tsa_roots=config.tsa_roots,
+        crls=config.crls,
+        ocsp_responses=config.ocsp_responses,
+    )
+    return _replace(v, findings, config, when)
+
+
+def _replace(
+    v: docs.Validation, findings: list[cms.Finding], config: tr.TrustConfig, when: datetime
+) -> docs.Validation:
     out = []
     for r in v.results:
         if r.check == "signature":

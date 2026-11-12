@@ -5,7 +5,10 @@ The operator decides what is trusted by putting files in `config/trust/` (nothin
 - `trusted-lists/*.xml`     ETSI TS 119 612 trusted lists (the EU LOTL's member lists), downloaded by the operator;
 - `tl-signers/*.pem|crt`    the certificates a trusted list's OWN signature must verify against (published with the list of lists);
 - `tsa-roots/*.pem|crt`     root certificates of the timestamp authorities whose RFC 3161 stamps are accepted as TRUSTED signing time;
-- `crls/*.crl|pem`          certificate revocation lists the operator downloaded (nothing is ever fetched here).
+- `crls/*.crl|pem`          certificate revocation lists the operator downloaded (nothing is ever fetched here);
+- `barcode-keys/*.pem|crt|cer` certificates whose keys may sign 2D barcode payloads (a payload signed by any other key is never verified);
+- `ocsp/*.ocsp|der|resp`    OCSP responses (DER) the operator saved from the issuer's responder; each counts only while current and
+                           signed by the issuer or an OCSP-signing certificate the issuer issued.
 
 A trusted list counts only if its XML signature verifies against one of the pinned signer certificates; an unverified list is ignored and
 said to be. Qualified status then needs three things together: an authenticated list, a CA certificate in the signer's chain that the list
@@ -24,6 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cryptography import x509
+from cryptography.x509 import ocsp
 from defusedxml import DefusedXmlException
 from defusedxml import ElementTree as SafeET
 from lxml import etree
@@ -64,6 +68,10 @@ class TrustConfig:
     trusted_lists: tuple[TrustedList, ...] = ()
     tsa_roots: tuple[x509.Certificate, ...] = ()
     crls: tuple[x509.CertificateRevocationList, ...] = ()
+    ocsp_responses: tuple[ocsp.OCSPResponse, ...] = ()
+    barcode_keys: tuple[
+        x509.Certificate, ...
+    ] = ()  # certificates whose keys may sign 2D barcode payloads
 
     def notes(self) -> list[str]:
         out = []
@@ -73,7 +81,7 @@ class TrustConfig:
             out.append("NO_AUTHENTICATED_TRUST_LIST")
         if not self.tsa_roots:
             out.append("NO_TSA_ROOTS_CONFIGURED")
-        if not self.crls:
+        if not self.crls and not self.ocsp_responses:
             out.append("NO_CRLS_SUPPLIED")
         return out
 
@@ -110,6 +118,19 @@ def _crls(folder: Path) -> list[x509.CertificateRevocationList]:
             )
         except ValueError:
             continue
+    return out
+
+
+def _ocsp(folder: Path) -> list[ocsp.OCSPResponse]:
+    out: list[ocsp.OCSPResponse] = []
+    if not folder.is_dir():
+        return out
+    for pattern in ("*.ocsp", "*.der", "*.resp"):
+        for f in sorted(folder.glob(pattern)):
+            try:
+                out.append(ocsp.load_der_ocsp_response(f.read_bytes()))
+            except ValueError:
+                continue  # not an OCSP response: skipped, never trusted
     return out
 
 
@@ -239,7 +260,14 @@ def load_trust(root: Path) -> TrustConfig:
         for f in sorted(folder.glob("*.xml")):
             lists.append(parse_trusted_list(f.read_bytes(), signers, f.name))
     tsa = _certs(root / "tsa-roots", ("*.pem", "*.crt", "*.cer"))
-    return TrustConfig(tuple(anchors), tuple(lists), tuple(tsa), tuple(_crls(root / "crls")))
+    return TrustConfig(
+        tuple(anchors),
+        tuple(lists),
+        tuple(tsa),
+        tuple(_crls(root / "crls")),
+        tuple(_ocsp(root / "ocsp")),
+        tuple(_certs(root / "barcode-keys", ("*.pem", "*.crt", "*.cer"))),
+    )
 
 
 # ------------------------------------------------------------------------------------------------ qualified status

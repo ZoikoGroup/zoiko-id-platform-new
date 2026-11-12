@@ -344,3 +344,59 @@ def list_of_lists_xml(
         method=methods.enveloped, signature_algorithm="rsa-sha256", digest_algorithm="sha256"
     ).sign(root, key=key_pem, cert=sign_with.pem().decode())
     return etree.tostring(signed)
+
+
+# ---------------------------------------------------------------------------------------------------------- OCSP
+
+
+def make_ocsp(
+    cert: x509.Certificate,
+    issuer: Party,
+    *,
+    status: str = "good",
+    revoked_at: datetime | None = None,
+    signer: Party | None = None,
+    include_signer_cert: bool = False,
+    this_update: datetime | None = None,
+    next_update: datetime | None = None,
+    sign_hash: hashes.HashAlgorithm | None = None,
+) -> bytes:
+    """A real DER OCSP response for `cert`, signed by `signer` (default: the issuer itself)."""
+    from cryptography.x509 import ocsp
+
+    b = ocsp.OCSPResponseBuilder().add_response(
+        cert=cert,
+        issuer=issuer.cert,
+        algorithm=hashes.SHA1(),
+        cert_status={
+            "good": ocsp.OCSPCertStatus.GOOD,
+            "revoked": ocsp.OCSPCertStatus.REVOKED,
+            "unknown": ocsp.OCSPCertStatus.UNKNOWN,
+        }[status],
+        this_update=this_update or NOW - timedelta(hours=1),
+        next_update=next_update or NOW + timedelta(days=2),
+        revocation_time=revoked_at if status == "revoked" else None,
+        revocation_reason=None,
+    )
+    who = signer or issuer
+    b = b.responder_id(ocsp.OCSPResponderEncoding.HASH, who.cert)
+    if include_signer_cert and signer is not None:
+        b = b.certificates([signer.cert])
+    return b.sign(who.key, sign_hash or hashes.SHA256()).public_bytes(Encoding.DER)  # type: ignore[arg-type]
+
+
+def ocsp_signing_cert(issuer: Party, subject: str = "OCSP Responder") -> Party:
+    key = ec_key()
+    b = (
+        x509.CertificateBuilder()
+        .subject_name(_name(subject))
+        .issuer_name(issuer.cert.subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(NOW - timedelta(days=30))
+        .not_valid_after(NOW + timedelta(days=60))
+        .add_extension(
+            x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.OCSP_SIGNING]), critical=False
+        )
+    )
+    return Party(key, b.sign(issuer.key, hashes.SHA256()))  # type: ignore[arg-type]
