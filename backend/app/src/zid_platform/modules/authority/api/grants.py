@@ -36,6 +36,7 @@ from zid_platform.modules.authority.domain.grants import (
     GrantType,
 )
 from zid_platform.modules.authority.infrastructure.grant_store import list_grants, load_chain
+from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/authority-grants", tags=["authority"])
@@ -170,6 +171,35 @@ async def create_grant(
             await issue_grant(conn, grant, risk_level=body.risk_class, now=now)
         except AuthorityError as e:
             raise http_error(e.code, str(e)) from e
+        # Who gave whom what, and when: an append-only audit record beside the grant itself (ids, counts and limits, never content).
+        await record_audit(
+            conn,
+            grant.tenant_id,
+            AuditFacts(
+                event_type="authority.grant.issued",
+                actor_type="HUMAN",
+                action="issue",
+                target_type="authority_grant",
+                target_ref=grant.grant_id,
+                outcome="SUCCESS",
+                evidence_class=EvidenceClass.E3,
+                occurred_at=now,
+                actor_principal_id=ctx.principal_id,
+                source_service="authority",
+                source_event_id=grant.grant_id,
+                details={
+                    "grantee_principal_id": grant.grantee_principal_id,
+                    "grant_type": grant.grant_type.value,
+                    "parent_grant_id": grant.parent_grant_id,
+                    "authority_root_assertion_id": grant.root_id,
+                    "actions": len(body.actions),
+                    "risk_class": body.risk_class,
+                    "valid_from": body.valid_from.isoformat(),
+                    "valid_to": body.valid_to.isoformat(),
+                    "delegation_allowed": body.delegation.allowed,
+                },
+            ),
+        )
         out = _view(grant)
         await complete(conn, scope=scope, key=idempotency_key, status=201, body=out)
     return out
@@ -252,4 +282,27 @@ async def revoke(grant_id: uuid.UUID, request: Request, caller: CallerDep) -> di
         except AuthorityError as e:
             code = "AUTHORITY_GRANT_NOT_FOUND" if e.code == "AUTHORITY_MISSING" else e.code
             raise http_error(code, str(e)) from e
+        await record_audit(
+            conn,
+            g.tenant_id,
+            AuditFacts(
+                event_type="authority.grant.revoked",
+                actor_type="HUMAN",
+                action="revoke",
+                target_type="authority_grant",
+                target_ref=g.grant_id,
+                outcome="SUCCESS",
+                evidence_class=EvidenceClass.E3,
+                occurred_at=datetime.now(UTC),
+                actor_principal_id=caller.ctx.principal_id,
+                source_service="authority",
+                source_event_id=str(
+                    uuid.uuid5(uuid.UUID(g.grant_id), "authority.grant.revoked")
+                ),  # one record per revocation, never twice
+                details={
+                    "grantee_principal_id": g.grantee_principal_id,
+                    "parent_grant_id": g.parent_grant_id,
+                },
+            ),
+        )
     return {"authority_grant_id": g.grant_id, "status": g.status.value}

@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.verification.application import policy_packs
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.service import (
     assurance,
@@ -29,6 +30,26 @@ from zid_platform.modules.verification.domain.countries import (
     availability,
     require,
 )
+from zid_platform.modules.verification.domain.policy_packs import (
+    APPROVER_ROLES,
+    GATE_MODES,
+    PACK_PURPOSE,
+    GateDecision,
+    LegalSource,
+    Outcome,
+    PackKey,
+    PackStatus,
+    PolicyPack,
+    Resolution,
+    Rules,
+    SourceStatus,
+    gate_decision,
+    pack_hash,
+    pack_needed,
+)
+
+# `PackError` is the service pack registry's (service_packs); the policy pack lifecycle's own error keeps its own name.
+from zid_platform.modules.verification.domain.policy_packs import PackError as PolicyPackError
 from zid_platform.modules.verification.domain.service_packs import (
     PackError,
     PackRegistry,
@@ -43,6 +64,9 @@ from zid_platform.modules.verification.infrastructure.country_registry import re
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
 
 __all__ = [
+    "APPROVER_ROLES",
+    "GATE_MODES",
+    "PACK_PURPOSE",
     "SANDBOX_ENVIRONMENTS",
     "Availability",
     "Capability",
@@ -50,16 +74,30 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "GateDecision",
+    "LegalSource",
+    "Outcome",
     "PackError",
+    "PackKey",
     "PackRegistry",
+    "PackStatus",
+    "PolicyPack",
+    "PolicyPackError",
+    "Resolution",
+    "Rules",
     "ServicePack",
+    "SourceStatus",
     "assurance",
     "availability",
     "certification_registry",
     "claim_matches",
     "fresh_reproof",
+    "gate_decision",
+    "pack_hash",
+    "pack_needed",
     "pack_registry",
     "person_assurance_current",
+    "policy_packs",
     "public_view",
     "reconcile_delayed",
     "reconstruct_decision",

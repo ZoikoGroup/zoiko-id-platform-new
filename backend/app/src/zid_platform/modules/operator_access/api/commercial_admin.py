@@ -46,6 +46,7 @@ from zid_platform.modules.commercial.ports import (
     BillableError,
     CommercialError,
     Credit,
+    FinanceError,
     InvoicingError,
     OrderError,
     PlanRequestError,
@@ -58,6 +59,7 @@ from zid_platform.modules.commercial.ports import (
     billable_store,
     enforcement_store,
     entitlement_changed,
+    finance,
     freeze_month,
     invoicing,
     ledger_summary,
@@ -1247,6 +1249,12 @@ async def grant_commercial_role(
         )
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await finance.require_person(
+                conn, str(body.principal_id), body.role
+            )  # a discount approver is a person, never a service account
+        except FinanceError as e:
+            raise ZidError(e.code, e.detail, http_status=422) from e
         await conn.execute(
             text(
                 "INSERT INTO commercial.commercial_role_holder (principal_id, role, granted_by) VALUES (:p, :r, :g) "

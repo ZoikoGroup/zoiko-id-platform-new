@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from conftest import ctx, engine
+from finance_people import PEOPLE_TENANT, appoint_person
 from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_platform.modules.commercial.application import finance_service as finance
@@ -25,6 +26,7 @@ from zid_platform.modules.commercial.application.adapters import NoTaxConfigured
 from zid_platform.modules.commercial.domain import billable as b
 from zid_platform.modules.commercial.domain.finance import FinanceError, Kind
 from zid_platform.modules.commercial.infrastructure import catalogue_store
+from zid_platform.modules.principal.domain.principal import PrincipalStatus, PrincipalType
 
 SEED_BOOK = "00000000-0000-4000-8000-0000000000b1"
 NOW = datetime.now(UTC)
@@ -39,15 +41,8 @@ def uid() -> str:
 
 
 async def hold(eng: Any, person: str, *roles: str, start: datetime | None = None) -> None:
-    async with eng.begin() as c:
-        for role in roles:
-            await finance.appoint(
-                c,
-                principal=person,
-                role=role,
-                appointed_by=uid(),
-                effective_from=start or NOW - timedelta(days=200),
-            )
+    for role in roles:
+        await appoint_person(eng, person, role, start=start or NOW - timedelta(days=200))
 
 
 async def cast(eng: Any, *roles: str) -> dict[str, str]:
@@ -761,5 +756,42 @@ def test_a_change_of_payer_after_approval_voids_the_request(rt_url: str) -> None
                     )
                 assert e.value.code == "PAYER_CHANGED"
                 assert (await finance.get_request(c, req["request_id"]))["state"] == "EXPIRED"
+
+    asyncio.run(run())
+
+
+def test_a_role_that_approves_is_held_by_an_active_person_never_a_service(rt_url: str) -> None:
+    """CL04-C12 and Closure 04 section 08: a service, workload, application or device never signs as the CFO, the Founder or any approver, an unknown
+    or inactive principal holds nothing, and only the two roles that run work (REVOPS, FINANCE_EXECUTOR) may be held by an automation."""
+
+    async def run() -> None:
+        async with engine(rt_url) as eng:
+            for kind, role in (
+                (PrincipalType.SERVICE, "CFO"),
+                (PrincipalType.WORKLOAD, "FOUNDER"),
+                (PrincipalType.APPLICATION, "CONTROLLER"),
+                (PrincipalType.DEVICE, "CCO"),
+            ):
+                with pytest.raises(FinanceError) as e:
+                    await appoint_person(eng, uid(), role, kind=kind)
+                assert e.value.code == "NOT_A_PERSON", (kind, role)
+            with pytest.raises(FinanceError) as e:  # a principal nobody created
+                async with tenant_transaction(eng, ctx(PEOPLE_TENANT)) as c:
+                    await finance.appoint(
+                        c,
+                        principal=uid(),
+                        role="CFO",
+                        appointed_by=uid(),
+                        effective_from=NOW - timedelta(days=1),
+                    )
+            assert e.value.code == "PRINCIPAL_UNKNOWN"
+            with pytest.raises(FinanceError) as e:  # a person whose account is disabled
+                await appoint_person(eng, uid(), "CFO", status=PrincipalStatus.DISABLED)
+            assert e.value.code == "PRINCIPAL_NOT_ACTIVE"
+            # the roles that only run work are open to an automation, and a person is appointed as before
+            for role in ("REVOPS", "FINANCE_EXECUTOR"):
+                made = await appoint_person(eng, uid(), role, kind=PrincipalType.SERVICE)
+                assert made["role"] == role
+            assert (await appoint_person(eng, uid(), "CFO"))["role"] == "CFO"
 
     asyncio.run(run())

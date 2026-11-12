@@ -204,9 +204,13 @@ GATED_ENTRY_POINTS = {
         "activate_configuration": ("CREDENTIAL_ISSUANCE",),
     },
     "modules/verification/api/verification.py": {
-        "start": ("_country_gate",),
-        "reverify": ("_country_gate",),
-        "callback": ("_callback_country_check",),
+        "start": ("_country_gate", "_pack_gate"),
+        "start_bulk": ("_country_gate", "_pack_gate"),
+        "reverify": ("_country_gate", "_pack_gate"),
+        "callback": ("_callback_check",),
+        # the callback asks the country gate and then the policy pack gate (ZID-RCG-003)
+        "_callback_check": ("_callback_country_check", "enforce_packs"),
+        "_pack_gate": ("enforce_packs",),
     },
 }
 

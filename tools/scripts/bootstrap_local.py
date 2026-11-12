@@ -75,6 +75,30 @@ def ensure_dev_keys() -> None:
     print("generated development signing keys into backend/.env (restart the backend to use them)")
 
 
+def ensure_schemas(url: str, script: str) -> None:
+    """Create any schema the repository's database setup script names that this database does not have yet (CREATE SCHEMA IF NOT EXISTS, so it
+    changes nothing that exists). The script runs only when a database is first created, so a database set up before a schema was added
+    (for example `keys`, CR-060) would otherwise fail its migrations with "schema does not exist"."""
+    import re
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    path = Path(__file__).resolve().parents[2] / "backend" / "database" / "schemas" / script
+    statements = re.findall(r"^CREATE SCHEMA IF NOT EXISTS [a-z_]+;", path.read_text(encoding="utf-8"), flags=re.MULTILINE)
+
+    async def run() -> None:
+        engine = create_async_engine(url)
+        try:
+            async with engine.begin() as c:
+                for statement in statements:
+                    await c.exec_driver_sql(statement)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+
+
 async def ensure_admin(
     c: object,
     *,
@@ -408,14 +432,18 @@ async def seed_operator(url: str, args: argparse.Namespace) -> None:
                     ),
                 )
                 print("OAuth client zoiko-operator created (Operator Console, http://localhost:3100)")
-            await register_operator(
-                c,
-                tenant_id=OPERATOR_TENANT_ID,
-                principal_id=principal,
-                jurisdiction="GB",
-                roles=frozenset({OperatorRole.REQUESTER, OperatorRole.APPROVER, OperatorRole.REVIEWER}),
-                now=datetime.now(UTC),
-            )
+            from zid_platform.modules.operator_access.ports import is_active_operator
+
+            # Re-running only issues a new passkey link: an operator already registered is left as it is.
+            if not await is_active_operator(c, OPERATOR_TENANT_ID, principal):
+                await register_operator(
+                    c,
+                    tenant_id=OPERATOR_TENANT_ID,
+                    principal_id=principal,
+                    jurisdiction="GB",
+                    roles=frozenset({OperatorRole.REQUESTER, OperatorRole.APPROVER, OperatorRole.REVIEWER}),
+                    now=datetime.now(UTC),
+                )
             from zid_platform.modules.authentication.infrastructure.authenticator_store import (
                 issue_ticket,
             )
@@ -460,6 +488,7 @@ def main() -> int:
         ensure_dev_keys()
         from zid_platform.migrations import upgrade
 
+        ensure_schemas(url, "001_cell_schemas.sql")
         upgrade(url)
         print("migrations applied to the cell database")
         # the global plane (locator + discovery only, DEC-G3) lives in the same database unless told otherwise

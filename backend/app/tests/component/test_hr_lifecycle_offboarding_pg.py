@@ -157,10 +157,26 @@ def test_hr_lifecycle_freshness_and_offboarding(rt_url: str, owner_url: str) -> 
         )
         assert r.status_code == 200 and r.json()["status"] == "OFFBOARDING", r.text
 
+    async def others_quarantined(c: Any) -> int:
+        return int(
+            (
+                await c.execute(
+                    text(
+                        "SELECT count(*) FROM platform.integration_connector "
+                        "WHERE health = 'QUARANTINED' AND tenant_id <> :t"
+                    ),
+                    {"t": uuid.UUID(o.tenant)},
+                )
+            ).scalar_one()
+        )
+
     async def drain() -> None:
         async with engine(owner_url) as eng:
             async with eng.begin() as c:
+                before = await others_quarantined(c)
                 done = await offboarding_pass(c, datetime.now(UTC))
+                # the worker bypasses row-level security: closing one tenant must leave every other tenant's connectors alone
+                assert await others_quarantined(c) == before
                 mine = next(d for d in done if d["tenant_id"] == o.tenant)
                 assert mine["status"] == "CLOSED" and mine["connectors_quarantined"] == 1
                 assert int(mine["sessions_revoked"]) >= 2  # type: ignore[call-overload]
