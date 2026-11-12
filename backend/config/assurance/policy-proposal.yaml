@@ -1,0 +1,18 @@
+# status: DRAFT PROPOSAL, NOT A POLICY. Nobody has signed this and the platform never treats it as signed.
+# A policy takes effect only when the QA lead, the CTO and Security/GRC (three different people) sign it through /v2/assurance/policies.
+# This file holds ONLY numbers that a controlled document already proposes, with where each comes from. Where no document gives a number there is none
+# here: the owners decide it. Proposing from this file (POST /v2/assurance/policies:from-draft) creates an unsigned proposal for one release unit.
+# approval_ref: null
+# version: 0.1.0
+thresholds:
+  p95_ms: 400                # ZID-INT-002 section 14.2: "p95 <= 400ms for intake excluding provider calls" (a proposed release SLO)
+  availability_percent: 99.95  # ZID-INT-002 section 14.2: "99.95% monthly target excluding contract-defined maintenance" (a proposed release SLO)
+no_number_proposed:
+  # No controlled document gives a figure for these (ZID-UAT-005 section 05: "Do not invent ... metrics"). They stay blank until the owners set them.
+  - p50_ms
+  - p99_ms
+  - error_budget_consumed_percent
+  - rpo_minutes
+  - rto_minutes
+  - max_false_match_rate
+  - max_false_reject_rate

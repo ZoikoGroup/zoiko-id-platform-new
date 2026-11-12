@@ -6,6 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.verification.application import policy_packs
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
+from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
+from zid_platform.modules.verification.application.entitlements import (
+    change_status as change_entitlement_status,
+)
 from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
@@ -50,6 +54,24 @@ from zid_platform.modules.verification.domain.policy_packs import (
 
 # `PackError` is the service pack registry's (service_packs); the policy pack lifecycle's own error keeps its own name.
 from zid_platform.modules.verification.domain.policy_packs import PackError as PolicyPackError
+from zid_platform.modules.verification.domain.product_lines import (
+    LineRegistry,
+    LineState,
+    ProductLine,
+    ProductLineError,
+    require_available,
+)
+from zid_platform.modules.verification.domain.provider_adapter import (
+    Entitlement,
+    EntitlementStatus,
+    Refusal,
+    RouteRequest,
+    WebhookRefusal,
+    entitlement_refusals,
+    route,
+    sign_webhook,
+    verify_webhook,
+)
 from zid_platform.modules.verification.domain.service_packs import (
     PackError,
     PackRegistry,
@@ -62,6 +84,9 @@ from zid_platform.modules.verification.infrastructure.certification_registry imp
 )
 from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
+from zid_platform.modules.verification.infrastructure.product_line_registry import (
+    product_line_registry,
+)
 
 __all__ = [
     "APPROVER_ROLES",
@@ -74,8 +99,13 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "Entitlement",
+    "EntitlementNotFound",
+    "EntitlementStatus",
     "GateDecision",
     "LegalSource",
+    "LineRegistry",
+    "LineState",
     "Outcome",
     "PackError",
     "PackKey",
@@ -83,14 +113,21 @@ __all__ = [
     "PackStatus",
     "PolicyPack",
     "PolicyPackError",
+    "ProductLine",
+    "ProductLineError",
+    "Refusal",
     "Resolution",
+    "RouteRequest",
     "Rules",
     "ServicePack",
     "SourceStatus",
+    "WebhookRefusal",
     "assurance",
     "availability",
     "certification_registry",
+    "change_entitlement_status",
     "claim_matches",
+    "entitlement_refusals",
     "fresh_reproof",
     "gate_decision",
     "pack_hash",
@@ -98,6 +135,7 @@ __all__ = [
     "pack_registry",
     "person_assurance_current",
     "policy_packs",
+    "product_line_registry",
     "public_view",
     "reconcile_delayed",
     "reconstruct_decision",
@@ -105,11 +143,15 @@ __all__ = [
     "refuse_unbacked_claim",
     "registry",
     "require",
+    "require_available",
     "resolve",
     "revoke",
+    "route",
     "seed_representative_proofing",
     "shared_assertions",
+    "sign_webhook",
     "verification_session_view",
+    "verify_webhook",
 ]
 
 

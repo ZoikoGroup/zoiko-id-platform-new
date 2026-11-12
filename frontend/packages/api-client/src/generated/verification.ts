@@ -51,6 +51,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/capture-alternatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Alternatives */
+        get: operations["list_alternatives_v2_capture_alternatives_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Entitlements */
+        get: operations["list_entitlements_v2_providers_entitlements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dry Run Route */
+        post: operations["dry_run_route_v2_providers_route_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/{provider_id}/deletion-receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deletion Receipt */
+        post: operations["deletion_receipt_v2_providers__provider_id__deletion_receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/{provider_id}/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Entitlement */
+        post: operations["record_entitlement_v2_providers__provider_id__entitlements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/{provider_id}/entitlements/{service}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Entitlement */
+        post: operations["revoke_entitlement_v2_providers__provider_id__entitlements__service__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/providers/{provider_id}/entitlements/{service}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend Entitlement */
+        post: operations["suspend_entitlement_v2_providers__provider_id__entitlements__service__suspend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/verification-adapters": {
         parameters: {
             query?: never;
@@ -335,6 +454,31 @@ export interface components {
             /** Subject Principal Ids */
             subject_principal_ids: string[];
         };
+        /** EntitlementIn */
+        EntitlementIn: {
+            /** Assurance */
+            assurance: number;
+            /**
+             * Cost Rank
+             * @default 0
+             */
+            cost_rank: number;
+            /** Countries */
+            countries: string[];
+            /** Processing Regions */
+            processing_regions: string[];
+            /** Purposes */
+            purposes: string[];
+            /** Service Code */
+            service_code: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
         /** EstimateIn */
         EstimateIn: {
             /** Estimated Age */
@@ -346,6 +490,19 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** PrivV2ReceiptIn */
+        PrivV2ReceiptIn: {
+            /** Deleted At */
+            deleted_at: string;
+            /** Job Id */
+            job_id: string;
+            /** Object Count */
+            object_count: number;
+            /** Signature */
+            signature: string;
+            /** Task Id */
+            task_id: string;
         };
         /** ProfileIn */
         ProfileIn: {
@@ -360,6 +517,11 @@ export interface components {
             requirements: {
                 [key: string]: unknown;
             };
+        };
+        /** ReasonIn */
+        ReasonIn: {
+            /** Reason */
+            reason: string;
         };
         /** RelianceIn */
         RelianceIn: {
@@ -389,6 +551,26 @@ export interface components {
             decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
             /** Reason Codes */
             reason_codes: string[];
+        };
+        /** RouteIn */
+        RouteIn: {
+            /** Country */
+            country: string;
+            /** Downgrade Approval Ref */
+            downgrade_approval_ref?: string | null;
+            /** Failing Over From */
+            failing_over_from?: string | null;
+            /** Processing Region */
+            processing_region: string;
+            /** Purpose */
+            purpose: string;
+            /**
+             * Required Assurance
+             * @default 0
+             */
+            required_assurance: number;
+            /** Service Code */
+            service_code: string;
         };
         /** V2AgeIn */
         V2AgeIn: {
@@ -515,6 +697,258 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["V2AgeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_alternatives_v2_capture_alternatives_get: {
+        parameters: {
+            query: {
+                country: string;
+                reason?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_entitlements_v2_providers_entitlements_get: {
+        parameters: {
+            query?: {
+                provider_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dry_run_route_v2_providers_route_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deletion_receipt_v2_providers__provider_id__deletion_receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2ReceiptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_entitlement_v2_providers__provider_id__entitlements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitlementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_entitlement_v2_providers__provider_id__entitlements__service__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+                service: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suspend_entitlement_v2_providers__provider_id__entitlements__service__suspend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+                service: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
             };
         };
         responses: {

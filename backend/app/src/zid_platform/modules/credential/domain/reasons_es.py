@@ -307,4 +307,44 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La respuesta recibida no superó la revisión, así que no se utilizó.",
         "No tiene que hacer nada. Es posible que volvamos a preguntar al emisor.",
     ),
+    "SIGNED_DOCUMENT_CHAINS_TO_A_CONFIGURED_ANCHOR": (
+        "El documento está firmado con un certificado de confianza",
+        "La firma es válida y nada cambió después. Eso muestra que el documento está tal como se firmó. No muestra que quien firmó tuviera derecho a firmar para este fin.",
+        "Una persona decide si el firmante tenía la autoridad necesaria.",
+    ),
+    "NO_LEGAL_ENTITY_IDENTIFIER_GIVEN": (
+        "No se indicó el identificador de la empresa",
+        "No se envió ningún identificador de entidad jurídica, así que no se comprobó nada sobre la empresa.",
+        "Añada el identificador de la empresa si quiere que se compruebe.",
+    ),
+    "LEI_MALFORMED": (
+        "El identificador de la empresa no tiene el formato correcto",
+        "Un identificador de entidad jurídica tiene 20 letras y dígitos. Este no los tiene.",
+        "Revise el identificador y envíelo de nuevo.",
+    ),
+    "LEI_CHECK_DIGITS_INVALID": (
+        "El identificador de la empresa tiene un error de escritura",
+        "Los dos últimos dígitos de un identificador de entidad jurídica prueban que se copió bien. Estos no coinciden.",
+        "Compare el identificador con los registros de la empresa y envíelo de nuevo.",
+    ),
+    "LEI_WELL_FORMED_EXISTENCE_NOT_LOOKED_UP_HERE": (
+        "El identificador de la empresa tiene el formato correcto",
+        "Parece un identificador válido, pero esta comprobación no buscó la empresa, así que no demuestra que exista ni que esté activa.",
+        "Use la comprobación de organizaciones para buscar la empresa en un registro oficial.",
+    ),
+    "RIGHT_TO_RENT_REQUIRES_A_REGISTERED_PROVIDER": (
+        "Se necesita un proveedor registrado para esta comprobación",
+        "En Inglaterra la comprobación digital del derecho a alquilar debe hacerla un proveedor registrado para ello. Este servicio no es ese proveedor.",
+        "Use un proveedor registrado para la comprobación. Sus obligaciones como arrendador no cambian.",
+    ),
+    "NO_RULE_FOR_THIS_JURISDICTION": (
+        "Aquí no hay una norma para este lugar",
+        "Una norma de otro lugar nunca se aplica por defecto, así que no se decidió nada para esta ubicación.",
+        "Una persona revisará qué se aplica donde está la propiedad.",
+    ),
+    "IDENTITY_IS_CHECKED_BY_THE_IDENTITY_AND_CREDENTIAL_ROUTES": (
+        "La identidad se comprueba en otro sitio",
+        "Esta comprobación no mira quién es la persona. La identidad tiene su propia comprobación.",
+        "Ejecute la comprobación de identidad y use su resultado junto con esta.",
+    ),
 }

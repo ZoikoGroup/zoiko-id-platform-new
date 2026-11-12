@@ -1,0 +1,20 @@
+# status: ACTIVE (a consumer contract: the published API must keep providing everything listed here)
+# version: 0.1.0
+# What Zoikorum (the marketplace consuming engagement eligibility) relies on (ZID-INT-002 sections 04 and 13).
+consumer: zoikorum
+requests:
+  - method: post
+    path: /v2/zoikorum/engagement-checks
+    required_request_fields: []
+    idempotency_key_required: true
+  - method: post
+    path: /v2/eligibility/evaluate
+    required_request_fields: []
+    idempotency_key_required: true
+  - method: get
+    path: /v2/eligibility/{eligibility_ref}
+    required_request_fields: []
+events:
+  - eligibility.recomputed       # suspend or update a scoped eligibility
+  - credential.status_changed    # a source revoked a checked claim: stale badge invalidation
+  - provider.entitlement_revoked # a verification path closed

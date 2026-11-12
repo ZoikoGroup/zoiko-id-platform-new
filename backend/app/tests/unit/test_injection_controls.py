@@ -44,6 +44,16 @@ REVIEWED_IDENTIFIERS: dict[str, str] = {
 # Reviewed by site: (file suffix, function, interpolated expression) -> why it is not user input.
 REVIEWED_SITES: dict[tuple[str, str, str], str] = {
     (
+        "assurance/infrastructure/store.py",
+        "_one",
+        "sql",
+    ): "private helper; every caller passes a literal statement with bound parameters",
+    (
+        "assurance/infrastructure/store.py",
+        "_all",
+        "sql",
+    ): "private helper; every caller passes a literal statement with bound parameters",
+    (
         "entrypoints/maintenance.py",
         "run_once",
         "where",
@@ -141,6 +151,14 @@ IMPORT_EXCEPTIONS: dict[tuple[str, str], str] = {
         "app/src/zid_platform/modules/evidence/application/trust.py",
         "lxml",
     ): "operator-supplied trusted lists only: the defusedxml gate forbids DTD, entities and external references first, then a parser with resolve_entities=False and no_network=True",
+    (
+        "app/src/zid_platform/modules/evidence/application/xades.py",
+        "lxml",
+    ): "caller-supplied signed XML: the same defusedxml gate (no DTD, entities or external references) runs before a parser with resolve_entities=False and no_network=True; a test proves a DTD is refused",
+    (
+        "app/src/zid_platform/modules/evidence/application/dsig.py",
+        "lxml",
+    ): "never parses untrusted bytes: it is handed a tree the caller already built behind the defusedxml gate (no DTD, entities or external references) and only canonicalizes and digests it; no XPath, XSLT or network",
 }
 
 

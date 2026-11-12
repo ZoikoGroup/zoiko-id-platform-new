@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+from zid_platform.modules.privacy.application.control import release_gate
 from zid_platform.modules.privacy.application.restore import (
     Reconciliation,
     mark_restored,
@@ -28,6 +29,7 @@ from zid_platform.modules.privacy.application.service import (
     register_store,
 )
 from zid_platform.modules.privacy.domain.model import PrivacyError, ProcessingDecision
+from zid_platform.modules.privacy.domain.outcome_routing import route as route_outcome
 
 __all__ = [
     "PrivacyError",
@@ -45,4 +47,6 @@ __all__ = [
     "register_personal_data",
     "register_rectification_source",
     "register_store",
+    "release_gate",
+    "route_outcome",
 ]

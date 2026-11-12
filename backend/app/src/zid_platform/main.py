@@ -275,6 +275,7 @@ def create_app(
         app.state.organization_state = (
             organization_state  # read by verification (it cannot import onboarding)
         )
+        from .modules.assurance.api.v2 import router as assurance_v2_router
         from .modules.authentication.api.recovery import router as recovery_router
         from .modules.authentication.api.step_up import router as step_up_router
         from .modules.authentication.api.webauthn import router as webauthn_router
@@ -292,7 +293,9 @@ def create_app(
         from .modules.credential.api.credentials import router as credentials_router
         from .modules.credential.api.trust import router as credential_trust_router
         from .modules.credential.api.v2 import router as credential_v2_router
+        from .modules.credential.api.v2_authority import router as credential_v2_authority_router
         from .modules.credential.api.v2_cases import router as credential_v2_cases_router
+        from .modules.credential.api.v2_edc import router as credential_v2_edc_router
         from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
         from .modules.credential.api.v2_presentations import router as credential_v2_pres_router
         from .modules.decision.api.authzen import router as authzen_router
@@ -300,6 +303,8 @@ def create_app(
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
+        from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
+        from .modules.evidence.api.v2_holds import router as privacy_holds_v2_router
         from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
@@ -334,6 +339,10 @@ def create_app(
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
+        from .modules.privacy.api.v2 import router as privacy_v2_router
+        from .modules.privacy.api.v2_policy import router as privacy_policy_v2_router
+        from .modules.privacy.api.v2_rights import router as privacy_rights_v2_router
+        from .modules.privacy.api.v2_sessions import router as privacy_sessions_v2_router
         from .modules.provisioning.api.directory import router as directory_sync_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.resilience.api.platform import router as resilience_router
@@ -354,6 +363,8 @@ def create_app(
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
+        from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
+        from .modules.verification.api.v2_providers import router as v2_providers_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.webhook.api.v2 import router as webhooks_v2_router
         from .modules.webhook.api.webhooks import router as webhooks_router
@@ -382,6 +393,9 @@ def create_app(
             credential_v2_issuer_router,
             credential_v2_pres_router,
             credential_v2_cases_router,
+            credential_v2_edc_router,
+            credential_v2_authority_router,
+            evidence_v2_extract_router,
             principals_router,
             evidence_router,
             evidence_v2_router,
@@ -407,6 +421,14 @@ def create_app(
             org_claims_router,
             v2_organizations_router,
             v2_age_router,
+            v2_alternatives_router,
+            v2_providers_router,
+            privacy_v2_router,
+            privacy_rights_v2_router,
+            privacy_policy_v2_router,
+            privacy_sessions_v2_router,
+            privacy_holds_v2_router,
+            assurance_v2_router,
             org_claim_proofs_router,
             org_claim_screening_router,
             signup_router,
@@ -975,10 +997,15 @@ def register_privacy_stores(registration_tenant: str | None = None) -> None:
         registration.register(registration_tenant)
 
     # An erased subject leaves nothing cached behind (PRIV-10).
+    from .modules.credential.ports import resolve_and_bind
+    from .modules.evidence.ports import register_issuer_binding
     from .modules.privacy.ports import register_erasure_hook
     from .modules.signals.ports import forget_subject
 
     register_erasure_hook("security-state-cache", forget_subject)
+    register_issuer_binding(
+        resolve_and_bind
+    )  # the evidence module asks the credential module's registry without importing it
 
     # A person disputing a fact the company register supplied has it re-read from the register, not edited (PRIV-16).
     from .modules.organization.ports import organization_exists, request_registry_refresh

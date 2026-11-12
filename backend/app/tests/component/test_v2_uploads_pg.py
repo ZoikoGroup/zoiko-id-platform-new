@@ -115,9 +115,9 @@ def test_a_clean_upload_is_kept_stripped_and_readable_only_as_a_manifest(rt_url:
         assert b"Dana Lee" not in bytes(stored["content"]) and b"GPS" not in bytes(
             stored["content"]
         )
-        assert (
-            stored["stored_sha256"] == sha(bytes(stored["content"])) == m["sha256"] != sha(content)
-        )
+        assert stored["stored_sha256"] == m["sha256"] != sha(content)
+        # at rest the bytes are ciphertext, so the digest is of what was cleaned, not of what is stored
+        assert sha(bytes(stored["content"])) != stored["stored_sha256"]
 
         # the manifest is metadata only: no bytes, no claimed text
         got = http.get(f"/v2/evidence/{a['evidence_ref']}/manifest", headers=mine)

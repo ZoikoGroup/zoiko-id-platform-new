@@ -765,6 +765,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/credentials/vc/verify-data-integrity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Data Integrity Credential
+         * @description Verify a JSON-LD credential secured by a Data Integrity proof, offline, against the issuer's pinned Ed25519 key. Same five separate
+         *     facts as `/v1/credentials/vc/verify`; never a primary-source confirmation or a license. A context that is not bundled is refused, nothing
+         *     is fetched, and a credential with no holder presentation is never accepted as a claim on its own.
+         */
+        post: operations["verify_data_integrity_credential_v1_credentials_vc_verify_data_integrity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/eligibility/engagement/evaluate": {
         parameters: {
             query?: never;
@@ -873,6 +895,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/credentials/edc/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Edc */
+        post: operations["verify_edc_v2_credentials_edc_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/credentials/verify": {
         parameters: {
             query?: never;
@@ -975,6 +1014,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/mandates/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Mandate */
+        post: operations["verify_mandate_v2_mandates_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/presentations/requests": {
         parameters: {
             query?: never;
@@ -1003,6 +1059,23 @@ export interface paths {
         get: operations["read_presentation_v2_presentations__presentation_ref__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/rooms/property-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Property Check */
+        post: operations["property_check_v2_rooms_property_checks_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1186,6 +1259,15 @@ export interface components {
             purpose: string;
             /** Subject Principal Id */
             subject_principal_id?: string | null;
+        };
+        /** CredDiVerifyIn */
+        CredDiVerifyIn: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /** Jurisdiction */
+            jurisdiction?: string | null;
         };
         /**
          * CredDisciplinaryCheckIn
@@ -1391,6 +1473,26 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** Jurisdiction */
+        Jurisdiction: {
+            /** Country */
+            country: string;
+            /** Subdivision */
+            subdivision?: string | null;
+        };
+        /** MandateIn */
+        MandateIn: {
+            /** Authority Claim */
+            authority_claim: string;
+            /** Lei */
+            lei?: string | null;
+            /** Mandate Evidence Refs */
+            mandate_evidence_refs?: string[];
+            /** Organization Ref */
+            organization_ref: string;
+            /** Subject Ref */
+            subject_ref: string;
+        };
         /** PresentationIn */
         PresentationIn: {
             /** Claims */
@@ -1412,6 +1514,26 @@ export interface components {
             response_mode: "direct_post" | "direct_post.jwt";
             /** Subject Principal Id */
             subject_principal_id?: string | null;
+        };
+        /** PropertyIn */
+        PropertyIn: {
+            /** Host Ref */
+            host_ref: string;
+            jurisdiction: components["schemas"]["Jurisdiction"];
+            /** Mandate Evidence Refs */
+            mandate_evidence_refs?: string[];
+            /** Permission Evidence Refs */
+            permission_evidence_refs?: string[];
+            /** Property Ref */
+            property_ref: string;
+            /** Purpose */
+            purpose?: string | null;
+            /** Relationship */
+            relationship: string;
+            /** Requested Dimensions */
+            requested_dimensions: string[];
+            /** Title Evidence Refs */
+            title_evidence_refs?: string[];
         };
         /** RegistrationIn */
         RegistrationIn: {
@@ -1530,6 +1652,11 @@ export interface components {
             source_preference: string;
             /** Subject Ref */
             subject_ref?: string | null;
+        };
+        /** V2EdcIn */
+        V2EdcIn: {
+            /** Content Base64 */
+            content_base64: string;
         };
         /** V2EligibilityIn */
         V2EligibilityIn: {
@@ -3210,6 +3337,41 @@ export interface operations {
             };
         };
     };
+    verify_data_integrity_credential_v1_credentials_vc_verify_data_integrity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredDiVerifyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     evaluate_engagement_v1_eligibility_engagement_evaluate_post: {
         parameters: {
             query?: never;
@@ -3381,6 +3543,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_edc_v2_credentials_edc_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["V2EdcIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3614,6 +3811,41 @@ export interface operations {
             };
         };
     };
+    verify_mandate_v2_mandates_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MandateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     request_presentation_v2_presentations_requests_post: {
         parameters: {
             query?: never;
@@ -3661,6 +3893,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    property_check_v2_rooms_property_checks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

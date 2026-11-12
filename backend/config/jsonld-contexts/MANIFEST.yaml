@@ -1,0 +1,14 @@
+# JSON-LD contexts the Data Integrity verifier may use (CR-073). The verifier NEVER fetches a context from the network: a context
+# that is not listed here is refused. Each entry is pinned by the SHA-256 of the exact bytes, so a changed file is refused at load.
+# To add a context: fetch it, read it, add the file and its hash here in the same reviewed change.
+version: 0.1.0
+contexts:
+  - url: "https://www.w3.org/ns/credentials/v2"
+    file: credentials-v2.json
+    sha256: 59955ced6697d61e03f2b2556febe5308ab16842846f5b586d7f1f7adec92734
+  - url: "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+    file: ob-v3p0.json
+    sha256: 3d34f4d4ef1bce691106e63798beb5e7b862ba841423f5ee1e53ab7ddf3bca84
+  - url: "https://purl.imsglobal.org/spec/clr/v2p0/context-2.0.1.json"
+    file: clr-v2p0.json
+    sha256: 880f1902d4158f2f33ce06af41b90719977cd1ea337a9de2e41edb3ff5e543d6
