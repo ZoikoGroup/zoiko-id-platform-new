@@ -339,7 +339,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         """CR-071: erase the bytes of uploaded evidence whose retention has run out (the row stays as the record)."""
         from zid_platform.modules.evidence.ports import purge_expired_uploads
 
-        return {"purged": await purge_expired_uploads(conn, now)}
+        return {"purged": await purge_expired_uploads(conn, now)}  # type: ignore[no-untyped-call]
 
     async def refunds(conn: AsyncConnection, now: datetime) -> object:
         """ZID-UX-COM-009 F03-A: send each approved refund once under its own idempotency key, then ask the processor what it holds for the ones still open."""

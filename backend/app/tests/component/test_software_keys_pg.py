@@ -251,12 +251,32 @@ def test_a_cell_that_also_serves_the_global_plane_keeps_the_discovery_key_in_the
     upgrade(owner_url, role="global")
     f, _ = master
     s = settings(owner_url, f, key_provider_db_ack="accept-software-keys", serve_global_plane=True)
-    assert crypto_runtime.placement_signer(s, dev_purpose="discovery", kid="discovery-served", kms_key_id=None, plane="global") is not None
-    assert crypto_runtime.placement_signer(s, dev_purpose="federation", kid="directory-eu-1-served", kms_key_id=None) is not None
-    assert fetch(owner_url, "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-served'") == [("discovery-served",)]
-    assert fetch(owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-served'") == [(0,)]
-    assert fetch(owner_url, "SELECT key_id FROM keys.key_version WHERE key_id = 'directory-eu-1-served'") == [("directory-eu-1-served",)]
-    assert fetch(owner_url, "SELECT count(*) FROM global_directory.key_version WHERE key_id = 'directory-eu-1-served'") == [(0,)]
+    assert (
+        crypto_runtime.placement_signer(
+            s, dev_purpose="discovery", kid="discovery-served", kms_key_id=None, plane="global"
+        )
+        is not None
+    )
+    assert (
+        crypto_runtime.placement_signer(
+            s, dev_purpose="federation", kid="directory-eu-1-served", kms_key_id=None
+        )
+        is not None
+    )
+    assert fetch(
+        owner_url,
+        "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-served'",
+    ) == [("discovery-served",)]
+    assert fetch(
+        owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-served'"
+    ) == [(0,)]
+    assert fetch(
+        owner_url, "SELECT key_id FROM keys.key_version WHERE key_id = 'directory-eu-1-served'"
+    ) == [("directory-eu-1-served",)]
+    assert fetch(
+        owner_url,
+        "SELECT count(*) FROM global_directory.key_version WHERE key_id = 'directory-eu-1-served'",
+    ) == [(0,)]
 
 
 def test_the_global_plane_keeps_its_keys_in_its_own_table(
@@ -272,7 +292,8 @@ def test_the_global_plane_keeps_its_keys_in_its_own_table(
         "discovery-global", kid="discovery-global"
     )
     assert fetch(
-        owner_url, "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-global'"
+        owner_url,
+        "SELECT key_id FROM global_directory.key_version WHERE key_id = 'discovery-global'",
     ) == [("discovery-global",)]
     assert fetch(
         owner_url, "SELECT count(*) FROM keys.key_version WHERE key_id = 'discovery-global'"

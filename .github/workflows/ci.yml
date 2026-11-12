@@ -84,7 +84,7 @@ jobs:
           uv run --frozen ruff format --check .
 
       - name: Types
-        run: uv run --frozen mypy app/src/zid_platform
+        run: uv run --frozen mypy app/src/zid_platform assistant/src
 
   unit:
     name: unit
@@ -112,6 +112,7 @@ jobs:
         run: >-
           uv run --frozen pytest -v -p no:logging --durations=15
           app/tests/unit app/tests/property app/tests/contract libs
+          assistant/tests/unit assistant/tests/security assistant/tests/golden
           --junitxml=../reports/backend-unit-junit.xml -o junit_family=xunit2
       - name: Keep the test report as evidence
         if: always()
@@ -168,8 +169,19 @@ jobs:
           -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
           -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true apache/kafka:3.8.0
 
+      - name: Start Valkey (assistant session store)
+        run: docker run -d --rm --name valkey -p 6390:6379 valkey/valkey:8.0-alpine
+
       - name: Install (locked)
         run: uv sync --frozen --all-packages
+
+      - name: Tests (public assistant, PostgreSQL schema, least-privilege role, Valkey)
+        timeout-minutes: 10
+        env:
+          ZID_ASSISTANT_TEST_OWNER_URL: postgresql+asyncpg://postgres:ci-only@localhost:5432/zid_assistant_test
+          ZID_ASSISTANT_TEST_RUNTIME_URL: postgresql+asyncpg://zid_assistant:zid_assistant_local_only@localhost:5432/zid_assistant_test
+          ZID_ASSISTANT_TEST_PLATFORM_URL: postgresql+asyncpg://zid_assistant:zid_assistant_local_only@localhost:5432/postgres
+        run: uv run --frozen pytest -v -p no:logging assistant/tests/component
 
       - name: Tests (PostgreSQL component)
         timeout-minutes: 25

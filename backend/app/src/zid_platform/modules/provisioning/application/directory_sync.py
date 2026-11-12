@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from functools import partial
 from types import ModuleType
 from typing import Any
 
@@ -149,14 +148,18 @@ async def run_sync(
         await attempt(create)
     for resource_id, want in todo.update:
         await attempt(
-            partial(scim.replace_user, conn, src, resource_id, want, if_match=None, now=now)
+            lambda rid=resource_id, w=want: scim.replace_user(  # type: ignore[misc]
+                conn, src, rid, w, if_match=None, now=now
+            )
         )
     off = {
         "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
         "Operations": [{"op": "replace", "path": "active", "value": False}],
     }
     for resource_id in todo.deactivate:
-        await attempt(partial(scim.patch_user, conn, src, resource_id, off, if_match=None, now=now))
+        await attempt(
+            lambda rid=resource_id: scim.patch_user(conn, src, rid, off, if_match=None, now=now)  # type: ignore[misc]
+        )
     return counts
 
 

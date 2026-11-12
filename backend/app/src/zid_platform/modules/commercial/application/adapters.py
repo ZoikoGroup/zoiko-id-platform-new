@@ -19,7 +19,6 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
 from typing import Any, Protocol
 
 import httpx
@@ -75,7 +74,8 @@ class RateTableTax:
         import yaml
 
         try:
-            doc = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+            with open(path, encoding="utf-8") as handle:
+                doc = yaml.safe_load(handle.read()) or {}
         except OSError:
             return cls({}, frozenset(), False)
         rates: dict[str, tuple[str, Decimal]] = {}

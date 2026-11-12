@@ -29,3 +29,6 @@ htmlcov/
 
 # Notebooks
 .ipynb_checkpoints/
+
+# local secrets for development (SMTP placeholder, model key, publisher key): never committed
+.local/

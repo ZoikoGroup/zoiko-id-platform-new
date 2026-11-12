@@ -199,11 +199,15 @@ async def verify_credential(
         )
         if stored is not None:
             return dict(stored.body)
-        if body.evidence_refs:  # a check may rest only on evidence that was scanned clean and is still held
-            bad = await unusable_evidence(conn, body.evidence_refs, _now())
+        if (
+            body.evidence_refs
+        ):  # a check may rest only on evidence that was scanned clean and is still held
+            bad = await unusable_evidence(conn, body.evidence_refs, _now())  # type: ignore[no-untyped-call]
             if bad:
                 raise ZidError(
-                    "EVIDENCE_NOT_USABLE", "Evidence is unknown, not scanned clean, deleted or expired.", http_status=422
+                    "EVIDENCE_NOT_USABLE",
+                    "Evidence is unknown, not scanned clean, deleted or expired.",
+                    http_status=422,
                 )
         result = await v1.perform_check(claim_type, v1_body, request, caller, conn)
         rid, cid = _ids()
@@ -393,7 +397,7 @@ async def engagement_check(
                     "dimensions": dict(r.dimensions),  # separate statuses, never one badge
                 }
             )
-        overall = min((s["engagement_eligibility"] for s in services), key=lambda v: _RANK[v])
+        overall = min((s["engagement_eligibility"] for s in services), key=lambda v: _RANK[str(v)])
         rid, cid = _ids()
         out: dict[str, Any] = {
             "request_id": rid,

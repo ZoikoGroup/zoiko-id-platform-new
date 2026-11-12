@@ -465,7 +465,7 @@ def test_the_v2_document_validation_reports_each_check_on_its_own_and_stores_not
         "jurisdiction": {"country": "DE"},
         "purpose": "business_authority",
     }
-    with world(rt_url) as (http, mine, tenant, _admin):
+    with world(rt_url) as (http, mine, _tenant, _admin):
         r = http.post("/v2/documents/validate", headers=mine, json=body)
         assert r.status_code == 200, r.text
         out = r.json()

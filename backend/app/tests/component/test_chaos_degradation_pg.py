@@ -45,7 +45,9 @@ def test_the_decision_api_refuses_while_the_database_is_gone_and_recovers(rt_url
         assert http.post(EVAL, headers=headers, json=evaluation()).status_code == 200
 
         healthy = app.state.engine
-        app.state.engine = create_async_engine(DEAD)  # the database drops away under the running cell
+        app.state.engine = create_async_engine(
+            DEAD
+        )  # the database drops away under the running cell
         try:
             for _ in range(3):  # repeated, so a half-broken pool cannot let one through
                 down = http.post(EVAL, headers=headers, json=evaluation())
@@ -60,7 +62,9 @@ def test_the_decision_api_refuses_while_the_database_is_gone_and_recovers(rt_url
         assert back.status_code == 200, back.text  # recovers by itself, no restart
 
 
-def test_the_tool_gateway_signs_no_grant_when_the_decision_point_fails(rt_url: str, owner_url: str, monkeypatch: Any) -> None:
+def test_the_tool_gateway_signs_no_grant_when_the_decision_point_fails(
+    rt_url: str, owner_url: str, monkeypatch: Any
+) -> None:
     w = World(rt_url, owner_url).start()
     body = {
         "tool_id": "docs.read", "resource_type": "agent", "resource_id": "any",
@@ -79,4 +83,6 @@ def test_the_tool_gateway_signs_no_grant_when_the_decision_point_fails(rt_url: s
         assert "grant" not in failed.text  # a failed decision is never an allow
 
     granted = w.owner("SELECT count(*) AS n FROM agent.tool_grant WHERE tenant_id = :t")[0].n
-    assert granted == 1  # only the first call, made while the decision point was up, ever got a grant
+    assert (
+        granted == 1
+    )  # only the first call, made while the decision point was up, ever got a grant

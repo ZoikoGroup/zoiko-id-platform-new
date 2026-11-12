@@ -179,7 +179,7 @@ async def evaluate_access(
             decision_allow=d.outcome.value == "ALLOW",
             obligations=[str(o["type"]) for o in d.obligations],
             present_context=present,
-            incumbent=q.incumbent_decision,  # type: ignore[arg-type]
+            incumbent=q.incumbent_decision,
             latency_ms=(time.perf_counter() - started) * 1000,
         )
         # One final PDP result is one billable decision: allow or deny, never a retry (CR-025). Metering is not on the

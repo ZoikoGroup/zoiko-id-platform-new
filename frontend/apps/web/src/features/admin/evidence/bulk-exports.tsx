@@ -36,7 +36,8 @@ function NewExportDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
       invalidate: [BULK_KEY],
       success: "Bulk export created",
       onSuccess: (pkg) => {
-        save(`evidence-bulk-${String((pkg as { export_id?: string }).export_id ?? "export")}.json`, pkg);
+        // eslint-disable-next-line react-hooks/purity -- runs when the export succeeds (an event), not while rendering
+        save(`evidence-bulk-${String((pkg as { export_id?: string }).export_id ?? Date.now())}.json`, pkg);
         close(true);
       },
     },

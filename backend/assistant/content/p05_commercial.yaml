@@ -1,0 +1,4 @@
+# P05 commercial and market facts (ZI-CHAT-CSR-008 section 07): plans, prices, limits, trials, SLAs, regions and partner terms.
+# NONE ARE APPROVED. The list is intentionally empty: until Commercial + Finance sign an exact fact for an exact market/audience/version,
+# the assistant must not state any price, plan, SLA, free tier or discount (CL-07 answers abstain and route to the sales contact).
+facts: []

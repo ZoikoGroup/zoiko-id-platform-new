@@ -344,8 +344,8 @@ def test_a_claim_and_a_verification_each_count_themselves(rt_url: str, monkeypat
 
 
 def test_shadow_mode_counts_and_logs_without_opening_an_item_and_off_does_nothing(
-    world: World,
-) -> None:  # noqa: F811
+    world: World,  # noqa: F811
+) -> None:
     """The default mode: the owners read what the proposed thresholds WOULD have flagged on real traffic before anyone is asked to review it."""
     w = world
     assert w.http.app.state.screening_velocity_mode == "shadow"  # the safe default

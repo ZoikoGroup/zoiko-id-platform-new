@@ -201,7 +201,7 @@ def test_a_rejected_answer_leaves_the_claim_unverifiable(rt_url: str) -> None:
 
 
 def test_an_outreach_without_an_attached_claim_concludes_to_nothing(rt_url: str) -> None:
-    tenant, ops, subject = uid(), uid(), uid()
+    tenant, ops, _subject = uid(), uid(), uid()
 
     async def go() -> None:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:

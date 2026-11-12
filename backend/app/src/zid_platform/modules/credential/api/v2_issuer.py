@@ -68,9 +68,7 @@ async def open_issuer_check(
         )
         if stored is not None:
             return {**dict(stored.body), **_ids(), "nonce_shown_once": True}
-        await t1._gate(
-            conn, caller, "credential.outreach.manage", f"outreach:{body.issuer_ref}"
-        )
+        await t1._gate(conn, caller, "credential.outreach.manage", f"outreach:{body.issuer_ref}")
         try:
             req, nonce = await svc.open_outreach(
                 conn,

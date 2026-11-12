@@ -6,7 +6,7 @@ This folder holds no test code of its own: the suites run with the backend (`bac
 
 - `backend/app/tests/component/test_chaos_degradation_pg.py`: database taken away from a running cell: the decision API answers a retryable 503 (never 200, never an allow) and recovers; the tool gateway signs no grant when the decision point fails
 - `backend/libs/zid-app/tests/test_dependency_outage.py`: a lost dependency is a retryable 503, and a bug is not called an outage
-- `backend/libs/zid-app/tests/test_resilience.py`: a slow dependency cannot take every worker; a failing one is cut off, probed and closed again
+- `backend/libs/zid-app/tests/test_app_resilience.py`: a slow dependency cannot take every worker; a failing one is cut off, probed and closed again
 - `backend/app/tests/component/test_broker_degradation_pg.py`: event broker degraded: events are kept and delivered once it is back
 - `backend/app/tests/component/test_spicedb_projection_pg.py`: authorization store outage fails closed for R2 and R3
 - `backend/app/tests/component/test_recovery_fencing_pg.py`: failover cutover is atomic with a single writer, under fault injection
