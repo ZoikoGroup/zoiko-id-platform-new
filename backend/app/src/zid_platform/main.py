@@ -116,6 +116,12 @@ def create_app(
             "outside local, test and dev use shadow or enforce"
         )
     app.state.regulatory_packs = settings.regulatory_packs
+    if settings.market_releases == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_MARKET_RELEASES=off would let an enabled country run a regulated capability with no market release; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    app.state.market_releases = settings.market_releases
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
     app.state.build_images = tuple(i.strip() for i in settings.build_images if i.strip())
@@ -331,6 +337,9 @@ def create_app(
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.operator_access.api.regulatory import router as regulatory_router
+        from .modules.operator_access.api.regulatory_releases import (
+            router as regulatory_releases_router,
+        )
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
@@ -434,6 +443,7 @@ def create_app(
             commercial_finance_router,
             commercial_payment_ops_router,
             regulatory_router,
+            regulatory_releases_router,
             communication_router,
         ):
             app.include_router(router)

@@ -148,7 +148,10 @@ async def set_status(
         raise ReleaseError("RELEASE_STATUS_UNKNOWN", status.value)
     done = await conn.execute(
         text(
-            f"UPDATE verify.market_release SET status = :s, {_STAMP[status.value]} = :now "
+            "UPDATE verify.market_release SET status = :s, "
+            "released_at = CASE WHEN :s = 'RELEASEABLE' THEN :now ELSE released_at END, "
+            "launched_at = CASE WHEN :s = 'LAUNCHED' THEN :now ELSE launched_at END, "
+            "withdrawn_at = CASE WHEN :s = 'WITHDRAWN' THEN :now ELSE withdrawn_at END "
             "WHERE release_id = :id AND version = :v AND status = ANY(CAST(:before AS text[]))"
         ),
         {

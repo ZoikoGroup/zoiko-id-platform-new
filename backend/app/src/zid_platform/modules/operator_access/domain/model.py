@@ -152,6 +152,67 @@ def _cap(
 
 # The fixed capability catalog. There is deliberately no capability to impersonate a customer user,
 # to create tenant roles or grants, or to mutate the database outside the service APIs (DEC-F4 §5).
+RELEASE_ATTESTOR_ROLES = ("legal", "regulatory_ops", "security", "privacy", "qa", "vendor_mgmt")
+RELEASE_APPROVER_ROLES = ("legal", "security_grc", "qa", "product_owner")
+
+
+def _release_capabilities() -> tuple[Capability, ...]:
+    """Market release authority (ZID-RCG-003 RCG-G10; CR-072) and official-register attestations (RCG-G02; CR-073): one capability per
+    evidence-gate owner and per approver role, so the role someone signs in IS the capability they hold."""
+
+    def cap(name: str, description: str, *, two_person: bool, minutes: int) -> Capability:
+        return _cap(
+            name,
+            description,
+            risk=3,
+            evidence=3,
+            scope=Scope.PLATFORM,
+            customer_data=False,
+            two_person=two_person,
+            minutes=minutes,
+            break_glass=False,
+        )
+
+    return (
+        cap(
+            "regulatory.release.author",
+            "Open, freeze and revise a market release; cannot sign any gate or approval of it (CR-072)",
+            two_person=False,
+            minutes=240,
+        ),
+        *(
+            cap(
+                f"regulatory.release.attest_{role}",
+                f"Record the {role} evidence gate result of a market release (CR-072)",
+                two_person=False,
+                minutes=240,
+            )
+            for role in RELEASE_ATTESTOR_ROLES
+        ),
+        *(
+            cap(
+                f"regulatory.release.approve_{role}",
+                f"Sign a market release's exact hash as its {role} approver (CR-072)",
+                two_person=True,
+                minutes=120,
+            )
+            for role in RELEASE_APPROVER_ROLES
+        ),
+        cap(
+            "regulatory.release.launch",
+            "Launch an approved market release, or withdraw a live one (CR-072)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "regulatory.attestation.record",
+            "Record what an official register said about a provider's certification, with its proof (CR-073)",
+            two_person=False,
+            minutes=240,
+        ),
+    )
+
+
 CAPABILITIES: dict[str, Capability] = {
     c.name: c
     for c in (
@@ -398,6 +459,7 @@ CAPABILITIES: dict[str, Capability] = {
             minutes=60,
             break_glass=False,
         ),
+        *_release_capabilities(),
         _cap(
             "prod.db.breakglass",
             "Captured, JIT-only database session (breakglass_dba)",
@@ -461,6 +523,17 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
             }
         ),
         "Whoever drafts a policy pack signs none of it, and each approver holds one role only (ZID-RCG-003 T36)",
+    ),
+    ConflictRule(
+        "regulatory-release-maker-vs-checker",
+        frozenset(
+            {
+                "regulatory.release.author",
+                *(f"regulatory.release.attest_{r}" for r in RELEASE_ATTESTOR_ROLES),
+                *(f"regulatory.release.approve_{r}" for r in RELEASE_APPROVER_ROLES),
+            }
+        ),
+        "Whoever prepares a market release signs no gate or approval of it, and holds one signing role only (ZID-RCG-003 RG-08)",
     ),
 )
 

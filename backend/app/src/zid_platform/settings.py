@@ -288,6 +288,10 @@ class Settings(ServiceSettings):
     # pack for the market? shadow (default) = the check runs and a would-be refusal is only logged; enforce = it is refused before any provider is
     # called; off = never, which a deployed environment refuses at start-up. The country registry stays the baseline either way.
     regulatory_packs: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_MARKET_RELEASES (ZID-RCG-003 RCG-G10, CR-072): must an ENABLED market also have a LAUNCHED market release (seven evidence gates, four
+    # approvals) that still covers the packs in force and whose supplier certifications are certified on fresh evidence? Same meaning as above:
+    # shadow (default) only logs, enforce refuses with MARKET_NOT_RELEASED, off never checks and a deployed environment refuses it at start-up.
+    market_releases: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
     # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
     # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.

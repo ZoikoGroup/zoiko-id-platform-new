@@ -20,6 +20,7 @@ from zid_errors import ZidError
 from zid_platform.api_auth import request_engine
 from zid_platform.modules.tenant.ports import declared_registration
 from zid_platform.modules.verification.ports import (
+    GATE_MODES,
     PACK_PURPOSE,
     SANDBOX_ENVIRONMENTS,
     Availability,
@@ -28,11 +29,17 @@ from zid_platform.modules.verification.ports import (
     PolicyPackError,
     availability,
     gate_decision,
+    market_releases,
     pack_needed,
     policy_packs,
     registry,
+    release_model,
     require,
 )
+
+MarketDecision = release_model.MarketDecision
+MarketKey = release_model.MarketKey
+ReleaseError = release_model.ReleaseError
 
 _LOG = logging.getLogger("zid.regulatory")
 
@@ -68,22 +75,48 @@ async def check_packs(
     country: str,
     capability: Capability,
     now: datetime,
+    release_mode: str = "off",
 ) -> None:
     """ZID-RCG-003 T01/T02: besides being ENABLED in the country registry, a regulated capability needs an approved policy pack for the
     market, or it is refused before any provider is called (enforce) or only reported (shadow). The registry stays the baseline: a capability
     that is not ENABLED there is decided by `enforce`, and no pack is read for it. The product is the capability, the purpose the standard one.
-    A pack that no longer matches its stored hash counts as no pack. Nothing here ever turns into a pass."""
+    A pack that no longer matches its stored hash counts as no pack. Nothing here ever turns into a pass.
+
+    `release_mode` adds RCG-G10: the market also needs a LAUNCHED market release that still covers the packs in force and whose pinned supplier
+    certifications are certified on fresh evidence (`market_releases.market_open`). It is read in the same transaction and decided after the
+    pack, with the same off, shadow and enforce meaning. A release that cannot be read counts as not released."""
+    if release_mode not in GATE_MODES:
+        raise ValueError(f"unknown market release mode {release_mode!r}")
     state = availability(reg, country, capability, now=now, environment=environment)
-    if not pack_needed(mode, state):
+    need_pack = pack_needed(mode, state)
+    need_release = release_mode != "off" and state is Availability.ENABLED
+    if not need_pack and not need_release:
         return
     resolution = None
     failed = ""
+    market_state: MarketDecision | None = None
+    release_failed = ""
     try:
         async with tenant_transaction(engine, ctx) as conn:
-            resolution = await policy_packs.governing_pack(
-                conn, country=country, product=capability.value, purpose=PACK_PURPOSE, at=now
-            )
-    except PolicyPackError as e:
+            if need_pack:
+                try:
+                    resolution = await policy_packs.governing_pack(
+                        conn,
+                        country=country,
+                        product=capability.value,
+                        purpose=PACK_PURPOSE,
+                        at=now,
+                    )
+                except PolicyPackError as e:
+                    failed = str(e)
+            if need_release:
+                try:
+                    market_state = await market_releases.market_open(
+                        conn, MarketKey(country, capability.value, PACK_PURPOSE), now=now
+                    )
+                except (ReleaseError, PolicyPackError) as e:
+                    release_failed = str(e)
+    except PolicyPackError as e:  # the transaction itself failed on a pack
         failed = str(e)
     decision = gate_decision(mode, state, resolution)
     if decision.would_refuse:
@@ -105,6 +138,34 @@ async def check_packs(
             ),
             http_status=422,
         )
+    if need_release:
+        _release_decision(release_mode, capability, country, market_state, release_failed)
+
+
+def _release_decision(
+    mode: str,
+    capability: Capability,
+    country: str,
+    state: MarketDecision | None,
+    failed: str,
+) -> None:
+    """Refuse (enforce) or report (shadow) a market that has no live release. Open is the only way through."""
+    if state is not None and state.open:
+        return
+    reason = failed or (state.reason if state else "no_release")
+    _LOG.warning(
+        "market release check %s: %s in %s (%s)",
+        "refused" if mode == "enforce" else "would refuse (shadow)",
+        capability.value,
+        country,
+        reason,
+    )
+    if mode == "enforce":
+        raise ZidError(
+            "MARKET_NOT_RELEASED",
+            f"{capability.value} in {country} has not been released for use.",
+            http_status=422,
+        )
 
 
 async def enforce_packs(
@@ -113,7 +174,8 @@ async def enforce_packs(
     """The pack check for a request: the platform switch (`ZID_REGULATORY_PACKS`: off, shadow or enforce), the country registry and the
     packs. Call it after `enforce`, before any provider is asked."""
     mode = str(getattr(request.app.state, "regulatory_packs", "shadow"))
-    if mode == "off":
+    release_mode = str(getattr(request.app.state, "market_releases", "shadow"))
+    if mode == "off" and release_mode == "off":
         return
     await check_packs(
         request_engine(request),
@@ -124,6 +186,7 @@ async def enforce_packs(
         country=country,
         capability=capability,
         now=datetime.now(UTC),
+        release_mode=release_mode,
     )
 
 

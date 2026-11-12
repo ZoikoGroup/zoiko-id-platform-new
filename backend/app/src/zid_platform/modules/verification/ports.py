@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.verification.application import policy_packs
+from zid_platform.modules.verification.application import market_releases, policy_packs
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.service import (
     assurance,
@@ -16,6 +16,8 @@ from zid_platform.modules.verification.application.service import (
     revoke,
     shared_assertions,
 )
+from zid_platform.modules.verification.domain import attestation as attestation_model
+from zid_platform.modules.verification.domain import market_release as release_model
 from zid_platform.modules.verification.domain.certification import (
     CertClaim,
     CertificationError,
@@ -57,6 +59,7 @@ from zid_platform.modules.verification.domain.service_packs import (
     public_view,
     resolve,
 )
+from zid_platform.modules.verification.infrastructure import attestation_store as attestations
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
@@ -88,11 +91,14 @@ __all__ = [
     "ServicePack",
     "SourceStatus",
     "assurance",
+    "attestation_model",
+    "attestations",
     "availability",
     "certification_registry",
     "claim_matches",
     "fresh_reproof",
     "gate_decision",
+    "market_releases",
     "pack_hash",
     "pack_needed",
     "pack_registry",
@@ -104,6 +110,7 @@ __all__ = [
     "record_presentation",
     "refuse_unbacked_claim",
     "registry",
+    "release_model",
     "require",
     "resolve",
     "revoke",
