@@ -1,0 +1,143 @@
+"""The counsel worksheet: every field in the backend configuration that only counsel may fill, with the question to answer and what it unblocks.
+
+    python tools/scripts/counsel_worksheet.py                 # print the worksheet
+    python tools/scripts/counsel_worksheet.py --write [PATH]  # write docs/signoff/counsel-worksheet.md
+    python tools/scripts/counsel_worksheet.py --check         # exit 1 if the written file is out of date or a field has no question
+
+A field reading `COUNSEL` is a legal statement for a market that engineers must not fill in. This tool reads the configuration and lists each such field. It
+decides nothing and fills nothing in: a field leaves the worksheet only when counsel's value replaces the word COUNSEL in the configuration. A new COUNSEL
+field with no question here fails `--check` (and the unit test), so a blank cannot be added without saying what it asks.
+"""
+
+from __future__ import annotations
+
+import argparse
+import pathlib
+import sys
+from collections.abc import Iterator
+from typing import Any
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+CONFIG = ROOT / "backend" / "config"
+DEFAULT_OUT = ROOT / "docs" / "signoff" / "counsel-worksheet.md"
+MARK = "COUNSEL"
+
+# leaf key (or, for the breach clocks, the parent key) -> the question counsel answers
+QUESTIONS: dict[str, str] = {
+    "rights_response_deadlines": "In how many days must each type of rights request be answered in this jurisdiction (by request type), and under which provision?",
+    "retention_overrides": "Which retention periods does this jurisdiction require instead of the platform's defaults, for which object types, and why?",
+    "backup_erasure_window": "How long may erased personal data remain in backups before it must be gone?",
+    "required_safeguards": "Which safeguards must a significant, solely automated decision offer in this jurisdiction (name each one)?",
+    "approval_ref": "Your reference for approving this rule set (who approved it, and where the approval is recorded).",
+    "effective_from": "The date this rule set takes effect (and any date it stops).",
+    "hours_to_notify_authority": "Within how many hours must the regulator in this jurisdiction be told of a personal-data breach, from which moment, and for which breaches?",
+    "written_notice_required": "Is a written notice required before sensitive (biometric) collection in this jurisdiction?",
+    "release_required": "Is a separate written release or consent required before sensitive (biometric) collection in this jurisdiction?",
+    "retention_schedule_required": "Must a published retention schedule exist before sensitive (biometric) collection in this jurisdiction?",
+    "necessity_assessment_required": "Must a necessity or proportionality assessment be recorded before sensitive (biometric) collection in this jurisdiction?",
+}
+UNBLOCKS: dict[str, str] = {
+    "jurisdiction-packs": "Rights-request deadlines and retention for the pack; the pack becomes deployable (PRI-004 PR-01, PR-09, PR-11)",
+    "adm-rules.yaml": "Significant automated decisions under the pack stop being blocked (AT-032, AT-033, AT-036)",
+    "collection-rules.yaml": "Sensitive collection under the pack can be permitted (AT-034, AT-035, AT-037)",
+    "breach-clocks.yaml": "Breach cases show a regulator deadline instead of NOT_SET_BY_COUNSEL (AT-049)",
+}
+
+
+def _walk(node: Any, path: str = "") -> Iterator[str]:
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk(v, f"{path}.{k}" if path else str(k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk(v, f"{path}[{i}]")
+    elif node == MARK:
+        yield path
+
+
+def _load(path: pathlib.Path) -> Any:
+    try:
+        import yaml
+    except ImportError:  # the backend environment has it
+        sys.path.insert(0, str(ROOT / "backend" / ".venv" / "Lib" / "site-packages"))
+        import yaml
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def key_of(path: str) -> str:
+    parts = path.split(".")
+    return (
+        parts[-2]
+        if len(parts) >= 2 and parts[-2] == "hours_to_notify_authority"
+        else parts[-1]
+    )
+
+
+def fields(config: pathlib.Path = CONFIG) -> list[dict[str, str]]:
+    rows = []
+    for f in sorted(config.rglob("*.yaml")):
+        for p in _walk(_load(f)):
+            rel = f.relative_to(config).as_posix()
+            rows.append({"file": rel, "path": p, "key": key_of(p)})
+    return rows
+
+
+def unmapped(rows: list[dict[str, str]]) -> list[str]:
+    return sorted(
+        {f"{r['file']}: {r['path']}" for r in rows if r["key"] not in QUESTIONS}
+    )
+
+
+def _unblocks(file: str) -> str:
+    for needle, text in UNBLOCKS.items():
+        if needle in file:
+            return text
+    return "A configuration field counsel owns"
+
+
+def render(rows: list[dict[str, str]]) -> str:
+    out = [
+        "# Counsel worksheet",
+        "",
+        "Generated by `tools/scripts/counsel_worksheet.py` from `backend/config`. **Do not edit by hand and do not fill any field from here:** counsel's value replaces the word",
+        "`COUNSEL` in the configuration file, with an approval reference and an effective date, and the row then disappears the next time this file is generated.",
+        "Until then the platform blocks, denies or routes to a person for each row. Nothing in this file is a legal statement.",
+        "",
+        f"Open fields: **{len(rows)}** across **{len({r['file'] for r in rows})}** files.",
+        "",
+        "| File | Field | Question for counsel | What it unblocks |",
+        "|---|---|---|---|",
+    ]
+    for r in rows:
+        q = QUESTIONS.get(r["key"], "(no question written: add one to QUESTIONS)")
+        out.append(f"| `{r['file']}` | `{r['path']}` | {q} | {_unblocks(r['file'])} |")
+    return "\n".join(out) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--write", nargs="?", const=str(DEFAULT_OUT))
+    ap.add_argument("--check", action="store_true")
+    args = ap.parse_args(argv)
+    rows = fields()
+    text = render(rows)
+    if args.check:
+        missing = unmapped(rows)
+        stale = (
+            not DEFAULT_OUT.exists() or DEFAULT_OUT.read_text(encoding="utf-8") != text
+        )
+        if missing:
+            print("COUNSEL fields with no question:", *missing, sep="\n  ")
+        if stale:
+            print(f"{DEFAULT_OUT} is out of date: run with --write")
+        return 1 if (missing or stale) else 0
+    if args.write:
+        pathlib.Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+        print(f"wrote {args.write} ({len(rows)} open fields)")
+        return 0
+    print(text)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

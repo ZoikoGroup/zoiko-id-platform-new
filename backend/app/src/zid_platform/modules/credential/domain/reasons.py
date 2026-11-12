@@ -339,6 +339,46 @@ EN: dict[str, tuple[str, str, str]] = {
         "The reply we received did not pass review, so it was not used.",
         "No action is needed. We may ask the issuer again.",
     ),
+    "SIGNED_DOCUMENT_CHAINS_TO_A_CONFIGURED_ANCHOR": (
+        "The document is signed by a certificate we trust",
+        "The signature is sound and nothing was changed after it. That shows the document is as it was signed. It does not show that the person who signed was entitled to sign for this purpose.",
+        "A person decides whether the signatory had the authority needed.",
+    ),
+    "NO_LEGAL_ENTITY_IDENTIFIER_GIVEN": (
+        "No company identifier was given",
+        "No legal entity identifier was supplied, so nothing was checked about the company itself.",
+        "Add the company's identifier if you want it checked.",
+    ),
+    "LEI_MALFORMED": (
+        "The company identifier is not in the right form",
+        "A legal entity identifier has 20 letters and digits. This one does not.",
+        "Check the identifier and send it again.",
+    ),
+    "LEI_CHECK_DIGITS_INVALID": (
+        "The company identifier has a typing mistake",
+        "The last two digits of a legal entity identifier prove it was copied correctly. These do not match.",
+        "Check the identifier against the company's own records and send it again.",
+    ),
+    "LEI_WELL_FORMED_EXISTENCE_NOT_LOOKED_UP_HERE": (
+        "The company identifier is in the right form",
+        "It looks like a valid identifier, but this check did not look the company up, so it does not show the company exists or is active.",
+        "Use the organization check to look the company up on an official register.",
+    ),
+    "RIGHT_TO_RENT_REQUIRES_A_REGISTERED_PROVIDER": (
+        "A registered provider is needed for this check",
+        "In England the digital Right to Rent check must be done by a provider that is registered for it. This service is not that provider.",
+        "Use a registered provider for the check. Your own duties as a landlord are unchanged.",
+    ),
+    "NO_RULE_FOR_THIS_JURISDICTION": (
+        "There is no rule for this place here",
+        "A rule from another place is never applied by default, so nothing was decided for this location.",
+        "A person will look at what applies where the property is.",
+    ),
+    "IDENTITY_IS_CHECKED_BY_THE_IDENTITY_AND_CREDENTIAL_ROUTES": (
+        "Identity is checked somewhere else",
+        "This check does not look at who the person is. Identity has its own check.",
+        "Run the identity check, then use its result alongside this one.",
+    ),
 }
 
 LOCALES: dict[str, dict[str, tuple[str, str, str]]] = {

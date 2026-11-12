@@ -869,6 +869,16 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 GID-054 (issuer outreach, dual review); CR-069"
+  cred.property_check_state:
+    role: cell
+    module: credential
+    tenant_scoped: true
+    source: "ZID-INT-002 section 13 (last property-check answer per property and host, outcomes only, so a change can be announced); CR-071"
+  verify.provider_entitlement:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-INT-002 section 08 (runtime provider entitlement scope and status, never a contract or credential); CR-071"
   cred.eligibility_decision:
     role: cell
     module: credential
@@ -1099,6 +1109,26 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRI-004 §09/§22 subprocessor change notices (CR-072)"
+  privacy.model_version:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (versions and state); CR-072"
+  privacy.model_evaluation:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (append-only evaluations); CR-072"
+  privacy.model_observation:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 PR-16 / §14 model inventory, independent evaluation and drift (append-only drift observations); CR-072"
+  privacy.verification_session:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "PRI-004 §07 privacy-safe verification session (why capture may or may not happen; never an image, template or score); CR-072"
   privacy.dpia_package:
     role: cell
     module: privacy

@@ -247,6 +247,34 @@
         "title": "HoldBody",
         "type": "object"
       },
+      "IssuerClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "IssuerClaim",
+        "type": "object"
+      },
       "PackageBody": {
         "additionalProperties": false,
         "properties": {
@@ -310,7 +338,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 1,
             "title": "Checks",
             "type": "array"
@@ -357,6 +385,16 @@
               }
             ],
             "title": "Expected Sha256"
+          },
+          "issuer_claim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IssuerClaim"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "jurisdiction": {
             "anyOf": [

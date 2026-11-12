@@ -11,6 +11,7 @@
     POST /v2/decisions/{id}/appeals | /v2/decisions/{id}/human-reviews | POST /v2/privacy/reviews/{id}/decisions | GET /v2/privacy/reviews/{id}
     POST /v2/privacy/breaches | GET .../{id} | POST .../{id}/notifications | POST .../{id}/close
     GET  /v2/privacy/kpis
+    POST /v2/privacy/models | POST /v2/privacy/model-evaluations | GET .../models/{ref}/versions/{v} | POST .../versions/{v}:promote | :rollback | POST .../models/{ref}:observe
 
 Nothing here returns a face, a template, a document or a birth date. Every decision record is append-only and every denial names its reason.
 """
@@ -30,6 +31,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.privacy.application import control as ctl
+from zid_platform.modules.privacy.application import model_governance as mg
 from zid_platform.modules.privacy.domain import control as rules
 from zid_platform.modules.privacy.domain.model import PrivacyError
 from zid_platform.protected import protected_action
@@ -57,6 +59,13 @@ _STATUS = {
     "SIGNER_IS_AUTHOR": 403,
     "RECEIPT_SIGNATURE_INVALID": 403,
     "PROVIDER_HAS_NO_RECEIPT_KEY": 409,
+    "PROMOTION_BLOCKED": 409,
+    "PRIVACY_FALSE_CONSENT": 409,
+    "CONSENT_IS_THE_SUBJECTS_OWN": 403,
+    "PRIVACY_VERIFICATION_REQUIRED": 409,
+    "ROLLBACK_BLOCKED": 409,
+    "MODEL_VERSION_EXISTS": 409,
+    "MODEL_STATE_NOT_PROMOTABLE": 409,
 }
 
 
@@ -118,6 +127,9 @@ class PrivV2PurposeIn(BaseModel):
     notice_version: str | None = Field(default=None, max_length=100)
     provider_service_ref: str | None = Field(default=None, max_length=200)
     jurisdiction_pack_id: str | None = Field(default=None, max_length=64)
+    release_ref: str | None = Field(default=None, max_length=200)
+    retention_policy_ref: str | None = Field(default=None, max_length=200)
+    necessity_ref: str | None = Field(default=None, max_length=200)
 
 
 async def _purpose(body: PrivV2PurposeIn, request: Request, caller: CallerDep) -> dict[str, Any]:
@@ -126,6 +138,8 @@ async def _purpose(body: PrivV2PurposeIn, request: Request, caller: CallerDep) -
             conn, _tenant(caller), caller.ctx.principal_id, activity_code=body.activity_code, purpose_code=body.purpose_code,
             data_category=body.data_category, subject_ref=body.subject_ref, country=body.country, subregion=body.subregion,
             notice_version=body.notice_version, provider_service_ref=body.provider_service_ref, pack_id=body.jurisdiction_pack_id,
+            release_ref=body.release_ref, retention_policy_ref=body.retention_policy_ref, necessity_ref=body.necessity_ref,
+            collection_rules_override=getattr(request.app.state, "collection_rules", None),
         )  # fmt: skip
 
     d = await _run(request, caller, READ, "purpose_decision:new", go)
@@ -701,3 +715,104 @@ async def kpis(
         "as_of": datetime.now(UTC).isoformat(),
         **await _run(request, caller, READ, "privacy_kpi:*", go),
     }
+
+
+# ---------------------------------------------------------------------------------------------------------------- model governance
+
+
+class PrivV2ModelIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model_ref: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{1,62}$")
+    version: str = Field(min_length=1, max_length=64)
+    kind: Literal["face_match", "pad", "fraud", "document"]
+    provider_service_ref: str | None = Field(default=None, max_length=200)
+    artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    live_features: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.post("/v2/privacy/models", status_code=201)
+async def register_model(
+    body: PrivV2ModelIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.register(conn, _tenant(caller), me, **body.model_dump())
+
+    return {**_ids(), **await _run(request, caller, ACTIVITY, "model:new", go)}
+
+
+class PrivV2EvaluationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model_ref: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{1,62}$")
+    version: str = Field(min_length=1, max_length=64)
+    evaluator_ref: str = Field(min_length=1, max_length=120)
+    independent: bool
+    cohorts: int = Field(ge=0, le=1000)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    accessible_alternative_confirmed: bool = False
+    audit_attributes: list[str] = Field(default_factory=list, max_length=50)
+    report_ref: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/v2/privacy/model-evaluations", status_code=201)
+async def record_model_evaluation(
+    body: PrivV2EvaluationIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.record_evaluation(conn, _tenant(caller), me, **body.model_dump())
+
+    return {**_ids(), **await _run(request, caller, ACTIVITY, "model:new", go)}
+
+
+@router.get("/v2/privacy/models/{model_ref}/versions/{version}")
+async def get_model(
+    model_ref: str, version: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.get(conn, model_ref, version)
+
+    return {**_ids(), **await _run(request, caller, READ, f"model:{model_ref}", go)}
+
+
+@router.post("/v2/privacy/models/{model_ref}/versions/{version}:promote")
+async def promote_model(
+    model_ref: str, version: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.promote(conn, _tenant(caller), me, model_ref, version)
+
+    return {**_ids(), **await _run(request, caller, ACTIVITY, f"model:{model_ref}", go)}
+
+
+@router.post("/v2/privacy/models/{model_ref}/versions/{version}:rollback")
+async def rollback_model(
+    model_ref: str, version: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.rollback(conn, _tenant(caller), me, model_ref, version)
+
+    return {**_ids(), **await _run(request, caller, ACTIVITY, f"model:{model_ref}", go)}
+
+
+class PrivV2ObserveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    seen_version: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/v2/privacy/models/{model_ref}:observe")
+async def observe_model(
+    model_ref: str, body: PrivV2ObserveIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await mg.observe(conn, _tenant(caller), me, model_ref, body.seen_version)
+
+    return {**_ids(), **await _run(request, caller, ACTIVITY, f"model:{model_ref}", go)}

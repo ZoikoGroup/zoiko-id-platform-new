@@ -21,8 +21,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 
+from zid_platform.modules.privacy.application import model_governance as models
 from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.application import service as v1
+from zid_platform.modules.privacy.domain import collection as collection_rules
 from zid_platform.modules.privacy.domain import control as rules
 from zid_platform.modules.privacy.domain.model import PrivacyError
 from zid_platform.modules.privacy.infrastructure import store
@@ -61,6 +63,13 @@ def alternatives_config() -> list[dict[str, Any]]:
 
 
 @lru_cache(maxsize=1)
+def collection_config() -> dict[str, Any]:
+    """Counsel's biometric collection requirements per pack (`config/privacy/collection-rules.yaml`); every field COUNSEL until set."""
+    path = CONFIG / "collection-rules.yaml"
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    return dict((doc or {}).get("packs") or {})
+
+
 def breach_config() -> dict[str, Any]:
     doc = yaml.safe_load((CONFIG / "breach-clocks.yaml").read_text(encoding="utf-8")) or {}
     return dict(doc.get("hours_to_notify_authority") or {})
@@ -87,6 +96,10 @@ async def decide_purpose(
     notice_version: str | None,
     provider_service_ref: str | None,
     pack_id: str | None,
+    release_ref: str | None = None,
+    retention_policy_ref: str | None = None,
+    necessity_ref: str | None = None,
+    collection_rules_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Permission to process, not identity verification. Default deny: every missing prerequisite is a reason, and a denied or sensitive
     request always carries the non-biometric alternatives."""
@@ -125,6 +138,24 @@ async def decide_purpose(
     pack = packs().get(pack_id) if pack_id else None
     if pack_id and pack is None:
         reasons.append("JURISDICTION_PACK_UNKNOWN")
+    if (
+        data_category == "D3" and pack_id
+    ):  # sensitive collection under a pack counsel has rules for (AT-034, AT-035, AT-037)
+        cd = collection_rules.evaluate(
+            collection_rules_override
+            if collection_rules_override is not None
+            else collection_config(),
+            pack_id=pack_id,
+            evidence={
+                "notice_version": notice_version,
+                "release_ref": release_ref,
+                "retention_policy_ref": retention_policy_ref,
+                "necessity_ref": necessity_ref,
+            },
+            on=datetime.now(UTC).date(),
+        )
+        if cd.applies and not cd.allowed:
+            reasons.extend(cd.reasons)
     allowed = not reasons
     alternatives = [] if allowed and data_category != "D3" else alternative_modes()
     decision_id = uuid7()
@@ -764,7 +795,11 @@ async def package_view(conn: AsyncConnection, package_id: str) -> dict[str, Any]
         consultation_ref=p.consultation_ref,
         now=_now(),
     )
-    out["release"] = {"ready": rel.ready, "blockers": list(rel.blockers)}
+    extra = await models.blockers_for(
+        conn, p.model_version
+    )  # a named model must be the evaluated one in service (AT-015, AT-016)
+    blockers = [*rel.blockers, *extra]
+    out["release"] = {"ready": rel.ready and not extra, "blockers": blockers}
     return out
 
 
@@ -866,9 +901,10 @@ async def decide_package(
             consultation_ref=p.consultation_ref,
             now=_now(),
         )
-        if not pending.ready:
+        model_blockers = await models.blockers_for(conn, p.model_version)
+        if not pending.ready or model_blockers:
             raise PrivacyError(
-                "RELEASE_BLOCKED", ", ".join(pending.blockers)
+                "RELEASE_BLOCKED", ", ".join([*pending.blockers, *model_blockers])
             )  # approval is refused while a no-release criterion stands
     await conn.execute(
         text("""
@@ -1027,6 +1063,15 @@ async def decide_review(
         target_type="decision_review",
         target_ref=review_id,
         details={"outcome": outcome},
+    )
+    # the person is told the outcome (ids and the outcome only: the rationale stays on the record, never in an event)
+    await v1._event(
+        conn,
+        tenant_id,
+        "privacy.review.decided",
+        ("decision_review", review_id),
+        {"review_id": review_id, "outcome": outcome, "reviewer_is_independent": True},
+        actor=actor,
     )
     return _row(row)
 

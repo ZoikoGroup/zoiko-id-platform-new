@@ -30,3 +30,8 @@ No existing route, event, action or table is altered (only one column is added t
 ## Not done
 Real provider callbacks (no provider sends a receipt yet), a DPO console screen for these routes, regulator-submission integration, and the signed approvals
 themselves.
+
+## Closing pass (2026-11-12)
+
+Adds `privacy_0004` (model inventory, append-only evaluations and drift observations), `privacy_0005` (verification session), `evidence_0009` (per-upload envelope encryption of evidence bytes), the model routes, `/v2/verification-sessions` (create, consent-records, cancel, subject-status), the /v2 rights, consent, retention and hold routes, and a guard against any cross-tenant link table. Document 04 section 07, 11, 13 and 19 route names now all exist under /v2 (holds delegate to the evidence module's one hold model).
+

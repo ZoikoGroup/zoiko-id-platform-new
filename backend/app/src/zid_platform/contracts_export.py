@@ -54,7 +54,14 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD SCIM 2.0 Provisioning API",
     ),
     OPENAPI / "public" / "verification.json": (
-        ("/verifications", "/verification-", "/principals/", "/v2/age-checks", "/v2/capture-alternatives"),
+        (
+            "/verifications",
+            "/verification-",
+            "/principals/",
+            "/v2/age-checks",
+            "/v2/capture-alternatives",
+            "/v2/providers",
+        ),
         "Zoiko iD Identity Verification and Assurance API",
     ),
     OPENAPI / "public" / "credentials.json": (
@@ -70,6 +77,8 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v2/credentials",
             "/v2/eligibility",
             "/v2/zoikorum",
+            "/v2/mandates",
+            "/v2/rooms",
             "/v2/issuer-checks",
             "/v2/presentations",
             "/v2/verifications",
@@ -92,7 +101,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v1/privacy/",
             "/v2/privacy/",
             "/v2/decisions/",
-            "/v2/verification-sessions/",
+            "/v2/verification-sessions",
             "/v2/providers/",
         ),
         "Zoiko iD Privacy, Consent and Data Rights API",

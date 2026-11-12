@@ -150,6 +150,86 @@
         "title": "BulkStartIn",
         "type": "object"
       },
+      "EntitlementIn": {
+        "additionalProperties": false,
+        "properties": {
+          "assurance": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Assurance",
+            "type": "integer"
+          },
+          "cost_rank": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Cost Rank",
+            "type": "integer"
+          },
+          "countries": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Countries",
+            "type": "array"
+          },
+          "processing_regions": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Processing Regions",
+            "type": "array"
+          },
+          "purposes": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "service_code": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Service Code",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "service_code",
+          "countries",
+          "purposes",
+          "processing_regions",
+          "valid_from",
+          "assurance"
+        ],
+        "title": "EntitlementIn",
+        "type": "object"
+      },
       "EstimateIn": {
         "additionalProperties": false,
         "properties": {
@@ -186,6 +266,43 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "PrivV2ReceiptIn": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted_at": {
+            "maxLength": 40,
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "object_count": {
+            "minimum": 0.0,
+            "title": "Object Count",
+            "type": "integer"
+          },
+          "signature": {
+            "maxLength": 200,
+            "title": "Signature",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "task_id",
+          "deleted_at",
+          "object_count",
+          "signature"
+        ],
+        "title": "PrivV2ReceiptIn",
+        "type": "object"
+      },
       "ProfileIn": {
         "additionalProperties": false,
         "properties": {
@@ -216,6 +333,22 @@
           "requirements"
         ],
         "title": "ProfileIn",
+        "type": "object"
+      },
+      "ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
         "type": "object"
       },
       "RelianceIn": {
@@ -272,34 +405,68 @@
         "title": "RelianceIn",
         "type": "object"
       },
-      "ReviewIn": {
+      "RouteIn": {
         "additionalProperties": false,
         "properties": {
-          "decision": {
-            "enum": [
-              "APPROVE",
-              "REJECT",
-              "REQUEST_MORE_EVIDENCE",
-              "ESCALATE"
-            ],
-            "title": "Decision",
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
             "type": "string"
           },
-          "reason_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 10,
-            "minItems": 1,
-            "title": "Reason Codes",
-            "type": "array"
+          "downgrade_approval_ref": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downgrade Approval Ref"
+          },
+          "failing_over_from": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failing Over From"
+          },
+          "processing_region": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Processing Region",
+            "type": "string"
+          },
+          "purpose": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "required_assurance": {
+            "default": 0,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Required Assurance",
+            "type": "integer"
+          },
+          "service_code": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Service Code",
+            "type": "string"
           }
         },
         "required": [
-          "decision",
-          "reason_codes"
+          "country",
+          "service_code",
+          "purpose",
+          "processing_region"
         ],
-        "title": "ReviewIn",
+        "title": "RouteIn",
         "type": "object"
       },
       "V2AgeIn": {
@@ -376,6 +543,36 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__verification__ReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REQUEST_MORE_EVIDENCE",
+              "ESCALATE"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "reason_codes"
+        ],
+        "title": "ReviewIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__verification__StartIn": {
@@ -626,6 +823,340 @@
           }
         },
         "summary": "List Alternatives",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/entitlements": {
+      "get": {
+        "operationId": "list_entitlements_v2_providers_entitlements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Entitlements V2 Providers Entitlements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Entitlements",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/route": {
+      "post": {
+        "operationId": "dry_run_route_v2_providers_route_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dry Run Route V2 Providers Route Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dry Run Route",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/deletion-receipts": {
+      "post": {
+        "operationId": "deletion_receipt_v2_providers__provider_id__deletion_receipts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReceiptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Deletion Receipt V2 Providers  Provider Id  Deletion Receipts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deletion Receipt",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements": {
+      "post": {
+        "operationId": "record_entitlement_v2_providers__provider_id__entitlements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntitlementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Entitlement V2 Providers  Provider Id  Entitlements Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/revoke": {
+      "post": {
+        "operationId": "revoke_entitlement_v2_providers__provider_id__entitlements__service__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Entitlement V2 Providers  Provider Id  Entitlements  Service  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/suspend": {
+      "post": {
+        "operationId": "suspend_entitlement_v2_providers__provider_id__entitlements__service__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suspend Entitlement V2 Providers  Provider Id  Entitlements  Service  Suspend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend Entitlement",
         "tags": [
           "verification-v2"
         ]
@@ -995,7 +1526,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__ReviewIn"
               }
             }
           },

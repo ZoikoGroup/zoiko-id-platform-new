@@ -24,6 +24,7 @@ Pure: bytes in, findings out. No network, no files.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -116,6 +117,11 @@ class Finding:
             "anchor": self.anchor,
             "signer": self.signer,
             "signer_serial": self.signer_serial,
+            "signer_sha256": hashlib.sha256(
+                self.chain_certificates[0].public_bytes(Encoding.DER)
+            ).hexdigest()
+            if self.chain_certificates
+            else None,
             "issuer": self.issuer,
             "claimed_signing_time": self.claimed_signing_time,
             "claimed_signing_time_trusted": False,

@@ -20,12 +20,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from zid_platform.modules.evidence.domain import analysis
+
 ALLOWED_TYPES = ("application/pdf", "image/png", "image/jpeg")  # what may be UPLOADED and kept
 # What may be validated in memory: signed XML (XAdES / XML-DSig) too. It is never stored, so it is not an upload type.
 VALIDATION_TYPES = (*ALLOWED_TYPES, "application/xml")
 XML_TYPE = "application/xml"
 MAX_BYTES = 2 * 1024 * 1024  # validated in memory and never stored
-CHECKS = ("integrity", "issuer", "signature", "seal")
+CHECKS = ("integrity", "issuer", "signature", "seal", "analysis")
 
 
 class Status(StrEnum):
@@ -134,9 +136,29 @@ def validate(
             )
         elif name == "signature":
             out.append(_signature(kind, count))
+        elif name == "analysis":
+            out.append(_analysis(content, kind))
         else:
             out.append(_seal(kind, count, etsi))
     return Validation(digest, kind, len(content), tuple(out))
+
+
+def _analysis(content: bytes, kind: str | None) -> CheckResult:
+    """Tamper and template signals. Always INDETERMINATE: signals are for a person, and no signals is not a clean bill of health."""
+    signals, read_as = analysis.analyse(content, kind)
+    reasons = tuple(s.code for s in signals) or (
+        ("NO_SIGNALS_FOUND",) if read_as != "not_analysed" else ("TYPE_NOT_ANALYSED",)
+    )
+    return CheckResult(
+        "analysis",
+        Status.INDETERMINATE,
+        reasons,
+        {
+            "read_as": read_as,
+            "signals": [s.public() for s in signals],
+            "limitation": analysis.LIMITATION,
+        },
+    )
 
 
 def _integrity(digest: str, kind: str | None, declared: str, expected: str | None) -> CheckResult:

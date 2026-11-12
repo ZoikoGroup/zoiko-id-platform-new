@@ -1581,6 +1581,9 @@
         "privacy_retention_due": {
           "$ref": "#/components/messages/privacy_retention_due"
         },
+        "privacy_review_decided": {
+          "$ref": "#/components/messages/privacy_review_decided"
+        },
         "privacy_rights_completed": {
           "$ref": "#/components/messages/privacy_rights_completed"
         },
@@ -1603,11 +1606,43 @@
         }
       }
     },
+    "property.domain": {
+      "address": "zid.{env}.{region}.property.domain",
+      "messages": {
+        "property_authority_changed": {
+          "$ref": "#/components/messages/property_authority_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "provenance.domain": {
       "address": "zid.{env}.{region}.provenance.domain",
       "messages": {
         "provenance_generated": {
           "$ref": "#/components/messages/provenance_generated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "provider.priority": {
+      "address": "zid.{env}.{region}.provider.priority",
+      "messages": {
+        "provider_entitlement_revoked": {
+          "$ref": "#/components/messages/provider_entitlement_revoked"
         }
       },
       "parameters": {
@@ -1774,6 +1809,9 @@
     "screening.domain": {
       "address": "zid.{env}.{region}.screening.domain",
       "messages": {
+        "screening_signal_corrected": {
+          "$ref": "#/components/messages/screening_signal_corrected"
+        },
         "screening_signal_raised": {
           "$ref": "#/components/messages/screening_signal_raised"
         }
@@ -5054,6 +5092,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_review_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.review.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An independent person decided an appeal or human review of an automated decision; the review id and the outcome only. The rationale stays on the record.",
+        "title": "privacy.review.decided",
+        "x-zid-source": "ZID-PRI-004 sections 10, 11 and 22 (AT-030, AT-031); CR-072",
+        "x-zid-status": "proposed"
+      },
       "privacy_rights_completed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.rights.completed.v1",
@@ -5098,6 +5147,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "property_authority_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.property.authority_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The authority answer for a property and host changed from the previous check; references, the two overall outcomes and each dimension that moved. No document or text from one.",
+        "title": "property.authority_changed",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
+      },
       "provenance_generated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.provenance.generated.v1",
@@ -5108,6 +5168,17 @@
         "title": "provenance.generated",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "provider_entitlement_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provider.entitlement_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider entitlement was revoked and its path is closed; ids, the provider, the service and the previous status only. Revoked is final.",
+        "title": "provider.entitlement_revoked",
+        "x-zid-source": "ZID-INT-002 sections 08 and 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "provisioning_connector_changed": {
         "contentType": "application/cloudevents+json",
@@ -5284,6 +5355,17 @@
         "title": "sbom.generated",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "screening_signal_corrected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.signal.corrected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person cleared a signal raised earlier; ids and codes only. Anything that relied on the raised event for this review must decide again.",
+        "title": "screening.signal.corrected",
+        "x-zid-source": "ZID-PRI-004 section 22 (AT-019); CR-072",
+        "x-zid-status": "proposed"
       },
       "screening_signal_raised": {
         "contentType": "application/cloudevents+json",
@@ -6621,10 +6703,24 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_property_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/property.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_provenance_domain": {
       "action": "send",
       "channel": {
         "$ref": "#/channels/provenance.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_provider_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/provider.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

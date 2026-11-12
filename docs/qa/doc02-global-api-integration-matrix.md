@@ -48,7 +48,7 @@ claim or a production result: every source in the repository is a sample or a si
 
 ## Section 16 acceptance matrix
 
-29 of 36 scenarios are linked to a real test in `docs/traceability/acceptance-tests.csv` (`INT2-T01` to T18 except T19 and T20, then T21 to T23, T26, T28, T29, T31 to T33, T35, T36), each IN_PROGRESS; none is VERIFIED because VERIFIED needs reviewer sign-off. Not linked, and why: T19 and T20 are provider-specific (Sumsub, Yoti) and no adapter exists; T24 and T25 are Rooms (no module); T27 needs certificate time-of-signing validation (DTV-02); T30 needs LEI/vLEI sources; T34 (cross-tenant raw evidence export and broad admin override) has route-level tests in the evidence module but none I could name for this exact scenario without guessing. T06, T32 and T36 are linked to the nearest real test and the row says what that test does and does not cover.
+33 of 36 scenarios are linked (the final pass below adds T19 as an own-process half, T24, T25 and T30; this paragraph is the older count) to a real test in `docs/traceability/acceptance-tests.csv` (`INT2-T01` to T18 except T19 and T20, then T21 to T23, T26, T28, T29, T31 to T33, T35, T36), each IN_PROGRESS; none is VERIFIED because VERIFIED needs reviewer sign-off. Not linked, and why: T19 and T20 are provider-specific (Sumsub, Yoti) and no adapter exists; T24 and T25 are Rooms (no module); T27 needs certificate time-of-signing validation (DTV-02); T30 needs LEI/vLEI sources; T34 (cross-tenant raw evidence export and broad admin override) has route-level tests in the evidence module but none I could name for this exact scenario without guessing. T06, T32 and T36 are linked to the nearest real test and the row says what that test does and does not cover.
 
 ## Decisions Document 02 says to sign, not invent
 Launch wave and source coverage by country and profession; whether Zoiko iD seeks regulated trust-service authorization; controller and
@@ -85,3 +85,54 @@ processor allocation for Zoikorum and Zoiko Rooms; public trust-label wording; i
 | DPIA addendum | DRAFT, unsigned | `docs/privacy/dpia-addendum-v2-evidence-DRAFT.md` with proposed retention periods for the DPO. No sign-off is claimed |
 
 Still not done, and not buildable from code: a human accessibility audit, the DPIA sign-off and the real retention value (the privacy officer), the regulated product lines, the price book, real provider adapters and the Rooms property sources.
+
+
+## Completed without any third party (final pass, 2026-11-12)
+
+This section supersedes the lines above where they disagree. The document's own rule is that a design is not evidence, so every row names its test.
+
+| Item | Label | Evidence and honest limits |
+|---|---|---|
+| `POST /v2/mandates/verify` (section 03 and 10) | VERIFIED_IN_CODE (own process) | `credential/api/v2_authority.py`, `credential/domain/authority_check.py`, `test_authority_check.py` (19) and `test_v2_authority_pg.py` over HTTP with really signed, really uploaded PDFs. A mandate is read from evidence the caller uploaded and put through the same signature checks as `/v2/documents/validate`; the strongest result is VERIFIED_LIMITED (the document is as signed by a certificate this deployment trusts), never VERIFIED. A LEI is checked only for its own check digits (ISO 17442). **T30**: a well-formed LEI with no mandate leaves authority INDETERMINATE. Not done: an officer register to match the signatory (needs a source) |
+| `POST /v2/rooms/property-checks` (section 11) | VERIFIED_IN_CODE (own process), no property source | Dimensions are separate: ownership from title evidence, mandate (required for agents), permission to list (required for sublets), tenant legal route. **T24**: an official title without a mandate leaves an agent's listing authority UNKNOWN; with a mandate it is REVIEW_REQUIRED, never ELIGIBLE. **T25**: England's route is UNAVAILABLE (needs a registered provider; Zoiko iD is not one) and no other place, Scotland and Wales included, borrows it. No land register is configured, so title is at best a signed document. The overall answer is capped at REVIEW_REQUIRED |
+| `issuer` check of `/v2/documents/validate` (section 09) | VERIFIED_IN_CODE | An optional `issuer_claim` resolves the name in the issuer registry (lookalikes are not resolved) and binds the signer only through a certificate the owners recorded; a good signature from an unrecorded certificate is INDETERMINATE (T26 over HTTP). With no claim the answer is unchanged (UNAVAILABLE, NO_ISSUER_SOURCE). Needs: real issuers recorded with their seal certificates |
+| `analysis` check (section 09, "document analysis") | VERIFIED_IN_CODE | `evidence/domain/analysis.py`: deterministic signals (incremental updates, script and launch actions, embedded files, editing tool named, modified after creation, data after the image end, EXIF). Always INDETERMINATE: no signals is not genuine, signals are not forgery. This is the own-process half of T19; a provider's document intelligence remains PROVIDER_DEPENDENT |
+| T27 | Linked | `test_pdf_signatures.py::test_t27_a_verified_timestamp_fixes_the_signing_time`. The earlier text that says it is not linked is out of date |
+| Veriff and Sumsub | Clients exist, never run against a vendor | `verification/infrastructure/providers.py` (identity-session creation with signing and an egress guard) from the earlier ZID-EDR-005 work. They are not behind the new `ProviderAdapter` interface, there is no Yoti client, and nothing here claims a contract or a sandbox run. The earlier line that says no adapter exists is out of date |
+| Section 09 signatures, archive and LTV | VERIFIED_IN_CODE | PAdES, XAdES (more than one signature), CAdES, OCSP and CRL revocation, embedded long-term evidence, document timestamps and the archive chain; see the Wave 0 matrix, eleventh to fourteenth passes. The Documents row near the top of this file is superseded |
+
+### Still open in Document 02, and why
+
+| Item | Why |
+|---|---|
+| Rooms `property.authority_changed` event | Needs persisted checks to detect a change; the Rooms routes are stateless |
+| `provider.entitlement_revoked` event | Needs a runtime provider registry, which exists only as config and guards |
+| Browser SDK widget (`session.mount`) | Not built: client libraries and the state machine exist, not a mountable accessible widget with localization |
+| Section 14.2 SLOs | No measured baseline; needs load tests and probes against a deployed environment |
+| Section 16.1 release evidence | Generated client types, Zoikorum and Rooms consumer contract tests, an independent accessibility audit, a signed DPIA, a security report and an incident drill |
+| T20 (Yoti and Right to Rent record the provider) and T34 (cross-tenant raw export) | T20 needs a registered provider; T34 has route-level tests but no one named for this exact scenario, and linking one without being sure would be guessing |
+| Real sources: land and title registers, officer registers, regulators, universities, employers, insurers | Contracts and entitlements; every one is a configured source, none is built in |
+
+## Closed after the final pass (2026-11-12, own processes only)
+
+The items the previous section listed as open and that need no third party or deployed environment are now built and tested. What is still open is at the end.
+
+| Item | Label | Evidence and honest limits |
+|---|---|---|
+| `property.authority_changed` (section 13) | VERIFIED_IN_CODE | `credential/application/property_state.py`, migration `credential_0012` (`cred.property_check_state`: references and outcomes only). The property-check route now stores its outcomes per property and host and emits one event when the overall or any dimension moved; a first, repeated or other-property check emits nothing. `test_v2_events_pg.py`. The response states `authority_changed_event_emitted` |
+| `provider.entitlement_revoked` (section 13) | VERIFIED_IN_CODE | Runtime registry `verify.provider_entitlement` (migration `verification_0005`), routes in `verification/api/v2_providers.py`: record, list, suspend, revoke, and a routing dry run over the existing `provider_adapter.route`. Revoked is final (database trigger) and a new period is a new record; the event carries ids, provider, service and previous status, never free text. This is a SCOPE registry: it holds no contract or credential and does not make a provider usable (no real adapter is connected) |
+| Browser SDK widget `session.mount` (section 05) | VERIFIED_IN_CODE | `sdks/typescript/src/widget.ts`, 13 tests in `widget.test.ts` under jsdom. Consent first, no capture before it, withdrawal while capture is open, an issuer outage is pending and never "failed", native labelled controls, polite status and alert regions, focus moves to the heading, text only (never markup), English plus Spanish and French DRAFTS marked unreviewed. **Not done:** an independent accessibility audit with assistive technology, and browser testing beyond jsdom |
+| Generated client types (section 16.1) | VERIFIED_IN_CODE | `frontend/packages/api-client/openapi/codegen.mjs` regenerates the console types and now also writes `sdks/typescript/src/generated/{credentials,evidence,verification}.ts` from the published contracts. Rerunning it also refreshed console types that had drifted behind the contracts (authentication, onboarding, privacy, webhooks, workload identity) |
+| Zoikorum and Rooms consumer contract tests (section 16.1) | VERIFIED_IN_CODE (against the published contract) | `contracts/consumers/*.yaml` state what each marketplace relies on; `test_consumer_contracts.py` fails if the published OpenAPI or AsyncAPI stops providing a route, request field, required idempotency key or event, and the Rooms response shape is checked against a real answer. These are written by us from the document, not agreed with or run by the marketplaces' own teams |
+| T34 | Linked | `test_t34_another_tenants_administrator_cannot_read_export_or_remove_raw_evidence` (two real tenants over HTTP) |
+| Section 14.2 SLOs | Probe built; LOCAL baseline only | `zid_platform/slo_probe.py` (standard library; p95 <= 400 ms and availability >= 99.95%, exits 1 on a miss) and `test_v2_latency_baseline_pg.py`. Local in-process p95 on this machine: coverage 51 ms, age check 155 ms, property check 172 ms, overall 155 ms. **That is not release evidence:** it needs load at expected traffic and the probe run continuously from two regions against a deployed environment with burn alerts |
+
+### Still open after this
+
+| Item | Why |
+|---|---|
+| T20 (a registered Right to Rent provider is recorded) | Needs a real registered provider; the registry above can record an entitlement but nothing here is, or pretends to be, one |
+| Deployed SLO evidence | A deployed environment, two probe regions, burn alerts, load tests |
+| Independent accessibility audit, signed DPIA, security report, incident drill | People and sign-off, not code |
+| Marketplaces running the consumer contracts themselves | Zoikorum and Rooms teams |
+| Real sources and vendor runs (land, title and officer registers, regulators, universities, employers, insurers; Yoti, Veriff, Sumsub sandboxes) | Contracts, entitlements and sandboxes |
