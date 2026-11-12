@@ -69,7 +69,7 @@ def _pdf_date(text: str | None) -> datetime | None:
         return None
     parts = [int(g) if g else d for g, d in zip(m.groups(), (0, 1, 1, 0, 0, 0), strict=True)]
     try:
-        return datetime(*parts)
+        return datetime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5])
     except ValueError:
         return None
 

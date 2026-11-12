@@ -17,7 +17,7 @@ import json
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -91,8 +91,8 @@ def _issuer_result(
         sig = probe.results[0]
     sha = None
     if sig.status in {docs.Status.VERIFIED, docs.Status.VERIFIED_LIMITED}:
-        found = sig.detail.get("signatures") or []
-        sha = found[0].get("signer_sha256") if found else None  # type: ignore[union-attr]
+        found = cast("list[dict[str, Any]]", sig.detail.get("signatures") or [])
+        sha = found[0].get("signer_sha256") if found else None
     bind = issuer_binding()
     if bind is None:
         return docs.CheckResult(

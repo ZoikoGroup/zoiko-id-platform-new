@@ -92,7 +92,10 @@ def _clean(lines: list[str]) -> list[str]:
 
 def _names(field_: str) -> tuple[str, str]:
     surname, _, given = field_.partition("<<")
-    clean = lambda s: " ".join(p for p in s.replace("<", " ").split())
+
+    def clean(s: str) -> str:
+        return " ".join(p for p in s.replace("<", " ").split())
+
     return clean(surname), clean(given)
 
 

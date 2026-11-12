@@ -144,9 +144,11 @@ class BundledContexts:
 
 def canonicalize(document: Mapping[str, Any], loader: Loader) -> str:
     """URDNA2015 as N-Quads. The algorithm is named on purpose: the library's default is a different one."""
-    return jsonld.normalize(
-        dict(document),
-        {"algorithm": "URDNA2015", "format": "application/n-quads", "documentLoader": loader},
+    return str(
+        jsonld.normalize(
+            dict(document),
+            {"algorithm": "URDNA2015", "format": "application/n-quads", "documentLoader": loader},
+        )
     )
 
 
@@ -182,7 +184,7 @@ class Hashes:
 
 
 def hashes_for(
-    unsecured: Mapping[str, Any], proof_config: Mapping[str, Any], loader: BundledContexts
+    unsecured: Mapping[str, Any], proof_config: Mapping[str, Any], loader: Loader
 ) -> Hashes:
     return Hashes(
         hashlib.sha256(canonicalize(proof_config, loader).encode("utf-8")).digest(),

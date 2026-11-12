@@ -30,7 +30,7 @@ from cryptography.x509 import ocsp
 from defusedxml import DefusedXmlException
 from defusedxml import ElementTree as SafeET
 from lxml import etree
-from signxml import (
+from signxml import (  # type: ignore[attr-defined]
     InvalidDigest,
     InvalidInput,
     InvalidSignature,

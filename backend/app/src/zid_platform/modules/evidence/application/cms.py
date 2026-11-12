@@ -30,6 +30,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import cast
 
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
@@ -606,7 +607,10 @@ def _ocsp_signed_properly(resp: ocsp.OCSPResponse, issuer: x509.Certificate, now
         if c.issuer != issuer.subject:
             continue
         try:
-            eku = c.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value
+            eku = cast(
+                x509.ExtendedKeyUsage,
+                c.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value,
+            )
         except x509.ExtensionNotFound:
             continue
         if ExtendedKeyUsageOID.OCSP_SIGNING not in eku:

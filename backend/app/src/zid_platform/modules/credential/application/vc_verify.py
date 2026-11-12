@@ -266,7 +266,7 @@ async def verify_vc_di(
             keys = await verifier._issuer_keys(conn, settings, row, now)
         except CredentialError:
             keys = {"keys": []}
-        key = _proof_key(keys, vm, str(proof.get("cryptosuite", "")))
+        key = _proof_key(keys, vm, str((proof or {}).get("cryptosuite", "")))
         if key is not None:
             verdict = data_integrity.verify(doc, key, contexts)
             proof_valid, reasons = verdict.status == "VERIFIED", verdict.reasons

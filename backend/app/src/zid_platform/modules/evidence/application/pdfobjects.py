@@ -426,9 +426,9 @@ def validation_update(signed: bytes, appended: bytes) -> ValidationUpdate | None
         )
         if new_ac_value is None:
             return None
-        for ref in (old_ac_value, new_ac_value):
-            if isinstance(ref, Ref) and ref.number in before:
-                redefinable.add(ref.number)
+        for candidate in (old_ac_value, new_ac_value):
+            if isinstance(candidate, Ref) and candidate.number in before:
+                redefinable.add(candidate.number)
         if isinstance(new_ac_value, Ref):
             if new_ac_value.number not in after and not (
                 isinstance(old_ac_value, Ref) and new_ac_value == old_ac_value
