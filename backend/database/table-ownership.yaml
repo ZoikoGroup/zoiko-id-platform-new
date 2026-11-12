@@ -799,6 +799,11 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G01 jurisdiction and profession policy packs (proposed, CR-067)"
+  verify.certification_attestation:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-RCG-003 RCG-G02 official-register attestation snapshots, append-only (proposed, CR-073)"
   verify.market_release:
     role: cell
     module: verification
