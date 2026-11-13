@@ -78,6 +78,7 @@ from zid_platform.modules.commercial.ports import (
     resolve_payment_event,
     run_rating,
     service_requests,
+    solution_store,
     vendors,
     verify_chain,
     verify_change_log,
@@ -365,6 +366,14 @@ def _matrix_row_view(r: Any) -> dict[str, Any]:
 async def list_matrices(request: Request, op: OperatorDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         return {"items": [_matrix_view(m) for m in await market_matrix_store.matrices(conn)]}
+
+
+@router.get("/v1/commercial/quote-requests")
+async def list_quote_requests(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        return {"items": await solution_store.operator_requests(conn)}
 
 
 @router.get("/v1/commercial/market-matrices/{matrix_id}")

@@ -59,6 +59,11 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "CR-062: the first month's platform fee a company pays before an activated order switches its plan"
+  commercial.solution_draft:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-WF-2026-11 WF-C02: a buyer's saved solution configuration (not an entitlement, prices nothing) and the quote request made from it"
   commercial.activation_credit:
     role: cell
     module: commercial

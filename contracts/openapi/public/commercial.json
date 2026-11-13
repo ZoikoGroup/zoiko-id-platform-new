@@ -829,6 +829,18 @@
             "title": "Payment Configured",
             "type": "boolean"
           },
+          "provider_rights_expires": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Rights Expires"
+          },
           "provider_rights_ref": {
             "anyOf": [
               {
@@ -840,6 +852,18 @@
               }
             ],
             "title": "Provider Rights Ref"
+          },
+          "regulated_status_expires": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulated Status Expires"
           },
           "regulated_status_ref": {
             "anyOf": [
@@ -1550,6 +1574,78 @@
           "snapshot_hash"
         ],
         "title": "SignCloseBody",
+        "type": "object"
+      },
+      "SolutionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "families": {
+            "items": {
+              "maxLength": 8,
+              "minLength": 2,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Families",
+            "type": "array"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "purpose": {
+            "pattern": "^[A-Z_]{4,30}$",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          },
+          "volumes": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Volumes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "purpose",
+          "families"
+        ],
+        "title": "SolutionIn",
         "type": "object"
       },
       "StateBody": {
@@ -2493,6 +2589,30 @@
         ]
       }
     },
+    "/v1/commercial/capability-dependencies": {
+      "get": {
+        "description": "Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02).",
+        "operationId": "capability_dependencies_v1_commercial_capability_dependencies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Capability Dependencies V1 Commercial Capability Dependencies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capability Dependencies",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/change-log:verify": {
       "get": {
         "description": "Recompute every entry's digest and the hash chain; report the first broken entry.",
@@ -2512,6 +2632,162 @@
           }
         },
         "summary": "Verify Commercial Change Log",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations": {
+      "get": {
+        "operationId": "list_configurations_v1_commercial_configurations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Configurations V1 Commercial Configurations Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Configurations",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Save a configuration as a draft for this company. A draft is not an entitlement; it expires after 30 days and cannot be edited, only saved again.",
+        "operationId": "save_configuration_v1_commercial_configurations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolutionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Configuration V1 Commercial Configurations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Configuration",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations/{draft_id}": {
+      "get": {
+        "operationId": "get_configuration_v1_commercial_configurations__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Configuration V1 Commercial Configurations  Draft Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Configuration",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations/{draft_id}:request-quote": {
+      "post": {
+        "description": "Send a saved configuration to the deal desk. The scope, assumptions and the market exceptions seen now are frozen with it. Needs the same authority as\nsaving; it commits the company to nothing.",
+        "operationId": "request_quote_v1_commercial_configurations__draft_id__request_quote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Quote V1 Commercial Configurations  Draft Id  Request Quote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Quote",
         "tags": [
           "commercial"
         ]
@@ -3609,6 +3885,94 @@
           }
         },
         "summary": "Withdraw Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/offers": {
+      "get": {
+        "description": "The offer catalogue for a market (WF-C01): one card per family with a state (AVAILABLE, CONTACT_SALES, NOT_ELIGIBLE, RESEARCH_ONLY, or MARKET_REQUIRED\nwhen no market is named) and the reasons told apart. Evaluated on the server from the active market matrix, never from the browser's locale. A card\nnever carries a price: pricing needs a signed quote.",
+        "operationId": "offers_v1_commercial_offers_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "market",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Market"
+            }
+          },
+          {
+            "in": "query",
+            "name": "payer_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Payer Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operating_region",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operating Region"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Offers V1 Commercial Offers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Offers",
         "tags": [
           "commercial"
         ]
@@ -5547,6 +5911,30 @@
         ]
       }
     },
+    "/v1/commercial/quote-requests": {
+      "get": {
+        "description": "The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time.",
+        "operationId": "list_quote_requests_v1_commercial_quote_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Quote Requests V1 Commercial Quote Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Quote Requests",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/quotes": {
       "post": {
         "operationId": "create_quote_v1_commercial_quotes_post",
@@ -5585,6 +5973,50 @@
           }
         },
         "summary": "Create Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quotes/preview": {
+      "post": {
+        "description": "The configuration as it would be sent to the deal desk (WF-C02): canonical scope and hash, what each family needs, and no price. Nothing is saved.",
+        "operationId": "preview_quote_v1_commercial_quotes_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolutionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Quote V1 Commercial Quotes Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Quote",
         "tags": [
           "commercial"
         ]

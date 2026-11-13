@@ -63,12 +63,18 @@ from zid_platform.modules.commercial.application.adapters import (
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import market_availability as availability
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
+from zid_platform.modules.commercial.domain import solution as solution_model
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
+from zid_platform.modules.commercial.domain.catalogue import CommercialError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
 from zid_platform.modules.commercial.domain.service_families import check_selection
-from zid_platform.modules.commercial.infrastructure import billable_store, market_matrix_store
+from zid_platform.modules.commercial.infrastructure import (
+    billable_store,
+    market_matrix_store,
+    solution_store,
+)
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
 from zid_platform.protected import protected_action
 
@@ -123,6 +129,79 @@ class ConfigurationCheckIn(BaseModel):
     operating_region: Annotated[str, Field(min_length=2, max_length=40)] | None = None
 
 
+def _judge(
+    registry: Any,
+    matrix_rows: dict[tuple[str, str], Any],
+    codes: list[str],
+    *,
+    subject_country: str | None,
+    payer_country: str | None,
+    operating_region: str | None,
+) -> list[dict[str, Any]]:
+    """Each selected family judged in the three market dimensions against the ACTIVE matrix. With none active, or no row, every fact is unrecorded and the
+    answer is a refusal; a dimension nobody named is refused as not evaluated. For a family that is sellable, the seller, merchant route, currency, tax class and
+    data region recorded for the payer's market are shown, because B06 must show seller + payer + contract. No price is ever added here."""
+    today = datetime.now(UTC).date()
+    out: list[dict[str, Any]] = []
+    for code in sorted(set(codes)):
+        fam = registry.get(code)
+        if fam is None:
+            continue
+        named = market_matrix_model.facts_by_dimension(
+            matrix_rows,
+            registry,
+            code,
+            subject_country=subject_country,
+            payer_country=payer_country,
+            operating_region=operating_region,
+            on=today,
+        )
+        verdict = availability.decide(fam, named)
+        payer_row = matrix_rows.get((code, payer_country or subject_country or ""))
+        state, reasons = solution_model.card_state(
+            fam,
+            verdict,
+            market_named=bool(subject_country or payer_country or operating_region),
+            # a row counts only for a market the buyer named: a row for Germany says nothing about the Netherlands
+            row_recorded=any(
+                (code, c) in matrix_rows for c in (subject_country, payer_country) if c is not None
+            )
+            or (
+                operating_region is not None
+                and any(
+                    k[0] == code and r.data_region == operating_region
+                    for k, r in matrix_rows.items()
+                )
+            ),
+        )
+        view = {
+            **_family_view(fam, verdict),
+            "refusals": [
+                {"code": r.code, "cause": r.cause.value, "dimension": r.dimension}
+                for r in verdict.refusals
+            ],
+            "state": state,
+            "reasons": reasons,
+            "market": (
+                {
+                    "seller_entity": payer_row.seller_entity,
+                    "merchant_route": payer_row.merchant_route,
+                    "currency": payer_row.currency,
+                    "tax_class": payer_row.tax_class,
+                    "data_region": payer_row.data_region,
+                }
+                if verdict.sellable and payer_row is not None
+                else None
+            ),
+        }
+        if fam.regulated:
+            view["provider_attribution"] = (
+                "A regulated service is provided by an authorised partner where one is recorded for the market; Zoiko iD does not itself hold qualified status."
+            )
+        out.append(view)
+    return out
+
+
 @router.post("/v1/commercial/configurations:check")
 async def check_configuration(
     body: ConfigurationCheckIn, request: Request, caller: CallerDep
@@ -136,40 +215,235 @@ async def check_configuration(
         active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
     registry = family_registry()
     problems = check_selection(registry, body.families)
-    per_family = []
-    for code in sorted(set(body.families)):
-        fam = registry.get(code)
-        if fam is None:
-            continue
-        # The facts come from the ACTIVE market matrix (four independent approvals, immutable). With none active, or no row for this family and market,
-        # every fact is unrecorded and the answer is a refusal. A dimension the caller did not name is refused as not evaluated.
-        named = market_matrix_model.facts_by_dimension(
-            matrix_rows,
-            registry,
-            code,
-            subject_country=body.subject_country,
-            payer_country=body.payer_country,
-            operating_region=body.operating_region,
-            on=datetime.now(UTC).date(),
-        )
-        verdict = availability.decide(fam, named)
-        per_family.append(
-            {
-                **_family_view(fam, verdict),
-                "refusals": [
-                    {"code": r.code, "cause": r.cause.value, "dimension": r.dimension}
-                    for r in verdict.refusals
-                ],
-            }
-        )
     return {
         "configurable": not problems,
         "market_matrix_version": active["version"] if active else None,
         "problems": [{"code": p.code, "family": p.family, "needs": p.needs} for p in problems],
-        "families": per_family,
+        "families": _judge(
+            registry,
+            matrix_rows,
+            body.families,
+            subject_country=body.subject_country,
+            payer_country=body.payer_country,
+            operating_region=body.operating_region,
+        ),
         "estimate": None,
         "note": "A configuration is a draft, not an entitlement, and no price is shown: a binding price needs a signed quote.",
     }
+
+
+@router.get("/v1/commercial/capability-dependencies")
+async def capability_dependencies() -> dict[str, Any]:
+    """Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02)."""
+    registry = family_registry()
+    return {
+        "version": registry.version,
+        "families": [
+            {
+                "family": f.code,
+                "depends_on": list(f.depends_on),
+                "needs_provider": f.needs_provider,
+                "regulated": f.regulated,
+            }
+            for f in registry.families.values()
+        ],
+    }
+
+
+@router.get("/v1/commercial/offers")
+async def offers(
+    request: Request,
+    caller: CallerDep,
+    market: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+    payer_country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+    operating_region: Annotated[str | None, Query(min_length=2, max_length=40)] = None,
+) -> dict[str, Any]:
+    """The offer catalogue for a market (WF-C01): one card per family with a state (AVAILABLE, CONTACT_SALES, NOT_ELIGIBLE, RESEARCH_ONLY, or MARKET_REQUIRED
+    when no market is named) and the reasons told apart. Evaluated on the server from the active market matrix, never from the browser's locale. A card
+    never carries a price: pricing needs a signed quote."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+    registry = family_registry()
+    return {
+        "market_matrix_version": active["version"] if active else None,
+        "market": market,
+        "payer_country": payer_country or market,
+        "operating_region": operating_region,
+        "cards": _judge(
+            registry,
+            matrix_rows,
+            list(registry.families),
+            subject_country=market,
+            payer_country=payer_country or market,
+            operating_region=operating_region,
+        ),
+        "note": "No price is shown. Changing the market or the payer re-evaluates every card on the server.",
+    }
+
+
+class SolutionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    purpose: Annotated[str, Field(pattern=r"^[A-Z_]{4,30}$")]
+    families: list[Annotated[str, Field(min_length=2, max_length=8)]] = Field(
+        min_length=1, max_length=16
+    )
+    subject_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    payer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    operating_region: Annotated[str, Field(min_length=2, max_length=40)] | None = None
+    volumes: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+def _solution_scope(body: SolutionIn, registry: Any) -> dict[str, Any]:
+    unknown = sorted({c for c in body.families if registry.get(c) is None})
+    if unknown:
+        raise ZidError(
+            "UNKNOWN_FAMILY", f"Unknown service family: {', '.join(unknown)}.", http_status=422
+        )
+    try:
+        families = sorted(set(body.families))
+        volumes = solution_model.normalise_volumes(body.volumes, families)
+        return solution_model.scope(
+            body.purpose,
+            families,
+            body.subject_country,
+            body.payer_country,
+            body.operating_region,
+            volumes,
+        )
+    except solution_model.SolutionError as e:
+        raise ZidError(
+            e.code, f"The configuration is not valid: {e.detail or e.code}.", http_status=422
+        ) from e
+
+
+async def _preview(conn: Any, scope: dict[str, Any]) -> dict[str, Any]:
+    registry = family_registry()
+    active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+    problems = check_selection(registry, scope["families"])
+    judged = _judge(
+        registry,
+        matrix_rows,
+        scope["families"],
+        subject_country=scope["subject_country"],
+        payer_country=scope["payer_country"],
+        operating_region=scope["operating_region"],
+    )
+    return {
+        "binding": False,
+        "configurable": not problems,
+        "scope": scope,
+        "scope_hash": solution_model.scope_hash(scope),
+        "market_matrix_version": active["version"] if active else None,
+        "problems": [{"code": p.code, "family": p.family, "needs": p.needs} for p in problems],
+        "families": judged,
+        "request_quote": [f["family"] for f in judged if f["state"] != "AVAILABLE"],
+        "assumptions": [
+            "Volumes are the buyer's forecast. A forecast is never billed usage.",
+            "No rate is applied: a binding price needs a signed quote or order form.",
+        ],
+        "estimate": None,
+    }
+
+
+@router.post("/v1/commercial/quotes/preview")
+async def preview_quote(body: SolutionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The configuration as it would be sent to the deal desk (WF-C02): canonical scope and hash, what each family needs, and no price. Nothing is saved."""
+    scope = _solution_scope(body, family_registry())
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        return await _preview(conn, scope)
+
+
+@router.post("/v1/commercial/configurations", status_code=201)
+async def save_configuration(
+    body: SolutionIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Save a configuration as a draft for this company. A draft is not an entitlement; it expires after 30 days and cannot be edited, only saved again."""
+    scope = _solution_scope(body, family_registry())
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.plan.request", resource=f"tenant:{tenant}"
+        )
+        return await solution_store.save(
+            conn,
+            tenant_id=tenant,
+            created_by=caller.ctx.principal_id or "",
+            purpose=scope["purpose"],
+            families=scope["families"],
+            subject_country=scope["subject_country"],
+            payer_country=scope["payer_country"],
+            operating_region=scope["operating_region"],
+            volumes=scope["volumes"],
+            scope_hash=solution_model.scope_hash(scope),
+        )
+
+
+@router.get("/v1/commercial/configurations")
+async def list_configurations(request: Request, caller: CallerDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        return {"items": await solution_store.mine(conn)}
+
+
+@router.get("/v1/commercial/configurations/{draft_id}")
+async def get_configuration(
+    draft_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+        found = await solution_store.get(conn, str(draft_id))
+    if found is None:  # RLS hides another company's draft: the same answer as no such draft
+        raise ZidError("SOLUTION_DRAFT_NOT_FOUND", "No such saved configuration.", http_status=404)
+    return found
+
+
+@router.post("/v1/commercial/configurations/{draft_id}:request-quote")
+async def request_quote(draft_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Send a saved configuration to the deal desk. The scope, assumptions and the market exceptions seen now are frozen with it. Needs the same authority as
+    saving; it commits the company to nothing."""
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.plan.request", resource=f"tenant:{tenant}"
+        )
+        found = await solution_store.get(conn, str(draft_id))
+        if found is None:
+            raise ZidError(
+                "SOLUTION_DRAFT_NOT_FOUND", "No such saved configuration.", http_status=404
+            )
+        scope = solution_model.scope(
+            found["purpose"],
+            found["families"],
+            found["subject_country"],
+            found["payer_country"],
+            found["operating_region"],
+            found["volumes"],
+        )
+        snapshot = await _preview(conn, scope)
+        snapshot["exceptions"] = [
+            {"family": f["family"], "state": f["state"], "causes": f["causes"]}
+            for f in snapshot["families"]
+            if f["state"] != "AVAILABLE"
+        ]
+        try:
+            return await solution_store.request_quote(
+                conn, str(draft_id), requested_by=caller.ctx.principal_id or "", snapshot=snapshot
+            )
+        except CommercialError as e:
+            status = 404 if e.code.endswith("NOT_FOUND") else 409
+            raise ZidError(
+                e.code, e.detail or "The quote request was refused.", http_status=status
+            ) from e
 
 
 @router.get("/v1/tenants/{tenant_id}/entitlements")

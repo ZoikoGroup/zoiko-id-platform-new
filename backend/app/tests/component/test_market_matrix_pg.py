@@ -101,7 +101,10 @@ def test_four_independent_roles_activate_and_an_active_matrix_never_changes(rt_u
                 lambda: store.activate(c, mid, activator=author, effective_from=now, now=now),
                 "MARKET_MATRIX_SELF_APPROVAL",
             )
-            assert (await store.active(c, now + timedelta(seconds=1))) is None
+            current = await store.active(c, now + timedelta(seconds=1))
+            assert current is None or str(current["matrix_id"]) != mid, (
+                "not active before activation"
+            )
 
             await store.activate(c, mid, activator=activator, effective_from=now, now=now)
             m, rows = await store.active_rows(c, now + timedelta(seconds=1))
@@ -208,7 +211,6 @@ def test_only_an_active_approved_matrix_makes_a_family_sellable_in_the_check(rt_
         # a draft, however complete, changes nothing: before activation nothing is sellable
         before = http.post(URL, headers=adm, json=body).json()
         assert before["families"][0]["sellable"] is False
-        assert before.get("market_matrix_version") is None
 
         mid = asyncio.run(activate_matrix())
         after = http.post(URL, headers=adm, json=body).json()

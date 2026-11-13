@@ -118,6 +118,7 @@ from zid_platform.modules.commercial.infrastructure import (
     catalogue_store,
     enforcement_store,
     market_matrix_store,
+    solution_store,
 )
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
 from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
@@ -281,6 +282,7 @@ __all__ = [
     "resolve_payment_event",
     "run_rating",
     "service_requests",
+    "solution_store",
     "usage_reservations",
     "vendors",
     "verify_chain",
