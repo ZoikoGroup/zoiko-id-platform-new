@@ -74,3 +74,12 @@ The table above predates most of the work. Re-read from the code, not from the e
 | RCG-G10 release workflow and conformance | BUILT as a platform | `assurance` module (CR-074) | independent runs: 0 of 104 cases |
 | RCG-G11 EUDI | PARTLY | OpenID4VC/vc-jwt and Data Integrity verification | wallet conformance runs |
 | RCG-G12 | not in scope for launch | | |
+
+
+## Refresh after merging `origin/akarsh` (2026-11-13)
+
+`origin/akarsh` (PR #55 and the commits after it) built the Document 03 packages as full modules: G02 official-register attestations (`verification/domain/attestation.py`, `certification_attestation`, CR-073), G03 partner entitlement statements (`verification/domain/entitlement`, table `verify.provider_entitlement`, CR-074), G08 exact-scope provider suspensions with rollback (`verification/domain/suspension.py`, CR-078), G10 market releases with the seven evidence gates and four independent approvals (`market_release.py`, CR-072), conformance runs, the `/v2` regulatory API, operator console screens and a readiness report. Treat the earlier refresh table above as superseded for G02, G03, G08 and G10; read those modules and their CRs for the current state.
+
+Two things of mine overlap and were kept apart on purpose:
+- `certification.reconcile` (a pure rule that downgrades a configured record the register does not support) is still in `certification.py` and does not conflict with the attestation records; whether to keep both is a design question for the owners.
+- My tenant-scoped runtime routing registry (`/v2/providers/*`, `provider_adapter.withdrawal_impact`) used the table name `verify.provider_entitlement`, which `akarsh` also uses for a different, platform-level append-only table. Mine is now `verify.provider_route_entitlement` (migration `verification_0013`). The two serve different purposes (routing a request vs. recording what a contract allows) and could be joined later.

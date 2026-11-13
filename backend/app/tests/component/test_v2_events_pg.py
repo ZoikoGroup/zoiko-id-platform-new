@@ -200,7 +200,7 @@ def test_a_revoked_provider_entitlement_closes_the_path_is_announced_once_and_is
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
             await c.execute(
                 text(
-                    "UPDATE verify.provider_entitlement SET status = 'ACTIVE' WHERE status = 'REVOKED'"
+                    "UPDATE verify.provider_route_entitlement SET status = 'ACTIVE' WHERE status = 'REVOKED'"
                 )
             )
 

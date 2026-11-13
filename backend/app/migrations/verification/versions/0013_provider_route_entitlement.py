@@ -1,7 +1,7 @@
-"""A runtime registry of what each provider may be used for (ZID-INT-002 section 08; `provider.entitlement_revoked`; CR-071).
+"""The tenant's runtime routing registry of what each provider may be used for (not the platform's append-only partner entitlement statements, `verify.provider_entitlement`) (ZID-INT-002 section 08; `provider.entitlement_revoked`; CR-071).
 
-Revision ID: verification_0006
-Revises: verification_0005
+Revision ID: verification_0013
+Revises: verification_0012
 Create Date: 2026-11-12
 
 Until now an entitlement existed only as the shape the routing rules take. This stores the deployment's own record of one provider's exact
@@ -11,8 +11,8 @@ period is a new record. No credential, key or contract text is held here, only t
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0006"
-down_revision = "verification_0005"
+revision = "verification_0013"
+down_revision = "verification_0012"
 branch_labels = None
 depends_on = None
 
@@ -21,7 +21,7 @@ RULE = "(tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)"
 
 def upgrade() -> None:
     _run(f"""
-        CREATE TABLE verify.provider_entitlement (
+        CREATE TABLE verify.provider_route_entitlement (
             entitlement_id     uuid PRIMARY KEY,
             tenant_id          uuid NOT NULL,
             provider_id        text NOT NULL CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.-]{{1,62}}$'),
@@ -40,25 +40,25 @@ def upgrade() -> None:
             status_changed_at  timestamptz NOT NULL DEFAULT now(),
             CHECK (valid_until IS NULL OR valid_until >= valid_from)
         );
-        CREATE UNIQUE INDEX provider_entitlement_one_live
-            ON verify.provider_entitlement (tenant_id, provider_id, service_code) WHERE status <> 'REVOKED';
-        ALTER TABLE verify.provider_entitlement ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE verify.provider_entitlement FORCE ROW LEVEL SECURITY;
-        CREATE POLICY tenant_isolation ON verify.provider_entitlement USING {RULE} WITH CHECK {RULE};
-        CREATE FUNCTION verify.entitlement_revoked_is_final() RETURNS trigger LANGUAGE plpgsql AS $$
+        CREATE UNIQUE INDEX provider_route_entitlement_one_live
+            ON verify.provider_route_entitlement (tenant_id, provider_id, service_code) WHERE status <> 'REVOKED';
+        ALTER TABLE verify.provider_route_entitlement ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE verify.provider_route_entitlement FORCE ROW LEVEL SECURITY;
+        CREATE POLICY tenant_isolation ON verify.provider_route_entitlement USING {RULE} WITH CHECK {RULE};
+        CREATE FUNCTION verify.route_entitlement_revoked_is_final() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
             IF OLD.status = 'REVOKED' AND NEW.status <> 'REVOKED' THEN
                 RAISE EXCEPTION 'a revoked entitlement is never reopened' USING ERRCODE = '23514';
             END IF;
             RETURN NEW;
         END $$;
-        CREATE TRIGGER entitlement_revoked_is_final BEFORE UPDATE ON verify.provider_entitlement
-            FOR EACH ROW EXECUTE FUNCTION verify.entitlement_revoked_is_final();
+        CREATE TRIGGER route_entitlement_revoked_is_final BEFORE UPDATE ON verify.provider_route_entitlement
+            FOR EACH ROW EXECUTE FUNCTION verify.route_entitlement_revoked_is_final();
     """)
 
 
 def downgrade() -> None:
     _run("""
-        DROP TABLE verify.provider_entitlement;
-        DROP FUNCTION verify.entitlement_revoked_is_final();
+        DROP TABLE verify.provider_route_entitlement;
+        DROP FUNCTION verify.route_entitlement_revoked_is_final();
     """)

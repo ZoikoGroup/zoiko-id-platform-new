@@ -392,86 +392,6 @@
         "title": "ConsentIn",
         "type": "object"
       },
-      "EntitlementIn": {
-        "additionalProperties": false,
-        "properties": {
-          "assurance": {
-            "maximum": 10.0,
-            "minimum": 0.0,
-            "title": "Assurance",
-            "type": "integer"
-          },
-          "cost_rank": {
-            "default": 0,
-            "maximum": 1000.0,
-            "minimum": 0.0,
-            "title": "Cost Rank",
-            "type": "integer"
-          },
-          "countries": {
-            "items": {
-              "pattern": "^[A-Z]{2}$",
-              "type": "string"
-            },
-            "maxItems": 250,
-            "minItems": 1,
-            "title": "Countries",
-            "type": "array"
-          },
-          "processing_regions": {
-            "items": {
-              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
-              "type": "string"
-            },
-            "maxItems": 20,
-            "minItems": 1,
-            "title": "Processing Regions",
-            "type": "array"
-          },
-          "purposes": {
-            "items": {
-              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
-              "type": "string"
-            },
-            "maxItems": 40,
-            "minItems": 1,
-            "title": "Purposes",
-            "type": "array"
-          },
-          "service_code": {
-            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
-            "title": "Service Code",
-            "type": "string"
-          },
-          "valid_from": {
-            "format": "date",
-            "title": "Valid From",
-            "type": "string"
-          },
-          "valid_until": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid Until"
-          }
-        },
-        "required": [
-          "service_code",
-          "countries",
-          "purposes",
-          "processing_regions",
-          "valid_from",
-          "assurance"
-        ],
-        "title": "EntitlementIn",
-        "type": "object"
-      },
       "EvaluationIn": {
         "additionalProperties": false,
         "properties": {
@@ -2601,6 +2521,86 @@
           "approval_request_id"
         ],
         "title": "RoleBody",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__v2_providers__EntitlementIn": {
+        "additionalProperties": false,
+        "properties": {
+          "assurance": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Assurance",
+            "type": "integer"
+          },
+          "cost_rank": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Cost Rank",
+            "type": "integer"
+          },
+          "countries": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Countries",
+            "type": "array"
+          },
+          "processing_regions": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Processing Regions",
+            "type": "array"
+          },
+          "purposes": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "type": "string"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "service_code": {
+            "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+            "title": "Service Code",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "service_code",
+          "countries",
+          "purposes",
+          "processing_regions",
+          "valid_from",
+          "assurance"
+        ],
+        "title": "EntitlementIn",
         "type": "object"
       }
     }
@@ -6649,7 +6649,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EntitlementIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_providers__EntitlementIn"
               }
             }
           },

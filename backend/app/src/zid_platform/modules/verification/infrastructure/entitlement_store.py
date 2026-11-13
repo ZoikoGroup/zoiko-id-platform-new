@@ -1,4 +1,4 @@
-"""Storage for provider entitlements (verify.provider_entitlement). Scope and status only."""
+"""Storage for provider entitlements (verify.provider_route_entitlement). Scope and status only."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ async def insert(
     entitlement_id = str(uuid.uuid4())
     await conn.execute(
         text(
-            "INSERT INTO verify.provider_entitlement (entitlement_id, tenant_id, provider_id, service_code, countries, "
+            "INSERT INTO verify.provider_route_entitlement (entitlement_id, tenant_id, provider_id, service_code, countries, "
             "purposes, processing_regions, valid_from, valid_until, assurance, cost_rank, status, created_by) VALUES "
             "(CAST(:i AS uuid), CAST(:t AS uuid), :p, :s, :c, :pu, :r, :vf, :vu, :a, :k, 'ACTIVE', CAST(:by AS uuid))"
         ),
@@ -63,7 +63,7 @@ async def live(conn: AsyncConnection, provider_id: str, service_code: str) -> di
         (
             await conn.execute(
                 text(
-                    f"SELECT {COLUMNS} FROM verify.provider_entitlement "
+                    f"SELECT {COLUMNS} FROM verify.provider_route_entitlement "
                     "WHERE provider_id = :p AND service_code = :s AND status <> 'REVOKED' FOR UPDATE"
                 ),
                 {"p": provider_id, "s": service_code},
@@ -80,7 +80,7 @@ async def set_status(
 ) -> None:
     await conn.execute(
         text(
-            "UPDATE verify.provider_entitlement SET status = :st, status_reason = :r, status_changed_at = now() "
+            "UPDATE verify.provider_route_entitlement SET status = :st, status_reason = :r, status_changed_at = now() "
             "WHERE entitlement_id = CAST(:i AS uuid)"
         ),
         {"st": status, "r": reason, "i": entitlement_id},
@@ -92,7 +92,7 @@ async def listing(conn: AsyncConnection, provider_id: str | None) -> list[dict[s
         (
             await conn.execute(
                 text(
-                    f"SELECT {COLUMNS} FROM verify.provider_entitlement "
+                    f"SELECT {COLUMNS} FROM verify.provider_route_entitlement "
                     "WHERE (CAST(:p AS text) IS NULL OR provider_id = :p) ORDER BY provider_id, service_code, status_changed_at DESC"
                 ),
                 {"p": provider_id},

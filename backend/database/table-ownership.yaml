@@ -934,7 +934,7 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-INT-002 section 13 (last property-check answer per property and host, outcomes only, so a change can be announced); CR-071"
-  verify.provider_entitlement:
+  verify.provider_route_entitlement:
     role: cell
     module: verification
     tenant_scoped: true
