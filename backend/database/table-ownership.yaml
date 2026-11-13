@@ -79,6 +79,16 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-COM-WF-2026-11 WF-I06, P01: a commission, billing report or credit-note proposal for a partner, decided once by a second person; pays nothing"
+  commercial.purchase_order:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-WF-2026-11 CW-11: a customer purchase order recorded by the operator plane; invoices of a company that has POs are issued only against one that fits"
+  commercial.purchase_order_draw:
+    role: cell
+    module: commercial
+    tenant_scoped: true
+    source: "ZID-COM-WF-2026-11 CW-11: the append-only draw-down of an issued invoice against a purchase order; the invoice document and its hash chain are untouched"
   commercial.solution_draft:
     role: cell
     module: commercial

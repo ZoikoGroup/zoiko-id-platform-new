@@ -120,6 +120,7 @@ from zid_platform.modules.commercial.infrastructure import (
     enforcement_store,
     market_matrix_store,
     partner_store,
+    purchase_order_store,
     rollout_store,
     solution_store,
 )
@@ -273,6 +274,7 @@ __all__ = [
     "plan_request_limit",
     "plan_requests",
     "plan_throughput_status",
+    "purchase_order_store",
     "recon",
     "recon_import",
     "reconcile",

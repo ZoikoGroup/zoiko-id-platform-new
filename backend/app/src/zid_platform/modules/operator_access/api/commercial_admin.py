@@ -76,6 +76,7 @@ from zid_platform.modules.commercial.ports import (
     partner_store,
     payment_event_queue,
     plan_requests,
+    purchase_order_store,
     reconcile,
     resolve_payment_event,
     rollout_store,
@@ -124,6 +125,9 @@ _STATUS = {
     "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
     "ROLLOUT_STAGE_UNKNOWN": 422,
     "PARTNER_NOT_FOUND": 404,
+    "PO_NUMBER_EXISTS": 409,
+    "PO_NOT_OPEN": 409,
+    "PO_REFUSED": 409,
     "PARTNER_NOT_PROPOSED": 409,
     "PARTNER_SELF_ACTIVATION": 403,
     "PARTNER_REFUSED": 409,
@@ -708,6 +712,93 @@ async def decide_partner_settlement(
         "settlement_id": str(settlement_id),
         "status": "APPROVED" if body.approve else "REJECTED",
     }
+
+
+class PurchaseOrderBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    po_number: str = Field(min_length=1, max_length=80)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    value: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    valid_from: date
+    valid_until: date
+
+
+def _po_view(r: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "po_id": str(r["po_id"]),
+        "po_number": r["po_number"],
+        "currency": r["currency"],
+        "value": str(r["value"]),
+        "drawn": str(r["drawn"]),
+        "remaining": str(Decimal(r["value"]) - Decimal(r["drawn"])),
+        "valid_from": r["valid_from"].isoformat(),
+        "valid_until": r["valid_until"].isoformat(),
+        "status": r["status"],
+    }
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/purchase-orders")
+async def list_purchase_orders(
+    tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        return {
+            "items": [_po_view(r) for r in await purchase_order_store.operator_list(conn, tenant)]
+        }
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/purchase-orders", status_code=201)
+async def record_purchase_order(
+    tenant_id: uuid.UUID, body: PurchaseOrderBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Record a purchase order the company supplied. From then on its invoices are issued only against a PO that fits."""
+    tenant = str(tenant_id)
+    if body.valid_until < body.valid_from:
+        raise ZidError(
+            "PO_VALIDITY_INVALID", "A purchase order cannot end before it starts.", http_status=422
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                po_id = await purchase_order_store.record(
+                    conn,
+                    tenant_id=tenant,
+                    po_number=body.po_number,
+                    currency=body.currency,
+                    value=str(body.value),
+                    valid_from=body.valid_from,
+                    valid_until=body.valid_until,
+                    created_by=str(op.principal_id),
+                )
+                await log_change(
+                    conn,
+                    kind="PURCHASE_ORDER_RECORDED",
+                    ref=po_id,
+                    tenant_id=tenant,
+                    actor=op.principal_id,
+                    detail={"po_number": body.po_number, "currency": body.currency},
+                )
+            except CommercialError as e:
+                raise _fail(e) from e
+    return {"po_id": po_id}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/purchase-orders/{po_id}:close")
+async def close_purchase_order(
+    tenant_id: uuid.UUID, po_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                await purchase_order_store.close(conn, str(po_id))
+            except CommercialError as e:
+                raise _fail(e) from e
+    return {"po_id": str(po_id), "status": "CLOSED"}
 
 
 @router.get("/v1/commercial/quote-requests")

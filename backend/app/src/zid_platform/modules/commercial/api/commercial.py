@@ -73,6 +73,7 @@ from zid_platform.modules.commercial.domain.service_families import check_select
 from zid_platform.modules.commercial.infrastructure import (
     billable_store,
     market_matrix_store,
+    purchase_order_store,
     solution_store,
 )
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
@@ -229,6 +230,30 @@ async def check_configuration(
         ),
         "estimate": None,
         "note": "A configuration is a draft, not an entitlement, and no price is shown: a binding price needs a signed quote.",
+    }
+
+
+@router.get("/v1/commercial/purchase-orders")
+async def my_purchase_orders(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The company's own purchase orders on record, with what has been drawn and what is left."""
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="commercial.read", resource=f"tenant:{tenant}")
+        rows = await purchase_order_store.for_tenant(conn, tenant)
+    return {
+        "items": [
+            {
+                "po_number": r["po_number"],
+                "currency": r["currency"],
+                "value": str(r["value"]),
+                "drawn": str(r["drawn"]),
+                "remaining": str(Decimal(r["value"]) - Decimal(r["drawn"])),
+                "valid_from": r["valid_from"].isoformat(),
+                "valid_until": r["valid_until"].isoformat(),
+                "status": r["status"],
+            }
+            for r in rows
+        ]
     }
 
 

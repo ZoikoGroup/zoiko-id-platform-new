@@ -1206,6 +1206,53 @@
         "title": "PlanRequestAnswer",
         "type": "object"
       },
+      "PurchaseOrderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "po_number": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Po Number",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date",
+            "title": "Valid Until",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "po_number",
+          "currency",
+          "value",
+          "valid_from",
+          "valid_until"
+        ],
+        "title": "PurchaseOrderBody",
+        "type": "object"
+      },
       "QuoteBody": {
         "additionalProperties": false,
         "properties": {
@@ -6728,6 +6775,30 @@
         ]
       }
     },
+    "/v1/commercial/purchase-orders": {
+      "get": {
+        "description": "The company's own purchase orders on record, with what has been drawn and what is left.",
+        "operationId": "my_purchase_orders_v1_commercial_purchase_orders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Purchase Orders V1 Commercial Purchase Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Purchase Orders",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/quote-requests": {
       "get": {
         "description": "The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time.",
@@ -8300,6 +8371,160 @@
           }
         },
         "summary": "Add Override",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/purchase-orders": {
+      "get": {
+        "operationId": "list_purchase_orders_v1_commercial_tenants__tenant_id__purchase_orders_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Purchase Orders V1 Commercial Tenants  Tenant Id  Purchase Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchase Orders",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Record a purchase order the company supplied. From then on its invoices are issued only against a PO that fits.",
+        "operationId": "record_purchase_order_v1_commercial_tenants__tenant_id__purchase_orders_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Purchase Order V1 Commercial Tenants  Tenant Id  Purchase Orders Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Purchase Order",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/purchase-orders/{po_id}:close": {
+      "post": {
+        "operationId": "close_purchase_order_v1_commercial_tenants__tenant_id__purchase_orders__po_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "po_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Po Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Purchase Order V1 Commercial Tenants  Tenant Id  Purchase Orders  Po Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Purchase Order",
         "tags": [
           "commercial"
         ]
