@@ -1,0 +1,369 @@
+# ZID-RCG-003 section 12: the 48 independent conformance and adversarial acceptance cases, and the tests that prove each (CR-083).
+# coverage: COVERED (the tests prove the mandatory result), PARTIAL (they prove part of it; the note says what is missing), GAP (nothing proves it).
+# Matched by what each test ASSERTS, not by a number in its name: several test names carry T-numbers from other documents.
+# tools/scripts/conformance_run.py runs exactly these tests; test_conformance_matrix.py checks every named test exists.
+# version: 0.1.0
+
+version: 0.1.0
+cases:
+  - case: T01
+    title: Market not in approved registry
+    expected: deny with UNAVAILABLE, no provider charged
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_policy_gate_http_pg.py::test_t01_an_enabled_country_without_an_approved_pack_is_refused_before_any_provider_is_asked
+      - app/tests/unit/test_policy_packs.py::test_t01_market_not_in_the_approved_registry_is_unavailable
+      - app/tests/component/test_policy_gate_pg.py::test_t01_an_enabled_market_with_no_approved_pack_is_refused_in_enforce
+  - case: T02
+    title: Unknown state/province for regulated profession
+    expected: REVIEW / policy_missing; no practice permission
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_policy_packs.py::test_t02_unknown_subdivision_for_a_regulated_profession_needs_review
+      - app/tests/component/test_policy_gate_pg.py::test_t02_a_market_with_only_a_profession_pack_needs_a_review_not_a_pass
+      - app/tests/component/test_policy_gate_http_pg.py::test_t02_a_country_with_only_a_profession_pack_needs_a_review
+  - case: T03
+    title: Country pack edited after approvals
+    expected: approval hash invalid and release denied
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_policy_packs.py::test_t03_an_approval_that_signed_an_earlier_hash_is_stale
+      - app/tests/component/test_policy_gate_pg.py::test_a_published_pack_edited_behind_the_applications_back_closes_the_market_loudly
+      - app/tests/unit/test_market_release.py::test_t03_a_pack_published_or_changed_after_the_release_closes_the_market_until_it_is_released_again
+  - case: T04
+    title: Legal source is proposal rather than enacted law
+    expected: draft only; cannot satisfy active-law gate
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_policy_packs.py::test_t04_only_a_proposal_cannot_be_published
+      - app/tests/unit/test_policy_packs.py::test_guidance_in_force_is_enough_but_a_proposal_alongside_it_does_not_matter
+  - case: T05
+    title: Certified supplier company but unrelated service
+    expected: deny certified claim
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_regulated_claims.py::test_t05_a_certified_company_with_an_unrelated_service_is_not_a_basis
+      - app/tests/component/test_regulated_claims_pg.py::test_a_claim_is_published_only_while_its_certification_and_market_hold_and_its_proof_is_exported
+  - case: T06
+    title: Expired supplier supplementary code
+    expected: new England RtR invocation blocked
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_right_to_rent.py::test_t06_an_expired_supplementary_code_blocks_new_invocations
+      - app/tests/component/test_right_to_rent_pg.py::test_t06_a_withdrawn_supplementary_code_blocks_new_invocations
+  - case: T07
+    title: Official register unreachable beyond TTL
+    expected: HOLD; no synthetic certification
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_attestation.py::test_t07_a_snapshot_older_than_the_limit_is_hold_so_an_unreachable_register_cannot_keep_a_certification_alive
+      - app/tests/component/test_attestation_pg.py::test_a_stale_snapshot_is_hold_so_an_unreachable_register_cannot_keep_a_certification_alive
+  - case: T08
+    title: Registry later revokes provider
+    expected: scope kill switch and impact event; history not rewritten
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_suspension_pg.py::test_the_kill_switch_stops_exactly_its_scope_and_is_rolled_back_by_another_person
+      - app/tests/unit/test_suspension.py::test_t08_the_answer_for_a_past_moment_is_the_version_in_force_then
+      - app/tests/unit/test_attestation.py::test_t08_a_later_withdrawal_does_not_change_what_was_true_at_an_earlier_check
+  - case: T09
+    title: Provider has valid status only in one country
+    expected: deny unsupported territory
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_entitlement_pg.py::test_a_granted_entitlement_lets_it_through_and_a_suspension_closes_it_again
+      - app/tests/unit/test_attestation.py::test_a_neighbouring_scope_is_never_covered
+  - case: T10
+    title: Provider contract excludes credential subtype
+    expected: disallow request and avoid data transfer
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_trust_graph_and_sources.py::test_each_refusal_has_its_own_code
+      - app/tests/component/test_credential_trust_pg.py::test_a_source_without_the_permitted_purpose_is_never_queried_and_nothing_is_stored
+    note: A claim type outside the source contract is refused before any query (SOURCE_NOT_COVERED); no database-level test shows zero stored or transferred data for a SUBTYPE exclusion specifically.
+  - case: T11
+    title: Provider fallback has weaker assurance
+    expected: deny silent failover, explicit review
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_pack_diff_and_provider_guards.py::test_t18_a_failover_that_would_lower_assurance_is_refused_without_an_approval
+      - app/tests/unit/test_trust_graph_and_sources.py::test_choose_prefers_a_primary_source_and_never_falls_back_to_a_refused_one
+  - case: T12
+    title: Unauthorized cross-tenant evidence access
+    expected: 403 with audit event; no metadata leakage
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_org_claim_proofs_pg.py::test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_document
+      - app/tests/component/test_credential_trust_pg.py::test_the_new_tables_are_invisible_to_another_tenant
+      - app/tests/component/test_tenant_isolation_pg.py::test_other_tenants_and_tenantless_callers_see_and_change_nothing
+    note: No leakage is proven (404 and row-level security), but the denied attempt is neither a 403 nor audited.
+  - case: T13
+    title: Degree valid, professional license expired
+    expected: qualification VERIFIED; practice NOT_ELIGIBLE
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_practice.py::test_the_mandatory_counterexample_qualification_verified_practice_not_established
+      - app/tests/unit/test_standing_and_eligibility.py::test_a_license_that_does_not_count_blocks_with_its_reason
+      - app/tests/component/test_practice_pg.py::test_t16_a_licence_from_another_state_is_not_practice_here_but_the_qualification_stays_verified
+  - case: T14
+    title: Degree accredited today, not on award date
+    expected: historical accreditation outcome correctly limited
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_issuer_history.py::test_the_award_date_decides_accreditation_not_todays_status
+      - app/tests/component/test_issuer_history_pg.py::test_issuer_at_award_time_through_the_operator_plane_with_audit
+  - case: T15
+    title: Licensing authority suspended person
+    expected: invalidate future professional engagement assertion
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_credential_trust_pg.py::test_a_newer_status_event_supersedes_the_check_and_an_older_late_one_changes_nothing
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_glb_10_a_status_change_after_a_pass_is_applied_and_reported
+  - case: T16
+    title: Cross-border license lacks reciprocity
+    expected: no global practice approval
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_practice_pg.py::test_t16_a_licence_from_another_state_is_not_practice_here_but_the_qualification_stays_verified
+  - case: T17
+    title: Insurer covers wrong region/profession
+    expected: insurance insufficient, reason code returned
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_practice.py::test_t17_cover_for_the_wrong_region_or_the_wrong_practice_is_insufficient_with_reasons
+      - app/tests/component/test_practice_pg.py::test_t17_cover_that_is_too_low_in_the_wrong_currency_or_for_the_wrong_practice_is_insufficient_with_reasons
+  - case: T18
+    title: Issuer provides only OCR extract
+    expected: not upgraded to source-authenticated status
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_evidence_quality_and_vc.py::test_appearance_evidence_never_rises_above_self_declared_however_much_there_is
+      - app/tests/unit/test_credential_claims.py::test_nothing_below_a_primary_source_confirmation_ever_verifies
+  - case: T19
+    title: Employer confirmation name collision
+    expected: human review with identity matching safeguards
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_glb_22_a_conflicting_birth_year_never_becomes_a_match
+      - app/tests/unit/test_credential_claims.py::test_glb_22_a_same_name_different_person_match_goes_to_a_person
+    note: A same-name collision goes to a person, but no test runs it on the employer-confirmation path.
+  - case: T20
+    title: Proof response is stale
+    expected: EXPIRED/RECHECK_REQUIRED; no cached active status
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_standing_and_eligibility.py::test_a_license_that_does_not_count_blocks_with_its_reason
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_an_unreachable_source_never_flips_a_status_it_only_loses_confirmation
+      - app/tests/unit/test_attestation.py::test_t07_a_snapshot_older_than_the_limit_is_hold_so_an_unreachable_register_cannot_keep_a_certification_alive
+    note: Stale proof is never active (BLOCKED, HOLD), but no proof response carries an explicit EXPIRED or RECHECK_REQUIRED status.
+  - case: T21
+    title: Valid PAdES signature nonqualified certificate
+    expected: CRYPTO_VALID and NOT_QUALIFIED
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_trusted_lists.py::test_a_certificate_without_qc_compliance_is_not_qualified_even_under_a_granted_service
+      - app/tests/unit/test_pdf_signatures.py::test_a_valid_signature_chained_to_a_configured_anchor_is_verified_limited_with_the_gaps_named
+    note: Each half is proven separately; no single test asserts CRYPTO_VALID together with NOT_QUALIFIED on one PAdES document.
+  - case: T22
+    title: Tampered signed PDF after signing
+    expected: INTEGRITY_FAIL with evidence
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_pdf_signatures.py::test_a_document_changed_after_signing_is_not_verified
+      - app/tests/unit/test_pdf_signatures.py::test_content_added_after_signing_is_reported_and_never_ignored
+  - case: T23
+    title: Revoked certificate at relevant validation time
+    expected: appropriate failure / indeterminate per trust profile
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_pdf_signatures.py::test_revocation_before_the_trusted_signing_time_fails_and_revocation_after_it_does_not
+      - app/tests/unit/test_pdf_signatures.py::test_a_crl_that_does_not_cover_the_chain_or_is_not_signed_by_its_issuer_proves_nothing
+  - case: T24
+    title: Timestamp absent/invalid
+    expected: do not infer long-term qualified validity
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_pdf_signatures.py::test_a_timestamp_from_an_authority_nobody_configured_does_not_fix_the_time
+      - app/tests/unit/test_pdf_signatures.py::test_plain_verified_needs_every_proof_and_anything_less_is_limited_or_worse
+  - case: T25
+    title: Untrusted signer but valid digest
+    expected: signature trust differs from byte integrity
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_pdf_signatures.py::test_t26_a_valid_signature_from_an_issuer_nobody_configured_is_never_issuer_authentic
+  - case: T26
+    title: Document signed by genuine person without authority
+    expected: authority separately rejected
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_pdf_signatures.py::test_a_pdf_signature_is_replaced_in_the_document_validation_and_nothing_authority_shaped_is_ever_plain_verified_without_proof
+      - app/tests/unit/test_screening.py::test_a_company_that_exists_is_not_a_persons_authority_to_act_for_it
+    note: Signature and authority are judged separately, but no test signs a genuine document and then rejects the signer's authority in one flow.
+  - case: T27
+    title: England RTR not applicable to Scottish property
+    expected: no England RTR required claim
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_right_to_rent.py::test_t27_a_property_elsewhere_in_the_uk_has_no_england_right_to_rent
+      - app/tests/component/test_right_to_rent_pg.py::test_a_provider_with_every_record_in_place_may_produce_evidence_and_t27_scotland_needs_none
+  - case: T28
+    title: England RTR with wrong certified service
+    expected: block partner-certified mode
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_right_to_rent.py::test_t28_a_provider_certified_for_another_service_is_blocked
+      - app/tests/component/test_right_to_rent_pg.py::test_t28_certified_only_for_identity_verification_is_blocked_for_right_to_rent
+  - case: T29
+    title: Home Office share-code route requested
+    expected: separate prescribed route; no substituted biometric approval
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_right_to_rent.py::test_t29_the_home_office_share_code_route_is_prescribed_and_nothing_is_substituted
+      - app/tests/component/test_right_to_rent_pg.py::test_t29_the_share_code_route_is_the_home_office_service_whatever_the_provider_holds
+  - case: T30
+    title: Consent withdrawal after unnecessary evidence retention
+    expected: correct workflow, exemptions and deletion proof
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_privacy_pg.py::test_erasure_holds_processors_and_retention
+      - app/tests/component/test_privacy_pg.py::test_registry_role_map_consent_and_processing_check
+    note: Exemptions, processor acknowledgement and the deletion audit are proven, and withdrawal stops processing; no test has a withdrawal trigger erasure of the retained evidence.
+  - case: T31
+    title: Biometric path inaccessible/refused
+    expected: compliant alternate route presented
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_privacy_overlay_http_pg.py::test_t31_a_biometric_route_the_country_prohibits_is_refused_and_names_the_compliant_alternate
+      - app/tests/unit/test_privacy_overlay.py::test_t31_a_refused_biometric_route_names_the_compliant_alternates
+  - case: T32
+    title: Cross-border data route violates residency
+    expected: deny outbound provider request
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_privacy_overlay_http_pg.py::test_t32_a_provider_processing_outside_the_lawful_regions_is_never_asked
+      - app/tests/unit/test_privacy_overlay.py::test_t32_a_region_without_a_lawful_transfer_is_denied
+  - case: T33
+    title: Public website tries to show global certification
+    expected: unapproved claim template blocked
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_regulated_claims.py::test_t33_a_global_certification_claim_is_blocked
+      - app/tests/unit/test_regulated_claims.py::test_t33_a_template_with_no_country_or_a_wildcard_is_blocked
+      - app/tests/unit/test_regulated_claims.py::test_both_approvals_are_needed_and_editing_after_approval_breaks_the_hash
+  - case: T34
+    title: Duplicate and reordered regulatory webhook
+    expected: exactly-once logical transition with dedupe
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_credential_trust_pg.py::test_an_out_of_order_event_on_the_live_check_is_recorded_but_not_applied
+      - app/tests/component/test_idv_providers_pg.py::test_veriff_and_sumsub_sessions_and_webhooks
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_glb_26_a_late_older_update_cannot_undo_a_newer_status_and_is_kept_in_history
+  - case: T35
+    title: Compromised webhook signature/replay
+    expected: reject, log and alert
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_pack_diff_and_provider_guards.py::test_a_replayed_or_stale_webhook_is_refused
+      - app/tests/unit/test_pack_diff_and_provider_guards.py::test_t16_a_forged_or_altered_webhook_is_refused
+      - app/tests/component/test_idv_providers_pg.py::test_veriff_and_sumsub_sessions_and_webhooks
+    note: Forged, replayed and stale webhooks are rejected; no test asserts that the rejection is logged and raises an alert.
+  - case: T36
+    title: Approval maker tries to self-approve
+    expected: forbidden; distinct authorized approvers required
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_policy_packs.py::test_t36_the_author_cannot_approve
+      - app/tests/unit/test_market_release.py::test_the_author_and_anyone_who_recorded_evidence_cannot_approve
+      - app/tests/component/test_regulatory_releases_api_pg.py::test_whoever_authors_a_release_cannot_also_hold_a_signing_role
+  - case: T37
+    title: Rollback after policy upgrade
+    expected: historical decision retains old pack and input hash
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_policy_packs.py::test_t37_a_decision_stamp_keeps_pointing_at_the_version_it_used
+      - app/tests/component/test_regulatory_basis_pg.py::test_the_basis_is_written_once_and_the_table_refuses_a_later_edit
+  - case: T38
+    title: Evidence export requester lacks purpose
+    expected: deny or redact; record audit
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_evidence_provenance_pg.py::test_case_bound_redacted_export
+      - app/tests/component/test_audit_export_pg.py::test_only_someone_who_may_read_evidence_can_follow_the_feed
+    note: Exports are redacted and refused without authority; no test refuses one for a MISSING PURPOSE and records the refusal.
+  - case: T39
+    title: Supplier inactive during applicant workflow
+    expected: safe resumable pending state; no fabricated pass
+    coverage: COVERED
+    tests:
+      - app/tests/component/test_idv_providers_pg.py::test_veriff_and_sumsub_sessions_and_webhooks
+      - app/tests/component/test_source_resilience_pg.py::test_a_source_that_stays_down_is_unavailable_with_a_code_and_a_count_never_the_error_text
+      - app/tests/component/test_claim_checks_pg.py::test_a_source_that_raises_is_unavailable_not_a_verdict
+  - case: T40
+    title: Regional policy updated and valid sessions exist
+    expected: re-evaluate affected pending cases, emit scoped notices
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_org_approvals_pg.py::test_an_approved_request_is_held_when_policy_or_trust_changes
+      - app/tests/component/test_regulatory_api_pg.py::test_a_pack_goes_from_draft_to_published_and_back_through_the_operator_plane
+    note: Pending approvals are held when policy changes, and a pack change is announced on the outbox; pending verification sessions of that region are not re-evaluated.
+  - case: T41
+    title: Malicious PDF polyglot or embedded active content
+    expected: quarantine before validator
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_org_claim_proofs_pg.py::test_what_is_not_a_clean_document_is_refused_with_an_audit_record_and_nothing_stored
+      - app/tests/unit/test_kyb_proof.py::test_a_pdf_that_can_run_something_is_refused
+    note: Active content is refused before the scanner, with an audit record, on organization proofs; it is refused rather than quarantined, and the credential document path is not covered.
+  - case: T42
+    title: Accreditation/certification body loses status
+    expected: source recheck and affected proof review
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_attestation.py::test_a_suspended_withdrawn_or_expired_certification_is_hold_with_its_own_reason
+      - app/tests/component/test_regulated_claims_pg.py::test_an_issuer_recorded_in_the_ledger_is_trusted_by_a_live_claim_check_and_a_correction_takes_it_away
+      - app/tests/component/test_regulated_claims_pg.py::test_a_claim_is_published_only_while_its_certification_and_market_hold_and_its_proof_is_exported
+    note: Lost status takes trust and claims away at once; no test schedules a source recheck or a review of the proofs already issued under it.
+  - case: T43
+    title: GDPR subject access request for multi-source check
+    expected: role/legal basis-aware export without third-party leakage
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_privacy_pg.py::test_rights_requests_verification_access_and_opt_out
+      - app/tests/component/test_credential_erasure_pg.py::test_the_data_map_finds_and_exports_a_readable_summary_without_hashes_or_keys
+    note: A verified access request exports a readable summary without internal material; role and legal-basis filtering and a third-party leakage check are not proven.
+  - case: T44
+    title: Accuracy/fairness disaggregated test finds material disparity
+    expected: hold affected automated path; alternative review
+    coverage: PARTIAL
+    tests:
+      - app/tests/unit/test_name_matching_fairness.py::test_unreadable_scripts_always_go_to_a_person_with_a_clear_reason
+    note: The known disparity (unreadable scripts) goes to a person; nothing detects a disparity and holds the automated path.
+  - case: T45
+    title: Outage/incident notification deadline simulation
+    expected: routing, legal escalation, clock and evidence verified
+    coverage: GAP
+    note: Incident preservation and routing rules exist (test_operations_catalogue.py), but no test runs a notification deadline clock or legal escalation.
+  - case: T46
+    title: Regulator requests historic certification proof
+    expected: export check-time official snapshot + trace
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_attestation.py::test_t46_the_snapshot_that_answered_a_past_check_can_be_produced_again
+      - app/tests/component/test_attestation_pg.py::test_snapshots_build_a_history_that_answers_for_any_moment
+      - app/tests/component/test_regulated_claims_pg.py::test_a_claim_is_published_only_while_its_certification_and_market_hold_and_its_proof_is_exported
+  - case: T47
+    title: Service certification expired but registered brand remains
+    expected: scope-specific block, no unrelated disable
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_suspension.py::test_unrelated_services_places_and_providers_are_not_disabled
+      - app/tests/unit/test_attestation.py::test_losing_one_certification_changes_only_its_own_scope
+      - app/tests/component/test_attestation_pg.py::test_a_neighbouring_scope_is_not_covered_and_losing_one_scope_changes_only_that_one
+  - case: T48
+    title: Selective disclosure to Zoikorum lacking consent
+    expected: deny claim release; log consumer purpose
+    coverage: PARTIAL
+    tests:
+      - app/tests/component/test_credential_trust_pg.py::test_a_grant_discloses_only_its_fields_and_withdrawal_ends_it_and_its_children
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_every_term_must_match_at_disclosure
+    note: Release without a matching consent is denied; no test asserts that the consumer's purpose is logged on the denied release.

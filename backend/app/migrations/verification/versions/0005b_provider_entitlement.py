@@ -1,7 +1,7 @@
 """A runtime registry of what each provider may be used for (ZID-INT-002 section 08; `provider.entitlement_revoked`; CR-071).
 
-Revision ID: verification_0005
-Revises: verification_0004
+Revision ID: verification_0005b
+Revises: verification_0005
 Create Date: 2026-11-12
 
 Until now an entitlement existed only as the shape the routing rules take. This stores the deployment's own record of one provider's exact
@@ -11,8 +11,8 @@ period is a new record. No credential, key or contract text is held here, only t
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0005"
-down_revision = "verification_0004"
+revision = "verification_0005b"
+down_revision = "verification_0005"
 branch_labels = None
 depends_on = None
 

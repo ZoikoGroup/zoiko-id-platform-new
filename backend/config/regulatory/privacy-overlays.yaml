@@ -1,0 +1,25 @@
+# Country privacy, cross-border and biometric overlays (ZID-RCG-003 RCG-G09, T31, T32; CR-079). Versioned configuration, not tenant data.
+# status: PROPOSED. NO country is listed: until the DPO and Legal approve an overlay for a country, a verification start there is reported (shadow)
+# or refused (enforce, ZID_PRIVACY_OVERLAY) with PRIVACY_OVERLAY_MISSING. A tenant's verification profile can never widen what an overlay allows.
+#
+# An overlay names: the regions where the country's data may always be processed (home_regions), other regions each with its lawful transfer
+# mechanism (transfer_regions), the region each provider processes this country's data in (provider_regions; a provider not listed is refused),
+# whether biometrics are ALLOWED, CONSENT_REQUIRED or PROHIBITED, whether a DPIA is required and its reference, the lawful basis, and two
+# approvals (dpo, legal), each signing the overlay hash shown by GET /v1/regulatory/privacy-overlays. Example, kept as a comment:
+#
+#   - country: GB
+#     version: 1
+#     home_regions: [UK]
+#     transfer_regions: {EU: UK_ADEQUACY_REGULATIONS}
+#     provider_regions: {simulator: UK}
+#     biometrics: CONSENT_REQUIRED
+#     dpia: {required: true, reference: DPIA-2027-01}
+#     lawful_basis: contract
+#     approvals:
+#       dpo: {reference: DPO-12, signed_hash: "<the overlay hash>"}
+#       legal: {reference: LEGAL-34, signed_hash: "<the overlay hash>"}
+#
+# version: 0.1.0
+
+version: 0.1.0
+overlays: []

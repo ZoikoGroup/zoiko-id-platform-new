@@ -1,0 +1,126 @@
+# Zoiko iD's 12 core service offerings (Global Service Offerings, Product + Engineering, revised 2026-11-10; CR-088).
+#
+# Delivery rule from that document: publish coverage ONLY when provider rights, country rules, privacy controls and independent tests are verified;
+# design specifications are not production certification. So this file says what each offering IS and what it DEPENDS ON. It never says where it is
+# available. Availability is computed per country (GET /v1/regulatory/offerings) from:
+#   provider rights   -> a contract entitlement for the country's provider (CR-074) and no hold on it (CR-078)
+#   country rules     -> an approved policy pack and a launched market release for every capability listed (CR-067, CR-072)
+#   privacy controls  -> an approved, usable privacy overlay for the country; biometric offerings also need biometrics not PROHIBITED (CR-079)
+#   independent tests -> the latest ACCEPTED conformance run passes every case listed (CR-083)
+# An offering whose cases are not all PASS, or that lists none, is never shown as available.
+#
+#   capabilities: country-registry capabilities the offering's entry points are gated on (country-capabilities.yaml). Empty = not country-gated.
+#   cases:        ZID-RCG-003 section 12 acceptance cases that prove the offering's controls.
+#   code:         where it is built (pointers for engineers; not shown to customers).
+#   wording:      the customer-facing description. It may not claim certification: certification claims go through the regulated-claims
+#                 engine (CR-077) only.
+
+version: 0.1.0
+offerings:
+  - id: IDENTITY_DOCUMENTS
+    title: Identity & documents
+    wording: Confirm identities using ID documents, authenticity checks and evidence from approved sources.
+    capabilities: [INDIVIDUAL_VERIFICATION]
+    personal_data: true
+    biometric: false
+    cases: [T01, T05, T09, T22, T41]
+    code: [modules/verification, modules/evidence/api/v2_documents.py, modules/evidence/api/v2_extract.py]
+
+  - id: BIOMETRICS_FRAUD
+    title: Biometrics & fraud
+    wording: Detect spoofing and deepfakes with liveness, face match, risk signals and human review.
+    capabilities: [INDIVIDUAL_VERIFICATION]
+    personal_data: true
+    biometric: true
+    cases: [T31, T32, T44]
+    code: [modules/verification/domain/tiers.py, modules/signals, modules/screening/api/signals.py]
+
+  - id: BUSINESS_VERIFICATION
+    title: Business verification
+    wording: Verify companies, beneficial owners, directors and authorized business representatives.
+    capabilities: [BUSINESS_VERIFICATION]
+    personal_data: true
+    biometric: false
+    cases: [T01, T09, T10, T26]
+    code: [modules/onboarding/api/org_claims.py, modules/onboarding/api/v2_organizations.py, modules/screening]
+
+  - id: QUALIFICATIONS_STANDING
+    title: Qualifications & standing
+    wording: Validate degrees, licenses, memberships, employment, insurance and professional eligibility.
+    capabilities: [INDIVIDUAL_VERIFICATION]
+    personal_data: true
+    biometric: false
+    cases: [T02, T13, T14, T15, T16, T17, T18, T19, T20, T42, T48]
+    code: [modules/credential/api/claim_checks.py, modules/credential/api/v2_cases.py, modules/credential/domain/practice.py, modules/credential/domain/issuer_history.py]
+
+  - id: VERIFIABLE_CREDENTIALS
+    title: Verifiable credentials
+    wording: Issue, check, reuse and revoke consent-based attestations across eligible wallets and services.
+    capabilities: [CREDENTIAL_ISSUANCE]
+    personal_data: true
+    biometric: false
+    cases: [T30, T48]
+    code: [modules/credential/api/credentials.py, modules/credential/api/v2_presentations.py, modules/credential/domain/eudi.py]
+
+  - id: AUTHENTICATION_ACCESS
+    title: Authentication & access
+    wording: Apply passkeys, MFA, SSO and adaptive access to customer, workforce and partner journeys.
+    capabilities: []
+    personal_data: true
+    biometric: false
+    cases: [T12, T36]
+    code: [modules/authentication, modules/session, modules/federation, modules/provisioning]
+
+  - id: DELEGATED_AUTHORITY
+    title: Delegated authority
+    wording: Enforce mandates, roles, limits and expiry for people, services and governed AI agents.
+    capabilities: [ENTERPRISE_USE]
+    personal_data: true
+    biometric: false
+    cases: [T26, T36]
+    code: [modules/mandate, modules/authority, modules/machine, modules/credential/api/v2_authority.py]
+
+  - id: SIGNATURES_TRUST_SERVICES
+    title: Signatures & trust services
+    wording: Support signing, sealing, timestamps and validation; qualified status requires approved providers.
+    capabilities: [ENTERPRISE_USE]
+    personal_data: true
+    biometric: false
+    cases: [T21, T22, T23, T24, T25, T26]
+    code: [modules/evidence/application/signatures.py, modules/evidence/application/asic.py, modules/evidence/application/trust.py]
+
+  - id: SCREENING_MONITORING
+    title: Screening & monitoring
+    wording: Screen sanctions, PEPs and risk sources where permitted; monitor changes and escalate cases.
+    capabilities: [BUSINESS_VERIFICATION]
+    personal_data: true
+    biometric: false
+    cases: [T39, T44]
+    code: [modules/screening, modules/screening/domain/monitoring_scope.py]
+
+  - id: PRIVACY_FAIR_REVIEW
+    title: Privacy & fair review
+    wording: Protect consent, data residency and retention; prohibit racial profiling and offer human review.
+    capabilities: []
+    personal_data: true
+    biometric: false
+    cases: [T30, T32, T43, T44]
+    code: [modules/privacy, modules/verification/domain/privacy_overlay.py]
+
+  - id: GLOBAL_APIS_INTEGRATIONS
+    title: Global APIs & integrations
+    wording: Provide APIs, SDKs, signed webhooks, provider adapters and jurisdiction-specific policy packs.
+    capabilities: []
+    personal_data: false
+    biometric: false
+    cases: [T34, T35, T37, T40]
+    code: [modules/webhook, modules/integration, sdks/, modules/verification/api/v2_providers.py]
+
+  - id: EVIDENCE_ASSURANCE
+    title: Evidence & assurance
+    wording: Track cases, decision provenance, audit trails, provider accountability and release conformance.
+    capabilities: []
+    personal_data: true
+    biometric: false
+    cases: [T03, T08, T38, T45, T46, T47]
+    code: [modules/evidence, modules/assurance, modules/operator_access/api/regulatory_conformance.py]

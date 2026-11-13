@@ -656,13 +656,27 @@ async def insert_retention_policy(conn: AsyncConnection, v: Mapping[str, Any]) -
     ).one()
 
 
-async def active_retention_policy(conn: AsyncConnection, code: str) -> Row[Any] | None:
+async def active_retention_policy(
+    conn: AsyncConnection, code: str, tenant_id: str | None = None
+) -> Row[Any] | None:
+    """The tenant's active policy with this code. Policies belong to a tenant: a worker on the BYPASSRLS role must pass the
+    entry's tenant, or another tenant's policy with the same code could be applied."""
+    if tenant_id is None:
+        return (
+            await conn.execute(
+                text(
+                    "SELECT * FROM privacy.retention_policy WHERE policy_code = :c AND status = 'ACTIVE'"
+                ),
+                {"c": code},
+            )
+        ).first()
     return (
         await conn.execute(
             text(
-                "SELECT * FROM privacy.retention_policy WHERE policy_code = :c AND status = 'ACTIVE'"
+                "SELECT * FROM privacy.retention_policy WHERE policy_code = :c AND status = 'ACTIVE' "
+                "AND tenant_id = CAST(:t AS uuid)"
             ),
-            {"c": code},
+            {"c": code, "t": tenant_id},
         )
     ).first()
 

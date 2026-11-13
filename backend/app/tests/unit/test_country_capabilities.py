@@ -190,12 +190,27 @@ from zid_platform.modules.onboarding.api.signup import router as signup_router
 SRC = Path(__file__).resolve().parents[2] / "src" / "zid_platform"
 # every route or callback that starts a regulated capability, and the capability it must ask about
 GATED_ENTRY_POINTS = {
+    # ZID-RCG-003: a regulated entry point runs the regulatory checks too (enforce_regulated: pack, release, entitlement, kill switch)
+    "country_gate.py": {
+        "enforce_regulated": ("enforce", "enforce_packs"),
+        "enforce_tenant": ("enforce", "enforce_packs"),
+    },
+    "modules/onboarding/api/v2_organizations.py": {
+        "verify_organization": ("enforce_regulated", "BUSINESS_VERIFICATION"),
+    },
+    "modules/onboarding/api/org_claims.py": {
+        "create_claim": ("enforce_regulated", "BUSINESS_VERIFICATION"),
+        "search": ("enforce_regulated", "BUSINESS_VERIFICATION"),
+    },
+    "modules/credential/api/v2_cases.py": {
+        "open_case": ("enforce_regulated", "INDIVIDUAL_VERIFICATION"),
+    },
     "modules/onboarding/api/signup.py": {
-        "signup": ("REGISTRATION", "BUSINESS_VERIFICATION"),
-        "registry_lookup": ("BUSINESS_VERIFICATION",),
+        "signup": ("REGISTRATION", "BUSINESS_VERIFICATION", "enforce_regulated"),
+        "registry_lookup": ("BUSINESS_VERIFICATION", "enforce_regulated"),
     },
     "modules/onboarding/api/onboarding.py": {
-        "organization": ("BUSINESS_VERIFICATION",),
+        "organization": ("BUSINESS_VERIFICATION", "enforce_regulated"),
         "_approved_move": ("ENTERPRISE_USE",),
         "activate_stage": ("ENTERPRISE_USE",),
     },

@@ -34,7 +34,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce
+from zid_platform.country_gate import enforce, enforce_regulated
 from zid_platform.modules.onboarding.application import claims
 from zid_platform.modules.organization.ports import (
     KybAdapter,
@@ -215,7 +215,7 @@ class SearchIn(BaseModel):
 async def search(body: SearchIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _require_admin(conn, caller)
-    enforce(request, body.country, Capability.BUSINESS_VERIFICATION)
+    await enforce_regulated(request, body.country, Capability.BUSINESS_VERIFICATION, caller.ctx)
     found = await kyb_search(
         body.query,
         body.country,
@@ -262,6 +262,8 @@ async def create_claim(
 ) -> dict[str, Any]:
     now = datetime.now(UTC)
     tenant = caller.ctx.tenant_id or ""
+    # ZID-RCG-003: the regulatory checks for company verification before any register is asked (the country check also runs inside)
+    await enforce_regulated(request, body.country, Capability.BUSINESS_VERIFICATION, caller.ctx)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         me = await _require_admin(conn, caller)
         # CR-068: count this claim attempt (best effort, never blocks it). The contact key is the person's stable id here.

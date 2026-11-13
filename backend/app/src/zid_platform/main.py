@@ -116,6 +116,46 @@ def create_app(
             "outside local, test and dev use shadow or enforce"
         )
     app.state.regulatory_packs = settings.regulatory_packs
+    if settings.market_releases == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_MARKET_RELEASES=off would let an enabled country run a regulated capability with no market release; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    app.state.market_releases = settings.market_releases
+    if settings.provider_entitlements == "off" and settings.environment not in (
+        "local",
+        "test",
+        "dev",
+    ):
+        raise RuntimeError(
+            "ZID_PROVIDER_ENTITLEMENTS=off would let an enabled country call a provider Zoiko may not be entitled to use; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    app.state.provider_entitlements = settings.provider_entitlements
+    if settings.privacy_overlay == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_PRIVACY_OVERLAY=off would let an enabled country route identity data without its approved privacy overlay; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    app.state.privacy_overlay = settings.privacy_overlay
+    if settings.eudi_wallet == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_EUDI_WALLET=off would let Zoiko ask an EUDI Wallet for attributes without its relying-party registration; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    from .modules.credential.application import eudi_gate
+
+    eudi_gate.configure(settings.eudi_wallet)
+    app.state.eudi_wallet = settings.eudi_wallet
+    if settings.monitoring_scope == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_MONITORING_SCOPE=off would let ongoing monitoring run in markets with no legal and commercial approval; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    from .modules.screening.ports import configure_monitoring_scope
+
+    configure_monitoring_scope(settings.monitoring_scope)
+    app.state.monitoring_scope = settings.monitoring_scope
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
     app.state.build_images = tuple(i.strip() for i in settings.build_images if i.strip())
@@ -291,6 +331,9 @@ def create_app(
         from .modules.configuration.api.settings import router as settings_router
         from .modules.credential.api.claim_checks import router as claim_checks_router
         from .modules.credential.api.credentials import router as credentials_router
+        from .modules.credential.api.regulatory_issuers import (
+            router as regulatory_issuers_router,
+        )
         from .modules.credential.api.trust import router as credential_trust_router
         from .modules.credential.api.v2 import router as credential_v2_router
         from .modules.credential.api.v2_authority import router as credential_v2_authority_router
@@ -336,6 +379,16 @@ def create_app(
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.operator_access.api.regulatory import router as regulatory_router
+        from .modules.operator_access.api.regulatory_conformance import (
+            router as regulatory_conformance_router,
+        )
+        from .modules.operator_access.api.regulatory_releases import (
+            router as regulatory_releases_router,
+        )
+        from .modules.operator_access.api.regulatory_suspensions import (
+            router as regulatory_suspensions_router,
+        )
+        from .modules.operator_access.api.regulatory_v2 import router as regulatory_v2_router
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
@@ -456,6 +509,11 @@ def create_app(
             commercial_finance_router,
             commercial_payment_ops_router,
             regulatory_router,
+            regulatory_releases_router,
+            regulatory_issuers_router,
+            regulatory_suspensions_router,
+            regulatory_conformance_router,
+            regulatory_v2_router,
             communication_router,
         ):
             app.include_router(router)

@@ -24,6 +24,7 @@ from zid_platform.modules.credential.domain import eligibility as el
 from zid_platform.modules.credential.domain import lifecycle as lc
 from zid_platform.modules.credential.domain import outreach as oc
 from zid_platform.modules.credential.domain import portable as pt
+from zid_platform.modules.credential.domain import practice as pr
 from zid_platform.modules.credential.domain import standing as st
 from zid_platform.modules.credential.domain import trust_graph as tg
 from zid_platform.modules.credential.domain.claims import (
@@ -35,6 +36,7 @@ from zid_platform.modules.credential.domain.claims import (
     SubjectMatch,
 )
 from zid_platform.modules.credential.infrastructure import claim_store, trust_store
+from zid_platform.modules.credential.infrastructure.registries import find_practice_rule
 from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
 from zid_platform.modules.verification.ports import person_assurance_current
 
@@ -199,9 +201,17 @@ async def evaluate_eligibility(
 
 
 def insurance_satisfied(
-    rows: Sequence[Mapping[str, Any]], *, region: str, work: str, until: date
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    region: str,
+    work: str,
+    until: date,
+    requirement: pr.InsuranceRequirement | None = None,
+    reasons_out: list[str] | None = None,
 ) -> bool | None:
-    """True/False from the subject's live insurance check; None if there is no verified one (not checked)."""
+    """True/False from the subject's live insurance check; None if there is no verified one (not checked). With a practice rule's
+    `requirement` (CR-076) the cover must also meet its limit, practice class and claims-made retroactive date, and each failure is appended to
+    `reasons_out`."""
     for r in rows:
         if r["claim_type"] != "INSURANCE_ASSERTION" or r["assertion"]["decision"] != "VERIFIED":
             continue
@@ -213,9 +223,27 @@ def insurance_satisfied(
             "activities": facts.get("activities") or [],
             "excluded_work": facts.get("excluded_work") or [],
         }
-        ok, _ = st.insurance_result(
-            fields, st.InsuranceNeed("the-subject", region, work, date.today(), until)
+        need = st.InsuranceNeed("the-subject", region, work, date.today(), until)
+        if requirement is None:
+            ok, _ = st.insurance_result(fields, need)
+            return ok
+        ok, why = pr.insurance_adequacy(
+            requirement,
+            fields
+            | {
+                k: facts.get(k)
+                for k in (
+                    "coverage_limit",
+                    "currency",
+                    "practice_class",
+                    "cover_basis",
+                    "retroactive_date",
+                )
+            },
+            need,
         )
+        if reasons_out is not None:
+            reasons_out.extend(why)
         return ok
     return None
 
@@ -241,14 +269,20 @@ async def evaluate_engagement(
     now: datetime,
     consumer: str,
     engagement_days: int = 365,
+    practice: pr.PracticeRule | None = None,
 ) -> EngagementResult:
     facts, rows = await _facts(conn, subject, policy, registry, now)
     identity = await person_assurance_current(conn, subject, now)
+    # CR-076: the practice rule the owners published for this policy, if any. With none, the engagement is decided exactly as before.
+    prule = practice if practice is not None else find_practice_rule(policy.policy_id)
+    insurance_reasons: list[str] = []
     ins = insurance_satisfied(
         rows,
         region=request.country,
         work=request.service_code,
         until=(now + timedelta(days=engagement_days)).date(),
+        requirement=prule.insurance if prule else None,
+        reasons_out=insurance_reasons,
     )
     findings = [
         r["assertion"].get("disciplinary")
@@ -277,6 +311,25 @@ async def evaluate_engagement(
         if outcome.reasons != ("POLICY_DOES_NOT_MATCH_ENGAGEMENT",)
         else None
     )
+    if prule is not None and elig is not None:
+        # qualification and practice stay separate: a genuine licence or degree is not practice eligibility, and a licence's conditions are
+        # read against this service. A rule can keep the result or make it stricter, never upgrade it.
+        decision = pr.decide(
+            prule,
+            qualification_verified=any(
+                f.claim_type in ("PROFESSIONAL_LICENSE", "ACADEMIC_AWARD")
+                and f.decision == "VERIFIED"
+                and f.credential_status == "ACTIVE"
+                for f in facts
+            ),
+            eligible=elig.eligibility is Eligibility.ELIGIBLE,
+            conditions=elig.restrictions,
+        )
+        outcome = pr.apply_to_engagement(outcome, decision)
+        if insurance_reasons:
+            outcome = replace(
+                outcome, reasons=tuple(dict.fromkeys((*outcome.reasons, *insurance_reasons)))
+            )
     dims = dimensions(
         rows,
         identity=identity,

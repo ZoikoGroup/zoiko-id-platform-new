@@ -32,11 +32,12 @@ from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks as checks
 from zid_platform.modules.credential.application import resilience as rs
 from zid_platform.modules.credential.application.identity_match import Holder
+from zid_platform.modules.credential.domain import trust_graph as tg
 from zid_platform.modules.credential.domain.claims import ClaimError, ClaimType
 from zid_platform.modules.credential.domain.sources import SourceError, coverage
 from zid_platform.modules.credential.infrastructure import claim_store as store
 from zid_platform.modules.credential.infrastructure.registries import (
-    issuer_registry,
+    current_issuer_registry,
     source_contracts,
 )
 from zid_platform.modules.verification.ports import (
@@ -150,10 +151,12 @@ def _gate(
     caller: Caller | None = None,
     consent_ref: str | None = None,
     consumer: str = "direct",
+    *,
+    registry: tg.Registry,
 ) -> checks.Gate:
     """The deployment's controls: the issuer registry and the source contracts. The region is the cell's own region."""
     return checks.Gate(
-        registry=issuer_registry(),
+        registry=registry,
         contracts=source_contracts(),
         purpose=purpose,
         processing_region=str(getattr(request.app.state, "processing_region", "local")),
@@ -200,7 +203,14 @@ async def perform_check(
                 source=_source(request),
                 now=datetime.now(UTC),
                 environment=_environment(request),
-                gate=_gate(request, body.purpose, caller, body.consent_ref, body.consumer),
+                gate=_gate(
+                    request,
+                    body.purpose,
+                    caller,
+                    body.consent_ref,
+                    body.consumer,
+                    registry=await current_issuer_registry(c),
+                ),
                 holder=(
                     Holder(
                         body.holder_name,
@@ -274,7 +284,13 @@ async def check_disciplinary(
             action="credential.disciplinary.check",
             resource="credential-claim:DISCIPLINARY",
         )
-        base = _gate(request, body.purpose, caller, body.consent_ref)
+        base = _gate(
+            request,
+            body.purpose,
+            caller,
+            body.consent_ref,
+            registry=await current_issuer_registry(conn),
+        )
         gate = replace(
             base,
             consent_ref=body.consent_ref,

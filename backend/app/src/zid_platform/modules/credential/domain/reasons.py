@@ -118,6 +118,118 @@ EN: dict[str, tuple[str, str, str]] = {
         "The program was not covered by an accreditation on the date the award was made, even if it is accredited now.",
         "You may appeal with evidence of accreditation on the award date.",
     ),
+    "UNKNOWN_HISTORICAL_ISSUER": (
+        "We do not know this institution",
+        "We have no recorded history for this institution at the time of the check, so we cannot say it was authorized to award this credential.",
+        "A person may verify the institution with an official source.",
+    ),
+    "AUTHORITY_NOT_RECORDED": (
+        "The institution's authority is not recorded",
+        "We have no recorded legal or regulatory basis for this institution to issue this kind of credential.",
+        "A person may check the institution's authority with an official source.",
+    ),
+    "ISSUER_REVOKED_AT_AWARD_DATE": (
+        "The institution was no longer recognized",
+        "The institution's recognition had been withdrawn by the date the award was made.",
+        "You may appeal with evidence that it was recognized on the award date.",
+    ),
+    "NOT_TRUSTED_FOR_CLAIM_TYPE": (
+        "The institution is not recorded for this kind of claim",
+        "This institution is not recorded as an authority for this kind of credential.",
+        "A person may check whether another source can confirm it.",
+    ),
+    # --- practice rules and insurance adequacy
+    "QUALIFICATION_VERIFIED": (
+        "The qualification is verified",
+        "The qualification itself was checked and confirmed. That is separate from whether this person may practise this service here.",
+        "No action is needed for the qualification.",
+    ),
+    "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
+        "Permission to practise is not established",
+        "We could not establish that this person may offer this service in this place, even though other checks passed.",
+        "A person may review it, or you can provide the missing evidence.",
+    ),
+    "CONDITION_BLOCKS_SERVICE": (
+        "A licence condition closes this service",
+        "A condition on the licence means this service is not open to this person in this place.",
+        "You may appeal with evidence that the condition no longer applies.",
+    ),
+    "CONDITION_NEEDS_REVIEW": (
+        "A licence condition needs a person to look at it",
+        "A condition on the licence needs to be reviewed before this service can go ahead.",
+        "A reviewer will look at it; you may add context.",
+    ),
+    "CONDITION_NOT_CLASSIFIED": (
+        "A licence condition is not recognized",
+        "A condition on the licence is not one we have a rule for, so we cannot treat it as permitting this service.",
+        "A reviewer will look at it.",
+    ),
+    "COVERAGE_LIMIT_NOT_REPORTED": (
+        "The cover limit is not reported",
+        "The insurance record does not state a coverage limit, so we cannot tell whether it is enough.",
+        "Ask the insurer to confirm the limit.",
+    ),
+    "COVERAGE_CURRENCY_MISMATCH": (
+        "The cover is in a different currency",
+        "The cover limit is in a different currency from the one required. We do not convert between currencies.",
+        "Provide cover in the required currency.",
+    ),
+    "COVERAGE_LIMIT_BELOW_MINIMUM": (
+        "The cover limit is too low",
+        "The cover limit is below the minimum required for this service.",
+        "Increase the cover or provide additional cover.",
+    ),
+    "PRACTICE_CLASS_NOT_COVERED": (
+        "The cover is for a different kind of practice",
+        "The insurance record does not cover the kind of practice this service needs.",
+        "Ask the insurer to confirm cover for this practice.",
+    ),
+    "COVER_BASIS_NOT_REPORTED": (
+        "The cover basis is not reported",
+        "The insurance record does not say whether it is claims-made or occurrence cover.",
+        "Ask the insurer to confirm the basis of the cover.",
+    ),
+    "RETROACTIVE_DATE_MISSING": (
+        "The retroactive date is missing",
+        "Claims-made cover needs a retroactive date, and the record does not give one.",
+        "Ask the insurer to confirm the retroactive date.",
+    ),
+    "RETROACTIVE_DATE_AFTER_WORK_START": (
+        "The cover starts too late",
+        "The retroactive date of this claims-made cover is after the work starts, so earlier work would not be covered.",
+        "Provide cover with an earlier retroactive date.",
+    ),
+    # --- EU digital identity wallet (CR-080)
+    "ACCESS_CERTIFICATE_MISSING": (
+        "The request is not signed with a registered certificate",
+        "A request to an EU digital identity wallet must be signed with the certificate registered for it, and this one was not.",
+        "Zoiko iD must configure its registered certificate before asking the wallet.",
+    ),
+    "ACCESS_CERTIFICATE_MISMATCH": (
+        "The request is signed with a different certificate",
+        "The request is signed with a certificate other than the one registered for EU digital identity wallets.",
+        "Zoiko iD must sign with its registered certificate.",
+    ),
+    "INTENDED_USE_NOT_REGISTERED": (
+        "This use is not registered",
+        "Zoiko iD is not registered to ask an EU digital identity wallet for information for this purpose.",
+        "No action is needed from you; the request was not sent.",
+    ),
+    "ATTESTATION_TYPE_NOT_REGISTERED": (
+        "This kind of credential is not registered",
+        "Zoiko iD is not registered to ask an EU digital identity wallet for this kind of credential for this purpose.",
+        "No action is needed from you; the request was not sent.",
+    ),
+    "PID_PROVIDER_NOT_LISTED": (
+        "The identity data provider is not recognized",
+        "The person identification data did not come from a provider we can confirm on an official list.",
+        "Use another way to verify your identity.",
+    ),
+    "QEAA_STATUS_NOT_ESTABLISHED": (
+        "Not a qualified attestation",
+        "The issuer was not confirmed as a qualified provider for this attestation on the date it was issued, so it is treated as an ordinary attestation.",
+        "No action is needed; the attestation is still read, at its proper level.",
+    ),
     # --- standing
     "LICENSE_NOT_YET_EFFECTIVE": (
         "The license has not started",

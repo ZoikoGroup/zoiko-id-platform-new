@@ -1,0 +1,20 @@
+# Official registers, trusted lists and professional registers the platform may query itself (ZID-RCG-003 RCG-G02, RCG-G04; CR-087).
+# status: PROPOSED. NO source is listed. A source is added only when (1) the contract or published terms that permit automated queries are
+# recorded (contract_ref), and (2) a connector has been written against that register's documented interface and registered under the same
+# source_id in verification/infrastructure/register_sources.py. Until then operators record register entries by hand, and the built-in
+# `simulator` source stands in for local, test and dev (never deployed).
+#
+# Example, kept as a comment:
+#
+#   - source_id: uk-diatf-register
+#     kind: OFFICIAL_REGISTER          # OFFICIAL_REGISTER | TRUSTED_LIST | PROFESSIONAL_REGISTER
+#     scheme: UK_DIATF
+#     base_url: https://www.gov.uk/government/publications/uk-digital-identity-and-attributes-trust-framework-certified-services/
+#     contract_ref: OGL-v3            # the licence or contract that permits automated reads
+#     enabled: false
+#     environments: [staging, production]
+#
+# version: 0.1.0
+
+version: 0.1.0
+sources: []

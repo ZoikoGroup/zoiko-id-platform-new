@@ -29,7 +29,7 @@ from zid_platform.modules.credential.application import trust_service as svc
 from zid_platform.modules.credential.application import v2_view as vw
 from zid_platform.modules.credential.domain import outreach as oc
 from zid_platform.modules.credential.infrastructure import trust_store
-from zid_platform.modules.credential.infrastructure.registries import issuer_registry
+from zid_platform.modules.credential.infrastructure.registries import current_issuer_registry
 
 router = APIRouter(tags=["credential-v2"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -58,7 +58,8 @@ async def open_issuer_check(
     claim_type = vw.CREDENTIAL_TYPES.get(body.credential_type)
     if claim_type is None:
         raise ZidError("VALIDATION_FAILED", "credential_type is not supported.", http_status=422)
-    issuer = issuer_registry().issuers.get(body.issuer_ref)
+    async with tenant_transaction(request_engine(request), caller.ctx) as read:
+        issuer = (await current_issuer_registry(read)).issuers.get(body.issuer_ref)
     if issuer is None:  # a lookalike or unknown issuer is never contacted
         raise ZidError("ISSUER_NOT_FOUND", "Issuer not found.", http_status=404)
     scope = Scope(caller.ctx.tenant_id or "", caller.client_id, "POST /v2/issuer-checks")

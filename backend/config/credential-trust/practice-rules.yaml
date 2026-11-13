@@ -1,0 +1,19 @@
+# Practice rules per eligibility policy (ZID-RCG-003 RCG-G05; CR-076). Versioned configuration, not tenant data.
+# status: PROPOSED. NO rule is listed: until the owners (Zoikorum product, Legal, Insurance) publish one for a policy, an engagement for that policy is
+# decided exactly as before. A rule says which licence CONDITIONS leave a service open (permitted), need a person (review) or close it (blocking), and
+# what cover is adequate (minimum limit and its currency, accepted practice classes, claims-made retroactive date). A condition the rule does not list is
+# REVIEW, never permitted. Example of one rule, for the sample policy, kept as a comment so nothing real is configured by accident:
+#
+#   - rule_id: sample-us-ca-law-practice
+#     version: 1
+#     policy_id: sample-us-ca-law
+#     conditions:
+#       permitted: [CONTINUING_EDUCATION_DUE]
+#       review: [PROBATION]
+#       blocking: [SUPERVISED_PRACTICE_ONLY, NO_INDEPENDENT_PRACTICE]
+#     insurance: {min_limit: 1000000, currency: USD, practice_classes: [LEGAL], claims_made_needs_retroactive: true}
+#
+# version: 0.1.0
+
+version: 0.1.0
+rules: []

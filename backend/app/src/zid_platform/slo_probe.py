@@ -99,10 +99,14 @@ def _request(
         headers["Content-Type"] = "application/json"
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(base.rstrip("/") + path, data=data, method=method, headers=headers)
+    url = base.rstrip("/") + path
+    if not url.startswith(("https://", "http://")):
+        # Only a web endpoint may be probed: file:// or a custom scheme would read something other than the deployment.
+        raise ValueError(f"probe URL must be http(s): {url}")
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     start = time.perf_counter()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310: scheme checked above
             resp.read()
             status = resp.status
     except urllib.error.HTTPError as e:

@@ -312,7 +312,7 @@ async def open_erasure_job(
     for e in await store.subject_entries(conn, subject):
         ref = f"{e.store}:{e.object_ref}"
         policy = (
-            await store.active_retention_policy(conn, e.retention_policy_code)
+            await store.active_retention_policy(conn, e.retention_policy_code, str(e.tenant_id))
             if e.retention_policy_code
             else None
         )
