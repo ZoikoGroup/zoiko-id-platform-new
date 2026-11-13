@@ -112,7 +112,7 @@ async def country_refusals(
 
 async def accepted_results(conn: AsyncConnection) -> dict[str, str] | None:
     """case -> outcome of the newest conformance run an independent reviewer accepted and nobody rejected; None when there is none."""
-    for run in await conformance_store.list_runs(conn):
+    for run in await conformance_store.list_runs(conn, skip_unreadable=True):
         reviews = await conformance_store.reviews(conn, run.run_id)
         if any(r.decision is cf.Decision.REJECTED for r in reviews):
             continue
