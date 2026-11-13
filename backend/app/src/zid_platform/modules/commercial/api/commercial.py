@@ -31,7 +31,7 @@ import io
 import time
 import uuid
 from collections import defaultdict, deque
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -65,6 +65,8 @@ from zid_platform.modules.commercial.application.adapters import (
     from_minor_units,
 )
 from zid_platform.modules.commercial.application.change_log import log_change
+from zid_platform.modules.commercial.domain import context_link as link_rules
+from zid_platform.modules.commercial.domain import family_rates as rate_rules
 from zid_platform.modules.commercial.domain import family_text as family_text_model
 from zid_platform.modules.commercial.domain import market_availability as availability
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
@@ -80,6 +82,7 @@ from zid_platform.modules.commercial.domain.rollout import is_live
 from zid_platform.modules.commercial.domain.service_families import check_selection
 from zid_platform.modules.commercial.infrastructure import (
     billable_store,
+    family_rate_store,
     family_text_store,
     lead_store,
     market_matrix_store,
@@ -183,15 +186,21 @@ def _judge(
             fam,
             verdict,
             market_named=bool(subject_country or payer_country or operating_region),
-            # a row counts only for a market the buyer named: a row for Germany says nothing about the Netherlands
-            row_recorded=any(
-                (code, c) in matrix_rows for c in (subject_country, payer_country) if c is not None
-            )
-            or (
-                operating_region is not None
-                and any(
-                    k[0] == code and r.data_region == operating_region
-                    for k, r in matrix_rows.items()
+            # "No" is said only when every named country has a recorded row: a row for Germany says nothing about the Netherlands, and a payer country nobody has
+            # recorded has not been refused, it has not been asked yet, so that is a conversation with Sales
+            row_recorded=(
+                all(
+                    (code, c) in matrix_rows
+                    for c in (subject_country, payer_country)
+                    if c is not None
+                )
+                if (subject_country or payer_country)
+                else (
+                    operating_region is not None
+                    and any(
+                        k[0] == code and r.data_region == operating_region
+                        for k, r in matrix_rows.items()
+                    )
                 )
             ),
         )
@@ -307,14 +316,21 @@ _LEAD_WINDOW_S, _LEAD_MAX_PER_WINDOW = 600.0, 10
 _lead_recent: dict[str, deque[float]] = defaultdict(deque)
 
 
+_link_recent: dict[str, deque[float]] = defaultdict(deque)
+
+
 def _lead_rate_limit(request: Request) -> None:
-    """In-process per-address bound on public inquiries (the edge rate limiter is the production control)."""
+    _address_rate_limit(request, _lead_recent, _LEAD_MAX_PER_WINDOW)
+
+
+def _address_rate_limit(request: Request, bucket: dict[str, deque[float]], limit: int) -> None:
+    """In-process per-address bound on public requests (the edge rate limiter is the production control)."""
     key = request.client.host if request.client else "unknown"
     now = time.monotonic()
-    q = _lead_recent[key]
+    q = bucket[key]
     while q and now - q[0] > _LEAD_WINDOW_S:
         q.popleft()
-    if len(q) >= _LEAD_MAX_PER_WINDOW:
+    if len(q) >= limit:
         raise ZidError(
             "RATE_LIMITED",
             "Too many inquiries from this address; try again later.",
@@ -326,6 +342,10 @@ def _lead_rate_limit(request: Request) -> None:
 
 
 _NO_STORE = {"Cache-Control": "no-store"}
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
 
 
 @router.get("/v1/public/pricing/page")
@@ -380,6 +400,7 @@ async def public_availability(
     registry = await _registry(request)
     async with request_engine(request).begin() as conn:
         active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+        rate_card, rates = await family_rate_store.active_rates(conn, datetime.now(UTC))
     judged = _judge(
         registry,
         matrix_rows,
@@ -390,6 +411,7 @@ async def public_availability(
         issuer_country=issuer_country,
     )
     cards = []
+    priced_periods: list[set[str]] = []
     for c in judged:
         m = c.get("market")
         cards.append(
@@ -400,8 +422,10 @@ async def public_availability(
                 "reasons": c["reasons"],
                 "terms": {"seller_entity": m["seller_entity"], "currency": m["currency"], "data_region": m["data_region"]} if m else None,
                 "provider_attribution": c.get("provider_attribution"),
+                "rates": {p: _rate_view(rates[(c["family"], payer_country or "", p)]) for p in rate_rules.PERIODS if c["state"] == "AVAILABLE" and (c["family"], payer_country or "", p) in rates},
             }
         )  # fmt: skip
+        priced_periods.append({p for p in cards[-1]["rates"]})
     return JSONResponse(
         {
             "market_matrix_version": active["version"] if active else None,
@@ -421,6 +445,16 @@ async def public_availability(
                 },
             },
             "cards": cards,
+            "rate_card": (
+                {
+                    "version": rate_card["version"],
+                    "effective_from": _iso(rate_card["effective_from"]),
+                    # the monthly and annual choice is offered only when every priced service has both an approved monthly and an approved annual rate
+                    "both_periods": bool([p for p in priced_periods if p]) and all(p == {"MONTHLY", "ANNUAL"} for p in priced_periods if p),
+                }
+                if rate_card
+                else None
+            ),
             # What the active matrix has released, so a buyer can choose a market and a data region that exist. Only rows taken live through the rollout count.
             "released_markets": sorted({r.country for r in matrix_rows.values() if is_live(r.stage)}),
             "released_regions": sorted(
@@ -431,6 +465,202 @@ async def public_availability(
                 }
             ),
             "note": "No price is shown here. Changing the subject country, the payer or the region re-evaluates every service on the server.",
+        },
+        headers=_NO_STORE,
+    )  # fmt: skip
+
+
+def _link_mac() -> Any:
+    """The platform's internal MAC key (KMS-backed in a deployment): no secret of this module's own."""
+    from zid_platform.modules.evidence.ports import current_runtime
+
+    return current_runtime().mac_key.mac
+
+
+class ContextLinkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    subject_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    payer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    issuer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    operating_region: (
+        Annotated[str, Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9._-]+$")] | None
+    ) = None
+
+
+@router.post("/v1/public/pricing/context-link", status_code=201)
+async def make_context_link(body: ContextLinkIn, request: Request) -> JSONResponse:
+    """Public: a signed link that carries only the market a buyer chose (WF-P01). It holds no amount, plan or identity, expires, and only pre-fills the market choice: the server judges it afresh."""
+    _address_rate_limit(request, _link_recent, 30)
+    ctx = link_rules.Context(
+        body.subject_country, body.payer_country, body.issuer_country, body.operating_region
+    )
+    try:
+        token, exp = link_rules.make(ctx, _link_mac())
+    except link_rules.LinkError as e:
+        raise ZidError(
+            e.code, f"A link could not be made: {e.detail or e.code}.", http_status=422
+        ) from e
+    return JSONResponse(
+        {"token": token, "expires_at": datetime.fromtimestamp(exp, UTC).isoformat()},
+        status_code=201,
+        headers=_NO_STORE,
+    )
+
+
+@router.get("/v1/public/pricing/context-link/{token}")
+async def read_context_link(token: str, request: Request) -> JSONResponse:
+    """Public: the market a valid, unexpired link carries. A forged, altered or expired link is refused with nothing revealed about why it failed beyond expired or invalid."""
+    _address_rate_limit(request, _link_recent, 30)
+    try:
+        ctx, exp = link_rules.read(token, _link_mac())
+    except link_rules.LinkError as e:
+        raise ZidError(
+            e.code,
+            "This link is not valid or has expired. Choose your market again.",
+            http_status=410 if e.code == "LINK_EXPIRED" else 422,
+        ) from e
+    return JSONResponse(
+        {
+            "subject_country": ctx.subject_country,
+            "payer_country": ctx.payer_country,
+            "issuer_country": ctx.issuer_country,
+            "operating_region": ctx.operating_region,
+            "expires_at": datetime.fromtimestamp(exp, UTC).isoformat(),
+        },
+        headers=_NO_STORE,
+    )
+
+
+_estimate_recent: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _rate_view(r: rate_rules.Rate) -> dict[str, Any]:
+    return {
+        "currency": r.currency,
+        "charge_unit": r.charge_unit,
+        "included_units": r.included_units,
+        "unit_amount": str(r.unit_amount),
+        "minimum_amount": str(r.minimum_amount) if r.minimum_amount is not None else None,
+        "minimum_model": r.minimum_model,
+    }
+
+
+class EstimateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    subject_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    payer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    issuer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    operating_region: (
+        Annotated[str, Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9._-]+$")] | None
+    ) = None
+    period: Literal["MONTHLY", "ANNUAL"] = "MONTHLY"
+    # expected units PER MONTH for each service; an annual estimate is priced on twelve times this
+    volumes: dict[str, int] = Field(min_length=1, max_length=16)
+
+
+@router.post("/v1/public/pricing/estimate")
+async def public_estimate(body: EstimateIn, request: Request) -> JSONResponse:
+    """Public: a non-binding estimate from the ACTIVE family rate card (WF-P04). Only a service the market matrix has released for the buyer's market, with a rate recorded for the payer's country, is priced; every
+    other service says Quote required and why. Amounts are exact, in the contract currency of each rate, never added across currencies, and never turned into a charge: the answer names the card version, a hash of
+    exactly what was priced, and when it stops being offered. A signed quote or order form is the only binding price."""
+    _address_rate_limit(request, _estimate_recent, 60)
+    registry = await _registry(request)
+    unknown = sorted(f for f in body.volumes if registry.get(f) is None)
+    if unknown:
+        raise ZidError(
+            "UNKNOWN_FAMILY", f"Unknown service family: {', '.join(unknown)}.", http_status=422
+        )
+    for fam, vol in body.volumes.items():
+        if isinstance(vol, bool) or not 0 <= vol <= 1_000_000_000:
+            raise ZidError(
+                "VOLUME_INVALID",
+                f"The expected volume for {fam} must be a whole number from 0 to 1,000,000,000.",
+                http_status=422,
+            )
+    now = datetime.now(UTC)
+    async with request_engine(request).begin() as conn:
+        _, matrix_rows = await market_matrix_store.active_rows(conn, now)
+        card, rates = await family_rate_store.active_rates(conn, now)
+    judged = {
+        c["family"]: c
+        for c in _judge(
+            registry, matrix_rows, list(body.volumes), subject_country=body.subject_country, payer_country=body.payer_country,
+            operating_region=body.operating_region, issuer_country=body.issuer_country,
+        )
+    }  # fmt: skip
+    factor = 12 if body.period == "ANNUAL" else 1
+    priced: list[rate_rules.Line] = []
+    out_lines: list[dict[str, Any]] = []
+    quote_required: list[dict[str, Any]] = []
+    for fam in sorted(body.volumes):
+        view = judged[fam]
+        name = view["name"]
+        rate = rates.get((fam, body.payer_country or "", body.period))
+        if view["state"] != "AVAILABLE":
+            quote_required.append(
+                {
+                    "family": fam,
+                    "name": name,
+                    "state": PUBLIC_STATE[view["state"]],
+                    "reason_codes": view["causes"],
+                    "reasons": view["reasons"],
+                }
+            )
+            continue
+        if rate is None:
+            quote_required.append(
+                {
+                    "family": fam,
+                    "name": name,
+                    "state": "NO_RATE_RECORDED",
+                    "reason_codes": ["NO_RATE_RECORDED"],
+                    "reasons": [
+                        {
+                            "cause": "NO_RATE_RECORDED",
+                            "text": "No approved rate is recorded for this service, payer country and billing period.",
+                        }
+                    ],
+                }
+            )
+            continue
+        line = rate_rules.charge(rate, body.volumes[fam] * factor)
+        priced.append(line)
+        item: dict[str, Any] = {
+            "family": fam, "name": name, "period": line.period, "currency": line.currency, "charge_unit": rate.charge_unit,
+            "monthly_volume": body.volumes[fam], "volume": line.volume, "included_units": line.included_units, "billable_units": line.billable_units,
+            "usage": str(line.usage), "minimum_amount": str(line.minimum_amount) if line.minimum_amount is not None else None,
+            "minimum_model": line.minimum_model, "amount": str(line.amount), "formula": line.formula, "annual_comparison": None,
+        }  # fmt: skip
+        monthly = rates.get((fam, body.payer_country or "", "MONTHLY"))
+        if body.period == "ANNUAL" and monthly is not None:
+            item["annual_comparison"] = rate_rules.annual_comparison(
+                monthly, rate, body.volumes[fam]
+            )
+        out_lines.append(item)
+    scope = {
+        "families": dict(sorted(body.volumes.items())), "subject_country": body.subject_country, "payer_country": body.payer_country,
+        "issuer_country": body.issuer_country, "operating_region": body.operating_region, "period": body.period,
+    }  # fmt: skip
+    valid_until = now + timedelta(seconds=rate_rules.ESTIMATE_TTL_S)
+    return JSONResponse(
+        {
+            "binding": False,
+            "rate_card": {"version": card["version"], "effective_from": _iso(card["effective_from"])} if card else None,
+            "period": body.period,
+            "lines": out_lines,
+            "totals": {c: str(v) for c, v in rate_rules.totals(priced).items()},
+            "quote_required": quote_required,
+            "quote_hash": rate_rules.quote_hash(scope, int(card["version"]) if card else 0, priced),
+            "as_of": now.isoformat(),
+            "valid_until": valid_until.isoformat(),
+            "tax": {"state": "CALCULATED_AT_CHECKOUT", "note": "Tax is not included. It is calculated for your seller and payer when a signed quote is made."},
+            "assumptions": [
+                "Volumes are your own forecast, per month. An annual estimate is priced on twelve times the monthly volume.",
+                "Amounts are in the contract currency of each rate and are never added across currencies.",
+                "A minimum is shown as either a spend floor (the greater of the minimum and usage) or a platform fee (billed in addition to usage), exactly as the rate declares it.",
+                "This is an estimate, not an invoice or a quote. It creates no charge, entitlement or contract.",
+            ],
+            "no_rate_card": None if card else "No approved rate card is effective yet, so nothing is priced. Every service is quoted by Sales.",
         },
         headers=_NO_STORE,
     )  # fmt: skip

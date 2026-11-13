@@ -59,6 +59,7 @@ from zid_platform.modules.commercial.ports import (
     billable_store,
     enforcement_store,
     entitlement_changed,
+    family_rate_store,
     family_registry,
     family_text_store,
     finance,
@@ -99,6 +100,9 @@ from zid_platform.modules.commercial.ports import (
 from zid_platform.modules.commercial.ports import (
     catalogue_store as store,
 )
+from zid_platform.modules.commercial.ports import (
+    family_rates_model as rate_model,
+)
 from zid_platform.modules.evidence.ports import current_runtime
 from zid_platform.modules.operator_access.ports import (
     DIRECT_APPROVER,
@@ -134,6 +138,17 @@ _STATUS = {
     "FAMILY_TEXT_NOT_FOUND": 404,
     "LEAD_NOT_FOUND": 404,
     "PAGE_CHANGED": 409,
+    "RATE_CARD_NOT_FOUND": 404,
+    "RATE_CARD_NOT_DRAFT": 409,
+    "RATE_CARD_SELF_APPROVAL": 403,
+    "RATE_CARD_ROLE_ALREADY_SIGNED": 409,
+    "RATE_CARD_PERSON_ALREADY_SIGNED": 409,
+    "RATE_CARD_APPROVALS_MISSING": 409,
+    "RATE_CARD_APPROVAL_REFUSED": 409,
+    "RATE_CARD_EMPTY": 422,
+    "RATE_CARD_ROLE_UNKNOWN": 422,
+    "RATE_CARD_NOT_APPOINTED": 403,
+    "RATE_LINE_REFUSED": 422,
     "NOT_A_SIGNATORY": 403,
     "ALREADY_SIGNED": 409,
     "NOTICE_NOT_FOUND": 404,
@@ -1192,6 +1207,236 @@ async def withdraw_public_notice(
         except CommercialError as e:
             raise _fail(e) from e
     return {"notice_id": str(notice_id), "status": "WITHDRAWN"}
+
+
+class RateLineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    period: Literal["MONTHLY", "ANNUAL"]
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    charge_unit: str = Field(min_length=3, max_length=120)
+    included_units: int = Field(ge=0, le=1_000_000_000_000, default=0)
+    unit_amount: Decimal = Field(ge=0, max_digits=18, decimal_places=6, default=Decimal(0))
+    minimum_amount: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=6)
+    minimum_model: Literal["FLOOR", "PLATFORM_FEE"] | None = None
+    source_ref: str = Field(min_length=1, max_length=255)
+
+
+class RateLinesImport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lines: list[RateLineBody] = Field(min_length=1, max_length=500)
+
+
+class RateApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["CFO", "CCO", "FOUNDER"]
+
+
+def _rate_of(b: RateLineBody) -> rate_model.Rate:
+    return rate_model.Rate(
+        b.family,
+        b.country,
+        b.period,
+        b.currency,
+        b.charge_unit,
+        b.included_units,
+        b.unit_amount,
+        b.minimum_amount,
+        b.minimum_model,
+    )
+
+
+def _rate_problems(b: RateLineBody, registry: Any) -> list[str]:
+    found = rate_model.rate_problems(_rate_of(b))
+    if registry.get(b.family) is None:
+        found = ["FAMILY_UNKNOWN", *found]
+    return found
+
+
+@router.get("/v1/commercial/family-rate-cards")
+async def list_rate_cards(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        items = [
+            {
+                "card_id": str(c["card_id"]), "version": c["version"], "status": c["status"], "effective_from": _iso(c["effective_from"]),
+                "activated_at": _iso(c["activated_at"]), "note": c["note"],
+            }
+            for c in await family_rate_store.cards(conn)
+        ]  # fmt: skip
+    return {"items": items}
+
+
+@router.get("/v1/commercial/family-rate-cards/{card_id}")
+async def get_rate_card(card_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        c = await family_rate_store.card(conn, str(card_id))
+        if c is None:
+            raise _fail(CommercialError("RATE_CARD_NOT_FOUND"))
+        lines = await family_rate_store.lines(conn, str(card_id))
+        signed = await family_rate_store.approvals(conn, str(card_id))
+    return {
+        "card_id": str(c["card_id"]), "version": c["version"], "status": c["status"], "effective_from": _iso(c["effective_from"]), "note": c["note"],
+        "lines": [
+            {
+                "family": r.family, "country": r.country, "period": r.period, "currency": r.currency, "charge_unit": r.charge_unit,
+                "included_units": r.included_units, "unit_amount": str(r.unit_amount),
+                "minimum_amount": str(r.minimum_amount) if r.minimum_amount is not None else None, "minimum_model": r.minimum_model, "source_ref": ref,
+            }
+            for r, ref in lines
+        ],
+        "approvals": [{"role": a["role"], "approver": str(a["approver"]), "approved_at": _iso(a["approved_at"])} for a in signed],
+        "missing_approvals": [r for r in family_rate_store.ROLES if r not in {a["role"] for a in signed}],
+    }  # fmt: skip
+
+
+@router.post("/v1/commercial/family-rate-cards", status_code=201)
+async def create_rate_card(body: DraftBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """A draft rate card. There are no default rates: every line is entered by an owner from a signed source."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            return await family_rate_store.create_draft(
+                conn,
+                copy_of=str(body.copy_of) if body.copy_of else None,
+                created_by=str(op.principal_id),
+                note=body.note,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}/lines:import")
+async def import_rate_lines(
+    card_id: uuid.UUID, body: RateLinesImport, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Add or replace up to 500 rate lines of a DRAFT card at once. All or nothing, with every problem listed by line."""
+    registry = family_registry()
+    problems: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for i, b in enumerate(body.lines, start=1):
+        found = _rate_problems(b, registry)
+        key = (b.family, b.country, b.period)
+        if key in seen:
+            found = [*found, "DUPLICATE_IN_IMPORT"]
+        seen.add(key)
+        if found:
+            problems.append(
+                {"line": i, "key": f"{b.family} {b.country} {b.period}", "problems": found}
+            )
+    if problems:
+        raise ZidError(
+            "RATE_IMPORT_REJECTED", f"{len(problems)} of {len(body.lines)} lines have problems; nothing was written.", http_status=422,
+            details=[ErrorDetail(field=f"line {p['line']} {p['key']}", issue=",".join(p["problems"])) for p in problems[:50]],
+        )  # fmt: skip
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            for b in body.lines:
+                await family_rate_store.put_line(conn, str(card_id), _rate_of(b), b.source_ref)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "lines_written": len(body.lines)}
+
+
+@router.put("/v1/commercial/family-rate-cards/{card_id}/lines")
+async def put_rate_line(
+    card_id: uuid.UUID, body: RateLineBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    problems = _rate_problems(body, family_registry())
+    if problems:
+        raise ZidError(
+            problems[0], f"This rate line is not valid: {', '.join(problems)}.", http_status=422
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.put_line(conn, str(card_id), _rate_of(body), body.source_ref)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "card_id": str(card_id),
+        "family": body.family,
+        "country": body.country,
+        "period": body.period,
+    }
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:approve")
+async def approve_rate_card(
+    card_id: uuid.UUID, body: RateApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """The CFO, the CCO and the Founder sign, as three different people, none the author. Each must hold that appointment."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        if not await finance.holds(conn, str(op.principal_id), body.role, now):
+            raise _fail(
+                CommercialError(
+                    "RATE_CARD_NOT_APPOINTED", f"you do not hold the {body.role} appointment"
+                )
+            )
+        try:
+            await family_rate_store.approve(
+                conn, str(card_id), role=body.role, approver=str(op.principal_id)
+            )
+            await log_change(
+                conn,
+                kind="RATE_CARD_APPROVED",
+                ref=str(card_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"role": body.role},
+            )
+            signed = await family_rate_store.approvals(conn, str(card_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "card_id": str(card_id),
+        "signed": [a["role"] for a in signed],
+        "missing": [r for r in family_rate_store.ROLES if r not in {a["role"] for a in signed}],
+    }
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:activate")
+async def activate_rate_card(
+    card_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.activate(
+                conn,
+                str(card_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="RATE_CARD_ACTIVATED",
+                ref=str(card_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:withdraw")
+async def withdraw_rate_card(
+    card_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.withdraw(conn, str(card_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "status": "WITHDRAWN"}
 
 
 @router.get("/v1/commercial/quote-requests")

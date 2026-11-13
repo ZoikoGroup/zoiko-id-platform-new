@@ -570,69 +570,6 @@
         "title": "HoldIn",
         "type": "object"
       },
-      "NoticeBody": {
-        "additionalProperties": false,
-        "properties": {
-          "approval_request_id": {
-            "format": "uuid",
-            "title": "Approval Request Id",
-            "type": "string"
-          },
-          "audience": {
-            "maxLength": 64,
-            "minLength": 2,
-            "title": "Audience",
-            "type": "string"
-          },
-          "code": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Code",
-            "type": "string"
-          },
-          "content": {
-            "maxLength": 200000,
-            "minLength": 20,
-            "title": "Content",
-            "type": "string"
-          },
-          "content_uri": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content Uri"
-          },
-          "jurisdictions": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 50,
-            "title": "Jurisdictions",
-            "type": "array"
-          },
-          "processing_activity_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 50,
-            "title": "Processing Activity Codes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "code",
-          "audience",
-          "content",
-          "approval_request_id"
-        ],
-        "title": "NoticeBody",
-        "type": "object"
-      },
       "OnBehalfBody": {
         "additionalProperties": false,
         "properties": {
@@ -2443,6 +2380,69 @@
         "title": "CloseBody",
         "type": "object"
       },
+      "zid_platform__modules__privacy__api__privacy__NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "audience": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Audience",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 200000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "content_uri": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Uri"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "audience",
+          "content",
+          "approval_request_id"
+        ],
+        "title": "NoticeBody",
+        "type": "object"
+      },
       "zid_platform__modules__privacy__api__privacy__RoleBody": {
         "additionalProperties": false,
         "properties": {
@@ -2748,7 +2748,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoticeBody"
+                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__privacy__NoticeBody"
               }
             }
           },

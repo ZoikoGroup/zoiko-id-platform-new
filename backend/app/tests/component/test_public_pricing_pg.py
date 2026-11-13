@@ -385,3 +385,49 @@ def test_the_operator_queue_moves_a_lead_forward_only(rt_url: str) -> None:
             ).status_code
             == 404
         )
+
+
+def test_a_signed_market_link_carries_only_the_market_and_cannot_be_forged_or_outlive_its_time(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import time as _time
+
+    from zid_platform.modules.commercial.domain import context_link as cl
+
+    app = create_app(settings(rt_url), keyring=onboard(rt_url).ring)
+    with TestClient(app, base_url=ISS) as http:
+        made = http.post(
+            "/v1/public/pricing/context-link",
+            json={"subject_country": "FI", "payer_country": "FI", "operating_region": "eu-central"},
+        )
+        assert made.status_code == 201 and made.headers["cache-control"] == "no-store", made.text
+        token = made.json()["token"]
+        read = http.get(f"/v1/public/pricing/context-link/{token}")
+        assert read.status_code == 200
+        assert read.json() == {
+            "subject_country": "FI",
+            "payer_country": "FI",
+            "issuer_country": None,
+            "operating_region": "eu-central",
+            "expires_at": made.json()["expires_at"],
+        }
+        assert "$" not in read.text and "price" not in read.text.lower()
+
+        # nothing can be added to a link: an unknown field, an empty market and a malformed country are refused when it is made
+        for bad in (
+            {},
+            {"subject_country": "Finland"},
+            {"subject_country": "FI", "price": "1"},
+            {"subject_country": "FI", "amount": 5},
+        ):
+            assert http.post("/v1/public/pricing/context-link", json=bad).status_code == 422, bad
+        # a changed or foreign link is refused and says nothing more than that it is not valid
+        body, sig = token.split(".")
+        forged = http.get(f"/v1/public/pricing/context-link/{body}.{'A' * len(sig)}")
+        assert forged.status_code == 422 and forged.json()["error"]["code"] == "LINK_INVALID"
+        assert http.get("/v1/public/pricing/context-link/not-a-link").status_code == 422
+        # and it stops working when it expires
+        later = _time.time() + cl.DEFAULT_TTL_S + 5
+        monkeypatch.setattr(cl.time, "time", lambda: later)
+        gone = http.get(f"/v1/public/pricing/context-link/{token}")
+        assert gone.status_code == 410 and gone.json()["error"]["code"] == "LINK_EXPIRED"

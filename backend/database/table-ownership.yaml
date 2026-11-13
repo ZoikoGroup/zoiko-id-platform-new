@@ -119,6 +119,21 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-UX-PRICE-004 WF-P07: the privacy notice shown beside a public inquiry form; versioned, activated by a different person, immutable once active"
+  commercial.family_rate_card:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-PRICE-004 sections 03.3 and 06: a versioned family rate card: DRAFT, signed by the CFO, CCO and Founder (three different people, none the author), immutable once active; no default rates"
+  commercial.family_rate:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-PRICE-004 sections 03.3 and 06: one rate line (family, payer country, period): currency, unit, included units, unit amount and a minimum declared as a floor or a platform fee; changeable only while the card is a DRAFT"
+  commercial.family_rate_card_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-PRICE-004 sections 03.3 and 06: one signature on a rate card by role; append-only"
   commercial.solution_draft:
     role: cell
     module: commercial

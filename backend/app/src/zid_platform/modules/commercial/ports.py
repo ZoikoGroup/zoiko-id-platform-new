@@ -90,6 +90,7 @@ from zid_platform.modules.commercial.application.stripe_webhook_service import (
     review_queue as payment_event_queue,
 )
 from zid_platform.modules.commercial.application.transfer_gate import plan_aware_transfer_gate
+from zid_platform.modules.commercial.domain import family_rates as family_rates_model
 from zid_platform.modules.commercial.domain import family_text as family_text_model
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
 from zid_platform.modules.commercial.domain import partner as partner_model
@@ -125,6 +126,7 @@ from zid_platform.modules.commercial.infrastructure import (
     billable_store,
     catalogue_store,
     enforcement_store,
+    family_rate_store,
     family_text_store,
     fx_store,
     lead_store,
@@ -258,6 +260,8 @@ __all__ = [
     "enforcement_store",
     "entitled",
     "entitlement_changed",
+    "family_rate_store",
+    "family_rates_model",
     "family_registry",
     "family_text_model",
     "family_text_store",

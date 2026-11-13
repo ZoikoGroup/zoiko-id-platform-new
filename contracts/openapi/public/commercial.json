@@ -981,6 +981,15 @@
             "title": "Data Region",
             "type": "string"
           },
+          "document_issuer_countries": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "title": "Document Issuer Countries",
+            "type": "array"
+          },
           "family": {
             "pattern": "^[A-Z]{2,8}$",
             "title": "Family",
@@ -1190,6 +1199,21 @@
           "reason"
         ],
         "title": "OverrideBody",
+        "type": "object"
+      },
+      "PageSignBody": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_hash"
+        ],
+        "title": "PageSignBody",
         "type": "object"
       },
       "PartnerBody": {
@@ -1605,6 +1629,144 @@
           "quantity"
         ],
         "title": "QuoteLineBody",
+        "type": "object"
+      },
+      "RateApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "CFO",
+              "CCO",
+              "FOUNDER"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "RateApproveBody",
+        "type": "object"
+      },
+      "RateLineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "charge_unit": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Charge Unit",
+            "type": "string"
+          },
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "included_units": {
+            "default": 0,
+            "maximum": 1000000000000.0,
+            "minimum": 0.0,
+            "title": "Included Units",
+            "type": "integer"
+          },
+          "minimum_amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Amount"
+          },
+          "minimum_model": {
+            "anyOf": [
+              {
+                "enum": [
+                  "FLOOR",
+                  "PLATFORM_FEE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Model"
+          },
+          "period": {
+            "enum": [
+              "MONTHLY",
+              "ANNUAL"
+            ],
+            "title": "Period",
+            "type": "string"
+          },
+          "source_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "unit_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Unit Amount"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "period",
+          "currency",
+          "charge_unit",
+          "source_ref"
+        ],
+        "title": "RateLineBody",
+        "type": "object"
+      },
+      "RateLinesImport": {
+        "additionalProperties": false,
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/RateLineBody"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "title": "RateLinesImport",
         "type": "object"
       },
       "RatingBody": {
@@ -2469,6 +2631,28 @@
           "pack"
         ],
         "title": "VerifyPackBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 40,
+            "title": "Body",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9._-]{3,40}$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "body"
+        ],
+        "title": "NoticeBody",
         "type": "object"
       },
       "zid_platform__modules__operator_access__api__commercial_admin__PlanBody": {
@@ -3408,6 +3592,383 @@
           }
         },
         "summary": "Resolve Exception",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards": {
+      "get": {
+        "operationId": "list_rate_cards_v1_commercial_family_rate_cards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Rate Cards V1 Commercial Family Rate Cards Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rate Cards",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "A draft rate card. There are no default rates: every line is entered by an owner from a signed source.",
+        "operationId": "create_rate_card_v1_commercial_family_rate_cards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Rate Card V1 Commercial Family Rate Cards Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}": {
+      "get": {
+        "operationId": "get_rate_card_v1_commercial_family_rate_cards__card_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Rate Card V1 Commercial Family Rate Cards  Card Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}/lines": {
+      "put": {
+        "operationId": "put_rate_line_v1_commercial_family_rate_cards__card_id__lines_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Rate Line V1 Commercial Family Rate Cards  Card Id  Lines Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Rate Line",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}/lines:import": {
+      "post": {
+        "description": "Add or replace up to 500 rate lines of a DRAFT card at once. All or nothing, with every problem listed by line.",
+        "operationId": "import_rate_lines_v1_commercial_family_rate_cards__card_id__lines_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLinesImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Rate Lines V1 Commercial Family Rate Cards  Card Id  Lines Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Rate Lines",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:activate": {
+      "post": {
+        "operationId": "activate_rate_card_v1_commercial_family_rate_cards__card_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Rate Card V1 Commercial Family Rate Cards  Card Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:approve": {
+      "post": {
+        "description": "The CFO, the CCO and the Founder sign, as three different people, none the author. Each must hold that appointment.",
+        "operationId": "approve_rate_card_v1_commercial_family_rate_cards__card_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Rate Card V1 Commercial Family Rate Cards  Card Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_rate_card_v1_commercial_family_rate_cards__card_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Rate Card V1 Commercial Family Rate Cards  Card Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Rate Card",
         "tags": [
           "commercial"
         ]
@@ -7283,6 +7844,74 @@
         ]
       }
     },
+    "/v1/commercial/pricing-page": {
+      "get": {
+        "description": "Whether the public pricing page's packaging is approved: the file's current hash, who has signed it, and who is still needed.",
+        "operationId": "pricing_page_state_v1_commercial_pricing_page_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pricing Page State V1 Commercial Pricing Page Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pricing Page State",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/pricing-page:sign": {
+      "post": {
+        "description": "An appointed Founder or CCO signs the pricing page file by the hash they were shown. Both, as different people, make it APPROVED; any change to the file unsigns it.",
+        "operationId": "sign_pricing_page_v1_commercial_pricing_page_sign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageSignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Pricing Page V1 Commercial Pricing Page Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Pricing Page",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/profitability": {
       "get": {
         "description": "Margin by SKU (rated revenue less provider cost in the same currency), run-rate and revenue retention over a range of months. Read only; finance authority.",
@@ -7334,6 +7963,161 @@
           }
         },
         "summary": "Profitability",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices": {
+      "get": {
+        "operationId": "list_public_notices_v1_commercial_public_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Public Notices V1 Commercial Public Notices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Public Notices",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Legal's text for the inquiry form's privacy notice, as a draft. It changes nothing a visitor sees until a different person activates it.",
+        "operationId": "propose_public_notice_v1_commercial_public_notices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__NoticeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Public Notice V1 Commercial Public Notices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Public Notice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices/{notice_id}:activate": {
+      "post": {
+        "operationId": "activate_public_notice_v1_commercial_public_notices__notice_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Public Notice V1 Commercial Public Notices  Notice Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Public Notice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices/{notice_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_public_notice_v1_commercial_public_notices__notice_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Public Notice V1 Commercial Public Notices  Notice Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Public Notice",
         "tags": [
           "commercial"
         ]
