@@ -61,11 +61,14 @@ from zid_platform.modules.commercial.application.adapters import (
     from_minor_units,
 )
 from zid_platform.modules.commercial.application.change_log import log_change
+from zid_platform.modules.commercial.domain import market_availability as availability
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
+from zid_platform.modules.commercial.domain.service_families import check_selection
 from zid_platform.modules.commercial.infrastructure import billable_store
+from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["commercial"])
@@ -80,6 +83,89 @@ async def catalog(request: Request) -> dict[str, Any]:
     async with request_engine(request).begin() as conn:
         out = await service.catalogue_view(conn)
     return out
+
+
+def _family_view(fam: Any, verdict: Any) -> dict[str, Any]:
+    return {
+        "family": fam.code,
+        "name": fam.name,
+        "unit": fam.unit,
+        "sales_qualifier": fam.sales_qualifier,
+        "regulated": fam.regulated,
+        "depends_on": list(fam.depends_on),
+        "sellable": verdict.sellable,
+        "next_action": verdict.next_action,
+        "causes": list(verdict.causes),
+    }
+
+
+@router.get("/v1/catalog/families")
+async def catalog_families() -> dict[str, Any]:
+    """Public: the sixteen service families and their units (ZID-COM-WF-2026-11 section 02). A family is a proposed SKU namespace, never a price: nothing is
+    sellable until every fact in the market rules is recorded, so today each family answers REQUEST_QUOTE and only the categories of what is missing are shown."""
+    registry = family_registry()
+    return {
+        "version": registry.version,
+        "status": registry.status,
+        "families": [
+            _family_view(fam, availability.decide(fam, {})) for fam in registry.families.values()
+        ],
+        "note": "Families are proposals for catalogue namespaces. No price or availability is implied; request a quote.",
+    }
+
+
+class ConfigurationCheckIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    families: list[Annotated[str, Field(min_length=2, max_length=8)]] = Field(max_length=16)
+    subject_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    payer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    operating_region: Annotated[str, Field(min_length=2, max_length=40)] | None = None
+
+
+@router.post("/v1/commercial/configurations:check")
+async def check_configuration(
+    body: ConfigurationCheckIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Check a solution configuration without saving or pricing it (WF-C02). It names the families that cannot be combined (a signature without a verified
+    identity) and, for each family, why it is not sellable in the three market dimensions judged separately. Stateless: a draft is not an entitlement."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
+        )
+    registry = family_registry()
+    problems = check_selection(registry, body.families)
+    per_family = []
+    for code in sorted(set(body.families)):
+        fam = registry.get(code)
+        if fam is None:
+            continue
+        # no market fact is recorded anywhere yet, so every dimension that was named is judged on unrecorded facts and the answer is a refusal
+        named = {
+            dim: availability.Facts()
+            for dim, value in (
+                ("subject", body.subject_country),
+                ("payer", body.payer_country),
+                ("operating", body.operating_region),
+            )
+            if value
+        }
+        verdict = availability.decide(fam, named)
+        per_family.append(
+            {
+                **_family_view(fam, verdict),
+                "refusals": [
+                    {"code": r.code, "cause": r.cause.value, "dimension": r.dimension}
+                    for r in verdict.refusals
+                ],
+            }
+        )
+    return {
+        "configurable": not problems,
+        "problems": [{"code": p.code, "family": p.family, "needs": p.needs} for p in problems],
+        "families": per_family,
+        "estimate": None,
+        "note": "A configuration is a draft, not an entitlement, and no price is shown: a binding price needs a signed quote.",
+    }
 
 
 @router.get("/v1/tenants/{tenant_id}/entitlements")

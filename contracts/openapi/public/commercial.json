@@ -269,6 +269,63 @@
         "title": "CollectBody",
         "type": "object"
       },
+      "ConfigurationCheckIn": {
+        "additionalProperties": false,
+        "properties": {
+          "families": {
+            "items": {
+              "maxLength": 8,
+              "minLength": 2,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Families",
+            "type": "array"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          }
+        },
+        "required": [
+          "families"
+        ],
+        "title": "ConfigurationCheckIn",
+        "type": "object"
+      },
       "CreditBody": {
         "additionalProperties": false,
         "properties": {
@@ -2036,6 +2093,30 @@
         ]
       }
     },
+    "/v1/catalog/families": {
+      "get": {
+        "description": "Public: the sixteen service families and their units (ZID-COM-WF-2026-11 section 02). A family is a proposed SKU namespace, never a price: nothing is\nsellable until every fact in the market rules is recorded, so today each family answers REQUEST_QUOTE and only the categories of what is missing are shown.",
+        "operationId": "catalog_families_v1_catalog_families_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Catalog Families V1 Catalog Families Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Catalog Families",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/accounts": {
       "post": {
         "operationId": "create_account_v1_commercial_accounts_post",
@@ -2300,6 +2381,50 @@
           }
         },
         "summary": "Verify Commercial Change Log",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations:check": {
+      "post": {
+        "description": "Check a solution configuration without saving or pricing it (WF-C02). It names the families that cannot be combined (a signature without a verified\nidentity) and, for each family, why it is not sellable in the three market dimensions judged separately. Stateless: a draft is not an entitlement.",
+        "operationId": "check_configuration_v1_commercial_configurations_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Configuration V1 Commercial Configurations Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Configuration",
         "tags": [
           "commercial"
         ]
