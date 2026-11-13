@@ -1,4 +1,4 @@
-import type { Catalog, CatalogPlan, CatalogPriceLine, PublicPricingPage } from "@zoiko/api-client";
+import type { Catalog, CatalogPlan, CatalogPriceLine, PublicContext, PublicPricingPage } from "@zoiko/api-client";
 import { ButtonLink } from "@zoiko/ui";
 import type { Metadata } from "next";
 
@@ -6,6 +6,7 @@ import { count, money } from "@/features/admin/billing/shared";
 import { Calculator } from "@/features/pricing/calculator";
 import { ADD_ONS, DISCLAIMER, ENTERPRISE_NOTE, FAQ, GLOSSARY, HERO, PLAN_ORDER, PLATFORM_NOTE, SKU_LABEL, SUBHERO } from "@/features/pricing/copy";
 import { PricingExplorer } from "@/features/pricing/explorer";
+import { contextFromLink } from "@/features/pricing/logic";
 import { server } from "@/server/bff";
 
 export const metadata: Metadata = {
@@ -40,7 +41,13 @@ function fee(catalog: Catalog, plan: CatalogPlan): string {
 
 const included = (n: number | null) => (n === null ? "Negotiated" : count(n));
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  // A shared market link (?ctx=): the cell verifies the signature and expiry. A bad or expired link only means the market is chosen again; it never blocks the page.
+  const raw = (await searchParams)?.ctx;
+  const token = typeof raw === "string" && /^[A-Za-z0-9._-]{10,600}$/.test(raw) ? raw : null;
+  const linked = token ? await load<PublicContext>(`/v1/public/pricing/context-link/${token}`) : null;
+  const initialContext = linked ? contextFromLink(linked) : undefined;
+  const linkProblem = token !== null && linked === null;
   const [structure, catalog] = await Promise.all([load<PublicPricingPage>("/v1/public/pricing/page"), load<Catalog>("/v1/catalog")]);
   const plans = (catalog?.plans ?? []).slice().sort((a, b) => order(a) - order(b));
   const priced = catalog?.status === "PRICED";
@@ -64,7 +71,7 @@ export default async function Page() {
 
       {structure ? (
         <>
-          <PricingExplorer page={structure} />
+          <PricingExplorer page={structure} initialContext={initialContext} linkProblem={linkProblem} />
           <section aria-labelledby="disclosure-h" className="space-y-2 rounded-control border border-border p-4 text-sm">
             <h2 id="disclosure-h" className="text-base font-semibold">
               How pricing works here

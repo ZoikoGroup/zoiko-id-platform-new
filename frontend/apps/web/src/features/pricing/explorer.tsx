@@ -2,8 +2,9 @@
 
 import type { PublicAvailability, PublicPricingPage, PublicState } from "@zoiko/api-client";
 import { Badge, Banner, Button, ButtonLink, Card, Checkbox, Select } from "@zoiko/ui";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import { Estimator } from "./estimator";
 import { LeadForm } from "./lead-form";
 import {
   CELL_HELP,
@@ -13,10 +14,12 @@ import {
   MARKET_HELP,
   MARKET_LABEL,
   availabilityQuery,
+  contextLinkBody,
   cellFor,
   countryOptions,
   marketNamed,
   missingFor,
+  rateText,
   recommendedTier,
   scopeFromUseCases,
   stateByFamily,
@@ -31,8 +34,10 @@ const STATE_TONE: Record<PublicState, "ok" | "info" | "neutral" | "warn" | "dang
 
 /** The interactive part of the pricing page (ZID-UX-PRICE-004 WF-P01 to P07): the market, the three plans, the use cases, the sixteen-service comparison, the coverage answer and the
  * inquiry. The server decides every answer; nothing here prices anything or infers a market from the browser. */
-export function PricingExplorer({ page }: { page: PublicPricingPage }) {
-  const [ctx, setCtx] = useState<Context>(EMPTY_CONTEXT);
+export function PricingExplorer({ page, initialContext, linkProblem = false }: { page: PublicPricingPage; initialContext?: Context | undefined; linkProblem?: boolean }) {
+  const [ctx, setCtx] = useState<Context>(initialContext ?? EMPTY_CONTEXT);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [availability, setAvailability] = useState<PublicAvailability | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +68,28 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
     }
   }
 
+  // A shared link only pre-fills the market; the server judges it afresh, so the answer is fetched as if the buyer had pressed Check.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !initialContext || !marketNamed(initialContext)) return;
+    started.current = true;
+    void check(initialContext);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function share() {
+    setShareError(null);
+    try {
+      const res = await fetch("/api/pricing/context-link", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(contextLinkBody(ctx)) });
+      const payload = (await res.json()) as { token?: string; error?: { message?: string } };
+      if (!res.ok || !payload.token) throw new Error(payload.error?.message ?? "A link could not be made.");
+      setShareUrl(`${window.location.origin}/pricing?ctx=${payload.token}#market`);
+    } catch (err) {
+      setShareUrl(null);
+      setShareError(err instanceof Error ? err.message : "A link could not be made.");
+    }
+  }
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void check(ctx);
@@ -71,6 +98,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
   const change = (patch: Partial<Context>) => {
     setCtx((c) => ({ ...c, ...patch }));
     setAvailability(undefined);
+    setShareUrl(null);
   };
 
   return (
@@ -85,7 +113,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
         <form onSubmit={submit} className="grid gap-4 rounded-control border border-border p-4 sm:grid-cols-2 lg:grid-cols-4" aria-describedby="market-note">
           <Select label="Country of the people checked" options={COUNTRIES} value={ctx.subject || null} onChange={(v) => change({ subject: v })} placeholder="Choose a country" />
           <Select label="Country of the paying company" options={COUNTRIES} value={ctx.payer || null} onChange={(v) => change({ payer: v })} placeholder="Choose a country" />
-          <Select label="Country that issued the documents" description="Optional. Recorded for your quote." options={COUNTRIES} value={ctx.issuer || null} onChange={(v) => change({ issuer: v })} placeholder="Not sure" />
+          <Select label="Country that issued the documents" description="Optional. Used to check which services cover those documents." options={COUNTRIES} value={ctx.issuer || null} onChange={(v) => change({ issuer: v })} placeholder="Not sure" />
           <Select
             label="Data region"
             description={availability ? "Only regions with a released service." : "Check availability first to see the regions."}
@@ -99,9 +127,12 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
             isDisabled={!availability || availability.released_regions.length === 0}
             placeholder={availability && availability.released_regions.length === 0 ? "None released yet" : "Choose a region"}
           />
-          <div className="sm:col-span-2 lg:col-span-4">
+          <div className="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-4">
             <Button type="submit" isDisabled={busy || !marketNamed(ctx)} pending={busy}>
               Check availability
+            </Button>
+            <Button type="button" variant="secondary" isDisabled={!marketNamed(ctx)} onPress={() => void share()}>
+              Copy link to this market
             </Button>
           </div>
         </form>
@@ -110,6 +141,13 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
         </p>
         <div aria-live="polite" className="text-sm">
           {error ? <Banner tone="danger">{error}</Banner> : null}
+          {linkProblem ? <Banner tone="warn">That link is not valid or has expired. Choose your market again.</Banner> : null}
+          {shareError ? <Banner tone="danger">{shareError}</Banner> : null}
+          {shareUrl ? (
+            <p role="status" className="break-all text-ink-muted">
+              Link to this market, valid for a limited time. It holds only the countries and region, no price or personal detail: <span className="font-mono">{shareUrl}</span>
+            </p>
+          ) : null}
           {availability ? (
             <p className="text-ink-muted">
               Availability checked against market release version {availability.market_matrix_version ?? "none yet"}.{" "}
@@ -123,7 +161,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
         <h2 id="plans-h" className="text-xl font-semibold">
           Plans
         </h2>
-        {page.packaging_status === "PROPOSED" ? (
+        {page.packaging_status !== "APPROVED" ? (
           <p role="status" className="rounded-control border border-border p-3 text-sm">
             Plan contents are being finalised. Confirm the scope you need with Sales before relying on a comparison below.
           </p>
@@ -142,7 +180,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
                       </Badge>
                     ) : null}
                     <p className="font-medium">Price: Quote required</p>
-                    <p className="text-xs text-ink-muted">A rate appears here only where an approved rate card is effective for your market.</p>
+                    <p className="text-xs text-ink-muted">Rates are per service. Choose your market to see the approved rate for each service, where one exists.</p>
                     <div>
                       <p className="font-medium">Includes</p>
                       <ul className="list-disc pl-5 text-ink-muted">
@@ -275,6 +313,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
                           <Badge tone={STATE_TONE[state[code] ?? "MARKET_REQUIRED"]} size="xs">
                             {MARKET_LABEL[state[code] ?? "MARKET_REQUIRED"]}
                           </Badge>
+                          <RateNote availability={availability} family={code} />
                         </td>
                       ) : null}
                     </tr>
@@ -306,7 +345,10 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
                         {availability ? (
                           <div className="flex justify-between gap-3">
                             <dt className="text-ink-muted">In your market</dt>
-                            <dd>{MARKET_LABEL[state[code] ?? "MARKET_REQUIRED"]}</dd>
+                            <dd>
+                              {MARKET_LABEL[state[code] ?? "MARKET_REQUIRED"]}
+                              <RateNote availability={availability} family={code} />
+                            </dd>
                           </div>
                         ) : null}
                       </dl>
@@ -317,6 +359,14 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
             </details>
           ))}
         </div>
+      </section>
+
+      <section id="estimate" aria-labelledby="estimate-h" className="space-y-3">
+        <h2 id="estimate-h" className="text-xl font-semibold">
+          Estimate your cost
+        </h2>
+        <p className="max-w-3xl text-sm text-ink-muted">An estimate from the approved rate card for your market. It is not a quote and creates no charge.</p>
+        <Estimator page={page} ctx={ctx} availability={availability} />
       </section>
 
       <section id="coverage" aria-labelledby="coverage-h" className="space-y-3">
@@ -334,7 +384,7 @@ export function PricingExplorer({ page }: { page: PublicPricingPage }) {
         <h2 id="inquiry-h" className="sr-only">
           Talk to Sales
         </h2>
-        <LeadForm capabilities={scope} names={names} kind={kind} onKind={setKind} />
+        <LeadForm capabilities={scope} names={names} kind={kind} onKind={setKind} notice={page.notice} />
       </section>
     </div>
   );
@@ -360,6 +410,12 @@ function Coverage({ availability }: { availability: PublicAvailability }) {
               {cards.map((c) => (
                 <li key={c.family}>
                   <span className="font-medium">{c.name}</span>
+                  {c.rates.MONTHLY || c.rates.ANNUAL ? (
+                    <span className="block text-xs text-ink-muted">
+                      {c.rates.MONTHLY ? `Monthly: ${rateText(c.rates.MONTHLY)}. ` : ""}
+                      {c.rates.ANNUAL ? `Annual: ${rateText(c.rates.ANNUAL)}.` : ""}
+                    </span>
+                  ) : null}
                   {c.terms ? <span className="text-ink-muted"> · seller {c.terms.seller_entity} · {c.terms.currency} · data region {c.terms.data_region}</span> : null}
                   {c.reasons.length ? (
                     <ul className="mt-1 list-disc pl-5 text-xs text-ink-muted">
@@ -376,6 +432,19 @@ function Coverage({ availability }: { availability: PublicAvailability }) {
         );
       })}
       <p className="text-xs text-ink-muted">{availability.dimensions.issuer_country.value ? availability.dimensions.issuer_country.note : null}</p>
+      {availability.rate_card ? (
+        <p className="text-xs text-ink-muted">
+          Rates come from approved rate card version {availability.rate_card.version}
+          {availability.rate_card.effective_from ? `, effective ${availability.rate_card.effective_from.slice(0, 10)}` : ""}.
+        </p>
+      ) : null}
     </div>
   );
+}
+
+/** The approved rate of one service in the chosen market, or nothing: an unpriced service never shows an amount. */
+function RateNote({ availability, family }: { availability: PublicAvailability; family: string }) {
+  const rates = availability.cards.find((c) => c.family === family)?.rates;
+  if (!rates || (!rates.MONTHLY && !rates.ANNUAL)) return null;
+  return <span className="mt-1 block text-xs text-ink-muted">{rates.MONTHLY ? rateText(rates.MONTHLY) : rateText(rates.ANNUAL!)}</span>;
 }

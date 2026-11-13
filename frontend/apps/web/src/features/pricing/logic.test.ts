@@ -9,6 +9,10 @@ import {
   availabilityQuery,
   buildLead,
   cellFor,
+  contextFromLink,
+  contextLinkBody,
+  estimateBody,
+  rateText,
   countryOptions,
   leadErrors,
   marketNamed,
@@ -88,9 +92,9 @@ const good: LeadDraft = { ...EMPTY_LEAD, name: "Ana Silva", email: "Ana@Example.
 describe("the inquiry form", () => {
   it("accepts a good inquiry and builds exactly what the server expects", () => {
     expect(leadErrors(good)).toEqual({});
-    const body = buildLead(good, ["KYB", "IDV"]);
+    const body = buildLead(good, ["KYB", "IDV"], "n-1");
     expect(body).toMatchObject({ kind: "ENTERPRISE", work_email: "ana@example.com", country: "PT", capabilities: ["IDV", "KYB"], entities: 12, partner_type: null, website: "" });
-    expect(body?.notice_version).toMatch(/notice/);
+    expect(body?.notice_version).toBe("n-1");
     expect(JSON.stringify(body)).not.toMatch(/price|amount|tenant|entitlement/i);
   });
   it("tells a person what is wrong, field by field", () => {
@@ -102,12 +106,12 @@ describe("the inquiry form", () => {
     expect(leadErrors({ ...good, needs: "card 4111 1111 1111 1111" }).needs).toBeTruthy();
     expect(leadErrors({ ...good, referral: "https://evil.example" }).referral).toMatch(/links/);
     expect(leadErrors({ ...good, needs: "x".repeat(501) }).needs).toMatch(/500/);
-    expect(buildLead({ ...good, needs: "passport 123456789" }, [])).toBeNull();
+    expect(buildLead({ ...good, needs: "passport 123456789" }, [], "n-1")).toBeNull();
   });
   it("sends a partner type only for a partner and keeps the hidden field as it is", () => {
-    expect(buildLead({ ...good, kind: "PARTNER", partnerType: "RESELLER" }, [])?.partner_type).toBe("RESELLER");
-    expect(buildLead({ ...good, kind: "PARTNER" }, [])).toBeNull();
-    expect(buildLead({ ...good, website: "bot" }, [])?.website).toBe("bot");
+    expect(buildLead({ ...good, kind: "PARTNER", partnerType: "RESELLER" }, [], "n-1")?.partner_type).toBe("RESELLER");
+    expect(buildLead({ ...good, kind: "PARTNER" }, [], "n-1")).toBeNull();
+    expect(buildLead({ ...good, website: "bot" }, [], "n-1")?.website).toBe("bot");
   });
 });
 
@@ -134,5 +138,28 @@ describe("the recommended badge", () => {
   it("is absent with no scope or when every plan leaves a service to Sales", () => {
     expect(recommendedTier(tiers, [])).toBeNull();
     expect(recommendedTier(tiers, ["IDV", "SIGN"])).toBeNull();
+  });
+});
+
+describe("rates, the estimate and the shared market", () => {
+  const rate = { currency: "EUR", charge_unit: "completed check", included_units: 1000, unit_amount: "0.50", minimum_amount: "49.00", minimum_model: "FLOOR" as const };
+  it("states a rate in its own currency and unit, and says whether the minimum is a floor or a fee", () => {
+    expect(rateText(rate)).toBe("EUR 0.50 per completed check, first 1,000 included; minimum spend EUR 49.00");
+    expect(rateText({ ...rate, minimum_model: "PLATFORM_FEE", included_units: 0 })).toBe("EUR 0.50 per completed check; platform fee EUR 49.00 plus usage");
+    expect(rateText({ ...rate, minimum_amount: null, minimum_model: null })).not.toMatch(/minimum|fee/);
+  });
+  const ctx = { ...EMPTY_CONTEXT, payer: "DE", subject: "FR" };
+  it("builds an estimate only from whole volumes and a named payer, leaving blank services out", () => {
+    expect(estimateBody(ctx, "MONTHLY", { API: "1000", DOC: "", IDV: "0" })).toEqual({ payer_country: "DE", subject_country: "FR", period: "MONTHLY", volumes: { API: 1000 } });
+    expect(estimateBody(ctx, "ANNUAL", { API: "12.5" })).toBeNull();
+    expect(estimateBody(ctx, "ANNUAL", { API: "-1" })).toBeNull();
+    expect(estimateBody(ctx, "ANNUAL", { API: "2000000000" })).toBeNull();
+    expect(estimateBody(EMPTY_CONTEXT, "MONTHLY", { API: "5" })).toBeNull();
+    expect(estimateBody(ctx, "MONTHLY", {})).toBeNull();
+  });
+  it("carries only the market in a shared link and reads it back the same way", () => {
+    const body = contextLinkBody({ subject: "FR", payer: "DE", issuer: "", region: "eu-central" });
+    expect(body).toEqual({ subject_country: "FR", payer_country: "DE", operating_region: "eu-central" });
+    expect(contextFromLink({ subject_country: "FR", payer_country: null, issuer_country: "ES", operating_region: null })).toEqual({ subject: "FR", payer: "", issuer: "ES", region: "" });
   });
 });

@@ -3199,6 +3199,8 @@ export type PackagingState = "included" | "optional" | "quote";
 export type PublicPricingPage = {
   version: string;
   packaging_status: "PROPOSED" | "APPROVED";
+  approval: { signed_by: string[]; missing: string[] };
+  notice: { version: string; text: string; status: "ACTIVE" | "DRAFT" };
   pricing_status: string | null;
   families: { family: string; name: string; unit: string; sales_qualifier: string; regulated: boolean; depends_on: string[] }[];
   tiers: { code: TierCode; label: string; fit: string; cta_kind: string; cta_label: string; family_state: Record<string, PackagingState> }[];
@@ -3206,11 +3208,13 @@ export type PublicPricingPage = {
   use_cases: { code: string; label: string; families: string[] }[];
   disclosures: { price_basis: string; tax: string; commitment: string; no_surprise: string };
 };
+export type PricingPeriod = "MONTHLY" | "ANNUAL";
+export type PublicRate = { currency: string; charge_unit: string; included_units: number; unit_amount: string; minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null };
 export type PublicState = "AVAILABLE" | "SALES_ASSISTED" | "RESTRICTED" | "NOT_AVAILABLE" | "MARKET_REQUIRED";
 export type PublicAvailability = {
   market_matrix_version: number | null;
   as_of: string;
-  dimensions: { subject_country: string | null; payer_country: string | null; operating_region: string | null; issuer_country: { value: string | null; judged: false; note: string } };
+  dimensions: { subject_country: string | null; payer_country: string | null; operating_region: string | null; issuer_country: { value: string | null; judged: boolean; note: string } };
   cards: {
     family: string;
     name: string;
@@ -3221,11 +3225,26 @@ export type PublicAvailability = {
     reasons: { cause: string; text: string }[];
     terms: { seller_entity: string; currency: string; data_region: string } | null;
     provider_attribution: string | null;
+    rates: Partial<Record<PricingPeriod, PublicRate>>;
   }[];
+  rate_card: { version: number; effective_from: string | null; both_periods: boolean } | null;
   released_markets: string[];
   released_regions: string[];
   note: string;
 };
+export type PublicEstimateIn = { subject_country?: string; payer_country?: string; issuer_country?: string; operating_region?: string; period: PricingPeriod; volumes: Record<string, number> };
+export type PublicEstimateLine = {
+  family: string; name: string; period: PricingPeriod; currency: string; charge_unit: string; monthly_volume: number; volume: number; included_units: number; billable_units: number;
+  usage: string; minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null; amount: string; formula: string;
+  annual_comparison: { currency: string; twelve_months: string; annual: string; saving: string } | null;
+};
+export type PublicEstimate = {
+  binding: false; rate_card: { version: number; effective_from: string | null } | null; period: PricingPeriod; lines: PublicEstimateLine[]; totals: Record<string, string>;
+  quote_required: { family: string; name: string; state: string; reason_codes: string[]; reasons: { cause: string; text: string }[] }[];
+  quote_hash: string; as_of: string; valid_until: string; tax: { state: string; note: string }; assumptions: string[]; no_rate_card: string | null;
+};
+export type PublicContextLink = { token: string; expires_at: string };
+export type PublicContext = { subject_country: string | null; payer_country: string | null; issuer_country: string | null; operating_region: string | null; expires_at: string };
 export type LeadKind = "ENTERPRISE" | "PARTNER";
 export type PublicLeadIn = {
   kind: LeadKind;

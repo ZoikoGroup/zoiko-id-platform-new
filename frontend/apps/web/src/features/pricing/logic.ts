@@ -1,4 +1,4 @@
-import type { PackagingState, PublicAvailability, PublicLeadIn, PublicPricingPage, PublicState } from "@zoiko/api-client";
+import type { PackagingState, PricingPeriod, PublicAvailability, PublicEstimateIn, PublicLeadIn, PublicPricingPage, PublicRate, PublicState } from "@zoiko/api-client";
 
 /** The pricing page's logic (ZID-UX-PRICE-004). The server decides what is available, where and why; this only carries the buyer's choices, resolves what a table cell
  * says and checks a form before it is sent. Nothing here prices anything, and nothing infers a market from the browser. */
@@ -141,7 +141,6 @@ export function withPrerequisites(page: PublicPricingPage, families: string[]): 
 
 // ------------------------------------------------------------------------------------------------------------------------ the inquiry form
 
-export const NOTICE_VERSION = "pricing-inquiry-notice-2026-11-draft";
 export const VOLUME_BANDS: { id: PublicLeadIn["volume_band"]; label: string }[] = [
   { id: "UNDER_1K", label: "Under 1,000 checks a year" },
   { id: "FROM_1K_TO_10K", label: "1,000 to 10,000 a year" },
@@ -203,7 +202,7 @@ export function leadErrors(d: LeadDraft): Record<string, string> {
   return out;
 }
 
-export function buildLead(d: LeadDraft, capabilities: string[]): PublicLeadIn | null {
+export function buildLead(d: LeadDraft, capabilities: string[], noticeVersion: string): PublicLeadIn | null {
   if (Object.keys(leadErrors(d)).length || !d.volume) return null;
   return {
     kind: d.kind,
@@ -218,7 +217,7 @@ export function buildLead(d: LeadDraft, capabilities: string[]): PublicLeadIn | 
     referral_source: d.referral.trim() || null,
     security_needs: d.needs.trim() || null,
     partner_type: d.kind === "PARTNER" ? (d.partnerType as NonNullable<PublicLeadIn["partner_type"]>) : null,
-    notice_version: NOTICE_VERSION,
+    notice_version: noticeVersion,
     website: d.website,
   };
 }
@@ -229,4 +228,48 @@ export function recommendedTier(page: PublicPricingPage, families: string[]): Pu
   if (families.length === 0) return null;
   for (const t of page.tiers) if (families.every((f) => t.family_state[f] === "included" || t.family_state[f] === "optional")) return t.code;
   return null;
+}
+
+
+// ------------------------------------------------------------------------------------------------------------------------ rates and the estimate
+
+/** A rate as one sentence, in the rate's own currency and unit. Nothing is converted or rounded here: the amounts are the server's exact decimals. */
+export function rateText(r: PublicRate): string {
+  const unit = `${r.currency} ${r.unit_amount} per ${r.charge_unit}`;
+  const included = r.included_units > 0 ? `, first ${r.included_units.toLocaleString("en")} included` : "";
+  const min = r.minimum_amount === null ? "" : r.minimum_model === "FLOOR" ? `; minimum spend ${r.currency} ${r.minimum_amount}` : `; platform fee ${r.currency} ${r.minimum_amount} plus usage`;
+  return `${unit}${included}${min}`;
+}
+
+/** The estimate request. Only a whole, in-range volume is sent, and a blank or zero field leaves the service out: the person asked for nothing there. */
+export function estimateBody(c: Context, period: PricingPeriod, volumes: Record<string, string>): PublicEstimateIn | null {
+  const out: Record<string, number> = {};
+  for (const [family, raw] of Object.entries(volumes)) {
+    const v = raw.trim();
+    if (!v) continue;
+    if (!/^\d{1,10}$/.test(v)) return null;
+    const n = Number(v);
+    if (n > 1_000_000_000) return null;
+    if (n > 0) out[family] = n;
+  }
+  if (Object.keys(out).length === 0 || !isCountry(c.payer)) return null;
+  const body: PublicEstimateIn = { payer_country: c.payer, period, volumes: out };
+  if (isCountry(c.subject)) body.subject_country = c.subject;
+  if (isCountry(c.issuer)) body.issuer_country = c.issuer;
+  if (c.region.trim()) body.operating_region = c.region.trim();
+  return body;
+}
+
+/** The market a link carries, as the page's Context. */
+export function contextFromLink(l: { subject_country: string | null; payer_country: string | null; issuer_country: string | null; operating_region: string | null }): Context {
+  return { subject: l.subject_country ?? "", payer: l.payer_country ?? "", issuer: l.issuer_country ?? "", region: l.operating_region ?? "" };
+}
+
+export function contextLinkBody(c: Context): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (isCountry(c.subject)) out.subject_country = c.subject;
+  if (isCountry(c.payer)) out.payer_country = c.payer;
+  if (isCountry(c.issuer)) out.issuer_country = c.issuer;
+  if (c.region.trim()) out.operating_region = c.region.trim();
+  return out;
 }

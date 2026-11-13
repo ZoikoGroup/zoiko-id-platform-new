@@ -1,6 +1,6 @@
 "use client";
 
-import type { PublicLeadOut } from "@zoiko/api-client";
+import type { PublicLeadOut, PublicPricingPage } from "@zoiko/api-client";
 import { Banner, Button, Card, RadioCards, Select, TextField } from "@zoiko/ui";
 import { useState, type FormEvent } from "react";
 
@@ -10,7 +10,7 @@ const COUNTRIES = countryOptions();
 
 /** The enterprise and partner inquiry (WF-P07). It asks for the least Sales needs to reply, refuses identity numbers and links, and says plainly that sending it creates no
  * account, quote, contract or payment. The hidden field is for robots: a person never reaches it. */
-export function LeadForm({ capabilities, names, kind, onKind }: { capabilities: string[]; names: Record<string, string>; kind: LeadDraft["kind"]; onKind: (k: LeadDraft["kind"]) => void }) {
+export function LeadForm({ capabilities, names, kind, onKind, notice }: { capabilities: string[]; names: Record<string, string>; kind: LeadDraft["kind"]; onKind: (k: LeadDraft["kind"]) => void; notice: PublicPricingPage["notice"] }) {
   const [draft, setDraft] = useState<LeadDraft>(EMPTY_LEAD);
   const [shown, setShown] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -24,7 +24,7 @@ export function LeadForm({ capabilities, names, kind, onKind }: { capabilities: 
     const errors = leadErrors(d);
     setShown(errors);
     setProblem(null);
-    const body = buildLead(d, capabilities);
+    const body = buildLead(d, capabilities, notice.version);
     if (!body) return;
     setBusy(true);
     try {
@@ -103,7 +103,11 @@ export function LeadForm({ capabilities, names, kind, onKind }: { capabilities: 
           </label>
         </div>
         <p id="lead-notice" className="text-xs text-ink-muted">
-          We use these details only to reply to your inquiry. Sending this does not create an account, a quote, a contract or a payment, and you will not be charged. Please do not upload or type identity documents, biometric data or document numbers.
+          {notice.text} Sending this does not create an account, a quote, a contract or a payment, and you will not be charged. Please do not upload or type identity documents, biometric data or document numbers.
+        </p>
+        <p className="text-xs text-ink-muted">
+          Privacy notice version <span className="font-mono">{notice.version}</span>
+          {notice.status === "DRAFT" ? ". This notice is a draft pending legal approval." : "."}
         </p>
         {problem ? (
           <Banner tone="danger" live="assertive">
