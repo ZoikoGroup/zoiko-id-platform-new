@@ -13,7 +13,7 @@ import Valkey from "iovalkey";
 
 /** The Operator Console is its own origin, OIDC client and session store (DEC-F4 §5, DEC-H1): it
  * reaches only the operator plane. Customer administration lives in the web app, never here. */
-const API_PATH_PREFIXES = ["/operator/", "/platform/", "/ops/", "/v1/commercial/", "/v1/reviews/signals"];
+const API_PATH_PREFIXES = ["/operator/", "/platform/", "/ops/", "/v1/commercial/", "/v1/regulatory/", "/v1/reviews/signals"];
 
 /** Passkey sign-in and step-up, and the operator email + password sign-in, on this origin. */
 const PASSTHROUGH_PREFIXES = ["/authn/webauthn/", "/authn/operator/password", "/authn/step-up", "/oauth2/authorize", "/.well-known/webauthn"];

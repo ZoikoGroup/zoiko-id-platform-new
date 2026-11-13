@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
-import { Facts, Hash, isoFromLocal, list, Mono, opt, REG, RegError, upper } from "./common";
+import { CAPABILITY_OPTIONS, COUNTRY_OPTIONS, PURPOSE_OPTIONS, Facts, Hash, isoFromLocal, list, Mono, opt, REG, RegError, upper } from "./common";
 
 const ROLES: PackApproverRole[] = ["legal", "grc", "security", "business_owner"];
 const SOURCE_STATUS: PackSource["status"][] = ["LAW", "GUIDANCE", "PROPOSAL"];
@@ -72,13 +72,13 @@ function CreatePackDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Pack ID" description="lowercase, e.g. gb-idv-engagement" value={f.pack_id} onChange={set("pack_id")} mono isRequired />
-        <TextField label="Country" description="ISO code, e.g. GB" value={f.country} onChange={set("country")} isRequired />
-        <TextField label="Subdivision" description="optional, e.g. GB-ENG" value={f.subdivision} onChange={set("subdivision")} />
-        <TextField label="Product" value={f.product} onChange={set("product")} mono isRequired />
-        <TextField label="Purpose" value={f.purpose} onChange={set("purpose")} mono isRequired />
-        <TextField label="Legal instrument" value={f.instrument} onChange={set("instrument")} isRequired />
-        <TextField label="Source URL" description="https only" value={f.url} onChange={set("url")} type="url" isRequired />
+        <TextField label="Pack ID" description="lowercase, country-product-purpose" placeholder="gb-idv-engagement" value={f.pack_id} onChange={set("pack_id")} mono isRequired />
+        <Select label="Country" description="the market this pack governs" options={COUNTRY_OPTIONS} value={f.country} onChange={set("country")} isRequired />
+        <TextField label="Subdivision" description="optional: England, Scotland, a US state" placeholder="GB-ENG" value={f.subdivision} onChange={set("subdivision")} />
+        <Select label="Product" description="what the pack governs" options={CAPABILITY_OPTIONS} value={f.product} onChange={set("product")} isRequired />
+        <Select label="Purpose" options={PURPOSE_OPTIONS} value={f.purpose} onChange={set("purpose")} isRequired />
+        <TextField label="Legal instrument" description="the law, regulation or guidance it comes from" placeholder="Immigration (Restrictions on Employment) Order 2007" value={f.instrument} onChange={set("instrument")} isRequired />
+        <TextField label="Source URL" description="https only" placeholder="https://www.legislation.gov.uk/uksi/2007/3290" value={f.url} onChange={set("url")} type="url" isRequired />
         <Select
           label="Source status"
           value={f.sourceStatus}
@@ -87,10 +87,10 @@ function CreatePackDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         />
         <TextField label="Retrieved at" type="datetime-local" value={f.retrieved} onChange={set("retrieved")} isRequired />
         <TextField label="Effective from" type="datetime-local" value={f.effective} onChange={set("effective")} isRequired />
-        <TextField label="Source owner" value={f.owner} onChange={set("owner")} isRequired />
-        <TextField label="Lawful basis" value={f.lawful} onChange={set("lawful")} />
-        <TextField label="Evidence minimum" description="codes, comma separated" value={f.evidence} onChange={set("evidence")} mono isRequired />
-        <TextField label="Alternate routes" description="codes, comma separated" value={f.alternates} onChange={set("alternates")} mono />
+        <TextField label="Source owner" description="who publishes the source" placeholder="UK Home Office" value={f.owner} onChange={set("owner")} isRequired />
+        <TextField label="Lawful basis" description="optional" placeholder="Legal obligation (UK GDPR Art. 6(1)(c))" value={f.lawful} onChange={set("lawful")} />
+        <TextField label="Evidence minimum" description="codes, comma separated" placeholder="PASSPORT, SELFIE_MATCH" value={f.evidence} onChange={set("evidence")} mono isRequired />
+        <TextField label="Alternate routes" description="codes, comma separated; optional" placeholder="MANUAL_REVIEW, IN_PERSON" value={f.alternates} onChange={set("alternates")} mono />
       </div>
       {create.error ? <RegError error={create.error} /> : null}
     </Dialog>

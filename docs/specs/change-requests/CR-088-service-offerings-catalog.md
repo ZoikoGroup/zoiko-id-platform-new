@@ -1,6 +1,6 @@
 # CR-088: Service offerings catalog and the publish-coverage rule
 
-Status: open (catalog, rules and loader built and unit-tested; the API, console screen and public listing are the next steps).
+Status: open (built and tested; owners fill the configuration that makes offerings available).
 
 Source: *Zoiko iD Global Service Offerings, Product + Engineering* (revised 2026-11-10), a one-page summary of 12 core offerings with one binding
 rule: **publish coverage only when provider rights, country rules, privacy controls and independent tests are verified; design specifications are
@@ -23,7 +23,7 @@ not production certification.**
 | Identity & documents | `verification`, `evidence` (v2 documents, extract) | Real document/IDV providers not connected (simulator) |
 | Biometrics & fraud | `verification` tiers, `signals`, `screening` signals (human review) | Liveness/face match come only from a provider; none connected. Fairness test T44 is PARTIAL |
 | Business verification | `onboarding` org claims, v2 organizations, `screening` | Real company-register sources need contracts (CR-087) |
-| Qualifications & standing | `credential` claim checks, cases, practice rules, issuer history | **`credential/api/claim_checks.py` is not behind the country gate**; only `v2_cases` is |
+| Qualifications & standing | `credential` claim checks, cases, practice rules, issuer history | Was not behind the country gate: fixed in this change |
 | Verifiable credentials | `credential` issuance, presentations, EUDI class | EUDI registrations config empty |
 | Authentication & access | `authentication`, `session`, `federation`, `provisioning` | Not country-gated by design; needs only tests and privacy |
 | Delegated authority | `mandate`, `authority`, `machine`, credential v2 authority | T26 PARTIAL |
@@ -36,8 +36,12 @@ not production certification.**
 Today no offering is available anywhere, and that is the intended answer: no conformance run has been accepted, no privacy overlay is approved
 and no market is released.
 
-## Next steps
-1. `GET /v1/regulatory/offerings` (operator): offering by country with every blocking reason, reusing the enforce-readiness checks (CR-086).
-2. Operator console "Service offerings" screen.
-3. A public catalog endpoint listing only AVAILABLE offerings with their approved wording, never certification claims.
-4. Put `claim_checks` routes behind the country gate.
+## Also in this change
+- `verification/application/coverage.py`: the per-capability enforce checks, shared by the readiness report (CR-086), the operator view and the
+  public catalog so they cannot disagree; the newest independently accepted conformance run; coverage per offering and country.
+- `GET /v1/regulatory/offerings` (operator, regulatory read capabilities): every offering by country with every blocking reason.
+- `GET /v1/offerings` (public, residency contract): only AVAILABLE offerings with their approved wording and countries; no provider, reason,
+  test or certification claim; a country the registry does not list has none.
+- Qualification and disciplinary checks (`credential/api/claim_checks.py`, also used by the /v2 facade and cases) now pass the country gate as
+  INDIVIDUAL_VERIFICATION, like identity verification; the unit guard lists them.
+- Operator console: Regulatory > Service offerings.

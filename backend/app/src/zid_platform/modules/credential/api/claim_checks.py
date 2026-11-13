@@ -28,6 +28,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.country_gate import enforce_regulated
 from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks as checks
 from zid_platform.modules.credential.application import resilience as rs
@@ -41,6 +42,7 @@ from zid_platform.modules.credential.infrastructure.registries import (
     source_contracts,
 )
 from zid_platform.modules.verification.ports import (
+    Capability,
     PackError,
     certification_registry,
     pack_registry,
@@ -182,6 +184,11 @@ async def perform_check(
     subject = str(body.subject_principal_id or caller.ctx.principal_id or "")
     if not subject:
         raise ZidError("SUBJECT_REQUIRED", "A subject is required.", http_status=422)
+    # a qualification is checked about a person, so the country must be open for individual verification, with the same regulatory
+    # checks every regulated entry point applies (CR-088: qualifications were not behind the country gate)
+    await enforce_regulated(
+        request, body.jurisdiction.country, Capability.INDIVIDUAL_VERIFICATION, caller.ctx
+    )
 
     async def run_in(c: AsyncConnection) -> checks.CheckResult:
         await protected_action(
@@ -268,6 +275,9 @@ async def check_disciplinary(
     subject = str(body.subject_principal_id or caller.ctx.principal_id or "")
     if not subject:
         raise ZidError("SUBJECT_REQUIRED", "A subject is required.", http_status=422)
+    await enforce_regulated(
+        request, body.jurisdiction.country, Capability.INDIVIDUAL_VERIFICATION, caller.ctx
+    )
     source = getattr(request.app.state, "disciplinary_source", None)
     if source is None:
         try:

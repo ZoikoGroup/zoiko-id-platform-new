@@ -142,11 +142,11 @@ cases:
   - case: T19
     title: Employer confirmation name collision
     expected: human review with identity matching safeguards
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_lifecycle_portable_outreach.py::test_glb_22_a_conflicting_birth_year_never_becomes_a_match
       - app/tests/unit/test_credential_claims.py::test_glb_22_a_same_name_different_person_match_goes_to_a_person
-    note: A same-name collision goes to a person, but no test runs it on the employer-confirmation path.
+      - app/tests/unit/test_lifecycle_portable_outreach.py::test_t19_an_employer_confirmation_for_a_same_name_other_person_goes_to_a_person_not_to_a_verdict
   - case: T20
     title: Proof response is stale
     expected: EXPIRED/RECHECK_REQUIRED; no cached active status
@@ -159,11 +159,11 @@ cases:
   - case: T21
     title: Valid PAdES signature nonqualified certificate
     expected: CRYPTO_VALID and NOT_QUALIFIED
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_trusted_lists.py::test_a_certificate_without_qc_compliance_is_not_qualified_even_under_a_granted_service
       - app/tests/unit/test_pdf_signatures.py::test_a_valid_signature_chained_to_a_configured_anchor_is_verified_limited_with_the_gaps_named
-    note: Each half is proven separately; no single test asserts CRYPTO_VALID together with NOT_QUALIFIED on one PAdES document.
+      - app/tests/unit/test_trusted_lists.py::test_t21_one_pades_document_is_crypto_valid_and_not_qualified_when_the_certificate_lacks_qc_compliance
   - case: T22
     title: Tampered signed PDF after signing
     expected: INTEGRITY_FAIL with evidence
@@ -194,11 +194,11 @@ cases:
   - case: T26
     title: Document signed by genuine person without authority
     expected: authority separately rejected
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_pdf_signatures.py::test_a_pdf_signature_is_replaced_in_the_document_validation_and_nothing_authority_shaped_is_ever_plain_verified_without_proof
       - app/tests/unit/test_screening.py::test_a_company_that_exists_is_not_a_persons_authority_to_act_for_it
-    note: Signature and authority are judged separately, but no test signs a genuine document and then rejects the signer's authority in one flow.
+      - app/tests/unit/test_screening.py::test_t26_a_genuine_signed_document_does_not_prove_the_signers_authority
   - case: T27
     title: England RTR not applicable to Scottish property
     expected: no England RTR required claim
@@ -341,8 +341,12 @@ cases:
   - case: T45
     title: Outage/incident notification deadline simulation
     expected: routing, legal escalation, clock and evidence verified
-    coverage: GAP
-    note: Incident preservation and routing rules exist (test_operations_catalogue.py), but no test runs a notification deadline clock or legal escalation.
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_incident_notifications.py::test_t45_routing_only_the_rules_the_incident_meets
+      - app/tests/unit/test_incident_notifications.py::test_t45_the_clock_escalates_to_legal_then_goes_overdue
+      - app/tests/unit/test_incident_notifications.py::test_t45_met_needs_evidence_and_a_send_inside_the_window
+    note: The deadline rules themselves are Legal content (config/regulatory/incident-notification-rules.yaml ships empty); the simulation runs fixture rules.
   - case: T46
     title: Regulator requests historic certification proof
     expected: export check-time official snapshot + trace

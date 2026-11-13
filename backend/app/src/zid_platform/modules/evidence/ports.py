@@ -12,6 +12,7 @@ Worker: `worker_pass` (sequence, checkpoint, anchor, retention sweep).
 
 from __future__ import annotations
 
+from zid_platform.modules.evidence.application import trust as trust_model
 from zid_platform.modules.evidence.application.assessment import Assessment, assess
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
 from zid_platform.modules.evidence.application.provenance import (
@@ -99,6 +100,7 @@ __all__ = [
     "store_object",
     "subject_ref",
     "trust_config",
+    "trust_model",
     "unusable_evidence",
     "upload_summary",
     "uploads_by_subject",

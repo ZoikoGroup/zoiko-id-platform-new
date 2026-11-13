@@ -88,14 +88,24 @@ async def load_run(conn: AsyncConnection, run_id: str) -> cf.Run | None:
     return run
 
 
-async def list_runs(conn: AsyncConnection, *, limit: int = 50) -> list[cf.Run]:
+async def list_runs(
+    conn: AsyncConnection, *, limit: int = 50, skip_unreadable: bool = False
+) -> list[cf.Run]:
     rows = (
         await conn.execute(
             text(f"SELECT {_RCOLS} FROM verify.conformance_run ORDER BY finished_at DESC LIMIT :n"),
             {"n": limit},
         )
     ).all()
-    return [_run(r) for r in rows]
+    if not skip_unreadable:
+        return [_run(r) for r in rows]
+    out: list[cf.Run] = []
+    for r in rows:
+        try:
+            out.append(_run(r))
+        except (KeyError, ValueError, TypeError):
+            continue  # a stored run that cannot be read is never one that counts
+    return out
 
 
 async def reviews(conn: AsyncConnection, run_id: str) -> list[cf.Review]:
