@@ -26,6 +26,10 @@ describe("the proxy allowlist", () => {
     ["billing grants and the caller's own permissions", "/v1/tenant/"],
     ["the role gallery (the published role matrix)", "/v1/roles/"],
     ["the verification level and what each tier asks for", "/v1/verification/"],
+    ["the solution builder offers by market","/v1/commercial/offers"],
+    ["service dependencies for the solution builder","/v1/commercial/capability-dependencies"],
+    ["the quote preview","/v1/commercial/quotes/preview"],
+    ["saved solution configurations and quote requests","/v1/commercial/configurations"],
     ["provisioning sources (list, register, suspend)", "/provisioning/sources"],
     ["directory syncs (connect, run, pause, resume, replace the secret)", "/provisioning/directory-syncs"],
   ])("lets a screen reach %s", (_what, prefix) => {
@@ -37,6 +41,6 @@ describe("the proxy allowlist", () => {
   });
 
   it("does not open the reviewer, operator or sign-up relays through the bearer proxy", () => {
-    for (const closed of ['"/v1/reviews/', '"/v1/registration', '"/v1/containment-actions', '"/v1/recovery-cases']) expect(block).not.toContain(closed);
+    for (const closed of ['"/v1/reviews/', '"/v1/registration', '"/v1/containment-actions', '"/v1/recovery-cases', '"/v1/commercial/market-matrices', '"/v1/commercial/quote-requests']) expect(block).not.toContain(closed);
   });
 });

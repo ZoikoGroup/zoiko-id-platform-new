@@ -116,7 +116,13 @@ def signature_result(findings: list[cms.Finding], config: tr.TrustConfig) -> doc
     reasons = ["CRYPTOGRAPHICALLY_VALID", "CHAIN_TO_CONFIGURED_ANCHOR"]
     timed = all(f.timestamp == "VALID" for f in findings)
     checked = all(f.revocation == "GOOD" for f in findings)
-    reasons.append("SIGNING_TIME_TRUSTED_BY_TIMESTAMP" if timed else "SIGNING_TIME_NOT_TRUSTED")
+    if not timed:
+        reasons.append("SIGNING_TIME_NOT_TRUSTED")
+    elif any(f.time_source == "DOCUMENT_TIMESTAMP" for f in findings):
+        # no timestamp of its own: a verified document timestamp over the file proves it existed by then, not when it was made
+        reasons.append("SIGNING_TIME_BOUNDED_BY_DOCUMENT_TIMESTAMP")
+    else:
+        reasons.append("SIGNING_TIME_TRUSTED_BY_TIMESTAMP")
     if checked:
         reasons.append("REVOCATION_CHECKED_GOOD")
     elif any(f.revocation == "PARTIAL" for f in findings):

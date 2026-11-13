@@ -105,7 +105,17 @@ public class SdkTests
         await c.VerifyOrganization("GB", "00123456", "Acme");
         Assert.Equal("https://api.example.test/v2/organizations/verify", f.Calls[1].Url);
         Assert.False(f.Calls[1].Request.Headers.Contains("Idempotency-Key"));
-        Assert.Equal(26, V2Client.Paths.Count);
+        Assert.Equal(27, V2Client.Paths.Count);
+    }
+
+    [Fact]
+    public async Task CaptureAlternativesIsAPlainGetWithAnOptionalReason()
+    {
+        var (c, f) = Client(200, "{\"counts_as_failed_attempt\":false}");
+        await c.CaptureAlternatives("GB");
+        await c.CaptureAlternatives("GB", "no camera");
+        Assert.EndsWith("/v2/capture-alternatives?country=GB", f.Calls[0].Url);
+        Assert.EndsWith("/v2/capture-alternatives?country=GB&reason=no%20camera", f.Calls[1].Url);
     }
 
     [Fact]

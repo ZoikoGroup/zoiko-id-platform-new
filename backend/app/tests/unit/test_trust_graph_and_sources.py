@@ -287,6 +287,17 @@ def test_glb_18_a_sensitive_source_needs_a_basis_an_authorized_user_and_a_review
     )
 
 
+def test_an_employment_check_needs_a_consent_or_legal_basis_even_from_a_standard_source():
+    c = _contract(claim_types=frozenset({"EMPLOYMENT_ASSERTION"}))
+    with pytest.raises(src.SourceError) as e:
+        src.may_query(c, _req(claim_type="EMPLOYMENT_ASSERTION"))
+    assert e.value.code == "EMPLOYMENT_NO_BASIS"
+    src.may_query(c, _req(claim_type="EMPLOYMENT_ASSERTION", consent_ref="c1"))
+    src.may_query(c, _req(claim_type="EMPLOYMENT_ASSERTION", legal_basis_ref="statute-9"))
+    # the rule is about employment only: a degree from a standard source still needs neither
+    src.may_query(_contract(), _req())
+
+
 def test_choose_prefers_a_primary_source_and_never_falls_back_to_a_refused_one():
     agg = _contract(source_id="aggregator", primary=False)
     prim = _contract(source_id="registrar-us")

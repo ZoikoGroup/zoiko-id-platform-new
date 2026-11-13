@@ -538,3 +538,64 @@ def test_a_p256_data_integrity_credential_verifies_against_the_issuers_pinned_ec
                 assert (await _verify_di(w, c2, good))["integrity"] is False
 
     run(go())
+
+
+def test_a_data_integrity_credential_is_bound_only_by_a_presentation_from_the_key_it_was_issued_to(
+    rt_url: str,
+) -> None:
+    import sys
+    from pathlib import Path
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit"))
+    from test_holder_binding_di import Holder, presentation
+
+    w, tenant = World("dibind"), uid()
+    key = Ed25519PrivateKey.generate()
+    issuer = "https://bind.registry.example"
+    vm = issuer + "#key-1"
+    holder, thief = Holder("ed25519"), Holder("ed25519")
+
+    def issued_to(subject: str) -> dict[str, Any]:
+        doc = _di_credential(issuer)
+        doc["credentialSubject"] = {**doc["credentialSubject"], "id": subject}
+        return _sign_di(doc, key, vm)
+
+    def present(who, vc: dict[str, Any], **over: Any) -> dict[str, Any]:
+        stamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        return presentation(who, vc, domain=w.settings.client_id, created=stamp, **over)
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await _trust_ed(c, tenant, issuer, key, "key-1", [BADGE])
+            vc = issued_to(holder.did)
+
+            async def verify(presented: dict[str, Any] | None, credential: dict[str, Any]):
+                out = await vc_verify.verify_vc_di(
+                    c,
+                    w.settings,
+                    _contexts(),
+                    vc=credential,
+                    jurisdiction=None,
+                    now=datetime.now(UTC),
+                    holder_presentation=presented,
+                )
+                return out.to_contract()
+
+            bound = await verify(present(holder, vc), vc)
+            assert bound["integrity"] is True and bound["holder_bound"] is True
+            assert bound["primary_source_verified"] is False and bound["statutory_license"] is False
+
+            # no presentation, someone else's key, and a presentation for another credential are never binding
+            assert (await verify(None, vc))["holder_bound"] is False
+            assert (await verify(present(thief, vc), vc))["holder_bound"] is False
+            other = issued_to(holder.did)
+            assert (await verify(present(holder, vc), other))["holder_bound"] is False
+
+            # binding never rescues a credential whose own proof fails
+            forged = {**vc, "name": "MD Medicine"}
+            r = await verify(present(holder, forged), forged)
+            assert r["integrity"] is False and r["holder_bound"] is False
+
+    run(go())

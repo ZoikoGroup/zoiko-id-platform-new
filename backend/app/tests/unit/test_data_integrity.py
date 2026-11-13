@@ -113,7 +113,7 @@ def test_a_different_key_does_not_verify(loader) -> None:
         ),
         (lambda d: d.pop("proof"), "PROOF_MISSING"),
         (
-            lambda d: d["proof"].__setitem__("cryptosuite", "ecdsa-jcs-2019"),
+            lambda d: d["proof"].__setitem__("cryptosuite", "bbs-2023"),
             "CRYPTOSUITE_NOT_SUPPORTED",
         ),
         (
@@ -328,7 +328,7 @@ def test_only_a_p256_multikey_that_is_on_the_curve_is_accepted() -> None:
 
 def test_a_cryptosuite_that_is_neither_is_still_refused_by_name(loader, p256) -> None:
     doc = copy.deepcopy(ECDSA["signed"])
-    doc["proof"]["cryptosuite"] = "ecdsa-jcs-2019"
+    doc["proof"]["cryptosuite"] = "bbs-2023"
     assert di.verify(doc, p256, loader).reasons == ("CRYPTOSUITE_NOT_SUPPORTED",)
 
 
@@ -339,3 +339,245 @@ def _b58(data: bytes) -> str:
         n, r = divmod(n, 58)
         out = alphabet[r] + out
     return "1" * (len(data) - len(data.lstrip(b"\x00"))) + out
+
+
+# ------------------------------------------------------------------------- ecdsa-rdfc-2019 with curve P-384 (SHA-384)
+
+P384 = json.loads((FIXTURES / "ecdsa-rdfc-2019-p384-vector.json").read_text(encoding="utf-8"))
+_ZB58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def _zb58(raw: bytes) -> str:
+    n, out = int.from_bytes(raw, "big"), ""
+    while n:
+        n, r = divmod(n, 58)
+        out = _ZB58[r] + out
+    return "z" + out
+
+
+@pytest.fixture(scope="module")
+def p384() -> di.VerificationKey:
+    return di.p384_public_key(P384["public_key_multibase"])
+
+
+def test_the_p384_vectors_canonical_forms_hashes_and_signature_match_the_specification(
+    loader,
+) -> None:
+    assert (
+        di.canonicalize(P384["unsigned"], loader, "sha384").strip()
+        == P384["canonical_unsigned"].strip()
+    )
+    assert (
+        di.canonicalize(P384["proof_options"], loader, "sha384").strip()
+        == P384["canonical_proof_options"].strip()
+    )
+    unsecured, config = di.split(P384["signed"])
+    h = di.hashes_for(unsecured, config, loader, hashlib.sha384)
+    assert h.document.hex() == P384["unsigned_hash"]
+    assert h.proof_options.hex() == P384["proof_options_hash"]
+    assert h.combined.hex() == P384["combined_hash"]
+    assert di.decode_multibase(P384["signed"]["proof"]["proofValue"]).hex() == P384["signature_hex"]
+
+
+def test_the_p384_signed_credential_verifies_against_the_specifications_key(loader, p384) -> None:
+    v = di.verify(P384["signed"], p384, loader)
+    assert v.status == "VERIFIED" and v.reasons == ("SIGNATURE_VALID_FOR_SUPPLIED_KEY",)
+
+
+def test_a_changed_p384_credential_does_not_verify(loader, p384) -> None:
+    doc = copy.deepcopy(P384["signed"])
+    doc["credentialSubject"]["givenName"] = "JANE"
+    assert di.verify(doc, p384, loader).status == "NOT_VERIFIED"
+
+
+def test_a_flipped_p384_signature_does_not_verify(loader, p384) -> None:
+    doc = copy.deepcopy(P384["signed"])
+    raw = bytearray(di.decode_multibase(doc["proof"]["proofValue"]))
+    raw[10] ^= 0x01
+    doc["proof"]["proofValue"] = _zb58(bytes(raw))
+    assert di.verify(doc, p384, loader).status == "NOT_VERIFIED"
+
+
+def test_a_p256_key_cannot_check_a_p384_signature_and_the_reverse(loader, p384, p256) -> None:
+    # the signature width differs, so the mismatch is refused before any curve arithmetic
+    assert di.verify(P384["signed"], p256, loader).reasons == ("PROOF_VALUE_LENGTH_INVALID",)
+    assert di.verify(ECDSA["signed"], p384, loader).reasons == ("PROOF_VALUE_LENGTH_INVALID",)
+
+
+def test_a_multikey_of_another_curve_or_off_the_p384_curve_is_refused() -> None:
+    with pytest.raises(di.DataIntegrityError):
+        di.p384_public_key(ECDSA["public_key_multibase"])  # a P-256 multikey
+    bad = bytearray(di.decode_multibase(P384["public_key_multibase"]))
+    bad[2] = 0x05  # not a valid compressed-point prefix
+    with pytest.raises(di.DataIntegrityError):
+        di.p384_public_key(_zb58(bytes(bad)))
+
+
+def test_the_issuer_key_lookup_returns_a_pinned_p384_key_and_it_verifies(loader, p384) -> None:
+    import base64
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from zid_platform.modules.credential.application import vc_verify
+
+    point = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP384R1(), p384.raw).public_numbers()
+
+    def b64(n: int) -> str:
+        return base64.urlsafe_b64encode(n.to_bytes(48, "big")).rstrip(b"=").decode()
+
+    vm = P384["signed"]["proof"]["verificationMethod"]
+    jwks = {
+        "keys": [{"kty": "EC", "crv": "P-384", "kid": vm, "x": b64(point.x), "y": b64(point.y)}]
+    }
+    key = vc_verify._proof_key(jwks, vm, "ecdsa-rdfc-2019")
+    assert key is not None and key.kind == "p384"
+    assert di.verify(P384["signed"], key, loader).status == "VERIFIED"
+    # a P-384 JWK is never offered to the EdDSA suite
+    assert vc_verify._proof_key(jwks, vm, "eddsa-rdfc-2022") is None
+
+
+# ------------------------------------------------------------------------------ the JCS suites (RFC 8785 canonical JSON)
+
+JCS_VECTORS = {
+    name: json.loads((FIXTURES / f"{name}-vector.json").read_text(encoding="utf-8"))
+    for name in ("ecdsa-jcs-2019-p256", "ecdsa-jcs-2019-p384", "eddsa-jcs-2022")
+}
+
+
+def _jcs_key(v: dict) -> di.VerificationKey:
+    mk = v["public_key_multibase"]
+    if v["curve"] == "P-256":
+        return di.p256_public_key(mk)
+    if v["curve"] == "P-384":
+        return di.p384_public_key(mk)
+    return di.VerificationKey("ed25519", di.ed25519_public_key(mk))
+
+
+@pytest.mark.parametrize("name", sorted(JCS_VECTORS))
+def test_the_jcs_vectors_canonical_forms_hashes_and_signature_match_the_specification(
+    name, loader
+) -> None:
+    v = JCS_VECTORS[name]
+    digest = hashlib.sha384 if v["curve"] == "P-384" else hashlib.sha256
+    assert di.jcs(v["unsigned"]) == v["canonical_unsigned"]
+    assert di.jcs(v["proof_options"]) == v["canonical_proof_options"]
+    unsecured, config = di.split(v["signed"])
+    h = di.hashes_for(unsecured, config, loader, digest, json_canonical=True)
+    assert h.document.hex() == v["unsigned_hash"]
+    assert h.proof_options.hex() == v["proof_options_hash"]
+    assert h.combined.hex() == v["combined_hash"]
+    assert di.decode_multibase(v["signed"]["proof"]["proofValue"]).hex() == v["signature_hex"]
+
+
+@pytest.mark.parametrize("name", sorted(JCS_VECTORS))
+def test_the_jcs_signed_credentials_verify_against_the_specifications_keys(name, loader) -> None:
+    v = JCS_VECTORS[name]
+    got = di.verify(v["signed"], _jcs_key(v), loader)
+    assert got.status == "VERIFIED" and got.reasons == ("SIGNATURE_VALID_FOR_SUPPLIED_KEY",)
+
+
+@pytest.mark.parametrize("name", sorted(JCS_VECTORS))
+def test_a_changed_or_extended_jcs_credential_does_not_verify(name, loader) -> None:
+    v = JCS_VECTORS[name]
+    key = _jcs_key(v)
+    changed = copy.deepcopy(v["signed"])
+    changed["credentialSubject"]["id"] = "did:example:someoneelse"
+    assert di.verify(changed, key, loader).status == "NOT_VERIFIED"
+    # JCS signs the JSON text, so a member no context defines is covered too: adding one must break it
+    extended = copy.deepcopy(v["signed"])
+    extended["unexpected"] = "added after signing"
+    assert di.verify(extended, key, loader).status == "NOT_VERIFIED"
+
+
+@pytest.mark.parametrize("name", sorted(JCS_VECTORS))
+def test_a_flipped_jcs_signature_does_not_verify(name, loader) -> None:
+    v = JCS_VECTORS[name]
+    doc = copy.deepcopy(v["signed"])
+    raw = bytearray(di.decode_multibase(doc["proof"]["proofValue"]))
+    raw[5] ^= 0x01
+    doc["proof"]["proofValue"] = _zb58(bytes(raw))
+    assert di.verify(doc, _jcs_key(v), loader).status == "NOT_VERIFIED"
+
+
+def test_a_jcs_proof_is_never_checked_with_a_key_of_the_other_family(loader) -> None:
+    ed = _jcs_key(JCS_VECTORS["eddsa-jcs-2022"])
+    ec_proof = JCS_VECTORS["ecdsa-jcs-2019-p256"]["signed"]
+    assert di.verify(ec_proof, ed, loader).reasons == ("KEY_DOES_NOT_MATCH_SUITE",)
+    assert di.verify(
+        JCS_VECTORS["eddsa-jcs-2022"]["signed"],
+        _jcs_key(JCS_VECTORS["ecdsa-jcs-2019-p256"]),
+        loader,
+    ).reasons == ("KEY_DOES_NOT_MATCH_SUITE",)
+
+
+def test_a_jcs_suite_reads_no_context_so_an_unbundled_one_does_not_matter(loader) -> None:
+    v = JCS_VECTORS["eddsa-jcs-2022"]
+    doc = copy.deepcopy(v["signed"])
+    # the vector uses bundled contexts, but nothing is fetched or expanded for this suite: a rewritten context list simply changes the signed text
+    doc["@context"] = [
+        "https://www.w3.org/ns/credentials/v2",
+        "https://example.invalid/never-fetched",
+    ]
+    doc["proof"]["@context"] = doc["@context"]
+    assert di.verify(doc, _jcs_key(v), loader).status == "NOT_VERIFIED"
+
+
+def test_an_unsupported_cryptosuite_is_still_refused_by_name(loader) -> None:
+    doc = copy.deepcopy(JCS_VECTORS["eddsa-jcs-2022"]["signed"])
+    doc["proof"]["cryptosuite"] = "bbs-2023"
+    assert di.verify(doc, _jcs_key(JCS_VECTORS["eddsa-jcs-2022"]), loader).reasons == (
+        "CRYPTOSUITE_NOT_SUPPORTED",
+    )
+
+
+# ------------------------------------------------------------------------------------- the Europass EDC contexts (bundled 2026-11-13)
+
+EDC_DOC = {
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://data.europa.eu/snb/model/context/edc-ap",
+    ],
+    "id": "urn:credential:1",
+    "type": ["VerifiableCredential", "EuropeanDigitalCredential"],
+    "issuer": {"id": "did:web:uni.example", "type": "Agent"},
+    "validFrom": "2026-01-01T00:00:00Z",
+    "credentialSubject": {"id": "urn:person:1", "type": "Person", "givenName": {"en": "Ana"}},
+}
+
+
+def test_the_bundle_serves_the_europass_edc_contexts_pinned_by_hash() -> None:
+    urls = di.BundledContexts(BUNDLE).urls
+    assert {
+        "https://www.w3.org/2018/credentials/v1",
+        "https://data.europa.eu/snb/model/context/edc-ap",
+    } <= urls
+
+
+def test_an_edc_shaped_credential_canonicalizes_to_the_europass_vocabulary() -> None:
+    b = di.BundledContexts(BUNDLE)
+    nquads = di.canonicalize(EDC_DOC, b)
+    assert "<http://data.europa.eu/snb/model/elm/EuropeanDigitalCredential>" in nquads
+    di.assert_nothing_dropped(EDC_DOC, b)
+
+
+def test_a_property_the_edc_context_does_not_define_is_caught_not_silently_dropped() -> None:
+    b = di.BundledContexts(BUNDLE)
+    doc = {**EDC_DOC, "madeUpClaim": "nobody defined this"}
+    with pytest.raises(di.DataIntegrityError):
+        di.assert_nothing_dropped(doc, b)
+
+
+def test_a_tampered_edc_context_file_is_refused_at_load(tmp_path) -> None:
+    import shutil
+
+    for name in (
+        "MANIFEST.yaml",
+        "credentials-v1.json",
+        "europass-edc-ap.json",
+        "credentials-v2.json",
+        "ob-v3p0.json",
+        "clr-v2p0.json",
+    ):
+        shutil.copy(BUNDLE / name, tmp_path / name)
+    (tmp_path / "europass-edc-ap.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(di.DataIntegrityError):
+        di.BundledContexts(tmp_path)

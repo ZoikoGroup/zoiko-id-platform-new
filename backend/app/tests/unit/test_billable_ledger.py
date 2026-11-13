@@ -56,6 +56,17 @@ def test_the_mah_key_is_per_month_and_never_carries_the_principal() -> None:
         ({"quantity": Decimal(-1)}, "QUANTITY_INVALID"),
         ({"deduplication_key": "x"}, "DEDUPLICATION_KEY_INVALID"),
         ({"principal_class": "ROBOT"}, "PRINCIPAL_CLASS_INVALID"),
+        ({"origin": "FAX"}, "ORIGIN_INVALID"),
+        ({"transaction_type": "PAID"}, "TRANSACTION_TYPE_INVALID"),
+        ({"billable_result": "MAYBE"}, "BILLABLE_RESULT_INVALID"),
+        (
+            {"finality": "INVOICED"},
+            "FINALITY_INVALID",
+        ),  # an event is never recorded already invoiced
+        ({"origin": "PARTNER"}, "PARTNER_ORIGIN_MISMATCH"),
+        ({"origin": "API", "partner_id": "p1"}, "PARTNER_ORIGIN_MISMATCH"),
+        ({"market_policy": ""}, "CONTEXT_TEXT_INVALID"),
+        ({"supplier_rate_version": "v" * 81}, "CONTEXT_TEXT_INVALID"),
     ],
 )
 def test_an_invalid_event_is_refused(change: dict[str, object], code: str) -> None:
@@ -95,3 +106,14 @@ def test_net_quantities_add_adjustments_and_never_go_below_zero() -> None:
         {"AUTH_EVENT": Decimal(-30), "MAH": Decimal(-9), "VC_ISSUED": Decimal(2)},
     )
     assert net == {"AUTH_EVENT": Decimal(70), "MAH": Decimal(0), "VC_ISSUED": Decimal(2)}
+
+
+def test_the_usage_context_fields_default_to_not_stated_and_never_change_the_hash() -> None:
+    plain = event()
+    assert plain.legal_payer_id is None and plain.finality is None and plain.billable_result is None
+    full = event(
+        legal_payer_id="p1", origin="PARTNER", partner_id="partner-1", transaction_type="PROVIDER_EXECUTED",
+        billable_result="CHARGEABLE", finality="PROVISIONAL", market_policy="DE:2026-11", supplier_rate_version="sr-7",
+    )  # fmt: skip
+    full.validate()
+    assert full.row_hash == plain.row_hash, "frozen windows keep their hash totals"

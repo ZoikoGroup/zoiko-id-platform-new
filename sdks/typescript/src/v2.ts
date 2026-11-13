@@ -88,6 +88,11 @@ export class V2Client {
     return this.call("GET", `/v2/coverage?country=${country}${profession ? `&profession=${profession}` : ""}`);
   }
 
+  /** The other ways to complete a check instead of a selfie or a photographed document. No reason is needed; choosing one is not a failed attempt. */
+  captureAlternatives(country: string, reason?: string): Promise<Json> {
+    return this.call("GET", `/v2/capture-alternatives?country=${country}${reason ? `&reason=${reason}` : ""}`);
+  }
+
   // credentials
   verifyCredential(
     credentialType: string,
@@ -230,6 +235,7 @@ export class V2Client {
 export const V2_PATHS = [
   "GET /v2/capabilities",
   "GET /v2/coverage",
+  "GET /v2/capture-alternatives",
   "POST /v2/credentials/verify",
   "GET /v2/credentials/{ref}",
   "POST /v2/eligibility/evaluate",

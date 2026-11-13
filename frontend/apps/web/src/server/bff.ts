@@ -99,6 +99,12 @@ const API_PATH_PREFIXES = [
   "/v1/account/",
   "/v1/invoices",
   "/v1/budgets",
+  // The solution builder (ZID-COM-WF-2026-11 B06): offers by market, service dependencies, quote preview and saved drafts. Named one by one: the
+  // operator routes under /v1/commercial/ (market matrices, quote requests) are never relayed from the browser.
+  "/v1/commercial/offers",
+  "/v1/commercial/capability-dependencies$",
+  "/v1/commercial/quotes/preview$",
+  "/v1/commercial/configurations",
 ];
 
 /** Browser-facing cell flows relayed on this origin (cell session cookie + Origin check). */

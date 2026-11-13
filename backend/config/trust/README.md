@@ -8,6 +8,7 @@ cryptographically valid but INDETERMINATE (`NO_TRUST_ANCHORS_CONFIGURED`), and q
 | `anchors/` | CA certificates (`.pem`, `.crt`, `.cer`) a signature chain may end at | Security + Legal, per market |
 | `trusted-lists/` | ETSI TS 119 612 trusted-list XML files (for the EU, the member-state lists named by the LOTL), downloaded by the operator | Operations, refreshed on a schedule |
 | `tl-signers/` | The certificates a trusted list's own XML signature must verify against (published with the EU list of lists) | Security |
+| `csca/` | Country signing CA certificates (`.pem`, `.crt`, `.cer`) a passport or eID chip's Document Signer may chain to (`POST /v2/documents/chip-verify`). A country publishes them in a CSCA master list; the operator extracts the certificates and checks them against the country's own publication before placing any here | Security + Legal, per country |
 
 A trusted list counts only if its signature verifies against a pinned signer; an unverified list is ignored and reported. Revocation (CRL or
 OCSP) is **not** checked by this validator, and the signing time inside a signature is the signer's own claim: a fully valid result is at

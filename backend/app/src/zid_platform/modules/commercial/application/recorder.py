@@ -49,6 +49,14 @@ async def record(
     principal_class: str | None = None,
     source_request_id: str | None = None,
     recovered: bool = False,
+    legal_payer_id: str | None = None,
+    origin: str | None = None,
+    partner_id: str | None = None,
+    transaction_type: str | None = None,
+    billable_result: str | None = None,
+    finality: str | None = None,
+    market_policy: str | None = None,
+    supplier_rate_version: str | None = None,
 ) -> bool:
     """Record one chargeable operation. True when this call created the event, False when it was already
     recorded or could not be written (counted in `STATS`). Never raises."""
@@ -67,6 +75,14 @@ async def record(
         principal_class=principal_class,
         source_request_id=source_request_id,
         recovered=recovered,
+        legal_payer_id=legal_payer_id,
+        origin=origin,
+        partner_id=partner_id,
+        transaction_type=transaction_type,
+        billable_result=billable_result,
+        finality=finality,
+        market_policy=market_policy,
+        supplier_rate_version=supplier_rate_version,
     )
     try:
         event.validate()
@@ -87,6 +103,29 @@ async def record(
         return False
     STATS["recorded" if created else "duplicate"] += 1
     return created
+
+
+async def screening_usage_sink(
+    conn: AsyncConnection,
+    tenant_id: str,
+    kind: str,
+    case_id: str,
+    version: int,
+    at: datetime,
+    human: bool,
+) -> None:
+    """Records what the screening module reports (CR-090): a CHECK is one SCREEN_CHECK per decision, a PERIOD is one SCREEN_MONITOR_PERIOD per case per UTC month.
+    Usage facts only: nothing is rated or invoiced. Wired to the screening module by the composition root."""
+    if kind == "CHECK":
+        await record(
+            conn, tenant_id=tenant_id, meter="SCREEN_CHECK", key=b.key_screen_check(case_id, version), at=at,
+            principal_class="HUMAN" if human else "NON_HUMAN",
+        )  # fmt: skip
+    elif kind == "PERIOD":
+        await record(
+            conn, tenant_id=tenant_id, meter="SCREEN_MONITOR_PERIOD", key=b.key_screen_period(case_id, b.window_month(at)), at=at,
+            principal_class="NON_HUMAN",
+        )  # fmt: skip
 
 
 async def record_active_human(

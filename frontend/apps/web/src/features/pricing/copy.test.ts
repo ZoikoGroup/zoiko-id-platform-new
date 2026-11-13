@@ -24,9 +24,10 @@ function strings(): string[] {
 }
 
 describe("pricing page copy", () => {
-  it("uses the two approved headline lines verbatim", () => {
-    expect(copy.HERO).toBe("Identity infrastructure that scales with your trust requirements.");
-    expect(copy.SUBHERO).toBe("Start building free. Add verification, federation and governance when your use case demands it.");
+  it("uses the approved headline and positioning line (ZID-UX-PRICE-004), with no speed or accuracy figure and no trial", () => {
+    expect(copy.HERO).toBe("Verify identity. Validate credentials. Prove authority.");
+    expect(copy.SUBHERO).toMatch(/^One platform to verify identity, validate qualifications, prove authority, and exchange trusted evidence/);
+    for (const text of [copy.HERO, copy.SUBHERO]) expect(text).not.toMatch(/free|trial|\d/i);
   });
 
   it("makes no certification, compliance, availability or uptime claim", () => {
@@ -38,7 +39,24 @@ describe("pricing page copy", () => {
     expect(copy.DISCLAIMER).toMatch(/exclude taxes and third-party checks/);
   });
 
+  it("answers each buyer question once and never promises a price, a trial or an uptime", () => {
+    expect(copy.FAQ.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(copy.FAQ.map((f) => f.q)).size).toBe(copy.FAQ.length);
+    for (const f of copy.FAQ) expect(`${f.q} ${f.a}`).not.toMatch(/[$€£]|\bper (month|check)\b|\bfree\b|uptime|unlimited|best|cheapest/i);
+  });
+
   it("lists the five plans in the proposal order", () => {
     expect([...copy.PLAN_ORDER]).toEqual(["DEVELOPER", "LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"]);
+  });
+});
+
+describe("partner page copy", () => {
+  it("promises no price, margin, discount or checkout and makes no forbidden claim", () => {
+    const text = [copy.PARTNER_HERO, copy.PARTNER_INTRO, ...copy.PARTNER_TYPES_COPY.flatMap((t) => [t.label, t.text]), ...copy.PARTNER_TERMS.flatMap((t) => [t.label, t.text])];
+    for (const t of text) {
+      expect(t).not.toMatch(/[$€£]|\d|\bfree\b|discount|commission|margin %|guarantee|certif|complian/i);
+      for (const bad of FORBIDDEN) expect(t).not.toMatch(bad);
+    }
+    expect(copy.PARTNER_INTRO).toMatch(/no partner checkout/);
   });
 });

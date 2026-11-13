@@ -72,6 +72,9 @@ class TrustConfig:
     barcode_keys: tuple[
         x509.Certificate, ...
     ] = ()  # certificates whose keys may sign 2D barcode payloads
+    csca: tuple[
+        x509.Certificate, ...
+    ] = ()  # country signing CA certificates a passport chip's document signer may chain to (passive authentication)
 
     def notes(self) -> list[str]:
         out = []
@@ -267,6 +270,7 @@ def load_trust(root: Path) -> TrustConfig:
         tuple(_crls(root / "crls")),
         tuple(_ocsp(root / "ocsp")),
         tuple(_certs(root / "barcode-keys", ("*.pem", "*.crt", "*.cer"))),
+        tuple(_certs(root / "csca", ("*.pem", "*.crt", "*.cer"))),
     )
 
 

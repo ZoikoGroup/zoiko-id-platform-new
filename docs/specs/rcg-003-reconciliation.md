@@ -55,3 +55,31 @@ Implemented, with no console screen yet:
 
 Open human decisions the document reserves for the business (section 13.1) are not decided here: legal entity per offering,
 named local legal reviewer and Privacy Officer per market, confirmed provider contracts, and the first markets and professions.
+
+## Refresh (2026-11-13): reconciliation against the code as it stands
+
+The table above predates most of the work. Re-read from the code, not from the earlier claims. Nothing here is VERIFIED_IN_CODE in the document's sense (that needs a deployed environment and an independent owner).
+
+| Package | Now | Pointer | Still open |
+|---|---|---|---|
+| RCG-G01 policy packs | BUILT (gate in shadow by default) | `verification/domain/policy_packs.py`, `operator_access/api/regulatory.py`, `country_gate.py` | other entry points of the gate; approvals by named people |
+| RCG-G02 legal entity and exact-service qualification | BUILT as a rule; no register connected | `verification/domain/certification.py` (`reconcile`, `RegisterEntry`, `SuspensionProof`), `config/certifications/certifications.yaml` (DTV-07/14/15), tests in `test_certification.py` | A fetcher for the real registers (needs access and a parser per register) and a persisted history of proofs. `reconcile` only ever downgrades: a record the register does not list, or lists as suspended or withdrawn, stops counting at once with a proof (source, snapshot hash, time); a fetch never reinstates |
+| RCG-G03 partner entitlement | BUILT | `verify.provider_entitlement`, `verification/api/v2_providers.py`, `domain/provider_adapter.py` | real contracts |
+| RCG-G04 issuer and accreditation history | BUILT (sample issuers) | `credential/domain/trust_graph.py` (GID-038) | real issuer data |
+| RCG-G05 practice restriction and insurance | BUILT against simulator sources | `credential/domain/standing.py`, disciplinary route (GID-044/046) | real sources |
+| RCG-G06 signature and qualified-trust validators | BUILT on open-source crypto | `evidence/application/{cms,trust,signatures,xades,cades}.py` | anchors, trusted lists and TSA roots (config ships empty) |
+| RCG-G07 evidence manifest and claims publisher | BUILT | `evidence` module, `/v2/evidence/{ref}/manifest`, signed assertion | |
+| RCG-G08 service kill switch, impact analysis, rollback | BUILT as of this refresh | suspend and revoke existed; `GET /v2/providers/{id}/entitlements/{service}/impact` and `provider_adapter.withdrawal_impact` added (LOST, DEGRADED, REROUTED per scope) | cert-withdrawal fixture against a real register |
+| RCG-G09 privacy and cross-border overlay | BUILT | Document 04 control plane (`docs/qa/doc04-privacy-matrix.md`) | counsel content |
+| RCG-G10 release workflow and conformance | BUILT as a platform | `assurance` module (CR-074) | independent runs: 0 of 104 cases |
+| RCG-G11 EUDI | PARTLY | OpenID4VC/vc-jwt and Data Integrity verification | wallet conformance runs |
+| RCG-G12 | not in scope for launch | | |
+
+
+## Refresh after merging `origin/akarsh` (2026-11-13)
+
+`origin/akarsh` (PR #55 and the commits after it) built the Document 03 packages as full modules: G02 official-register attestations (`verification/domain/attestation.py`, `certification_attestation`, CR-073), G03 partner entitlement statements (`verification/domain/entitlement`, table `verify.provider_entitlement`, CR-074), G08 exact-scope provider suspensions with rollback (`verification/domain/suspension.py`, CR-078), G10 market releases with the seven evidence gates and four independent approvals (`market_release.py`, CR-072), conformance runs, the `/v2` regulatory API, operator console screens and a readiness report. Treat the earlier refresh table above as superseded for G02, G03, G08 and G10; read those modules and their CRs for the current state.
+
+Two things of mine overlap and were kept apart on purpose:
+- `certification.reconcile` (a pure rule that downgrades a configured record the register does not support) is still in `certification.py` and does not conflict with the attestation records; whether to keep both is a design question for the owners.
+- My tenant-scoped runtime routing registry (`/v2/providers/*`, `provider_adapter.withdrawal_impact`) used the table name `verify.provider_entitlement`, which `akarsh` also uses for a different, platform-level append-only table. Mine is now `verify.provider_route_entitlement` (migration `verification_0013`). The two serve different purposes (routing a request vs. recording what a contract allows) and could be joined later.

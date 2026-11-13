@@ -200,7 +200,7 @@ def test_a_revoked_provider_entitlement_closes_the_path_is_announced_once_and_is
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
             await c.execute(
                 text(
-                    "UPDATE verify.provider_entitlement SET status = 'ACTIVE' WHERE status = 'REVOKED'"
+                    "UPDATE verify.provider_route_entitlement SET status = 'ACTIVE' WHERE status = 'REVOKED'"
                 )
             )
 
@@ -257,3 +257,49 @@ def test_t34_another_tenants_administrator_cannot_read_export_or_remove_raw_evid
         # A is untouched by all of it
         listed = a_http.get("/v2/evidence/uploads", headers=a_mine).json()["items"]
         assert [u["evidence_ref"] for u in listed] == [ref]
+
+
+def test_the_impact_of_withdrawing_a_provider_is_read_only_and_names_every_lost_or_weaker_scope(
+    rt_url: str,
+) -> None:
+    o = onboard(
+        rt_url,
+        extra_actions=("credential.claim.verify",),
+        extra_resources=("provider-entitlement:*",),
+    )
+    app = create_app(
+        Settings(
+            database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD,
+            environment="test", cell_id="uk-1",
+        ),
+        keyring=o.ring,
+    )  # fmt: skip
+    h = o.bearer(o.owner)
+    url = "/v2/providers/acme/entitlements/id.document/impact"
+    with TestClient(app, base_url=ISS) as api:
+        assert api.get(url).status_code == 401
+        assert api.get(url, headers=h).status_code == 404, "no live entitlement, nothing to analyse"
+        api.post("/v2/providers/acme/entitlements", headers=h, json=entitlement())
+        alone = api.get(url, headers=h)
+        assert alone.status_code == 200, alone.text
+        body = alone.json()
+        assert body["summary"] == {"LOST": 2}, "GB and IE, each with no other provider"
+        assert {x["country"] for x in body["scopes"]} == {"GB", "IE"}
+        assert all(
+            x["outcome"] == "LOST" and x["replacement_provider_id"] is None for x in body["scopes"]
+        )
+        api.post("/v2/providers/zeta/entitlements", headers=h, json=entitlement(assurance=2))
+        weaker = api.get(url, headers=h).json()
+        assert weaker["summary"] == {"DEGRADED": 2}
+        assert {x["replacement_provider_id"] for x in weaker["scopes"]} == {"zeta"}
+        # it changed nothing: the provider is still the one chosen
+        ask = {
+            "country": "GB",
+            "service_code": "id.document",
+            "purpose": "onboarding",
+            "processing_region": "uk",
+        }
+        assert api.post("/v2/providers/route", headers=h, json=ask).json()["provider_id"] == "acme"
+        listed = api.get("/v2/providers/entitlements?provider_id=acme", headers=h).json()
+        assert [e["status"] for e in listed["entitlements"]] == ["ACTIVE"]
+        assert events(rt_url, o.tenant, "provider.entitlement_revoked") == []

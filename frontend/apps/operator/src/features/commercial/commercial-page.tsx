@@ -9,6 +9,7 @@ import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
 import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequestsView } from "./finance-page";
 import { useDirectMode } from "./mode";
 import { ActivationRefundsView, DataDeletionStatusCard } from "./gap-views";
+import { MarketView } from "./market-views";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
@@ -81,6 +82,7 @@ export function CommercialPage() {
               </div>
             ),
           },
+          { id: "market", label: "Market release", content: <MarketView /> },
           { id: "sales", label: GROUP_LABEL.sales, content: <Actions group="sales" /> },
           { id: "billing", label: GROUP_LABEL.billing, content: <Actions group="billing" /> },
           { id: "vendors", label: GROUP_LABEL.vendors, content: <Actions group="vendors" /> },

@@ -96,6 +96,12 @@ class V2Client:
         q = f"?country={country}" + (f"&profession={profession}" if profession else "")
         return self._call("GET", "/v2/coverage" + q)  # type: ignore[no-any-return]
 
+    def capture_alternatives(self, country: str, reason: str | None = None) -> dict[str, Any]:
+        """The other ways to complete a check instead of a selfie or a photographed document. No reason is needed, choosing one is not a failed
+        attempt, and the answer says so in `counts_as_failed_attempt` and `rejection_possible`: show it to the person, never decide for them."""
+        q = f"?country={country}" + (f"&reason={reason}" if reason else "")
+        return self._call("GET", "/v2/capture-alternatives" + q)  # type: ignore[no-any-return]
+
     # ------------------------------------------------------------------------------------------------ credentials
 
     def verify_credential(
@@ -311,6 +317,7 @@ class V2Client:
 PATHS = (
     "GET /v2/capabilities",
     "GET /v2/coverage",
+    "GET /v2/capture-alternatives",
     "POST /v2/credentials/verify",
     "GET /v2/credentials/{ref}",
     "POST /v2/eligibility/evaluate",

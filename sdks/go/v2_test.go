@@ -170,8 +170,25 @@ func TestOrganizationLookupAndCoverageEscapeTheirInputs(t *testing.T) {
 	}
 }
 
+func TestCaptureAlternativesIsAPlainGetWithAnOptionalReason(t *testing.T) {
+	c, f := newFake(200, `{"counts_as_failed_attempt":false}`)
+	ctx := context.Background()
+	if _, err := c.CaptureAlternatives(ctx, "GB", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.CaptureAlternatives(ctx, "GB", "no camera"); err != nil {
+		t.Fatal(err)
+	}
+	if f.calls[0].Method != "GET" || f.calls[0].URL.Path != "/v2/capture-alternatives" || f.calls[0].URL.RawQuery != "country=GB" {
+		t.Fatalf("first call %v", f.calls[0].URL)
+	}
+	if f.calls[1].URL.RawQuery != "country=GB&reason=no+camera" {
+		t.Fatalf("query %q", f.calls[1].URL.RawQuery)
+	}
+}
+
 func TestEveryRouteTheClientCallsIsListed(t *testing.T) {
-	if len(Paths) != 26 {
+	if len(Paths) != 27 {
 		t.Fatalf("paths changed: %d", len(Paths))
 	}
 }

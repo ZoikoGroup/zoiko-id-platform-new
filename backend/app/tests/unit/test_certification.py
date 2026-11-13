@@ -226,3 +226,142 @@ def test_the_loader_refuses_malformed_rows():
         with pytest.raises(cert.CertificationError) as e:
             cert.parse(bad)
         assert e.value.code == "CERTIFICATION_REGISTRY_INVALID"
+
+
+# ------------------------------------------------------------------------- register reconciliation and the suspension proof (RCG-G02)
+
+
+def _entry(rec: cert.Certification, **over) -> cert.RegisterEntry:
+    base = {
+        "entity": rec.entity,
+        "scheme": rec.scheme,
+        "country": rec.country,
+        "service_code": rec.service_code,
+        "certificate_ref": rec.certificate_ref,
+        "status": "REGISTERED",
+        "valid_until": rec.valid_until,
+    }
+    base.update(over)
+    return cert.RegisterEntry(**base)
+
+
+def _rec_run(reg, entries):
+    return cert.reconcile(
+        reg,
+        entries,
+        source_id="uk-dvs-register",
+        snapshot_sha256="ab" * 32,
+        checked_at="2026-11-11T12:00:00Z",
+    )
+
+
+def test_a_register_that_agrees_changes_nothing_and_proves_nothing() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r)])
+    assert out.records == (r,) and proofs == ()
+
+
+def test_a_suspension_on_the_register_stops_the_claim_at_once_with_a_proof() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r, status="SUSPENDED")])
+    assert cert.holds(
+        _reg(r),
+        entity="partner-a",
+        scheme="UK_DVS",
+        country="GB",
+        service_code="idv.certified",
+        on=D,
+    )
+    assert (
+        cert.holds(
+            out,
+            entity="partner-a",
+            scheme="UK_DVS",
+            country="GB",
+            service_code="idv.certified",
+            on=D,
+        )
+        is None
+    )
+    (p,) = proofs
+    assert (p.previous_status, p.effective_status, p.reason) == (
+        "ACTIVE",
+        "SUSPENDED",
+        "REGISTER_SUSPENDED",
+    )
+    assert p.source_id == "uk-dvs-register" and p.snapshot_sha256 == "ab" * 32 and p.checked_at
+
+
+def test_a_withdrawal_on_the_register_withdraws_the_record() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r, status="WITHDRAWN")])
+    assert (
+        out.records[0].status is cert.CertStatus.WITHDRAWN
+        and proofs[0].reason == "REGISTER_WITHDRAWN"
+    )
+
+
+def test_a_record_the_register_does_not_list_is_not_relied_on() -> None:
+    r = _rec()
+    out, proofs = _rec_run(
+        _reg(r), []
+    )  # an empty or unrelated snapshot is silence, not confirmation
+    assert (
+        out.records[0].status is cert.CertStatus.SUSPENDED and proofs[0].reason == "NOT_IN_REGISTER"
+    )
+    other = _entry(r, certificate_ref="SOMEONE-ELSES")
+    assert _rec_run(_reg(r), [other])[0].records[0].status is cert.CertStatus.SUSPENDED
+
+
+def test_an_earlier_end_date_on_the_register_shortens_the_record() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r, valid_until=date(2026, 12, 1))])
+    assert (
+        out.records[0].valid_until == date(2026, 12, 1)
+        and proofs[0].reason == "REGISTER_EXPIRES_EARLIER"
+    )
+    assert cert.in_force(out.records[0], date(2026, 11, 30)) and not cert.in_force(
+        out.records[0], date(2026, 12, 2)
+    )
+
+
+def test_a_later_end_date_on_the_register_never_lengthens_the_record() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r, valid_until=date(2030, 1, 1))])
+    assert out.records == (r,) and proofs == ()
+
+
+def test_an_unknown_register_status_is_not_certified() -> None:
+    r = _rec()
+    out, proofs = _rec_run(_reg(r), [_entry(r, status="PENDING_REVIEW")])
+    assert (
+        out.records[0].status is cert.CertStatus.SUSPENDED
+        and proofs[0].reason == "REGISTER_STATUS_UNRECOGNIZED"
+    )
+
+
+def test_a_fetch_never_reinstates_a_record_a_person_suspended() -> None:
+    r = _rec(status=cert.CertStatus.SUSPENDED)
+    out, proofs = _rec_run(_reg(r), [_entry(r)])  # the register says registered
+    assert out.records == (r,) and proofs == ()
+
+
+def test_register_entries_for_providers_we_hold_no_record_for_are_ignored() -> None:
+    r = _rec()
+    stranger = _entry(r, entity="partner-z", certificate_ref="Z-1")
+    out, proofs = _rec_run(_reg(r), [_entry(r), stranger])
+    assert out.records == (r,) and proofs == ()
+
+
+def test_the_downgrade_blocks_exactly_the_scope_whose_certification_was_lost() -> None:
+    uk = _rec()
+    eu = _rec(
+        record_id="r2",
+        scheme="EU_QTSP",
+        country="DE",
+        service_code="sig.qualified",
+        certificate_ref="C-2",
+    )
+    out, _ = _rec_run(_reg(uk, eu), [_entry(uk, status="SUSPENDED"), _entry(eu)])
+    required = {("GB", "idv.certified"): "UK_DVS", ("DE", "sig.qualified"): "EU_QTSP"}
+    assert cert.blocked_scopes(out, required, on=D) == {("GB", "idv.certified")}

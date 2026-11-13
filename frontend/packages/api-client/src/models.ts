@@ -3113,3 +3113,180 @@ export type UatRollbackIn = { scope: Record<string, string>; reason: string };
 export type UatRolledBack = { release_id: string; rollback_id: string; candidate_status: string; scope: Record<string, unknown>; evidence_kept: boolean; provider_route_closed: boolean | null };
 export type UatRiskConfirmed = { baseline_id: string; version: string; confirmed: number; confirmed_by: string };
 
+/* ---- the solution builder (ZID-COM-WF-2026-11 WF-C01, WF-C02, B06): offers by market, dependencies, preview, drafts and quote requests. No price is ever on these. */
+export type OfferState = "AVAILABLE" | "CONTACT_SALES" | "NOT_ELIGIBLE" | "RESEARCH_ONLY" | "MARKET_REQUIRED";
+export type OfferReason = { cause: string; text: string };
+export type OfferMarketTerms = { seller_entity: string; merchant_route: string; currency: string; tax_class: string; data_region: string };
+export type OfferCard = {
+  family: string;
+  name: string;
+  unit: string;
+  sales_qualifier: string;
+  regulated: boolean;
+  depends_on: string[];
+  sellable: boolean;
+  next_action: string;
+  causes: string[];
+  refusals: { code: string; cause: string; dimension: string | null }[];
+  state: OfferState;
+  reasons: OfferReason[];
+  market: OfferMarketTerms | null;
+  provider_attribution?: string;
+};
+export type OffersView = { market_matrix_version: number | null; market: string | null; payer_country: string | null; operating_region: string | null; cards: OfferCard[]; note: string };
+export type OffersQuery = { market?: string; payer_country?: string; operating_region?: string };
+export type CapabilityDependencies = { version: string; families: { family: string; depends_on: string[]; needs_provider: boolean; regulated: boolean }[] };
+export type SolutionPurpose = "ONBOARDING" | "COMPLIANCE" | "PROFESSIONAL_HIRING" | "REGULATED_TRANSACTION" | "MARKETPLACE";
+export type SolutionVolumes = Record<string, Partial<Record<"expected_units" | "rechecks_per_year" | "manual_reviews", number>>>;
+export type SolutionIn = {
+  purpose: SolutionPurpose;
+  families: string[];
+  subject_country?: string | null;
+  payer_country?: string | null;
+  operating_region?: string | null;
+  volumes: SolutionVolumes;
+};
+export type QuotePreview = {
+  binding: false;
+  configurable: boolean;
+  scope: SolutionIn;
+  scope_hash: string;
+  market_matrix_version: number | null;
+  problems: { code: string; family: string; needs: string }[];
+  families: OfferCard[];
+  request_quote: string[];
+  assumptions: string[];
+  estimate: null;
+};
+export type SolutionDraft = {
+  draft_id: string;
+  purpose: SolutionPurpose;
+  families: string[];
+  subject_country: string | null;
+  payer_country: string | null;
+  operating_region: string | null;
+  volumes: SolutionVolumes;
+  scope_hash: string;
+  status: "DRAFT" | "QUOTE_REQUESTED";
+  state: "DRAFT" | "QUOTE_REQUESTED" | "EXPIRED";
+  created_at: string;
+  expires_at: string;
+  quote_requested_at: string | null;
+};
+
+/* ---- the market matrix, its staged rollout and the deal desk queue (ZID-COM-WF-2026-11 WF-I01, WF-I05; operator plane) */
+export type MarketMatrixStatus = "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN";
+export type MarketMatrixSummary = { matrix_id: string; version: number; status: MarketMatrixStatus; effective_from: string | null; activated_at: string | null; note: string | null };
+export type MarketMatrixRow = {
+  family: string; country: string; seller_entity: string; merchant_route: string; currency: string; tax_class: string; data_region: string;
+  offer_ref: string; legal_basis_ref: string; release_evidence_ref: string; payment_configured: boolean; tax_configured: boolean;
+  provider_rights_ref: string | null; regulated_status_ref: string | null; provider_rights_expires: string | null; regulated_status_expires: string | null;
+};
+export type MarketMatrixDetail = MarketMatrixSummary & {
+  rows: MarketMatrixRow[];
+  incomplete_rows: { family: string; country: string; problems: string[] }[];
+  rights_alerts: { family: string; country: string; kind: string; state: "EXPIRED" | "EXPIRING"; expires: string }[];
+  approvals: { role: string; approver: string; approved_at: string }[];
+  missing_approvals: string[];
+};
+export type MarketRolloutItem = { family: string; country: string; stage: string | null; decided_by: string | null; decided_at: string | null };
+export type QuoteRequestItem = {
+  draft_id: string; tenant_id: string; purpose: string; families: string[]; subject_country: string | null; payer_country: string | null;
+  operating_region: string | null; volumes: Record<string, Record<string, number>>; scope_hash: string; quote_requested_at: string | null;
+  quote_snapshot: { exceptions?: { family: string; state: string; causes: string[] }[]; assumptions?: string[] } | null;
+};
+
+export type FxRateSet = { set_id: string; version: number; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; source_ref: string; as_of: string; rates: Record<string, string> };
+
+export type FamilyTextRevision = { rev_id: string; family: string; version: number; name: string; unit: string; sales_qualifier: string; reason: string; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; created_by: string; created_at: string | null; activated_by: string | null; activated_at: string | null };
+export type FamilyTexts = { baseline: Record<string, { name: string; unit: string; sales_qualifier: string }>; items: FamilyTextRevision[] };
+
+/* ---- the public pricing page (ZID-UX-PRICE-004): structure, availability by market and inquiries. No price on any of these. */
+export type TierCode = "ESSENTIALS" | "BUSINESS" | "ENTERPRISE";
+export type PackagingState = "included" | "optional" | "quote";
+export type PublicPricingPage = {
+  version: string;
+  packaging_status: "PROPOSED" | "APPROVED";
+  approval: { signed_by: string[]; missing: string[] };
+  notice: { version: string; text: string; status: "ACTIVE" | "DRAFT" };
+  pricing_status: string | null;
+  families: { family: string; name: string; unit: string; sales_qualifier: string; regulated: boolean; depends_on: string[] }[];
+  tiers: { code: TierCode; label: string; fit: string; cta_kind: string; cta_label: string; family_state: Record<string, PackagingState> }[];
+  paths: { code: "SANDBOX" | "PARTNER"; label: string; text: string; cta_kind: string; cta_label: string }[];
+  use_cases: { code: string; label: string; families: string[] }[];
+  disclosures: { price_basis: string; tax: string; commitment: string; no_surprise: string; plan_change: string; exit: string };
+};
+export type PricingPeriod = "MONTHLY" | "ANNUAL";
+export type PublicRate = { currency: string; charge_unit: string; included_units: number; unit_amount: string; minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null };
+export type PublicState = "AVAILABLE" | "SALES_ASSISTED" | "RESTRICTED" | "NOT_AVAILABLE" | "MARKET_REQUIRED";
+export type PublicAvailability = {
+  market_matrix_version: number | null;
+  as_of: string;
+  dimensions: { subject_country: string | null; payer_country: string | null; operating_region: string | null; issuer_country: { value: string | null; judged: boolean; note: string } };
+  cards: {
+    family: string;
+    name: string;
+    unit: string;
+    regulated: boolean;
+    state: PublicState;
+    reason_codes: string[];
+    reasons: { cause: string; text: string }[];
+    terms: { seller_entity: string; currency: string; data_region: string } | null;
+    provider_attribution: string | null;
+    rates: Partial<Record<PricingPeriod, PublicRate>>;
+  }[];
+  rate_card: { version: number; effective_from: string | null; both_periods: boolean } | null;
+  released_markets: string[];
+  released_regions: string[];
+  note: string;
+};
+export type PublicEstimateIn = { subject_country?: string; payer_country?: string; issuer_country?: string; operating_region?: string; period: PricingPeriod; volumes: Record<string, number> };
+export type PublicEstimateLine = {
+  family: string; name: string; period: PricingPeriod; currency: string; charge_unit: string; monthly_volume: number; volume: number; included_units: number; billable_units: number;
+  usage: string; minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null; amount: string; formula: string;
+  annual_comparison: { currency: string; twelve_months: string; annual: string; saving: string } | null;
+};
+export type PublicEstimate = {
+  binding: false; rate_card: { version: number; effective_from: string | null } | null; period: PricingPeriod; lines: PublicEstimateLine[]; totals: Record<string, string>;
+  quote_required: { family: string; name: string; state: string; reason_codes: string[]; reasons: { cause: string; text: string }[] }[];
+  quote_hash: string; as_of: string; valid_until: string; tax: { state: string; note: string }; assumptions: string[]; no_rate_card: string | null;
+};
+export type PublicContextLink = { token: string; expires_at: string };
+export type PublicContext = { subject_country: string | null; payer_country: string | null; issuer_country: string | null; operating_region: string | null; expires_at: string };
+export type LeadKind = "ENTERPRISE" | "PARTNER";
+export type PublicLeadIn = {
+  kind: LeadKind;
+  contact_name: string;
+  work_email: string;
+  company: string;
+  country: string;
+  region?: string | null;
+  capabilities: string[];
+  volume_band: "UNDER_1K" | "FROM_1K_TO_10K" | "FROM_10K_TO_100K" | "OVER_100K" | "UNSURE";
+  entities?: number | null;
+  referral_source?: string | null;
+  security_needs?: string | null;
+  partner_type?: "RESELLER" | "REFERRAL" | "EMBEDDED_ISV" | null;
+  notice_version: string;
+  website?: string | null;
+};
+export type PublicLeadOut = { reference: string; status: string; duplicate: boolean; message: string };
+
+export type RateCardSummary = { card_id: string; version: number; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; effective_from: string | null; activated_at: string | null; note: string | null };
+export type RateCardLine = {
+  family: string; country: string; period: PricingPeriod; currency: string; charge_unit: string; included_units: number; unit_amount: string;
+  minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null; source_ref: string;
+};
+export type RateCardDetail = RateCardSummary & {
+  lines: RateCardLine[]; approvals: { role: "CFO" | "CCO" | "FOUNDER"; approver: string; approved_at: string | null }[]; missing_approvals: string[];
+};
+export type PricingPageState = { version: string; content_hash: string; status: "PROPOSED" | "APPROVED"; signed_by: string[]; missing: string[] };
+export type PublicNoticeRow = { notice_id: string; kind: string; version: string; body: string; status: "DRAFT" | "ACTIVE" | "WITHDRAWN" | "SUPERSEDED"; created_by: string; created_at: string | null; activated_by: string | null; activated_at: string | null };
+export type PublicNotices = { served: { version: string; text: string; status: "ACTIVE" | "DRAFT" }; items: PublicNoticeRow[] };
+
+export type SalesLeadStatus = "RECEIVED" | "QUALIFIED" | "SCOPED" | "REVIEW" | "OFFER_SENT" | "CLOSED" | "SPAM";
+export type SalesLead = {
+  lead_id: string; kind: "ENTERPRISE" | "PARTNER"; partner_type: string | null; contact_name: string; work_email: string; company: string; country: string; region: string | null;
+  capabilities: string[]; volume_band: string; entities: number | null; referral_source: string | null; security_needs: string | null; notice_version: string;
+  status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
+};

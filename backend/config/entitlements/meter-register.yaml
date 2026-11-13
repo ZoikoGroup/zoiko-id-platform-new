@@ -105,6 +105,26 @@ meters:
     # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-070).
     bill_on_commit: false
     priced: false
+  screening.check:
+    example_unit: "Screening decision"
+    counts: "One automated sanctions, PEP or adverse-media screening decision of one case, recorded once per decision (a reviewer's ruling on it is not another)"
+    guardrail: "A check is not a monitoring period and a monitoring period is not a check; neither is rated or invoiced until the owners approve a unit and a price"
+    existing_meter: SCREEN_CHECK
+    existing_sku: null
+    hard_quota: false
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
+    bill_on_commit: false
+    priced: false
+  screening.monitor_period:
+    example_unit: "Case-month under continuous monitoring"
+    counts: "One case under continuous monitoring for one UTC month, however many rescreens run in it"
+    guardrail: "Separate from the check each rescreen performs; no charge for a case that is not monitored"
+    existing_meter: SCREEN_MONITOR_PERIOD
+    existing_sku: null
+    hard_quota: false
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
+    bill_on_commit: false
+    priced: false
   credential.sensitive_check:
     example_unit: "Regulator adverse-finding check"
     counts: "One completed sensitive-category check"

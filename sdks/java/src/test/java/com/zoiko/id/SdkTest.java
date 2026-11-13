@@ -106,7 +106,17 @@ class SdkTest {
         c.verifyOrganization("GB", "00123456", "Acme", null);
         assertEquals("https://api.example.test/v2/organizations/verify", f.calls.get(1).url());
         assertFalse(f.calls.get(1).headers().containsKey("Idempotency-Key"));
-        assertEquals(26, V2Client.PATHS.size());
+        assertEquals(27, V2Client.PATHS.size());
+    }
+
+    @Test
+    void captureAlternativesIsAPlainGetWithAnOptionalReason() {
+        Fake f = new Fake(200, "{\"counts_as_failed_attempt\":false}");
+        V2Client c = client(f);
+        c.captureAlternatives("GB", null);
+        c.captureAlternatives("GB", "no camera");
+        assertTrue(f.calls.get(0).url().endsWith("/v2/capture-alternatives?country=GB"));
+        assertTrue(f.calls.get(1).url().endsWith("/v2/capture-alternatives?country=GB&reason=no+camera"));
     }
 
     // ------------------------------------------------------------------------------------------------------------ session

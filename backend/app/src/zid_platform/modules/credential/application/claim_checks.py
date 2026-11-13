@@ -381,6 +381,9 @@ def _extras(
     f = answer.fields
     if claim is ClaimType.PROFESSIONAL_LICENSE:
         out["permitted_services"] = _listify(f.get("activity_scope"))
+        out["regulator"] = f.get(
+            "regulator"
+        )  # what the regulator's own answer says, not the holder's claim
         out["restrictions"] = list(standing_restrictions)
     if claim is ClaimType.INSURANCE_ASSERTION:
         out["insurance_facts"] = {

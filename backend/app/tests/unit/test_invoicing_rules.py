@@ -42,6 +42,10 @@ def test_no_state_ever_restricts_a_security_path() -> None:
     assert inv.restricted("RESTRICTED") == {inv.NEW_PAID_EXTRAS}
     assert inv.NEW_ENTITIES in inv.restricted("SUSPENDED")
     assert "data_export" in inv.NEVER_RESTRICTED and "paying_an_invoice" in inv.NEVER_RESTRICTED
+    assert (
+        "audit_evidence_access" in inv.NEVER_RESTRICTED
+        and "data_rights_requests" in inv.NEVER_RESTRICTED
+    )  # P50: exit never closes access to a company's own evidence or its rights
 
 
 def test_a_safety_hold_restricts_like_suspension_whatever_the_billing_state() -> None:

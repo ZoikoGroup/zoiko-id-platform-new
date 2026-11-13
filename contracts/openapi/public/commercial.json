@@ -269,6 +269,63 @@
         "title": "CollectBody",
         "type": "object"
       },
+      "ConfigurationCheckIn": {
+        "additionalProperties": false,
+        "properties": {
+          "families": {
+            "items": {
+              "maxLength": 8,
+              "minLength": 2,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Families",
+            "type": "array"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          }
+        },
+        "required": [
+          "families"
+        ],
+        "title": "ConfigurationCheckIn",
+        "type": "object"
+      },
       "CreditBody": {
         "additionalProperties": false,
         "properties": {
@@ -577,6 +634,98 @@
         "title": "ExecuteBody",
         "type": "object"
       },
+      "FamilyTextBody": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sales_qualifier": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Sales Qualifier",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "name",
+          "unit",
+          "reason"
+        ],
+        "title": "FamilyTextBody",
+        "type": "object"
+      },
+      "FxRateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "usd_per_unit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Usd Per Unit"
+          }
+        },
+        "required": [
+          "currency",
+          "usd_per_unit"
+        ],
+        "title": "FxRateBody",
+        "type": "object"
+      },
+      "FxSetBody": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date",
+            "title": "As Of",
+            "type": "string"
+          },
+          "source_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Source Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_ref",
+          "as_of"
+        ],
+        "title": "FxSetBody",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -609,6 +758,40 @@
           "payment_terms_days"
         ],
         "title": "IssueBody",
+        "type": "object"
+      },
+      "LeadAdvanceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "QUALIFIED",
+              "SCOPED",
+              "REVIEW",
+              "OFFER_SENT",
+              "CLOSED",
+              "SPAM"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LeadAdvanceBody",
         "type": "object"
       },
       "LegsBody": {
@@ -705,6 +888,242 @@
         "title": "LineBody",
         "type": "object"
       },
+      "MarketGateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "maxLength": 8,
+            "minLength": 2,
+            "title": "Family",
+            "type": "string"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          }
+        },
+        "required": [
+          "family"
+        ],
+        "title": "MarketGateIn",
+        "type": "object"
+      },
+      "MatrixApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "PRODUCT",
+              "FINANCE",
+              "LEGAL_PRIVACY",
+              "SECURITY_QA"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "MatrixApproveBody",
+        "type": "object"
+      },
+      "MatrixRowBody": {
+        "additionalProperties": false,
+        "description": "One (family, country) row. Every field is a recorded statement or a reference to signed evidence: this API cannot make a reference true.",
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "data_region": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Data Region",
+            "type": "string"
+          },
+          "document_issuer_countries": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "title": "Document Issuer Countries",
+            "type": "array"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "legal_basis_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Legal Basis Ref",
+            "type": "string"
+          },
+          "merchant_route": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Merchant Route",
+            "type": "string"
+          },
+          "offer_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Offer Ref",
+            "type": "string"
+          },
+          "payment_configured": {
+            "title": "Payment Configured",
+            "type": "boolean"
+          },
+          "provider_rights_expires": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Rights Expires"
+          },
+          "provider_rights_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Rights Ref"
+          },
+          "regulated_status_expires": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulated Status Expires"
+          },
+          "regulated_status_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulated Status Ref"
+          },
+          "release_evidence_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Release Evidence Ref",
+            "type": "string"
+          },
+          "seller_entity": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Seller Entity",
+            "type": "string"
+          },
+          "tax_class": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tax Class",
+            "type": "string"
+          },
+          "tax_configured": {
+            "title": "Tax Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "seller_entity",
+          "merchant_route",
+          "currency",
+          "tax_class",
+          "data_region",
+          "offer_ref",
+          "legal_basis_ref",
+          "release_evidence_ref",
+          "payment_configured",
+          "tax_configured"
+        ],
+        "title": "MatrixRowBody",
+        "type": "object"
+      },
+      "MatrixRowsImport": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixRowBody"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "MatrixRowsImport",
+        "type": "object"
+      },
       "OverrideBody": {
         "additionalProperties": false,
         "properties": {
@@ -782,6 +1201,167 @@
         "title": "OverrideBody",
         "type": "object"
       },
+      "PageSignBody": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_hash"
+        ],
+        "title": "PageSignBody",
+        "type": "object"
+      },
+      "PartnerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agreement_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Agreement Ref",
+            "type": "string"
+          },
+          "bill_to": {
+            "enum": [
+              "PARTNER",
+              "CHILD"
+            ],
+            "title": "Bill To",
+            "type": "string"
+          },
+          "brand_terms_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Terms Ref"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Until"
+          },
+          "kind": {
+            "enum": [
+              "RESELLER",
+              "REFERRAL",
+              "EMBEDDED_ISV"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_tenant_id": {
+            "format": "uuid",
+            "title": "Parent Tenant Id",
+            "type": "string"
+          },
+          "settlement_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Ref"
+          },
+          "territory": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Territory",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "parent_tenant_id",
+          "bill_to",
+          "territory",
+          "agreement_ref"
+        ],
+        "title": "PartnerBody",
+        "type": "object"
+      },
+      "PartnerChildBody": {
+        "additionalProperties": false,
+        "properties": {
+          "child_tenant_id": {
+            "format": "uuid",
+            "title": "Child Tenant Id",
+            "type": "string"
+          },
+          "downstream_consent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downstream Consent Ref"
+          },
+          "usage_visible": {
+            "default": false,
+            "title": "Usage Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "child_tenant_id"
+        ],
+        "title": "PartnerChildBody",
+        "type": "object"
+      },
+      "PartnerStatusBody": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "TERMINATED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PartnerStatusBody",
+        "type": "object"
+      },
       "PaymentCustomerBody": {
         "additionalProperties": false,
         "properties": {
@@ -846,6 +1426,53 @@
           "decision"
         ],
         "title": "PlanRequestAnswer",
+        "type": "object"
+      },
+      "PurchaseOrderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "po_number": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Po Number",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date",
+            "title": "Valid Until",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "po_number",
+          "currency",
+          "value",
+          "valid_from",
+          "valid_until"
+        ],
+        "title": "PurchaseOrderBody",
         "type": "object"
       },
       "QuoteBody": {
@@ -1002,6 +1629,144 @@
           "quantity"
         ],
         "title": "QuoteLineBody",
+        "type": "object"
+      },
+      "RateApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "CFO",
+              "CCO",
+              "FOUNDER"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "RateApproveBody",
+        "type": "object"
+      },
+      "RateLineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "charge_unit": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Charge Unit",
+            "type": "string"
+          },
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "included_units": {
+            "default": 0,
+            "maximum": 1000000000000.0,
+            "minimum": 0.0,
+            "title": "Included Units",
+            "type": "integer"
+          },
+          "minimum_amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Amount"
+          },
+          "minimum_model": {
+            "anyOf": [
+              {
+                "enum": [
+                  "FLOOR",
+                  "PLATFORM_FEE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Model"
+          },
+          "period": {
+            "enum": [
+              "MONTHLY",
+              "ANNUAL"
+            ],
+            "title": "Period",
+            "type": "string"
+          },
+          "source_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "unit_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Unit Amount"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "period",
+          "currency",
+          "charge_unit",
+          "source_ref"
+        ],
+        "title": "RateLineBody",
+        "type": "object"
+      },
+      "RateLinesImport": {
+        "additionalProperties": false,
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/RateLineBody"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "title": "RateLinesImport",
         "type": "object"
       },
       "RatingBody": {
@@ -1269,6 +2034,48 @@
         "title": "ReopenBody",
         "type": "object"
       },
+      "RolloutBody": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "SANDBOX",
+              "STAGING",
+              "PILOT",
+              "CANARY",
+              "PRODUCTION",
+              "PAUSED",
+              "ROLLED_BACK"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "stage",
+          "reason"
+        ],
+        "title": "RolloutBody",
+        "type": "object"
+      },
       "SafetyHoldBody": {
         "additionalProperties": false,
         "properties": {
@@ -1327,6 +2134,71 @@
         "title": "ServiceRequestMove",
         "type": "object"
       },
+      "SettlementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "COMMISSION",
+              "BILLING_REPORT",
+              "CREDIT_NOTE"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "period": {
+            "format": "date",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "kind",
+          "amount",
+          "currency"
+        ],
+        "title": "SettlementBody",
+        "type": "object"
+      },
+      "SettlementDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approve",
+          "reason"
+        ],
+        "title": "SettlementDecisionBody",
+        "type": "object"
+      },
       "SignBody": {
         "additionalProperties": false,
         "properties": {
@@ -1362,6 +2234,78 @@
           "snapshot_hash"
         ],
         "title": "SignCloseBody",
+        "type": "object"
+      },
+      "SolutionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "families": {
+            "items": {
+              "maxLength": 8,
+              "minLength": 2,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Families",
+            "type": "array"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "purpose": {
+            "pattern": "^[A-Z_]{4,30}$",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          },
+          "volumes": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Volumes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "purpose",
+          "families"
+        ],
+        "title": "SolutionIn",
         "type": "object"
       },
       "StateBody": {
@@ -1687,6 +2631,28 @@
           "pack"
         ],
         "title": "VerifyPackBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 40,
+            "title": "Body",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9._-]{3,40}$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "body"
+        ],
+        "title": "NoticeBody",
         "type": "object"
       },
       "zid_platform__modules__operator_access__api__commercial_admin__PlanBody": {
@@ -2036,6 +3002,30 @@
         ]
       }
     },
+    "/v1/catalog/families": {
+      "get": {
+        "description": "Public: the sixteen service families and their units (ZID-COM-WF-2026-11 section 02). A family is a proposed SKU namespace, never a price: nothing is\nsellable until every fact in the market rules is recorded, so today each family answers REQUEST_QUOTE and only the categories of what is missing are shown.",
+        "operationId": "catalog_families_v1_catalog_families_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Catalog Families V1 Catalog Families Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Catalog Families",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/accounts": {
       "post": {
         "operationId": "create_account_v1_commercial_accounts_post",
@@ -2281,6 +3271,30 @@
         ]
       }
     },
+    "/v1/commercial/capability-dependencies": {
+      "get": {
+        "description": "Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02). Structure only, from the reviewed file.",
+        "operationId": "capability_dependencies_v1_commercial_capability_dependencies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Capability Dependencies V1 Commercial Capability Dependencies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capability Dependencies",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/change-log:verify": {
       "get": {
         "description": "Recompute every entry's digest and the hash chain; report the first broken entry.",
@@ -2300,6 +3314,206 @@
           }
         },
         "summary": "Verify Commercial Change Log",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations": {
+      "get": {
+        "operationId": "list_configurations_v1_commercial_configurations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Configurations V1 Commercial Configurations Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Configurations",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Save a configuration as a draft for this company. A draft is not an entitlement; it expires after 30 days and cannot be edited, only saved again.",
+        "operationId": "save_configuration_v1_commercial_configurations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolutionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Configuration V1 Commercial Configurations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Configuration",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations/{draft_id}": {
+      "get": {
+        "operationId": "get_configuration_v1_commercial_configurations__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Configuration V1 Commercial Configurations  Draft Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Configuration",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations/{draft_id}:request-quote": {
+      "post": {
+        "description": "Send a saved configuration to the deal desk. The scope, assumptions and the market exceptions seen now are frozen with it. Needs the same authority as\nsaving; it commits the company to nothing.",
+        "operationId": "request_quote_v1_commercial_configurations__draft_id__request_quote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Quote V1 Commercial Configurations  Draft Id  Request Quote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/configurations:check": {
+      "post": {
+        "description": "Check a solution configuration without saving or pricing it (WF-C02). It names the families that cannot be combined (a signature without a verified\nidentity) and, for each family, why it is not sellable in the three market dimensions judged separately. Stateless: a draft is not an entitlement.",
+        "operationId": "check_configuration_v1_commercial_configurations_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Configuration V1 Commercial Configurations Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Configuration",
         "tags": [
           "commercial"
         ]
@@ -2378,6 +3592,383 @@
           }
         },
         "summary": "Resolve Exception",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards": {
+      "get": {
+        "operationId": "list_rate_cards_v1_commercial_family_rate_cards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Rate Cards V1 Commercial Family Rate Cards Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rate Cards",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "A draft rate card. There are no default rates: every line is entered by an owner from a signed source.",
+        "operationId": "create_rate_card_v1_commercial_family_rate_cards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Rate Card V1 Commercial Family Rate Cards Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}": {
+      "get": {
+        "operationId": "get_rate_card_v1_commercial_family_rate_cards__card_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Rate Card V1 Commercial Family Rate Cards  Card Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}/lines": {
+      "put": {
+        "operationId": "put_rate_line_v1_commercial_family_rate_cards__card_id__lines_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Rate Line V1 Commercial Family Rate Cards  Card Id  Lines Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Rate Line",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}/lines:import": {
+      "post": {
+        "description": "Add or replace up to 500 rate lines of a DRAFT card at once. All or nothing, with every problem listed by line.",
+        "operationId": "import_rate_lines_v1_commercial_family_rate_cards__card_id__lines_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLinesImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Rate Lines V1 Commercial Family Rate Cards  Card Id  Lines Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Rate Lines",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:activate": {
+      "post": {
+        "operationId": "activate_rate_card_v1_commercial_family_rate_cards__card_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Rate Card V1 Commercial Family Rate Cards  Card Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:approve": {
+      "post": {
+        "description": "The CFO, the CCO and the Founder sign, as three different people, none the author. Each must hold that appointment.",
+        "operationId": "approve_rate_card_v1_commercial_family_rate_cards__card_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Rate Card V1 Commercial Family Rate Cards  Card Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Rate Card",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/family-rate-cards/{card_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_rate_card_v1_commercial_family_rate_cards__card_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Rate Card V1 Commercial Family Rate Cards  Card Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Rate Card",
         "tags": [
           "commercial"
         ]
@@ -2989,6 +4580,216 @@
         ]
       }
     },
+    "/v1/commercial/fx-rate-sets": {
+      "get": {
+        "operationId": "list_fx_sets_v1_commercial_fx_rate_sets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Fx Sets V1 Commercial Fx Rate Sets Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Fx Sets",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "A draft rate set with its named source and as-of date. There are no default rates: the owner supplies each one from the named source.",
+        "operationId": "create_fx_set_v1_commercial_fx_rate_sets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxSetBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Fx Set V1 Commercial Fx Rate Sets Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Fx Set",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}/rates": {
+      "put": {
+        "operationId": "put_fx_rate_v1_commercial_fx_rate_sets__set_id__rates_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxRateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Fx Rate V1 Commercial Fx Rate Sets  Set Id  Rates Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Fx Rate",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}:activate": {
+      "post": {
+        "operationId": "activate_fx_set_v1_commercial_fx_rate_sets__set_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Fx Set V1 Commercial Fx Rate Sets  Set Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Fx Set",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_fx_set_v1_commercial_fx_rate_sets__set_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Fx Set V1 Commercial Fx Rate Sets  Set Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Fx Set",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/invoice-chain:verify": {
       "get": {
         "description": "Walk this cell's issuing entity's chain: digests only, no tenant data. Reports the first broken link.",
@@ -3031,6 +4832,582 @@
           }
         },
         "summary": "Commercial Kpis",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-gate:check": {
+      "post": {
+        "description": "Asked by the platform's own services before a paid operation runs (section 10.1). Judged against the active market matrix like the configuration check; blocking\nonly where the deployment or the company enforces commercial limits, otherwise reported (`sellable: false, blocked: false`). Scope `usage:write`, like reservations.",
+        "operationId": "market_gate_check_v1_commercial_market_gate_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketGateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Market Gate Check V1 Commercial Market Gate Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Market Gate Check",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices": {
+      "get": {
+        "operationId": "list_matrices_v1_commercial_market_matrices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Matrices V1 Commercial Market Matrices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Matrices",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "operationId": "create_matrix_v1_commercial_market_matrices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Matrix V1 Commercial Market Matrices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}": {
+      "get": {
+        "description": "One matrix with its rows, who has signed which role, and the roles still missing before it can be activated.",
+        "operationId": "get_matrix_v1_commercial_market_matrices__matrix_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Matrix V1 Commercial Market Matrices  Matrix Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}/rows": {
+      "put": {
+        "operationId": "put_matrix_row_v1_commercial_market_matrices__matrix_id__rows_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixRowBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Matrix Row V1 Commercial Market Matrices  Matrix Id  Rows Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Matrix Row",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}/rows:import": {
+      "post": {
+        "description": "Add or replace up to 500 rows of a DRAFT matrix at once. All or nothing: if any row is incomplete or repeats a (family, country), nothing is written and every problem is\nlisted by row, so a spreadsheet can be corrected in one pass. A row is still only a reference to signed evidence.",
+        "operationId": "import_matrix_rows_v1_commercial_market_matrices__matrix_id__rows_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixRowsImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Matrix Rows V1 Commercial Market Matrices  Matrix Id  Rows Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Matrix Rows",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:activate": {
+      "post": {
+        "description": "Make a fully approved matrix the one in force. Needs all four approvals, at least one complete row, and someone other than the author.",
+        "operationId": "activate_matrix_v1_commercial_market_matrices__matrix_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Matrix V1 Commercial Market Matrices  Matrix Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:approve": {
+      "post": {
+        "description": "One of four independent roles signs a DRAFT matrix. The author cannot, and one person cannot sign for two roles.",
+        "operationId": "approve_matrix_v1_commercial_market_matrices__matrix_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Matrix V1 Commercial Market Matrices  Matrix Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_matrix_v1_commercial_market_matrices__matrix_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Matrix V1 Commercial Market Matrices  Matrix Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-rollout": {
+      "get": {
+        "description": "Where every market of the active matrix is in its staged rollout, and who made the latest move.",
+        "operationId": "list_rollout_v1_commercial_market_rollout_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Rollout V1 Commercial Market Rollout Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rollout",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Move one market of the active matrix one stage on, pause it, or roll it back. Advancing needs a different person than the last move; stopping never does.",
+        "operationId": "move_rollout_v1_commercial_market_rollout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Move Rollout V1 Commercial Market Rollout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Rollout",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/offers": {
+      "get": {
+        "description": "The offer catalogue for a market (WF-C01): one card per family with a state (AVAILABLE, CONTACT_SALES, NOT_ELIGIBLE, RESEARCH_ONLY, or MARKET_REQUIRED\nwhen no market is named) and the reasons told apart. Evaluated on the server from the active market matrix, never from the browser's locale. A card\nnever carries a price: pricing needs a signed quote.",
+        "operationId": "offers_v1_commercial_offers_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "market",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Market"
+            }
+          },
+          {
+            "in": "query",
+            "name": "payer_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Payer Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operating_region",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operating Region"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Offers V1 Commercial Offers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Offers",
         "tags": [
           "commercial"
         ]
@@ -3179,6 +5556,504 @@
           }
         },
         "summary": "Refund Activation",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partner-settlements/{settlement_id}:decide": {
+      "post": {
+        "operationId": "decide_partner_settlement_v1_commercial_partner_settlements__settlement_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "settlement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Settlement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlementDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Partner Settlement V1 Commercial Partner Settlements  Settlement Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Partner Settlement",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners": {
+      "get": {
+        "operationId": "list_partners_v1_commercial_partners_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Partners V1 Commercial Partners Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Partners",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Record a partner as PROPOSED, with a reference to its signed channel agreement. Another person activates it; nothing is sold or paid until then.",
+        "operationId": "create_partner_v1_commercial_partners_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Partner V1 Commercial Partners Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}": {
+      "get": {
+        "operationId": "get_partner_v1_commercial_partners__partner_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Partner V1 Commercial Partners  Partner Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/children": {
+      "put": {
+        "operationId": "add_partner_child_v1_commercial_partners__partner_id__children_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerChildBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Partner Child V1 Commercial Partners  Partner Id  Children Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Partner Child",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/children/{child_tenant_id}:revoke": {
+      "post": {
+        "operationId": "revoke_partner_child_v1_commercial_partners__partner_id__children__child_tenant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "child_tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Child Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Partner Child V1 Commercial Partners  Partner Id  Children  Child Tenant Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Partner Child",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/settlements": {
+      "post": {
+        "description": "Propose a commission, a billing report or a credit note for a partner. Only where a signed settlement arrangement is on file; a second person decides it. Nothing is paid by this.",
+        "operationId": "propose_partner_settlement_v1_commercial_partners__partner_id__settlements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlementBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Partner Settlement V1 Commercial Partners  Partner Id  Settlements Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Partner Settlement",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/usage": {
+      "get": {
+        "description": "The usage attributed to a partner in a month, reconciled once: every event carries the one payer the agreement names, and none is counted twice.",
+        "operationId": "partner_usage_v1_commercial_partners__partner_id__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Partner Usage V1 Commercial Partners  Partner Id  Usage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Partner Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}:activate": {
+      "post": {
+        "operationId": "activate_partner_v1_commercial_partners__partner_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Partner V1 Commercial Partners  Partner Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}:status": {
+      "post": {
+        "description": "Suspend, resume or terminate. New operations stop at once; evidence already recorded is kept.",
+        "operationId": "set_partner_status_v1_commercial_partners__partner_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerStatusBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Partner Status V1 Commercial Partners  Partner Id  Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Partner Status",
         "tags": [
           "commercial"
         ]
@@ -4969,6 +7844,333 @@
         ]
       }
     },
+    "/v1/commercial/pricing-page": {
+      "get": {
+        "description": "Whether the public pricing page's packaging is approved: the file's current hash, who has signed it, and who is still needed.",
+        "operationId": "pricing_page_state_v1_commercial_pricing_page_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pricing Page State V1 Commercial Pricing Page Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pricing Page State",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/pricing-page:sign": {
+      "post": {
+        "description": "An appointed Founder or CCO signs the pricing page file by the hash they were shown. Both, as different people, make it APPROVED; any change to the file unsigns it.",
+        "operationId": "sign_pricing_page_v1_commercial_pricing_page_sign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageSignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Pricing Page V1 Commercial Pricing Page Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Pricing Page",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/profitability": {
+      "get": {
+        "description": "Margin by SKU (rated revenue less provider cost in the same currency), run-rate and revenue retention over a range of months. Read only; finance authority.",
+        "operationId": "profitability_v1_commercial_profitability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profitability V1 Commercial Profitability Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profitability",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices": {
+      "get": {
+        "operationId": "list_public_notices_v1_commercial_public_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Public Notices V1 Commercial Public Notices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Public Notices",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Legal's text for the inquiry form's privacy notice, as a draft. It changes nothing a visitor sees until a different person activates it.",
+        "operationId": "propose_public_notice_v1_commercial_public_notices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__NoticeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Public Notice V1 Commercial Public Notices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Public Notice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices/{notice_id}:activate": {
+      "post": {
+        "operationId": "activate_public_notice_v1_commercial_public_notices__notice_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Public Notice V1 Commercial Public Notices  Notice Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Public Notice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/public-notices/{notice_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_public_notice_v1_commercial_public_notices__notice_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Public Notice V1 Commercial Public Notices  Notice Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Public Notice",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/purchase-orders": {
+      "get": {
+        "description": "The company's own purchase orders on record, with what has been drawn and what is left.",
+        "operationId": "my_purchase_orders_v1_commercial_purchase_orders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Purchase Orders V1 Commercial Purchase Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Purchase Orders",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quote-requests": {
+      "get": {
+        "description": "The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time.",
+        "operationId": "list_quote_requests_v1_commercial_quote_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Quote Requests V1 Commercial Quote Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Quote Requests",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/quotes": {
       "post": {
         "operationId": "create_quote_v1_commercial_quotes_post",
@@ -5007,6 +8209,50 @@
           }
         },
         "summary": "Create Quote",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/quotes/preview": {
+      "post": {
+        "description": "The configuration as it would be sent to the deal desk (WF-C02): canonical scope and hash, what each family needs, and no price. Nothing is saved.",
+        "operationId": "preview_quote_v1_commercial_quotes_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolutionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Quote V1 Commercial Quotes Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Quote",
         "tags": [
           "commercial"
         ]
@@ -5206,6 +8452,300 @@
           }
         },
         "summary": "Grant Commercial Role",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/sales-leads": {
+      "get": {
+        "description": "The inquiries from the public pricing page, newest first. A lead is a conversation, never an account or a commitment.",
+        "operationId": "list_sales_leads_v1_commercial_sales_leads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z_]{4,12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Sales Leads V1 Commercial Sales Leads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sales Leads",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/sales-leads/{lead_id}:advance": {
+      "post": {
+        "description": "Move an inquiry one step on, or close it or mark it spam with a reason. Nothing moves backwards, and none of it creates an entitlement.",
+        "operationId": "advance_sales_lead_v1_commercial_sales_leads__lead_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadAdvanceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advance Sales Lead V1 Commercial Sales Leads  Lead Id  Advance Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance Sales Lead",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts": {
+      "get": {
+        "description": "Every wording revision (newest first) beside the reviewed file's wording, so a reviewer sees what would change.",
+        "operationId": "list_family_texts_v1_commercial_service_family_texts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "family",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2,8}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Family"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Family Texts V1 Commercial Service Family Texts Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Family Texts",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Propose new wording for one family. It changes nothing until a different person activates it, and it can never change what the family needs or does.",
+        "operationId": "propose_family_text_v1_commercial_service_family_texts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyTextBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Family Text V1 Commercial Service Family Texts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Family Text",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts/{rev_id}:activate": {
+      "post": {
+        "operationId": "activate_family_text_v1_commercial_service_family_texts__rev_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rev_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rev Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Family Text V1 Commercial Service Family Texts  Rev Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Family Text",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts/{rev_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_family_text_v1_commercial_service_family_texts__rev_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rev_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rev Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Family Text V1 Commercial Service Family Texts  Rev Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Family Text",
         "tags": [
           "commercial"
         ]
@@ -6473,6 +10013,160 @@
           }
         },
         "summary": "Add Override",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/purchase-orders": {
+      "get": {
+        "operationId": "list_purchase_orders_v1_commercial_tenants__tenant_id__purchase_orders_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Purchase Orders V1 Commercial Tenants  Tenant Id  Purchase Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchase Orders",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Record a purchase order the company supplied. From then on its invoices are issued only against a PO that fits.",
+        "operationId": "record_purchase_order_v1_commercial_tenants__tenant_id__purchase_orders_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Purchase Order V1 Commercial Tenants  Tenant Id  Purchase Orders Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Purchase Order",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/tenants/{tenant_id}/purchase-orders/{po_id}:close": {
+      "post": {
+        "operationId": "close_purchase_order_v1_commercial_tenants__tenant_id__purchase_orders__po_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "po_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Po Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Purchase Order V1 Commercial Tenants  Tenant Id  Purchase Orders  Po Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Purchase Order",
         "tags": [
           "commercial"
         ]
