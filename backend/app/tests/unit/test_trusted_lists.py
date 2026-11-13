@@ -128,6 +128,28 @@ def test_a_certificate_without_qc_compliance_is_not_qualified_even_under_a_grant
     assert q2.status == "NOT_QUALIFIED"
 
 
+def test_t21_one_pades_document_is_crypto_valid_and_not_qualified_when_the_certificate_lacks_qc_compliance() -> (
+    None
+):
+    p, signer = qualified_pki(compliance=False), list_signer()
+    pdf = sign_pdf(p)
+    cfg = tr.TrustConfig(
+        anchors=(p.root.cert,),
+        trusted_lists=(authenticated(trusted_list_xml(p.root, sign_with=signer), signer),),
+    )
+    v = docs.validate(
+        pdf, declared_type="application/pdf", expected_sha256=None, checks=docs.CHECKS
+    )
+    by = {r.check: r for r in sg.apply(v, pdf, cfg, at=NOW).results}
+    # the cryptography is sound and chains to the configured anchor ...
+    assert by["signature"].status is S.VERIFIED_LIMITED
+    assert {"CRYPTOGRAPHICALLY_VALID", "CHAIN_TO_CONFIGURED_ANCHOR"} <= set(by["signature"].reasons)
+    # ... and, on the very same document, the certificate is not qualified
+    assert by["seal"].detail["qualified_status"] == "NOT_QUALIFIED"
+    assert by["seal"].status is S.INDETERMINATE
+    assert "CERTIFICATE_LACKS_QC_COMPLIANCE" in by["seal"].reasons
+
+
 def test_a_ca_that_is_not_on_the_list_is_not_qualified() -> None:
     p, other, signer = qualified_pki(), qualified_pki(), list_signer()
     q = tr.qualified_status(
