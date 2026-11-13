@@ -37,6 +37,8 @@ PUBLIC_PATHS: dict[str, str] = {
     "/.well-known/jwt-vc-issuer": "VC issuer keys",
     "/.well-known/oauth-protected-resource": "resource metadata",
     "/v1/catalog": "published plans, released capabilities and APPROVED prices; no tenant data (CR-024)",
+    "/v1/catalog/families": "the sixteen proposed service families, their units and wording, never a price or an availability claim (ZID-COM-WF-2026-11 section 02)",
+    "/v1/commercial/capability-dependencies": "which service families need which, which need a provider and which are regulated: structure only, no tenant data (WF-C02)",
     "/health/live": "liveness",
     "/health/ready": "readiness",
     "/health/startup": "startup",
