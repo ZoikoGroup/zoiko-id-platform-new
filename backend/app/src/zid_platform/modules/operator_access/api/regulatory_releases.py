@@ -220,7 +220,7 @@ class AttestationIn(SupplierScopeIn):
     evidence_locator: str = Field(min_length=3, max_length=256)
 
 
-class EntitlementIn(BaseModel):
+class ContractEntitlementIn(BaseModel):
     """What Zoiko may use one provider for in one country, capability and purpose (CR-074)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -609,7 +609,7 @@ async def list_entitlements(
 
 @router.post("/v1/regulatory/entitlements", status_code=201)
 async def record_entitlement(
-    body: EntitlementIn, request: Request, op: OperatorDep
+    body: ContractEntitlementIn, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
     scope = v.entitlement_model.Scope(body.provider, body.country, body.capability, body.purpose)
     target = f"{scope.provider}/{scope.country}/{scope.capability}/{scope.purpose}"
@@ -886,7 +886,7 @@ _REGULATED = (
     "BUSINESS_VERIFICATION",
     "CREDENTIAL_ISSUANCE",
     "ENTERPRISE_USE",
-)
+)  # the same list as verification coverage.REGULATED
 
 
 @router.get("/v1/regulatory/readiness")
@@ -909,40 +909,14 @@ async def readiness(request: Request, op: OperatorDep) -> dict[str, Any]:
                 if entry is None:
                     continue
                 provider = entry.provider
-                refuse: list[str] = []
-                pack = await v.policy_packs.governing_pack(
-                    conn, country=code, product=name, purpose=v.PACK_PURPOSE, at=now
+                refuse = await v.coverage.capability_refusals(
+                    conn,
+                    country=code,
+                    capability=capability,
+                    provider=provider,
+                    overlays=overlays,
+                    now=now,
                 )
-                if pack.outcome is not v.Outcome.APPLICABLE:
-                    refuse.append(f"pack:{pack.reason}")
-                market = await v.market_releases.market_open(
-                    conn, v.release_model.MarketKey(code, name, v.PACK_PURPOSE), now=now
-                )
-                if not market.open:
-                    refuse.append(f"release:{market.reason}")
-                if provider is None:
-                    refuse.append("entitlement:no_provider")
-                else:
-                    ent = await v.entitlements.decide_scope(
-                        conn,
-                        v.entitlement_model.Scope(provider, code, name, v.PACK_PURPOSE),
-                        at=now,
-                    )
-                    if not ent.entitled:
-                        refuse.append(f"entitlement:{ent.reason}")
-                    stopped = await v.suspensions.blocking_for(
-                        conn,
-                        v.suspension_model.Invocation(
-                            provider=provider, service_id=name, country=code, purpose=v.PACK_PURPOSE
-                        ),
-                        at=now,
-                    )
-                    refuse.extend(f"suspended:{s.suspension_id}" for s in stopped)
-                if name == "INDIVIDUAL_VERIFICATION":
-                    route = v.privacy_overlay_model.route(
-                        overlays.get(code), provider=provider, biometric=False, consent=None
-                    )
-                    refuse.extend(f"privacy:{r}" for r in route.reasons)
                 caps.append(
                     {
                         "capability": name,
@@ -989,4 +963,188 @@ async def readiness(request: Request, op: OperatorDep) -> dict[str, Any]:
             "kill_switch": "always enforced",
         },
         "empty_configuration": empty,
+    }
+
+
+# ------------------------------------------------------------------------------------ service offerings (CR-088)
+
+
+@router.get("/v1/regulatory/offerings")
+async def offerings(
+    request: Request,
+    op: OperatorDep,
+    country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+) -> dict[str, Any]:
+    """Each service offering, country by country: AVAILABLE only when provider rights, country rules, privacy controls and an independently
+    accepted conformance run all hold, otherwise every reason it is not. The public catalog (GET /v1/offerings) shows only what is AVAILABLE."""
+    now = datetime.now(UTC)
+    catalog = v.offerings_catalog()
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:offerings")
+        cov = await v.coverage.offerings_coverage(
+            conn,
+            catalog,
+            v.registry(),
+            overlays=v.privacy_overlays(),
+            now=now,
+            countries=[country] if country else None,
+        )
+    by: dict[str, list[dict[str, Any]]] = {}
+    for c in cov:
+        by.setdefault(c.offering_id, []).append(
+            {"country": c.country, "status": c.status.value, "reasons": list(c.reasons)}
+        )
+    return {
+        "items": [
+            {
+                "offering_id": o.offering_id,
+                "title": o.title,
+                "wording": o.wording,
+                "capabilities": list(o.capabilities),
+                "biometric": o.biometric,
+                "cases": list(o.cases),
+                "code": list(o.code),
+                "countries": by.get(o.offering_id, []),
+            }
+            for o in catalog
+        ]
+    }
+
+
+# ------------------------------------------------------------------------------------ official-register connectors (CR-087)
+
+
+class RegisterRefreshIn(SupplierScopeIn):
+    source_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+@router.get("/v1/regulatory/register-sources")
+async def register_sources(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The official registers, trusted lists and professional registers the platform may query, and whether each may be used here and why not."""
+    env = str(getattr(request.app.state, "environment", "production"))
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:register-sources")
+    m = v.register_sources_model
+    items = []
+    for sid, s in sorted(v.register_sources.sources().items()):
+        u = m.usable(
+            s, environment=env, connector_available=v.register_sources.connector(sid) is not None
+        )
+        items.append(
+            {
+                "source_id": sid,
+                "kind": s.kind.value,
+                "scheme": s.scheme,
+                "base_url": s.base_url,
+                "contract_ref": s.contract_ref,
+                "usable": u.usable,
+                "reasons": list(u.reasons),
+            }
+        )
+    return {"items": items}
+
+
+@router.post("/v1/regulatory/attestations:refresh", status_code=201)
+async def refresh_attestation(
+    body: RegisterRefreshIn, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Ask the official register itself about one exact scope, preserve its answer and record the snapshot it proves (or nothing, when the
+    register does not list it). The same rules as a hand-recorded attestation; the proof hash is computed here, never taken from the connector."""
+    scope = body.domain()
+    target = f"{scope.entity}/{scope.scheme}/{scope.country}/{scope.service_code}"
+    env = str(getattr(request.app.state, "environment", "production"))
+
+    async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        try:
+            r = await v.register_refresh.refresh(
+                conn,
+                body.source_id,
+                scope,
+                environment=env,
+                now=now,
+                recorded_by=str(op.principal_id),
+            )
+        except v.register_sources_model.SourceError as e:
+            raise ZidError(e.code, str(e), http_status=409) from e
+        view = {
+            **_scope_view(scope),
+            "source_id": body.source_id,
+            "listed": r.listed,
+            "snapshot_id": r.snapshot.snapshot_id if r.snapshot else None,
+            "proof_hash": r.snapshot.proof_hash if r.snapshot else None,
+            "outcome": r.decision.outcome.value,
+            "reason": r.decision.reason,
+        }
+        return (
+            view,
+            f"{target}:{view['snapshot_id'] or 'not-listed'}",
+            {"source_id": body.source_id, "listed": r.listed, "proof_hash": view["proof_hash"]},
+        )
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.attestation.refreshed",
+        publish="verification.certification.changed",
+        action="refresh",
+        capability=RECORD_ATTESTATION,
+        target_type="certification_attestation",
+        target=target,
+        work=work,
+    )
+
+
+# ------------------------------------------------------------------------------------ qualified trust lists (WF-05, RCG-G06)
+
+
+class _Evidence:
+    """The evidence module's trust configuration, imported on first use (no import-time dependency on the evidence module)."""
+
+    def __getattr__(self, name: str) -> Any:
+        from zid_platform.modules.evidence.ports import trust_model
+
+        return getattr(trust_model, name)
+
+
+evidence_trust = _Evidence()
+
+
+@router.get("/v1/regulatory/trust-lists")
+async def trust_lists(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """WF-05: what the signature and seal validator may rely on. Qualified status is read only from trusted lists whose signature was verified;
+    an unauthenticated list counts for nothing, and with none every result is NOT_ASSESSED. Technical validation is reported separately from
+    legal interpretation: a valid signature is never lawful authority for a purpose."""
+    from zid_platform.modules.evidence.ports import trust_config
+
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:trust-lists")
+    cfg = trust_config()
+    now = datetime.now(UTC)
+    t = evidence_trust
+    lists = []
+    for tl in cfg.trusted_lists:
+        qc = [s for s in tl.services if t.CA_QC in s.service_type]
+        granted = [s for s in qc if t.GRANTED in (t._status_at(s, now) or "")]
+        lists.append(
+            {
+                "name": tl.name,
+                "authenticated": tl.authenticated,
+                "problem": tl.problem,
+                "services": len(tl.services),
+                "qualified_ca_services": len(qc),
+                "granted_now": len(granted),
+            }
+        )
+    usable = [x for x in lists if x["authenticated"]]
+    return {
+        "lists": lists,
+        "anchors": len(cfg.anchors),
+        "tsa_roots": len(cfg.tsa_roots),
+        "crls": len(cfg.crls),
+        "qualified_status_assessable": bool(usable),
+        "reasons": [] if usable else ["NO_AUTHENTICATED_TRUST_LIST"],
+        "timestamp_authority_configured": bool(
+            getattr(request.app.state, "evidence_tsa_configured", False)
+        ),
+        "interpretation": "Technical validation only. A valid or qualified signature is not lawful authority for any purpose; legal effect is decided separately.",
     }

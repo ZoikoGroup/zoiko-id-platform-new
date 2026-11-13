@@ -8,7 +8,7 @@ data-use terms decide that, and document 05.2 says access to a source is not a l
 provider per capability and nothing checks that Zoiko holds a current permission to call it there.
 
 ## What changes
-- **One table**, `verify.provider_entitlement` (migration `verification_0008`), append-only, platform configuration (no `tenant_id`, no row-level
+- **One table**, `verify.provider_contract_entitlement` (migration `verification_0008`), append-only, platform configuration (no `tenant_id`, no row-level
   security, registered in `backend/database/table-ownership.yaml`). One row per statement for an exact provider, country, capability and purpose:
   GRANTED, SUSPENDED or WITHDRAWN, when it takes effect, its validity dates, and the contract and documented terms it rests on. A trigger refuses
   update, delete, a future statement and one not newer than the previous statement of the same scope.

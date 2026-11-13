@@ -144,6 +144,21 @@ EN: dict[str, tuple[str, str, str]] = {
         "The qualification itself was checked and confirmed. That is separate from whether this person may practise this service here.",
         "No action is needed for the qualification.",
     ),
+    "QUALIFICATION_NOT_ESTABLISHED": (
+        "Qualification is not established",
+        "No degree or certification check has confirmed a qualification for this engagement.",
+        "Ask for the qualification to be checked, or provide the missing evidence.",
+    ),
+    "LICENSE_NOT_VERIFIED": (
+        "Licence is not confirmed",
+        "The licence check has not confirmed a current licence for this engagement.",
+        "Wait for the licence check to finish, or provide the licence details again.",
+    ),
+    "ENGAGEMENT_PERIOD_ENDED": (
+        "The engagement period has ended",
+        "The period this engagement was checked for is over.",
+        "Ask for a new decision for the new period.",
+    ),
     "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
         "Permission to practise is not established",
         "We could not establish that this person may offer this service in this place, even though other checks passed.",

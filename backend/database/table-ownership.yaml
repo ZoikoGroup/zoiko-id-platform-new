@@ -899,7 +899,7 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G02 official-register attestation snapshots, append-only (proposed, CR-073)"
-  verify.provider_entitlement:
+  verify.provider_contract_entitlement:
     role: cell
     module: verification
     tenant_scoped: false
@@ -1029,6 +1029,11 @@ tables:
     module: credential
     tenant_scoped: true
     source: "ZID-INT-002 section 13 (last property-check answer per property and host, outcomes only, so a change can be announced); CR-071"
+  verify.provider_entitlement:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-INT-002 section 08 (the routing registry as the shared branch's verification_0005b created it; superseded by verify.provider_route_entitlement, copied across by verification_0013, kept until an approved contract step drops it); CR-071"
   verify.provider_route_entitlement:
     role: cell
     module: verification

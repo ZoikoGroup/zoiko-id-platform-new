@@ -2903,6 +2903,194 @@ export type UploadAnnounced = { evidence_ref: string; upload_url: string; upload
 export type DocumentCheckResult = { check: string; status: "VERIFIED" | "NOT_VERIFIED" | "INDETERMINATE" | "UNAVAILABLE"; reasons: string[]; detail: Record<string, unknown> };
 export type DocumentValidation = { validation_id: string | null; sha256: string; sniffed_type: string | null; stored: boolean; document_results: DocumentCheckResult[]; limitations: string[] };
 
+// ---------------------------------------------------------------------------------------- regulatory (ZID-RCG-003; CR-067 to CR-085)
+// The operator plane's regulatory records. Hand-written like the rest of the operator surface: these routes are operator-only and are not in a
+// published contract.
+
+export type PackStatus = "DRAFT" | "APPROVED" | "RETIRED";
+export type PackSource = { instrument: string; url: string; status: "LAW" | "GUIDANCE" | "PROPOSAL"; retrieved_at: Iso; effective_from: Iso; effective_to?: Iso | null; owner: string };
+export type PackRules = { evidence_minimum: string[]; alternate_routes?: string[]; lawful_basis?: string; validity_days?: number | null; escalation?: string | null };
+export type PolicyPack = {
+  pack_id: string;
+  version: number;
+  status: PackStatus;
+  market: { country: string; subdivision: string | null; profession: string | null; product: string; purpose: string };
+  sources: PackSource[];
+  rules: PackRules;
+  author: string;
+  pack_hash: string;
+  approvals: Record<string, { approver: string; pack_hash: string }>;
+  missing_approvals: string[];
+};
+export type PackDraftIn = { pack_id: string; country: string; subdivision?: string | null; profession?: string | null; product: string; purpose: string; sources: PackSource[]; rules: PackRules };
+export type PackApproverRole = "legal" | "grc" | "security" | "business_owner";
+
+export type ReleaseStatus = "DRAFT" | "FROZEN" | "RELEASEABLE" | "LAUNCHED" | "WITHDRAWN";
+export type ReleaseGate = { gate: string; title: string; owner_role: string; status: "PASSED" | "FAILED" | null; evidence_ref: string | null; recorded_by: string | null; recorded_at: Iso | null };
+export type SupplierScope = { entity: string; scheme: string; country: string; service_code: string };
+export type MarketRelease = {
+  release_id: string;
+  version: number;
+  status: ReleaseStatus;
+  market: { country: string; product: string; purpose: string };
+  author: string;
+  release_hash: string | null;
+  pack_refs: { pack_id: string; version: number; pack_hash: string }[];
+  supplier_scopes: SupplierScope[];
+  gates: ReleaseGate[];
+  blockers: string[];
+  approvals: Record<string, { approver: string; release_hash: string }>;
+  missing_approvals: string[];
+};
+export type GateRole = "legal" | "regulatory_ops" | "security" | "privacy" | "qa" | "vendor_mgmt";
+export type ReleaseApproverRole = "legal" | "security_grc" | "qa" | "product_owner";
+export type MarketStatus = { open: boolean; reason: string; release: { release_id: string; version: number } | null };
+
+export type CertStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "EXPIRED";
+export type AttestationIn = SupplierScope & {
+  scheme_version: string;
+  certificate_ref: string;
+  component_only?: boolean;
+  status: CertStatus;
+  valid_from: string;
+  valid_until?: string | null;
+  register_url: string;
+  register_entry_id: string;
+  cab?: string | null;
+  fetched_at: Iso;
+  proof_hash: string;
+  evidence_locator: string;
+};
+export type AttestationRow = SupplierScope & { outcome: "CERTIFIED" | "HOLD"; reason: string; register_url: string | null; fetched_at: Iso | null };
+export type EntitlementIn = {
+  provider: string;
+  country: string;
+  capability: string;
+  purpose: string;
+  status: "GRANTED" | "SUSPENDED" | "WITHDRAWN";
+  effective_at: Iso;
+  valid_from: Iso;
+  valid_until?: Iso | null;
+  contract_ref: string;
+  terms_ref: string;
+};
+export type EntitlementRow = { provider: string; country: string; capability: string; purpose: string; outcome: "ENTITLED" | "DENIED"; reason: string; contract_ref: string | null; valid_until: Iso | null };
+
+export type SuspensionScope = {
+  provider: string;
+  service_id?: string | null;
+  scheme?: string | null;
+  country?: string | null;
+  subdivision?: string | null;
+  purpose?: string | null;
+  profession?: string | null;
+  credential_class?: string | null;
+};
+export type SuspensionTrigger = "CERTIFICATION_WITHDRAWN" | "PROVIDER_BREACH" | "ENTITLEMENT_WITHDRAWN" | "TRUST_LIST_STALE" | "LICENSE_SUSPENDED" | "MANUAL";
+export type SuspensionVersion = {
+  suspension_id: string;
+  version: number;
+  status: "ACTIVE" | "LIFTED";
+  scope: SuspensionScope;
+  trigger: SuspensionTrigger;
+  reason: string;
+  evidence_ref: string;
+  effective_at: Iso;
+  recorded_by: string;
+};
+export type SuspensionImpact = { markets: string[]; entitlements: string[]; certifications: string[]; claims: string[] };
+export type SuspensionApplyIn = { suspension_id: string; scope: SuspensionScope; trigger: SuspensionTrigger; reason: string; evidence_ref: string };
+
+export type IssuerStatement = {
+  issuer_id: string;
+  seq: number;
+  statement_id: string;
+  statement: "UPDATE" | "CORRECTION";
+  reason: string | null;
+  record: Record<string, unknown>;
+  source_url: string;
+  source_hash: string;
+  evidence_locator: string;
+  recorded_by: string;
+  recorded_at: Iso;
+};
+export type AwardCheck = { outcome: "PASS" | "REVIEW"; reasons: string[]; accreditation: string; name_at_award?: string | null };
+
+export type ClaimJudgement = {
+  template_id: string;
+  version: number;
+  text: string;
+  audiences: string[];
+  countries: string[];
+  template_hash: string;
+  publishable: boolean;
+  reasons: string[];
+};
+export type ProofBundle = { digest: string; publishable: boolean; reasons: string[]; judged_at: Iso; template: Record<string, unknown>; evidence: Record<string, unknown>[] };
+
+export type ConformanceOutcome = "PASS" | "FAIL" | "NOT_RUN" | "PARTIAL" | "GAP";
+export type ConformanceCase = { case: string; title: string; expected: string; coverage: "COVERED" | "PARTIAL" | "GAP"; tests: string[]; note: string };
+export type ConformanceMatrix = { matrix_hash: string; counts: Record<string, number>; as_of: Iso; cases: ConformanceCase[] };
+export type ConformanceRun = {
+  run_id: string;
+  commit: string;
+  environment: string;
+  matrix_hash: string;
+  started_at: Iso;
+  finished_at: Iso;
+  recorded_by: string;
+  run_hash: string;
+  results: { case: string; outcome: ConformanceOutcome; passed: string[]; failed: string[]; not_run: string[] }[];
+  reviews: { reviewer: string; decision: "ACCEPTED" | "REJECTED"; note_ref: string; reviewed_at: Iso }[];
+  p0_exit: { met: boolean; reasons: string[]; counts: Record<string, number> };
+};
+
+export type PrivacyOverlayView = {
+  country: string;
+  version: number;
+  overlay_hash: string;
+  home_regions: string[];
+  transfer_regions: Record<string, string>;
+  provider_regions: Record<string, string>;
+  biometrics: "ALLOWED" | "CONSENT_REQUIRED" | "PROHIBITED";
+  dpia_required: boolean;
+  problems: string[];
+};
+export type RouteCheck = { allowed: boolean; reasons: string[]; region: string | null; mechanism: string | null };
+export type MonitoringCheck = { allowed: boolean; reasons: string[]; approval_id: string | null };
+export type RightToRentCheck = { outcome: string; route: string | null; reasons: string[]; zoiko_evidence: boolean; statutory_excuse_by_zoiko: boolean; retention: string | null };
+export type TrustListsView = {
+  lists: { name: string; authenticated: boolean; problem: string | null; services: number; qualified_ca_services: number; granted_now: number }[];
+  anchors: number;
+  tsa_roots: number;
+  crls: number;
+  qualified_status_assessable: boolean;
+  reasons: string[];
+  timestamp_authority_configured: boolean;
+  interpretation: string;
+};
+export type RegisterSource = { source_id: string; kind: string; scheme: string; base_url: string; contract_ref: string | null; usable: boolean; reasons: string[] };
+export type RegisterRefresh = SupplierScope & { source_id: string; listed: boolean; snapshot_id: string | null; proof_hash: string | null; outcome: "CERTIFIED" | "HOLD"; reason: string };
+export type OfferingStatus = "AVAILABLE" | "NOT_AVAILABLE";
+export type ServiceOffering = {
+  offering_id: string;
+  title: string;
+  wording: string;
+  capabilities: string[];
+  biometric: boolean;
+  cases: string[];
+  code: string[];
+  countries: { country: string; status: OfferingStatus; reasons: string[] }[];
+};
+export type RegulatoryReadiness = {
+  countries: {
+    country: string;
+    capabilities: { capability: string; availability: string; provider: string | null; would_refuse: string[]; missing: string[] }[];
+  }[];
+  modes: Record<string, string>;
+  empty_configuration: string[];
+};
+
 /** Independent assurance (ZID-UAT-005). Statuses come from signed evidence only; nothing here is typed in by a person. */
 export type UatCase = { case_id: string; suite: string; risk: string; dependency: "OWN" | "THIRD_PARTY" | "PEOPLE"; assertion: string; status: string; manifest_id: string | null };
 export type UatRequirements = { baseline: { baseline_id: string; version: string; source_sha256: string } | null; cases: UatCase[]; counts: Record<string, number> };
@@ -3007,186 +3195,6 @@ export type QuoteRequestItem = {
   operating_region: string | null; volumes: Record<string, Record<string, number>>; scope_hash: string; quote_requested_at: string | null;
   quote_snapshot: { exceptions?: { family: string; state: string; causes: string[] }[]; assumptions?: string[] } | null;
 };
-
-// ---- regulatory records (ZID-RCG-003; CR-067 to CR-085), brought over from the akarsh branch where the screens that use them were written
-export type PackStatus = "DRAFT" | "APPROVED" | "RETIRED";
-export type PackSource = { instrument: string; url: string; status: "LAW" | "GUIDANCE" | "PROPOSAL"; retrieved_at: Iso; effective_from: Iso; effective_to?: Iso | null; owner: string };
-export type PackRules = { evidence_minimum: string[]; alternate_routes?: string[]; lawful_basis?: string; validity_days?: number | null; escalation?: string | null };
-export type PolicyPack = {
-  pack_id: string;
-  version: number;
-  status: PackStatus;
-  market: { country: string; subdivision: string | null; profession: string | null; product: string; purpose: string };
-  sources: PackSource[];
-  rules: PackRules;
-  author: string;
-  pack_hash: string;
-  approvals: Record<string, { approver: string; pack_hash: string }>;
-  missing_approvals: string[];
-};
-export type PackDraftIn = { pack_id: string; country: string; subdivision?: string | null; profession?: string | null; product: string; purpose: string; sources: PackSource[]; rules: PackRules };
-export type PackApproverRole = "legal" | "grc" | "security" | "business_owner";
-export type ReleaseStatus = "DRAFT" | "FROZEN" | "RELEASEABLE" | "LAUNCHED" | "WITHDRAWN";
-export type ReleaseGate = { gate: string; title: string; owner_role: string; status: "PASSED" | "FAILED" | null; evidence_ref: string | null; recorded_by: string | null; recorded_at: Iso | null };
-export type SupplierScope = { entity: string; scheme: string; country: string; service_code: string };
-export type MarketRelease = {
-  release_id: string;
-  version: number;
-  status: ReleaseStatus;
-  market: { country: string; product: string; purpose: string };
-  author: string;
-  release_hash: string | null;
-  pack_refs: { pack_id: string; version: number; pack_hash: string }[];
-  supplier_scopes: SupplierScope[];
-  gates: ReleaseGate[];
-  blockers: string[];
-  approvals: Record<string, { approver: string; release_hash: string }>;
-  missing_approvals: string[];
-};
-export type GateRole = "legal" | "regulatory_ops" | "security" | "privacy" | "qa" | "vendor_mgmt";
-export type ReleaseApproverRole = "legal" | "security_grc" | "qa" | "product_owner";
-export type MarketStatus = { open: boolean; reason: string; release: { release_id: string; version: number } | null };
-export type CertStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "EXPIRED";
-export type AttestationIn = SupplierScope & {
-  scheme_version: string;
-  certificate_ref: string;
-  component_only?: boolean;
-  status: CertStatus;
-  valid_from: string;
-  valid_until?: string | null;
-  register_url: string;
-  register_entry_id: string;
-  cab?: string | null;
-  fetched_at: Iso;
-  proof_hash: string;
-  evidence_locator: string;
-};
-export type AttestationRow = SupplierScope & { outcome: "CERTIFIED" | "HOLD"; reason: string; register_url: string | null; fetched_at: Iso | null };
-export type EntitlementIn = {
-  provider: string;
-  country: string;
-  capability: string;
-  purpose: string;
-  status: "GRANTED" | "SUSPENDED" | "WITHDRAWN";
-  effective_at: Iso;
-  valid_from: Iso;
-  valid_until?: Iso | null;
-  contract_ref: string;
-  terms_ref: string;
-};
-export type EntitlementRow = { provider: string; country: string; capability: string; purpose: string; outcome: "ENTITLED" | "DENIED"; reason: string; contract_ref: string | null; valid_until: Iso | null };
-export type SuspensionScope = {
-  provider: string;
-  service_id?: string | null;
-  scheme?: string | null;
-  country?: string | null;
-  subdivision?: string | null;
-  purpose?: string | null;
-  profession?: string | null;
-  credential_class?: string | null;
-};
-export type SuspensionTrigger = "CERTIFICATION_WITHDRAWN" | "PROVIDER_BREACH" | "ENTITLEMENT_WITHDRAWN" | "TRUST_LIST_STALE" | "LICENSE_SUSPENDED" | "MANUAL";
-export type SuspensionVersion = {
-  suspension_id: string;
-  version: number;
-  status: "ACTIVE" | "LIFTED";
-  scope: SuspensionScope;
-  trigger: SuspensionTrigger;
-  reason: string;
-  evidence_ref: string;
-  effective_at: Iso;
-  recorded_by: string;
-};
-export type SuspensionImpact = { markets: string[]; entitlements: string[]; certifications: string[]; claims: string[] };
-export type SuspensionApplyIn = { suspension_id: string; scope: SuspensionScope; trigger: SuspensionTrigger; reason: string; evidence_ref: string };
-export type IssuerStatement = {
-  issuer_id: string;
-  seq: number;
-  statement_id: string;
-  statement: "UPDATE" | "CORRECTION";
-  reason: string | null;
-  record: Record<string, unknown>;
-  source_url: string;
-  source_hash: string;
-  evidence_locator: string;
-  recorded_by: string;
-  recorded_at: Iso;
-};
-export type AwardCheck = { outcome: "PASS" | "REVIEW"; reasons: string[]; accreditation: string; name_at_award?: string | null };
-export type ClaimJudgement = {
-  template_id: string;
-  version: number;
-  text: string;
-  audiences: string[];
-  countries: string[];
-  template_hash: string;
-  publishable: boolean;
-  reasons: string[];
-};
-export type ProofBundle = { digest: string; publishable: boolean; reasons: string[]; judged_at: Iso; template: Record<string, unknown>; evidence: Record<string, unknown>[] };
-export type ConformanceOutcome = "PASS" | "FAIL" | "NOT_RUN" | "PARTIAL" | "GAP";
-export type ConformanceCase = { case: string; title: string; expected: string; coverage: "COVERED" | "PARTIAL" | "GAP"; tests: string[]; note: string };
-export type ConformanceMatrix = { matrix_hash: string; counts: Record<string, number>; as_of: Iso; cases: ConformanceCase[] };
-export type ConformanceRun = {
-  run_id: string;
-  commit: string;
-  environment: string;
-  matrix_hash: string;
-  started_at: Iso;
-  finished_at: Iso;
-  recorded_by: string;
-  run_hash: string;
-  results: { case: string; outcome: ConformanceOutcome; passed: string[]; failed: string[]; not_run: string[] }[];
-  reviews: { reviewer: string; decision: "ACCEPTED" | "REJECTED"; note_ref: string; reviewed_at: Iso }[];
-  p0_exit: { met: boolean; reasons: string[]; counts: Record<string, number> };
-};
-export type PrivacyOverlayView = {
-  country: string;
-  version: number;
-  overlay_hash: string;
-  home_regions: string[];
-  transfer_regions: Record<string, string>;
-  provider_regions: Record<string, string>;
-  biometrics: "ALLOWED" | "CONSENT_REQUIRED" | "PROHIBITED";
-  dpia_required: boolean;
-  problems: string[];
-};
-export type RouteCheck = { allowed: boolean; reasons: string[]; region: string | null; mechanism: string | null };
-export type MonitoringCheck = { allowed: boolean; reasons: string[]; approval_id: string | null };
-export type RightToRentCheck = { outcome: string; route: string | null; reasons: string[]; zoiko_evidence: boolean; statutory_excuse_by_zoiko: boolean; retention: string | null };
-export type TrustListsView = {
-  lists: { name: string; authenticated: boolean; problem: string | null; services: number; qualified_ca_services: number; granted_now: number }[];
-  anchors: number;
-  tsa_roots: number;
-  crls: number;
-  qualified_status_assessable: boolean;
-  reasons: string[];
-  timestamp_authority_configured: boolean;
-  interpretation: string;
-};
-export type RegisterSource = { source_id: string; kind: string; scheme: string; base_url: string; contract_ref: string | null; usable: boolean; reasons: string[] };
-export type RegisterRefresh = SupplierScope & { source_id: string; listed: boolean; snapshot_id: string | null; proof_hash: string | null; outcome: "CERTIFIED" | "HOLD"; reason: string };
-export type OfferingStatus = "AVAILABLE" | "NOT_AVAILABLE";
-export type ServiceOffering = {
-  offering_id: string;
-  title: string;
-  wording: string;
-  capabilities: string[];
-  biometric: boolean;
-  cases: string[];
-  code: string[];
-  countries: { country: string; status: OfferingStatus; reasons: string[] }[];
-};
-export type RegulatoryReadiness = {
-  countries: {
-    country: string;
-    capabilities: { capability: string; availability: string; provider: string | null; would_refuse: string[]; missing: string[] }[];
-  }[];
-  modes: Record<string, string>;
-  empty_configuration: string[];
-};
-
-/** Independent assurance (ZID-UAT-005). Statuses come from signed evidence only; nothing here is typed in by a person. */
 
 export type FxRateSet = { set_id: string; version: number; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; source_ref: string; as_of: string; rates: Record<string, string> };
 

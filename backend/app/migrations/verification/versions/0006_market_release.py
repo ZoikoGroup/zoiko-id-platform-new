@@ -1,7 +1,7 @@
 """Market releases: the seven evidence gates, four independent approvals and the launch (ZID-RCG-003 RCG-G10, WF-08; CR-072).
 
 Revision ID: verification_0006
-Revises: verification_0005
+Revises: verification_0005b
 Create Date: 2026-11-12
 
 market_release: one immutable version of the release of one market (country, product, purpose). It pins the approved policy packs it covers and the supplier certifications it relies on.
@@ -16,7 +16,7 @@ one LAUNCHED release.
 from zid_platform.migrations import execute_script as _run
 
 revision = "verification_0006"
-down_revision = "verification_0005"
+down_revision = "verification_0005b"
 branch_labels = None
 depends_on = None
 

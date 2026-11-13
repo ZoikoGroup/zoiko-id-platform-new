@@ -36,6 +36,7 @@ def test_readiness_lists_what_enforce_would_refuse_per_country_and_capability(rt
             assert set(cap) == {"capability", "availability", "provider", "would_refuse", "missing"}
             # every refusal is named by the check that would make it, and `missing` is exactly those checks
             assert sorted({r.split(":", 1)[0] for r in cap["would_refuse"]}) == cap["missing"]
-            if cap["capability"] != "SANCTIONS_ONGOING_MONITORING":
-                # nothing is approved, released or entitled in a fresh database: enforce would refuse every regulated capability
-                assert "pack" in cap["missing"] and "release" in cap["missing"]
+            if cap["capability"] == "SANCTIONS_ONGOING_MONITORING":
+                # the shipped configuration approves no ongoing monitoring anywhere (other tests in a shared database may approve packs
+                # and releases, but never monitoring), so enforce would refuse it in every country
+                assert cap["missing"] == ["monitoring"]

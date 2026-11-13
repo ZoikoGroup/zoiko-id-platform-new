@@ -50,7 +50,7 @@ async def history(conn: AsyncConnection, scope: Scope) -> list[Grant]:
     rows = (
         await conn.execute(
             text(
-                f"SELECT {_COLUMNS} FROM verify.provider_entitlement "
+                f"SELECT {_COLUMNS} FROM verify.provider_contract_entitlement "
                 "WHERE provider = :p AND country = :c AND capability = :k AND purpose = :u ORDER BY effective_at"
             ),
             _key(scope),
@@ -65,7 +65,7 @@ async def record(conn: AsyncConnection, grant: Grant, *, now: datetime) -> Grant
     s = grant.scope
     await conn.execute(
         text(
-            f"INSERT INTO verify.provider_entitlement ({_COLUMNS}) VALUES (:id, :p, :c, :k, :u, :st, :ea, :vf, :vu, :cr, :tr, :by, :ra)"
+            f"INSERT INTO verify.provider_contract_entitlement ({_COLUMNS}) VALUES (:id, :p, :c, :k, :u, :st, :ea, :vf, :vu, :cr, :tr, :by, :ra)"
         ),
         {
             "id": grant.grant_id,
@@ -101,7 +101,7 @@ async def scopes_of(
     rows = (
         await conn.execute(
             text(
-                "SELECT DISTINCT provider, country, capability, purpose FROM verify.provider_entitlement "
+                "SELECT DISTINCT provider, country, capability, purpose FROM verify.provider_contract_entitlement "
                 "WHERE CAST(:p AS text) IS NULL OR provider = :p ORDER BY provider, country, capability, purpose LIMIT :n"
             ),
             {"p": provider, "n": limit},

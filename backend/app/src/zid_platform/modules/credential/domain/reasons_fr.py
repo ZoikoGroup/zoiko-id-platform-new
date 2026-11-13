@@ -117,6 +117,21 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La qualification elle-même a été contrôlée et confirmée. C'est distinct du droit de cette personne d'exercer ce service ici.",
         "Vous n'avez rien à faire pour la qualification.",
     ),
+    "QUALIFICATION_NOT_ESTABLISHED": (
+        "La qualification n'est pas établie",
+        "Aucun contrôle de diplôme ou de certification n'a confirmé une qualification pour cette mission.",
+        "Demandez la vérification de la qualification ou fournissez les preuves manquantes.",
+    ),
+    "LICENSE_NOT_VERIFIED": (
+        "La licence n'est pas confirmée",
+        "Le contrôle de la licence n'a pas confirmé une licence en cours de validité pour cette mission.",
+        "Attendez la fin du contrôle de la licence ou fournissez à nouveau ses informations.",
+    ),
+    "ENGAGEMENT_PERIOD_ENDED": (
+        "La période de la mission est terminée",
+        "La période pour laquelle cette mission a été vérifiée est terminée.",
+        "Demandez une nouvelle décision pour la nouvelle période.",
+    ),
     "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
         "Le droit d'exercer n'est pas établi",
         "Nous n'avons pas pu établir que cette personne peut proposer ce service à cet endroit, même si d'autres contrôles ont réussi.",

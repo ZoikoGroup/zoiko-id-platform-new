@@ -23,9 +23,11 @@ from zid_platform.modules.verification.domain.attestation import Scope as CertSc
 from zid_platform.modules.verification.domain.market_release import ReleaseStatus
 from zid_platform.modules.verification.infrastructure import (
     attestation_store,
-    entitlement_store,
     market_release_store,
     suspension_store,
+)
+from zid_platform.modules.verification.infrastructure import (
+    contract_entitlement_store as entitlement_store,
 )
 
 

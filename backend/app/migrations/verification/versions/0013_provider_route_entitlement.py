@@ -1,14 +1,29 @@
-"""The tenant's runtime routing registry of what each provider may be used for (not the platform's append-only partner entitlement statements, `verify.provider_entitlement`) (ZID-INT-002 section 08; `provider.entitlement_revoked`; CR-071).
+"""Bridge: the tenant's runtime routing registry of what each provider may be used for (`verify.provider_route_entitlement`; CR-071).
 
 Revision ID: verification_0013
 Revises: verification_0012
 Create Date: 2026-11-12
 
-Until now an entitlement existed only as the shape the routing rules take. This stores the deployment's own record of one provider's exact
-service, countries, purposes and processing regions for a period. REVOKED is final: a revoked entitlement is never reopened, a new
-period is a new record. No credential, key or contract text is held here, only the scope and its status.
+Two branches hit the same collision (two tables both wanted the name `verify.provider_entitlement`, and a second `verification_0005`) and fixed it in different ways:
+
+- the shared branch created the routing registry as `verify.provider_entitlement` in `verification_0005b` and named the platform's append-only partner statements
+  `verify.provider_contract_entitlement` (`verification_0008`);
+- this branch (anil) created the routing registry as `verify.provider_route_entitlement` here, after 0012, and left the statements as `verify.provider_entitlement`.
+
+The code uses the shared branch's name for the statements and this branch's name for the routing registry. This revision gives every database the routing registry under that name:
+
+- it already has `provider_route_entitlement` (it came through this branch's old 0013): nothing to do;
+- it came through 0005b: the registry is created and the rows of the old `provider_entitlement` are copied into it. Nothing is renamed or dropped here: the old table stays until a
+  later, approved contract step removes it.
+
+A database that was migrated on this branch's old chain and has not yet recorded 0013 would still hold the platform's partner statements under the old name `provider_entitlement`; there is
+no such database at rest, and if one turns up its statements table must be renamed to `provider_contract_entitlement` by hand before this runs.
+
+The downgrade does nothing: the earlier revisions own the tables.
 """
 
+from alembic import op
+from sqlalchemy import text
 from zid_platform.migrations import execute_script as _run
 
 revision = "verification_0013"
@@ -19,7 +34,7 @@ depends_on = None
 RULE = "(tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)"
 
 
-def upgrade() -> None:
+def _create() -> None:
     _run(f"""
         CREATE TABLE verify.provider_route_entitlement (
             entitlement_id     uuid PRIMARY KEY,
@@ -57,8 +72,41 @@ def upgrade() -> None:
     """)
 
 
+def _has(name: str) -> bool:
+    return bool(
+        op.get_bind().execute(text("SELECT to_regclass(:n) IS NOT NULL"), {"n": name}).scalar()
+    )
+
+
+def _has_column(table: str, column: str) -> bool:
+    return bool(
+        op.get_bind()
+        .execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'verify' AND table_name = :t AND column_name = :c)"
+            ),
+            {"t": table, "c": column},
+        )
+        .scalar()
+    )
+
+
+def upgrade() -> None:
+    if _has("verify.provider_route_entitlement"):
+        return
+    _create()
+    if _has("verify.provider_entitlement") and _has_column("provider_entitlement", "provider_id"):
+        # a database that came through 0005b holds its routing registry in the old table: copy it across (additive; the old table is left alone and is dropped
+        # by a later, approved contract step)
+        _run("""
+            INSERT INTO verify.provider_route_entitlement (
+                entitlement_id, tenant_id, provider_id, service_code, countries, purposes, processing_regions, valid_from, valid_until,
+                assurance, cost_rank, status, status_reason, created_by, created_at, status_changed_at)
+            SELECT entitlement_id, tenant_id, provider_id, service_code, countries, purposes, processing_regions, valid_from, valid_until,
+                assurance, cost_rank, status, status_reason, created_by, created_at, status_changed_at
+            FROM verify.provider_entitlement
+        """)
+
+
 def downgrade() -> None:
-    _run("""
-        DROP TABLE verify.provider_route_entitlement;
-        DROP FUNCTION verify.route_entitlement_revoked_is_final();
-    """)
+    pass

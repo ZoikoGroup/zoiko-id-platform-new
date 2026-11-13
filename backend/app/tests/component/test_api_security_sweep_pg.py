@@ -57,6 +57,7 @@ PUBLIC_PATHS: dict[str, str] = {
     "/v1/workspaces/{name}": "workspace sign-in lookup",
     "/v1/cells": "published cell catalogue",
     "/v1/countries": "country availability for the sign-up selector: public, names no provider or approval",
+    "/v1/offerings": "service offerings available per country under the publish-coverage rule: public wording only, no provider, reason or test (CR-088)",
     "/v1/residency-offers": "the residency offers and where Regional is available: public, names no gate reference",
     "/v1/tenant/discovery": "signed discovery",
     "/": "service banner (minimal outside local/test)",

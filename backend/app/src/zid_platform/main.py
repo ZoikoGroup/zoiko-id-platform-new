@@ -104,6 +104,7 @@ def create_app(
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
     app.state.environment = settings.environment
+    app.state.evidence_tsa_configured = bool(settings.evidence_tsa_url)  # WF-05 trust-list view
     if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
             "ZID_AGENT_BUILDS=off would let any typed digest back a blueprint release; outside local, test and dev "
@@ -158,7 +159,7 @@ def create_app(
     configure_monitoring_scope(settings.monitoring_scope)
     configure_usage_sink(
         screening_usage_sink
-    )  # usage facts for the screening meters (CR-088); screening itself never imports commercial
+    )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
@@ -419,6 +420,7 @@ def create_app(
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.countries import router as countries_router
+        from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
@@ -443,6 +445,7 @@ def create_app(
             verification_router,
             verification_tiers_router,
             countries_router,
+            offerings_router,
             recovery_router,
             credentials_router,
             claim_checks_router,

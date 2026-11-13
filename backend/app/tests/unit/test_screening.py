@@ -347,6 +347,28 @@ def test_a_company_that_exists_is_not_a_persons_authority_to_act_for_it() -> Non
     assert "AUTHORITY_UNPROVEN" in decide(clean_inputs(authority=lapsed)).reasons
 
 
+def test_t26_a_genuine_signed_document_does_not_prove_the_signers_authority() -> None:
+    """One flow: the PDF is sound and chains to a configured anchor, and the same signer's authority to act for the company is still rejected."""
+    from pdf_signing import pki, sign_pdf
+    from zid_platform.modules.evidence.application import cms
+    from zid_platform.modules.evidence.application import signatures as sg
+    from zid_platform.modules.evidence.application import trust as tr
+    from zid_platform.modules.evidence.domain import documents as docs
+
+    p = pki()
+    config = tr.TrustConfig(anchors=(p.root.cert,))
+    r = sg.signature_result(cms.inspect_pdf(sign_pdf(p), anchors=config.anchors), config)
+    assert r.status is docs.Status.VERIFIED_LIMITED and "CRYPTOGRAPHICALLY_VALID" in r.reasons
+    assert r.detail["signatures"][0]["chain"] == "TRUSTED"  # the document is genuine
+    for authority in (
+        AuthorityEvidence(AuthorityKind.NONE),
+        AuthorityEvidence(AuthorityKind.DELEGATED_MANDATE, "m-1", NOW - timedelta(days=1)),
+    ):
+        d = decide(clean_inputs(authority=authority))
+        assert d.status is ScreeningStatus.REVIEW_REQUIRED and not d.authority_verified
+        assert "AUTHORITY_UNPROVEN" in d.reasons  # the authority is rejected on its own evidence
+
+
 def test_a_delegated_mandate_proves_nothing_until_a_person_confirms_it_and_never_outlives_its_end_date() -> (
     None
 ):

@@ -17,7 +17,10 @@ from zid_platform.modules.verification.domain.attestation import Scope, Snapshot
 from zid_platform.modules.verification.domain.certification import CertStatus
 from zid_platform.modules.verification.domain.entitlement import Grant, Status
 from zid_platform.modules.verification.domain.entitlement import Scope as EntScope
-from zid_platform.modules.verification.infrastructure import attestation_store, entitlement_store
+from zid_platform.modules.verification.infrastructure import attestation_store
+from zid_platform.modules.verification.infrastructure import (
+    contract_entitlement_store as entitlement_store,
+)
 
 NOW = datetime.now(UTC)
 

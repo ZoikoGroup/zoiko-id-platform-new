@@ -19,7 +19,10 @@ from zid_platform.modules.verification.domain import right_to_rent as rtr
 from zid_platform.modules.verification.domain import suspension as sp
 from zid_platform.modules.verification.domain.attestation import Scope
 from zid_platform.modules.verification.domain.entitlement import Scope as EntitlementScope
-from zid_platform.modules.verification.infrastructure import attestation_store, entitlement_store
+from zid_platform.modules.verification.infrastructure import attestation_store
+from zid_platform.modules.verification.infrastructure import (
+    contract_entitlement_store as entitlement_store,
+)
 
 CERTIFICATION_SCHEME = "UK_DIATF"
 REGISTER_SCHEME = "UK_DVS_REGISTER"

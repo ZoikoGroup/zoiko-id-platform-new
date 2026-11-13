@@ -124,6 +124,8 @@ PROBLEM_CODES: dict[str, tuple[str, str]] = {
         "The original request is still being processed",
     ),
     "PACK_UNAVAILABLE": ("unsupported_market", "Verification route unavailable"),
+    # the country registry does not open this capability in this country (the country gate, EDR-001; CR-088)
+    "COUNTRY_CAPABILITY_UNAVAILABLE": ("unsupported_market", "Verification route unavailable"),
     "SOURCE_NOT_COVERED": ("unsupported_market", "Verification route unavailable"),
     "SOURCE_CONTRACT_NOT_IN_FORCE": ("unsupported_market", "Verification route unavailable"),
     "DEPENDENCY_UNAVAILABLE": ("provider_unavailable", "Provider unavailable"),

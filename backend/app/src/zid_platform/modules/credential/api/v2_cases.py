@@ -31,13 +31,17 @@ from zid_platform.modules.credential.api.v2 import V2IssuerClaim, V2Jurisdiction
 from zid_platform.modules.credential.application import case_service as svc
 from zid_platform.modules.credential.application import v2_view as vw
 from zid_platform.modules.credential.domain import cases as cs
+from zid_platform.modules.credential.domain import engagement as eg
 from zid_platform.modules.credential.domain.claims import ClaimType
 from zid_platform.modules.credential.infrastructure import case_store
 from zid_platform.modules.verification.ports import (
+    PACK_PURPOSE,
     Capability,
+    Outcome,
     PackError,
     certification_registry,
     pack_registry,
+    policy_packs,
     resolve,
     verification_session_view,
 )
@@ -347,3 +351,113 @@ async def cancel_case(case_id: str, request: Request, caller: CallerDep) -> dict
         tasks = await case_store.load_tasks(conn, cid)
     rid, corr = _ids()
     return svc.case_view(case, tasks, request_id=rid, correlation_id=corr)
+
+
+# ------------------------------------------------------------------------------------ Zoikorum engagement decision (ZID-RCG-003 10.1)
+
+
+class V2EngagementIn(BaseModel):
+    """Step 1: the practice context, as the marketplace supplies it."""
+
+    model_config = ConfigDict(extra="forbid")
+    professional_ref: str = Field(min_length=1, max_length=128)
+    role: str = Field(min_length=1, max_length=128)
+    services: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=30)
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    subdivision: str | None = Field(default=None, pattern=r"^[A-Z]{2}-[A-Z0-9]{1,3}$")
+    profession: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    period_from: datetime
+    period_to: datetime | None = None
+    audience: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/v2/verifications/{case_id}/engagement-decision")
+async def engagement_decision(
+    case_id: str, body: V2EngagementIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """The five-step professional-engagement answer for one case: each check's own result, the market and profession pack, qualification and
+    practice eligibility kept apart (never one VERIFIED), an audience-bound expiry with the evidence it rests on, and when to refresh. Whether to
+    accept the engagement stays with the marketplace."""
+    cid = str(_uuid(case_id, "case_"))
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="credential.read", resource=f"verification-case:{cid}"
+        )
+        case = await case_store.load_case(conn, cid)
+        if case is None:
+            raise ZidError("NOT_FOUND", "Not found.", http_status=404)
+        case = await svc.settle(conn, cid, now)
+        tasks = await case_store.load_tasks(conn, cid)
+        res = await policy_packs.governing_pack(
+            conn,
+            country=body.country,
+            product=Capability.INDIVIDUAL_VERIFICATION.value,
+            purpose=PACK_PURPOSE,
+            at=now,
+            subdivision=body.subdivision,
+            profession=body.profession,
+        )
+    p = res.pack
+    pack = eg.Pack(
+        applicable=res.outcome is Outcome.APPLICABLE,
+        reason=res.reason,
+        pack_ref=f"{p.pack_id}:v{p.version}" if p else None,
+        evidence_minimum=tuple(p.rules.evidence_minimum) if p else (),
+        validity_days=p.rules.validity_days if p else None,
+    )
+    engagement = eg.Engagement(
+        body.professional_ref,
+        body.role,
+        tuple(body.services),
+        body.country,
+        body.subdivision,
+        body.profession,
+        body.period_from,
+        body.period_to,
+    )
+    d = eg.decide(
+        engagement,
+        [
+            eg.Task(
+                t["check_kind"],
+                t["outcome"],
+                f"cred_{t['credential_check_id']}"
+                if t["credential_check_id"]
+                else (
+                    f"ver_{t['identity_verification_id']}"
+                    if t["identity_verification_id"]
+                    else None
+                ),
+            )
+            for t in tasks
+        ],
+        pack,
+        case_expires_at=case["expires_at"],
+        now=now,
+    )
+    rid, corr = _ids()
+    return {
+        "request_id": rid,
+        "correlation_id": corr,
+        "case_id": f"case_{cid}",
+        "engagement": body.model_dump(mode="json", exclude={"audience"}),
+        "credential_truth": d.results,
+        "regulatory_rules": {
+            "pack": pack.pack_ref,
+            "applicable": pack.applicable,
+            "reason": pack.reason,
+            "evidence_minimum": list(pack.evidence_minimum),
+        },
+        "qualification": d.qualification,
+        "practice_eligibility": d.practice_eligibility,
+        "reasons": list(d.reasons),
+        "assertion": {
+            "audience": body.audience,
+            "expires_at": d.expires_at.isoformat(),
+            "evidence_refs": list(d.evidence_refs),
+            "revocable": True,
+        },
+        "refresh_by": d.refresh_by.isoformat(),
+        "engagement_acceptance": "DECIDED_BY_MARKETPLACE",
+    }

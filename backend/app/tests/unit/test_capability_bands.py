@@ -334,7 +334,7 @@ def test_the_meter_register_is_the_records_eight_meters_plus_the_cr070_and_cr088
             "data.retention",
             "credential.check",  # CR-070: definitions only, added on the engineering owner's instruction (2026-11-12)
             "credential.sensitive_check",
-            "screening.check",  # CR-088: definitions backed by usage-only meters, unpriced
+            "screening.check",  # CR-090: definitions backed by usage-only meters, unpriced
             "screening.monitor_period",
         }
     )

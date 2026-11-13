@@ -24,7 +24,7 @@ from zid_platform.modules.verification.domain.entitlement import (
     Status,
     changes,
 )
-from zid_platform.modules.verification.infrastructure import entitlement_store as store
+from zid_platform.modules.verification.infrastructure import contract_entitlement_store as store
 from zid_platform.modules.verification.infrastructure.country_registry import parse
 
 NOW = datetime.now(UTC)
@@ -127,7 +127,7 @@ def _raw_insert(scope: Scope, *, effective_at: datetime, terms: str = "TERMS-1")
     async def work(c: Any) -> None:
         await c.execute(
             text(
-                "INSERT INTO verify.provider_entitlement (grant_id, provider, country, capability, purpose, status, effective_at, valid_from, "
+                "INSERT INTO verify.provider_contract_entitlement (grant_id, provider, country, capability, purpose, status, effective_at, valid_from, "
                 "valid_until, contract_ref, terms_ref, recorded_by, recorded_at) VALUES (:id, :p, :c, :k, :u, 'GRANTED', :ea, :ea, NULL, "
                 "'CONTRACT-1', :t, 'vera', now())"
             ),
@@ -171,11 +171,15 @@ def test_the_table_refuses_what_the_domain_would_refuse_even_when_the_domain_is_
 
     _refused(
         rt_url,
-        sql("UPDATE verify.provider_entitlement SET status = 'GRANTED' WHERE provider = :p"),
+        sql(
+            "UPDATE verify.provider_contract_entitlement SET status = 'GRANTED' WHERE provider = :p"
+        ),
         "append-only",
     )
     _refused(
-        owner_url, sql("DELETE FROM verify.provider_entitlement WHERE provider = :p"), "append-only"
+        owner_url,
+        sql("DELETE FROM verify.provider_contract_entitlement WHERE provider = :p"),
+        "append-only",
     )
 
 

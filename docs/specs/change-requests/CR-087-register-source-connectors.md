@@ -1,6 +1,6 @@
 # CR-087: Official-register connectors
 
-Status: open (framework, simulator and preserved responses built and unit-tested; the API route and real connectors are not built yet).
+Status: open (built and tested; real connectors wait for each register's contract and documented interface).
 
 ## Why
 ZID-RCG-003 RCG-G02 and section 05 require certification to be a fact read from the official register, kept fresh. CR-073 lets an operator
@@ -17,6 +17,11 @@ own claims.
 - `verification/application/register_refresh.py`: refresh one scope: check the source, read, preserve the response, record the attestation.
 - Migration `verification_0012`: `verify.register_response`, append-only, keyed by the sha256 of the body (the table checks it).
 
+## Also built
+- `GET /v1/regulatory/register-sources` and `POST /v1/regulatory/attestations:refresh` (regulatory.attestation.record, audited, announces
+  `verification.certification.changed`).
+- Worker step `register_refresh`: asks the register again for every connector-recorded scope older than a day, each in its own savepoint.
+- Console: Suppliers > Official-register sources, with "Ask the register".
+
 ## Not in this change
-- The operator route to trigger a refresh and a scheduled refresh job.
 - Real connectors: each needs the register's documented interface and the contract or licence recorded first.

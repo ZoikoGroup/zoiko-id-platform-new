@@ -35,7 +35,10 @@ from zid_platform.modules.verification.domain.countries import Capability
 from zid_platform.modules.verification.domain.entitlement import Grant
 from zid_platform.modules.verification.domain.entitlement import Scope as EntScope
 from zid_platform.modules.verification.domain.entitlement import Status as EntStatus
-from zid_platform.modules.verification.infrastructure import attestation_store, entitlement_store
+from zid_platform.modules.verification.infrastructure import attestation_store
+from zid_platform.modules.verification.infrastructure import (
+    contract_entitlement_store as entitlement_store,
+)
 
 CAP = Capability.INDIVIDUAL_VERIFICATION
 

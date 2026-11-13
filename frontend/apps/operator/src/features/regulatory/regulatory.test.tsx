@@ -12,6 +12,7 @@ const HASH = "ab".repeat(32);
 const fake = vi.hoisted(() => ({
   regulatory: {
     readiness: vi.fn(),
+    offerings: vi.fn(),
     releases: vi.fn(),
     marketStatus: vi.fn(),
     approveRelease: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("@/lib/runtime", () => ({
 import { ClaimsPage } from "./claims";
 import { ConformancePage } from "./conformance";
 import { HoldsPage } from "./holds";
+import { OfferingsPage } from "./offerings";
 import { ReadinessPage } from "./readiness";
 import { ReleasesPage } from "./releases";
 
@@ -50,6 +52,31 @@ function mount(node: ReactNode) {
     </QueryClientProvider>,
   );
 }
+
+describe("service offerings", () => {
+  it("shows where each offering is available and, on request, every reason it is not", async () => {
+    fake.regulatory.offerings.mockResolvedValue({
+      items: [
+        {
+          offering_id: "GLOBAL_APIS_INTEGRATIONS", title: "Global APIs & integrations", wording: "Provide APIs.", capabilities: [], biometric: false,
+          cases: ["T34"], code: ["modules/webhook"], countries: [{ country: "GB", status: "AVAILABLE", reasons: [] }, { country: "US", status: "AVAILABLE", reasons: [] }],
+        },
+        {
+          offering_id: "IDENTITY_DOCUMENTS", title: "Identity & documents", wording: "Confirm identities.", capabilities: ["INDIVIDUAL_VERIFICATION"], biometric: false,
+          cases: ["T01"], code: ["modules/verification"],
+          countries: [{ country: "GB", status: "NOT_AVAILABLE", reasons: ["PRIVACY_OVERLAY_MISSING", "TEST_NOT_PASSED:T01"] }],
+        },
+      ],
+    });
+    mount(<OfferingsPage />);
+    expect(await screen.findByText("GB, US")).toBeTruthy();
+    expect(screen.getByText("Nowhere yet")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Why: Identity & documents" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("PRIVACY_OVERLAY_MISSING")).toBeTruthy();
+    expect(within(dialog).getByText("TEST_NOT_PASSED:T01")).toBeTruthy();
+  });
+});
 
 describe("enforce readiness", () => {
   it("shows per market what enforce would refuse, the switch modes and empty configuration", async () => {

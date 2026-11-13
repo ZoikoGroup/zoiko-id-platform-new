@@ -112,7 +112,7 @@ meters:
     existing_meter: SCREEN_CHECK
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-088).
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
     bill_on_commit: false
     priced: false
   screening.monitor_period:
@@ -122,7 +122,7 @@ meters:
     existing_meter: SCREEN_MONITOR_PERIOD
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-088).
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
     bill_on_commit: false
     priced: false
   credential.sensitive_check:

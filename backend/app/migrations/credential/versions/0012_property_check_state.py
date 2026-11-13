@@ -1,7 +1,7 @@
 """The last property-check answer per property and host, kept so a CHANGE can be announced (ZID-INT-002 section 13; CR-071).
 
-Revision ID: credential_0013
-Revises: credential_0012
+Revision ID: credential_0012
+Revises: credential_0011
 Create Date: 2026-11-12
 
 `POST /v2/rooms/property-checks` was stateless, so nothing could say "the authority for this property changed". This keeps one row per
@@ -11,8 +11,8 @@ outcomes only, never a document, a name, an address or any text from evidence.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "credential_0013"
-down_revision = "credential_0012"
+revision = "credential_0012"
+down_revision = "credential_0011"
 branch_labels = None
 depends_on = None
 
