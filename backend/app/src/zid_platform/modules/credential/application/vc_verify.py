@@ -78,6 +78,9 @@ class VcOutcome:
         False  # the typed trust table vouches for this issuer for this credential type
     )
     issuer_known: bool = False  # the issuer is in the typed trust table at all; if not, the signature could not even be tried
+    issued_at: datetime | None = (
+        None  # the credential's own issue date (validFrom), used to judge a register listing on the day it was issued
+    )
 
     def to_contract(self) -> dict[str, Any]:
         r = self.result
@@ -218,6 +221,7 @@ def _conclude(
         tuple(t for t in vcdm._types(dict(doc)) if t != "VerifiableCredential"),
         proof_valid and in_registry,
         issuer_known,
+        parsed["valid_from"],
     )
 
 

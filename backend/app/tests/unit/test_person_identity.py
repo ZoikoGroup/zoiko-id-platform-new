@@ -188,3 +188,18 @@ def test_a_name_in_a_script_the_scorer_cannot_read_goes_to_a_person_and_is_never
     ident = {"family_name": "山田", "given_name": "太郎", "birth_date": "1980-05-05"}
     verdict, why = check_expected(ident, Expected(family_name="Yamada", given_name="Taro"))
     assert verdict == "AMBIGUOUS" and why == "SCRIPT_NOT_COMPARABLE"
+
+
+def test_a_register_refusal_stops_an_otherwise_good_credential() -> None:
+    o = decide(replace(GOOD, register_refusal=("PID_PROVIDER_NOT_LISTED",)))
+    assert o.status == "INDETERMINATE" and o.reasons == ("PID_PROVIDER_NOT_LISTED",)
+    assert not o.person_identity_established and o.identity == {}
+
+
+def test_a_register_refusal_never_hides_a_revoked_or_forged_credential() -> None:
+    refusal = ("PID_PROVIDER_NOT_LISTED",)
+    assert (
+        decide(replace(GOOD, status=CredentialStatus.REVOKED, register_refusal=refusal)).status
+        == "NOT_VERIFIED"
+    )
+    assert decide(replace(GOOD, integrity=False, register_refusal=refusal)).status == "NOT_VERIFIED"

@@ -55,6 +55,8 @@ class PersonCredentialFacts:
     issuer_known: bool = (
         True  # in the typed trust table at all; False means the signature could not even be tried
     )
+    # why an official register does not vouch for this issuer where one must (an EU PID provider); empty means nothing stands in the way
+    register_refusal: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +121,8 @@ def decide(
         )
     if not facts.issuer_trusted_for_type:
         return PersonIdentityOutcome("INDETERMINATE", ("ISSUER_NOT_TRUSTED_FOR_IDENTITY",))
+    if facts.register_refusal:
+        return PersonIdentityOutcome("INDETERMINATE", facts.register_refusal)
     if facts.status is not CredentialStatus.ACTIVE:
         return PersonIdentityOutcome("INDETERMINATE", ("CREDENTIAL_STATUS_NOT_CONFIRMED",))
     if not facts.holder_bound:

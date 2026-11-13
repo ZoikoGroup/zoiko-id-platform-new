@@ -23,7 +23,13 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.credential.api.trust import _jsonld_contexts
-from zid_platform.modules.credential.application import identity_match, vc_verify, verifier
+from zid_platform.modules.credential.application import (
+    eudi_gate,
+    identity_match,
+    vc_verify,
+    verifier,
+)
+from zid_platform.modules.credential.domain import eudi
 from zid_platform.modules.credential.domain import person_identity as pi
 from zid_platform.modules.credential.domain.claims import SubjectMatch
 from zid_platform.modules.credential.domain.credentials import CredentialError
@@ -109,6 +115,33 @@ def check_expected(identity: dict[str, str], expected: Expected) -> tuple[str, s
     return decision.value, reason
 
 
+async def _pid_provider_refusal(
+    request: Request,
+    caller: Caller,
+    attestation_type: str,
+    out: vc_verify.VcOutcome,
+    country: str | None,
+) -> tuple[str, ...]:
+    """An EU PID counts as evidence of identity only when an official-register attestation (CR-073) lists its issuer as a PID provider for that Member
+    State on the day the credential was issued (Document 03 RCG-G11: a service is accepted only when the exact listed provider and service held the
+    status on the relevant date). Anything missing is a refusal, never a default: no country, no issue date, no listing."""
+    if not country:
+        return ("PID_MEMBER_STATE_REQUIRED",)
+    if out.issued_at is None or out.issuer_id is None:
+        return ("PID_ISSUE_DATE_UNKNOWN",)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        klass, reasons = await eudi_gate.classify_presented(
+            conn,
+            attestation_type=attestation_type,
+            issuer_entity=out.issuer_id,
+            issuer_country=country,
+            issued_at=out.issued_at,
+        )
+    if klass is eudi.AttestationClass.PID:
+        return ()
+    return tuple(reasons) or ("PID_PROVIDER_NOT_LISTED",)
+
+
 @router.post("/v2/identity/credential-verify")
 async def verify_identity_credential(
     body: V2IdentityIn, request: Request, caller: CallerDep
@@ -146,6 +179,12 @@ async def verify_identity_credential(
                 e.code, e.code.replace("_", " ").capitalize() + ".", http_status=422
             ) from e
     r = out.result
+    register_refusal: tuple[str, ...] = ()
+    pid_types = [t for t in out.credential_types if eudi.PID_TYPE.match(t)]
+    if pid_types and out.issuer_trusted:
+        register_refusal = await _pid_provider_refusal(
+            request, caller, pid_types[0], out, body.jurisdiction
+        )
     outcome = pi.decide(
         pi.PersonCredentialFacts(
             integrity=r.integrity,
@@ -155,6 +194,7 @@ async def verify_identity_credential(
             credential_types=out.credential_types,
             claims=out.subject_claims,
             issuer_known=out.issuer_known,
+            register_refusal=register_refusal,
         ),
         _policy(),
         today=now.date(),
