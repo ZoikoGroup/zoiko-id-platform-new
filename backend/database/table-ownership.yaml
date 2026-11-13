@@ -64,6 +64,21 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-COM-WF-2026-11 WF-I05: the append-only staged rollout, pause and rollback log of each market of the active matrix"
+  commercial.partner:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 WF-I06, P01: a reseller, referral or embedded partner: its signed agreement reference, territory and bill-to; terms fixed once active"
+  commercial.partner_child:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 WF-I06, P01: the child tenants a partner may act for, with downstream consent; one live channel per child; revoked, never deleted"
+  commercial.partner_settlement:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 WF-I06, P01: a commission, billing report or credit-note proposal for a partner, decided once by a second person; pays nothing"
   commercial.solution_draft:
     role: cell
     module: commercial

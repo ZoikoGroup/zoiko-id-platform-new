@@ -994,6 +994,152 @@
         "title": "OverrideBody",
         "type": "object"
       },
+      "PartnerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agreement_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Agreement Ref",
+            "type": "string"
+          },
+          "bill_to": {
+            "enum": [
+              "PARTNER",
+              "CHILD"
+            ],
+            "title": "Bill To",
+            "type": "string"
+          },
+          "brand_terms_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Terms Ref"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Until"
+          },
+          "kind": {
+            "enum": [
+              "RESELLER",
+              "REFERRAL",
+              "EMBEDDED_ISV"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_tenant_id": {
+            "format": "uuid",
+            "title": "Parent Tenant Id",
+            "type": "string"
+          },
+          "settlement_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Ref"
+          },
+          "territory": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Territory",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "parent_tenant_id",
+          "bill_to",
+          "territory",
+          "agreement_ref"
+        ],
+        "title": "PartnerBody",
+        "type": "object"
+      },
+      "PartnerChildBody": {
+        "additionalProperties": false,
+        "properties": {
+          "child_tenant_id": {
+            "format": "uuid",
+            "title": "Child Tenant Id",
+            "type": "string"
+          },
+          "downstream_consent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downstream Consent Ref"
+          },
+          "usage_visible": {
+            "default": false,
+            "title": "Usage Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "child_tenant_id"
+        ],
+        "title": "PartnerChildBody",
+        "type": "object"
+      },
+      "PartnerStatusBody": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "TERMINATED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PartnerStatusBody",
+        "type": "object"
+      },
       "PaymentCustomerBody": {
         "additionalProperties": false,
         "properties": {
@@ -1579,6 +1725,71 @@
           "status"
         ],
         "title": "ServiceRequestMove",
+        "type": "object"
+      },
+      "SettlementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "COMMISSION",
+              "BILLING_REPORT",
+              "CREDIT_NOTE"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "period": {
+            "format": "date",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "kind",
+          "amount",
+          "currency"
+        ],
+        "title": "SettlementBody",
+        "type": "object"
+      },
+      "SettlementDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approve",
+          "reason"
+        ],
+        "title": "SettlementDecisionBody",
         "type": "object"
       },
       "SignBody": {
@@ -4229,6 +4440,504 @@
           }
         },
         "summary": "Refund Activation",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partner-settlements/{settlement_id}:decide": {
+      "post": {
+        "operationId": "decide_partner_settlement_v1_commercial_partner_settlements__settlement_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "settlement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Settlement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlementDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Partner Settlement V1 Commercial Partner Settlements  Settlement Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Partner Settlement",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners": {
+      "get": {
+        "operationId": "list_partners_v1_commercial_partners_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Partners V1 Commercial Partners Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Partners",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Record a partner as PROPOSED, with a reference to its signed channel agreement. Another person activates it; nothing is sold or paid until then.",
+        "operationId": "create_partner_v1_commercial_partners_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Partner V1 Commercial Partners Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}": {
+      "get": {
+        "operationId": "get_partner_v1_commercial_partners__partner_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Partner V1 Commercial Partners  Partner Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/children": {
+      "put": {
+        "operationId": "add_partner_child_v1_commercial_partners__partner_id__children_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerChildBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Partner Child V1 Commercial Partners  Partner Id  Children Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Partner Child",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/children/{child_tenant_id}:revoke": {
+      "post": {
+        "operationId": "revoke_partner_child_v1_commercial_partners__partner_id__children__child_tenant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "child_tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Child Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Partner Child V1 Commercial Partners  Partner Id  Children  Child Tenant Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Partner Child",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/settlements": {
+      "post": {
+        "description": "Propose a commission, a billing report or a credit note for a partner. Only where a signed settlement arrangement is on file; a second person decides it. Nothing is paid by this.",
+        "operationId": "propose_partner_settlement_v1_commercial_partners__partner_id__settlements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlementBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Partner Settlement V1 Commercial Partners  Partner Id  Settlements Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Partner Settlement",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}/usage": {
+      "get": {
+        "description": "The usage attributed to a partner in a month, reconciled once: every event carries the one payer the agreement names, and none is counted twice.",
+        "operationId": "partner_usage_v1_commercial_partners__partner_id__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Partner Usage V1 Commercial Partners  Partner Id  Usage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Partner Usage",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}:activate": {
+      "post": {
+        "operationId": "activate_partner_v1_commercial_partners__partner_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Partner V1 Commercial Partners  Partner Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Partner",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/partners/{partner_id}:status": {
+      "post": {
+        "description": "Suspend, resume or terminate. New operations stop at once; evidence already recorded is kept.",
+        "operationId": "set_partner_status_v1_commercial_partners__partner_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerStatusBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Partner Status V1 Commercial Partners  Partner Id  Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Partner Status",
         "tags": [
           "commercial"
         ]

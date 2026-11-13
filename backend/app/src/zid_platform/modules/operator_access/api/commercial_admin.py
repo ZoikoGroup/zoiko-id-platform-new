@@ -72,6 +72,8 @@ from zid_platform.modules.commercial.ports import (
     open_payment_refund,
     operator_scope,
     orders,
+    partner_model,
+    partner_store,
     payment_event_queue,
     plan_requests,
     reconcile,
@@ -121,6 +123,19 @@ _STATUS = {
     "MARKET_MATRIX_ROLE_UNKNOWN": 422,
     "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
     "ROLLOUT_STAGE_UNKNOWN": 422,
+    "PARTNER_NOT_FOUND": 404,
+    "PARTNER_NOT_PROPOSED": 409,
+    "PARTNER_SELF_ACTIVATION": 403,
+    "PARTNER_REFUSED": 409,
+    "PARTNER_STATUS_REFUSED": 409,
+    "PARTNER_TERMINATED": 409,
+    "CHILD_IS_PARTNER": 422,
+    "CHILD_ALREADY_IN_CHANNEL": 409,
+    "CHILD_NOT_FOUND": 404,
+    "SETTLEMENT_NOT_FOUND": 404,
+    "SETTLEMENT_ALREADY_DECIDED": 409,
+    "SETTLEMENT_SELF_APPROVAL": 403,
+    "SETTLEMENT_REFUSED": 409,
     "ROLLOUT_NOT_STARTED": 409,
     "ROLLOUT_ALREADY_IN_STAGE": 409,
     "ROLLOUT_NOT_LIVE": 409,
@@ -430,6 +445,269 @@ async def move_rollout(body: RolloutBody, request: Request, op: OperatorDep) -> 
         except CommercialError as e:
             raise _fail(e) from e
     return out
+
+
+class PartnerBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=160)
+    kind: Literal["RESELLER", "REFERRAL", "EMBEDDED_ISV"]
+    parent_tenant_id: uuid.UUID
+    bill_to: Literal["PARTNER", "CHILD"]
+    territory: list[Annotated[str, Field(pattern=r"^[A-Z]{2}$")]] = Field(
+        min_length=1, max_length=250
+    )
+    agreement_ref: str = Field(min_length=1, max_length=255)
+    brand_terms_ref: str | None = Field(default=None, max_length=255)
+    settlement_ref: str | None = Field(default=None, max_length=255)
+    effective_until: datetime | None = None
+
+
+class PartnerStatusBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["ACTIVE", "SUSPENDED", "TERMINATED"]
+
+
+class PartnerChildBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    child_tenant_id: uuid.UUID
+    downstream_consent_ref: str | None = Field(default=None, max_length=255)
+    usage_visible: bool = False
+
+
+class SettlementBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    period: date
+    kind: Literal["COMMISSION", "BILLING_REPORT", "CREDIT_NOTE"]
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
+class SettlementDecisionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approve: bool
+    reason: str = Field(min_length=3, max_length=500)
+
+
+def _partner_view(p: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in p.items()},
+        "territory": list(p["territory"]),
+        "effective_from": _iso(p["effective_from"]),
+        "effective_until": _iso(p["effective_until"]),
+        "created_at": _iso(p["created_at"]),
+        "activated_at": _iso(p["activated_at"]),
+    }
+
+
+@router.get("/v1/commercial/partners")
+async def list_partners(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return {"items": [_partner_view(p) for p in await partner_store.partners(conn)]}
+
+
+@router.get("/v1/commercial/partners/{partner_id}")
+async def get_partner(partner_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        p = await partner_store.get(conn, str(partner_id))
+        if p is None:
+            raise _fail(CommercialError("PARTNER_NOT_FOUND"))
+        kids = await partner_store.children(conn, str(partner_id))
+    return {
+        **_partner_view(p),
+        "children": [
+            {
+                "child_tenant_id": str(c["child_tenant_id"]),
+                "downstream_consent_ref": c["downstream_consent_ref"],
+                "usage_visible": c["usage_visible"],
+                "revoked_at": _iso(c["revoked_at"]),
+            }
+            for c in kids
+        ],
+    }
+
+
+@router.post("/v1/commercial/partners", status_code=201)
+async def create_partner(body: PartnerBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Record a partner as PROPOSED, with a reference to its signed channel agreement. Another person activates it; nothing is sold or paid until then."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            p = await partner_store.create(
+                conn,
+                name=body.name,
+                kind=body.kind,
+                parent_tenant_id=str(body.parent_tenant_id),
+                bill_to=body.bill_to,
+                territory=body.territory,
+                agreement_ref=body.agreement_ref,
+                brand_terms_ref=body.brand_terms_ref,
+                settlement_ref=body.settlement_ref,
+                effective_from=None,
+                effective_until=body.effective_until,
+                created_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return _partner_view(p)
+
+
+@router.post("/v1/commercial/partners/{partner_id}:activate")
+async def activate_partner(
+    partner_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.activate(
+                conn,
+                str(partner_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="PARTNER_ACTIVATED",
+                ref=str(partner_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/partners/{partner_id}:status")
+async def set_partner_status(
+    partner_id: uuid.UUID, body: PartnerStatusBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Suspend, resume or terminate. New operations stop at once; evidence already recorded is kept."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.set_status(conn, str(partner_id), body.status)
+            await log_change(
+                conn,
+                kind="PARTNER_STATUS",
+                ref=str(partner_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"status": body.status},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "status": body.status}
+
+
+@router.put("/v1/commercial/partners/{partner_id}/children", status_code=201)
+async def add_partner_child(
+    partner_id: uuid.UUID, body: PartnerChildBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.add_child(
+                conn,
+                str(partner_id),
+                child_tenant_id=str(body.child_tenant_id),
+                permitted_by=str(op.principal_id),
+                downstream_consent_ref=body.downstream_consent_ref,
+                usage_visible=body.usage_visible,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "child_tenant_id": str(body.child_tenant_id)}
+
+
+@router.post("/v1/commercial/partners/{partner_id}/children/{child_tenant_id}:revoke")
+async def revoke_partner_child(
+    partner_id: uuid.UUID, child_tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.revoke_child(conn, str(partner_id), str(child_tenant_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "child_tenant_id": str(child_tenant_id), "revoked": True}
+
+
+@router.get("/v1/commercial/partners/{partner_id}/usage")
+async def partner_usage(
+    partner_id: uuid.UUID,
+    request: Request,
+    op: OperatorDep,
+    month: str = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+) -> dict[str, Any]:
+    """The usage attributed to a partner in a month, reconciled once: every event carries the one payer the agreement names, and none is counted twice."""
+    first = date(int(month[:4]), int(month[5:7]), 1)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        p = await partner_store.get(conn, str(partner_id))
+        if p is None:
+            raise _fail(CommercialError("PARTNER_NOT_FOUND"))
+        events = await partner_store.attributed_events(conn, str(partner_id), first)
+    result = partner_model.reconcile(events, partner_store.model(p))
+    by_child: dict[str, dict[str, str]] = {}
+    for e in events:
+        meters = by_child.setdefault(str(e["tenant_id"]), {})
+        meters[e["meter_id"]] = str(
+            Decimal(meters.get(e["meter_id"], "0")) + Decimal(e["quantity"])
+        )
+    return {"partner_id": str(partner_id), "month": month, **result, "by_child": by_child}
+
+
+@router.post("/v1/commercial/partners/{partner_id}/settlements", status_code=201)
+async def propose_partner_settlement(
+    partner_id: uuid.UUID, body: SettlementBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Propose a commission, a billing report or a credit note for a partner. Only where a signed settlement arrangement is on file; a second person decides it. Nothing is paid by this."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            sid = await partner_store.propose_settlement(
+                conn,
+                str(partner_id),
+                period=body.period,
+                kind=body.kind,
+                amount=str(body.amount),
+                currency=body.currency,
+                proposed_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"settlement_id": sid, "status": "PROPOSED"}
+
+
+@router.post("/v1/commercial/partner-settlements/{settlement_id}:decide")
+async def decide_partner_settlement(
+    settlement_id: uuid.UUID, body: SettlementDecisionBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.decide_settlement(
+                conn,
+                str(settlement_id),
+                decider=str(op.principal_id),
+                approve=body.approve,
+                reason=body.reason,
+            )
+            await log_change(
+                conn,
+                kind="PARTNER_SETTLEMENT_DECIDED",
+                ref=str(settlement_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"approve": body.approve},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "settlement_id": str(settlement_id),
+        "status": "APPROVED" if body.approve else "REJECTED",
+    }
 
 
 @router.get("/v1/commercial/quote-requests")

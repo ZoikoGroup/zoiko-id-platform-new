@@ -85,6 +85,7 @@ from zid_platform.modules.commercial.application.stripe_webhook_service import (
 )
 from zid_platform.modules.commercial.application.transfer_gate import plan_aware_transfer_gate
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
+from zid_platform.modules.commercial.domain import partner as partner_model
 from zid_platform.modules.commercial.domain import recon_import
 from zid_platform.modules.commercial.domain.billable import (
     METERS,
@@ -118,6 +119,7 @@ from zid_platform.modules.commercial.infrastructure import (
     catalogue_store,
     enforcement_store,
     market_matrix_store,
+    partner_store,
     rollout_store,
     solution_store,
 )
@@ -264,6 +266,8 @@ __all__ = [
     "open_payment_refund",
     "operator_scope",
     "orders",
+    "partner_model",
+    "partner_store",
     "payment_event_queue",
     "plan_aware_transfer_gate",
     "plan_request_limit",
