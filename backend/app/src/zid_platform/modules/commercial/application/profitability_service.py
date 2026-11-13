@@ -9,7 +9,9 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.commercial.domain import fx as fxrules
 from zid_platform.modules.commercial.domain import profitability as pf
+from zid_platform.modules.commercial.infrastructure import fx_store
 from zid_platform.modules.commercial.infrastructure import profitability_store as store
 
 
@@ -35,6 +37,28 @@ async def report(conn: AsyncConnection, *, start: date, end: date, as_of: date) 
         totals[currency][month] += net
         tenants[(currency, month)][tenant] = tenants[(currency, month)].get(tenant, pf.ZERO) + net
 
+    cost_cur: dict[date, dict[str, Decimal]] = defaultdict(dict)
+    for cm, c in costs:
+        cost_cur[cm][c.currency] = cost_cur[cm].get(c.currency, pf.ZERO) + c.amount
+    rate_set, usd_per_unit = await fx_store.active(conn)
+    consolidated = []
+    for m in months:
+        rev = {cur: s[m] for cur, s in totals.items() if m in s}
+        cst = cost_cur.get(m, {})
+        if not rev and not cst:
+            continue
+        rev_usd, cost_usd = fxrules.to_usd(rev, usd_per_unit), fxrules.to_usd(cst, usd_per_unit)
+        whole = bool(rev_usd["complete"]) and bool(cost_usd["complete"])
+        consolidated.append(
+            {
+                "month": m.strftime("%Y-%m"),
+                "revenue": rev_usd,
+                "cost": cost_usd,
+                "margin_usd": str(Decimal(str(rev_usd["usd"])) - Decimal(str(cost_usd["usd"])))
+                if whole
+                else None,
+            }
+        )
     margins = []
     for m in months:
         month_costs = [c for cm, c in costs if cm == m]
@@ -60,12 +84,20 @@ async def report(conn: AsyncConnection, *, start: date, end: date, as_of: date) 
         "to": end.strftime("%Y-%m"),
         "margins": margins,
         "run_rate": run_rates,
+        "consolidated_usd": consolidated,
+        "fx": {
+            "version": rate_set["version"],
+            "source_ref": rate_set["source_ref"],
+            "as_of": rate_set["as_of"].isoformat(),
+        }
+        if rate_set
+        else None,
         "retention": {
             "between": [m.strftime("%Y-%m") for m in last_two],
             "by_currency": retention,
         },
         "notes": [
-            "Amounts in different currencies are never added together or converted: no FX source is approved.",
+            "Amounts in different currencies are added only as US dollars, at the active FX rate set named in `fx`; with none active, or for a currency it does not list, nothing is converted and the gap is named.",
             "A cost marked inferred comes from a quoted or estimated provider rate, not a signed tariff.",
             "Run-rate is the average of the last complete months times twelve; no growth is assumed.",
         ],

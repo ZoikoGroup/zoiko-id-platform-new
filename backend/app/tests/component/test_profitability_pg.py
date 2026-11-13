@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from conftest import ctx, engine
 from sqlalchemy import text
@@ -136,5 +137,82 @@ def test_margin_run_rate_and_retention_from_real_rows(rt_url: str, owner_url: st
         assert eur_ret["churned"] == {"companies": 1, "revenue": "100.00"}
         assert eur_ret["new"] == {"companies": 1, "revenue": "40.00"}
         assert eur_ret["gross_retention_pct"] == "50.00"
+
+    asyncio.run(run())
+
+
+def test_fx_rate_set_lifecycle_and_consolidation(rt_url: str, owner_url: str) -> None:
+    from datetime import timedelta
+
+    import pytest
+    from sqlalchemy.exc import DBAPIError
+    from zid_platform.modules.commercial.ports import fx_store
+
+    async def run() -> None:
+        author, other = str(uid()), str(uid())
+        tenant_a, tenant_b = uid(), uid()
+        async with engine(owner_url) as eng, eng.begin() as c:
+            await rated(c, tenant_a, date(2026, 9, 1), "S1", "100", currency="EUR")
+            await rated(c, tenant_b, date(2026, 9, 1), "S1", "50", currency="JPY")
+        async with engine(rt_url) as eng, eng.begin() as c:
+            # no active set: nothing but dollars is added, and the report says what it could not convert
+            base_set, _ = await fx_store.active(c)
+            made = await fx_store.create_draft(
+                c,
+                source_ref="ECB reference rates 2026-09-30",
+                as_of=date(2026, 9, 30),
+                created_by=author,
+            )
+            sid = made["set_id"]
+            with pytest.raises(Exception) as e:
+                await fx_store.activate(c, sid, activator=other, now=datetime.now(UTC))
+            assert (
+                "no rates" in str(e.value.__cause__ or e.value)
+                or getattr(e.value, "code", "") == "FX_ACTIVATION_REFUSED"
+            )
+            await fx_store.put_rate(c, sid, "EUR", "1.0850")
+            with pytest.raises(Exception) as e2:
+                await fx_store.activate(c, sid, activator=author, now=datetime.now(UTC))
+            assert getattr(e2.value, "code", "") == "FX_SELF_ACTIVATION"
+            await fx_store.activate(c, sid, activator=other, now=datetime.now(UTC))
+            for call in (
+                lambda: fx_store.put_rate(c, sid, "JPY", "0.0067"),
+                lambda: fx_store.withdraw(c, sid),
+            ):
+                with pytest.raises(Exception) as e3:
+                    await call()
+                assert getattr(e3.value, "code", "") in {"FX_SET_NOT_DRAFT"}
+            active_set, rates = await fx_store.active(c)
+            assert (
+                active_set is not None
+                and active_set["version"] >= 1
+                and rates == {"EUR": Decimal("1.085000000000")}
+            )
+            assert base_set is None or base_set["version"] < active_set["version"]
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(str(uid()))) as c:
+            out = await svc.report(
+                c, start=date(2026, 9, 1), end=date(2026, 9, 1), as_of=date(2026, 11, 13)
+            )
+        sep = next(m for m in out["consolidated_usd"] if m["month"] == "2026-09")
+        assert out["fx"]["source_ref"] == "ECB reference rates 2026-09-30"
+        assert sep["revenue"]["rates_used"] == [
+            {"currency": "EUR", "usd_per_unit": "1.085000000000"}
+        ]
+        assert sep["revenue"]["not_converted"] == ["JPY"] and sep["revenue"]["complete"] is False
+        assert sep["margin_usd"] is None, (
+            "a margin is only stated when every currency could be converted"
+        )
+        # the database refuses to change an active set or its rates, and never deletes it
+        async with engine(owner_url) as eng:
+            for sql in (
+                "UPDATE commercial.fx_rate SET usd_per_unit = 2",
+                "DELETE FROM commercial.fx_rate",
+                "UPDATE commercial.fx_rate_set SET source_ref = 'edited' WHERE status = 'ACTIVE'",
+                "DELETE FROM commercial.fx_rate_set WHERE status = 'ACTIVE'",
+            ):
+                with pytest.raises(DBAPIError):
+                    async with eng.begin() as c:
+                        await c.execute(text(sql))
+        _ = timedelta
 
     asyncio.run(run())

@@ -89,6 +89,16 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "ZID-COM-WF-2026-11 CW-11: the append-only draw-down of an issued invoice against a purchase order; the invoice document and its hash chain are untouched"
+  commercial.fx_rate_set:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 section 05.2: a versioned FX rate set with a named source; DRAFT, activated by a different person, immutable once active; no default rates"
+  commercial.fx_rate:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 section 05.2: the USD-per-unit rates of one FX rate set; changeable only while the set is a DRAFT"
   commercial.solution_draft:
     role: cell
     module: commercial

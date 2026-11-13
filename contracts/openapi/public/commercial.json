@@ -634,6 +634,56 @@
         "title": "ExecuteBody",
         "type": "object"
       },
+      "FxRateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "usd_per_unit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Usd Per Unit"
+          }
+        },
+        "required": [
+          "currency",
+          "usd_per_unit"
+        ],
+        "title": "FxRateBody",
+        "type": "object"
+      },
+      "FxSetBody": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date",
+            "title": "As Of",
+            "type": "string"
+          },
+          "source_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Source Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_ref",
+          "as_of"
+        ],
+        "title": "FxSetBody",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3818,6 +3868,216 @@
         "summary": "Execute Request",
         "tags": [
           "commercial-finance"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets": {
+      "get": {
+        "operationId": "list_fx_sets_v1_commercial_fx_rate_sets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Fx Sets V1 Commercial Fx Rate Sets Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Fx Sets",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "A draft rate set with its named source and as-of date. There are no default rates: the owner supplies each one from the named source.",
+        "operationId": "create_fx_set_v1_commercial_fx_rate_sets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxSetBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Fx Set V1 Commercial Fx Rate Sets Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Fx Set",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}/rates": {
+      "put": {
+        "operationId": "put_fx_rate_v1_commercial_fx_rate_sets__set_id__rates_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxRateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Fx Rate V1 Commercial Fx Rate Sets  Set Id  Rates Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Fx Rate",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}:activate": {
+      "post": {
+        "operationId": "activate_fx_set_v1_commercial_fx_rate_sets__set_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Fx Set V1 Commercial Fx Rate Sets  Set Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Fx Set",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/fx-rate-sets/{set_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_fx_set_v1_commercial_fx_rate_sets__set_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Fx Set V1 Commercial Fx Rate Sets  Set Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Fx Set",
+        "tags": [
+          "commercial"
         ]
       }
     },

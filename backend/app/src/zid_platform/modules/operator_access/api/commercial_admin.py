@@ -62,6 +62,7 @@ from zid_platform.modules.commercial.ports import (
     family_registry,
     finance,
     freeze_month,
+    fx_store,
     invoicing,
     ledger_summary,
     log_change,
@@ -126,6 +127,12 @@ _STATUS = {
     "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
     "ROLLOUT_STAGE_UNKNOWN": 422,
     "PARTNER_NOT_FOUND": 404,
+    "FX_SET_NOT_FOUND": 404,
+    "FX_SET_NOT_DRAFT": 409,
+    "FX_SELF_ACTIVATION": 403,
+    "FX_SET_REFUSED": 409,
+    "FX_RATE_REFUSED": 422,
+    "FX_ACTIVATION_REFUSED": 409,
     "PO_NUMBER_EXISTS": 409,
     "PO_NOT_OPEN": 409,
     "PO_REFUSED": 409,
@@ -823,6 +830,96 @@ async def profitability(
             conn, start=start, end=end, as_of=datetime.now(UTC).date()
         )
         return out
+
+
+class FxSetBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_ref: str = Field(min_length=3, max_length=255)
+    as_of: date
+
+
+class FxRateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    usd_per_unit: Decimal = Field(gt=0, max_digits=24, decimal_places=12)
+
+
+@router.get("/v1/commercial/fx-rate-sets")
+async def list_fx_sets(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        out = []
+        for s in await fx_store.sets(conn):
+            out.append(
+                {
+                    "set_id": str(s["set_id"]),
+                    "version": s["version"],
+                    "status": s["status"],
+                    "source_ref": s["source_ref"],
+                    "as_of": s["as_of"].isoformat(),
+                    "rates": {
+                        k: str(v) for k, v in (await fx_store.rates(conn, str(s["set_id"]))).items()
+                    },
+                }
+            )
+    return {"items": out}
+
+
+@router.post("/v1/commercial/fx-rate-sets", status_code=201)
+async def create_fx_set(body: FxSetBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """A draft rate set with its named source and as-of date. There are no default rates: the owner supplies each one from the named source."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            return await fx_store.create_draft(
+                conn, source_ref=body.source_ref, as_of=body.as_of, created_by=str(op.principal_id)
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.put("/v1/commercial/fx-rate-sets/{set_id}/rates")
+async def put_fx_rate(
+    set_id: uuid.UUID, body: FxRateBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.put_rate(conn, str(set_id), body.currency, str(body.usd_per_unit))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "currency": body.currency}
+
+
+@router.post("/v1/commercial/fx-rate-sets/{set_id}:activate")
+async def activate_fx_set(set_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.activate(
+                conn, str(set_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="FX_RATE_SET_ACTIVATED",
+                ref=str(set_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/fx-rate-sets/{set_id}:withdraw")
+async def withdraw_fx_set(set_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.withdraw(conn, str(set_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "status": "WITHDRAWN"}
 
 
 @router.get("/v1/commercial/quote-requests")

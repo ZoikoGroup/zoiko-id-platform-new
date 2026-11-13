@@ -860,6 +860,8 @@ export function createOperatorApi(t: Transport) {
       /** The market matrices, newest first, and one with its rows, signatures and what is still missing. */
       marketMatrices: () => get<M.Items<M.MarketMatrixSummary>>("/v1/commercial/market-matrices"),
       marketMatrix: (id: string) => get<M.MarketMatrixDetail>(`/v1/commercial/market-matrices/${seg(id)}`),
+      /** FX rate sets for reporting: a named source, USD per unit, activated by a different person. There are no default rates. */
+      fxRateSets: () => get<M.Items<M.FxRateSet>>("/v1/commercial/fx-rate-sets"),
       /** Where each market of the active matrix is in its staged rollout. */
       marketRollout: () => get<M.Items<M.MarketRolloutItem>>("/v1/commercial/market-rollout"),
       /** Every company's saved configuration sent for a quote, for the deal desk. */

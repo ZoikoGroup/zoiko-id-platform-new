@@ -1,6 +1,6 @@
 "use client";
 
-import type { MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
+import type { FxRateSet, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
 import { Badge, Banner, Card, CopyId, DataTable, EmptyState, type Column } from "@zoiko/ui";
 import { Globe2 } from "lucide-react";
 import { useState } from "react";
@@ -21,6 +21,7 @@ export function MarketView() {
       </Banner>
       <MatricesCard />
       <RolloutCard />
+      <FxCard />
       <QuoteRequestsCard />
     </div>
   );
@@ -117,6 +118,24 @@ function QuoteRequestsCard() {
     <Card title="Quote requests" description="Saved configurations sent for a quote, with what was judged at the time. Nothing here is a price or a commitment." padded={false}>
       <QueryView query={list}>
         {(d) => <DataTable<QuoteRequestItem> caption="Quote requests from companies" columns={columns} rows={d.items} rowKey={(q) => q.draft_id} empty={<EmptyState title="No requests" icon={Globe2}>A request appears when a company sends a saved configuration.</EmptyState>} />}
+      </QueryView>
+    </Card>
+  );
+}
+
+function FxCard() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "fx-sets"], (api) => api.commercial.fxRateSets());
+  const columns: Column<FxRateSet>[] = [
+    { key: "v", header: "Version", pinned: true, render: (f) => `v${f.version}`, sortValue: (f) => f.version },
+    { key: "s", header: "Status", render: (f) => <Badge tone={f.status === "ACTIVE" ? "ok" : f.status === "DRAFT" ? "info" : "neutral"} size="xs">{f.status}</Badge> },
+    { key: "i", header: "Rate set ID", render: (f) => <CopyId value={f.set_id} label="rate set" /> },
+    { key: "src", header: "Source", render: (f) => `${f.source_ref} (as of ${f.as_of})` },
+    { key: "r", header: "USD per unit", render: (f) => Object.entries(f.rates).map(([c, r]) => `${c} ${r}`).join(", ") || "none yet" },
+  ];
+  return (
+    <Card title="FX rate sets" description="Used only to total reports in dollars. There are no default rates: with no active set, nothing but dollars is added." padded={false}>
+      <QueryView query={list}>
+        {(d) => <DataTable<FxRateSet> caption="FX rate sets" columns={columns} rows={d.items} rowKey={(f) => f.set_id} empty={<EmptyState title="No rate set" icon={Globe2}>Create a draft with a named source in the actions below.</EmptyState>} />}
       </QueryView>
     </Card>
   );
