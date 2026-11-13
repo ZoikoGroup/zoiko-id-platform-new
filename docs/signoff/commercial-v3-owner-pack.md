@@ -11,6 +11,9 @@ The document's own rule governs everything here: do not authorize live commercia
 | An ACTIVE market matrix | Every service answers REQUEST_QUOTE. No price, no availability claim. |
 | A rollout to CANARY or PRODUCTION for a market | That market is "designed, not released": not sellable. |
 | A signed price book | No price is shown anywhere. The builder estimate is empty. |
+| An active family rate card | No service shows a rate and the public estimate prices nothing: every service reads Quote required. |
+| A signed pricing page file (Founder and CCO) | The plan packaging is shown as being finalised. |
+| An active privacy notice | The inquiry form shows a marked draft notice, and each inquiry records that draft's version. |
 | An active FX rate set | Reports total in dollars only; other currencies are named, never converted. |
 | Founder and CFO signatures on the finance policy | The finance instruments refuse to open in a deployed environment. |
 | Enforcement switched on | The market gate and the verification observer record what they would have refused, and block nothing. |
@@ -27,6 +30,19 @@ The document's own rule governs everything here: do not authorize live commercia
 | 6 | Reseller margins and settlement | Partnerships, Finance | A signed channel agreement, territory, who is billed, and any settlement arrangement | Partner records: agreement and settlement references; settlement proposals | Partner gate, one live channel per child, reconciliation, settlement entries that pay nothing and need a second person |
 | 7 | Trials, credits and renewal | Product, CFO, CCO | Duration, entitlements and what happens at the end | Finance policy (pilot instrument); order terms | Pilots are finite, non-cash, never converted automatically (CAT-26) |
 | 8 | Data-residency premium or sovereignty | Product, Legal | An approved deployment, cost model and legal scope before anything called sovereign is sold | Market matrix `data_region` per row | Region is judged per market; a region with no row is refused |
+
+## The public pricing page (ZID-UX-PRICE-004)
+
+Everything the owners must supply, and where each goes. None of these has a default value in the repository.
+
+| What | Who | Where it is entered | How it is approved |
+|---|---|---|---|
+| Family rates: per service, payer country and period; currency, charge unit, units included, amount per unit, and a minimum that is a spend floor or a platform fee | CFO, CCO, Founder | Operator console, Commercial, Market release: "Family rate cards", actions "Set one rate" or "Import many rates" | Three different people sign, each for a role they hold, none the author; a fourth action activates. An active card never changes. |
+| Plan names and which services each plan packages | Product, Founder | `backend/config/commercial/pricing-page.yaml` | A Founder and a CCO, as different people, sign the file by its hash on the same tab. Any change to the file removes the signatures. |
+| Privacy notice for the inquiry form | Legal, Privacy | Action "Propose the inquiry form's privacy notice" | A different person activates it. Until then visitors see a marked draft. |
+| Which countries issued documents each service covers | Legal, Product | The market matrix row field `document_issuer_countries` | The same four signatures as the matrix. |
+
+Behaviour to expect: a monthly and annual choice appears only when every priced service in the market has both an approved monthly and annual rate; an annual saving is shown only when two approved rates in one currency compute it; the estimate is never a quote, is valid for an hour, and carries a hash of exactly what was priced; a shared market link holds only the market and expires.
 
 ## Filling the market matrix
 
