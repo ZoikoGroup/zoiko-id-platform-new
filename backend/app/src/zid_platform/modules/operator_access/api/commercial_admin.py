@@ -65,6 +65,7 @@ from zid_platform.modules.commercial.ports import (
     freeze_month,
     fx_store,
     invoicing,
+    lead_store,
     ledger_summary,
     log_change,
     market_matrix_model,
@@ -129,6 +130,9 @@ _STATUS = {
     "ROLLOUT_STAGE_UNKNOWN": 422,
     "PARTNER_NOT_FOUND": 404,
     "FAMILY_TEXT_NOT_FOUND": 404,
+    "LEAD_NOT_FOUND": 404,
+    "LEAD_TRANSITION_REFUSED": 409,
+    "LEAD_REASON_REQUIRED": 422,
     "FAMILY_TEXT_NOT_DRAFT": 409,
     "FAMILY_TEXT_SELF_ACTIVATION": 403,
     "FAMILY_TEXT_REFUSED": 409,
@@ -1024,6 +1028,55 @@ async def withdraw_family_text(
         except CommercialError as e:
             raise _fail(e) from e
     return {"rev_id": str(rev_id), "status": "WITHDRAWN"}
+
+
+class LeadAdvanceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["QUALIFIED", "SCOPED", "REVIEW", "OFFER_SENT", "CLOSED", "SPAM"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/v1/commercial/sales-leads")
+async def list_sales_leads(
+    request: Request,
+    op: OperatorDep,
+    status: str | None = Query(default=None, pattern=r"^[A-Z_]{4,12}$"),
+) -> dict[str, Any]:
+    """The inquiries from the public pricing page, newest first. A lead is a conversation, never an account or a commitment."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        rows = await lead_store.leads(conn, status)
+    return {
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "capabilities": list(r["capabilities"]),
+                "created_at": _iso(r["created_at"]),
+                "updated_at": _iso(r["updated_at"]),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/v1/commercial/sales-leads/{lead_id}:advance")
+async def advance_sales_lead(
+    lead_id: uuid.UUID, body: LeadAdvanceBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Move an inquiry one step on, or close it or mark it spam with a reason. Nothing moves backwards, and none of it creates an entitlement."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await lead_store.advance(
+                conn,
+                str(lead_id),
+                to=body.status,
+                reason=body.reason,
+                decided_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"lead_id": str(lead_id), "status": body.status}
 
 
 @router.get("/v1/commercial/quote-requests")

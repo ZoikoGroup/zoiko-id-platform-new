@@ -28,13 +28,15 @@ from __future__ import annotations
 
 import csv
 import io
+import time
 import uuid
+from collections import defaultdict, deque
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from zid_db import tenant_transaction
@@ -65,21 +67,25 @@ from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import family_text as family_text_model
 from zid_platform.modules.commercial.domain import market_availability as availability
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
+from zid_platform.modules.commercial.domain import sales_lead as lead_rules
 from zid_platform.modules.commercial.domain import solution as solution_model
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
 from zid_platform.modules.commercial.domain.catalogue import CommercialError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
+from zid_platform.modules.commercial.domain.pricing_page import PUBLIC_STATE
 from zid_platform.modules.commercial.domain.service_families import check_selection
 from zid_platform.modules.commercial.infrastructure import (
     billable_store,
     family_text_store,
+    lead_store,
     market_matrix_store,
     purchase_order_store,
     solution_store,
 )
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
+from zid_platform.modules.commercial.infrastructure.pricing_page_config import pricing_page
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["commercial"])
@@ -291,6 +297,197 @@ async def market_gate_check(
             operating_region=body.operating_region,
             enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
         )
+
+
+_LEAD_WINDOW_S, _LEAD_MAX_PER_WINDOW = 600.0, 10
+_lead_recent: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _lead_rate_limit(request: Request) -> None:
+    """In-process per-address bound on public inquiries (the edge rate limiter is the production control)."""
+    key = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    q = _lead_recent[key]
+    while q and now - q[0] > _LEAD_WINDOW_S:
+        q.popleft()
+    if len(q) >= _LEAD_MAX_PER_WINDOW:
+        raise ZidError(
+            "RATE_LIMITED",
+            "Too many inquiries from this address; try again later.",
+            http_status=429,
+            retryable=True,
+            retry_after_ms=60_000,
+        )
+    q.append(now)
+
+
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
+@router.get("/v1/public/pricing/page")
+async def public_pricing_page(request: Request) -> JSONResponse:
+    """Public: the pricing page's structure (ZID-UX-PRICE-004): the three tiers and how each packages the sixteen families, the sandbox and partner paths, the use cases and the
+    disclosures. No price and no availability: those come from the price book and the market matrix. Never cached, so a catalogue revision or rollback shows at once."""
+    page = pricing_page()
+    registry = await _registry(request)
+    async with request_engine(request).begin() as conn:
+        catalogue = await service.catalogue_view(conn)
+    return JSONResponse(
+        {
+            "version": page.version,
+            "packaging_status": page.status,
+            "pricing_status": catalogue.get("status"),
+            "families": [
+                {
+                    "family": f.code, "name": f.name, "unit": f.unit, "sales_qualifier": f.sales_qualifier,
+                    "regulated": f.regulated, "depends_on": list(f.depends_on),
+                }
+                for f in registry.families.values()
+            ],
+            "tiers": [
+                {"code": t.code, "label": t.label, "fit": t.fit, "cta_kind": t.cta_kind, "cta_label": t.cta_label, "family_state": dict(t.family_state)}
+                for t in page.tiers
+            ],
+            "paths": [
+                {"code": p.code, "label": p.label, "text": p.text, "cta_kind": p.cta_kind, "cta_label": p.cta_label} for p in page.paths
+            ],
+            "use_cases": [{"code": u.code, "label": u.label, "families": list(u.families)} for u in page.use_cases],
+            "disclosures": dict(page.disclosures),
+        },
+        headers=_NO_STORE,
+    )  # fmt: skip
+
+
+@router.get("/v1/public/pricing/availability")
+async def public_availability(
+    request: Request,
+    subject_country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+    payer_country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+    issuer_country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+    operating_region: Annotated[str | None, Query(min_length=2, max_length=40)] = None,
+) -> JSONResponse:
+    """Public: where each service can be sold (WF-P06). The subject country, the payer country and the data region are judged separately against the active market matrix, its
+    rights expiry and its rollout stage. A payer who is not named leaves the service Sales-assisted: nothing is inferred from a device locale or another country. The document
+    issuer's country is recorded for a quote and is not yet a separate dimension of the matrix, and the answer says so. No price and no seller routing is ever returned."""
+    registry = await _registry(request)
+    async with request_engine(request).begin() as conn:
+        active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+    judged = _judge(
+        registry,
+        matrix_rows,
+        list(registry.families),
+        subject_country=subject_country,
+        payer_country=payer_country,
+        operating_region=operating_region,
+    )
+    cards = []
+    for c in judged:
+        m = c.get("market")
+        cards.append(
+            {
+                "family": c["family"], "name": c["name"], "unit": c["unit"], "regulated": c["regulated"],
+                "state": PUBLIC_STATE[c["state"]],
+                "reason_codes": c["causes"],
+                "reasons": c["reasons"],
+                "terms": {"seller_entity": m["seller_entity"], "currency": m["currency"], "data_region": m["data_region"]} if m else None,
+                "provider_attribution": c.get("provider_attribution"),
+            }
+        )  # fmt: skip
+    return JSONResponse(
+        {
+            "market_matrix_version": active["version"] if active else None,
+            "as_of": datetime.now(UTC).isoformat(),
+            "dimensions": {
+                "subject_country": subject_country,
+                "payer_country": payer_country,
+                "operating_region": operating_region,
+                "issuer_country": {
+                    "value": issuer_country,
+                    "judged": False,
+                    "note": "Recorded for your quote. The market matrix does not yet judge the document issuer's country as a separate dimension.",
+                },
+            },
+            "cards": cards,
+            "note": "No price is shown here. Changing the subject country, the payer or the region re-evaluates every service on the server.",
+        },
+        headers=_NO_STORE,
+    )  # fmt: skip
+
+
+class LeadIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["ENTERPRISE", "PARTNER"]
+    contact_name: str = Field(min_length=2, max_length=120)
+    work_email: str = Field(min_length=6, max_length=254)
+    company: str = Field(min_length=2, max_length=160)
+    country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")]
+    region: str | None = Field(default=None, max_length=40)
+    capabilities: list[Annotated[str, Field(min_length=2, max_length=8)]] = Field(
+        default_factory=list, max_length=16
+    )
+    volume_band: Literal["UNDER_1K", "FROM_1K_TO_10K", "FROM_10K_TO_100K", "OVER_100K", "UNSURE"]
+    entities: int | None = Field(default=None, ge=1, le=10_000)
+    referral_source: str | None = Field(default=None, max_length=80)
+    security_needs: str | None = Field(default=None, max_length=500)
+    partner_type: Literal["RESELLER", "REFERRAL", "EMBEDDED_ISV"] | None = None
+    notice_version: str = Field(min_length=1, max_length=40)
+    website: str | None = Field(
+        default=None, max_length=200
+    )  # a hidden field: a person never fills it
+
+
+@router.post("/v1/public/pricing/leads", status_code=201)
+async def public_lead(body: LeadIn, request: Request) -> JSONResponse:
+    """Public: ask Sales for a conversation (WF-P07). It writes one inquiry and nothing else: no company, entitlement, contract, mandate or payment customer is created, and no
+    identity or document data is accepted. A repeat of an open inquiry returns the same reference. Rate-limited per address."""
+    _lead_rate_limit(request)
+    registry = family_registry()
+    try:
+        lead = lead_rules.check_lead(
+            kind=body.kind, contact_name=body.contact_name, work_email=body.work_email, company=body.company, country=body.country,
+            region=body.region, capabilities=body.capabilities, volume_band=body.volume_band, entities=body.entities,
+            referral_source=body.referral_source, security_needs=body.security_needs, partner_type=body.partner_type,
+            notice_version=body.notice_version, honeypot=body.website, known_families=set(registry.families),
+        )  # fmt: skip
+    except lead_rules.LeadError as e:
+        if (
+            e.code == "SPAM_SUSPECTED"
+        ):  # answer like a success so a robot learns nothing, and store nothing
+            return JSONResponse(
+                {
+                    "reference": str(uuid.uuid4()),
+                    "status": "RECEIVED",
+                    "duplicate": False,
+                    "message": _LEAD_MESSAGE,
+                },
+                status_code=201,
+                headers=_NO_STORE,
+            )
+        raise ZidError(
+            e.code, f"The inquiry could not be accepted: {e.detail or e.code}.", http_status=422
+        ) from e
+    async with request_engine(request).begin() as conn:
+        try:
+            out = await lead_store.submit(conn, lead)
+        except CommercialError as e:
+            raise ZidError(
+                e.code,
+                e.detail or "The inquiry could not be accepted.",
+                http_status=429 if e.code == "LEAD_RATE_LIMITED" else 409,
+            ) from e
+    return JSONResponse(
+        {
+            "reference": out["lead_id"],
+            "status": out["status"],
+            "duplicate": out["duplicate"],
+            "message": _LEAD_MESSAGE,
+        },
+        status_code=200 if out["duplicate"] else 201,
+        headers=_NO_STORE,
+    )
+
+
+_LEAD_MESSAGE = "Thank you. Sales will be in touch. This inquiry has not created an account, a quote, a contract or a payment, and you will not be charged."
 
 
 @router.get("/v1/commercial/capability-dependencies")
