@@ -154,7 +154,15 @@ SPECS: Mapping[ClaimType, ClaimSpec] = {
     ),
     ClaimType.INSURANCE_ASSERTION: ClaimSpec(
         required=_f("insured_entity", "insurer", "coverage_type", "region", "expires_on"),
-        optional=_f("activities", "excluded_work"),
+        optional=_f(
+            "activities",
+            "excluded_work",
+            "coverage_limit",
+            "currency",
+            "practice_class",
+            "cover_basis",
+            "retroactive_date",
+        ),
         disallowed_inference="company coverage is not personal coverage",
     ),
     ClaimType.DISCIPLINARY_FINDING: ClaimSpec(

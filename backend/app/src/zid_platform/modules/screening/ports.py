@@ -9,6 +9,14 @@ Decision: a case is VERIFIED only with every required list current, no alert, a 
 
 from __future__ import annotations
 
+from zid_platform.modules.screening.application.monitoring_gate import (
+    MonitoringNotApproved,
+    monitoring_allowed,
+    require_monitoring,
+)
+from zid_platform.modules.screening.application.monitoring_gate import (
+    configure as configure_monitoring_scope,
+)
 from zid_platform.modules.screening.application.passes import ingest_pass, rescreen_pass
 from zid_platform.modules.screening.application.screening import (
     CaseView,
@@ -56,6 +64,7 @@ from zid_platform.modules.screening.domain.decision import (
 )
 from zid_platform.modules.screening.domain.lists import ListId, PartyKind
 from zid_platform.modules.screening.domain.matching import Party, name_score
+from zid_platform.modules.screening.domain.monitoring_scope import Kind as MonitoringKind
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
 from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES
 from zid_platform.modules.screening.domain.signals import Action as AttemptAction
@@ -75,6 +84,8 @@ __all__ = [
     "Holder",
     "HolderKind",
     "ListId",
+    "MonitoringKind",
+    "MonitoringNotApproved",
     "Party",
     "PartyKind",
     "RegisterEvidence",
@@ -88,12 +99,14 @@ __all__ = [
     "challenge_signal",
     "check_adverse_media",
     "close_for_kyb",
+    "configure_monitoring_scope",
     "due_for_rescreen",
     "get_case",
     "history",
     "ingest_list",
     "ingest_pass",
     "live_kyb_cases",
+    "monitoring_allowed",
     "name_score",
     "note_attempt",
     "open_case",
@@ -104,6 +117,7 @@ __all__ = [
     "replay",
     "request_appeal",
     "request_rescreen",
+    "require_monitoring",
     "rescreen",
     "rescreen_pass",
     "resolve_signal",

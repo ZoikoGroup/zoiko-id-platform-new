@@ -1,0 +1,22 @@
+# Zoiko's registrations as an EUDI Wallet relying party (ZID-RCG-003 RCG-G11; CR-080). Versioned configuration, not tenant data.
+# status: PROPOSED. NO registration is listed: Zoiko iD is not registered as a wallet-relying party in any Member State yet. Until one is, a request
+# to an EUDI Wallet (a PID or an EU attestation type) is reported (shadow) or refused (enforce, ZID_EUDI_WALLET) with WALLET_RP_NOT_REGISTERED.
+#
+# A registration names the Member State, its id, its status and dates, the sha-256 of the access certificate the verifier signs requests with (the
+# `x509_hash:` client id, base64url), the registration certificate reference, and for each intended use (the purpose code) the attestation types and
+# the attributes registered for it. Asking for any attribute not listed is refused. Example, kept as a comment:
+#
+#   - member_state: DE
+#     registration_id: DE-RP-2027-000123
+#     status: ACTIVE
+#     valid_from: "2027-01-01T00:00:00+00:00"
+#     access_certificate_sha256: "<base64url sha-256 of the access certificate>"
+#     registration_certificate_ref: "DE-RC-2027-000123"
+#     intended_uses:
+#       KYC_ONBOARDING:
+#         eu.europa.ec.eudi.pid.1: [family_name, given_name, birth_date]
+#
+# version: 0.1.0
+
+version: 0.1.0
+registrations: []

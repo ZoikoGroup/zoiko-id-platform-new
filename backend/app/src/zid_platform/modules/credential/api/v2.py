@@ -37,7 +37,7 @@ from zid_platform.modules.credential.domain.claims import ClaimType
 from zid_platform.modules.credential.domain.sources import coverage
 from zid_platform.modules.credential.infrastructure import claim_store, trust_store
 from zid_platform.modules.credential.infrastructure.registries import (
-    issuer_registry,
+    current_issuer_registry,
     source_contracts,
 )
 from zid_platform.modules.evidence.ports import unusable_evidence
@@ -287,7 +287,7 @@ async def evaluate(
             tenant_id=caller.ctx.tenant_id or "",
             subject=t1._subject(caller, v1_body.subject_principal_id),
             policy=policy,
-            registry=issuer_registry(),
+            registry=await current_issuer_registry(conn),
             now=_now(),
         )
         rid, cid = _ids()

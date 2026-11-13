@@ -797,7 +797,7 @@ async def register_personal_data(
     if retention_policy_code:
         # A policy the tenant has not published yet leaves due_at open; the sweeper fixes it from
         # the original trigger once the policy exists (no silent "retain forever").
-        policy = await store.active_retention_policy(conn, retention_policy_code)
+        policy = await store.active_retention_policy(conn, retention_policy_code, tenant_id)
         if policy is not None:
             due = due_at(trigger_at, int(policy.retention_days))
     return await store.upsert_data_map(
@@ -840,7 +840,7 @@ async def retention_sweep(
     for e in entries if entries is not None else await store.due_entries(conn, now, limit):
         tenant = str(e.tenant_id)
         policy = (
-            await store.active_retention_policy(conn, e.retention_policy_code)
+            await store.active_retention_policy(conn, e.retention_policy_code, str(e.tenant_id))
             if e.retention_policy_code
             else None
         )
@@ -1266,7 +1266,7 @@ async def _erase(
     for e in await store.subject_entries(conn, subject):
         name = f"{e.store}:{e.object_ref}"
         policy = (
-            await store.active_retention_policy(conn, e.retention_policy_code)
+            await store.active_retention_policy(conn, e.retention_policy_code, str(e.tenant_id))
             if e.retention_policy_code
             else None
         )

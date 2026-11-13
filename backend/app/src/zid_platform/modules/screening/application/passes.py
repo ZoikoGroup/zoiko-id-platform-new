@@ -70,11 +70,16 @@ async def rescreen_pass(
     now: datetime,
     *,
     country_gate: Callable[[str], None] | None = None,
+    monitoring_gate: Callable[[str], None] | None = None,
 ) -> dict[str, int]:
     """tenant id -> how many cases were screened again; `tenant id:held_by_country` -> how many were left alone because the
     case's country is no longer open for business verification (ZID-EDR-001: country permissions hold in jobs too). A held case
     keeps its last decision, which ages out on its own, and is looked at again on the next pass; nothing is screened, appended
-    or marked verified for a country that has been closed."""
+    or marked verified for a country that has been closed.
+
+    `monitoring_gate` (ZID-RCG-003 RCG-G12, CR-081): screening a customer again over time is ongoing monitoring, which runs only where a monitoring
+    approval covers the case's country (no global background monitoring by default). A case outside one is held the same way and counted as
+    `tenant id:held_by_monitoring_scope`."""
     tenants = [
         str(r.tenant_id)
         for r in (
@@ -83,11 +88,20 @@ async def rescreen_pass(
     ]
     out: dict[str, int] = {}
     for tenant in tenants:
-        done = held = 0
+        done = held = held_scope = 0
         async with in_tenant(conn, tenant):
             due = await screening.due_for_rescreen(conn, tenant, now=now)
             countries = await screening.case_countries(conn, due)
             for case_id in due:
+                if monitoring_gate is not None:
+                    try:
+                        monitoring_gate(countries.get(case_id, ""))
+                    except ValueError:  # not approved for ongoing monitoring: hold, never screen
+                        held_scope += 1
+                        log.warning(
+                            "rescreen of case %s held: no monitoring approval covers it", case_id
+                        )
+                        continue
                 if country_gate is not None:
                     try:
                         country_gate(countries.get(case_id, ""))
@@ -107,4 +121,6 @@ async def rescreen_pass(
         out[tenant] = done
         if held:
             out[f"{tenant}:held_by_country"] = held
+        if held_scope:
+            out[f"{tenant}:held_by_monitoring_scope"] = held_scope
     return out
