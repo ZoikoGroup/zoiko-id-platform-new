@@ -49,3 +49,14 @@ describe("pricing page copy", () => {
     expect([...copy.PLAN_ORDER]).toEqual(["DEVELOPER", "LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"]);
   });
 });
+
+describe("partner page copy", () => {
+  it("promises no price, margin, discount or checkout and makes no forbidden claim", () => {
+    const text = [copy.PARTNER_HERO, copy.PARTNER_INTRO, ...copy.PARTNER_TYPES_COPY.flatMap((t) => [t.label, t.text]), ...copy.PARTNER_TERMS.flatMap((t) => [t.label, t.text])];
+    for (const t of text) {
+      expect(t).not.toMatch(/[$€£]|\d|\bfree\b|discount|commission|margin %|guarantee|certif|complian/i);
+      for (const bad of FORBIDDEN) expect(t).not.toMatch(bad);
+    }
+    expect(copy.PARTNER_INTRO).toMatch(/no partner checkout/);
+  });
+});

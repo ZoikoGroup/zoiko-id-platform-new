@@ -10,7 +10,7 @@ const COUNTRIES = countryOptions();
 
 /** The enterprise and partner inquiry (WF-P07). It asks for the least Sales needs to reply, refuses identity numbers and links, and says plainly that sending it creates no
  * account, quote, contract or payment. The hidden field is for robots: a person never reaches it. */
-export function LeadForm({ capabilities, names, kind, onKind, notice }: { capabilities: string[]; names: Record<string, string>; kind: LeadDraft["kind"]; onKind: (k: LeadDraft["kind"]) => void; notice: PublicPricingPage["notice"] }) {
+export function LeadForm({ capabilities, names, kind, onKind, notice, lockKind = false }: { capabilities: string[]; names: Record<string, string>; kind: LeadDraft["kind"]; onKind: (k: LeadDraft["kind"]) => void; notice: PublicPricingPage["notice"]; lockKind?: boolean }) {
   const [draft, setDraft] = useState<LeadDraft>(EMPTY_LEAD);
   const [shown, setShown] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -57,6 +57,7 @@ export function LeadForm({ capabilities, names, kind, onKind, notice }: { capabi
   return (
     <Card title={kind === "PARTNER" ? "Partner inquiry" : "Request an enterprise quote"} description="Tell us what you need and Sales will reply. Nothing is bought or switched on by sending this.">
       <form onSubmit={submit} noValidate className="space-y-4" aria-describedby="lead-notice">
+        {lockKind ? null : (
         <RadioCards
           label="What are you asking about?"
           value={kind}
@@ -67,6 +68,7 @@ export function LeadForm({ capabilities, names, kind, onKind, notice }: { capabi
             { id: "PARTNER", label: "A partner arrangement", description: "Reseller, referral or embedded. Agreed by contract; never general checkout." },
           ]}
         />
+        )}
         {errorList.length ? (
           <div role="alert" className="rounded-control border border-danger-fg/40 bg-danger-bg p-3 text-sm">
             <p className="font-medium">Please fix {errorList.length === 1 ? "this" : "these"} before sending:</p>

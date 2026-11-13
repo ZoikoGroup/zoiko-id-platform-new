@@ -209,7 +209,7 @@ export function PricingExplorer({ page, initialContext, linkProblem = false }: {
               <p className="font-semibold">{p.label}</p>
               <p className="mt-1 text-ink-muted">{p.text}</p>
               <p className="mt-2">
-                <a className="font-medium text-brand-700 underline" href={p.code === "PARTNER" ? "#inquiry" : "/sign-in"} onClick={() => p.code === "PARTNER" && setKind("PARTNER")}>
+                <a className="font-medium text-brand-700 underline" href={p.code === "PARTNER" ? "/pricing/partners" : "/sign-in"}>
                   {p.cta_label}
                 </a>
               </p>

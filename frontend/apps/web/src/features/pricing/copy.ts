@@ -81,3 +81,19 @@ export const FAQ: { q: string; a: string }[] = [
 
 export const PLATFORM_NOTE =
   "These plans cover the platform itself: people, sign-ins, access decisions, machine grants and connections. Verification, credential and signature services are priced separately by service and market.";
+
+/** The partner pricing page (ZID-UX-PRICE-004 WF-P09): arrangements, never prices. Partner terms, margins and rights are agreed by contract. */
+export const PARTNER_HERO = "Partner with Zoiko iD";
+export const PARTNER_INTRO =
+  "Reseller, referral and embedded arrangements are agreed by contract. There is no partner checkout and no published partner rate: terms are set for each partner, market by market.";
+export const PARTNER_TYPES_COPY = [
+  { code: "RESELLER", label: "Reseller", text: "You contract with your own customers for services you resell. Each customer's organisation is attributed to you as a child of your partner account." },
+  { code: "REFERRAL", label: "Referral partner", text: "You introduce customers who contract with Zoiko directly. Attribution is recorded so an introduction is credited as agreed." },
+  { code: "EMBEDDED_ISV", label: "Embedded software vendor", text: "You build Zoiko iD services into your own product. Your customers use them through your application under your agreement." },
+];
+export const PARTNER_TERMS = [
+  { label: "Contract geography", text: "A partner agreement names the countries it covers. A service is offered through a partner only in a market where it has been released." },
+  { label: "Distribution rights", text: "Which services a partner may offer, and where, is set in the agreement and checked against the market release for each country." },
+  { label: "Customer attribution", text: "Each customer organisation is recorded as a child of the partner account that brought it, so billing and support follow the agreement." },
+  { label: "Regulated services", text: "Services that carry a regulatory condition are offered only where that condition is met, with or without a partner." },
+];
