@@ -1,0 +1,74 @@
+{
+ "source": "W3C VC Data Integrity ECDSA Cryptosuites v1.0, A.6 ecdsa-jcs-2019 with curve P-384 (Examples 60 to 70)",
+ "suite": "ecdsa-jcs-2019",
+ "curve": "P-384",
+ "public_key_multibase": "z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ",
+ "unsigned": {
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+  "type": [
+   "VerifiableCredential",
+   "AlumniCredential"
+  ],
+  "name": "Alumni Credential",
+  "description": "A minimum viable example of an Alumni Credential.",
+  "issuer": "https://vc.example/issuers/5678",
+  "validFrom": "2023-01-01T00:00:00Z",
+  "credentialSubject": {
+   "id": "did:example:abcdefgh",
+   "alumniOf": "The School of Examples"
+  }
+ },
+ "canonical_unsigned": "{\"@context\":[\"https://www.w3.org/ns/credentials/v2\",\"https://www.w3.org/ns/credentials/examples/v2\"],\"credentialSubject\":{\"alumniOf\":\"The School of Examples\",\"id\":\"did:example:abcdefgh\"},\"description\":\"A minimum viable example of an Alumni Credential.\",\"id\":\"urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33\",\"issuer\":\"https://vc.example/issuers/5678\",\"name\":\"Alumni Credential\",\"type\":[\"VerifiableCredential\",\"AlumniCredential\"],\"validFrom\":\"2023-01-01T00:00:00Z\"}",
+ "unsigned_hash": "3e0be671cc1881035d463158c80921973dab3534d4f8dfacf4ff2725a4115eb718e49d66de0e90e7365cd6062abf2259",
+ "proof_options": {
+  "type": "DataIntegrityProof",
+  "cryptosuite": "ecdsa-jcs-2019",
+  "created": "2023-02-24T23:36:38Z",
+  "verificationMethod": "did:key:z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ#z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ",
+  "proofPurpose": "assertionMethod",
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://www.w3.org/ns/credentials/examples/v2"
+  ]
+ },
+ "canonical_proof_options": "{\"@context\":[\"https://www.w3.org/ns/credentials/v2\",\"https://www.w3.org/ns/credentials/examples/v2\"],\"created\":\"2023-02-24T23:36:38Z\",\"cryptosuite\":\"ecdsa-jcs-2019\",\"proofPurpose\":\"assertionMethod\",\"type\":\"DataIntegrityProof\",\"verificationMethod\":\"did:key:z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ#z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ\"}",
+ "proof_options_hash": "83e5057817abb0c6872eafeaba1a9e53893c58eeb7414fb6d8aa3fa8c7917f7ad4792890b257c598baa17f4fbe6d183c",
+ "combined_hash": "83e5057817abb0c6872eafeaba1a9e53893c58eeb7414fb6d8aa3fa8c7917f7ad4792890b257c598baa17f4fbe6d183c3e0be671cc1881035d463158c80921973dab3534d4f8dfacf4ff2725a4115eb718e49d66de0e90e7365cd6062abf2259",
+ "signature_hex": "8b7462ce62db0c8ff19878c4b3561c49eb71b4a743086b6d5b0eda70ecf0afc5a03fd88eb207d66b262ed87fd200a4e8e62716e0b329c032b67726b4b0fc737a44c1cefdba2fdccb3ece74cc5845aaa93374455a726f6ee4f5f30da9427f608a",
+ "signature_base58": "zq3EuTeLiGurmB2JR5oL8oWEsT7u2tba4HT1oZbiMYWc5qzsoW2kLYcBcF4HM5vCpJyTkceULKrVXuJQkXeN5seL4uXrFNFRMm53GWy1Yrto8rTWxZi9DkNeWP7yUPs7ELAm",
+ "signed": {
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+  "type": [
+   "VerifiableCredential",
+   "AlumniCredential"
+  ],
+  "name": "Alumni Credential",
+  "description": "A minimum viable example of an Alumni Credential.",
+  "issuer": "https://vc.example/issuers/5678",
+  "validFrom": "2023-01-01T00:00:00Z",
+  "credentialSubject": {
+   "id": "did:example:abcdefgh",
+   "alumniOf": "The School of Examples"
+  },
+  "proof": {
+   "type": "DataIntegrityProof",
+   "cryptosuite": "ecdsa-jcs-2019",
+   "created": "2023-02-24T23:36:38Z",
+   "verificationMethod": "did:key:z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ#z82LkuBieyGShVBhvtE2zoiD6Kma4tJGFtkAhxR5pfkp5QPw4LutoYWhvQCnGjdVn14kujQ",
+   "proofPurpose": "assertionMethod",
+   "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+   ],
+   "proofValue": "zq3EuTeLiGurmB2JR5oL8oWEsT7u2tba4HT1oZbiMYWc5qzsoW2kLYcBcF4HM5vCpJyTkceULKrVXuJQkXeN5seL4uXrFNFRMm53GWy1Yrto8rTWxZi9DkNeWP7yUPs7ELAm"
+  }
+ }
+}

@@ -203,11 +203,16 @@ def _conclude(
 def _proof_key(
     keys: Mapping[str, Any], verification_method: str, suite: str
 ) -> data_integrity.VerificationKey | None:
-    """The issuer's PINNED key that the proof names, of the type its suite uses (Ed25519 for eddsa-rdfc-2022, P-256 for ecdsa-rdfc-2019), or None.
+    """The issuer's PINNED key that the proof names, of the type its suite uses (Ed25519 for eddsa-rdfc-2022, P-256 or P-384 for ecdsa-rdfc-2019), or None.
     A key matches when its `kid` is the verification method or its fragment; a key of another type is never used."""
     fragment = verification_method.rsplit("#", 1)[-1]
-    want = {"eddsa-rdfc-2022": ("OKP", "Ed25519"), "ecdsa-rdfc-2019": ("EC", "P-256")}.get(suite)
-    if want is None:
+    wants = {
+        "eddsa-rdfc-2022": (("OKP", "Ed25519"),),
+        "eddsa-jcs-2022": (("OKP", "Ed25519"),),
+        "ecdsa-rdfc-2019": (("EC", "P-256"), ("EC", "P-384")),
+        "ecdsa-jcs-2019": (("EC", "P-256"), ("EC", "P-384")),
+    }.get(suite)
+    if wants is None:
         return None
 
     def b64(value: str) -> bytes | None:
@@ -217,18 +222,19 @@ def _proof_key(
             return None
 
     for jwk in keys.get("keys", []):
-        if (jwk.get("kty"), jwk.get("crv")) != want or not jwk.get("x"):
+        if (jwk.get("kty"), jwk.get("crv")) not in wants or not jwk.get("x"):
             continue
         kid = str(jwk.get("kid", ""))
         if not kid or kid not in {verification_method, fragment}:
             continue
         x = b64(jwk["x"])
-        if suite == "eddsa-rdfc-2022":
+        if jwk.get("kty") == "OKP":
             return data_integrity.VerificationKey("ed25519", x) if x and len(x) == 32 else None
         y = b64(str(jwk.get("y", "")))
-        if x and y and len(x) == 32 and len(y) == 32:
+        size, kind = (32, "p256") if jwk.get("crv") == "P-256" else (48, "p384")
+        if x and y and len(x) == size and len(y) == size:
             return data_integrity.VerificationKey(
-                "p256", b"\x04" + x + y
+                kind, b"\x04" + x + y
             )  # an uncompressed SEC1 point
         return None
     return None
@@ -242,12 +248,14 @@ async def verify_vc_di(
     vc: Mapping[str, Any],
     jurisdiction: str | None,
     now: datetime,
+    holder_presentation: Mapping[str, Any] | None = None,
 ) -> VcOutcome:
     """A JSON-LD credential secured by a Data Integrity proof (eddsa-rdfc-2022 or ecdsa-rdfc-2019), verified offline against the issuer's PINNED key.
 
     The issuer must be in the typed trust table for this credential type, and the proof must name a key that table holds: a good signature from
-    a key nobody vouched for is integrity at most. There is no holder binding here (that is a vp+jwt presentation), so such a credential is
-    never accepted as a claim on its own. Contexts come only from the hash-pinned bundle; nothing is fetched."""
+    a key nobody vouched for is integrity at most. Holder binding needs a holder-signed presentation (`holder_presentation`, see
+    `holder_bound_di`); without a bound holder such a credential is never accepted as a claim on its own. Contexts come only from the
+    hash-pinned bundle; nothing is fetched."""
     doc = dict(vc)
     try:
         issuer = vcdm.issuer_of(doc)
@@ -283,6 +291,11 @@ async def verify_vc_di(
                     ),
                     CredentialStatus.UNKNOWN,
                 )
+    bound = bool(
+        proof_valid
+        and holder_presentation is not None
+        and holder_bound_di(doc, holder_presentation, settings.client_id, contexts, now)
+    )
     out = _conclude(
         kind,
         issuer,
@@ -290,7 +303,7 @@ async def verify_vc_di(
         proof_valid=proof_valid,
         in_registry=in_registry,
         status=status,
-        bound=False,
+        bound=bound,
         now=now,
     )
     if not proof_valid and reasons:  # say WHY the proof was not accepted, by its own name
@@ -299,6 +312,66 @@ async def verify_vc_di(
             out.kind, replace(out.result, reasons=merged), out.explanation, out.issuer_id
         )
     return out
+
+
+def holder_bound_di(
+    vc: Mapping[str, Any],
+    presentation: Mapping[str, Any],
+    audience: str,
+    contexts: data_integrity.BundledContexts,
+    now: datetime,
+) -> bool:
+    """Is the person presenting this JSON-LD credential the one it was issued to? True only when ALL of these hold; anything else is not binding.
+
+    - the holder is a `did:key` (self-certifying, so nothing is fetched and nobody vouches for the key: any other DID method is not binding here);
+    - the presentation is a VerifiablePresentation naming that holder, carrying exactly THIS credential (a copy of someone else's is not bound);
+    - the credential's subject id IS that DID: the credential was issued to the key that is now signing;
+    - the presentation's Data Integrity proof verifies under that DID's key with proofPurpose `authentication`, a `domain` equal to this verifier
+      (a presentation made for another verifier is not reusable here) and a `challenge`, and its `created` is within the same window as the JWT form."""
+    holder = presentation.get("holder")
+    if isinstance(holder, Mapping):
+        holder = holder.get("id")
+    if not isinstance(holder, str) or not holder.startswith("did:key:"):
+        return False
+    if "VerifiablePresentation" not in vcdm._types(dict(presentation)):
+        return False
+    carried = presentation.get("verifiableCredential")
+    if isinstance(carried, list):
+        carried = carried[0] if len(carried) == 1 else None
+    if carried is None or _same_json(carried, vc) is False:
+        return False
+    subject = vc.get("credentialSubject")
+    subject_id = subject.get("id") if isinstance(subject, Mapping) else None
+    if subject_id != holder:
+        return False
+    proof = presentation.get("proof")
+    if not isinstance(proof, Mapping):
+        return False
+    if proof.get("domain") != audience or not str(proof.get("challenge") or "").strip():
+        return False
+    try:
+        created = datetime.fromisoformat(str(proof.get("created")))
+        if (
+            created.tzinfo is None
+            or abs(now.timestamp() - created.timestamp()) > verifier.KB_MAX_AGE.total_seconds()
+        ):
+            return False
+        vm = str(proof.get("verificationMethod", ""))
+        if vm.partition("#")[0] != holder:
+            return False
+        key = data_integrity.did_key_verification_key(vm)
+    except (ValueError, data_integrity.DataIntegrityError):
+        return False
+    verdict = data_integrity.verify(presentation, key, contexts, purpose="authentication")
+    return verdict.status == "VERIFIED"
+
+
+def _same_json(a: Any, b: Any) -> bool:
+    import json
+
+    return json.dumps(a, sort_keys=True, separators=(",", ":")) == json.dumps(
+        b, sort_keys=True, separators=(",", ":")
+    )
 
 
 def _holder_bound(

@@ -40,6 +40,48 @@ def _real_page(monkeypatch) -> None:
     monkeypatch.setattr(pdf_signing, "pdf_template", lambda: (PAGE_HEAD, TAIL))
 
 
+def pack_object_stream(
+    members: list[tuple[int, bytes]],
+    *,
+    number: int = 40,
+    xref: bool = True,
+    flate: bool = True,
+    n_override: int | None = None,
+    first_override: int | None = None,
+    truncate: int = 0,
+) -> bytes:
+    """The given objects as one object stream (PDF 1.5), and a cross-reference stream beside it, as an incremental update from a modern writer has."""
+    import zlib
+
+    values = b"".join(v + b"\n" for _, v in members)
+    offsets, at = [], 0
+    for _, v in members:
+        offsets.append(at)
+        at += len(v) + 1
+    header = (
+        " ".join(f"{n} {o}" for (n, _), o in zip(members, offsets, strict=True)).encode() + b"\n"
+    )
+    data = (header + values)[: len(header + values) - truncate]
+    first = len(header) if first_override is None else first_override
+    count = len(members) if n_override is None else n_override
+    raw = zlib.compress(data) if flate else data
+    flt = b" /Filter /FlateDecode" if flate else b""
+    out = (
+        f"{number} 0 obj\n<< /Type /ObjStm /N {count} /First {first}".encode()
+        + flt
+        + f" /Length {len(raw)} >>\nstream\n".encode()
+        + raw
+        + b"\nendstream\nendobj\n"
+    )
+    if xref:
+        out += (
+            f"{number + 1} 0 obj\n<< /Type /XRef /W [1 2 1] /Size {number + 2} /Root 1 0 R /Length 4 >>\nstream\n".encode()
+            + b"\x01\x00\x10\x00"
+            + b"\nendstream\nendobj\n"
+        )
+    return out
+
+
 def stamp(
     pdf: bytes,
     tsa,
@@ -53,28 +95,55 @@ def stamp(
     link_widget: bool = True,
     wrong_data: bool = False,
     start_at: int = 0,
+    appearance: bytes | None = None,
+    rect: bytes | None = None,
+    mediabox: bytes = b"[0 0 10 10]",
+    form_dict: bytes = b"/Type /XObject /Subtype /Form /BBox [0 0 80 30]",
+    widget_extra: bytes = b"",
+    objstm: dict | None = None,
 ) -> bytes:
     """Append one document timestamp update: the timestamp, its field, the page's annotations, the form and (the first time) the catalog."""
     widget = number + 1
     widgets = [*earlier, widget]
     refs = " ".join(f"{w} 0 R" for w in widgets)
-    rect = b"[10 10 90 40]" if visible else b"[0 0 0 0]"
+    rect = rect or (b"[10 10 90 40]" if visible else b"[0 0 0 0]")
+    ap_no = widget + 1
+    ap_ref = f" /AP << /N {ap_no} 0 R >>".encode() if appearance is not None else b""
+    ap_obj = (
+        f"{ap_no} 0 obj\n<< ".encode()
+        + form_dict
+        + f" /Length {len(appearance)} >>\nstream\n".encode()
+        + appearance
+        + b"\nendstream\nendobj\n"
+        if appearance is not None
+        else b""
+    )
     head = (
         b"\n"
         + f"{number} 0 obj\n<< /Type /DocTimeStamp /Filter /Adobe.PPKLite /SubFilter /ETSI.RFC3161 ".encode()
         + b"/ByteRange [0000000000 0000000000 0000000000 0000000000] /Contents "
     )
     link = f" /V {number} 0 R".encode() if link_widget else b""
+    page_val = (
+        b"<< /Type /Page /Parent 4 0 R /MediaBox " + mediabox + f" /Annots [{refs}] >>".encode()
+    )
+    form_val = f"<< /Fields [{refs}] /SigFlags 3 >>".encode()
+    members = [(3, page_val), (5, form_val), *([(1, catalog)] if catalog else [])]
+    if objstm is None:
+        structure = b"".join(b"%d 0 obj\n" % n + v + b"\nendobj\n" for n, v in members)
+    else:
+        structure = pack_object_stream(members, **objstm)
     body = (
         b" >>\nendobj\n"
         + f"{widget} 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Sig /T (DocTS{number}) /Rect ".encode()
         + rect
         + b" /F 132 /P 3 0 R"
         + link
+        + ap_ref
+        + widget_extra
         + b" >>\nendobj\n"
-        + f"3 0 obj\n<< /Type /Page /Parent 4 0 R /MediaBox [0 0 10 10] /Annots [{refs}] >>\nendobj\n".encode()
-        + f"5 0 obj\n<< /Fields [{refs}] /SigFlags 3 >>\nendobj\n".encode()
-        + (b"1 0 obj\n" + catalog + b"\nendobj\n" if catalog else b"")
+        + ap_obj
+        + structure
         + extra
         + b"trailer\n<< /Root 1 0 R >>\n%%EOF\n"
     )
@@ -286,3 +355,89 @@ def test_the_document_validator_reports_the_timestamps_and_the_archive_state() -
     assert (
         bad.detail["ltv_state"] == "ARCHIVE_BROKEN" and "DOCUMENT_TIMESTAMP_PROBLEM" in bad.reasons
     )
+
+
+# ------------------------------------------------------------------------- a document timestamp bounds the signing time
+
+
+def _cfg(p, tsa) -> tr.TrustConfig:
+    return tr.TrustConfig(anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+
+
+def test_a_document_timestamp_over_the_signature_fixes_the_time_when_the_signature_has_no_timestamp() -> (
+    None
+):
+    # the signer's certificate expired yesterday; the file was stamped while it was still valid
+    p, tsa = (
+        pki(not_before=NOW - timedelta(days=60), not_after=NOW - timedelta(days=1)),
+        authority(),
+    )
+    pdf = stamp(signed(p), tsa, T1)
+    (f,) = cms.inspect_pdf(pdf, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "DOCUMENT_TIMESTAMP" and f.trusted_time is not None
+    assert f.timestamp_token_present is False and f.chain is cms.Chain.TRUSTED
+    r = sg.signature_result([f], _cfg(p, tsa))
+    assert r.status is docs.Status.VERIFIED_LIMITED
+    assert "SIGNING_TIME_BOUNDED_BY_DOCUMENT_TIMESTAMP" in r.reasons
+    assert "SIGNING_TIME_TRUSTED_BY_TIMESTAMP" not in r.reasons
+
+
+def test_the_same_file_without_the_document_timestamp_is_not_trusted() -> None:
+    p, tsa = (
+        pki(not_before=NOW - timedelta(days=60), not_after=NOW - timedelta(days=1)),
+        authority(),
+    )
+    (f,) = cms.inspect_pdf(signed(p), anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "NONE" and f.chain is cms.Chain.EXPIRED
+
+
+def test_a_stamp_made_after_the_certificate_expired_does_not_rescue_it() -> None:
+    p, tsa = (
+        pki(not_before=NOW - timedelta(days=60), not_after=NOW - timedelta(days=5)),
+        authority(),
+    )
+    pdf = stamp(signed(p), tsa, T2)  # two days ago: after the certificate's end
+    (f,) = cms.inspect_pdf(pdf, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "DOCUMENT_TIMESTAMP" and f.chain is cms.Chain.EXPIRED
+    r = sg.signature_result([f], _cfg(p, tsa))
+    assert r.status is docs.Status.NOT_VERIFIED
+    assert r.reasons == ("CERTIFICATE_NOT_VALID_AT_SIGNING_TIME",)
+
+
+def test_a_stamp_from_an_unconfigured_authority_proves_nothing_about_time() -> None:
+    p, tsa, other = (
+        pki(not_before=NOW - timedelta(days=60), not_after=NOW - timedelta(days=1)),
+        authority(),
+        authority(),
+    )
+    pdf = stamp(signed(p), other, T1)
+    (f,) = cms.inspect_pdf(pdf, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "NONE" and f.trusted_time is None
+
+
+def test_a_stamp_over_other_bytes_does_not_fix_the_time() -> None:
+    p, tsa = (
+        pki(not_before=NOW - timedelta(days=60), not_after=NOW - timedelta(days=1)),
+        authority(),
+    )
+    pdf = stamp(signed(p), tsa, T1, wrong_data=True)
+    (f,) = cms.inspect_pdf(pdf, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "NONE"
+
+
+def test_the_earliest_verified_stamp_is_the_one_used() -> None:
+    p, tsa = pki(), authority()
+    first = stamp(signed(p), tsa, T0)
+    second = stamp(first, tsa, T1, number=20, earlier=(11,), catalog=None, start_at=0)
+    (f,) = cms.inspect_pdf(second, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "DOCUMENT_TIMESTAMP"
+    assert f.trusted_time is not None and f.trusted_time.startswith(T0.date().isoformat())
+
+
+def test_a_signature_with_its_own_timestamp_keeps_that_as_the_source() -> None:
+    from test_pdf_signatures import timestamped
+
+    p = pki()
+    own, tsa = timestamped(p, NOW - timedelta(days=15))
+    (f,) = cms.inspect_pdf(own, anchors=(p.root.cert,), tsa_roots=(tsa.root,))
+    assert f.time_source == "SIGNATURE_TIMESTAMP"

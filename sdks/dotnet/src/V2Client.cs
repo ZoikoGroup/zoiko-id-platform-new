@@ -105,6 +105,10 @@ public sealed class V2Client
 
     public Task<JsonObject> Capabilities(CancellationToken ct = default) => Get("/v2/capabilities", ct);
 
+    /// <summary>The other ways to complete a check instead of a selfie or a photographed document. No reason is needed; choosing one is not a failed attempt.</summary>
+    public Task<JsonObject> CaptureAlternatives(string country, string? reason = null, CancellationToken ct = default) =>
+        Get("/v2/capture-alternatives?country=" + Uri.EscapeDataString(country) + (reason is null ? "" : "&reason=" + Uri.EscapeDataString(reason)), ct);
+
     public Task<JsonObject> Coverage(string country, string? profession = null, CancellationToken ct = default) =>
         Get("/v2/coverage?country=" + Uri.EscapeDataString(country) + (profession is null ? "" : "&profession=" + Uri.EscapeDataString(profession)), ct);
 
@@ -246,7 +250,7 @@ public sealed class V2Client
     /// <summary>Every route the client calls, for the parity check against the other clients and the server's published contract.</summary>
     public static readonly IReadOnlyList<string> Paths = new[]
     {
-        "GET /v2/capabilities", "GET /v2/coverage", "POST /v2/credentials/verify", "GET /v2/credentials/{ref}",
+        "GET /v2/capabilities", "GET /v2/coverage", "GET /v2/capture-alternatives", "POST /v2/credentials/verify", "GET /v2/credentials/{ref}",
         "POST /v2/eligibility/evaluate", "GET /v2/eligibility/{ref}", "POST /v2/zoikorum/engagement-checks",
         "POST /v2/verifications", "GET /v2/verifications/{id}", "POST /v2/verifications/{id}/tasks/{check}",
         "POST /v2/verifications/{id}/cancel", "POST /v2/evidence/uploads", "PUT /v2/evidence/uploads/{id}/content",

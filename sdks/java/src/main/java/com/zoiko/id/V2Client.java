@@ -143,6 +143,11 @@ public final class V2Client {
 
     public Map<String, Object> capabilities() { return get("/v2/capabilities"); }
 
+    /** The other ways to complete a check instead of a selfie or a photographed document. No reason is needed; choosing one is not a failed attempt. */
+    public Map<String, Object> captureAlternatives(String country, String reason) {
+        return get("/v2/capture-alternatives?country=" + enc(country) + (reason == null ? "" : "&reason=" + enc(reason)));
+    }
+
     public Map<String, Object> coverage(String country, String profession) {
         return get("/v2/coverage?country=" + enc(country) + (profession == null ? "" : "&profession=" + enc(profession)));
     }
@@ -276,7 +281,7 @@ public final class V2Client {
 
     /** Every route the client calls, for the parity check against the other clients and the server's published contract. */
     public static final List<String> PATHS = List.of(
-            "GET /v2/capabilities", "GET /v2/coverage", "POST /v2/credentials/verify", "GET /v2/credentials/{ref}",
+            "GET /v2/capabilities", "GET /v2/coverage", "GET /v2/capture-alternatives", "POST /v2/credentials/verify", "GET /v2/credentials/{ref}",
             "POST /v2/eligibility/evaluate", "GET /v2/eligibility/{ref}", "POST /v2/zoikorum/engagement-checks",
             "POST /v2/verifications", "GET /v2/verifications/{id}", "POST /v2/verifications/{id}/tasks/{check}",
             "POST /v2/verifications/{id}/cancel", "POST /v2/evidence/uploads", "PUT /v2/evidence/uploads/{id}/content",

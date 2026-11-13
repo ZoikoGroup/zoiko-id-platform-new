@@ -42,6 +42,7 @@ describe("the /v2 client (ZID-INT-002)", () => {
     const { client, calls } = fake();
     await client.capabilities();
     await client.coverage("US", "LAW");
+    await client.captureAlternatives("GB", "no_camera");
     await client.credential("cred_1");
     await client.eligibility("elig_1");
     await client.case("case_1");
@@ -57,6 +58,7 @@ describe("the /v2 client (ZID-INT-002)", () => {
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
       "GET /v2/capabilities",
       "GET /v2/coverage?country=US&profession=LAW",
+      "GET /v2/capture-alternatives?country=GB&reason=no_camera",
       "GET /v2/credentials/cred_1",
       "GET /v2/eligibility/elig_1",
       "GET /v2/verifications/case_1",
@@ -125,7 +127,7 @@ describe("the /v2 client (ZID-INT-002)", () => {
   });
 
   it("lists every route it calls, and each is a real client method", () => {
-    expect(V2_PATHS.length).toBe(25);
+    expect(V2_PATHS.length).toBe(26);
     expect(new Set(V2_PATHS).size).toBe(V2_PATHS.length);
   });
 });

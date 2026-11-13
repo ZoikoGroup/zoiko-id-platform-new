@@ -4,6 +4,7 @@
     GET  /v2/providers/entitlements                                    list them
     POST /v2/providers/{provider_id}/entitlements/{service}/suspend    stop using it for now (the record stays; a new record needs this one revoked first)
     POST /v2/providers/{provider_id}/entitlements/{service}/revoke     stop using it for good; announced as `provider.entitlement_revoked`
+    GET  /v2/providers/{provider_id}/entitlements/{service}/impact     what suspending or revoking it would do, scope by scope (read-only)
     POST /v2/providers/route                                           which provider would be used, and why every other one would not (a dry run)
 
 The rules are the ones in `verification/domain/provider_adapter.py`: legality (service, country, purpose, region, period, status) outranks
@@ -176,6 +177,58 @@ async def revoke_entitlement(
     provider_id: Slug, service: Slug, body: ReasonIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     return await _change(request, caller, provider_id, service, "REVOKED", body.reason)
+
+
+@router.get("/v2/providers/{provider_id}/entitlements/{service}/impact")
+async def withdrawal_impact(
+    provider_id: Slug, service: Slug, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Impact analysis before a kill switch is pulled (Doc 03 RCG-G08). Changes nothing."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _guard(conn, caller, f"provider-entitlement:{provider_id}")
+        live = await store.live(conn, provider_id, service)
+        if live is None:
+            raise ZidError(
+                "ENTITLEMENT_NOT_FOUND",
+                "There is no live entitlement for this provider and service.",
+                http_status=404,
+            )
+        rows = [r for r in await store.listing(conn, None) if r["status"] != "REVOKED"]
+    domain = [store.to_domain(r) for r in rows]
+    target = store.to_domain(live)
+    try:
+        impacts = pa.withdrawal_impact(domain, target, datetime.now(UTC))
+    except pa.ImpactTooLarge as e:
+        raise ZidError(
+            "IMPACT_TOO_LARGE",
+            "This entitlement covers too many scopes to analyse at once; narrow it first.",
+            http_status=422,
+        ) from e
+    counts: dict[str, int] = {}
+    for i in impacts:
+        counts[i.outcome] = counts.get(i.outcome, 0) + 1
+    return {
+        **_ids(),
+        "provider_id": provider_id,
+        "service_code": service,
+        "summary": counts,
+        "scopes": [
+            {
+                "country": i.country,
+                "purpose": i.purpose,
+                "processing_region": i.region,
+                "outcome": i.outcome,
+                "replacement_provider_id": i.after,
+                "refusals": [r.value for r in i.refusals_after],
+            }
+            for i in impacts
+            if i.outcome != "UNAFFECTED"
+        ],
+        "limitations": [
+            *LIMITATIONS,
+            "LOST means no lawful provider would remain: callers would be refused, never routed to an unentitled one.",
+        ],
+    }
 
 
 @router.post("/v2/providers/route")

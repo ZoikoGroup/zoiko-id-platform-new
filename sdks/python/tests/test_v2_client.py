@@ -213,3 +213,14 @@ def test_every_route_the_client_calls_exists_in_the_servers_published_contract()
         if (method, re.sub(r"\{[^}]+\}", "{}", path)) not in published:
             missing.append(entry)
     assert missing == [], f"the SDK calls routes the server does not publish: {missing}"
+
+
+def test_capture_alternatives_is_a_plain_get_with_the_country_and_an_optional_reason():
+    c, fake = client(body={"routes": [], "counts_as_failed_attempt": False})
+    out = c.capture_alternatives("GB")
+    c.capture_alternatives("GB", "no_camera")
+    assert [(m, u.removeprefix(BASE)) for m, u, _, _ in fake.calls] == [
+        ("GET", "/v2/capture-alternatives?country=GB"),
+        ("GET", "/v2/capture-alternatives?country=GB&reason=no_camera"),
+    ]
+    assert out["counts_as_failed_attempt"] is False

@@ -779,9 +779,14 @@ class CredDiVerifyIn(BaseModel):
         str, Any
     ]  # a JSON-LD credential secured by a DataIntegrityProof (eddsa-rdfc-2022 or ecdsa-rdfc-2019)
     jurisdiction: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
+    # a holder-signed presentation wrapping this exact credential (did:key holder, proofPurpose authentication, domain = this verifier)
+    holder_presentation: dict[str, Any] | None = None
 
     def model_post_init(self, _ctx: Any) -> None:
-        if len(json.dumps(self.credential, separators=(",", ":"))) > MAX_DI_BYTES:
+        size = len(json.dumps(self.credential, separators=(",", ":"))) + len(
+            json.dumps(self.holder_presentation or {}, separators=(",", ":"))
+        )
+        if size > MAX_DI_BYTES:
             raise ValueError("the credential is too large")
 
 
@@ -818,6 +823,7 @@ async def verify_data_integrity_credential(
                 vc=body.credential,
                 jurisdiction=body.jurisdiction,
                 now=_now(),
+                holder_presentation=body.holder_presentation,
             )
         except CredentialError as e:
             raise ZidError(
