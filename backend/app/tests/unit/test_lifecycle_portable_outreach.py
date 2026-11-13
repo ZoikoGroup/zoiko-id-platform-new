@@ -73,6 +73,45 @@ def test_glb_22_a_conflicting_birth_year_never_becomes_a_match():
     )  # no year at source: no conflict
 
 
+def test_t19_an_employer_confirmation_for_a_same_name_other_person_goes_to_a_person_not_to_a_verdict():
+    from zid_platform.modules.credential.domain.claims import (
+        Authenticity,
+        ClaimType,
+        Decision,
+        EvidenceTier,
+        SourceResult,
+        assertion_from_facts,
+    )
+
+    # the employer confirms "Dana Lee", but the confirmation carries another birth year: the safeguard sees a collision
+    subject, why = match_holder(
+        Holder("Dana Lee", birth_year=1980), "Dana Lee", source_birth_year=1991
+    )
+    assert subject is SubjectMatch.AMBIGUOUS and "BIRTH_YEAR_CONFLICT" in why
+    a = assertion_from_facts(
+        ClaimType.EMPLOYMENT_ASSERTION,
+        source_fields={"employer_id": "acme", "start_date": "2020-01-01"},
+        evidence=EvidenceTier.PRIMARY_SOURCE_CONFIRMED,
+        source=SourceResult.RESPONDED,
+        authenticity=Authenticity.CONFIRMED,
+        status=CredentialStatus.ACTIVE,
+        subject=subject,
+    )
+    assert a.decision is Decision.REVIEW and a.reason_codes == ("SUBJECT_MATCH_AMBIGUOUS",)
+    # a different person altogether is not verified either, and is not read as a person's adverse record
+    other, _ = match_holder(Holder("Dana Lee"), "Priya Raman")
+    b = assertion_from_facts(
+        ClaimType.EMPLOYMENT_ASSERTION,
+        source_fields={"employer_id": "acme", "start_date": "2020-01-01"},
+        evidence=EvidenceTier.PRIMARY_SOURCE_CONFIRMED,
+        source=SourceResult.RESPONDED,
+        authenticity=Authenticity.CONFIRMED,
+        status=CredentialStatus.ACTIVE,
+        subject=other,
+    )
+    assert b.decision is Decision.NOT_VERIFIED and b.reason_codes == ("SUBJECT_NOT_MATCHED",)
+
+
 def test_a_different_name_is_not_matched_and_a_partial_goes_to_a_person():
     assert match_holder(Holder("Dana Lee"), "Priya Raman")[0] is SubjectMatch.NOT_MATCHED
     assert match_holder(Holder("Dana Lee"), "Dana Leeson")[0] is SubjectMatch.AMBIGUOUS

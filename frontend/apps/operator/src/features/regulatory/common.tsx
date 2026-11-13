@@ -103,3 +103,42 @@ export const upper = (v: string) => v.trim().toUpperCase();
 
 /** Undefined for a blank field, so optional query and body fields are left out rather than sent empty. */
 export const opt = (v: string) => (v.trim() ? v.trim() : undefined);
+
+/** Choices for the regulatory forms, so an operator picks a value instead of guessing its spelling. */
+const choices = (rows: [string, string][], join: (id: string, name: string) => string) =>
+  rows.map(([id, name]) => ({ id, label: join(id, name) }));
+
+export const COUNTRY_OPTIONS = choices(
+  [
+    ["GB", "United Kingdom"], ["IE", "Ireland"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"],
+    ["NL", "Netherlands"], ["BE", "Belgium"], ["PT", "Portugal"], ["SE", "Sweden"], ["PL", "Poland"], ["CH", "Switzerland"],
+    ["US", "United States"], ["CA", "Canada"], ["AU", "Australia"], ["NZ", "New Zealand"], ["IN", "India"],
+    ["AE", "United Arab Emirates"], ["SG", "Singapore"], ["ZA", "South Africa"], ["BR", "Brazil"], ["MX", "Mexico"],
+  ],
+  (id, name) => `${id} - ${name}`,
+);
+
+export const CAPABILITY_OPTIONS = choices(
+  [
+    ["INDIVIDUAL_VERIFICATION", "Verify an individual"],
+    ["BUSINESS_VERIFICATION", "Verify a business"],
+    ["CREDENTIAL_ISSUANCE", "Issue a credential"],
+    ["REGISTRATION", "Registration"],
+    ["DISCOVERY", "Discovery"],
+    ["ENTERPRISE_USE", "Enterprise use"],
+  ],
+  (id, name) => `${id} (${name})`,
+);
+
+export const PURPOSE_OPTIONS = [{ id: "STANDARD", label: "STANDARD (the default purpose)" }];
+
+export const SCHEME_OPTIONS = choices(
+  [
+    ["UK_DIATF", "UK digital identity trust framework"],
+    ["UK_DVS_REGISTER", "UK digital verification services register"],
+    ["EU_TRUSTED_LIST", "EU trusted list"],
+    ["PROFESSIONAL_REGISTER", "A professional register"],
+    ["OFFICIAL_REGISTER", "An official government register"],
+  ],
+  (id, name) => `${id} (${name})`,
+);

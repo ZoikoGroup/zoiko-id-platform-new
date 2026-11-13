@@ -1,0 +1,20 @@
+# Incident notification deadlines (ZID-RCG-003 section 08, acceptance case T45). Owner content: Legal writes and approves every rule.
+# status: PROPOSED. NO rule is listed: the deadlines that apply to Zoiko iD depend on its legal entity, markets and contracts (section 13.1).
+# operations/domain/notifications.py applies them: routing to the recipient, the clock from awareness, escalation and evidence of sending.
+#
+# Example, kept as a comment (not legal advice):
+#
+#   - rule_id: uk-gdpr-art33
+#     recipient: SUPERVISORY_AUTHORITY
+#     deadline_hours: 72
+#     legal_source: UK GDPR Art. 33
+#     personal_data: true
+#     countries: [GB]
+#     escalate_at: 0.5          # share of the window after which escalate_to is called in
+#     escalate_to: LEGAL
+#     min_severity: SEV4
+#
+# version: 0.1.0
+
+version: 0.1.0
+rules: []

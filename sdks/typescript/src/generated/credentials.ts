@@ -1133,6 +1133,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verifications/{case_id}/engagement-decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Engagement Decision
+         * @description The five-step professional-engagement answer for one case: each check's own result, the market and profession pack, qualification and
+         *     practice eligibility kept apart (never one VERIFIED), an audience-bound expiry with the evidence it rests on, and when to refresh. Whether to
+         *     accept the engagement stays with the marketplace.
+         */
+        post: operations["engagement_decision_v2_verifications__case_id__engagement_decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verifications/{case_id}/tasks/{check}": {
         parameters: {
             query?: never;
@@ -1668,29 +1690,6 @@ export interface components {
             /** Subject Ref */
             subject_ref?: string | null;
         };
-        /** V2EngagementIn */
-        V2EngagementIn: {
-            /** Client Ref */
-            client_ref?: string | null;
-            /** Consent Ref */
-            consent_ref?: string | null;
-            /**
-             * Decision Profile
-             * @default zoikorum-v1
-             */
-            decision_profile: string;
-            /** Engagement Ref */
-            engagement_ref: string;
-            jurisdiction: components["schemas"]["V2Jurisdiction"];
-            /** Minimum Insurance Policy Ref */
-            minimum_insurance_policy_ref?: string | null;
-            /** Profession Code */
-            profession_code: string;
-            /** Professional Subject Ref */
-            professional_subject_ref: string;
-            /** Requested Services */
-            requested_services: string[];
-        };
         /** V2IssuerCheckIn */
         V2IssuerCheckIn: {
             /** Credential Type */
@@ -1790,6 +1789,56 @@ export interface components {
             proofs: {
                 [key: string]: string[];
             };
+        };
+        /** V2EngagementIn */
+        zid_platform__modules__credential__api__v2__V2EngagementIn: {
+            /** Client Ref */
+            client_ref?: string | null;
+            /** Consent Ref */
+            consent_ref?: string | null;
+            /**
+             * Decision Profile
+             * @default zoikorum-v1
+             */
+            decision_profile: string;
+            /** Engagement Ref */
+            engagement_ref: string;
+            jurisdiction: components["schemas"]["V2Jurisdiction"];
+            /** Minimum Insurance Policy Ref */
+            minimum_insurance_policy_ref?: string | null;
+            /** Profession Code */
+            profession_code: string;
+            /** Professional Subject Ref */
+            professional_subject_ref: string;
+            /** Requested Services */
+            requested_services: string[];
+        };
+        /**
+         * V2EngagementIn
+         * @description Step 1: the practice context, as the marketplace supplies it.
+         */
+        zid_platform__modules__credential__api__v2_cases__V2EngagementIn: {
+            /** Audience */
+            audience: string;
+            /** Country */
+            country: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /** Period To */
+            period_to?: string | null;
+            /** Profession */
+            profession: string;
+            /** Professional Ref */
+            professional_ref: string;
+            /** Role */
+            role: string;
+            /** Services */
+            services: string[];
+            /** Subdivision */
+            subdivision?: string | null;
         };
     };
     responses: never;
@@ -4054,6 +4103,43 @@ export interface operations {
             };
         };
     };
+    engagement_decision_v2_verifications__case_id__engagement_decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__credential__api__v2_cases__V2EngagementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_task_v2_verifications__case_id__tasks__check__post: {
         parameters: {
             query?: never;
@@ -4105,7 +4191,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["V2EngagementIn"];
+                "application/json": components["schemas"]["zid_platform__modules__credential__api__v2__V2EngagementIn"];
             };
         };
         responses: {
