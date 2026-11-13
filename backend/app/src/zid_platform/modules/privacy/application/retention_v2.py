@@ -83,7 +83,7 @@ async def evaluate(
         if await hold_status(conn, ref) == "ACTIVE":
             named_active.append(ref)
     policy_row = (
-        await store.active_retention_policy(conn, entry.retention_policy_code)
+        await store.active_retention_policy(conn, entry.retention_policy_code, str(entry.tenant_id))
         if entry.retention_policy_code
         else None
     )

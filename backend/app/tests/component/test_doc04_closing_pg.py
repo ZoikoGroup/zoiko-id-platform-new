@@ -10,6 +10,7 @@ import logging
 import re
 import uuid
 from pathlib import Path
+from typing import Any
 
 from conftest import ctx, engine
 from onboarding_fixture import onboard
@@ -28,10 +29,33 @@ PDF = (
 ).encode()
 
 
+class _Records(logging.Handler):
+    """Every log record, formatted. CI runs pytest with `-p no:logging`, which removes the caplog fixture."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.DEBUG)
+        self.lines: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.lines.append(self.format(record) + " " + repr(record.__dict__))
+
+
 def test_at005_no_document_identifier_reaches_a_log_an_event_or_a_stored_result(
-    rt_url: str, caplog, capfd
+    rt_url: str, capfd
 ) -> None:
-    caplog.set_level(logging.DEBUG)
+    records = _Records()
+    root = logging.getLogger()
+    previous = root.level
+    root.addHandler(records)
+    root.setLevel(logging.DEBUG)
+    try:
+        _at005(rt_url, capfd, records)
+    finally:
+        root.removeHandler(records)
+        root.setLevel(previous)
+
+
+def _at005(rt_url: str, capfd: Any, records: _Records) -> None:
     with world(rt_url) as (http, mine, tenant, _admin):
         a = announce(http, mine, PDF, "application/pdf").json()
         assert put(http, mine, a, PDF).status_code == 201
@@ -60,9 +84,11 @@ def test_at005_no_document_identifier_reaches_a_log_an_event_or_a_stored_result(
         assert http.delete(f"/v2/evidence/{ref}", headers=mine).status_code == 200
 
         out = capfd.readouterr()
-        assert MARKER not in caplog.text and MARKER not in out.out and MARKER not in out.err, (
-            "a log carried the identifier"
-        )
+        assert (
+            MARKER not in "\n".join(records.lines)
+            and MARKER not in out.out
+            and MARKER not in out.err
+        ), "a log carried the identifier"
         assert MARKER not in v.text and MARKER not in m.text, "an answer repeated the identifier"
 
         async def stored() -> str:
