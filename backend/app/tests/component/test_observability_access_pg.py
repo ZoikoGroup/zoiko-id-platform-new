@@ -16,6 +16,16 @@ from zid_platform.main import create_app
 from zid_platform.settings import Settings
 
 OPERATOR_PREFIXES = ("/ops", "/platform", "/v1/commercial")
+# Tenant-plane routes that share the /v1/commercial prefix: a company's own configuration check, solution builder, purchase orders and offers, the service-to-service market gate and
+# the public dependency list. They are named here one by one so any other /v1/commercial route is still treated as operator-only.
+TENANT_PLANE = (
+    "/v1/commercial/capability-dependencies",
+    "/v1/commercial/configurations",
+    "/v1/commercial/market-gate",
+    "/v1/commercial/offers",
+    "/v1/commercial/purchase-orders",
+    "/v1/commercial/quotes/preview",
+)
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +49,7 @@ def stack(rt_url: str):  # type: ignore[no-untyped-def]
 def _operator_routes(app) -> list[tuple[str, str]]:  # type: ignore[no-untyped-def]
     out = []
     for path, item in app.openapi()["paths"].items():
-        if path.startswith(OPERATOR_PREFIXES):
+        if path.startswith(OPERATOR_PREFIXES) and not path.startswith(TENANT_PLANE):
             for method in item:
                 if method in ("get", "post", "put", "patch", "delete"):
                     out.append(

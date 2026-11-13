@@ -112,6 +112,9 @@ def test_the_page_structure_and_availability_are_public_never_cached_and_never_a
         assert cards["KYB"]["state"] == "SALES_ASSISTED", (
             "no row recorded: nobody has said no, so ask"
         )
+        assert "FI" in out["released_markets"] and out["released_regions"] == ["eu-central"], (
+            "only rows taken live through the rollout are offered"
+        )
         assert out["dimensions"]["issuer_country"] == {
             "value": "SE",
             "judged": False,

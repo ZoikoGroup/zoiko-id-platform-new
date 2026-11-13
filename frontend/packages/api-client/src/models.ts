@@ -3192,3 +3192,55 @@ export type FxRateSet = { set_id: string; version: number; status: "DRAFT" | "AC
 
 export type FamilyTextRevision = { rev_id: string; family: string; version: number; name: string; unit: string; sales_qualifier: string; reason: string; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; created_by: string; created_at: string | null; activated_by: string | null; activated_at: string | null };
 export type FamilyTexts = { baseline: Record<string, { name: string; unit: string; sales_qualifier: string }>; items: FamilyTextRevision[] };
+
+/* ---- the public pricing page (ZID-UX-PRICE-004): structure, availability by market and inquiries. No price on any of these. */
+export type TierCode = "ESSENTIALS" | "BUSINESS" | "ENTERPRISE";
+export type PackagingState = "included" | "optional" | "quote";
+export type PublicPricingPage = {
+  version: string;
+  packaging_status: "PROPOSED" | "APPROVED";
+  pricing_status: string | null;
+  families: { family: string; name: string; unit: string; sales_qualifier: string; regulated: boolean; depends_on: string[] }[];
+  tiers: { code: TierCode; label: string; fit: string; cta_kind: string; cta_label: string; family_state: Record<string, PackagingState> }[];
+  paths: { code: "SANDBOX" | "PARTNER"; label: string; text: string; cta_kind: string; cta_label: string }[];
+  use_cases: { code: string; label: string; families: string[] }[];
+  disclosures: { price_basis: string; tax: string; commitment: string; no_surprise: string };
+};
+export type PublicState = "AVAILABLE" | "SALES_ASSISTED" | "RESTRICTED" | "NOT_AVAILABLE" | "MARKET_REQUIRED";
+export type PublicAvailability = {
+  market_matrix_version: number | null;
+  as_of: string;
+  dimensions: { subject_country: string | null; payer_country: string | null; operating_region: string | null; issuer_country: { value: string | null; judged: false; note: string } };
+  cards: {
+    family: string;
+    name: string;
+    unit: string;
+    regulated: boolean;
+    state: PublicState;
+    reason_codes: string[];
+    reasons: { cause: string; text: string }[];
+    terms: { seller_entity: string; currency: string; data_region: string } | null;
+    provider_attribution: string | null;
+  }[];
+  released_markets: string[];
+  released_regions: string[];
+  note: string;
+};
+export type LeadKind = "ENTERPRISE" | "PARTNER";
+export type PublicLeadIn = {
+  kind: LeadKind;
+  contact_name: string;
+  work_email: string;
+  company: string;
+  country: string;
+  region?: string | null;
+  capabilities: string[];
+  volume_band: "UNDER_1K" | "FROM_1K_TO_10K" | "FROM_10K_TO_100K" | "OVER_100K" | "UNSURE";
+  entities?: number | null;
+  referral_source?: string | null;
+  security_needs?: string | null;
+  partner_type?: "RESELLER" | "REFERRAL" | "EMBEDDED_ISV" | null;
+  notice_version: string;
+  website?: string | null;
+};
+export type PublicLeadOut = { reference: string; status: string; duplicate: boolean; message: string };

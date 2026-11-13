@@ -760,6 +760,40 @@
         "title": "IssueBody",
         "type": "object"
       },
+      "LeadAdvanceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "QUALIFIED",
+              "SCOPED",
+              "REVIEW",
+              "OFFER_SENT",
+              "CLOSED",
+              "SPAM"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LeadAdvanceBody",
+        "type": "object"
+      },
       "LegsBody": {
         "additionalProperties": false,
         "properties": {
@@ -7634,6 +7668,115 @@
           }
         },
         "summary": "Grant Commercial Role",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/sales-leads": {
+      "get": {
+        "description": "The inquiries from the public pricing page, newest first. A lead is a conversation, never an account or a commitment.",
+        "operationId": "list_sales_leads_v1_commercial_sales_leads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z_]{4,12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Sales Leads V1 Commercial Sales Leads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sales Leads",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/sales-leads/{lead_id}:advance": {
+      "post": {
+        "description": "Move an inquiry one step on, or close it or mark it spam with a reason. Nothing moves backwards, and none of it creates an entitlement.",
+        "operationId": "advance_sales_lead_v1_commercial_sales_leads__lead_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadAdvanceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advance Sales Lead V1 Commercial Sales Leads  Lead Id  Advance Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance Sales Lead",
         "tags": [
           "commercial"
         ]

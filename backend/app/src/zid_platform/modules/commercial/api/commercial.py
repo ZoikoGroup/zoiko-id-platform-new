@@ -75,6 +75,7 @@ from zid_platform.modules.commercial.domain.catalogue import CommercialError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
 from zid_platform.modules.commercial.domain.pricing_page import PUBLIC_STATE
+from zid_platform.modules.commercial.domain.rollout import is_live
 from zid_platform.modules.commercial.domain.service_families import check_selection
 from zid_platform.modules.commercial.infrastructure import (
     billable_store,
@@ -408,6 +409,15 @@ async def public_availability(
                 },
             },
             "cards": cards,
+            # What the active matrix has released, so a buyer can choose a market and a data region that exist. Only rows taken live through the rollout count.
+            "released_markets": sorted({r.country for r in matrix_rows.values() if is_live(r.stage)}),
+            "released_regions": sorted(
+                {
+                    r.data_region
+                    for r in matrix_rows.values()
+                    if is_live(r.stage) and (not (subject_country or payer_country) or r.country in {subject_country, payer_country})
+                }
+            ),
             "note": "No price is shown here. Changing the subject country, the payer or the region re-evaluates every service on the server.",
         },
         headers=_NO_STORE,
