@@ -17,6 +17,7 @@ POST /verification-assertions/{id}:revoke             protected (verification.as
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -28,14 +29,19 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
-from zid_errors import ZidError
+from zid_errors import ErrorDetail, ZidError
 from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce, enforce_packs
 from zid_platform.modules.commercial.ports import require_feature
-from zid_platform.modules.verification.application import service
-from zid_platform.modules.verification.domain.countries import Capability
+from zid_platform.modules.verification.application import privacy_gate, service
+from zid_platform.modules.verification.domain import privacy_overlay as po
+from zid_platform.modules.verification.domain.countries import (
+    Availability,
+    Capability,
+    availability,
+)
 from zid_platform.modules.verification.domain.providers import (
     ProviderKind,
     validate_provider_config,
@@ -48,7 +54,10 @@ from zid_platform.modules.verification.domain.verification import (
 )
 from zid_platform.modules.verification.infrastructure import verification_store as store
 from zid_platform.modules.verification.infrastructure.country_registry import registry
+from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
 from zid_platform.protected import protected_action
+
+_LOG = logging.getLogger("zid.regulatory")
 
 router = APIRouter(tags=["verification"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -82,9 +91,105 @@ def _country_gate(request: Request, jurisdiction: str) -> None:
     enforce(request, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
 
 
-async def _pack_gate(request: Request, caller: Caller, jurisdiction: str) -> None:
-    """ZID-RCG-003: an enabled country also needs an approved policy pack for the market, checked before any provider is asked (T01, T02)."""
-    await enforce_packs(request, caller.ctx, jurisdiction, Capability.INDIVIDUAL_VERIFICATION)
+async def _pack_gate(request: Request, caller: Caller, jurisdiction: str) -> dict[str, Any] | None:
+    """ZID-RCG-003: an enabled country also needs an approved policy pack for the market, checked before any provider is asked (T01, T02).
+    Returns the regulatory basis the start goes on (09.1), or None when no regulatory check applies."""
+    return await enforce_packs(
+        request, caller.ctx, jurisdiction, Capability.INDIVIDUAL_VERIFICATION
+    )
+
+
+async def _privacy_gate(
+    request: Request, caller: Caller, jurisdiction: str, profile_id: str, subject: str
+) -> dict[str, Any] | None:
+    """ZID-RCG-003 RCG-G09 (CR-079): the country's privacy overlay, before any provider is asked. The provider's processing region must be a home
+    region or a lawful transfer (T32); a biometric route needs the country's permission and, where the country requires it, the person's consent;
+    a refused biometric route names the tenant's compliant alternate profiles (T31). Applies to an ENABLED country only, like the other checks.
+    `ZID_PRIVACY_OVERLAY`: shadow (default) reports, enforce refuses, off skips (refused outside local, test and dev)."""
+    mode = str(getattr(request.app.state, "privacy_overlay", "shadow"))
+    if mode == "off":
+        return None
+    reg = registry()
+    now = datetime.now(UTC)
+    if (
+        availability(
+            reg,
+            jurisdiction,
+            Capability.INDIVIDUAL_VERIFICATION,
+            now=now,
+            environment=str(getattr(request.app.state, "environment", "production")),
+        )
+        is not Availability.ENABLED
+    ):
+        return None
+    c = reg.countries.get(jurisdiction.upper())
+    entry = c.capabilities.get(Capability.INDIVIDUAL_VERIFICATION) if c else None
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        decision, alternates = await privacy_gate.check_start(
+            conn,
+            tenant_id=caller.ctx.tenant_id or "",
+            profile_id=profile_id,
+            subject_principal_id=subject,
+            country=jurisdiction,
+            provider=entry.provider if entry else None,
+            overlays=privacy_overlays(),
+        )
+    seen = {
+        "mode": mode,
+        "allowed": decision.allowed,
+        "reasons": list(decision.reasons),
+        "region": decision.region,
+        "transfer_mechanism": decision.mechanism,
+    }
+    if decision.allowed:
+        return seen
+    reasons = set(decision.reasons)
+    code = (
+        "CROSS_BORDER_ROUTE_DENIED"
+        if "CROSS_BORDER_ROUTE_DENIED" in reasons
+        else "BIOMETRIC_ROUTE_NOT_PERMITTED"
+        if reasons <= po.BIOMETRIC_REASONS
+        else "PRIVACY_OVERLAY_UNAVAILABLE"
+    )
+    _LOG.warning(
+        "privacy overlay check %s: %s in %s (%s)",
+        "refused" if mode == "enforce" else "would refuse (shadow)",
+        code,
+        jurisdiction,
+        ",".join(decision.reasons),
+    )
+    if mode == "enforce":
+        raise ZidError(
+            code,
+            {
+                "CROSS_BORDER_ROUTE_DENIED": f"Identity data for {jurisdiction} may not be sent to where this provider processes it.",
+                "BIOMETRIC_ROUTE_NOT_PERMITTED": f"A biometric check is not permitted for this person in {jurisdiction}; use an alternate route.",
+                "PRIVACY_OVERLAY_UNAVAILABLE": f"No approved privacy overlay covers identity verification in {jurisdiction}.",
+            }[code],
+            http_status=422,
+            details=[
+                ErrorDetail(field="alternate_profile_id", issue=str(p["profile_id"]))
+                for p in alternates
+            ],
+        )
+    return seen  # shadow: reported, and recorded with the session
+
+
+async def _record_basis(
+    request: Request,
+    caller: Caller,
+    session_id: str,
+    basis: dict[str, Any] | None,
+    privacy: dict[str, Any] | None,
+) -> None:
+    """Write the regulatory basis on the session, once (ZID-RCG-003 09.1). Nothing is written when no regulatory check applied."""
+    if basis is None and privacy is None:
+        return
+    record = dict(basis or {})
+    if privacy is not None:
+        record["privacy"] = privacy
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await store.set_regulatory_basis(conn, session_id, record)
 
 
 def _callback_country_check(request: Request, country: str) -> None:
@@ -177,7 +282,10 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
             **attempt_inputs(request),
         )
     _country_gate(request, body.jurisdiction)
-    await _pack_gate(request, caller, body.jurisdiction)
+    basis = await _pack_gate(request, caller, body.jurisdiction)
+    privacy = await _privacy_gate(
+        request, caller, body.jurisdiction, str(body.profile_id), str(body.subject_principal_id)
+    )
     try:
         out = await service.start(
             request_engine(request),
@@ -194,6 +302,7 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
         )
     except VerificationError as e:
         raise _err(e) from e
+    await _record_basis(request, caller, out.session_id, basis, privacy)
     started: dict[str, Any] = {
         "verification_id": out.session_id,
         "status": out.status,
@@ -223,7 +332,7 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
     result says started or why not. A person's short-lived handoff link is returned once, here, and never stored."""
     _scope(caller, "verification:execute")
     _country_gate(request, body.jurisdiction)
-    await _pack_gate(request, caller, body.jurisdiction)
+    basis = await _pack_gate(request, caller, body.jurisdiction)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await require_feature(
             conn,
@@ -232,6 +341,13 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
         )
     results: list[dict[str, Any]] = []
     for subject in dict.fromkeys(body.subject_principal_ids):
+        try:  # per person: one person's missing biometric consent never stops another's start
+            privacy = await _privacy_gate(
+                request, caller, body.jurisdiction, str(body.profile_id), str(subject)
+            )
+        except ZidError as e:
+            results.append({"subject_principal_id": str(subject), "started": False, "code": e.code})
+            continue
         try:
             out = await service.start(
                 request_engine(request),
@@ -249,6 +365,7 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
         except VerificationError as e:
             results.append({"subject_principal_id": str(subject), "started": False, "code": e.code})
             continue
+        await _record_basis(request, caller, out.session_id, basis, privacy)
         item: dict[str, Any] = {
             "subject_principal_id": str(subject),
             "started": True,
@@ -308,7 +425,10 @@ async def reverify(
         except VerificationError as e:
             raise _err(e) from e
     _country_gate(request, old.jurisdiction)
-    await _pack_gate(request, caller, old.jurisdiction)
+    basis = await _pack_gate(request, caller, old.jurisdiction)
+    privacy = await _privacy_gate(
+        request, caller, old.jurisdiction, old.profile_id, old.subject_principal_id
+    )
     try:
         out = await service.start(
             request_engine(request),
@@ -326,6 +446,7 @@ async def reverify(
         )
     except VerificationError as e:
         raise _err(e) from e
+    await _record_basis(request, caller, out.session_id, basis, privacy)
     again: dict[str, Any] = {
         "verification_id": out.session_id,
         "status": out.status,

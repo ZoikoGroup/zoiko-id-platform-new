@@ -520,6 +520,9 @@
         "credential_issued": {
           "$ref": "#/components/messages/credential_issued"
         },
+        "credential_issuer_status_changed": {
+          "$ref": "#/components/messages/credential_issuer_status_changed"
+        },
         "credential_profile_deprecated": {
           "$ref": "#/components/messages/credential_profile_deprecated"
         },
@@ -783,6 +786,9 @@
       "messages": {
         "evidence_audit_committed": {
           "$ref": "#/components/messages/evidence_audit_committed"
+        },
+        "evidence_bundle_exported": {
+          "$ref": "#/components/messages/evidence_bundle_exported"
         },
         "evidence_case_created": {
           "$ref": "#/components/messages/evidence_case_created"
@@ -2125,6 +2131,9 @@
         "verification_case_completed": {
           "$ref": "#/components/messages/verification_case_completed"
         },
+        "verification_certification_changed": {
+          "$ref": "#/components/messages/verification_certification_changed"
+        },
         "verification_completed": {
           "$ref": "#/components/messages/verification_completed"
         },
@@ -2137,8 +2146,26 @@
         "verification_manual_review_required": {
           "$ref": "#/components/messages/verification_manual_review_required"
         },
+        "verification_market_launched": {
+          "$ref": "#/components/messages/verification_market_launched"
+        },
+        "verification_market_withdrawn": {
+          "$ref": "#/components/messages/verification_market_withdrawn"
+        },
+        "verification_policy_pack_approved": {
+          "$ref": "#/components/messages/verification_policy_pack_approved"
+        },
+        "verification_policy_pack_retired": {
+          "$ref": "#/components/messages/verification_policy_pack_retired"
+        },
         "verification_profile_activated": {
           "$ref": "#/components/messages/verification_profile_activated"
+        },
+        "verification_provider_entitlement_changed": {
+          "$ref": "#/components/messages/verification_provider_entitlement_changed"
+        },
+        "verification_provider_scope_restored": {
+          "$ref": "#/components/messages/verification_provider_scope_restored"
         },
         "verification_provider_submitted": {
           "$ref": "#/components/messages/verification_provider_submitted"
@@ -2173,6 +2200,9 @@
         },
         "verification_provider_quarantined": {
           "$ref": "#/components/messages/verification_provider_quarantined"
+        },
+        "verification_provider_scope_suspended": {
+          "$ref": "#/components/messages/verification_provider_scope_suspended"
         }
       },
       "parameters": {
@@ -3038,6 +3068,17 @@
         "x-zid-source": "ZID-VC-001",
         "x-zid-status": "catalogued"
       },
+      "credential_issuer_status_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.issuer_status_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A dated statement about an issuer, its names or accreditations was recorded; issuer id, sequence, statement kind and source hash only (09.2 credential.issuer_status_changed).",
+        "title": "credential.issuer_status_changed",
+        "x-zid-source": "ZID-RCG-003 RCG-G04; CR-075",
+        "x-zid-status": "proposed"
+      },
       "credential_profile_deprecated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.credential.profile.deprecated.v1",
@@ -3433,6 +3474,17 @@
         "title": "evidence.audit.committed",
         "x-zid-source": "ZID-EVIDENCE-001",
         "x-zid-status": "catalogued"
+      },
+      "evidence_bundle_exported": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.bundle.exported.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A regulatory evidence bundle was exported with a stated purpose and legal basis; bundle id, digest, purpose and legal basis reference only (ZID-RCG-003 09.2 audit.exported).",
+        "title": "evidence.bundle.exported",
+        "x-zid-source": "ZID-RCG-003 09.2; CR-085",
+        "x-zid-status": "proposed"
       },
       "evidence_case_created": {
         "contentType": "application/cloudevents+json",
@@ -5931,6 +5983,17 @@
         "x-zid-source": "ZID-INT-002 sections 04 and 13; CR-071",
         "x-zid-status": "proposed"
       },
+      "verification_certification_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.certification.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An official-register attestation of a provider's certification was recorded; the scope, snapshot id, status and proof hash only (09.2 certification.changed).",
+        "title": "verification.certification.changed",
+        "x-zid-source": "ZID-RCG-003 RCG-G02; CR-073",
+        "x-zid-status": "proposed"
+      },
       "verification_completed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.completed.v1",
@@ -5975,6 +6038,50 @@
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
       },
+      "verification_market_launched": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.market.launched.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A market release was launched and its market is open; release id, version and hash only.",
+        "title": "verification.market.launched",
+        "x-zid-source": "ZID-RCG-003 RCG-G10; CR-072",
+        "x-zid-status": "proposed"
+      },
+      "verification_market_withdrawn": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.market.withdrawn.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A market release was withdrawn and its market closed; release id and version only.",
+        "title": "verification.market.withdrawn",
+        "x-zid-source": "ZID-RCG-003 RCG-G10; CR-072",
+        "x-zid-status": "proposed"
+      },
+      "verification_policy_pack_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.policy_pack.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A jurisdiction and profession policy pack version was published after its four approvals; pack id, version and hash only (ZID-RCG-003 09.2 policy_pack.approved).",
+        "title": "verification.policy_pack.approved",
+        "x-zid-source": "ZID-RCG-003 RCG-G01; CR-067",
+        "x-zid-status": "proposed"
+      },
+      "verification_policy_pack_retired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.policy_pack.retired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A policy pack version was retired; the last approved version governs again; pack id, version and hash only (09.2 policy_pack.retired).",
+        "title": "verification.policy_pack.retired",
+        "x-zid-source": "ZID-RCG-003 RCG-G01; CR-067",
+        "x-zid-status": "proposed"
+      },
       "verification_profile_activated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.profile.activated.v1",
@@ -5986,6 +6093,17 @@
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
       },
+      "verification_provider_entitlement_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.provider.entitlement_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider entitlement statement was recorded (granted, suspended or withdrawn); the scope, status and contract reference only (09.2 provider.entitlement_changed).",
+        "title": "verification.provider.entitlement_changed",
+        "x-zid-source": "ZID-RCG-003 RCG-G03; CR-074",
+        "x-zid-status": "proposed"
+      },
       "verification_provider_quarantined": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.provider.quarantined.v1",
@@ -5996,6 +6114,28 @@
         "title": "verification.provider.quarantined",
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_provider_scope_restored": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.provider.scope_restored.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider suspension was lifted by another person; the suspension id, version, scope fields and evidence reference only.",
+        "title": "verification.provider.scope_restored",
+        "x-zid-source": "ZID-RCG-003 RCG-G08; CR-078",
+        "x-zid-status": "proposed"
+      },
+      "verification_provider_scope_suspended": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.provider.scope_suspended.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An exact provider scope was suspended (the kill switch); the suspension id, trigger, scope fields, evidence reference and impact counts only (09.2 provider.scope_suspended).",
+        "title": "verification.provider.scope_suspended",
+        "x-zid-source": "ZID-RCG-003 RCG-G08; CR-078",
+        "x-zid-status": "proposed"
       },
       "verification_provider_submitted": {
         "contentType": "application/cloudevents+json",

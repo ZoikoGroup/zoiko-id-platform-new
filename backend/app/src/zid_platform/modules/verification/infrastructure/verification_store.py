@@ -115,6 +115,31 @@ async def list_profiles(conn: AsyncConnection) -> list[dict[str, Any]]:
     ]
 
 
+async def list_profile_routes(conn: AsyncConnection) -> list[dict[str, Any]]:
+    """Each profile with where it applies and where it uses biometrics: what the privacy overlay needs to name compliant alternates (CR-079)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT assurance_profile_id, profile_name, profile_version, status, "
+                "requirements_json -> 'jurisdictions' AS jurisdictions, "
+                "requirements_json -> 'biometric_jurisdictions' AS biometric_jurisdictions "
+                "FROM verify.assurance_profile ORDER BY profile_name, profile_version"
+            )
+        )
+    ).all()
+    return [
+        {
+            "profile_id": str(r.assurance_profile_id),
+            "name": r.profile_name,
+            "version": r.profile_version,
+            "status": r.status,
+            "jurisdictions": list(r.jurisdictions or []),
+            "biometric_jurisdictions": list(r.biometric_jurisdictions or []),
+        }
+        for r in rows
+    ]
+
+
 async def activate_profile(conn: AsyncConnection, profile: Profile, now: datetime) -> None:
     """One ACTIVE version per profile name: the previous one retires."""
     await conn.execute(
@@ -376,6 +401,29 @@ async def update_session(
     if result.rowcount != 1:
         raise VerificationError("CONCURRENT_MODIFICATION")
     return await load_session(conn, s.session_id)
+
+
+async def set_regulatory_basis(
+    conn: AsyncConnection, session_id: str, basis: dict[str, Any]
+) -> None:
+    """Record, once, the regulatory basis the session started under (ZID-RCG-003 09.1; verification_0010 refuses a later change)."""
+    await conn.execute(
+        text(
+            "UPDATE verify.verification_session SET regulatory_basis = CAST(:b AS jsonb) "
+            "WHERE session_id = :s AND regulatory_basis IS NULL"
+        ),
+        {"b": json.dumps(basis, sort_keys=True), "s": uuid.UUID(session_id)},
+    )
+
+
+async def regulatory_basis(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text("SELECT regulatory_basis FROM verify.verification_session WHERE session_id = :s"),
+            {"s": uuid.UUID(session_id)},
+        )
+    ).first()
+    return dict(row.regulatory_basis) if row and row.regulatory_basis else None
 
 
 async def decision_basis(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:

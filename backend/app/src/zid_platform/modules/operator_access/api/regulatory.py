@@ -36,6 +36,7 @@ from zid_errors import ZidError
 from zid_platform.api_auth import request_engine
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.operator_access.ports import has_capability, require_operator
+from zid_platform.operator_actions import announce
 
 
 class _Verification:
@@ -358,6 +359,7 @@ async def _act(
     version: int | None,
     work: Any,
     role: str | None = None,
+    publish: str | None = None,
 ) -> dict[str, Any]:
     """Check the capability, make the change and audit it in one transaction. If anything is refused, the attempt rolls back and the
     refusal is recorded in a transaction of its own, then raised."""
@@ -382,6 +384,18 @@ async def _act(
                 now=now,
                 details=details,
             )
+            if (
+                publish
+            ):  # ZID-RCG-003 section 09.2: other systems learn of it in the same transaction
+                await announce(
+                    conn,
+                    name=publish,
+                    tenant_id=str(request.state.operator_ctx.tenant_id),
+                    aggregate_type="policy_pack",
+                    aggregate_id=f"{pack.pack_id}:v{pack.version}",
+                    data={"target": f"{pack.pack_id}:v{pack.version}", **details},
+                    occurred_at=now,
+                )
             return _view(pack)
     except v.PolicyPackError as e:
         refusal, code = _fail(e), str(e.code)
@@ -510,6 +524,7 @@ async def publish(
         request,
         op,
         event="regulatory.pack.published",
+        publish="verification.policy_pack.approved",
         action="publish",
         capability=PUBLISH,
         pack_id=pack_id,
@@ -529,6 +544,7 @@ async def retire(
         request,
         op,
         event="regulatory.pack.retired",
+        publish="verification.policy_pack.retired",
         action="retire",
         capability=PUBLISH,
         pack_id=pack_id,

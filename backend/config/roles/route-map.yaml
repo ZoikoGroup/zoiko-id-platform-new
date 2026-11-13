@@ -50,6 +50,7 @@ rules:
   - {match: "POST /v1/tenant:*", exempt: NO_MATRIX_ACTION, why: "suspend, resume and offboard are owner steps under their protected actions; the matrices have no row"}
   - {match: "* /v1/reviews/*", exempt: OPERATOR_PLANE, why: "Zoiko reviewers decide company verification and screening cases"}
   - {match: "* /v1/regulatory/*", exempt: OPERATOR_PLANE, why: "jurisdiction and profession policy packs are platform configuration, authored and approved by Zoiko operators (CR-067)"}
+  - {match: "* /v2/regulatory/*", exempt: OPERATOR_PLANE, why: "the ZID-RCG-003 09.2 regulatory API at the document's paths; the same operator handlers as /v1/regulatory (CR-085)"}
   - {match: "* /admin/recovery-*", exempt: APPROVAL_ENGINE, why: "recovery is a governed case (ZID-ENG-DEC-012)"}
   - {match: "* /v1/recovery-cases", exempt: APPROVAL_ENGINE, why: "recovery is a governed case (ZID-ENG-DEC-012)"}
 

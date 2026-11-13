@@ -214,7 +214,22 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
                 environment=settings.environment,
             )
 
-        return await rescreen_pass(conn, screening_config(), sign, now, country_gate=gate)
+        from zid_platform.modules.screening.ports import (
+            MonitoringKind,
+            configure_monitoring_scope,
+            require_monitoring,
+        )
+
+        configure_monitoring_scope(settings.monitoring_scope)  # the worker is its own process
+
+        def monitoring(
+            country: str,
+        ) -> None:  # CR-081: screening again over time is ongoing monitoring, only where approved
+            require_monitoring(country=country, kind=MonitoringKind.SANCTIONS_ONGOING, at=now)
+
+        return await rescreen_pass(
+            conn, screening_config(), sign, now, country_gate=gate, monitoring_gate=monitoring
+        )
 
     async def register_watch(conn: AsyncConnection, now: datetime) -> object:
         """ED-04 section 07: read the official register again for every live case; a change asks for a rescreen (answered by `screening`)."""

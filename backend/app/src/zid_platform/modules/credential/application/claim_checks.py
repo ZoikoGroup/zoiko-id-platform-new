@@ -389,6 +389,12 @@ def _extras(
             "expires_on": f.get("expires_on"),
             "activities": _listify(f.get("activities")),
             "excluded_work": _listify(f.get("excluded_work")),
+            # what a practice rule (CR-076) reads; absent from the source means absent here, never filled in
+            "coverage_limit": f.get("coverage_limit"),
+            "currency": f.get("currency"),
+            "practice_class": _listify(f.get("practice_class")),
+            "cover_basis": f.get("cover_basis"),
+            "retroactive_date": f.get("retroactive_date"),
         }
     if accreditation is not None:
         out["accreditation"] = accreditation

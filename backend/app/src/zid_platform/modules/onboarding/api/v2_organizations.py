@@ -20,7 +20,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.country_gate import enforce
+from zid_platform.country_gate import enforce_regulated
 from zid_platform.modules.onboarding.api.org_claims import _adapters, _kyb_error, _require_admin
 from zid_platform.modules.organization.ports import (
     KybApplicant,
@@ -78,7 +78,7 @@ async def verify_organization(
 ) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _require_admin(conn, caller)
-    enforce(request, body.country, Capability.BUSINESS_VERIFICATION)
+    await enforce_regulated(request, body.country, Capability.BUSINESS_VERIFICATION, caller.ctx)
     try:
         applicant = kyb_check_applicant(  # a malformed number is refused before any source is asked
             KybApplicant(

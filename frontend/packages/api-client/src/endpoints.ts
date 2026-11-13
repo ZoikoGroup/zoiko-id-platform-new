@@ -984,6 +984,69 @@ export function createOperatorApi(t: Transport) {
       recordReview: (body: { service_id: string; release_ref: string; gates: M.PrrGate[] }) =>
         post<{ review_id: string; service_id: string; production_ready: boolean; blocking: M.PrrBlocker[] }>("/ops/readiness-reviews", body),
     },
+
+    /** ZID-RCG-003 regulatory records (CR-067 to CR-085). Every write is one operator capability; the cell enforces who may do what. */
+    regulatory: {
+      readiness: () => get<M.RegulatoryReadiness>("/v1/regulatory/readiness"),
+      packs: (country?: string, status?: M.PackStatus) => get<M.Items<M.PolicyPack>>("/v1/regulatory/policy-packs", { country, status }),
+      createPack: (body: M.PackDraftIn) => post<M.PolicyPack>("/v1/regulatory/policy-packs", body),
+      revisePack: (packId: string, body: { sources?: M.PackSource[]; rules?: M.PackRules }) =>
+        post<M.PolicyPack>(`/v1/regulatory/policy-packs/${seg(packId)}:revise`, body),
+      approvePack: (packId: string, version: number, role: M.PackApproverRole, signedHash: string) =>
+        post<M.PolicyPack>(`/v1/regulatory/policy-packs/${seg(packId)}/versions/${version}:approve`, { role, signed_hash: signedHash }),
+      publishPack: (packId: string, version: number) => post<M.PolicyPack>(`/v1/regulatory/policy-packs/${seg(packId)}/versions/${version}:publish`),
+      retirePack: (packId: string, version: number) => post<M.PolicyPack>(`/v1/regulatory/policy-packs/${seg(packId)}/versions/${version}:retire`),
+
+      releases: (country?: string, status?: M.ReleaseStatus) => get<M.Items<M.MarketRelease>>("/v1/regulatory/market-releases", { country, status }),
+      marketStatus: (country: string, product: string, purpose: string) => get<M.MarketStatus>("/v1/regulatory/market-status", { country, product, purpose }),
+      openRelease: (body: { release_id: string; country: string; product: string; purpose: string }) => post<M.MarketRelease>("/v1/regulatory/market-releases", body),
+      reviseRelease: (releaseId: string) => post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}:revise`),
+      attestGate: (releaseId: string, version: number, body: { gate: string; role: M.GateRole; status: "PASSED" | "FAILED"; evidence_ref: string }) =>
+        post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}/versions/${version}:attest`, body),
+      freezeRelease: (releaseId: string, version: number, suppliers: M.SupplierScope[]) =>
+        post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}/versions/${version}:freeze`, { suppliers }),
+      approveRelease: (releaseId: string, version: number, role: M.ReleaseApproverRole, signedHash: string) =>
+        post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}/versions/${version}:approve`, { role, signed_hash: signedHash }),
+      launchRelease: (releaseId: string, version: number) => post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}/versions/${version}:launch`),
+      withdrawRelease: (releaseId: string, version: number) => post<M.MarketRelease>(`/v1/regulatory/market-releases/${seg(releaseId)}/versions/${version}:withdraw`),
+
+      attestations: (entity?: string) => get<M.Items<M.AttestationRow>>("/v1/regulatory/attestations", { entity }),
+      recordAttestation: (body: M.AttestationIn) => post<Record<string, unknown>>("/v1/regulatory/attestations", body),
+      entitlements: (provider?: string) => get<M.Items<M.EntitlementRow>>("/v1/regulatory/entitlements", { provider }),
+      recordEntitlement: (body: M.EntitlementIn) => post<Record<string, unknown>>("/v1/regulatory/entitlements", body),
+
+      suspensions: (active = false) =>
+        get<M.Items<{ current: M.SuspensionVersion; versions: M.SuspensionVersion[] }>>("/v1/regulatory/suspensions", { active: active ? "true" : undefined }),
+      suspensionImpact: (scope: { provider: string; service_id?: string; scheme?: string; country?: string; purpose?: string }) =>
+        get<{ scope: M.SuspensionScope; impact: M.SuspensionImpact }>("/v1/regulatory/suspensions/impact", scope),
+      suspend: (body: M.SuspensionApplyIn) => post<M.SuspensionVersion & { impact: M.SuspensionImpact }>("/v1/regulatory/suspensions", body),
+      liftSuspension: (id: string, reason: string, evidenceRef: string) =>
+        post<M.SuspensionVersion>(`/v1/regulatory/suspensions/${seg(id)}:lift`, { reason, evidence_ref: evidenceRef }),
+
+      issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
+      issuerStatements: (issuerId: string) => get<M.Items<M.IssuerStatement>>(`/v1/regulatory/issuers/${seg(issuerId)}/statements`),
+      awardCheck: (issuerId: string, program: string, awardedOn: string, knownAt?: string) =>
+        get<M.AwardCheck>(`/v1/regulatory/issuers/${seg(issuerId)}/award-check`, { program, awarded_on: awardedOn, known_at: knownAt }),
+
+      claims: (audience?: string) => get<M.Items<M.ClaimJudgement>>("/v1/regulatory/claims", { audience }),
+      evidenceBundle: (bundleId: string, purpose: string, legalBasisRef: string) =>
+        get<{ digest: string; signature: string | null; signature_status: string; content: Record<string, unknown> }>(
+          `/v2/regulatory/evidence-bundles/${seg(bundleId)}`,
+          { purpose, legal_basis_ref: legalBasisRef },
+        ),
+
+      conformanceMatrix: () => get<M.ConformanceMatrix>("/v1/regulatory/conformance-matrix"),
+      conformanceRuns: () => get<M.Items<M.ConformanceRun>>("/v1/regulatory/conformance-runs"),
+      reviewConformanceRun: (runId: string, decision: "ACCEPTED" | "REJECTED", signedHash: string, noteRef: string) =>
+        post<M.ConformanceRun>(`/v1/regulatory/conformance-runs/${seg(runId)}:review`, { decision, signed_hash: signedHash, note_ref: noteRef }),
+
+      privacyOverlays: () => get<M.Items<M.PrivacyOverlayView>>("/v1/regulatory/privacy-overlays"),
+      privacyRouteCheck: (country: string, provider: string, biometric: boolean, consent: boolean) =>
+        get<M.RouteCheck>("/v1/regulatory/privacy-route-check", { country, provider, biometric: String(biometric), consent: String(consent) }),
+      monitoringCheck: (country: string, kind: string, sector = "ANY") => get<M.MonitoringCheck>("/v1/regulatory/monitoring-check", { country, kind, sector }),
+      rightToRentCheck: (country: string, route: string, subdivision?: string, provider?: string) =>
+        get<M.RightToRentCheck>("/v1/regulatory/right-to-rent/check", { country, route, subdivision, provider }),
+    },
   };
 }
 

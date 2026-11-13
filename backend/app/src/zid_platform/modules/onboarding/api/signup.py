@@ -28,7 +28,7 @@ from zid_db import in_tenant
 from zid_errors import ZidError
 
 from zid_platform.api_auth import request_engine
-from zid_platform.country_gate import enforce, namespace_country
+from zid_platform.country_gate import enforce, enforce_regulated, namespace_country
 from zid_platform.modules.configuration.ports import public_branding
 from zid_platform.modules.onboarding.application.organization import development_verification
 from zid_platform.modules.onboarding.domain.gates import OnboardingError
@@ -148,7 +148,9 @@ async def registry_lookup(namespace: str, identifier: str, request: Request) -> 
         raise ZidError(
             "ORGANIZATION_SOURCE_UNSUPPORTED", "Only Companies House is supported.", http_status=422
         )
-    enforce(request, namespace_country(namespace), Capability.BUSINESS_VERIFICATION)  # EDR-001
+    await enforce_regulated(  # EDR-001 and ZID-RCG-003
+        request, namespace_country(namespace), Capability.BUSINESS_VERIFICATION
+    )
     from zid_platform.modules.onboarding.api.onboarding import registry_adapter
 
     adapter = registry_adapter(request, namespace)
@@ -206,7 +208,7 @@ async def signup(body: SignupBody, request: Request) -> dict[str, Any]:
         declaration = Declaration(body.registration.namespace, ident, lei, notice)
         country = namespace_country(body.registration.namespace)  # EDR-001: registration is gated
         enforce(request, country, Capability.REGISTRATION)
-        enforce(request, country, Capability.BUSINESS_VERIFICATION)
+        await enforce_regulated(request, country, Capability.BUSINESS_VERIFICATION)
     _rate_limit(request)
     dev_verify = bool(getattr(request.app.state, "tenant_signup_dev_verify", False))
     environment = str(getattr(request.app.state, "environment", "production"))

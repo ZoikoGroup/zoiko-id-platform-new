@@ -2,7 +2,28 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AppShell, StatusBadge, StatusBarItems, type Command, type EnvironmentKind, type NavGroup } from "@zoiko/ui";
-import { Activity, ClipboardCheck, Flag, Receipt, FlaskConical, KeyRound, LifeBuoy, Server, Siren, Stamp, TriangleAlert } from "lucide-react";
+import {
+  Activity,
+  BadgeCheck,
+  BookOpenCheck,
+  ClipboardCheck,
+  Flag,
+  FlaskConical,
+  Gauge,
+  KeyRound,
+  Landmark,
+  LifeBuoy,
+  ListChecks,
+  Megaphone,
+  OctagonX,
+  Receipt,
+  Rocket,
+  Server,
+  ShieldQuestion,
+  Siren,
+  Stamp,
+  TriangleAlert,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -25,6 +46,20 @@ const NAV: NavGroup[] = [
     items: [
       { id: "incidents", label: "Incidents", href: "/incidents", icon: TriangleAlert },
       { id: "services", label: "Services & SLOs", href: "/services", icon: Activity },
+    ],
+  },
+  {
+    label: "Regulatory",
+    items: [
+      { id: "reg-readiness", label: "Enforce readiness", href: "/regulatory/readiness", icon: Gauge },
+      { id: "reg-packs", label: "Policy packs", href: "/regulatory/packs", icon: BookOpenCheck },
+      { id: "reg-releases", label: "Market releases", href: "/regulatory/releases", icon: Rocket },
+      { id: "reg-suppliers", label: "Suppliers", href: "/regulatory/suppliers", icon: BadgeCheck },
+      { id: "reg-holds", label: "Holds", href: "/regulatory/holds", icon: OctagonX },
+      { id: "reg-issuers", label: "Issuers", href: "/regulatory/issuers", icon: Landmark },
+      { id: "reg-claims", label: "Regulated claims", href: "/regulatory/claims", icon: Megaphone },
+      { id: "reg-conformance", label: "Conformance", href: "/regulatory/conformance", icon: ListChecks },
+      { id: "reg-checks", label: "Checks", href: "/regulatory/checks", icon: ShieldQuestion },
     ],
   },
   {
