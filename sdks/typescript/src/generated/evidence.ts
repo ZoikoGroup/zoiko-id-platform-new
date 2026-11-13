@@ -986,7 +986,10 @@ export interface components {
             case_ref: string;
             /** Mode */
             mode: string;
-            /** Purpose */
+            /**
+             * Purpose
+             * @default
+             */
             purpose: string;
             /** Receipt Ids */
             receipt_ids: string[];
@@ -1059,7 +1062,10 @@ export interface components {
             case_ref: string;
             /** Mode */
             mode: string;
-            /** Purpose */
+            /**
+             * Purpose
+             * @default
+             */
             purpose: string;
             /**
              * Receipt Id

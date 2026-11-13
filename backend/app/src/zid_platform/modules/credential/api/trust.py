@@ -366,6 +366,7 @@ class CredReadIn(BaseModel):
 async def read_grant(
     grant_id: uuid.UUID, body: CredReadIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
+    denied: pt.DisclosureError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _gate(conn, caller, "credential.read", f"disclosure:{grant_id}")
         try:
@@ -379,7 +380,21 @@ async def read_grant(
                 now=_now(),
             )
         except pt.DisclosureError as e:
-            raise _err(e) from e
+            denied = e  # answered after the transaction, so the record of the refusal can commit
+    if denied is not None:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await svc.record_disclosure_denied(
+                conn,
+                tenant_id=caller.ctx.tenant_id or "",
+                principal_id=caller.ctx.principal_id,
+                grant_id=str(grant_id),
+                check_id=str(body.check_id),
+                consumer=body.consumer,
+                purpose=body.purpose,
+                code=denied.code,
+                now=_now(),
+            )
+        raise _err(denied) from denied
     return {"grant_id": str(grant_id), "disclosed": data}
 
 

@@ -96,7 +96,7 @@ cases:
       - app/tests/component/test_org_claim_proofs_pg.py::test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_document
       - app/tests/component/test_credential_trust_pg.py::test_the_new_tables_are_invisible_to_another_tenant
       - app/tests/component/test_tenant_isolation_pg.py::test_other_tenants_and_tenantless_callers_see_and_change_nothing
-    note: No leakage is proven (404 and row-level security), but the denied attempt is neither a 403 nor audited.
+    note: The denied attempt is now audited in the caller's own organization (DENIED / CASE_NOT_VISIBLE) and nothing leaks, but the answer is the 404 that row-level security gives for another tenant's evidence and for none at all, not the 403 the case states; a 403 would confirm the claim exists. Owner decision needed on 404 versus 403 before this can be COVERED.
   - case: T13
     title: Degree valid, professional license expired
     expected: qualification VERIFIED; practice NOT_ELIGIBLE
@@ -261,12 +261,12 @@ cases:
   - case: T35
     title: Compromised webhook signature/replay
     expected: reject, log and alert
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_pack_diff_and_provider_guards.py::test_a_replayed_or_stale_webhook_is_refused
       - app/tests/unit/test_pack_diff_and_provider_guards.py::test_t16_a_forged_or_altered_webhook_is_refused
       - app/tests/component/test_idv_providers_pg.py::test_veriff_and_sumsub_sessions_and_webhooks
-    note: Forged, replayed and stale webhooks are rejected; no test asserts that the rejection is logged and raises an alert.
+    note: Provider callbacks that are forged, altered or replayed with a different body are refused, written to the audit trail as DENIED and raised as one mandatory HIGH alert per adapter and reason (CR-090); a stale one shares the same code path (forged and replayed are asserted over HTTP, stale only by the code set and the unit tests). Stripe's payment webhook has no tenant and is refused with a 400 only.
   - case: T36
     title: Approval maker tries to self-approve
     expected: forbidden; distinct authorized approvers required
@@ -285,11 +285,11 @@ cases:
   - case: T38
     title: Evidence export requester lacks purpose
     expected: deny or redact; record audit
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_evidence_provenance_pg.py::test_case_bound_redacted_export
       - app/tests/component/test_audit_export_pg.py::test_only_someone_who_may_read_evidence_can_follow_the_feed
-    note: Exports are redacted and refused without authority; no test refuses one for a MISSING PURPOSE and records the refusal.
+      - app/tests/component/test_audit_export_pg.py::test_an_export_without_a_purpose_is_refused_and_the_refusal_is_recorded
   - case: T39
     title: Supplier inactive during applicant workflow
     expected: safe resumable pending state; no fabricated pass
@@ -366,8 +366,8 @@ cases:
   - case: T48
     title: Selective disclosure to Zoikorum lacking consent
     expected: deny claim release; log consumer purpose
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_credential_trust_pg.py::test_a_grant_discloses_only_its_fields_and_withdrawal_ends_it_and_its_children
       - app/tests/unit/test_lifecycle_portable_outreach.py::test_every_term_must_match_at_disclosure
-    note: Release without a matching consent is denied; no test asserts that the consumer's purpose is logged on the denied release.
+      - app/tests/component/test_credential_trust_pg.py::test_a_release_denied_for_a_consent_mismatch_records_the_consumers_purpose

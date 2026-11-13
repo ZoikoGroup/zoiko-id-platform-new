@@ -35,9 +35,16 @@ from zid_platform.modules.credential.domain.claims import (
     SourceResult,
     SubjectMatch,
 )
+from zid_platform.modules.credential.domain.disclosure_events import DISCLOSURE_DENIED
 from zid_platform.modules.credential.infrastructure import claim_store, trust_store
 from zid_platform.modules.credential.infrastructure.registries import find_practice_rule
-from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
+from zid_platform.modules.evidence.ports import (
+    AuditFacts,
+    EvidenceClass,
+    ReceiptFacts,
+    record_audit,
+    record_decision_receipt,
+)
 from zid_platform.modules.verification.ports import person_assurance_current
 
 
@@ -523,6 +530,48 @@ async def disclose_check(
         consumer=consumer,
         purpose=purpose,
         now=now,
+    )
+
+
+async def record_disclosure_denied(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str | None,
+    grant_id: str,
+    check_id: str,
+    consumer: str,
+    purpose: str,
+    code: str,
+    now: datetime,
+) -> None:
+    """T48: a release that was refused (the consent does not cover this consumer, recipient or purpose, or is not in force) is recorded
+    with the purpose the consumer stated. Ids, the refusal code, the consumer and the purpose string only: never the claim, the
+    recipient or anything the grant would have released. Written in its own transaction by the caller (the refused request's
+    transaction ends in an error)."""
+    await record_audit(
+        conn,
+        tenant_id,
+        AuditFacts(
+            event_type=DISCLOSURE_DENIED,
+            actor_type="HUMAN",
+            action="denied",
+            target_type="disclosure_grant",
+            target_ref=grant_id,
+            outcome="DENIED",
+            evidence_class=EvidenceClass.E3,
+            occurred_at=now,
+            actor_principal_id=principal_id,
+            reason_code=code,
+            source_service="credential",
+            details={
+                "grant_id": grant_id,
+                "check_id": check_id,
+                "consumer": consumer[:100],
+                "purpose": purpose[:200],
+                "reason": code,
+            },
+        ),
     )
 
 

@@ -61,8 +61,8 @@
             "type": "string"
           },
           "purpose": {
+            "default": "",
             "maxLength": 200,
-            "minLength": 3,
             "title": "Purpose",
             "type": "string"
           },
@@ -93,7 +93,6 @@
         "required": [
           "receipt_ids",
           "mode",
-          "purpose",
           "case_ref"
         ],
         "title": "BulkBody",
@@ -302,8 +301,8 @@
             "type": "string"
           },
           "purpose": {
+            "default": "",
             "maxLength": 200,
-            "minLength": 3,
             "title": "Purpose",
             "type": "string"
           },
@@ -325,7 +324,6 @@
         "required": [
           "receipt_id",
           "mode",
-          "purpose",
           "case_ref"
         ],
         "title": "PackageBody",
