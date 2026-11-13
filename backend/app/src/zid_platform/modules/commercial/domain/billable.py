@@ -16,6 +16,18 @@ from decimal import Decimal
 
 METERS = ("MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED")
 PRINCIPAL_CLASSES = ("HUMAN", "NON_HUMAN")
+ORIGINS = ("API", "SDK", "CONSOLE", "PARTNER")
+TRANSACTION_TYPES = (
+    "SUBMITTED",
+    "ACCEPTED",
+    "PROVIDER_EXECUTED",
+    "DELIVERED",
+    "RECHECKED",
+    "VOIDED",
+)
+BILLABLE_RESULTS = ("CHARGEABLE", "NO_CHARGE")
+# An event is never written already rated or invoiced: those are later facts held elsewhere, and a provisional charge is never shown as final.
+RECORDING_FINALITY = ("PENDING", "PROVISIONAL")
 
 
 class BillableError(Exception):
@@ -78,6 +90,16 @@ class BillableEvent:
     source_request_id: str | None = None
     late: bool = False
     recovered: bool = False
+    # The usage-event contract's extra fields (v3.0 section 04.1). None means "not stated", never a default of tenant, final or chargeable.
+    # They are not part of `row_hash`, so the hash totals of frozen windows are unchanged.
+    legal_payer_id: str | None = None
+    origin: str | None = None
+    partner_id: str | None = None
+    transaction_type: str | None = None
+    billable_result: str | None = None
+    finality: str | None = None
+    market_policy: str | None = None
+    supplier_rate_version: str | None = None
 
     def validate(self) -> None:
         if self.meter_id not in METERS:
@@ -88,6 +110,21 @@ class BillableEvent:
             raise BillableError("DEDUPLICATION_KEY_INVALID")
         if self.principal_class is not None and self.principal_class not in PRINCIPAL_CLASSES:
             raise BillableError("PRINCIPAL_CLASS_INVALID")
+        for value, allowed, code in (
+            (self.origin, ORIGINS, "ORIGIN_INVALID"),
+            (self.transaction_type, TRANSACTION_TYPES, "TRANSACTION_TYPE_INVALID"),
+            (self.billable_result, BILLABLE_RESULTS, "BILLABLE_RESULT_INVALID"),
+            (self.finality, RECORDING_FINALITY, "FINALITY_INVALID"),
+        ):
+            if value is not None and value not in allowed:
+                raise BillableError(code, value)
+        if (self.origin == "PARTNER") != (self.partner_id is not None):
+            raise BillableError(
+                "PARTNER_ORIGIN_MISMATCH", "a partner is named exactly when the origin is PARTNER"
+            )
+        for text_value in (self.market_policy, self.supplier_rate_version):
+            if text_value is not None and not 1 <= len(text_value) <= 80:
+                raise BillableError("CONTEXT_TEXT_INVALID")
 
     @property
     def row_hash(self) -> str:

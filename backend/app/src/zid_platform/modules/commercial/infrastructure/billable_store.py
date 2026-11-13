@@ -26,8 +26,9 @@ async def insert_event(conn: AsyncConnection, e: BillableEvent) -> bool:
         text(
             "INSERT INTO commercial.billable_event (event_id, tenant_id, deduplication_key, meter_id, quantity, "
             "occurred_at, window_month, late, recovered, environment_id, principal_class, region, "
-            "source_request_id, row_hash) "
-            "VALUES (:i, :t, :k, :m, :q, :o, :w, :l, :r, :e, :p, :g, :s, :h) "
+            "source_request_id, row_hash, legal_payer_id, origin, partner_id, transaction_type, billable_result, finality, "
+            "market_policy, supplier_rate_version) "
+            "VALUES (:i, :t, :k, :m, :q, :o, :w, :l, :r, :e, :p, :g, :s, :h, :lp, :or_, :pt, :tt, :br, :fi, :mp, :sv) "
             "ON CONFLICT (tenant_id, deduplication_key) DO NOTHING"
         ),
         {
@@ -45,6 +46,14 @@ async def insert_event(conn: AsyncConnection, e: BillableEvent) -> bool:
             "g": e.region,
             "s": e.source_request_id,
             "h": e.row_hash,
+            "lp": uuid.UUID(e.legal_payer_id) if e.legal_payer_id else None,
+            "or_": e.origin,
+            "pt": uuid.UUID(e.partner_id) if e.partner_id else None,
+            "tt": e.transaction_type,
+            "br": e.billable_result,
+            "fi": e.finality,
+            "mp": e.market_policy,
+            "sv": e.supplier_rate_version,
         },
     )
     return bool(r.rowcount)

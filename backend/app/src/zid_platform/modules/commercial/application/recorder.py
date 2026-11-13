@@ -49,6 +49,14 @@ async def record(
     principal_class: str | None = None,
     source_request_id: str | None = None,
     recovered: bool = False,
+    legal_payer_id: str | None = None,
+    origin: str | None = None,
+    partner_id: str | None = None,
+    transaction_type: str | None = None,
+    billable_result: str | None = None,
+    finality: str | None = None,
+    market_policy: str | None = None,
+    supplier_rate_version: str | None = None,
 ) -> bool:
     """Record one chargeable operation. True when this call created the event, False when it was already
     recorded or could not be written (counted in `STATS`). Never raises."""
@@ -67,6 +75,14 @@ async def record(
         principal_class=principal_class,
         source_request_id=source_request_id,
         recovered=recovered,
+        legal_payer_id=legal_payer_id,
+        origin=origin,
+        partner_id=partner_id,
+        transaction_type=transaction_type,
+        billable_result=billable_result,
+        finality=finality,
+        market_policy=market_policy,
+        supplier_rate_version=supplier_rate_version,
     )
     try:
         event.validate()
