@@ -76,6 +76,7 @@ from zid_platform.modules.commercial.ports import (
     partner_store,
     payment_event_queue,
     plan_requests,
+    profitability_service,
     purchase_order_store,
     reconcile,
     resolve_payment_event,
@@ -799,6 +800,29 @@ async def close_purchase_order(
             except CommercialError as e:
                 raise _fail(e) from e
     return {"po_id": str(po_id), "status": "CLOSED"}
+
+
+@router.get("/v1/commercial/profitability")
+async def profitability(
+    request: Request,
+    op: OperatorDep,
+    from_: str = Query(alias="from", pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+    to: str = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+) -> dict[str, Any]:
+    """Margin by SKU (rated revenue less provider cost in the same currency), run-rate and revenue retention over a range of months. Read only; finance authority."""
+    start, end = date(int(from_[:4]), int(from_[5:7]), 1), date(int(to[:4]), int(to[5:7]), 1)
+    if end < start or (end.year - start.year) * 12 + end.month - start.month > 24:
+        raise ZidError(
+            "RANGE_INVALID",
+            "The range must run forwards and cover at most 25 months.",
+            http_status=422,
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", None, "commercial:finance")
+        out: dict[str, Any] = await profitability_service.report(
+            conn, start=start, end=end, as_of=datetime.now(UTC).date()
+        )
+        return out
 
 
 @router.get("/v1/commercial/quote-requests")

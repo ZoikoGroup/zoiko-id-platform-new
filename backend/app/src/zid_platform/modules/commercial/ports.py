@@ -17,7 +17,11 @@ from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.modules.commercial.application import activation_service as activations
 from zid_platform.modules.commercial.application import assurance_service as assurance
-from zid_platform.modules.commercial.application import billing_gate, usage_reservations
+from zid_platform.modules.commercial.application import (
+    billing_gate,
+    profitability_service,
+    usage_reservations,
+)
 from zid_platform.modules.commercial.application import budget_service as budgets
 from zid_platform.modules.commercial.application import commitment_service as commitments
 from zid_platform.modules.commercial.application import dispute_service as disputes
@@ -274,6 +278,7 @@ __all__ = [
     "plan_request_limit",
     "plan_requests",
     "plan_throughput_status",
+    "profitability_service",
     "purchase_order_store",
     "recon",
     "recon_import",
