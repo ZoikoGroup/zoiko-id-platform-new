@@ -886,7 +886,7 @@ _REGULATED = (
     "BUSINESS_VERIFICATION",
     "CREDENTIAL_ISSUANCE",
     "ENTERPRISE_USE",
-)
+)  # the same list as verification coverage.REGULATED
 
 
 @router.get("/v1/regulatory/readiness")
@@ -909,40 +909,14 @@ async def readiness(request: Request, op: OperatorDep) -> dict[str, Any]:
                 if entry is None:
                     continue
                 provider = entry.provider
-                refuse: list[str] = []
-                pack = await v.policy_packs.governing_pack(
-                    conn, country=code, product=name, purpose=v.PACK_PURPOSE, at=now
+                refuse = await v.coverage.capability_refusals(
+                    conn,
+                    country=code,
+                    capability=capability,
+                    provider=provider,
+                    overlays=overlays,
+                    now=now,
                 )
-                if pack.outcome is not v.Outcome.APPLICABLE:
-                    refuse.append(f"pack:{pack.reason}")
-                market = await v.market_releases.market_open(
-                    conn, v.release_model.MarketKey(code, name, v.PACK_PURPOSE), now=now
-                )
-                if not market.open:
-                    refuse.append(f"release:{market.reason}")
-                if provider is None:
-                    refuse.append("entitlement:no_provider")
-                else:
-                    ent = await v.entitlements.decide_scope(
-                        conn,
-                        v.entitlement_model.Scope(provider, code, name, v.PACK_PURPOSE),
-                        at=now,
-                    )
-                    if not ent.entitled:
-                        refuse.append(f"entitlement:{ent.reason}")
-                    stopped = await v.suspensions.blocking_for(
-                        conn,
-                        v.suspension_model.Invocation(
-                            provider=provider, service_id=name, country=code, purpose=v.PACK_PURPOSE
-                        ),
-                        at=now,
-                    )
-                    refuse.extend(f"suspended:{s.suspension_id}" for s in stopped)
-                if name == "INDIVIDUAL_VERIFICATION":
-                    route = v.privacy_overlay_model.route(
-                        overlays.get(code), provider=provider, biometric=False, consent=None
-                    )
-                    refuse.extend(f"privacy:{r}" for r in route.reasons)
                 caps.append(
                     {
                         "capability": name,
@@ -989,4 +963,49 @@ async def readiness(request: Request, op: OperatorDep) -> dict[str, Any]:
             "kill_switch": "always enforced",
         },
         "empty_configuration": empty,
+    }
+
+
+# ------------------------------------------------------------------------------------ service offerings (CR-088)
+
+
+@router.get("/v1/regulatory/offerings")
+async def offerings(
+    request: Request,
+    op: OperatorDep,
+    country: Annotated[str | None, Query(pattern=r"^[A-Z]{2}$")] = None,
+) -> dict[str, Any]:
+    """Each service offering, country by country: AVAILABLE only when provider rights, country rules, privacy controls and an independently
+    accepted conformance run all hold, otherwise every reason it is not. The public catalog (GET /v1/offerings) shows only what is AVAILABLE."""
+    now = datetime.now(UTC)
+    catalog = v.offerings_catalog()
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:offerings")
+        cov = await v.coverage.offerings_coverage(
+            conn,
+            catalog,
+            v.registry(),
+            overlays=v.privacy_overlays(),
+            now=now,
+            countries=[country] if country else None,
+        )
+    by: dict[str, list[dict[str, Any]]] = {}
+    for c in cov:
+        by.setdefault(c.offering_id, []).append(
+            {"country": c.country, "status": c.status.value, "reasons": list(c.reasons)}
+        )
+    return {
+        "items": [
+            {
+                "offering_id": o.offering_id,
+                "title": o.title,
+                "wording": o.wording,
+                "capabilities": list(o.capabilities),
+                "biometric": o.biometric,
+                "cases": list(o.cases),
+                "code": list(o.code),
+                "countries": by.get(o.offering_id, []),
+            }
+            for o in catalog
+        ]
     }

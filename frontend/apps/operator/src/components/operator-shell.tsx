@@ -12,6 +12,7 @@ import {
   Gauge,
   KeyRound,
   Landmark,
+  LayoutGrid,
   LifeBuoy,
   ListChecks,
   Megaphone,
@@ -52,6 +53,7 @@ const NAV: NavGroup[] = [
     label: "Regulatory",
     items: [
       { id: "reg-readiness", label: "Enforce readiness", href: "/regulatory/readiness", icon: Gauge },
+      { id: "reg-offerings", label: "Service offerings", href: "/regulatory/offerings", icon: LayoutGrid },
       { id: "reg-packs", label: "Policy packs", href: "/regulatory/packs", icon: BookOpenCheck },
       { id: "reg-releases", label: "Market releases", href: "/regulatory/releases", icon: Rocket },
       { id: "reg-suppliers", label: "Suppliers", href: "/regulatory/suppliers", icon: BadgeCheck },

@@ -205,6 +205,11 @@ GATED_ENTRY_POINTS = {
     "modules/credential/api/v2_cases.py": {
         "open_case": ("enforce_regulated", "INDIVIDUAL_VERIFICATION"),
     },
+    # CR-088: qualification and disciplinary checks are about a person, so they are gated like identity verification
+    "modules/credential/api/claim_checks.py": {
+        "perform_check": ("enforce_regulated", "INDIVIDUAL_VERIFICATION"),
+        "check_disciplinary": ("enforce_regulated", "INDIVIDUAL_VERIFICATION"),
+    },
     "modules/onboarding/api/signup.py": {
         "signup": ("REGISTRATION", "BUSINESS_VERIFICATION", "enforce_regulated"),
         "registry_lookup": ("BUSINESS_VERIFICATION", "enforce_regulated"),

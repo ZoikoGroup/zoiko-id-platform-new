@@ -277,6 +277,58 @@
         ]
       }
     },
+    "/v1/offerings": {
+      "get": {
+        "operationId": "public_offerings_v1_offerings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Public Offerings V1 Offerings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Offerings",
+        "tags": [
+          "countries"
+        ]
+      }
+    },
     "/v1/residency-offers": {
       "get": {
         "operationId": "residency_offers_v1_residency_offers_get",

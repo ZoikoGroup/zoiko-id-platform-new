@@ -3059,6 +3059,17 @@ export type PrivacyOverlayView = {
 export type RouteCheck = { allowed: boolean; reasons: string[]; region: string | null; mechanism: string | null };
 export type MonitoringCheck = { allowed: boolean; reasons: string[]; approval_id: string | null };
 export type RightToRentCheck = { outcome: string; route: string | null; reasons: string[]; zoiko_evidence: boolean; statutory_excuse_by_zoiko: boolean; retention: string | null };
+export type OfferingStatus = "AVAILABLE" | "NOT_AVAILABLE";
+export type ServiceOffering = {
+  offering_id: string;
+  title: string;
+  wording: string;
+  capabilities: string[];
+  biometric: boolean;
+  cases: string[];
+  code: string[];
+  countries: { country: string; status: OfferingStatus; reasons: string[] }[];
+};
 export type RegulatoryReadiness = {
   countries: {
     country: string;
