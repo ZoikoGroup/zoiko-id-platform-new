@@ -125,6 +125,29 @@ async def active_rows(
     }
 
 
+async def merchant_route_for(
+    conn: AsyncConnection, *, seller_entity: str, country: str | None, currency: str, now: datetime
+) -> tuple[str | None, int | None]:
+    """The merchant route and matrix version for an invoice: the ACTIVE matrix's single route for this seller, buyer country and currency. None when there is no active
+    matrix, no row, or rows that disagree: the invoice then records no route rather than a guess."""
+    if not country:
+        return None, None
+    m = await active(conn, now)
+    if m is None:
+        return None, None
+    found = (
+        await conn.execute(
+            text(
+                "SELECT DISTINCT merchant_route FROM commercial.market_matrix_row "
+                "WHERE matrix_id = :m AND seller_entity = :s AND country = :c AND currency = :u"
+            ),
+            {"m": m["matrix_id"], "s": seller_entity, "c": country, "u": currency},
+        )
+    ).all()
+    routes = [r[0] for r in found]
+    return (routes[0] if len(routes) == 1 else None), m["version"]
+
+
 async def create_draft(
     conn: AsyncConnection, *, copy_of: str | None, created_by: str, note: str | None
 ) -> dict[str, Any]:

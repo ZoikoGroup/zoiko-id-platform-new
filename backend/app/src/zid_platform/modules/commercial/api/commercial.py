@@ -46,6 +46,7 @@ from zid_platform.modules.commercial.application import (
     budget_service,
     entitlement_resolver,
     invoicing_service,
+    market_gate,
     orders_service,
     rating_service,
     recorder,
@@ -255,6 +256,32 @@ async def my_purchase_orders(request: Request, caller: CallerDep) -> dict[str, A
             for r in rows
         ]
     }
+
+
+class MarketGateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: Annotated[str, Field(min_length=2, max_length=8)]
+    subject_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    payer_country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
+    operating_region: Annotated[str, Field(min_length=2, max_length=40)] | None = None
+
+
+@router.post("/v1/commercial/market-gate:check")
+async def market_gate_check(
+    body: MarketGateIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Asked by the platform's own services before a paid operation runs (section 10.1). Judged against the active market matrix like the configuration check; blocking
+    only where the deployment or the company enforces commercial limits, otherwise reported (`sellable: false, blocked: false`). Scope `usage:write`, like reservations."""
+    _usage_scope(caller)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return await market_gate.check(
+            conn,
+            family=body.family,
+            subject_country=body.subject_country,
+            payer_country=body.payer_country,
+            operating_region=body.operating_region,
+            enforcement=getattr(request.app.state, "commercial_enforcement", "shadow"),
+        )
 
 
 @router.get("/v1/commercial/capability-dependencies")

@@ -24,7 +24,7 @@ from zid_platform.modules.commercial.application.adapters import (
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import invoicing as inv
 from zid_platform.modules.commercial.domain.catalogue import CommercialError
-from zid_platform.modules.commercial.infrastructure import purchase_order_store
+from zid_platform.modules.commercial.infrastructure import market_matrix_store, purchase_order_store
 
 ZERO = Decimal(0)
 
@@ -512,6 +512,13 @@ async def issue(
         )
     except CommercialError as e:
         raise inv.InvoicingError(e.code, e.detail) from e
+    merchant_route, matrix_version = await market_matrix_store.merchant_route_for(
+        conn,
+        seller_entity=i["issuing_entity"],
+        country=await account_country(conn, str(i["tenant_id"])),
+        currency=i["currency"],
+        now=now,
+    )
     number, previous = await _next_number(conn, i["issuing_entity"])
     i.update(
         tax_total=tax_total,
@@ -528,7 +535,8 @@ async def issue(
     await conn.execute(
         text(
             "UPDATE commercial.invoice SET status = 'ISSUED', sequence_number = :n, issued_at = :ia, due_at = :d, "
-            "issued_by = :b, tax_total = :tt, gross = :g, tax_status = :ts, document_digest = :dg, chain_hash = :c "
+            "issued_by = :b, tax_total = :tt, gross = :g, tax_status = :ts, document_digest = :dg, chain_hash = :c, "
+            "merchant_route = :mr, market_matrix_version = :mv "
             "WHERE invoice_id = :i"
         ),
         {
@@ -541,6 +549,8 @@ async def issue(
             "ts": tax_status,
             "dg": doc_digest,
             "c": link,
+            "mr": merchant_route,
+            "mv": matrix_version,
             "i": uuid.UUID(invoice_id),
         },
     )
@@ -940,6 +950,8 @@ async def view(conn: AsyncConnection, invoice_id: str) -> dict[str, Any]:
         "tax_total": _d(i["tax_total"]),
         "gross": _d(gross),
         "tax_status": i["tax_status"],
+        "merchant_route": i.get("merchant_route"),
+        "market_matrix_version": i.get("market_matrix_version"),
         "issued_at": i["issued_at"].isoformat() if i["issued_at"] else None,
         "due_at": i["due_at"].isoformat() if i["due_at"] else None,
         "document_digest": i["document_digest"],

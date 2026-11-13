@@ -19,6 +19,7 @@ from zid_platform.modules.commercial.application import activation_service as ac
 from zid_platform.modules.commercial.application import assurance_service as assurance
 from zid_platform.modules.commercial.application import (
     billing_gate,
+    market_gate,
     profitability_service,
     usage_reservations,
 )
@@ -266,6 +267,7 @@ __all__ = [
     "latest_rating",
     "ledger_summary",
     "log_change",
+    "market_gate",
     "market_matrix_model",
     "market_matrix_store",
     "meter_window_frozen",

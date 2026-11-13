@@ -812,6 +812,59 @@
         "title": "LineBody",
         "type": "object"
       },
+      "MarketGateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "maxLength": 8,
+            "minLength": 2,
+            "title": "Family",
+            "type": "string"
+          },
+          "operating_region": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Region"
+          },
+          "payer_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Country"
+          },
+          "subject_country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Country"
+          }
+        },
+        "required": [
+          "family"
+        ],
+        "title": "MarketGateIn",
+        "type": "object"
+      },
       "MatrixApproveBody": {
         "additionalProperties": false,
         "properties": {
@@ -4123,6 +4176,50 @@
           }
         },
         "summary": "Commercial Kpis",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-gate:check": {
+      "post": {
+        "description": "Asked by the platform's own services before a paid operation runs (section 10.1). Judged against the active market matrix like the configuration check; blocking\nonly where the deployment or the company enforces commercial limits, otherwise reported (`sellable: false, blocked: false`). Scope `usage:write`, like reservations.",
+        "operationId": "market_gate_check_v1_commercial_market_gate_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketGateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Market Gate Check V1 Commercial Market Gate Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Market Gate Check",
         "tags": [
           "commercial"
         ]
