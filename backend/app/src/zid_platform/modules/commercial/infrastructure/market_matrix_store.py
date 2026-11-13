@@ -19,7 +19,8 @@ from zid_platform.modules.commercial.domain.market_matrix import ROLES, Row
 
 _COLUMNS = (
     "family, country, seller_entity, merchant_route, currency, tax_class, data_region, offer_ref, provider_rights_ref, "
-    "legal_basis_ref, regulated_status_ref, release_evidence_ref, payment_configured, tax_configured"
+    "legal_basis_ref, regulated_status_ref, release_evidence_ref, payment_configured, tax_configured, "
+    "provider_rights_expires, regulated_status_expires"
 )
 
 
@@ -30,7 +31,8 @@ def _row(r: Any) -> Row:
         data_region=r["data_region"], offer_ref=r["offer_ref"], legal_basis_ref=r["legal_basis_ref"],
         release_evidence_ref=r["release_evidence_ref"], payment_configured=r["payment_configured"],
         tax_configured=r["tax_configured"], provider_rights_ref=r["provider_rights_ref"],
-        regulated_status_ref=r["regulated_status_ref"],
+        regulated_status_ref=r["regulated_status_ref"], provider_rights_expires=r["provider_rights_expires"],
+        regulated_status_expires=r["regulated_status_expires"],
     )  # fmt: skip
 
 
@@ -158,13 +160,15 @@ async def put_row(conn: AsyncConnection, matrix_id: str, row: Row) -> None:
         text(
             f"INSERT INTO commercial.market_matrix_row (matrix_id, {_COLUMNS}) VALUES (:m, :family, :country, "
             ":seller_entity, :merchant_route, :currency, :tax_class, :data_region, :offer_ref, :provider_rights_ref, "
-            ":legal_basis_ref, :regulated_status_ref, :release_evidence_ref, :payment_configured, :tax_configured) "
+            ":legal_basis_ref, :regulated_status_ref, :release_evidence_ref, :payment_configured, :tax_configured, "
+            ":provider_rights_expires, :regulated_status_expires) "
             "ON CONFLICT (matrix_id, family, country) DO UPDATE SET seller_entity = EXCLUDED.seller_entity, "
             "merchant_route = EXCLUDED.merchant_route, currency = EXCLUDED.currency, tax_class = EXCLUDED.tax_class, "
             "data_region = EXCLUDED.data_region, offer_ref = EXCLUDED.offer_ref, "
             "provider_rights_ref = EXCLUDED.provider_rights_ref, legal_basis_ref = EXCLUDED.legal_basis_ref, "
             "regulated_status_ref = EXCLUDED.regulated_status_ref, release_evidence_ref = EXCLUDED.release_evidence_ref, "
-            "payment_configured = EXCLUDED.payment_configured, tax_configured = EXCLUDED.tax_configured"
+            "payment_configured = EXCLUDED.payment_configured, tax_configured = EXCLUDED.tax_configured, "
+            "provider_rights_expires = EXCLUDED.provider_rights_expires, regulated_status_expires = EXCLUDED.regulated_status_expires"
         ),
         {"m": uuid.UUID(matrix_id), **{k: getattr(row, k) for k in row.__slots__}},
     )

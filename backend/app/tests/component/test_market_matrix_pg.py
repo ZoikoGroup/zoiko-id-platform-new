@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -193,6 +194,11 @@ def test_only_an_active_approved_matrix_makes_a_family_sellable_in_the_check(rt_
                 "matrix_id"
             ]
             await store.put_row(c, mid, full_row())
+            expired = datetime.now(UTC).date() - timedelta(days=1)
+            await store.put_row(
+                c, mid, replace(full_row("SIGN"), provider_rights_ref="rights:qtsp", regulated_status_ref="eutl:DE-7",
+                                provider_rights_expires=expired, regulated_status_expires=expired),
+            )  # fmt: skip
             await signed(c, mid, author)
             now = datetime.now(UTC) - timedelta(seconds=5)
             await store.activate(c, mid, activator=activator, effective_from=now, now=now)
@@ -218,4 +224,8 @@ def test_only_an_active_approved_matrix_makes_a_family_sellable_in_the_check(rt_
             0
         ]
         assert other["sellable"] is False
+        # a right past its expiry date is denied, not silently rerouted (CAT-02)
+        sign = http.post(URL, headers=adm, json={**body, "families": ["SIGN", "IDV"]}).json()
+        signed_family = next(f for f in sign["families"] if f["family"] == "SIGN")
+        assert signed_family["sellable"] is False
         assert mid

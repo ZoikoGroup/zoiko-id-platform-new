@@ -127,6 +127,8 @@ export const ACTIONS: Action[] = [
       { key: "release_evidence_ref", label: "Release evidence reference", required: true },
       { key: "provider_rights_ref", label: "Provider rights reference", help: "Required for a family that needs a provider." },
       { key: "regulated_status_ref", label: "Regulated status reference", help: "Required for a regulated family." },
+      { key: "provider_rights_expires", label: "Provider rights expire on (YYYY-MM-DD)", help: "Required whenever a provider rights reference is given." },
+      { key: "regulated_status_expires", label: "Regulated status expires on (YYYY-MM-DD)", help: "Required whenever a regulated status reference is given." },
       { key: "payment_configured", label: "Payment route configured", kind: "boolean", required: true },
       { key: "tax_configured", label: "Tax configuration in place", kind: "boolean", required: true },
     ],

@@ -337,6 +337,8 @@ class MatrixRowBody(BaseModel):
     tax_configured: bool
     provider_rights_ref: str | None = Field(default=None, max_length=255)
     regulated_status_ref: str | None = Field(default=None, max_length=255)
+    provider_rights_expires: date | None = None
+    regulated_status_expires: date | None = None
 
 
 class MatrixApproveBody(BaseModel):
@@ -387,6 +389,7 @@ async def get_matrix(matrix_id: uuid.UUID, request: Request, op: OperatorDep) ->
             for r in rows
             if market_matrix_model.row_problems(r, registry)
         ],
+        "rights_alerts": market_matrix_model.rights_alerts(rows, datetime.now(UTC).date()),
         "approvals": [
             {
                 "role": a["role"],

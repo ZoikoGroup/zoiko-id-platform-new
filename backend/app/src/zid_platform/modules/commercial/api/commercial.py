@@ -150,6 +150,7 @@ async def check_configuration(
             subject_country=body.subject_country,
             payer_country=body.payer_country,
             operating_region=body.operating_region,
+            on=datetime.now(UTC).date(),
         )
         verdict = availability.decide(fam, named)
         per_family.append(
