@@ -634,6 +634,48 @@
         "title": "ExecuteBody",
         "type": "object"
       },
+      "FamilyTextBody": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sales_qualifier": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Sales Qualifier",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "name",
+          "unit",
+          "reason"
+        ],
+        "title": "FamilyTextBody",
+        "type": "object"
+      },
       "FxRateBody": {
         "additionalProperties": false,
         "properties": {
@@ -2994,7 +3036,7 @@
     },
     "/v1/commercial/capability-dependencies": {
       "get": {
-        "description": "Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02).",
+        "description": "Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02). Structure only, from the reviewed file.",
         "operationId": "capability_dependencies_v1_commercial_capability_dependencies_get",
         "responses": {
           "200": {
@@ -7517,6 +7559,191 @@
           }
         },
         "summary": "Grant Commercial Role",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts": {
+      "get": {
+        "description": "Every wording revision (newest first) beside the reviewed file's wording, so a reviewer sees what would change.",
+        "operationId": "list_family_texts_v1_commercial_service_family_texts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "family",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2,8}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Family"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Family Texts V1 Commercial Service Family Texts Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Family Texts",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Propose new wording for one family. It changes nothing until a different person activates it, and it can never change what the family needs or does.",
+        "operationId": "propose_family_text_v1_commercial_service_family_texts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyTextBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Family Text V1 Commercial Service Family Texts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Family Text",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts/{rev_id}:activate": {
+      "post": {
+        "operationId": "activate_family_text_v1_commercial_service_family_texts__rev_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rev_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rev Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Family Text V1 Commercial Service Family Texts  Rev Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Family Text",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/service-family-texts/{rev_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_family_text_v1_commercial_service_family_texts__rev_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rev_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rev Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Family Text V1 Commercial Service Family Texts  Rev Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Family Text",
         "tags": [
           "commercial"
         ]

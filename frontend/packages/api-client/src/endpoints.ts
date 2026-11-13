@@ -860,6 +860,8 @@ export function createOperatorApi(t: Transport) {
       /** The market matrices, newest first, and one with its rows, signatures and what is still missing. */
       marketMatrices: () => get<M.Items<M.MarketMatrixSummary>>("/v1/commercial/market-matrices"),
       marketMatrix: (id: string) => get<M.MarketMatrixDetail>(`/v1/commercial/market-matrices/${seg(id)}`),
+      /** Wording revisions of the sixteen service families beside the reviewed file's wording. Wording only: structure never changes here. */
+      familyTexts: (family?: string) => get<M.FamilyTexts>("/v1/commercial/service-family-texts", { family }),
       /** FX rate sets for reporting: a named source, USD per unit, activated by a different person. There are no default rates. */
       fxRateSets: () => get<M.Items<M.FxRateSet>>("/v1/commercial/fx-rate-sets"),
       /** Where each market of the active matrix is in its staged rollout. */

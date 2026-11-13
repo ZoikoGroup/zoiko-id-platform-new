@@ -1,6 +1,6 @@
 "use client";
 
-import type { FxRateSet, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
+import type { FamilyTextRevision, FxRateSet, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
 import { Badge, Banner, Card, CopyId, DataTable, EmptyState, type Column } from "@zoiko/ui";
 import { Globe2 } from "lucide-react";
 import { useState } from "react";
@@ -22,6 +22,7 @@ export function MarketView() {
       <MatricesCard />
       <RolloutCard />
       <FxCard />
+      <FamilyTextCard />
       <QuoteRequestsCard />
     </div>
   );
@@ -136,6 +137,25 @@ function FxCard() {
     <Card title="FX rate sets" description="Used only to total reports in dollars. There are no default rates: with no active set, nothing but dollars is added." padded={false}>
       <QueryView query={list}>
         {(d) => <DataTable<FxRateSet> caption="FX rate sets" columns={columns} rows={d.items} rowKey={(f) => f.set_id} empty={<EmptyState title="No rate set" icon={Globe2}>Create a draft with a named source in the actions below.</EmptyState>} />}
+      </QueryView>
+    </Card>
+  );
+}
+
+function FamilyTextCard() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "family-texts"], (api) => api.commercial.familyTexts());
+  const columns: Column<FamilyTextRevision>[] = [
+    { key: "f", header: "Family", pinned: true, render: (r) => `${r.family} v${r.version}`, sortValue: (r) => `${r.family}${String(r.version).padStart(4, "0")}` },
+    { key: "s", header: "Status", render: (r) => <Badge tone={r.status === "ACTIVE" ? "ok" : r.status === "DRAFT" ? "info" : "neutral"} size="xs">{r.status}</Badge> },
+    { key: "i", header: "Revision ID", render: (r) => <CopyId value={r.rev_id} label="revision" /> },
+    { key: "n", header: "Name and unit", render: (r) => `${r.name} (${r.unit})` },
+    { key: "q", header: "Sales qualifier", render: (r) => r.sales_qualifier || "—" },
+    { key: "w", header: "Why", render: (r) => r.reason },
+  ];
+  return (
+    <Card title="Family wording" description="Only the name, unit and sales qualifier a buyer reads. What a family needs or does stays in the reviewed catalogue file." padded={false}>
+      <QueryView query={list}>
+        {(d) => <DataTable<FamilyTextRevision> caption="Family wording revisions" columns={columns} rows={d.items} rowKey={(r) => r.rev_id} empty={<EmptyState title="No revisions" icon={Globe2}>Buyers see the wording in the reviewed catalogue file until a revision is activated.</EmptyState>} />}
       </QueryView>
     </Card>
   );

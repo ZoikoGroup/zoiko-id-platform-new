@@ -60,6 +60,7 @@ from zid_platform.modules.commercial.ports import (
     enforcement_store,
     entitlement_changed,
     family_registry,
+    family_text_store,
     finance,
     freeze_month,
     fx_store,
@@ -127,6 +128,16 @@ _STATUS = {
     "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
     "ROLLOUT_STAGE_UNKNOWN": 422,
     "PARTNER_NOT_FOUND": 404,
+    "FAMILY_TEXT_NOT_FOUND": 404,
+    "FAMILY_TEXT_NOT_DRAFT": 409,
+    "FAMILY_TEXT_SELF_ACTIVATION": 403,
+    "FAMILY_TEXT_REFUSED": 409,
+    "FAMILY_UNKNOWN": 404,
+    "NAME_LENGTH": 422,
+    "UNIT_LENGTH": 422,
+    "QUALIFIER_LENGTH": 422,
+    "PRICE_IN_TEXT": 422,
+    "CLAIM_IN_LABEL": 422,
     "FX_SET_NOT_FOUND": 404,
     "FX_SET_NOT_DRAFT": 409,
     "FX_SELF_ACTIVATION": 403,
@@ -920,6 +931,99 @@ async def withdraw_fx_set(set_id: uuid.UUID, request: Request, op: OperatorDep) 
         except CommercialError as e:
             raise _fail(e) from e
     return {"set_id": str(set_id), "status": "WITHDRAWN"}
+
+
+class FamilyTextBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    name: str = Field(min_length=2, max_length=80)
+    unit: str = Field(min_length=2, max_length=120)
+    sales_qualifier: str = Field(default="", max_length=300)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/v1/commercial/service-family-texts")
+async def list_family_texts(
+    request: Request,
+    op: OperatorDep,
+    family: str | None = Query(default=None, pattern=r"^[A-Z]{2,8}$"),
+) -> dict[str, Any]:
+    """Every wording revision (newest first) beside the reviewed file's wording, so a reviewer sees what would change."""
+    base = family_registry()
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        revs = await family_text_store.revisions(conn, family)
+    return {
+        "baseline": {
+            f.code: {"name": f.name, "unit": f.unit, "sales_qualifier": f.sales_qualifier}
+            for f in base.families.values()
+            if family in (None, f.code)
+        },
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "created_at": _iso(r["created_at"]),
+                "activated_at": _iso(r["activated_at"]),
+            }
+            for r in revs
+        ],
+    }
+
+
+@router.post("/v1/commercial/service-family-texts", status_code=201)
+async def propose_family_text(
+    body: FamilyTextBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Propose new wording for one family. It changes nothing until a different person activates it, and it can never change what the family needs or does."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await family_text_store.create_draft(
+                conn,
+                family=body.family,
+                name=body.name,
+                unit=body.unit,
+                sales_qualifier=body.sales_qualifier,
+                reason=body.reason,
+                created_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/service-family-texts/{rev_id}:activate")
+async def activate_family_text(
+    rev_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await family_text_store.activate(
+                conn, str(rev_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="FAMILY_TEXT_ACTIVATED",
+                ref=str(rev_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"rev_id": str(rev_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/service-family-texts/{rev_id}:withdraw")
+async def withdraw_family_text(
+    rev_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await family_text_store.withdraw(conn, str(rev_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"rev_id": str(rev_id), "status": "WITHDRAWN"}
 
 
 @router.get("/v1/commercial/quote-requests")

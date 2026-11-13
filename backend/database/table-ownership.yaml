@@ -99,6 +99,11 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-COM-WF-2026-11 section 05.2: the USD-per-unit rates of one FX rate set; changeable only while the set is a DRAFT"
+  commercial.service_family_text:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 WF-I01, G01: maker-checker revisions of the wording (name, unit, sales qualifier) of a service family; structure and safety fields stay in the reviewed service-families.yaml"
   commercial.solution_draft:
     role: cell
     module: commercial

@@ -34,7 +34,7 @@ from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce, enforce_packs
-from zid_platform.modules.commercial.ports import require_feature
+from zid_platform.modules.commercial.ports import market_gate, require_feature
 from zid_platform.modules.verification.application import privacy_gate, service
 from zid_platform.modules.verification.domain import privacy_overlay as po
 from zid_platform.modules.verification.domain.countries import (
@@ -286,6 +286,15 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
     privacy = await _privacy_gate(
         request, caller, body.jurisdiction, str(body.profile_id), str(body.subject_principal_id)
     )
+    # Section 10.1, observe only: record whether the market matrix would have released identity verification for this document country and payer. It never blocks.
+    async with tenant_transaction(request_engine(request), caller.ctx) as gate_conn:
+        await market_gate.observe(
+            gate_conn,
+            tenant_id=caller.ctx.tenant_id or "",
+            family="IDV",
+            subject_country=body.jurisdiction,
+            operating_region=getattr(request.app.state, "commercial_region", None),
+        )
     try:
         out = await service.start(
             request_engine(request),

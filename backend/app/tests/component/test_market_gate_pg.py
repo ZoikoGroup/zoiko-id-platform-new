@@ -106,3 +106,42 @@ def test_enforce_blocks_an_unreleased_market_and_a_paused_one_with_the_causes_na
         asyncio.run(pause())
         again = http.post(GATE, json=body, headers=svc)
         assert again.status_code == 403, "a paused market stops new paid operations at once"
+
+
+def test_observe_records_what_the_gate_would_say_and_never_blocks_or_raises(rt_url: str) -> None:
+    from conftest import ctx
+    from zid_db import tenant_transaction
+    from zid_platform.modules.commercial.application import market_gate
+
+    async def run() -> None:
+        tenant = uid()
+        before = dict(market_gate.STATS)
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            # nothing released for this market: observed as not sellable, and still not blocked
+            seen = await market_gate.observe(
+                c,
+                tenant_id=tenant,
+                family="IDV",
+                subject_country="PT",
+                operating_region="eu-central",
+            )
+            assert (
+                seen is not None
+                and seen["sellable"] is False
+                and seen["blocked"] is False
+                and seen["mode"] == "shadow"
+            )
+            assert "COUNTRY" in seen["causes"], (
+                "no commercial account, so the payer country is not stated and is reported as not evaluated"
+            )
+            # a bad family would raise in the gate; observation swallows it and counts it
+            assert (
+                await market_gate.observe(
+                    c, tenant_id=tenant, family="GHOST", subject_country="PT", operating_region=None
+                )
+                is None
+            )
+        assert market_gate.STATS["observed"] == before.get("observed", 0) + 1
+        assert market_gate.STATS["observe_failed"] == before.get("observe_failed", 0) + 1
+
+    asyncio.run(run())

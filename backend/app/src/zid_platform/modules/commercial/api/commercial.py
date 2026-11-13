@@ -62,6 +62,7 @@ from zid_platform.modules.commercial.application.adapters import (
     from_minor_units,
 )
 from zid_platform.modules.commercial.application.change_log import log_change
+from zid_platform.modules.commercial.domain import family_text as family_text_model
 from zid_platform.modules.commercial.domain import market_availability as availability
 from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
 from zid_platform.modules.commercial.domain import solution as solution_model
@@ -73,6 +74,7 @@ from zid_platform.modules.commercial.domain.plan_requests import PlanRequestErro
 from zid_platform.modules.commercial.domain.service_families import check_selection
 from zid_platform.modules.commercial.infrastructure import (
     billable_store,
+    family_text_store,
     market_matrix_store,
     purchase_order_store,
     solution_store,
@@ -94,6 +96,13 @@ async def catalog(request: Request) -> dict[str, Any]:
     return out
 
 
+async def _registry(request: Request) -> Any:
+    """The service families as a buyer reads them: the reviewed file's structure with the active wording revisions laid over its name, unit and sales qualifier."""
+    async with request_engine(request).begin() as conn:
+        texts = await family_text_store.active_texts(conn)
+    return family_text_model.apply_text(family_registry(), texts)
+
+
 def _family_view(fam: Any, verdict: Any) -> dict[str, Any]:
     return {
         "family": fam.code,
@@ -109,10 +118,10 @@ def _family_view(fam: Any, verdict: Any) -> dict[str, Any]:
 
 
 @router.get("/v1/catalog/families")
-async def catalog_families() -> dict[str, Any]:
+async def catalog_families(request: Request) -> dict[str, Any]:
     """Public: the sixteen service families and their units (ZID-COM-WF-2026-11 section 02). A family is a proposed SKU namespace, never a price: nothing is
     sellable until every fact in the market rules is recorded, so today each family answers REQUEST_QUOTE and only the categories of what is missing are shown."""
-    registry = family_registry()
+    registry = await _registry(request)
     return {
         "version": registry.version,
         "status": registry.status,
@@ -215,7 +224,7 @@ async def check_configuration(
             conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
         )
         active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
-    registry = family_registry()
+    registry = await _registry(request)
     problems = check_selection(registry, body.families)
     return {
         "configurable": not problems,
@@ -286,7 +295,7 @@ async def market_gate_check(
 
 @router.get("/v1/commercial/capability-dependencies")
 async def capability_dependencies() -> dict[str, Any]:
-    """Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02)."""
+    """Public: which families need which (a signature needs a verified identity), which need a provider, and which are regulated (WF-C02). Structure only, from the reviewed file."""
     registry = family_registry()
     return {
         "version": registry.version,
@@ -318,7 +327,7 @@ async def offers(
             conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
         )
         active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
-    registry = family_registry()
+    registry = await _registry(request)
     return {
         "market_matrix_version": active["version"] if active else None,
         "market": market,
@@ -372,7 +381,9 @@ def _solution_scope(body: SolutionIn, registry: Any) -> dict[str, Any]:
 
 
 async def _preview(conn: Any, scope: dict[str, Any]) -> dict[str, Any]:
-    registry = family_registry()
+    registry = family_text_model.apply_text(
+        family_registry(), await family_text_store.active_texts(conn)
+    )
     active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
     problems = check_selection(registry, scope["families"])
     judged = _judge(
@@ -403,7 +414,7 @@ async def _preview(conn: Any, scope: dict[str, Any]) -> dict[str, Any]:
 @router.post("/v1/commercial/quotes/preview")
 async def preview_quote(body: SolutionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     """The configuration as it would be sent to the deal desk (WF-C02): canonical scope and hash, what each family needs, and no price. Nothing is saved."""
-    scope = _solution_scope(body, family_registry())
+    scope = _solution_scope(body, await _registry(request))
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
@@ -416,7 +427,7 @@ async def save_configuration(
     body: SolutionIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     """Save a configuration as a draft for this company. A draft is not an entitlement; it expires after 30 days and cannot be edited, only saved again."""
-    scope = _solution_scope(body, family_registry())
+    scope = _solution_scope(body, await _registry(request))
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(

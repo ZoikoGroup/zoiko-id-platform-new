@@ -3189,3 +3189,6 @@ export type RegulatoryReadiness = {
 /** Independent assurance (ZID-UAT-005). Statuses come from signed evidence only; nothing here is typed in by a person. */
 
 export type FxRateSet = { set_id: string; version: number; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; source_ref: string; as_of: string; rates: Record<string, string> };
+
+export type FamilyTextRevision = { rev_id: string; family: string; version: number; name: string; unit: string; sales_qualifier: string; reason: string; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; created_by: string; created_at: string | null; activated_by: string | null; activated_at: string | null };
+export type FamilyTexts = { baseline: Record<string, { name: string; unit: string; sales_qualifier: string }>; items: FamilyTextRevision[] };

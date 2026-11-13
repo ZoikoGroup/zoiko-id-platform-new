@@ -90,3 +90,47 @@ async def check(
     log.warning("MARKET_GATE_SHADOW_DENIED family=%s causes=%s", family, ",".join(verdict.causes))
     out["blocked"] = False  # reported, not blocking, until the deployment or the company enforces
     return out
+
+
+async def _payer_country(conn: AsyncConnection, tenant_id: str) -> str | None:
+    from sqlalchemy import text
+
+    row = (
+        await conn.execute(
+            text(
+                "SELECT a.country FROM commercial.account a JOIN commercial.account_tenant t "
+                "ON t.account_id = a.account_id WHERE t.tenant_id = :t AND t.effective_to IS NULL"
+            ),
+            {"t": tenant_id},
+        )
+    ).scalar_one_or_none()
+    return str(row) if row else None
+
+
+async def observe(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    family: str,
+    subject_country: str | None,
+    operating_region: str | None,
+) -> dict[str, Any] | None:
+    """Ask the gate about a call that is ALREADY being allowed, and record what it would have said. It never raises and never blocks, whatever the enforcement mode:
+    a platform operation is not stopped by this until the owners decide which operations are paid and enforce the gate for them. The payer country is the buyer's own
+    commercial account; with none on record it is left unstated, which the gate reports as not evaluated. A failure here is counted and logged, never surfaced."""
+    try:
+        async with conn.begin_nested():
+            decision = await check(
+                conn,
+                family=family,
+                subject_country=subject_country,
+                payer_country=await _payer_country(conn, tenant_id),
+                operating_region=operating_region,
+                enforcement="shadow",
+            )
+        STATS["observed"] += 1
+        return decision
+    except Exception:
+        STATS["observe_failed"] += 1
+        log.exception("MARKET_GATE_OBSERVE_FAILED family=%s", family)
+        return None
