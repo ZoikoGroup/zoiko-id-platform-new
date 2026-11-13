@@ -59,11 +59,14 @@ from zid_platform.modules.commercial.ports import (
     billable_store,
     enforcement_store,
     entitlement_changed,
+    family_registry,
     finance,
     freeze_month,
     invoicing,
     ledger_summary,
     log_change,
+    market_matrix_model,
+    market_matrix_store,
     meter_window_frozen,
     next_month,
     open_payment_refund,
@@ -105,6 +108,15 @@ _STATUS = {
     "PRICE_BOOK_EMPTY": 422,
     "ENTITLEMENT_EFFECTIVE_DATE": 409,
     "OPERATOR_CAPABILITY_REQUIRED": 403,
+    "MARKET_MATRIX_NOT_FOUND": 404,
+    "MARKET_MATRIX_NOT_DRAFT": 409,
+    "MARKET_MATRIX_SELF_APPROVAL": 403,
+    "MARKET_MATRIX_ROLE_ALREADY_SIGNED": 409,
+    "MARKET_MATRIX_PERSON_ALREADY_SIGNED": 409,
+    "MARKET_MATRIX_APPROVALS_MISSING": 409,
+    "MARKET_MATRIX_APPROVAL_REFUSED": 409,
+    "MARKET_MATRIX_EMPTY": 422,
+    "MARKET_MATRIX_ROLE_UNKNOWN": 422,
 }
 
 
@@ -302,6 +314,217 @@ async def approve_book(
         b = await store.price_book(conn, str(price_book_id))
     assert b is not None
     return _book_view(b)
+
+
+# --------------------------------------------------------------------------------------------- the market matrix (F06 / O01)
+
+
+class MatrixRowBody(BaseModel):
+    """One (family, country) row. Every field is a recorded statement or a reference to signed evidence: this API cannot make a reference true."""
+
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    seller_entity: str = Field(min_length=1, max_length=160)
+    merchant_route: str = Field(min_length=1, max_length=160)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    tax_class: str = Field(min_length=1, max_length=80)
+    data_region: str = Field(min_length=1, max_length=40)
+    offer_ref: str = Field(min_length=1, max_length=255)
+    legal_basis_ref: str = Field(min_length=1, max_length=255)
+    release_evidence_ref: str = Field(min_length=1, max_length=255)
+    payment_configured: bool
+    tax_configured: bool
+    provider_rights_ref: str | None = Field(default=None, max_length=255)
+    regulated_status_ref: str | None = Field(default=None, max_length=255)
+
+
+class MatrixApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["PRODUCT", "FINANCE", "LEGAL_PRIVACY", "SECURITY_QA"]
+
+
+def _matrix_view(m: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "matrix_id": str(m["matrix_id"]),
+        "version": m["version"],
+        "status": m["status"],
+        "effective_from": _iso(m["effective_from"]),
+        "activated_at": _iso(m["activated_at"]),
+        "note": m["note"],
+    }
+
+
+def _matrix_row_view(r: Any) -> dict[str, Any]:
+    return {k: getattr(r, k) for k in r.__slots__}
+
+
+@router.get("/v1/commercial/market-matrices")
+async def list_matrices(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return {"items": [_matrix_view(m) for m in await market_matrix_store.matrices(conn)]}
+
+
+@router.get("/v1/commercial/market-matrices/{matrix_id}")
+async def get_matrix(matrix_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """One matrix with its rows, who has signed which role, and the roles still missing before it can be activated."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        m = await market_matrix_store.matrix(conn, str(matrix_id))
+        if m is None:
+            raise _fail(CommercialError("MARKET_MATRIX_NOT_FOUND"))
+        rows = await market_matrix_store.rows(conn, str(matrix_id))
+        signed = await market_matrix_store.approvals(conn, str(matrix_id))
+    registry = family_registry()
+    return {
+        **_matrix_view(m),
+        "rows": [_matrix_row_view(r) for r in rows],
+        "incomplete_rows": [
+            {
+                "family": r.family,
+                "country": r.country,
+                "problems": market_matrix_model.row_problems(r, registry),
+            }
+            for r in rows
+            if market_matrix_model.row_problems(r, registry)
+        ],
+        "approvals": [
+            {
+                "role": a["role"],
+                "approver": str(a["approver"]),
+                "approved_at": _iso(a["approved_at"]),
+            }
+            for a in signed
+        ],
+        "missing_approvals": list(
+            market_matrix_model.missing_approvals([a["role"] for a in signed])
+        ),
+    }
+
+
+@router.post("/v1/commercial/market-matrices", status_code=201)
+async def create_matrix(body: DraftBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await market_matrix_store.create_draft(
+                conn,
+                copy_of=str(body.copy_of) if body.copy_of else None,
+                created_by=str(op.principal_id),
+                note=body.note,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.put("/v1/commercial/market-matrices/{matrix_id}/rows")
+async def put_matrix_row(
+    matrix_id: uuid.UUID, body: MatrixRowBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    row = market_matrix_model.Row(**body.model_dump())
+    try:
+        market_matrix_model.check_row(row, family_registry())
+    except market_matrix_model.MatrixError as e:
+        raise ZidError(e.code, f"This row is incomplete: {e.detail}.", http_status=422) from e
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.put_row(conn, str(matrix_id), row)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "family": row.family, "country": row.country}
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:approve")
+async def approve_matrix(
+    matrix_id: uuid.UUID, body: MatrixApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """One of four independent roles signs a DRAFT matrix. The author cannot, and one person cannot sign for two roles."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.approve(
+                conn, str(matrix_id), role=body.role, approver=str(op.principal_id)
+            )
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_APPROVED",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"role": body.role},
+            )
+            signed = await market_matrix_store.approvals(conn, str(matrix_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "matrix_id": str(matrix_id),
+        "signed": [a["role"] for a in signed],
+        "missing": list(market_matrix_model.missing_approvals([a["role"] for a in signed])),
+    }
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:activate")
+async def activate_matrix(
+    matrix_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Make a fully approved matrix the one in force. Needs all four approvals, at least one complete row, and someone other than the author."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        registry = family_registry()
+        bad = [
+            r
+            for r in await market_matrix_store.rows(conn, str(matrix_id))
+            if market_matrix_model.row_problems(r, registry)
+        ]
+        if bad:
+            raise ZidError(
+                "MARKET_MATRIX_ROW_INCOMPLETE",
+                f"{len(bad)} row(s) are incomplete; fix them before activation.",
+                http_status=422,
+            )
+        try:
+            await market_matrix_store.activate(
+                conn,
+                str(matrix_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_ACTIVATED",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"effective_from": (body.effective_from or now).isoformat()},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+        m = await market_matrix_store.matrix(conn, str(matrix_id))
+    assert m is not None
+    return _matrix_view(m)
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:withdraw")
+async def withdraw_matrix(
+    matrix_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.withdraw(conn, str(matrix_id))
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_WITHDRAWN",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "status": "WITHDRAWN"}
 
 
 class PlanRequestAnswer(BaseModel):

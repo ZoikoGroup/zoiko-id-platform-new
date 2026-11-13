@@ -204,6 +204,21 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-COM-001 §5, §6, §29 (CR-024)"
+  commercial.market_matrix:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 v3.0 WF-I01, WF-I05, section 05.1 (the market matrix: platform configuration, DRAFT then four independent approvals, immutable once active)"
+  commercial.market_matrix_row:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 v3.0 WF-I01, WF-I05, section 05.1 (the market matrix: platform configuration, DRAFT then four independent approvals, immutable once active)"
+  commercial.market_matrix_approval:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 v3.0 WF-I01, WF-I05, section 05.1 (the market matrix: platform configuration, DRAFT then four independent approvals, immutable once active)"
   commercial.entitlement:
     role: cell
     module: commercial

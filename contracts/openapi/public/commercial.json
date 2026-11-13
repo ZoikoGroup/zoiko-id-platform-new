@@ -762,6 +762,137 @@
         "title": "LineBody",
         "type": "object"
       },
+      "MatrixApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "PRODUCT",
+              "FINANCE",
+              "LEGAL_PRIVACY",
+              "SECURITY_QA"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "MatrixApproveBody",
+        "type": "object"
+      },
+      "MatrixRowBody": {
+        "additionalProperties": false,
+        "description": "One (family, country) row. Every field is a recorded statement or a reference to signed evidence: this API cannot make a reference true.",
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "data_region": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Data Region",
+            "type": "string"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "legal_basis_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Legal Basis Ref",
+            "type": "string"
+          },
+          "merchant_route": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Merchant Route",
+            "type": "string"
+          },
+          "offer_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Offer Ref",
+            "type": "string"
+          },
+          "payment_configured": {
+            "title": "Payment Configured",
+            "type": "boolean"
+          },
+          "provider_rights_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Rights Ref"
+          },
+          "regulated_status_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulated Status Ref"
+          },
+          "release_evidence_ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Release Evidence Ref",
+            "type": "string"
+          },
+          "seller_entity": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Seller Entity",
+            "type": "string"
+          },
+          "tax_class": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tax Class",
+            "type": "string"
+          },
+          "tax_configured": {
+            "title": "Tax Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "seller_entity",
+          "merchant_route",
+          "currency",
+          "tax_class",
+          "data_region",
+          "offer_ref",
+          "legal_basis_ref",
+          "release_evidence_ref",
+          "payment_configured",
+          "tax_configured"
+        ],
+        "title": "MatrixRowBody",
+        "type": "object"
+      },
       "OverrideBody": {
         "additionalProperties": false,
         "properties": {
@@ -3156,6 +3287,328 @@
           }
         },
         "summary": "Commercial Kpis",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices": {
+      "get": {
+        "operationId": "list_matrices_v1_commercial_market_matrices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Matrices V1 Commercial Market Matrices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Matrices",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "operationId": "create_matrix_v1_commercial_market_matrices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Matrix V1 Commercial Market Matrices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}": {
+      "get": {
+        "description": "One matrix with its rows, who has signed which role, and the roles still missing before it can be activated.",
+        "operationId": "get_matrix_v1_commercial_market_matrices__matrix_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Matrix V1 Commercial Market Matrices  Matrix Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}/rows": {
+      "put": {
+        "operationId": "put_matrix_row_v1_commercial_market_matrices__matrix_id__rows_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixRowBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Matrix Row V1 Commercial Market Matrices  Matrix Id  Rows Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Matrix Row",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:activate": {
+      "post": {
+        "description": "Make a fully approved matrix the one in force. Needs all four approvals, at least one complete row, and someone other than the author.",
+        "operationId": "activate_matrix_v1_commercial_market_matrices__matrix_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Matrix V1 Commercial Market Matrices  Matrix Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:approve": {
+      "post": {
+        "description": "One of four independent roles signs a DRAFT matrix. The author cannot, and one person cannot sign for two roles.",
+        "operationId": "approve_matrix_v1_commercial_market_matrices__matrix_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Matrix V1 Commercial Market Matrices  Matrix Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_matrix_v1_commercial_market_matrices__matrix_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Matrix V1 Commercial Market Matrices  Matrix Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Matrix",
         "tags": [
           "commercial"
         ]

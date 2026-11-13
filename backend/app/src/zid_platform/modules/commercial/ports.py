@@ -84,6 +84,7 @@ from zid_platform.modules.commercial.application.stripe_webhook_service import (
     review_queue as payment_event_queue,
 )
 from zid_platform.modules.commercial.application.transfer_gate import plan_aware_transfer_gate
+from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
 from zid_platform.modules.commercial.domain import recon_import
 from zid_platform.modules.commercial.domain.billable import (
     METERS,
@@ -116,7 +117,9 @@ from zid_platform.modules.commercial.infrastructure import (
     billable_store,
     catalogue_store,
     enforcement_store,
+    market_matrix_store,
 )
+from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
 from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
@@ -239,6 +242,7 @@ __all__ = [
     "enforcement_store",
     "entitled",
     "entitlement_changed",
+    "family_registry",
     "finance",
     "finance_policy",
     "freeze_month",
@@ -251,6 +255,8 @@ __all__ = [
     "latest_rating",
     "ledger_summary",
     "log_change",
+    "market_matrix_model",
+    "market_matrix_store",
     "meter_window_frozen",
     "next_month",
     "open_payment_refund",

@@ -90,6 +90,95 @@ export const ACTIONS: Action[] = [
     ],
   },
 
+  {
+    id: "matrix-create",
+    group: "catalogue",
+    title: "New draft market matrix",
+    description:
+      "Start a DRAFT of which service family is sold where, by whom, and on whose signed evidence, optionally as a copy. A copy is signed afresh: the approvals are not copied.",
+    method: "POST",
+    path: "/v1/commercial/market-matrices",
+    capability: "commercial.catalog.manage",
+    fields: [
+      { key: "copy_of", label: "Copy of (matrix ID)", placeholder: "optional" },
+      { key: "note", label: "Note" },
+    ],
+  },
+  {
+    id: "matrix-row",
+    group: "catalogue",
+    title: "Set a market row on a draft",
+    description:
+      "One service family in one country: seller entity, merchant route, currency, tax class, data region, and a reference to each piece of signed evidence. A reference is not proof; four independent people sign before the matrix can be active.",
+    method: "PUT",
+    path: "/v1/commercial/market-matrices/{matrix_id}/rows",
+    capability: "commercial.catalog.manage",
+    fields: [
+      { key: "matrix_id", label: "Draft matrix ID", in: "path", required: true },
+      { key: "family", label: "Family", required: true, placeholder: "IDV" },
+      { key: "country", label: "Country (ISO 3166-1 alpha-2)", required: true, placeholder: "DE" },
+      { key: "seller_entity", label: "Seller entity", required: true },
+      { key: "merchant_route", label: "Merchant route", required: true },
+      { key: "currency", label: "Currency", required: true, placeholder: "EUR" },
+      { key: "tax_class", label: "Tax class", required: true },
+      { key: "data_region", label: "Data region", required: true },
+      { key: "offer_ref", label: "Signed offer reference", required: true },
+      { key: "legal_basis_ref", label: "Legal basis reference", required: true },
+      { key: "release_evidence_ref", label: "Release evidence reference", required: true },
+      { key: "provider_rights_ref", label: "Provider rights reference", help: "Required for a family that needs a provider." },
+      { key: "regulated_status_ref", label: "Regulated status reference", help: "Required for a regulated family." },
+      { key: "payment_configured", label: "Payment route configured", kind: "boolean", required: true },
+      { key: "tax_configured", label: "Tax configuration in place", kind: "boolean", required: true },
+    ],
+  },
+  {
+    id: "matrix-approve",
+    group: "catalogue",
+    title: "Sign a market matrix for a role",
+    description:
+      "Four different people sign, each for one role. The author cannot sign, and one person cannot sign for two roles.",
+    method: "POST",
+    path: "/v1/commercial/market-matrices/{matrix_id}:approve",
+    capability: "commercial.catalog.manage",
+    confirm: "sign this market matrix for the role chosen",
+    fields: [
+      { key: "matrix_id", label: "Matrix ID", in: "path", required: true },
+      {
+        key: "role",
+        label: "Role you sign for",
+        kind: "select",
+        required: true,
+        options: ["PRODUCT", "FINANCE", "LEGAL_PRIVACY", "SECURITY_QA"].map((id) => ({ id, label: id })),
+      },
+    ],
+  },
+  {
+    id: "matrix-activate",
+    group: "catalogue",
+    title: "Activate a market matrix",
+    description:
+      "Needs all four signatures, complete rows, and someone other than the author. The matrix then becomes immutable and the previous one is superseded.",
+    method: "POST",
+    path: "/v1/commercial/market-matrices/{matrix_id}:activate",
+    capability: "commercial.catalog.manage",
+    confirm: "activate this market matrix",
+    fields: [
+      { key: "matrix_id", label: "Matrix ID", in: "path", required: true },
+      { key: "effective_from", label: "Effective from", kind: "datetime", help: "Defaults to now." },
+    ],
+  },
+  {
+    id: "matrix-withdraw",
+    group: "catalogue",
+    title: "Withdraw a draft market matrix",
+    description: "Only a DRAFT can be withdrawn. An activated matrix is never edited or deleted; the next one supersedes it.",
+    method: "POST",
+    path: "/v1/commercial/market-matrices/{matrix_id}:withdraw",
+    capability: "commercial.catalog.manage",
+    confirm: "withdraw this draft market matrix",
+    fields: [{ key: "matrix_id", label: "Draft matrix ID", in: "path", required: true }],
+  },
+
   // ------------------------------------------------------------------ plans and accounts
   {
     id: "plan-set",

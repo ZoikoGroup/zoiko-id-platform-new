@@ -62,12 +62,13 @@ from zid_platform.modules.commercial.application.adapters import (
 )
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import market_availability as availability
+from zid_platform.modules.commercial.domain import market_matrix as market_matrix_model
 from zid_platform.modules.commercial.domain.billable import METERS, window_month
 from zid_platform.modules.commercial.domain.budgets import BudgetError
 from zid_platform.modules.commercial.domain.invoicing import InvoicingError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
 from zid_platform.modules.commercial.domain.service_families import check_selection
-from zid_platform.modules.commercial.infrastructure import billable_store
+from zid_platform.modules.commercial.infrastructure import billable_store, market_matrix_store
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
 from zid_platform.protected import protected_action
 
@@ -132,6 +133,7 @@ async def check_configuration(
         await protected_action(
             conn, caller, action="commercial.read", resource=f"tenant:{caller.ctx.tenant_id or ''}"
         )
+        active, matrix_rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
     registry = family_registry()
     problems = check_selection(registry, body.families)
     per_family = []
@@ -139,16 +141,16 @@ async def check_configuration(
         fam = registry.get(code)
         if fam is None:
             continue
-        # no market fact is recorded anywhere yet, so every dimension that was named is judged on unrecorded facts and the answer is a refusal
-        named = {
-            dim: availability.Facts()
-            for dim, value in (
-                ("subject", body.subject_country),
-                ("payer", body.payer_country),
-                ("operating", body.operating_region),
-            )
-            if value
-        }
+        # The facts come from the ACTIVE market matrix (four independent approvals, immutable). With none active, or no row for this family and market,
+        # every fact is unrecorded and the answer is a refusal. A dimension the caller did not name is refused as not evaluated.
+        named = market_matrix_model.facts_by_dimension(
+            matrix_rows,
+            registry,
+            code,
+            subject_country=body.subject_country,
+            payer_country=body.payer_country,
+            operating_region=body.operating_region,
+        )
         verdict = availability.decide(fam, named)
         per_family.append(
             {
@@ -161,6 +163,7 @@ async def check_configuration(
         )
     return {
         "configurable": not problems,
+        "market_matrix_version": active["version"] if active else None,
         "problems": [{"code": p.code, "family": p.family, "needs": p.needs} for p in problems],
         "families": per_family,
         "estimate": None,

@@ -8,12 +8,12 @@ Written 2026-11-13 from the code, for work package CW-01 ("reconcile commercial 
 |---|---|---|---|---|
 | CW-01 reconcile as-built | P0 | This file | `docs/phases/phase-j-commercial-estate.md`, CR-030 to CR-062 | Owners sign the as-built (gate G1) |
 | CW-02 sixteen-family catalogue | P0 | Structure built, PROPOSED, unpriced | `config/commercial/service-families.yaml`, `domain/service_families.py`, `GET /v1/catalog/families` | Product approves family names, units and launch SKUs |
-| CW-03 price and market rules | P0 | Decision rule built; facts not recorded | `domain/market_availability.py` (sellable only when every fact holds, per dimension); `POST /v1/commercial/configurations:check` | Signed seller entity, merchant route, per-country price books, FX, tax class, data region: CFO and Legal |
+| CW-03 price and market rules | P0 | Decision rule built; facts now come from the ACTIVE market matrix (none active yet) | `domain/market_availability.py`, `domain/market_matrix.py`; `POST /v1/commercial/configurations:check` | Signed seller entity, merchant route, per-country price books, FX, tax class, data region: CFO and Legal |
 | CW-04 metering and cost source | P0 | Idempotent ledger, vendor-cost ledger, reservations built; chargeability table built | `domain/billable.py`, `domain/vendor.py`, `domain/chargeability.py` | The usage-event contract's extra fields (bill-to payer, origin or partner, billable result, finality) and recording verification checks: owners rule the recording point (`bill_on_commit` stays off) |
 | CW-05 quote and commitment approvals | P0 | Built | `domain/orders.py` (digest, bands, stacked promotions, floor), `domain/commitment.py` (exposure, tiers, two people) | Ratify the proposed thresholds |
 | CW-06 B02, B05, B06 customer UX | P0 | B02 and B05 built; B06 backend check built, no panel | `/admin/billing`, `POST /v1/commercial/configurations:check` | The B06 guided right-side panel (frontend) |
-| CW-07 F06 and F02 operator UX | P0 | F02 (finance cases, approvals) and a price-book editor built | `apps/operator/.../commercial` | A versioned catalogue and country-matrix release editor with independent signoffs |
-| CW-08 O01 release eligibility | P0 | Partial | `activation_service`, the provider and market-release gates from `akarsh` | Tie the SKU x country x provider x merchant x tax x region matrix to commercial SKUs |
+| CW-07 F06 and F02 operator UX | P0 | F02 (finance cases, approvals) and a price-book editor built | `apps/operator/.../commercial` | Country-matrix release editor BUILT (CR-070 area: `commercial.market_matrix*`, four independent roles, immutable once active, operator console actions); a versioned catalogue editor for family text is not |
+| CW-08 O01 release eligibility | P0 | Partial | `activation_service`, the provider and market-release gates from `akarsh` | Matrix rows (family x country x seller x merchant route x tax class x region x evidence references) are built and feed the check; a row is a reference, so owners must fill it with real signed evidence; SKU-level tie still waits for launch SKUs |
 | CW-09 finance truth | P0 | Built to a file-only ERP export | refunds, disputes, period close, reconciliation, journal CSV | Live ERP/GL, Stripe Tax activation, bank feeds |
 | CW-10 independent acceptance suite | P0 | CAT-01 to CAT-40 rows added: 33 linked to real tests, 7 honestly NOT_STARTED | `docs/traceability/acceptance-tests.csv` | Independent execution with evidence (gate G5) |
 | CW-11 procurement extensions | P1 | Not built | | Purchase orders, invoice terms, localized documents |
@@ -24,7 +24,7 @@ Written 2026-11-13 from the code, for work package CW-01 ("reconcile commercial 
 
 | ID | State | Note |
 |---|---|---|
-| INV-01 no paid capability without signed effective rights, price and authorization | Rule built, not wired into quoting | `market_availability.decide` denies on any unrecorded fact; wiring it into quote and activation waits for the facts |
+| INV-01 no paid capability without signed effective rights, price and authorization | Wired into the configuration check through the active matrix; not yet into quote creation | `market_availability.decide` denies on any unrecorded fact; wiring it into quote and activation waits for the facts |
 | INV-02 purchase never implies identity or data access | Built | no billing state restricts a security path (`test_no_state_ever_restricts_a_security_path`) |
 | INV-03 one operation, one canonical billed event | Built | dedupe keys; `chargeability.chargeable_events` |
 | INV-04 an invoice needs seller, payer, currency, tax class, charge basis | Partial | no seller-entity or tax-class model yet |
