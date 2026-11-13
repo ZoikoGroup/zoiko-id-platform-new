@@ -72,6 +72,7 @@ from zid_platform.modules.commercial.ports import (
     market_matrix_store,
     meter_window_frozen,
     next_month,
+    notice_store,
     open_payment_refund,
     operator_scope,
     orders,
@@ -79,6 +80,7 @@ from zid_platform.modules.commercial.ports import (
     partner_store,
     payment_event_queue,
     plan_requests,
+    pricing_governance,
     profitability_service,
     purchase_order_store,
     reconcile,
@@ -131,6 +133,14 @@ _STATUS = {
     "PARTNER_NOT_FOUND": 404,
     "FAMILY_TEXT_NOT_FOUND": 404,
     "LEAD_NOT_FOUND": 404,
+    "PAGE_CHANGED": 409,
+    "NOT_A_SIGNATORY": 403,
+    "ALREADY_SIGNED": 409,
+    "NOTICE_NOT_FOUND": 404,
+    "NOTICE_NOT_DRAFT": 409,
+    "NOTICE_SELF_ACTIVATION": 403,
+    "NOTICE_VERSION_EXISTS": 409,
+    "NOTICE_REFUSED": 409,
     "LEAD_TRANSITION_REFUSED": 409,
     "LEAD_REASON_REQUIRED": 422,
     "FAMILY_TEXT_NOT_DRAFT": 409,
@@ -391,6 +401,9 @@ class MatrixRowBody(BaseModel):
     regulated_status_ref: str | None = Field(default=None, max_length=255)
     provider_rights_expires: date | None = None
     regulated_status_expires: date | None = None
+    document_issuer_countries: list[Annotated[str, Field(pattern=r"^[A-Z]{2}$")]] = Field(
+        default_factory=list, max_length=250
+    )
 
 
 class MatrixApproveBody(BaseModel):
@@ -1079,6 +1092,108 @@ async def advance_sales_lead(
     return {"lead_id": str(lead_id), "status": body.status}
 
 
+class PageSignBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class NoticeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: str = Field(pattern=r"^[A-Za-z0-9._-]{3,40}$")
+    body: str = Field(min_length=40, max_length=4000)
+
+
+@router.get("/v1/commercial/pricing-page")
+async def pricing_page_state(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Whether the public pricing page's packaging is approved: the file's current hash, who has signed it, and who is still needed."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return await pricing_governance.page_state(conn)
+
+
+@router.post("/v1/commercial/pricing-page:sign")
+async def sign_pricing_page(
+    body: PageSignBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """An appointed Founder or CCO signs the pricing page file by the hash they were shown. Both, as different people, make it APPROVED; any change to the file unsigns it."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await pricing_governance.sign_page(
+                conn, signer=str(op.principal_id), shown_hash=body.content_hash
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.get("/v1/commercial/public-notices")
+async def list_public_notices(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        rows = await notice_store.notices(conn)
+        served = await pricing_governance.served_notice(conn)
+    return {
+        "served": served,
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "created_at": _iso(r["created_at"]),
+                "activated_at": _iso(r["activated_at"]),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/v1/commercial/public-notices", status_code=201)
+async def propose_public_notice(
+    body: NoticeBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Legal's text for the inquiry form's privacy notice, as a draft. It changes nothing a visitor sees until a different person activates it."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await notice_store.propose(
+                conn, version=body.version, body=body.body, created_by=str(op.principal_id)
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/public-notices/{notice_id}:activate")
+async def activate_public_notice(
+    notice_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await notice_store.activate(
+                conn, str(notice_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="PUBLIC_NOTICE_ACTIVATED",
+                ref=str(notice_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"notice_id": str(notice_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/public-notices/{notice_id}:withdraw")
+async def withdraw_public_notice(
+    notice_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await notice_store.withdraw(conn, str(notice_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"notice_id": str(notice_id), "status": "WITHDRAWN"}
+
+
 @router.get("/v1/commercial/quote-requests")
 async def list_quote_requests(request: Request, op: OperatorDep) -> dict[str, Any]:
     """The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time."""
@@ -1143,7 +1258,12 @@ async def create_matrix(body: DraftBody, request: Request, op: OperatorDep) -> d
 async def put_matrix_row(
     matrix_id: uuid.UUID, body: MatrixRowBody, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
-    row = market_matrix_model.Row(**body.model_dump())
+    row = market_matrix_model.Row(
+        **{
+            **body.model_dump(),
+            "document_issuer_countries": tuple(sorted(set(body.document_issuer_countries))),
+        }
+    )
     try:
         market_matrix_model.check_row(row, family_registry())
     except market_matrix_model.MatrixError as e:
@@ -1173,7 +1293,12 @@ async def import_matrix_rows(
     seen: set[tuple[str, str]] = set()
     rows = []
     for i, b in enumerate(body.rows, start=1):
-        row = market_matrix_model.Row(**b.model_dump())
+        row = market_matrix_model.Row(
+            **{
+                **b.model_dump(),
+                "document_issuer_countries": tuple(sorted(set(b.document_issuer_countries))),
+            }
+        )
         found = market_matrix_model.row_problems(row, registry)
         if (row.family, row.country) in seen:
             found = [*found, "DUPLICATE_IN_IMPORT"]

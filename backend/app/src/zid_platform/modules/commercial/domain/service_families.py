@@ -39,6 +39,8 @@ class Family:
     needs_provider: bool
     meter: str | None
     sales_qualifier: str
+    # True when what can be checked depends on the country that issued a document or credential (identity, document, qualification, licence, employment).
+    issuer_scoped: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +95,7 @@ def parse(doc: Mapping[str, Any], *, known_meters: Collection[str] | None = None
             needs_provider=bool(item["needs_provider"]),
             meter=meter,
             sales_qualifier=str(item.get("sales_qualifier", "")).strip(),
+            issuer_scoped=bool(item.get("issuer_scoped", False)),
         )
     if set(out) != EXPECTED_CODES:
         missing, extra = sorted(EXPECTED_CODES - set(out)), sorted(set(out) - EXPECTED_CODES)

@@ -109,6 +109,16 @@ tables:
     module: commercial
     tenant_scoped: false
     source: "ZID-UX-PRICE-004 WF-P07: a public sales inquiry (a request for a conversation); references no tenant, entitlement, order or payment object; status moves forward only"
+  commercial.pricing_page_signature:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-PRICE-004 section 09: who signed which content hash of pricing-page.yaml (an appointed Founder and CCO, different people); append-only"
+  commercial.public_notice:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-UX-PRICE-004 WF-P07: the privacy notice shown beside a public inquiry form; versioned, activated by a different person, immutable once active"
   commercial.solution_draft:
     role: cell
     module: commercial

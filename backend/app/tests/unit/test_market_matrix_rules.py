@@ -19,7 +19,7 @@ def row(family: str = "API", country: str = "DE", **over) -> mm.Row:
         family=family, country=country, seller_entity="Zoiko Tech GmbH", merchant_route="stripe-eu",
         currency="EUR", tax_class="B2B-SERVICES", data_region="eu-central", offer_ref="offer:2026-11/api-de",
         legal_basis_ref="legal:memo-114", release_evidence_ref="release:G6-2026-11-14", payment_configured=True,
-        tax_configured=True, provider_rights_ref=None, regulated_status_ref=None, stage="PRODUCTION",
+        tax_configured=True, provider_rights_ref=None, regulated_status_ref=None, stage="PRODUCTION", document_issuer_countries=(),
     )  # fmt: skip
     base.update(over)
     return mm.Row(**base)
@@ -239,3 +239,67 @@ def test_rights_about_to_expire_or_already_expired_are_listed_for_renewal() -> N
         ("DE", "PROVIDER_RIGHTS", "EXPIRING"),
         ("FR", "PROVIDER_RIGHTS", "EXPIRED"),
     ]
+
+
+def _judged(family: str, issuer: str | None, listed: tuple[str, ...]) -> av.Verdict:
+    r = row(
+        family=family,
+        provider_rights_ref="rights:p",
+        provider_rights_expires=date(2027, 6, 30),
+        document_issuer_countries=listed,
+    )
+    facts = mm.facts_by_dimension(
+        {(family, "DE"): r},
+        REG,
+        family,
+        subject_country="DE",
+        payer_country="DE",
+        operating_region="eu-central",
+        on=TODAY,
+        issuer_country=issuer,
+    )
+    return av.decide(REG.families[family], facts)
+
+
+def test_the_document_issuers_country_is_judged_only_when_named_and_only_for_a_document_based_service() -> (
+    None
+):
+    assert REG.families["IDV"].issuer_scoped is True and REG.families["API"].issuer_scoped is False
+    # not named: not judged, so a released service is still sellable
+    assert _judged("IDV", None, ()).sellable is True
+    # named and listed: covered
+    assert _judged("IDV", "SE", ("SE", "DK")).sellable is True
+    # named but not listed, or the row lists none (not recorded): refused, with its own code, never assumed
+    for listed in (("DK",), ()):
+        v = _judged("IDV", "SE", listed)
+        assert (
+            v.sellable is False
+            and [r.code for r in v.refusals] == ["ISSUER_COVERAGE_NOT_SATISFIED"]
+            and v.refusals[0].dimension == "issuer"
+        )
+    # a service that does not depend on a document's issuer ignores it
+    assert _judged("API", "SE", ()).sellable is True
+
+
+def test_the_issuer_dimension_needs_a_subject_country_and_a_row() -> None:
+    assert "issuer" not in mm.facts_by_dimension(
+        {},
+        REG,
+        "IDV",
+        subject_country=None,
+        payer_country=None,
+        operating_region=None,
+        on=TODAY,
+        issuer_country="SE",
+    )
+    out = mm.facts_by_dimension(
+        {},
+        REG,
+        "IDV",
+        subject_country="DE",
+        payer_country=None,
+        operating_region=None,
+        on=TODAY,
+        issuer_country="SE",
+    )
+    assert out["issuer"].provider_entitled is False, "no row at all covers no issuing country"

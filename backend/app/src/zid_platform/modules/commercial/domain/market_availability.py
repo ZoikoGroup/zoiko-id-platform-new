@@ -105,4 +105,8 @@ def decide(family: Family, by_dimension: Mapping[str, Facts]) -> Verdict:
             refusals.append(Refusal(f"{dim.upper()}_NOT_EVALUATED", Cause.COUNTRY, dim))
             continue
         refusals.extend(refusals_for(family, facts, dim))
+    # The document issuer's country is judged only when the buyer names one and the family depends on it. Naming none is not a refusal; naming one the row does not list is.
+    issuer = by_dimension.get("issuer")
+    if issuer is not None and family.issuer_scoped:
+        _need(issuer.provider_entitled, "ISSUER_COVERAGE", Cause.PROVIDER, refusals, "issuer")
     return Verdict(family.code, not refusals, tuple(refusals))

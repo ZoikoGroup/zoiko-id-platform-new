@@ -12,6 +12,8 @@
 #   regulated        true when the family involves a regulated outcome or licensed data, so it needs documented provider, source and regulatory
 #                    rights before it is sold (section 05.3, INV-11): never "Zoiko holds a licence" unless evidence exists
 #   needs_provider   true when the family cannot run without a provider or source right in the market (section 05.1 "Provider permissions")
+#   issuer_scoped    true when what can be checked depends on the country that issued the document or credential (identity, document, qualification, licence,
+#                    employment). A buyer who names an issuing country is judged against the issuing countries a market row lists; one who names none is not
 #   meter            the existing meter register id (config/entitlements/meter-register.yaml) when one already counts it, else null. A family with
 #                    no meter is not billed at all, and no meter is created here: a meter is ratified by the owners
 #   sales_qualifier  the document's own "dependency / sales qualifier" text
@@ -24,6 +26,7 @@ families:
     depends_on: []
     regulated: false
     needs_provider: true
+    issuer_scoped: true
     meter: idv.check
     sales_qualifier: Biographical and identity-document proof; verified decision state
   - code: DOC
@@ -32,6 +35,7 @@ families:
     depends_on: []
     regulated: false
     needs_provider: false
+    issuer_scoped: true
     meter: null
     sales_qualifier: OCR, tamper, document-type support and source trace
   - code: BIO
@@ -64,6 +68,7 @@ families:
     depends_on: []
     regulated: false
     needs_provider: true
+    issuer_scoped: true
     meter: credential.check
     sales_qualifier: Issuer authority and degree authenticity; escalation when source unavailable
   - code: PRO
@@ -72,6 +77,7 @@ families:
     depends_on: []
     regulated: true
     needs_provider: true
+    issuer_scoped: true
     meter: credential.check
     sales_qualifier: Regulator, membership, registration, expiration and jurisdiction
   - code: WORK
@@ -80,6 +86,7 @@ families:
     depends_on: []
     regulated: false
     needs_provider: true
+    issuer_scoped: true
     meter: credential.check
     sales_qualifier: Evidence permissions, consent, valid issuer or insurer evidence
   - code: AUTHN

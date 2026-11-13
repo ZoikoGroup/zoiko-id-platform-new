@@ -50,6 +50,7 @@ from zid_platform.modules.commercial.application import (
     invoicing_service,
     market_gate,
     orders_service,
+    pricing_governance,
     rating_service,
     recorder,
     service,
@@ -155,6 +156,7 @@ def _judge(
     subject_country: str | None,
     payer_country: str | None,
     operating_region: str | None,
+    issuer_country: str | None = None,
 ) -> list[dict[str, Any]]:
     """Each selected family judged in the three market dimensions against the ACTIVE matrix. With none active, or no row, every fact is unrecorded and the
     answer is a refusal; a dimension nobody named is refused as not evaluated. For a family that is sellable, the seller, merchant route, currency, tax class and
@@ -173,6 +175,7 @@ def _judge(
             payer_country=payer_country,
             operating_region=operating_region,
             on=today,
+            issuer_country=issuer_country,
         )
         verdict = availability.decide(fam, named)
         payer_row = matrix_rows.get((code, payer_country or subject_country or ""))
@@ -333,10 +336,14 @@ async def public_pricing_page(request: Request) -> JSONResponse:
     registry = await _registry(request)
     async with request_engine(request).begin() as conn:
         catalogue = await service.catalogue_view(conn)
+        governance = await pricing_governance.page_state(conn)
+        notice = await pricing_governance.served_notice(conn)
     return JSONResponse(
         {
             "version": page.version,
-            "packaging_status": page.status,
+            "packaging_status": governance["status"],
+            "approval": {"signed_by": governance["signed_by"], "missing": governance["missing"]},
+            "notice": notice,
             "pricing_status": catalogue.get("status"),
             "families": [
                 {
@@ -380,6 +387,7 @@ async def public_availability(
         subject_country=subject_country,
         payer_country=payer_country,
         operating_region=operating_region,
+        issuer_country=issuer_country,
     )
     cards = []
     for c in judged:
@@ -404,8 +412,12 @@ async def public_availability(
                 "operating_region": operating_region,
                 "issuer_country": {
                     "value": issuer_country,
-                    "judged": False,
-                    "note": "Recorded for your quote. The market matrix does not yet judge the document issuer's country as a separate dimension.",
+                    "judged": bool(issuer_country and subject_country),
+                    "note": (
+                        "Judged against the issuing countries each service is recorded to cover in your market."
+                        if issuer_country and subject_country
+                        else "Name the country of the people checked and the country that issued their documents to see which services cover them."
+                    ),
                 },
             },
             "cards": cards,
@@ -477,6 +489,13 @@ async def public_lead(body: LeadIn, request: Request) -> JSONResponse:
             e.code, f"The inquiry could not be accepted: {e.detail or e.code}.", http_status=422
         ) from e
     async with request_engine(request).begin() as conn:
+        served = await pricing_governance.served_notice(conn)
+        if lead.notice_version != served["version"]:
+            raise ZidError(
+                "NOTICE_VERSION_STALE",
+                "The privacy notice shown with this form has changed. Please reload the page and read it before sending.",
+                http_status=409,
+            )
         try:
             out = await lead_store.submit(conn, lead)
         except CommercialError as e:

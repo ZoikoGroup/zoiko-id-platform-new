@@ -53,6 +53,8 @@ class Row:
     regulated_status_ref: str | None = None
     provider_rights_expires: date | None = None
     regulated_status_expires: date | None = None
+    # The countries that issued the documents or credentials this row can check. Empty means not recorded: it supports no issuing country.
+    document_issuer_countries: tuple[str, ...] = ()
     # Where the market is in its staged rollout, read from the rollout log when the ACTIVE matrix is loaded. It is not part of the signed matrix,
     # and a market with no entry is None, which is not released.
     stage: str | None = None
@@ -124,6 +126,12 @@ def facts_for_row(row: Row | None, family_code: str, registry: FamilyRegistry, o
     )
 
 
+def facts_for_issuer(row: Row | None, issuer_country: str) -> Facts:
+    """Whether a market row covers documents issued in one country. Only the issuing-country coverage is judged here; a row that lists none, or no row at all, covers none."""
+    covered = row is not None and issuer_country in row.document_issuer_countries
+    return Facts(provider_entitled=covered)
+
+
 def facts_by_dimension(
     rows: Mapping[tuple[str, str], Row],
     registry: FamilyRegistry,
@@ -133,6 +141,7 @@ def facts_by_dimension(
     payer_country: str | None,
     operating_region: str | None,
     on: date,
+    issuer_country: str | None = None,
 ) -> dict[str, Facts]:
     """The three dimensions a buyer is judged in, from an active matrix. A dimension the caller did not name is left out, so it is refused as
     'not evaluated', never passed. The operating region is judged against the data region the subject's row is recorded for."""
@@ -145,6 +154,8 @@ def facts_by_dimension(
         out["payer"] = facts_for_row(
             rows.get((family_code, payer_country)), family_code, registry, on
         )
+    if issuer_country and subject_country:
+        out["issuer"] = facts_for_issuer(rows.get((family_code, subject_country)), issuer_country)
     if operating_region:
         regional = [
             r

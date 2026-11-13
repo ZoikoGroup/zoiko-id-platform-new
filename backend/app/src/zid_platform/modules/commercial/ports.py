@@ -20,6 +20,7 @@ from zid_platform.modules.commercial.application import assurance_service as ass
 from zid_platform.modules.commercial.application import (
     billing_gate,
     market_gate,
+    pricing_governance,
     profitability_service,
     usage_reservations,
 )
@@ -128,6 +129,7 @@ from zid_platform.modules.commercial.infrastructure import (
     fx_store,
     lead_store,
     market_matrix_store,
+    notice_store,
     partner_store,
     purchase_order_store,
     rollout_store,
@@ -278,6 +280,7 @@ __all__ = [
     "market_matrix_store",
     "meter_window_frozen",
     "next_month",
+    "notice_store",
     "open_payment_refund",
     "operator_scope",
     "orders",
@@ -288,6 +291,7 @@ __all__ = [
     "plan_request_limit",
     "plan_requests",
     "plan_throughput_status",
+    "pricing_governance",
     "profitability_service",
     "purchase_order_store",
     "recon",

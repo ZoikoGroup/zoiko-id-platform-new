@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from functools import lru_cache
 
 import yaml
@@ -9,14 +10,18 @@ import yaml
 from zid_platform.modules.commercial.domain.pricing_page import PricingPage, parse
 from zid_platform.modules.commercial.infrastructure.bands import CONFIG
 
+_FILE = CONFIG / "commercial" / "pricing-page.yaml"
+
 
 @lru_cache(maxsize=1)
 def pricing_page() -> PricingPage:
-    doc = (
-        yaml.safe_load((CONFIG / "commercial" / "pricing-page.yaml").read_text(encoding="utf-8"))
-        or {}
-    )
+    doc = yaml.safe_load(_FILE.read_text(encoding="utf-8")) or {}
     return parse(doc)
 
 
-__all__ = ["pricing_page"]
+def content_hash() -> str:
+    """The hash of the page file exactly as shipped: what the Founder and the CCO sign. Changing a single character makes the page unsigned again."""
+    return hashlib.sha256(_FILE.read_bytes()).hexdigest()
+
+
+__all__ = ["content_hash", "pricing_page"]

@@ -21,11 +21,21 @@ from test_market_matrix_pg import full_row, go_live, signed
 from zid_errors import ZidError
 from zid_platform.main import create_app
 from zid_platform.modules.commercial.api import commercial as api
+from zid_platform.modules.commercial.application import pricing_governance as gov
 from zid_platform.modules.commercial.domain import sales_lead as sl
 from zid_platform.modules.commercial.ports import lead_store
 from zid_platform.modules.commercial.ports import market_matrix_store as matrices
 from zid_platform.modules.operator_access.domain.model import OperatorRole
 from zid_platform.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def _fresh_address_limiter():
+    """The per-address limit on public inquiries is process-wide; each test starts with it empty."""
+    api._lead_recent.clear()
+    yield
+    api._lead_recent.clear()
+
 
 PAGE = "/v1/public/pricing/page"
 AVAIL = "/v1/public/pricing/availability"
@@ -56,17 +66,29 @@ async def release_fi(rt_url: str) -> None:
                 regulated_status_expires=gone,
             ),
         )
+        future = datetime.now(UTC).date() + timedelta(days=200)
+        await matrices.put_row(
+            c,
+            mid,
+            replace(
+                full_row("IDV", "FI"),
+                provider_rights_ref="rights:idv",
+                provider_rights_expires=future,
+                document_issuer_countries=("DK", "SE"),
+            ),
+        )
         await signed(c, mid, author)
         now = datetime.now(UTC) - timedelta(seconds=5)
         await matrices.activate(c, mid, activator=activator, effective_from=now, now=now)
         await go_live(c, "API", "FI", through="CANARY")
         await go_live(c, "SIGN", "FI", through="CANARY")
+        await go_live(c, "IDV", "FI", through="CANARY")
 
 
 def lead_body(**over: object) -> dict[str, object]:
     base: dict[str, object] = {
         "kind": "ENTERPRISE", "contact_name": "Ana Silva", "work_email": f"ana{uuid.uuid4().hex[:6]}@example.com", "company": "Acme Bank", "country": "PT",
-        "capabilities": ["KYB", "IDV"], "volume_band": "FROM_10K_TO_100K", "entities": 12, "notice_version": "privacy-2026-11",
+        "capabilities": ["KYB", "IDV"], "volume_band": "FROM_10K_TO_100K", "entities": 12, "notice_version": gov.DRAFT_NOTICE_VERSION,
     }  # fmt: skip
     return {**base, **over}
 
@@ -79,7 +101,9 @@ def test_the_page_structure_and_availability_are_public_never_cached_and_never_a
         page = http.get(PAGE)  # no token
         assert page.status_code == 200 and page.headers["cache-control"] == "no-store"
         body = page.json()
-        assert body["packaging_status"] == "PROPOSED" and [t["code"] for t in body["tiers"]] == [
+        assert body["packaging_status"] in ("PROPOSED", "APPROVED") and [
+            t["code"] for t in body["tiers"]
+        ] == [
             "ESSENTIALS",
             "BUSINESS",
             "ENTERPRISE",
@@ -115,11 +139,23 @@ def test_the_page_structure_and_availability_are_public_never_cached_and_never_a
         assert "FI" in out["released_markets"] and out["released_regions"] == ["eu-central"], (
             "only rows taken live through the rollout are offered"
         )
-        assert out["dimensions"]["issuer_country"] == {
-            "value": "SE",
-            "judged": False,
-            "note": out["dimensions"]["issuer_country"]["note"],
+        assert out["dimensions"]["issuer_country"]["value"] == "SE"
+        assert out["dimensions"]["issuer_country"]["judged"] is True
+        assert cards["IDV"]["state"] == "AVAILABLE", (
+            "documents issued in Sweden are covered by the Finnish row"
+        )
+        # the document issuer's country is its own dimension: one the row does not list is refused for a document-based service, and never for one that does not depend on it
+        base_q = "subject_country=FI&payer_country=FI&operating_region=eu-central"
+        norway = {
+            c["family"]: c for c in http.get(f"{AVAIL}?{base_q}&issuer_country=NO").json()["cards"]
         }
+        assert (
+            norway["IDV"]["state"] == "RESTRICTED" and "PROVIDER" in norway["IDV"]["reason_codes"]
+        )
+        assert norway["API"]["state"] == "AVAILABLE"
+        unnamed = http.get(f"{AVAIL}?{base_q}").json()
+        assert {c["family"]: c for c in unnamed["cards"]}["IDV"]["state"] == "AVAILABLE"
+        assert unnamed["dimensions"]["issuer_country"]["judged"] is False
         assert (
             "merchant_route" not in str(out) and "tax_class" not in str(out) and "$" not in str(out)
         )
@@ -192,7 +228,8 @@ def test_an_inquiry_is_a_conversation_only(rt_url: str, owner_url: str) -> None:
 
     before = asyncio.run(footprint())
     with TestClient(app, base_url=ISS) as http:
-        good = lead_body()
+        nv = http.get(PAGE).json()["notice"]["version"]
+        good = lead_body(notice_version=nv)
         r = http.post(LEADS, json=good)
         assert r.status_code == 201 and r.headers["cache-control"] == "no-store", r.text
         ref = r.json()["reference"]
@@ -210,7 +247,7 @@ def test_an_inquiry_is_a_conversation_only(rt_url: str, owner_url: str) -> None:
         )
 
         # a robot's hidden field: answered like a success, stored nowhere
-        bot = http.post(LEADS, json=lead_body(website="http://spam.example"))
+        bot = http.post(LEADS, json=lead_body(notice_version=nv, website="http://spam.example"))
         assert bot.status_code == 201 and bot.json()["reference"] != ref
 
         # no identity number, link, unknown service or extra field gets in (P28)
@@ -220,9 +257,19 @@ def test_an_inquiry_is_a_conversation_only(rt_url: str, owner_url: str) -> None:
             {"capabilities": ["GHOST"]},
             {"kind": "PARTNER"},
         ):
-            assert http.post(LEADS, json=lead_body(**bad)).status_code == 422, bad
-        assert http.post(LEADS, json={**lead_body(), "tenant_id": uid()}).status_code == 422
-        assert http.post(LEADS, json={**lead_body(), "passport_number": "X"}).status_code == 422
+            assert http.post(LEADS, json=lead_body(notice_version=nv, **bad)).status_code == 422, (
+                bad
+            )
+        assert (
+            http.post(LEADS, json={**lead_body(notice_version=nv), "tenant_id": uid()}).status_code
+            == 422
+        )
+        assert (
+            http.post(
+                LEADS, json={**lead_body(notice_version=nv), "passport_number": "X"}
+            ).status_code
+            == 422
+        )
 
     async def stored() -> list[tuple[str, str]]:
         async with engine(owner_url) as eng, eng.begin() as c:
@@ -298,7 +345,10 @@ def test_the_operator_queue_moves_a_lead_forward_only(rt_url: str) -> None:
         keyring=ops.ring,
     )  # fmt: skip
     with TestClient(app, base_url=ISS) as http:
-        ref = http.post(LEADS, json=lead_body(company="Queue Test Co")).json()["reference"]
+        nv = http.get(PAGE).json()["notice"]["version"]
+        ref = http.post(LEADS, json=lead_body(notice_version=nv, company="Queue Test Co")).json()[
+            "reference"
+        ]
         h = ops.bearer(maker)
         activate_grant(
             http,
