@@ -134,6 +134,20 @@ export const ACTIONS: Action[] = [
     ],
   },
   {
+    id: "matrix-import",
+    group: "catalogue",
+    title: "Import many rows into a draft market matrix",
+    description:
+      "Paste a JSON list of rows (up to 500). All or nothing: if any row is incomplete or repeats a family and country, nothing is written and every problem is listed by row. A row is a reference to signed evidence, never the evidence.",
+    method: "POST",
+    path: "/v1/commercial/market-matrices/{matrix_id}/rows:import",
+    capability: "commercial.catalog.manage",
+    fields: [
+      { key: "matrix_id", label: "Draft matrix ID", in: "path", required: true },
+      { key: "rows", label: "Rows (JSON list)", kind: "json", required: true, help: "Each row has family, country, seller_entity, merchant_route, currency, tax_class, data_region, offer_ref, legal_basis_ref, release_evidence_ref, payment_configured, tax_configured, and where needed provider_rights_ref, regulated_status_ref and their expiry dates." },
+    ],
+  },
+  {
     id: "matrix-approve",
     group: "catalogue",
     title: "Sign a market matrix for a role",

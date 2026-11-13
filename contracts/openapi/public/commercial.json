@@ -1062,6 +1062,25 @@
         "title": "MatrixRowBody",
         "type": "object"
       },
+      "MatrixRowsImport": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixRowBody"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "MatrixRowsImport",
+        "type": "object"
+      },
       "OverrideBody": {
         "additionalProperties": false,
         "properties": {
@@ -4427,6 +4446,62 @@
           }
         },
         "summary": "Put Matrix Row",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-matrices/{matrix_id}/rows:import": {
+      "post": {
+        "description": "Add or replace up to 500 rows of a DRAFT matrix at once. All or nothing: if any row is incomplete or repeats a (family, country), nothing is written and every problem is\nlisted by row, so a spreadsheet can be corrected in one pass. A row is still only a reference to signed evidence.",
+        "operationId": "import_matrix_rows_v1_commercial_market_matrices__matrix_id__rows_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixRowsImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Matrix Rows V1 Commercial Market Matrices  Matrix Id  Rows Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Matrix Rows",
         "tags": [
           "commercial"
         ]

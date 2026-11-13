@@ -38,7 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from zid_db import in_tenant, tenant_transaction
-from zid_errors import ZidError
+from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import request_engine
 from zid_platform.modules.commercial.ports import (
@@ -1102,6 +1102,55 @@ async def put_matrix_row(
         except CommercialError as e:
             raise _fail(e) from e
     return {"matrix_id": str(matrix_id), "family": row.family, "country": row.country}
+
+
+class MatrixRowsImport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rows: list[MatrixRowBody] = Field(min_length=1, max_length=500)
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}/rows:import")
+async def import_matrix_rows(
+    matrix_id: uuid.UUID, body: MatrixRowsImport, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Add or replace up to 500 rows of a DRAFT matrix at once. All or nothing: if any row is incomplete or repeats a (family, country), nothing is written and every problem is
+    listed by row, so a spreadsheet can be corrected in one pass. A row is still only a reference to signed evidence."""
+    registry = family_registry()
+    problems: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    rows = []
+    for i, b in enumerate(body.rows, start=1):
+        row = market_matrix_model.Row(**b.model_dump())
+        found = market_matrix_model.row_problems(row, registry)
+        if (row.family, row.country) in seen:
+            found = [*found, "DUPLICATE_IN_IMPORT"]
+        seen.add((row.family, row.country))
+        if found:
+            problems.append(
+                {"row": i, "family": row.family, "country": row.country, "problems": found}
+            )
+        rows.append(row)
+    if problems:
+        raise ZidError(
+            "MARKET_MATRIX_IMPORT_REJECTED",
+            f"{len(problems)} of {len(rows)} rows have problems; nothing was written.",
+            http_status=422,
+            details=[
+                ErrorDetail(
+                    field=f"row {p['row']} {p['family']} {p['country']}",
+                    issue=",".join(p["problems"]),
+                )
+                for p in problems[:50]
+            ],
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            for row in rows:
+                await market_matrix_store.put_row(conn, str(matrix_id), row)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "rows_written": len(rows)}
 
 
 @router.post("/v1/commercial/market-matrices/{matrix_id}:approve")
