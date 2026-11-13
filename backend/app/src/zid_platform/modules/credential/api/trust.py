@@ -54,6 +54,7 @@ from zid_platform.modules.credential.infrastructure.registries import (
     CONFIG as REGISTRY_CONFIG,
 )
 from zid_platform.modules.credential.infrastructure.registries import (
+    current_issuer_registry,
     find_policy,
     policies,
     source_contracts,

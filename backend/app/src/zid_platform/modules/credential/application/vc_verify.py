@@ -71,6 +71,13 @@ class VcOutcome:
     result: VcResult
     explanation: Explanation
     issuer_id: str | None
+    # read only from a credential whose proof verified; never part of the contract the generic verify routes return
+    subject_claims: Mapping[str, Any] | None = None
+    credential_types: tuple[str, ...] = ()
+    issuer_trusted: bool = (
+        False  # the typed trust table vouches for this issuer for this credential type
+    )
+    issuer_known: bool = False  # the issuer is in the typed trust table at all; if not, the signature could not even be tried
 
     def to_contract(self) -> dict[str, Any]:
         r = self.result
@@ -153,6 +160,7 @@ async def verify_vc(
         status=status,
         bound=bound,
         now=now,
+        issuer_known=found is not None,
     )
 
 
@@ -166,6 +174,7 @@ def _conclude(
     status: CredentialStatus,
     bound: bool,
     now: datetime,
+    issuer_known: bool = False,
 ) -> VcOutcome:
     """The answer from the facts, the same for a vc+jwt and a Data Integrity credential: five separate facts, never a primary-source
     confirmation or a license."""
@@ -197,7 +206,19 @@ def _conclude(
         decision="ACCEPTED_AS_CLAIM" if result.accepted_as_claim else "NOT_ACCEPTED",
         checked_at=now,
     )
-    return VcOutcome(kind, result, explanation, issuer)
+    subject = doc.get("credentialSubject")
+    if isinstance(subject, list):
+        subject = subject[0] if subject else None
+    return VcOutcome(
+        kind,
+        result,
+        explanation,
+        issuer,
+        subject if proof_valid and isinstance(subject, Mapping) else None,
+        tuple(t for t in vcdm._types(dict(doc)) if t != "VerifiableCredential"),
+        proof_valid and in_registry,
+        issuer_known,
+    )
 
 
 def _proof_key(
@@ -305,12 +326,11 @@ async def verify_vc_di(
         status=status,
         bound=bound,
         now=now,
+        issuer_known=found is not None,
     )
     if not proof_valid and reasons:  # say WHY the proof was not accepted, by its own name
         merged = tuple(dict.fromkeys((*out.result.reasons, *reasons)))
-        out = VcOutcome(
-            out.kind, replace(out.result, reasons=merged), out.explanation, out.issuer_id
-        )
+        out = replace(out, result=replace(out.result, reasons=merged))
     return out
 
 

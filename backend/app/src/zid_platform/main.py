@@ -339,6 +339,7 @@ def create_app(
         from .modules.credential.api.v2_authority import router as credential_v2_authority_router
         from .modules.credential.api.v2_cases import router as credential_v2_cases_router
         from .modules.credential.api.v2_edc import router as credential_v2_edc_router
+        from .modules.credential.api.v2_identity import router as credential_v2_identity_router
         from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
         from .modules.credential.api.v2_presentations import router as credential_v2_pres_router
         from .modules.decision.api.authzen import router as authzen_router
@@ -448,6 +449,7 @@ def create_app(
             credential_v2_cases_router,
             credential_v2_edc_router,
             credential_v2_authority_router,
+            credential_v2_identity_router,
             evidence_v2_extract_router,
             principals_router,
             evidence_router,

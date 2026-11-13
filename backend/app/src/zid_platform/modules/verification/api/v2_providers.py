@@ -30,7 +30,7 @@ from zid_platform.modules.verification.application.entitlements import (
     change_status,
 )
 from zid_platform.modules.verification.domain import provider_adapter as pa
-from zid_platform.modules.verification.infrastructure import entitlement_store as store
+from zid_platform.modules.verification.infrastructure import route_entitlement_store as store
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["verification-v2"])

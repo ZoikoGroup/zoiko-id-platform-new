@@ -1,119 +1,110 @@
-"""Storage for provider entitlements (verify.provider_route_entitlement). Scope and status only."""
+"""Provider entitlement statements in PostgreSQL (ZID-RCG-003 RCG-G03; CR-074). Platform configuration: not tenant data, no RLS.
+
+Append-only: recording a statement never edits another, and an earlier one keeps answering for the moment it was the latest. The domain rules live
+in `domain/entitlement.py`; the table repeats the ones that must hold even for a caller that skips the domain code (migration verification_0008).
+"""
 
 from __future__ import annotations
 
-import uuid
-from collections.abc import Mapping, Sequence
-from datetime import date
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.verification.domain.provider_adapter import Entitlement, EntitlementStatus
-
-COLUMNS = (
-    "entitlement_id, provider_id, service_code, countries, purposes, processing_regions, valid_from, valid_until, "
-    "assurance, cost_rank, status, status_reason, status_changed_at"
+from zid_platform.modules.verification.domain.entitlement import (
+    Decision,
+    Grant,
+    Scope,
+    Status,
+    check_grant,
+    check_scope,
+    decide,
 )
 
+_COLUMNS = "grant_id, provider, country, capability, purpose, status, effective_at, valid_from, valid_until, contract_ref, terms_ref, recorded_by, recorded_at"
 
-async def insert(
-    conn: AsyncConnection,
-    *,
-    tenant_id: str,
-    created_by: str,
-    provider_id: str,
-    service_code: str,
-    countries: Sequence[str],
-    purposes: Sequence[str],
-    regions: Sequence[str],
-    valid_from: date,
-    valid_until: date | None,
-    assurance: int,
-    cost_rank: int,
-) -> str:
-    entitlement_id = str(uuid.uuid4())
+
+def _grant(r: Any) -> Grant:
+    return Grant(
+        grant_id=r.grant_id,
+        scope=Scope(r.provider, r.country, r.capability, r.purpose),
+        status=Status(r.status),
+        effective_at=r.effective_at,
+        valid_from=r.valid_from,
+        valid_until=r.valid_until,
+        contract_ref=r.contract_ref,
+        terms_ref=r.terms_ref,
+        recorded_by=r.recorded_by,
+        recorded_at=r.recorded_at,
+    )
+
+
+def _key(s: Scope) -> dict[str, str]:
+    return {"p": s.provider, "c": s.country, "k": s.capability, "u": s.purpose}
+
+
+async def history(conn: AsyncConnection, scope: Scope) -> list[Grant]:
+    """Every statement for the exact scope, oldest first."""
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_COLUMNS} FROM verify.provider_entitlement "
+                "WHERE provider = :p AND country = :c AND capability = :k AND purpose = :u ORDER BY effective_at"
+            ),
+            _key(scope),
+        )
+    ).all()
+    return [_grant(r) for r in rows]
+
+
+async def record(conn: AsyncConnection, grant: Grant, *, now: datetime) -> Grant:
+    """Check the statement against the domain rules and the ones before it, then append it."""
+    check_grant(grant, now=now, previous=await history(conn, grant.scope))
+    s = grant.scope
     await conn.execute(
         text(
-            "INSERT INTO verify.provider_route_entitlement (entitlement_id, tenant_id, provider_id, service_code, countries, "
-            "purposes, processing_regions, valid_from, valid_until, assurance, cost_rank, status, created_by) VALUES "
-            "(CAST(:i AS uuid), CAST(:t AS uuid), :p, :s, :c, :pu, :r, :vf, :vu, :a, :k, 'ACTIVE', CAST(:by AS uuid))"
+            f"INSERT INTO verify.provider_entitlement ({_COLUMNS}) VALUES (:id, :p, :c, :k, :u, :st, :ea, :vf, :vu, :cr, :tr, :by, :ra)"
         ),
         {
-            "i": entitlement_id,
-            "t": tenant_id,
-            "p": provider_id,
-            "s": service_code,
-            "c": list(countries),
-            "pu": list(purposes),
-            "r": list(regions),
-            "vf": valid_from,
-            "vu": valid_until,
-            "a": assurance,
-            "k": cost_rank,
-            "by": created_by,
+            "id": grant.grant_id,
+            **_key(s),
+            "st": grant.status.value,
+            "ea": grant.effective_at,
+            "vf": grant.valid_from,
+            "vu": grant.valid_until,
+            "cr": grant.contract_ref,
+            "tr": grant.terms_ref,
+            "by": grant.recorded_by,
+            "ra": grant.recorded_at,
         },
     )
-    return entitlement_id
+    return grant
 
 
-async def live(conn: AsyncConnection, provider_id: str, service_code: str) -> dict[str, Any] | None:
-    row = (
-        (
-            await conn.execute(
-                text(
-                    f"SELECT {COLUMNS} FROM verify.provider_route_entitlement "
-                    "WHERE provider_id = :p AND service_code = :s AND status <> 'REVOKED' FOR UPDATE"
-                ),
-                {"p": provider_id, "s": service_code},
-            )
-        )
-        .mappings()
-        .first()
-    )
-    return dict(row) if row else None
+async def decide_scope(conn: AsyncConnection, scope: Scope, *, at: datetime) -> Decision:
+    check_scope(scope)
+    return decide(await history(conn, scope), scope, at)
 
 
-async def set_status(
-    conn: AsyncConnection, entitlement_id: str, status: str, reason: str | None
-) -> None:
-    await conn.execute(
-        text(
-            "UPDATE verify.provider_route_entitlement SET status = :st, status_reason = :r, status_changed_at = now() "
-            "WHERE entitlement_id = CAST(:i AS uuid)"
-        ),
-        {"st": status, "r": reason, "i": entitlement_id},
-    )
+async def decide_scopes(
+    conn: AsyncConnection, scopes: Sequence[Scope], *, at: datetime
+) -> dict[Scope, Decision]:
+    return {s: await decide_scope(conn, s, at=at) for s in scopes}
 
 
-async def listing(conn: AsyncConnection, provider_id: str | None) -> list[dict[str, Any]]:
+async def scopes_of(
+    conn: AsyncConnection, *, provider: str | None = None, limit: int = 200
+) -> list[Scope]:
+    """The distinct scopes anyone has recorded a statement for, optionally one provider's."""
     rows = (
-        (
-            await conn.execute(
-                text(
-                    f"SELECT {COLUMNS} FROM verify.provider_route_entitlement "
-                    "WHERE (CAST(:p AS text) IS NULL OR provider_id = :p) ORDER BY provider_id, service_code, status_changed_at DESC"
-                ),
-                {"p": provider_id},
-            )
+        await conn.execute(
+            text(
+                "SELECT DISTINCT provider, country, capability, purpose FROM verify.provider_entitlement "
+                "WHERE CAST(:p AS text) IS NULL OR provider = :p ORDER BY provider, country, capability, purpose LIMIT :n"
+            ),
+            {"p": provider, "n": limit},
         )
-        .mappings()
-        .all()
-    )
-    return [dict(r) for r in rows]
-
-
-def to_domain(row: Mapping[str, Any]) -> Entitlement:
-    return Entitlement(
-        provider_id=row["provider_id"],
-        service_code=row["service_code"],
-        countries=frozenset(c.upper() for c in row["countries"]),
-        purposes=frozenset(row["purposes"]),
-        processing_regions=frozenset(row["processing_regions"]),
-        valid_from=row["valid_from"],
-        valid_until=row["valid_until"],
-        assurance=int(row["assurance"]),
-        status=EntitlementStatus(row["status"]),
-        cost_rank=int(row["cost_rank"]),
-    )
+    ).all()
+    return [Scope(r.provider, r.country, r.capability, r.purpose) for r in rows]
