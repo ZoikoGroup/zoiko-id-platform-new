@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from zid_platform.modules.commercial.domain.market_availability import Facts
+from zid_platform.modules.commercial.domain.rollout import is_live
 from zid_platform.modules.commercial.domain.service_families import FamilyRegistry
 
 ROLES = ("PRODUCT", "FINANCE", "LEGAL_PRIVACY", "SECURITY_QA")
@@ -52,6 +53,9 @@ class Row:
     regulated_status_ref: str | None = None
     provider_rights_expires: date | None = None
     regulated_status_expires: date | None = None
+    # Where the market is in its staged rollout, read from the rollout log when the ACTIVE matrix is loaded. It is not part of the signed matrix,
+    # and a market with no entry is None, which is not released.
+    stage: str | None = None
 
 
 def _filled(value: str | None) -> bool:
@@ -116,7 +120,7 @@ def facts_for_row(row: Row | None, family_code: str, registry: FamilyRegistry, o
         else True,
         payment_configured=row.payment_configured,
         tax_configured=row.tax_configured,
-        release_evidence_executed=_filled(row.release_evidence_ref),
+        release_evidence_executed=_filled(row.release_evidence_ref) and is_live(row.stage),
     )
 
 

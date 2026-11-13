@@ -19,7 +19,7 @@ def row(family: str = "API", country: str = "DE", **over) -> mm.Row:
         family=family, country=country, seller_entity="Zoiko Tech GmbH", merchant_route="stripe-eu",
         currency="EUR", tax_class="B2B-SERVICES", data_region="eu-central", offer_ref="offer:2026-11/api-de",
         legal_basis_ref="legal:memo-114", release_evidence_ref="release:G6-2026-11-14", payment_configured=True,
-        tax_configured=True, provider_rights_ref=None, regulated_status_ref=None,
+        tax_configured=True, provider_rights_ref=None, regulated_status_ref=None, stage="PRODUCTION",
     )  # fmt: skip
     base.update(over)
     return mm.Row(**base)

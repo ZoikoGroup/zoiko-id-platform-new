@@ -7,6 +7,7 @@ approvals before activation, an activated matrix immutable. Functions here read 
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.commercial.domain.catalogue import CommercialError
 from zid_platform.modules.commercial.domain.market_matrix import ROLES, Row
+from zid_platform.modules.commercial.infrastructure import rollout_store
 
 _COLUMNS = (
     "family, country, seller_entity, merchant_route, currency, tax_class, data_region, offer_ref, provider_rights_ref, "
@@ -116,7 +118,11 @@ async def active_rows(
     m = await active(conn, now)
     if m is None:
         return None, {}
-    return m, {(r.family, r.country): r for r in await rows(conn, str(m["matrix_id"]))}
+    stages = await rollout_store.current(conn)
+    return m, {
+        (r.family, r.country): replace(r, stage=stages.get((r.family, r.country), {}).get("stage"))
+        for r in await rows(conn, str(m["matrix_id"]))
+    }
 
 
 async def create_draft(
@@ -170,7 +176,7 @@ async def put_row(conn: AsyncConnection, matrix_id: str, row: Row) -> None:
             "payment_configured = EXCLUDED.payment_configured, tax_configured = EXCLUDED.tax_configured, "
             "provider_rights_expires = EXCLUDED.provider_rights_expires, regulated_status_expires = EXCLUDED.regulated_status_expires"
         ),
-        {"m": uuid.UUID(matrix_id), **{k: getattr(row, k) for k in row.__slots__}},
+        {"m": uuid.UUID(matrix_id), **{k: getattr(row, k) for k in row.__slots__ if k != "stage"}},
     )
 
 

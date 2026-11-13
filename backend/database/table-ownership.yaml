@@ -59,6 +59,11 @@ tables:
     module: commercial
     tenant_scoped: true
     source: "CR-062: the first month's platform fee a company pays before an activated order switches its plan"
+  commercial.market_rollout:
+    role: cell
+    module: commercial
+    tenant_scoped: false
+    source: "ZID-COM-WF-2026-11 WF-I05: the append-only staged rollout, pause and rollback log of each market of the active matrix"
   commercial.solution_draft:
     role: cell
     module: commercial

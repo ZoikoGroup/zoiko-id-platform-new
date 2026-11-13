@@ -857,6 +857,13 @@ export function createOperatorApi(t: Transport) {
           `/v1/commercial/price-books/${seg(id)}/readiness`,
         ),
       /** First-month plan payments an operator marked to be returned, with the processor reference to refund (CR-062). */
+      /** The market matrices, newest first, and one with its rows, signatures and what is still missing. */
+      marketMatrices: () => get<M.Items<M.MarketMatrixSummary>>("/v1/commercial/market-matrices"),
+      marketMatrix: (id: string) => get<M.MarketMatrixDetail>(`/v1/commercial/market-matrices/${seg(id)}`),
+      /** Where each market of the active matrix is in its staged rollout. */
+      marketRollout: () => get<M.Items<M.MarketRolloutItem>>("/v1/commercial/market-rollout"),
+      /** Every company's saved configuration sent for a quote, for the deal desk. */
+      quoteRequests: () => get<M.Items<M.QuoteRequestItem>>("/v1/commercial/quote-requests"),
       activationRefunds: () => get<M.Items<M.ActivationRefund>>("/v1/commercial/activation-refunds"),
       /** What was deleted for a closed company, what is held and what is still owed. */
       dataDeletion: (tenantId: string) => get<Record<string, unknown>>(`/v1/commercial/tenants/${seg(tenantId)}/data-deletion`),

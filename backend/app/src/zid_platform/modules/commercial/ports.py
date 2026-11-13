@@ -118,6 +118,7 @@ from zid_platform.modules.commercial.infrastructure import (
     catalogue_store,
     enforcement_store,
     market_matrix_store,
+    rollout_store,
     solution_store,
 )
 from zid_platform.modules.commercial.infrastructure.family_registry import family_registry
@@ -280,6 +281,7 @@ __all__ = [
     "require_feature",
     "require_production_environment",
     "resolve_payment_event",
+    "rollout_store",
     "run_rating",
     "service_requests",
     "solution_store",

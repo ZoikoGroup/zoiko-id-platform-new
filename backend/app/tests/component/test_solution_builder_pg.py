@@ -17,7 +17,7 @@ from onboarding_fixture import ISS, onboard
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from test_commercial_pg import settings
-from test_market_matrix_pg import full_row, signed
+from test_market_matrix_pg import full_row, go_live, signed
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.commercial.ports import market_matrix_store as matrices
@@ -52,6 +52,7 @@ async def activate_api_de(rt_url: str) -> None:
         await signed(c, mid, author)
         now = datetime.now(UTC) - timedelta(seconds=5)
         await matrices.activate(c, mid, activator=activator, effective_from=now, now=now)
+        await go_live(c, country="NL")
 
 
 def cards(http: TestClient, query: str, headers: dict[str, str]) -> dict[str, dict]:

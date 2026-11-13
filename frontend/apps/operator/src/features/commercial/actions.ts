@@ -170,6 +170,29 @@ export const ACTIONS: Action[] = [
     ],
   },
   {
+    id: "matrix-rollout",
+    group: "catalogue",
+    title: "Move a market through its rollout",
+    description:
+      "A market of the active matrix goes SANDBOX, STAGING, PILOT, CANARY, PRODUCTION one stage at a time, each move by a different person. It is sold only in CANARY or PRODUCTION. Pause or roll back at any time; stopping never needs a second person.",
+    method: "POST",
+    path: "/v1/commercial/market-rollout",
+    capability: "commercial.catalog.manage",
+    confirm: "move this market to the stage chosen",
+    fields: [
+      { key: "family", label: "Family code", required: true, placeholder: "API" },
+      { key: "country", label: "Country (two letters)", required: true, placeholder: "DE" },
+      {
+        key: "stage",
+        label: "Move to",
+        kind: "select",
+        required: true,
+        options: ["SANDBOX", "STAGING", "PILOT", "CANARY", "PRODUCTION", "PAUSED", "ROLLED_BACK"].map((id) => ({ id, label: id })),
+      },
+      { key: "reason", label: "Reason", required: true, help: "Recorded in the append-only rollout log." },
+    ],
+  },
+  {
     id: "matrix-withdraw",
     group: "catalogue",
     title: "Withdraw a draft market matrix",

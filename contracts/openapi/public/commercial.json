@@ -1481,6 +1481,48 @@
         "title": "ReopenBody",
         "type": "object"
       },
+      "RolloutBody": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "family": {
+            "pattern": "^[A-Z]{2,8}$",
+            "title": "Family",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "SANDBOX",
+              "STAGING",
+              "PILOT",
+              "CANARY",
+              "PRODUCTION",
+              "PAUSED",
+              "ROLLED_BACK"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "country",
+          "stage",
+          "reason"
+        ],
+        "title": "RolloutBody",
+        "type": "object"
+      },
       "SafetyHoldBody": {
         "additionalProperties": false,
         "properties": {
@@ -3885,6 +3927,72 @@
           }
         },
         "summary": "Withdraw Matrix",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/market-rollout": {
+      "get": {
+        "description": "Where every market of the active matrix is in its staged rollout, and who made the latest move.",
+        "operationId": "list_rollout_v1_commercial_market_rollout_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Rollout V1 Commercial Market Rollout Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rollout",
+        "tags": [
+          "commercial"
+        ]
+      },
+      "post": {
+        "description": "Move one market of the active matrix one stage on, pause it, or roll it back. Advancing needs a different person than the last move; stopping never does.",
+        "operationId": "move_rollout_v1_commercial_market_rollout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Move Rollout V1 Commercial Market Rollout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Rollout",
         "tags": [
           "commercial"
         ]

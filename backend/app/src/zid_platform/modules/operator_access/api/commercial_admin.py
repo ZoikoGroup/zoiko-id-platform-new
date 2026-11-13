@@ -76,6 +76,7 @@ from zid_platform.modules.commercial.ports import (
     plan_requests,
     reconcile,
     resolve_payment_event,
+    rollout_store,
     run_rating,
     service_requests,
     solution_store,
@@ -118,6 +119,14 @@ _STATUS = {
     "MARKET_MATRIX_APPROVAL_REFUSED": 409,
     "MARKET_MATRIX_EMPTY": 422,
     "MARKET_MATRIX_ROLE_UNKNOWN": 422,
+    "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
+    "ROLLOUT_STAGE_UNKNOWN": 422,
+    "ROLLOUT_NOT_STARTED": 409,
+    "ROLLOUT_ALREADY_IN_STAGE": 409,
+    "ROLLOUT_NOT_LIVE": 409,
+    "ROLLOUT_AT_END": 409,
+    "ROLLOUT_STAGE_SKIP": 409,
+    "ROLLOUT_SAME_PERSON": 403,
 }
 
 
@@ -366,6 +375,61 @@ def _matrix_row_view(r: Any) -> dict[str, Any]:
 async def list_matrices(request: Request, op: OperatorDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         return {"items": [_matrix_view(m) for m in await market_matrix_store.matrices(conn)]}
+
+
+class RolloutBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    stage: Literal["SANDBOX", "STAGING", "PILOT", "CANARY", "PRODUCTION", "PAUSED", "ROLLED_BACK"]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/v1/commercial/market-rollout")
+async def list_rollout(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Where every market of the active matrix is in its staged rollout, and who made the latest move."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        _, rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+        latest = await rollout_store.current(conn)
+    return {
+        "items": [
+            {
+                "family": f,
+                "country": c,
+                "stage": latest.get((f, c), {}).get("stage"),
+                "decided_by": str(latest[(f, c)]["decided_by"]) if (f, c) in latest else None,
+                "decided_at": _iso(latest[(f, c)]["decided_at"]) if (f, c) in latest else None,
+            }
+            for (f, c) in sorted(rows)
+        ]
+    }
+
+
+@router.post("/v1/commercial/market-rollout", status_code=201)
+async def move_rollout(body: RolloutBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Move one market of the active matrix one stage on, pause it, or roll it back. Advancing needs a different person than the last move; stopping never does."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            out = await rollout_store.move(
+                conn,
+                family=body.family,
+                country=body.country,
+                target=body.stage,
+                decider=str(op.principal_id),
+                reason=body.reason,
+            )
+            await log_change(
+                conn,
+                kind="MARKET_ROLLOUT_MOVED",
+                ref=f"{body.family}:{body.country}",
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"stage": body.stage},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return out
 
 
 @router.get("/v1/commercial/quote-requests")

@@ -21,6 +21,7 @@ from test_commercial_pg import settings
 from zid_platform.main import create_app
 from zid_platform.modules.commercial.ports import market_matrix_model as mm
 from zid_platform.modules.commercial.ports import market_matrix_store as store
+from zid_platform.modules.commercial.ports import rollout_store
 
 URL = "/v1/commercial/configurations:check"
 
@@ -42,6 +43,16 @@ async def signed(conn, matrix_id: str, author: str) -> list[str]:
     for role, who in zip(mm.ROLES, people, strict=True):
         await store.approve(conn, matrix_id, role=role, approver=who)
     return people
+
+
+async def go_live(conn, family: str = "API", country: str = "DE", through: str = "CANARY") -> None:
+    """Take a row of the active matrix through its staged rollout, each step by a different person."""
+    for stage in ("SANDBOX", "STAGING", "PILOT", "CANARY", "PRODUCTION"):
+        await rollout_store.move(
+            conn, family=family, country=country, target=stage, decider=uid(), reason="test rollout"
+        )
+        if stage == through:
+            return
 
 
 async def refused(conn, call, code: str) -> None:
@@ -213,11 +224,19 @@ def test_only_an_active_approved_matrix_makes_a_family_sellable_in_the_check(rt_
         assert before["families"][0]["sellable"] is False
 
         mid = asyncio.run(activate_matrix())
+
+        # a signed, active matrix is not yet a sale: the market has to be taken live through its rollout (WF-I05)
+        unreleased = http.post(URL, headers=adm, json=body).json()["families"][0]
+        assert unreleased["sellable"] is False and "PRODUCTION" in unreleased["causes"]
+
+        async def rollout() -> None:
+            async with engine(rt_url) as eng, eng.begin() as c:
+                await go_live(c, through="CANARY")
+
+        asyncio.run(rollout())
         after = http.post(URL, headers=adm, json=body).json()
         fam = after["families"][0]
         assert fam["sellable"] is True and fam["refusals"] == [], after
-        assert after["market_matrix_version"] is not None
-        assert after["estimate"] is None and "$" not in str(after), "still no invented price"
 
         # a country the matrix has no row for stays a refusal, and so does a family it does not list
         fr = http.post(URL, headers=adm, json={**body, "payer_country": "FR"}).json()["families"][0]
@@ -231,3 +250,117 @@ def test_only_an_active_approved_matrix_makes_a_family_sellable_in_the_check(rt_
         signed_family = next(f for f in sign["families"] if f["family"] == "SIGN")
         assert signed_family["sellable"] is False
         assert mid
+
+        # pausing the market stops the sale at once; a rollback does too
+        async def pause() -> None:
+            async with engine(rt_url) as eng, eng.begin() as c:
+                await rollout_store.move(
+                    c,
+                    family="API",
+                    country="DE",
+                    target="PAUSED",
+                    decider=uid(),
+                    reason="provider degraded",
+                )
+
+        asyncio.run(pause())
+        assert http.post(URL, headers=adm, json=body).json()["families"][0]["sellable"] is False
+        assert after["market_matrix_version"] is not None
+        assert after["estimate"] is None and "$" not in str(after), "still no invented price"
+
+
+def test_the_rollout_log_is_staged_independent_and_append_only(rt_url: str, owner_url: str) -> None:
+    async def run() -> None:
+        author, activator, a, b = uid(), uid(), uid(), uid()
+        async with engine(rt_url) as eng, eng.begin() as c:
+            mid = (await store.create_draft(c, copy_of=None, created_by=author, note="rollout"))[
+                "matrix_id"
+            ]
+            await store.put_row(c, mid, full_row("API", "SE"))
+            await signed(c, mid, author)
+            now = datetime.now(UTC) - timedelta(seconds=5)
+            await store.activate(c, mid, activator=activator, effective_from=now, now=now)
+
+            move = rollout_store.move
+            # a market not in the active matrix cannot be rolled out: a rollout is not a way round the signed matrix
+            await refused(
+                c,
+                lambda: move(
+                    c, family="API", country="NO", target="SANDBOX", decider=a, reason="x1y"
+                ),
+                "ROLLOUT_NOT_IN_ACTIVE_MATRIX",
+            )
+            await refused(
+                c,
+                lambda: move(
+                    c, family="API", country="SE", target="PILOT", decider=a, reason="skip ahead"
+                ),
+                "ROLLOUT_STAGE_SKIP",
+            )
+            await move(
+                c,
+                family="API",
+                country="SE",
+                target="SANDBOX",
+                decider=a,
+                reason="start in the sandbox",
+            )
+            await refused(
+                c,
+                lambda: move(
+                    c, family="API", country="SE", target="STAGING", decider=a, reason="same person"
+                ),
+                "ROLLOUT_SAME_PERSON",
+            )
+            await move(
+                c,
+                family="API",
+                country="SE",
+                target="STAGING",
+                decider=b,
+                reason="independent check",
+            )
+            await move(
+                c,
+                family="API",
+                country="SE",
+                target="PAUSED",
+                decider=b,
+                reason="provider degraded",
+            )
+            await refused(
+                c,
+                lambda: move(
+                    c, family="API", country="SE", target="PILOT", decider=a, reason="wrong resume"
+                ),
+                "ROLLOUT_STAGE_SKIP",
+            )
+            await move(
+                c,
+                family="API",
+                country="SE",
+                target="STAGING",
+                decider=a,
+                reason="provider recovered",
+            )
+            now_stage = (await rollout_store.current(c))[("API", "SE")]
+            assert now_stage["stage"] == "STAGING"
+            assert [h["stage"] for h in await rollout_store.history(c, "API", "SE")] == [
+                "SANDBOX",
+                "STAGING",
+                "PAUSED",
+                "STAGING",
+            ]
+            _, rows = await store.active_rows(c, datetime.now(UTC) + timedelta(seconds=1))
+            assert rows[("API", "SE")].stage == "STAGING"
+
+        async with engine(owner_url) as eng:
+            for sql in (
+                "UPDATE commercial.market_rollout SET stage = 'PRODUCTION'",
+                "DELETE FROM commercial.market_rollout",
+            ):
+                with pytest.raises(DBAPIError, match="append-only"):
+                    async with eng.begin() as c:
+                        await c.execute(text(sql))
+
+    asyncio.run(run())

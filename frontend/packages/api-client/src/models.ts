@@ -2985,3 +2985,25 @@ export type SolutionDraft = {
   expires_at: string;
   quote_requested_at: string | null;
 };
+
+/* ---- the market matrix, its staged rollout and the deal desk queue (ZID-COM-WF-2026-11 WF-I01, WF-I05; operator plane) */
+export type MarketMatrixStatus = "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN";
+export type MarketMatrixSummary = { matrix_id: string; version: number; status: MarketMatrixStatus; effective_from: string | null; activated_at: string | null; note: string | null };
+export type MarketMatrixRow = {
+  family: string; country: string; seller_entity: string; merchant_route: string; currency: string; tax_class: string; data_region: string;
+  offer_ref: string; legal_basis_ref: string; release_evidence_ref: string; payment_configured: boolean; tax_configured: boolean;
+  provider_rights_ref: string | null; regulated_status_ref: string | null; provider_rights_expires: string | null; regulated_status_expires: string | null;
+};
+export type MarketMatrixDetail = MarketMatrixSummary & {
+  rows: MarketMatrixRow[];
+  incomplete_rows: { family: string; country: string; problems: string[] }[];
+  rights_alerts: { family: string; country: string; kind: string; state: "EXPIRED" | "EXPIRING"; expires: string }[];
+  approvals: { role: string; approver: string; approved_at: string }[];
+  missing_approvals: string[];
+};
+export type MarketRolloutItem = { family: string; country: string; stage: string | null; decided_by: string | null; decided_at: string | null };
+export type QuoteRequestItem = {
+  draft_id: string; tenant_id: string; purpose: string; families: string[]; subject_country: string | null; payer_country: string | null;
+  operating_region: string | null; volumes: Record<string, Record<string, number>>; scope_hash: string; quote_requested_at: string | null;
+  quote_snapshot: { exceptions?: { family: string; state: string; causes: string[] }[]; assumptions?: string[] } | null;
+};
