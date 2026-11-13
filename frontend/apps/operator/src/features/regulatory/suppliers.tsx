@@ -1,13 +1,13 @@
 "use client";
 
-import type { AttestationRow, CertStatus, EntitlementIn, EntitlementRow } from "@zoiko/api-client";
-import { Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, TextField, type Column } from "@zoiko/ui";
+import type { AttestationRow, CertStatus, EntitlementIn, EntitlementRow, RegisterSource } from "@zoiko/api-client";
+import { Badge, Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, TextField, type Column } from "@zoiko/ui";
 import { BadgeCheck, FileSignature } from "lucide-react";
 import { useState } from "react";
 
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
-import { isoFromLocal, Mono, opt, REG, RegError, upper, Verdict } from "./common";
+import { isoFromLocal, Mono, opt, REG, Reasons, RegError, upper, Verdict } from "./common";
 
 const CERT: CertStatus[] = ["ACTIVE", "SUSPENDED", "WITHDRAWN", "EXPIRED"];
 const ENT: EntitlementIn["status"][] = ["GRANTED", "SUSPENDED", "WITHDRAWN"];
@@ -170,6 +170,57 @@ function EntitlementDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   );
 }
 
+function RegisterSources() {
+  const q = useCellQuery([...REG.attestations, "sources"], (api) => api.regulatory.registerSources());
+  const [f, setF] = useState({ source_id: "simulator", entity: "", scheme: "UK_DIATF", country: "GB", service_code: "" });
+  const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+  const refresh = useCellMutation(
+    (api) =>
+      api.regulatory.refreshFromRegister({
+        source_id: f.source_id.trim(),
+        entity: f.entity.trim(),
+        scheme: f.scheme.trim(),
+        country: upper(f.country),
+        service_code: f.service_code.trim(),
+      }),
+    {
+      invalidate: [REG.attestations, REG.readiness],
+      success: (r) => (r.listed ? `Register answered: ${r.outcome}` : "The register does not list this scope: nothing recorded"),
+    },
+  );
+  const columns: Column<RegisterSource>[] = [
+    { key: "id", header: "Source", pinned: true, render: (s) => <Mono>{s.source_id}</Mono> },
+    { key: "kind", header: "Kind", render: (s) => s.kind },
+    { key: "scheme", header: "Scheme", render: (s) => <Mono>{s.scheme}</Mono> },
+    { key: "usable", header: "Usable here", render: (s) => (s.usable ? <Badge tone="ok">Yes</Badge> : <Reasons reasons={s.reasons} />) },
+  ];
+  return (
+    <Card padded={false} title="Official-register sources">
+      <QueryView query={q}>
+        {(d) => <DataTable caption="Register sources" columns={columns} rows={d.items} rowKey={(s) => s.source_id} />}
+      </QueryView>
+      <form
+        aria-label="Refresh from register"
+        className="flex flex-wrap items-end gap-2 border-t border-border p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          refresh.mutate(undefined);
+        }}
+      >
+        <TextField label="Source" value={f.source_id} onChange={set("source_id")} mono />
+        <TextField label="Provider (entity)" value={f.entity} onChange={set("entity")} mono isRequired />
+        <TextField label="Scheme" value={f.scheme} onChange={set("scheme")} mono />
+        <TextField label="Country" value={f.country} onChange={set("country")} className="w-20" />
+        <TextField label="Service code" value={f.service_code} onChange={set("service_code")} mono isRequired />
+        <Button type="submit" pending={refresh.isPending} isDisabled={!f.entity.trim() || !f.service_code.trim() || f.country.trim().length !== 2}>
+          Ask the register
+        </Button>
+      </form>
+      {refresh.error ? <div className="px-4 pb-4"><RegError error={refresh.error} /></div> : null}
+    </Card>
+  );
+}
+
 export function SuppliersPage() {
   const [provider, setProvider] = useState("");
   const att = useCellQuery([...REG.attestations, provider], (api) => api.regulatory.attestations(opt(provider)));
@@ -219,6 +270,7 @@ export function SuppliersPage() {
             )}
           </QueryView>
         </Card>
+        <RegisterSources />
         <Card padded={false} title="Entitlements (contracts)">
           <QueryView query={ent}>
             {(d) => (

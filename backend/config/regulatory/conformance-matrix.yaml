@@ -341,8 +341,12 @@ cases:
   - case: T45
     title: Outage/incident notification deadline simulation
     expected: routing, legal escalation, clock and evidence verified
-    coverage: GAP
-    note: Incident preservation and routing rules exist (test_operations_catalogue.py), but no test runs a notification deadline clock or legal escalation.
+    coverage: COVERED
+    tests:
+      - app/tests/unit/test_incident_notifications.py::test_t45_routing_only_the_rules_the_incident_meets
+      - app/tests/unit/test_incident_notifications.py::test_t45_the_clock_escalates_to_legal_then_goes_overdue
+      - app/tests/unit/test_incident_notifications.py::test_t45_met_needs_evidence_and_a_send_inside_the_window
+    note: The deadline rules themselves are Legal content (config/regulatory/incident-notification-rules.yaml ships empty); the simulation runs fixture rules.
   - case: T46
     title: Regulator requests historic certification proof
     expected: export check-time official snapshot + trace

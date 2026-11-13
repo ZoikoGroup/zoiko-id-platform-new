@@ -1009,3 +1009,142 @@ async def offerings(
             for o in catalog
         ]
     }
+
+
+# ------------------------------------------------------------------------------------ official-register connectors (CR-087)
+
+
+class RegisterRefreshIn(SupplierScopeIn):
+    source_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+@router.get("/v1/regulatory/register-sources")
+async def register_sources(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The official registers, trusted lists and professional registers the platform may query, and whether each may be used here and why not."""
+    env = str(getattr(request.app.state, "environment", "production"))
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:register-sources")
+    m = v.register_sources_model
+    items = []
+    for sid, s in sorted(v.register_sources.sources().items()):
+        u = m.usable(
+            s, environment=env, connector_available=v.register_sources.connector(sid) is not None
+        )
+        items.append(
+            {
+                "source_id": sid,
+                "kind": s.kind.value,
+                "scheme": s.scheme,
+                "base_url": s.base_url,
+                "contract_ref": s.contract_ref,
+                "usable": u.usable,
+                "reasons": list(u.reasons),
+            }
+        )
+    return {"items": items}
+
+
+@router.post("/v1/regulatory/attestations:refresh", status_code=201)
+async def refresh_attestation(
+    body: RegisterRefreshIn, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Ask the official register itself about one exact scope, preserve its answer and record the snapshot it proves (or nothing, when the
+    register does not list it). The same rules as a hand-recorded attestation; the proof hash is computed here, never taken from the connector."""
+    scope = body.domain()
+    target = f"{scope.entity}/{scope.scheme}/{scope.country}/{scope.service_code}"
+    env = str(getattr(request.app.state, "environment", "production"))
+
+    async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        try:
+            r = await v.register_refresh.refresh(
+                conn,
+                body.source_id,
+                scope,
+                environment=env,
+                now=now,
+                recorded_by=str(op.principal_id),
+            )
+        except v.register_sources_model.SourceError as e:
+            raise ZidError(e.code, str(e), http_status=409) from e
+        view = {
+            **_scope_view(scope),
+            "source_id": body.source_id,
+            "listed": r.listed,
+            "snapshot_id": r.snapshot.snapshot_id if r.snapshot else None,
+            "proof_hash": r.snapshot.proof_hash if r.snapshot else None,
+            "outcome": r.decision.outcome.value,
+            "reason": r.decision.reason,
+        }
+        return (
+            view,
+            f"{target}:{view['snapshot_id'] or 'not-listed'}",
+            {"source_id": body.source_id, "listed": r.listed, "proof_hash": view["proof_hash"]},
+        )
+
+    return await _act(
+        request,
+        op,
+        event="regulatory.attestation.refreshed",
+        publish="verification.certification.changed",
+        action="refresh",
+        capability=RECORD_ATTESTATION,
+        target_type="certification_attestation",
+        target=target,
+        work=work,
+    )
+
+
+# ------------------------------------------------------------------------------------ qualified trust lists (WF-05, RCG-G06)
+
+
+class _Evidence:
+    """The evidence module's trust configuration, imported on first use (no import-time dependency on the evidence module)."""
+
+    def __getattr__(self, name: str) -> Any:
+        from zid_platform.modules.evidence.ports import trust_model
+
+        return getattr(trust_model, name)
+
+
+evidence_trust = _Evidence()
+
+
+@router.get("/v1/regulatory/trust-lists")
+async def trust_lists(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """WF-05: what the signature and seal validator may rely on. Qualified status is read only from trusted lists whose signature was verified;
+    an unauthenticated list counts for nothing, and with none every result is NOT_ASSESSED. Technical validation is reported separately from
+    legal interpretation: a valid signature is never lawful authority for a purpose."""
+    from zid_platform.modules.evidence.ports import trust_config
+
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _need_any(conn, op, READ_CLAIMS, "regulatory:trust-lists")
+    cfg = trust_config()
+    now = datetime.now(UTC)
+    t = evidence_trust
+    lists = []
+    for tl in cfg.trusted_lists:
+        qc = [s for s in tl.services if t.CA_QC in s.service_type]
+        granted = [s for s in qc if t.GRANTED in (t._status_at(s, now) or "")]
+        lists.append(
+            {
+                "name": tl.name,
+                "authenticated": tl.authenticated,
+                "problem": tl.problem,
+                "services": len(tl.services),
+                "qualified_ca_services": len(qc),
+                "granted_now": len(granted),
+            }
+        )
+    usable = [x for x in lists if x["authenticated"]]
+    return {
+        "lists": lists,
+        "anchors": len(cfg.anchors),
+        "tsa_roots": len(cfg.tsa_roots),
+        "crls": len(cfg.crls),
+        "qualified_status_assessable": bool(usable),
+        "reasons": [] if usable else ["NO_AUTHENTICATED_TRUST_LIST"],
+        "timestamp_authority_configured": bool(
+            getattr(request.app.state, "evidence_tsa_configured", False)
+        ),
+        "interpretation": "Technical validation only. A valid or qualified signature is not lawful authority for any purpose; legal effect is decided separately.",
+    }

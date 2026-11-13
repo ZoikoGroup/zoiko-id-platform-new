@@ -117,6 +117,21 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La titulación se comprobó y se confirmó. Es independiente de que esta persona pueda ejercer este servicio aquí.",
         "No tiene que hacer nada respecto a la titulación.",
     ),
+    "QUALIFICATION_NOT_ESTABLISHED": (
+        "No se ha establecido la cualificación",
+        "Ninguna comprobación de título o certificación ha confirmado una cualificación para este encargo.",
+        "Solicite que se compruebe la cualificación o aporte las pruebas que faltan.",
+    ),
+    "LICENSE_NOT_VERIFIED": (
+        "La licencia no está confirmada",
+        "La comprobación de la licencia no ha confirmado una licencia vigente para este encargo.",
+        "Espere a que termine la comprobación de la licencia o vuelva a aportar los datos.",
+    ),
+    "ENGAGEMENT_PERIOD_ENDED": (
+        "El periodo del encargo ha terminado",
+        "El periodo para el que se comprobó este encargo ha terminado.",
+        "Solicite una nueva decisión para el nuevo periodo.",
+    ),
     "PRACTICE_ELIGIBILITY_NOT_ESTABLISHED": (
         "No se ha establecido el permiso para ejercer",
         "No pudimos establecer que esta persona pueda ofrecer este servicio en este lugar, aunque otras comprobaciones fueran correctas.",

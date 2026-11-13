@@ -989,6 +989,9 @@ export function createOperatorApi(t: Transport) {
     regulatory: {
       readiness: () => get<M.RegulatoryReadiness>("/v1/regulatory/readiness"),
       offerings: (country?: string) => get<M.Items<M.ServiceOffering>>("/v1/regulatory/offerings", { country }),
+      trustLists: () => get<M.TrustListsView>("/v1/regulatory/trust-lists"),
+      registerSources: () => get<M.Items<M.RegisterSource>>("/v1/regulatory/register-sources"),
+      refreshFromRegister: (body: M.SupplierScope & { source_id: string }) => post<M.RegisterRefresh>("/v1/regulatory/attestations:refresh", body),
       packs: (country?: string, status?: M.PackStatus) => get<M.Items<M.PolicyPack>>("/v1/regulatory/policy-packs", { country, status }),
       createPack: (body: M.PackDraftIn) => post<M.PolicyPack>("/v1/regulatory/policy-packs", body),
       revisePack: (packId: string, body: { sources?: M.PackSource[]; rules?: M.PackRules }) =>

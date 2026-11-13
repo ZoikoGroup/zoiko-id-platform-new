@@ -281,6 +281,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             country_gate=gate,
         )
 
+    async def register_refresh(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-RCG-003 RCG-G02 (CR-087): ask official registers again before a connector-recorded certification goes stale."""
+        from zid_platform.modules.verification.ports import register_refresh as rr
+
+        return await rr.refresh_due(conn, environment=settings.environment, now=now)
+
     async def verification_reconcile(conn: AsyncConnection, now: datetime) -> object:
         """ZID-EDR-005: ask the provider for a decision whose webhook is late, and apply it exactly as the signed callback would be."""
         from zid_platform.main import _secret_broker
@@ -388,6 +394,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_watch", register_watch),
         ("screening", screening),
         ("company_refresh", company_refresh),
+        ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),

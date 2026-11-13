@@ -3059,6 +3059,18 @@ export type PrivacyOverlayView = {
 export type RouteCheck = { allowed: boolean; reasons: string[]; region: string | null; mechanism: string | null };
 export type MonitoringCheck = { allowed: boolean; reasons: string[]; approval_id: string | null };
 export type RightToRentCheck = { outcome: string; route: string | null; reasons: string[]; zoiko_evidence: boolean; statutory_excuse_by_zoiko: boolean; retention: string | null };
+export type TrustListsView = {
+  lists: { name: string; authenticated: boolean; problem: string | null; services: number; qualified_ca_services: number; granted_now: number }[];
+  anchors: number;
+  tsa_roots: number;
+  crls: number;
+  qualified_status_assessable: boolean;
+  reasons: string[];
+  timestamp_authority_configured: boolean;
+  interpretation: string;
+};
+export type RegisterSource = { source_id: string; kind: string; scheme: string; base_url: string; contract_ref: string | null; usable: boolean; reasons: string[] };
+export type RegisterRefresh = SupplierScope & { source_id: string; listed: boolean; snapshot_id: string | null; proof_hash: string | null; outcome: "CERTIFIED" | "HOLD"; reason: string };
 export type OfferingStatus = "AVAILABLE" | "NOT_AVAILABLE";
 export type ServiceOffering = {
   offering_id: string;

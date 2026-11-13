@@ -8,6 +8,7 @@ from zid_platform.modules.verification.application import (
     coverage,
     market_releases,
     policy_packs,
+    register_refresh,
     regulated_claims,
     right_to_rent,
     suspensions,
@@ -33,6 +34,7 @@ from zid_platform.modules.verification.domain import entitlement as entitlement_
 from zid_platform.modules.verification.domain import market_release as release_model
 from zid_platform.modules.verification.domain import offerings as offerings_model
 from zid_platform.modules.verification.domain import privacy_overlay as privacy_overlay_model
+from zid_platform.modules.verification.domain import register_sources as register_sources_model
 from zid_platform.modules.verification.domain import regulated_claims as claim_model
 from zid_platform.modules.verification.domain import right_to_rent as rtr_model
 from zid_platform.modules.verification.domain import suspension as suspension_model
@@ -100,6 +102,7 @@ from zid_platform.modules.verification.infrastructure import conformance_store a
 from zid_platform.modules.verification.infrastructure import (
     contract_entitlement_store as entitlements,
 )
+from zid_platform.modules.verification.infrastructure import register_sources
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
@@ -181,6 +184,9 @@ __all__ = [
     "reconstruct_decision",
     "record_presentation",
     "refuse_unbacked_claim",
+    "register_refresh",
+    "register_sources",
+    "register_sources_model",
     "registry",
     "regulated_claims",
     "release_model",

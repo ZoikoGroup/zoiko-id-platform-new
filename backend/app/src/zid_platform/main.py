@@ -104,6 +104,7 @@ def create_app(
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
     app.state.environment = settings.environment
+    app.state.evidence_tsa_configured = bool(settings.evidence_tsa_url)  # WF-05 trust-list view
     if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
             "ZID_AGENT_BUILDS=off would let any typed digest back a blueprint release; outside local, test and dev "
