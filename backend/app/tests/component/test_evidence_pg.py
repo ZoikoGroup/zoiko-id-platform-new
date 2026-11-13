@@ -522,7 +522,14 @@ def test_key_rotation_clock_skew_tsa_outage_and_isolation(
             cp = await seal_partition(c, pid, signer=old_signer, tsa=tsa)
             assert cp is not None and cp.external_timestamp_ref is None  # sealed, not anchored
             tsa.up = True
-            assert cp.checkpoint_id in await anchor_pending(c, tsa)
+            # the shared test database may hold older unanchored checkpoints from other tests; they are anchored oldest first, a batch at a time
+            anchored: list[str] = []
+            for _ in range(200):
+                batch = await anchor_pending(c, tsa)
+                anchored += batch
+                if cp.checkpoint_id in anchored or not batch:
+                    break
+            assert cp.checkpoint_id in anchored
         rotated = LocalSigner("dev-evidence-uk-1-v2", purpose=KeyPurpose.EVIDENCE_SIGNING)
         new_rt = EvidenceRuntime(
             cell_id="uk-1",

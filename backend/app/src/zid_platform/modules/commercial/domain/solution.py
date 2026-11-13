@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from zid_platform.modules.commercial.domain.market_availability import Cause, Verdict
@@ -91,6 +91,27 @@ def scope_hash(s: Mapping[str, Any]) -> str:
     """SHA-256 of the canonical JSON of the scope: sorted keys, no whitespace. The same configuration always hashes the same."""
     canonical = json.dumps(s, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(canonical.encode("ascii")).hexdigest()
+
+
+def commercial_binding(
+    *,
+    legal_buyer: str,
+    scope_digest: str,
+    payer_country: str | None,
+    matrix_version: int | None,
+    terms: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """What a quote request binds besides the scope (ZID-UX-PRICE-004 P43): the legal buyer, the payer country, the market matrix version, and for every service the market has released the seller entity,
+    merchant route, currency, tax class and data region. The hash covers all of it, so a change of seller, route, tax class, currency or matrix version is a different quote. Services the market has not
+    released bind nothing here: they are listed as exceptions beside it."""
+    body: dict[str, Any] = {
+        "legal_buyer": legal_buyer,
+        "scope_hash": scope_digest,
+        "payer_country": payer_country,
+        "market_matrix_version": matrix_version,
+        "terms": sorted((dict(t) for t in terms), key=lambda t: str(t.get("family"))),
+    }
+    return {**body, "binding_hash": scope_hash(body)}
 
 
 def card_state(

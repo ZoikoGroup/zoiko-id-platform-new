@@ -14,7 +14,10 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-METERS = ("MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED")
+# SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-088) are usage facts only: no SKU and no price stand behind them, so they are recorded and never rated or invoiced.
+METERS = (
+    "MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED", "SCREEN_CHECK", "SCREEN_MONITOR_PERIOD",
+)  # fmt: skip
 PRINCIPAL_CLASSES = ("HUMAN", "NON_HUMAN")
 ORIGINS = ("API", "SDK", "CONSOLE", "PARTNER")
 TRANSACTION_TYPES = (
@@ -68,6 +71,16 @@ def key_vc_issued(credential_id: str) -> str:
 
 def key_vc_presented(presentation_id: str) -> str:
     return f"vcp:{presentation_id}"
+
+
+def key_screen_check(case_id: str, version: int) -> str:
+    """One screening decision of one case: the same decision recorded twice is one event."""
+    return f"scrchk:{case_id}:{version}"
+
+
+def key_screen_period(case_id: str, month: date) -> str:
+    """One monitoring period: a case under continuous monitoring counts once per UTC month however many rescreens run in it."""
+    return f"scrmon:{case_id}:{month:%Y%m}"
 
 
 def key_mah(month: date, principal_id: str) -> str:

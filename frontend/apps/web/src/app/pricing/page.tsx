@@ -81,6 +81,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
               <li>{structure.disclosures.tax}</li>
               <li>{structure.disclosures.commitment}</li>
               <li>{structure.disclosures.no_surprise}</li>
+              <li>{structure.disclosures.plan_change}</li>
+              <li>{structure.disclosures.exit}</li>
             </ul>
           </section>
         </>

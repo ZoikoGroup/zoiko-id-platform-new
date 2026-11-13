@@ -35,7 +35,7 @@ const PAGE: PublicPricingPage = {
     { code: "BUSINESS_ONBOARDING", label: "Business onboarding", families: ["KYB", "IDV"] },
     { code: "SIGNING", label: "Regulated transaction", families: ["SIGN"] },
   ],
-  disclosures: { price_basis: "p", tax: "t", commitment: "c", no_surprise: "n" },
+  disclosures: { price_basis: "p", tax: "t", commitment: "c", no_surprise: "n", plan_change: "pc", exit: "x" },
 };
 
 const AVAILABILITY: PublicAvailability = {
@@ -239,6 +239,14 @@ describe("the inquiry form", () => {
     await user.click(screen.getByRole("radio", { name: /A partner arrangement/ }));
     expect(screen.getByRole("button", { name: "Send partner inquiry" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Kind of partner/ })).toBeTruthy();
+  });
+});
+
+describe("the paths", () => {
+  it("sends the sandbox path to sign-up and the partner path to the partner page", () => {
+    render(<PricingExplorer page={PAGE} />);
+    expect(screen.getByRole("link", { name: "Explore the sandbox" }).getAttribute("href")).toBe("/sign-up");
+    expect(screen.getByRole("link", { name: "Partner inquiry" }).getAttribute("href")).toBe("/pricing/partners");
   });
 });
 

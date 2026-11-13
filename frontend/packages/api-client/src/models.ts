@@ -3206,7 +3206,7 @@ export type PublicPricingPage = {
   tiers: { code: TierCode; label: string; fit: string; cta_kind: string; cta_label: string; family_state: Record<string, PackagingState> }[];
   paths: { code: "SANDBOX" | "PARTNER"; label: string; text: string; cta_kind: string; cta_label: string }[];
   use_cases: { code: string; label: string; families: string[] }[];
-  disclosures: { price_basis: string; tax: string; commitment: string; no_surprise: string };
+  disclosures: { price_basis: string; tax: string; commitment: string; no_surprise: string; plan_change: string; exit: string };
 };
 export type PricingPeriod = "MONTHLY" | "ANNUAL";
 export type PublicRate = { currency: string; charge_unit: string; included_units: number; unit_amount: string; minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null };

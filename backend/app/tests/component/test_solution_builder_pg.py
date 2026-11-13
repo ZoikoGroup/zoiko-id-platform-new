@@ -152,6 +152,12 @@ def test_offers_dependencies_preview_and_drafts_never_show_a_price(rt_url: str) 
             and sent["quote_snapshot"]["scope_hash"] == prev["scope_hash"]
         )
         assert {e["family"] for e in sent["quote_snapshot"]["exceptions"]} == {"IDV", "SIGN"}
+        binding = sent["quote_snapshot"]["commercial_binding"]
+        assert binding["legal_buyer"] == o.tenant and binding["scope_hash"] == prev["scope_hash"]
+        assert len(binding["binding_hash"]) == 64
+        api_terms = {t["family"]: t for t in binding["terms"]}
+        assert api_terms["API"]["seller_entity"] == "Zoiko Tech GmbH" and api_terms["API"]["tax_class"] and api_terms["API"]["merchant_route"] and api_terms["API"]["currency"] == "EUR"
+        assert "IDV" not in api_terms and "SIGN" not in api_terms, "a service the market has not released binds no seller terms"
         again = http.post(f"{DRAFTS}/{d['draft_id']}:request-quote", headers=adm)
         assert (
             again.status_code == 409

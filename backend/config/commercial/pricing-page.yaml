@@ -36,7 +36,7 @@ tiers:
 paths:
   - code: SANDBOX
     label: Developer sandbox
-    text: Test integrations without live charges. A live pilot, with a stated cap and end date, needs separate approval and never converts to a paid plan by itself.
+    text: Test integrations without live charges. Signing up starts you on the developer plan with no payment step. A live pilot, with a stated cap and end date, needs separate approval and never converts to a paid plan by itself.
     cta_kind: EXPLORE_SANDBOX
     cta_label: Explore the sandbox
   - code: PARTNER
@@ -61,3 +61,5 @@ disclosures:
   tax: Tax is shown as estimated, exempt or calculated at checkout, depending on what is known for your seller and payer.
   commitment: A minimum is stated as either a spend floor applied against usage or a platform fee billed in addition to usage, never silently both.
   no_surprise: A retry of one operation is not billed twice. A test or pilot never converts to a paid plan by itself.
+  plan_change: A plan change is made through an order and takes effect on the date and for the term that order states. Nothing changes before it is accepted.
+  exit: Ending or changing a plan never restricts sign-in, security controls or your access to your own audit evidence. What is kept after exit, and for how long, follows your agreement and the law.

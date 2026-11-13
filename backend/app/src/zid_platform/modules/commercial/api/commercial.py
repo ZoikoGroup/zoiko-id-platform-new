@@ -954,6 +954,11 @@ async def request_quote(draft_id: uuid.UUID, request: Request, caller: CallerDep
             for f in snapshot["families"]
             if f["state"] != "AVAILABLE"
         ]
+        snapshot["commercial_binding"] = solution_model.commercial_binding(
+            legal_buyer=tenant, scope_digest=snapshot["scope_hash"], payer_country=scope["payer_country"],
+            matrix_version=snapshot["market_matrix_version"],
+            terms=[{"family": f["family"], **f["market"]} for f in snapshot["families"] if f["state"] == "AVAILABLE" and f.get("market")],
+        )  # fmt: skip
         try:
             return await solution_store.request_quote(
                 conn, str(draft_id), requested_by=caller.ctx.principal_id or "", snapshot=snapshot

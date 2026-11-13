@@ -135,7 +135,7 @@ def parse(doc: Mapping[str, Any]) -> PricingPage:
         k: _clean(v, f"disclosures.{k}", label=False)
         for k, v in (doc.get("disclosures") or {}).items()
     }
-    for needed in ("price_basis", "tax", "commitment", "no_surprise"):
+    for needed in ("price_basis", "tax", "commitment", "no_surprise", "plan_change", "exit"):
         if needed not in disclosures:
             raise PageError("DISCLOSURE_MISSING", needed)
     return PricingPage(

@@ -317,7 +317,7 @@ def test_acceptance_05_a_downgrade_is_disclosed_and_deletes_nothing() -> None:
 # ---- the meter register -------------------------------------------------------------------------------------------------
 
 
-def test_the_meter_register_is_the_records_eight_meters_plus_the_two_cr070_definitions_and_prices_none_of_them() -> (
+def test_the_meter_register_is_the_records_eight_meters_plus_the_cr070_and_cr088_definitions_and_prices_none_of_them() -> (
     None
 ):
     reg = meter_register()
@@ -334,6 +334,8 @@ def test_the_meter_register_is_the_records_eight_meters_plus_the_two_cr070_defin
             "data.retention",
             "credential.check",  # CR-070: definitions only, added on the engineering owner's instruction (2026-11-12)
             "credential.sensitive_check",
+            "screening.check",  # CR-088: definitions backed by usage-only meters, unpriced
+            "screening.monitor_period",
         }
     )
     for key in ("credential.check", "credential.sensitive_check"):
@@ -344,6 +346,10 @@ def test_the_meter_register_is_the_records_eight_meters_plus_the_two_cr070_defin
         assert m.existing_meter is None and m.existing_sku is None, (
             "no billable meter or SKU stands behind them"
         )
+    for key, meter in (("screening.check", "SCREEN_CHECK"), ("screening.monitor_period", "SCREEN_MONITOR_PERIOD")):
+        m = reg[key]
+        assert m.existing_meter == meter and m.existing_sku is None, "a usage meter stands behind it, and no SKU or price"
+        assert not (m.priced or m.hard_quota or m.bill_on_commit)
     assert not any(
         m.priced or m.hard_quota for m in reg.values()
     )  # the record approves no price, cap or overage

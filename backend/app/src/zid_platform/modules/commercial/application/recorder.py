@@ -105,6 +105,29 @@ async def record(
     return created
 
 
+async def screening_usage_sink(
+    conn: AsyncConnection,
+    tenant_id: str,
+    kind: str,
+    case_id: str,
+    version: int,
+    at: datetime,
+    human: bool,
+) -> None:
+    """Records what the screening module reports (CR-088): a CHECK is one SCREEN_CHECK per decision, a PERIOD is one SCREEN_MONITOR_PERIOD per case per UTC month.
+    Usage facts only: nothing is rated or invoiced. Wired to the screening module by the composition root."""
+    if kind == "CHECK":
+        await record(
+            conn, tenant_id=tenant_id, meter="SCREEN_CHECK", key=b.key_screen_check(case_id, version), at=at,
+            principal_class="HUMAN" if human else "NON_HUMAN",
+        )  # fmt: skip
+    elif kind == "PERIOD":
+        await record(
+            conn, tenant_id=tenant_id, meter="SCREEN_MONITOR_PERIOD", key=b.key_screen_period(case_id, b.window_month(at)), at=at,
+            principal_class="NON_HUMAN",
+        )  # fmt: skip
+
+
 async def record_active_human(
     conn: AsyncConnection, *, tenant_id: str, principal_id: str, at: datetime | None = None
 ) -> bool:

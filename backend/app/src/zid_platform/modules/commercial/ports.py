@@ -76,6 +76,7 @@ from zid_platform.modules.commercial.application.recorder import (
     reconcile,
     record_active_human,
     record_identity_merge,
+    screening_usage_sink,
 )
 from zid_platform.modules.commercial.application.recorder import record as record_billable
 from zid_platform.modules.commercial.application.service import entitled
@@ -101,6 +102,8 @@ from zid_platform.modules.commercial.domain.billable import (
     key_auth,
     key_decision,
     key_m2m,
+    key_screen_check,
+    key_screen_period,
     key_vc_issued,
     key_vc_presented,
     next_month,
@@ -273,6 +276,8 @@ __all__ = [
     "key_auth",
     "key_decision",
     "key_m2m",
+    "key_screen_check",
+    "key_screen_period",
     "key_vc_issued",
     "key_vc_presented",
     "latest_rating",
@@ -312,6 +317,7 @@ __all__ = [
     "resolve_payment_event",
     "rollout_store",
     "run_rating",
+    "screening_usage_sink",
     "service_requests",
     "solution_store",
     "usage_reservations",

@@ -84,7 +84,7 @@ def doc(**over: object) -> dict[str, object]:
         "version": "v", "status": "PROPOSED", "tiers": [t("ESSENTIALS"), t("BUSINESS"), t("ENTERPRISE")],
         "paths": [{"code": "SANDBOX", "label": "S", "text": "Test", "cta_kind": "a", "cta_label": "Go"}, {"code": "PARTNER", "label": "P", "text": "Partner", "cta_kind": "b", "cta_label": "Go"}],
         "use_cases": [{"code": "U", "label": "Use", "families": ["IDV"]}],
-        "disclosures": {"price_basis": "x", "tax": "x", "commitment": "x", "no_surprise": "x"},
+        "disclosures": {"price_basis": "x", "tax": "x", "commitment": "x", "no_surprise": "x", "plan_change": "x", "exit": "x"},
     }  # fmt: skip
     return {**base, **over}
 

@@ -152,9 +152,13 @@ def create_app(
             "ZID_MONITORING_SCOPE=off would let ongoing monitoring run in markets with no legal and commercial approval; "
             "outside local, test and dev use shadow or enforce"
         )
-    from .modules.screening.ports import configure_monitoring_scope
+    from .modules.commercial.ports import screening_usage_sink
+    from .modules.screening.ports import configure_monitoring_scope, configure_usage_sink
 
     configure_monitoring_scope(settings.monitoring_scope)
+    configure_usage_sink(
+        screening_usage_sink
+    )  # usage facts for the screening meters (CR-088); screening itself never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
