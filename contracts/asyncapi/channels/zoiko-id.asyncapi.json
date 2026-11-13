@@ -131,6 +131,31 @@
         }
       }
     },
+    "assurance.domain": {
+      "address": "zid.{env}.{region}.assurance.domain",
+      "messages": {
+        "assurance_case_expired": {
+          "$ref": "#/components/messages/assurance_case_expired"
+        },
+        "assurance_evidence_tampered": {
+          "$ref": "#/components/messages/assurance_evidence_tampered"
+        },
+        "assurance_release_decided": {
+          "$ref": "#/components/messages/assurance_release_decided"
+        },
+        "assurance_release_rolled_back": {
+          "$ref": "#/components/messages/assurance_release_rolled_back"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "authentication.domain": {
       "address": "zid.{env}.{region}.authentication.domain",
       "messages": {
@@ -1587,6 +1612,9 @@
         "privacy_retention_due": {
           "$ref": "#/components/messages/privacy_retention_due"
         },
+        "privacy_review_decided": {
+          "$ref": "#/components/messages/privacy_review_decided"
+        },
         "privacy_rights_completed": {
           "$ref": "#/components/messages/privacy_rights_completed"
         },
@@ -1609,11 +1637,43 @@
         }
       }
     },
+    "property.domain": {
+      "address": "zid.{env}.{region}.property.domain",
+      "messages": {
+        "property_authority_changed": {
+          "$ref": "#/components/messages/property_authority_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "provenance.domain": {
       "address": "zid.{env}.{region}.provenance.domain",
       "messages": {
         "provenance_generated": {
           "$ref": "#/components/messages/provenance_generated"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "provider.priority": {
+      "address": "zid.{env}.{region}.provider.priority",
+      "messages": {
+        "provider_entitlement_revoked": {
+          "$ref": "#/components/messages/provider_entitlement_revoked"
         }
       },
       "parameters": {
@@ -1780,6 +1840,9 @@
     "screening.domain": {
       "address": "zid.{env}.{region}.screening.domain",
       "messages": {
+        "screening_signal_corrected": {
+          "$ref": "#/components/messages/screening_signal_corrected"
+        },
         "screening_signal_raised": {
           "$ref": "#/components/messages/screening_signal_raised"
         }
@@ -2399,6 +2462,50 @@
         "title": "artifact.signed",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "assurance_case_expired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.case.expired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A UAT case that had an independent PASS no longer counts because an input it was pinned to changed; ids and the reason only.",
+        "title": "assurance.case.expired",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_evidence_tampered": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.evidence.tampered.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A signed manifest or its event chain failed verification and the releases built on it were locked; ids and problem codes only.",
+        "title": "assurance.evidence.tampered",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_release_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.release.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A release role signed a decision on a candidate and the candidate's status was recomputed; ids, the role, the decision and the status only.",
+        "title": "assurance.release.decided",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
+      },
+      "assurance_release_rolled_back": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.assurance.release.rolled_back.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A release scope was disabled by a release role holder; ids and the scope only. Evidence is kept.",
+        "title": "assurance.release.rolled_back",
+        "x-zid-source": "ZID-UAT-005 sections 05 and 06; CR-074",
+        "x-zid-status": "proposed"
       },
       "authentication_failed": {
         "contentType": "application/cloudevents+json",
@@ -5106,6 +5213,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_review_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.review.decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An independent person decided an appeal or human review of an automated decision; the review id and the outcome only. The rationale stays on the record.",
+        "title": "privacy.review.decided",
+        "x-zid-source": "ZID-PRI-004 sections 10, 11 and 22 (AT-030, AT-031); CR-072",
+        "x-zid-status": "proposed"
+      },
       "privacy_rights_completed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.rights.completed.v1",
@@ -5150,6 +5268,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "property_authority_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.property.authority_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The authority answer for a property and host changed from the previous check; references, the two overall outcomes and each dimension that moved. No document or text from one.",
+        "title": "property.authority_changed",
+        "x-zid-source": "ZID-INT-002 section 13; CR-071",
+        "x-zid-status": "proposed"
+      },
       "provenance_generated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.provenance.generated.v1",
@@ -5160,6 +5289,17 @@
         "title": "provenance.generated",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "provider_entitlement_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provider.entitlement_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider entitlement was revoked and its path is closed; ids, the provider, the service and the previous status only. Revoked is final.",
+        "title": "provider.entitlement_revoked",
+        "x-zid-source": "ZID-INT-002 sections 08 and 13; CR-071",
+        "x-zid-status": "proposed"
       },
       "provisioning_connector_changed": {
         "contentType": "application/cloudevents+json",
@@ -5336,6 +5476,17 @@
         "title": "sbom.generated",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "screening_signal_corrected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.signal.corrected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A person cleared a signal raised earlier; ids and codes only. Anything that relied on the raised event for this review must decide again.",
+        "title": "screening.signal.corrected",
+        "x-zid-source": "ZID-PRI-004 section 22 (AT-019); CR-072",
+        "x-zid-status": "proposed"
       },
       "screening_signal_raised": {
         "contentType": "application/cloudevents+json",
@@ -6369,6 +6520,13 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_assurance_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/assurance.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_authentication_domain": {
       "action": "send",
       "channel": {
@@ -6761,10 +6919,24 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_property_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/property.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_provenance_domain": {
       "action": "send",
       "channel": {
         "$ref": "#/channels/provenance.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_provider_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/provider.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

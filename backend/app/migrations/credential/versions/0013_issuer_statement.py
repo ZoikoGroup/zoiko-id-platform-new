@@ -1,7 +1,7 @@
 """Issuer and accreditation history with provenance (ZID-RCG-003 RCG-G04; CR-075).
 
-Revision ID: credential_0012
-Revises: credential_0011
+Revision ID: credential_0013
+Revises: credential_0012
 Create Date: 2026-11-12
 
 issuer_statement: one row per dated statement about one issuer (a full issuer record, the official source it came from, the hash of what the source
@@ -12,8 +12,8 @@ one per issuer, and each statement newer than the one before it.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "credential_0012"
-down_revision = "credential_0011"
+revision = "credential_0013"
+down_revision = "credential_0012"
 branch_labels = None
 depends_on = None
 

@@ -34,6 +34,24 @@ events:
     source: ZID-INT-002 section 13; CR-071
     lane: domain
     source_status: "proposed"
+  property.authority_changed:
+    cloudevents_type: com.zoiko.id.property.authority_changed.v1
+    meaning: "The authority answer for a property and host changed from the previous check; references, the two overall outcomes and each dimension that moved. No document or text from one."
+    source: ZID-INT-002 section 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  provider.entitlement_revoked:
+    cloudevents_type: com.zoiko.id.provider.entitlement_revoked.v1
+    meaning: "A provider entitlement was revoked and its path is closed; ids, the provider, the service and the previous status only. Revoked is final."
+    source: ZID-INT-002 sections 08 and 13; CR-071
+    lane: domain
+    source_status: "proposed"
+  privacy.review.decided:
+    cloudevents_type: com.zoiko.id.privacy.review.decided.v1
+    meaning: "An independent person decided an appeal or human review of an automated decision; the review id and the outcome only. The rationale stays on the record."
+    source: ZID-PRI-004 sections 10, 11 and 22 (AT-030, AT-031); CR-072
+    lane: domain
+    source_status: "proposed"
   credential.claim.recheck.due:
     cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
     meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."
@@ -620,6 +638,36 @@ events:
     cloudevents_type: com.zoiko.id.onboarding.organization.activated.v1
     meaning: "An organization passed its activation gate and was activated (the policy versions it rested on)."
     source: ZID-UX-WF-013C section 02, 11; CR-049
+    lane: domain
+    source_status: "proposed"
+  assurance.case.expired:
+    cloudevents_type: com.zoiko.id.assurance.case.expired.v1
+    meaning: "A UAT case that had an independent PASS no longer counts because an input it was pinned to changed; ids and the reason only."
+    source: ZID-UAT-005 sections 05 and 06; CR-074
+    lane: domain
+    source_status: "proposed"
+  assurance.release.decided:
+    cloudevents_type: com.zoiko.id.assurance.release.decided.v1
+    meaning: "A release role signed a decision on a candidate and the candidate's status was recomputed; ids, the role, the decision and the status only."
+    source: ZID-UAT-005 sections 05 and 06; CR-074
+    lane: domain
+    source_status: "proposed"
+  assurance.release.rolled_back:
+    cloudevents_type: com.zoiko.id.assurance.release.rolled_back.v1
+    meaning: "A release scope was disabled by a release role holder; ids and the scope only. Evidence is kept."
+    source: ZID-UAT-005 sections 05 and 06; CR-074
+    lane: domain
+    source_status: "proposed"
+  assurance.evidence.tampered:
+    cloudevents_type: com.zoiko.id.assurance.evidence.tampered.v1
+    meaning: "A signed manifest or its event chain failed verification and the releases built on it were locked; ids and problem codes only."
+    source: ZID-UAT-005 sections 05 and 06; CR-074
+    lane: domain
+    source_status: "proposed"
+  screening.signal.corrected:
+    cloudevents_type: com.zoiko.id.screening.signal.corrected.v1
+    meaning: "A person cleared a signal raised earlier; ids and codes only. Anything that relied on the raised event for this review must decide again."
+    source: ZID-PRI-004 section 22 (AT-019); CR-072
     lane: domain
     source_status: "proposed"
   screening.signal.raised:

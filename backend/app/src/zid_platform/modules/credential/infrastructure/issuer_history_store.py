@@ -1,7 +1,7 @@
 """Issuer statements in PostgreSQL (ZID-RCG-003 RCG-G04; CR-075). Platform configuration: not tenant data, no RLS.
 
 Append-only: recording a statement never edits another, and an earlier one keeps answering for the moment it was the latest. The domain rules live
-in `domain/issuer_history.py`; the table repeats the ones that must hold even for a caller that skips the domain code (migration credential_0012).
+in `domain/issuer_history.py`; the table repeats the ones that must hold even for a caller that skips the domain code (migration credential_0013).
 """
 
 from __future__ import annotations

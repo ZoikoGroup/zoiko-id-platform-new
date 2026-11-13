@@ -8,16 +8,21 @@ means no upload.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_crypto.providers import KeyRef, zeroize
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.application import scanner as sc
+from zid_platform.modules.evidence.application.runtime import current_runtime
 from zid_platform.modules.evidence.domain import intake
 from zid_platform.modules.evidence.infrastructure import upload_store as store
 
@@ -109,6 +114,51 @@ def check_token(
     return claims
 
 
+def _aad(tenant_id: str, upload_id: str) -> bytes:
+    return f"zid-upload-v1|{tenant_id}|{upload_id}".encode()
+
+
+def _context(tenant_id: str, upload_id: str) -> dict[str, str]:
+    return {"tenant": tenant_id, "upload": upload_id, "purpose": "evidence-upload-key"}
+
+
+async def seal_content(
+    tenant_id: str, upload_id: str, plaintext: bytes
+) -> tuple[bytes, bytes, str, int]:
+    """AES-256-GCM under a fresh data key, wrapped by the tenant's key through the evidence runtime. Fails closed: with no key there is no
+    storage. Returns (ciphertext, wrapped key, key id, key version). The plaintext data key is zeroized."""
+    rt = current_runtime()
+    dek = bytearray(secrets.token_bytes(32))
+    try:
+        wrapped, exact = await rt.provider.wrap_data_key(
+            rt.kek_for(tenant_id), dek, _context(tenant_id, upload_id)
+        )
+        nonce = secrets.token_bytes(12)
+        blob = nonce + AESGCM(bytes(dek)).encrypt(nonce, plaintext, _aad(tenant_id, upload_id))
+    finally:
+        zeroize(dek)
+    return blob, wrapped, exact.key_id, exact.version or 1
+
+
+async def open_content(upload_id: str, sealed: Mapping[str, Any]) -> bytes:
+    """The plaintext of a stored upload. Rows written before encryption (not `encrypted`) are returned as stored."""
+    if not sealed["encrypted"]:
+        return bytes(sealed["content"])
+    rt = current_runtime()
+    tenant_id = str(sealed["tenant_id"])
+    kek = KeyRef(rt.subject_kek.purpose, sealed["kek_id"], sealed["kek_version"])
+    dek = await rt.provider.unwrap_data_key(
+        kek, sealed["wrapped_dek"], _context(tenant_id, upload_id)
+    )
+    try:
+        blob = sealed["content"]
+        return AESGCM(bytes(dek)).decrypt(blob[:12], blob[12:], _aad(tenant_id, upload_id))
+    except InvalidTag as e:
+        raise intake.UploadError("UPLOAD_INTEGRITY_FAILED") from e
+    finally:
+        zeroize(dek)
+
+
 async def receive(
     conn: AsyncConnection, scanner: sc.Scanner | None, upload_id: str, content: bytes, now: datetime
 ) -> Received:
@@ -149,10 +199,16 @@ async def receive(
         return Received("REJECTED", reason, verdict.state)
     import hashlib
 
+    blob, wrapped, kek_id, kek_version = await seal_content(
+        str(row["tenant_id"]), upload_id, cleaned
+    )
     await store.accept(
         conn,
         upload_id,
-        content=cleaned,
+        wrapped_dek=wrapped,
+        dek_kek_id=kek_id,
+        dek_kek_version=kek_version,
+        content=blob,
         sniffed_type=sniffed,
         stored_sha256=hashlib.sha256(cleaned).hexdigest(),
         exif_stripped=stripped,
@@ -230,9 +286,11 @@ async def read_usable(
     if await unusable(conn, [ref], now):
         return None
     ident = str(uuid.UUID(ref.removeprefix("ev_")))
-    content = await store.load_content(conn, ident)
+    sealed = await store.load_sealed(conn, ident)
     row = await store.load(conn, ident)
-    return (content, row) if content is not None and row is not None else None
+    if sealed is None or row is None:
+        return None
+    return await open_content(ident, sealed), row
 
 
 def manifest(row: Mapping[str, Any]) -> dict[str, Any]:

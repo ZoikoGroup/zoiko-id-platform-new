@@ -263,6 +263,22 @@ export function createCellApi(t: Transport) {
       validate: (body: { evidence_ref: string; declared_type: string; checks: string[]; expected_sha256?: string }) => post<M.DocumentValidation>("/v2/documents/validate", body),
     },
 
+    /** Independent assurance (ZID-UAT-005): read views over signed evidence. A missing run or manifest reads NOT_RUN, never green. */
+    assurance: {
+      requirements: (suite?: string) => get<M.UatRequirements>(`/v2/assurance/requirements${suite ? `?suite=${seg(suite)}` : ""}`),
+      preview: (releaseId: string) => get<M.UatPreview>(`/v2/assurance/release-candidates/${seg(releaseId)}`),
+      providerLab: () => get<M.ProviderLabReport>("/v2/assurance/provider-lab"),
+      fixtures: () => get<M.UatFixtureList>("/v2/assurance/fixtures"),
+      createFixture: (body: { name: string; content_sha256: string }) => post<{ fixture_id: string; revision: number; state: string }>("/v2/assurance/fixtures", body),
+      reviewFixture: (id: string, body: { revision: number; approve: boolean; rationale: string }) => post<{ state: string }>(`/v2/assurance/fixtures/${seg(id)}/review`, body),
+      runs: () => get<M.UatRunList>("/v2/assurance/test-runs"),
+      evidence: (runId: string, audience: string) => get<M.UatEvidence>(`/v2/assurance/test-runs/${seg(runId)}/evidence?audience=${seg(audience)}`),
+      verify: (body: M.UatVerifyIn) => post<M.UatVerifyResult>("/v2/assurance/evidence:verify", body),
+      decide: (releaseId: string, body: M.UatDecisionIn) => post<M.UatSigned>(`/v2/assurance/releases/${seg(releaseId)}/decisions`, body),
+      rollback: (releaseId: string, body: M.UatRollbackIn) => post<M.UatRolledBack>(`/v2/assurance/releases/${seg(releaseId)}/rollback`, body),
+      confirmRisks: (risks: Record<string, "P0" | "P1" | "P2">) => post<M.UatRiskConfirmed>("/v2/assurance/baselines/risk-confirmations", { risks }),
+    },
+
     credentials: {
       list: (q: { status?: M.IssuedCredentialStatus; limit?: number } = {}) => get<M.Items<M.IssuedCredential>>("/credentials", q),
       configurations: () => get<M.Items<M.CredentialConfigurationItem>>("/credential-configurations"),

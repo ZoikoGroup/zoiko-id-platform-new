@@ -417,4 +417,44 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La réponse reçue n'a pas passé l'examen ; elle n'a donc pas été utilisée.",
         "Vous n'avez rien à faire. Nous pourrons interroger de nouveau l'émetteur.",
     ),
+    "SIGNED_DOCUMENT_CHAINS_TO_A_CONFIGURED_ANCHOR": (
+        "Le document est signé avec un certificat de confiance",
+        "La signature est valide et rien n'a changé après. Cela montre que le document est tel qu'il a été signé. Cela ne montre pas que le signataire avait le droit de signer à cette fin.",
+        "Une personne décide si le signataire avait l'autorité nécessaire.",
+    ),
+    "NO_LEGAL_ENTITY_IDENTIFIER_GIVEN": (
+        "Aucun identifiant d'entreprise n'a été fourni",
+        "Aucun identifiant d'entité juridique n'a été transmis, donc rien n'a été vérifié sur l'entreprise.",
+        "Ajoutez l'identifiant de l'entreprise si vous voulez qu'il soit vérifié.",
+    ),
+    "LEI_MALFORMED": (
+        "L'identifiant de l'entreprise n'a pas la bonne forme",
+        "Un identifiant d'entité juridique comporte 20 lettres et chiffres. Celui-ci n'en comporte pas 20.",
+        "Vérifiez l'identifiant et renvoyez-le.",
+    ),
+    "LEI_CHECK_DIGITS_INVALID": (
+        "L'identifiant de l'entreprise contient une faute de frappe",
+        "Les deux derniers chiffres d'un identifiant d'entité juridique prouvent qu'il a été bien recopié. Ceux-ci ne correspondent pas.",
+        "Comparez l'identifiant avec les registres de l'entreprise et renvoyez-le.",
+    ),
+    "LEI_WELL_FORMED_EXISTENCE_NOT_LOOKED_UP_HERE": (
+        "L'identifiant de l'entreprise a la bonne forme",
+        "Il ressemble à un identifiant valide, mais cette vérification n'a pas recherché l'entreprise : elle ne prouve donc pas que l'entreprise existe ni qu'elle est active.",
+        "Utilisez la vérification d'organisation pour rechercher l'entreprise dans un registre officiel.",
+    ),
+    "RIGHT_TO_RENT_REQUIRES_A_REGISTERED_PROVIDER": (
+        "Un prestataire enregistré est nécessaire pour cette vérification",
+        "En Angleterre, la vérification numérique du droit de louer doit être faite par un prestataire enregistré pour cela. Ce service n'est pas ce prestataire.",
+        "Utilisez un prestataire enregistré pour la vérification. Vos obligations de bailleur ne changent pas.",
+    ),
+    "NO_RULE_FOR_THIS_JURISDICTION": (
+        "Il n'y a pas de règle ici pour ce lieu",
+        "Une règle d'un autre lieu n'est jamais appliquée par défaut, donc rien n'a été décidé pour cet endroit.",
+        "Une personne examinera ce qui s'applique là où se trouve le bien.",
+    ),
+    "IDENTITY_IS_CHECKED_BY_THE_IDENTITY_AND_CREDENTIAL_ROUTES": (
+        "L'identité est vérifiée ailleurs",
+        "Cette vérification ne regarde pas qui est la personne. L'identité a sa propre vérification.",
+        "Lancez la vérification d'identité, puis utilisez son résultat avec celle-ci.",
+    ),
 }

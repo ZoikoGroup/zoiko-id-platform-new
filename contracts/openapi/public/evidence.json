@@ -247,6 +247,34 @@
         "title": "HoldBody",
         "type": "object"
       },
+      "IssuerClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "IssuerClaim",
+        "type": "object"
+      },
       "PackageBody": {
         "additionalProperties": false,
         "properties": {
@@ -303,6 +331,851 @@
         "title": "PackageBody",
         "type": "object"
       },
+      "UatBaselineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/UatCaseIn"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "cases"
+        ],
+        "title": "UatBaselineIn",
+        "type": "object"
+      },
+      "UatCandidateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "build_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Build Sha256",
+            "type": "string"
+          },
+          "commit_authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Commit Authors",
+            "type": "array"
+          },
+          "current_inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Current Inputs",
+            "type": "object"
+          },
+          "engineering_owner": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engineering Owner"
+          },
+          "facts": {
+            "additionalProperties": true,
+            "title": "Facts",
+            "type": "object"
+          },
+          "policy_pack": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Policy Pack",
+            "type": "string"
+          },
+          "privacy_gate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UatPrivacyGate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_unit": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Release Unit",
+            "type": "object"
+          }
+        },
+        "required": [
+          "release_unit",
+          "build_sha256",
+          "policy_pack"
+        ],
+        "title": "UatCandidateIn",
+        "type": "object"
+      },
+      "UatCaseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "assertion": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Assertion",
+            "type": "string"
+          },
+          "case_id": {
+            "pattern": "^[A-Z]{2,3}-\\d{2}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "dependency": {
+            "enum": [
+              "OWN",
+              "THIRD_PARTY",
+              "PEOPLE"
+            ],
+            "title": "Dependency",
+            "type": "string"
+          },
+          "oracle_version": {
+            "default": "v1",
+            "maxLength": 64,
+            "title": "Oracle Version",
+            "type": "string"
+          },
+          "risk": {
+            "enum": [
+              "PROPOSED_P0",
+              "PROPOSED_P1",
+              "P0",
+              "P1",
+              "P2"
+            ],
+            "title": "Risk",
+            "type": "string"
+          },
+          "suite": {
+            "maxLength": 3,
+            "minLength": 2,
+            "title": "Suite",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "suite",
+          "risk",
+          "dependency",
+          "assertion"
+        ],
+        "title": "UatCaseIn",
+        "type": "object"
+      },
+      "UatDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "QA_LEAD",
+              "CTO",
+              "SECURITY_GRC",
+              "PRIVACY",
+              "COUNTRY_LEGAL"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "decision",
+          "rationale"
+        ],
+        "title": "UatDecisionIn",
+        "type": "object"
+      },
+      "UatDefectIn": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "pattern": "^[A-Z]{2,3}-\\d{2}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "BLOCKER",
+              "CRITICAL",
+              "MAJOR",
+              "MINOR"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "severity",
+          "owner"
+        ],
+        "title": "UatDefectIn",
+        "type": "object"
+      },
+      "UatDraftIn": {
+        "additionalProperties": false,
+        "properties": {
+          "release_unit": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Release Unit",
+            "type": "object"
+          }
+        },
+        "required": [
+          "release_unit"
+        ],
+        "title": "UatDraftIn",
+        "type": "object"
+      },
+      "UatEventIn": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2,3}-\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "idempotency_key"
+        ],
+        "title": "UatEventIn",
+        "type": "object"
+      },
+      "UatFixtureIn": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "content_sha256"
+        ],
+        "title": "UatFixtureIn",
+        "type": "object"
+      },
+      "UatFixtureReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "rationale": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "approve",
+          "rationale"
+        ],
+        "title": "UatFixtureReviewIn",
+        "type": "object"
+      },
+      "UatManifestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "defect_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defect Id"
+          },
+          "human_approval_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Human Approval Refs",
+            "type": "array"
+          },
+          "measurements": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "maxProperties": 20,
+            "title": "Measurements",
+            "type": "object"
+          },
+          "oracle_version": {
+            "default": "v1",
+            "maxLength": 64,
+            "title": "Oracle Version",
+            "type": "string"
+          },
+          "provider_receipt_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Provider Receipt Refs",
+            "type": "array"
+          },
+          "requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Requirement Ids",
+            "type": "array"
+          },
+          "result": {
+            "maxLength": 16,
+            "minLength": 3,
+            "title": "Result",
+            "type": "string"
+          },
+          "source_snapshot_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Source Snapshot Refs",
+            "type": "array"
+          },
+          "trace_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Trace Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "UatManifestIn",
+        "type": "object"
+      },
+      "UatParityIn": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "additionalProperties": true,
+            "title": "Candidate",
+            "type": "object"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Keys",
+            "type": "array"
+          },
+          "reference": {
+            "additionalProperties": true,
+            "title": "Reference",
+            "type": "object"
+          }
+        },
+        "required": [
+          "reference",
+          "candidate",
+          "keys"
+        ],
+        "title": "UatParityIn",
+        "type": "object"
+      },
+      "UatPolicyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "release_unit": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Release Unit",
+            "type": "object"
+          },
+          "thresholds": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "maxProperties": 20,
+            "minProperties": 1,
+            "title": "Thresholds",
+            "type": "object"
+          }
+        },
+        "required": [
+          "release_unit",
+          "thresholds"
+        ],
+        "title": "UatPolicyIn",
+        "type": "object"
+      },
+      "UatPolicySignIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "QA_LEAD",
+              "CTO",
+              "SECURITY_GRC"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "decision",
+          "rationale"
+        ],
+        "title": "UatPolicySignIn",
+        "type": "object"
+      },
+      "UatPrivacyGate": {
+        "additionalProperties": false,
+        "properties": {
+          "market": {
+            "pattern": "^[A-Za-z]{2,8}$",
+            "title": "Market",
+            "type": "string"
+          },
+          "product": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Product",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market",
+          "product",
+          "version"
+        ],
+        "title": "UatPrivacyGate",
+        "type": "object"
+      },
+      "UatRevisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_sha256"
+        ],
+        "title": "UatRevisionIn",
+        "type": "object"
+      },
+      "UatRiskIn": {
+        "additionalProperties": false,
+        "properties": {
+          "risks": {
+            "additionalProperties": {
+              "enum": [
+                "P0",
+                "P1",
+                "P2"
+              ],
+              "type": "string"
+            },
+            "maxProperties": 500,
+            "minProperties": 1,
+            "title": "Risks",
+            "type": "object"
+          }
+        },
+        "required": [
+          "risks"
+        ],
+        "title": "UatRiskIn",
+        "type": "object"
+      },
+      "UatRoleIn": {
+        "additionalProperties": false,
+        "properties": {
+          "principal": {
+            "pattern": "^[0-9a-fA-F-]{36}$",
+            "title": "Principal",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "QA_LEAD",
+              "CTO",
+              "SECURITY_GRC",
+              "PRIVACY",
+              "COUNTRY_LEGAL",
+              "TESTER",
+              "FIXTURE_REVIEWER"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "principal"
+        ],
+        "title": "UatRoleIn",
+        "type": "object"
+      },
+      "UatRollbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Scope",
+            "type": "object"
+          }
+        },
+        "required": [
+          "scope",
+          "reason"
+        ],
+        "title": "UatRollbackIn",
+        "type": "object"
+      },
+      "UatRunIn": {
+        "additionalProperties": false,
+        "properties": {
+          "build_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Build Sha256",
+            "type": "string"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Case Ids",
+            "type": "array"
+          },
+          "commit_authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Commit Authors",
+            "type": "array"
+          },
+          "config_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Config Digest",
+            "type": "string"
+          },
+          "environment_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Environment Id",
+            "type": "string"
+          },
+          "fixture_hashes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Fixture Hashes",
+            "type": "array"
+          },
+          "kind": {
+            "default": "INDEPENDENT",
+            "enum": [
+              "INDEPENDENT",
+              "DEVELOPER"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "pins": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Pins",
+            "type": "object"
+          },
+          "release_unit": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Release Unit",
+            "type": "object"
+          }
+        },
+        "required": [
+          "release_unit",
+          "environment_id",
+          "build_sha256",
+          "config_digest",
+          "case_ids"
+        ],
+        "title": "UatRunIn",
+        "type": "object"
+      },
+      "UatServiceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "provider_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "scheme_version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheme Version"
+          },
+          "service_code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Service Code",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "REGISTERED",
+              "SUSPENDED",
+              "WITHDRAWN"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "provider_id",
+          "service_code",
+          "status"
+        ],
+        "title": "UatServiceIn",
+        "type": "object"
+      },
+      "UatVerifyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "maxItems": 20000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "jws": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jws"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest"
+          },
+          "manifest_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Id"
+          }
+        },
+        "title": "UatVerifyIn",
+        "type": "object"
+      },
+      "UatWatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "items": {
+              "$ref": "#/components/schemas/UatServiceIn"
+            },
+            "maxItems": 2000,
+            "title": "Current",
+            "type": "array"
+          },
+          "previous": {
+            "items": {
+              "$ref": "#/components/schemas/UatServiceIn"
+            },
+            "maxItems": 2000,
+            "title": "Previous",
+            "type": "array"
+          }
+        },
+        "required": [
+          "previous",
+          "current"
+        ],
+        "title": "UatWatchIn",
+        "type": "object"
+      },
       "V2DocumentIn": {
         "additionalProperties": false,
         "properties": {
@@ -310,7 +1183,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 1,
             "title": "Checks",
             "type": "array"
@@ -358,6 +1231,16 @@
             ],
             "title": "Expected Sha256"
           },
+          "issuer_claim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IssuerClaim"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "jurisdiction": {
             "anyOf": [
               {
@@ -383,6 +1266,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "signature_base64": {
+            "anyOf": [
+              {
+                "maxLength": 131072,
+                "minLength": 4,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature Base64"
           }
         },
         "required": [
@@ -390,6 +1286,81 @@
           "checks"
         ],
         "title": "V2DocumentIn",
+        "type": "object"
+      },
+      "V2ExtractIn": {
+        "additionalProperties": false,
+        "properties": {
+          "barcode_text": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode Text"
+          },
+          "image_base64": {
+            "anyOf": [
+              {
+                "maxLength": 8388624,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Base64"
+          },
+          "mrz_lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrz Lines"
+          },
+          "pdf_base64": {
+            "anyOf": [
+              {
+                "maxLength": 2796218,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Base64"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          }
+        },
+        "title": "V2ExtractIn",
         "type": "object"
       },
       "V2UploadIn": {
@@ -1840,6 +2811,1278 @@
         "summary": "Verify",
         "tags": [
           "evidence"
+        ]
+      }
+    },
+    "/v2/assurance/baselines": {
+      "post": {
+        "operationId": "import_baseline_v2_assurance_baselines_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatBaselineIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Baseline V2 Assurance Baselines Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Baseline",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/baselines/risk-confirmations": {
+      "post": {
+        "operationId": "confirm_risks_v2_assurance_baselines_risk_confirmations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatRiskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Confirm Risks V2 Assurance Baselines Risk Confirmations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Risks",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/defects": {
+      "post": {
+        "operationId": "open_defect_v2_assurance_defects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatDefectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Defect V2 Assurance Defects Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Defect",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/evidence:verify": {
+      "post": {
+        "operationId": "verify_evidence_v2_assurance_evidence_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Evidence V2 Assurance Evidence Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Evidence",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/fixtures": {
+      "get": {
+        "operationId": "list_fixtures_v2_assurance_fixtures_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Fixtures V2 Assurance Fixtures Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Fixtures",
+        "tags": [
+          "assurance-v2"
+        ]
+      },
+      "post": {
+        "operationId": "create_fixture_v2_assurance_fixtures_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatFixtureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Fixture V2 Assurance Fixtures Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Fixture",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/fixtures/{fixture_id}/review": {
+      "post": {
+        "operationId": "review_fixture_v2_assurance_fixtures__fixture_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fixture_id",
+            "required": true,
+            "schema": {
+              "title": "Fixture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatFixtureReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Fixture V2 Assurance Fixtures  Fixture Id  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Fixture",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/fixtures/{fixture_id}/revisions": {
+      "post": {
+        "operationId": "add_revision_v2_assurance_fixtures__fixture_id__revisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fixture_id",
+            "required": true,
+            "schema": {
+              "title": "Fixture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatRevisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Revision V2 Assurance Fixtures  Fixture Id  Revisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Revision",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/policies": {
+      "post": {
+        "operationId": "propose_policy_v2_assurance_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatPolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Policy V2 Assurance Policies Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Policy",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/policies/{policy_id}": {
+      "get": {
+        "operationId": "get_policy_v2_assurance_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy V2 Assurance Policies  Policy Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/policies/{policy_id}/signatures": {
+      "post": {
+        "operationId": "sign_policy_v2_assurance_policies__policy_id__signatures_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatPolicySignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Policy V2 Assurance Policies  Policy Id  Signatures Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Policy",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/policies:from-draft": {
+      "post": {
+        "description": "An unsigned proposal from the numbers a controlled document already proposes. Nobody's signature is implied.",
+        "operationId": "propose_from_draft_v2_assurance_policies_from_draft_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose From Draft V2 Assurance Policies From Draft Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose From Draft",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/provider-lab": {
+      "get": {
+        "description": "Every documented fault injected into the platform's own guards, with what each guard did. It talks to no provider.",
+        "operationId": "provider_lab_report_v2_assurance_provider_lab_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Provider Lab Report V2 Assurance Provider Lab Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Provider Lab Report",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/provider-lab/parity": {
+      "post": {
+        "operationId": "provider_parity_v2_assurance_provider_lab_parity_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatParityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Provider Parity V2 Assurance Provider Lab Parity Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider Parity",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/registry-sources/{name}:run": {
+      "post": {
+        "description": "Fetch one enabled official register, compare it with the last snapshot and close what drifted. A disabled source, or no registered fetcher, fetches nothing.",
+        "operationId": "run_registry_source_v2_assurance_registry_sources__name__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Registry Source V2 Assurance Registry Sources  Name  Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Registry Source",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/registry-watch": {
+      "post": {
+        "description": "Two snapshots of an official register in, drift out, and the exact provider routes that drifted closed. Nothing is fetched.",
+        "operationId": "registry_watch_v2_assurance_registry_watch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatWatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Registry Watch V2 Assurance Registry Watch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Registry Watch",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/release-candidates": {
+      "post": {
+        "operationId": "create_candidate_v2_assurance_release_candidates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatCandidateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Candidate V2 Assurance Release Candidates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Candidate",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/release-candidates/{release_id}": {
+      "get": {
+        "operationId": "preview_v2_assurance_release_candidates__release_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview V2 Assurance Release Candidates  Release Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/releases/{release_id}/decisions": {
+      "post": {
+        "operationId": "decide_v2_assurance_releases__release_id__decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide V2 Assurance Releases  Release Id  Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/releases/{release_id}/rollback": {
+      "post": {
+        "operationId": "rollback_v2_assurance_releases__release_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatRollbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback V2 Assurance Releases  Release Id  Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/requirements": {
+      "get": {
+        "operationId": "requirements_v2_assurance_requirements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "suite",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2,3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suite"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z_]{3,16}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Requirements V2 Assurance Requirements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Requirements",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/role-assignments": {
+      "post": {
+        "operationId": "assign_role_v2_assurance_role_assignments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatRoleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assign Role V2 Assurance Role Assignments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Role",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/test-runs": {
+      "get": {
+        "operationId": "list_runs_v2_assurance_test_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Runs V2 Assurance Test Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "assurance-v2"
+        ]
+      },
+      "post": {
+        "operationId": "create_run_v2_assurance_test_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatRunIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Run V2 Assurance Test Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Run",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/test-runs/{run_id}/cases/{case_id}/manifest": {
+      "post": {
+        "operationId": "sign_manifest_v2_assurance_test_runs__run_id__cases__case_id__manifest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z]{2,3}-\\d{2}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatManifestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Manifest V2 Assurance Test Runs  Run Id  Cases  Case Id  Manifest Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Manifest",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/test-runs/{run_id}/events": {
+      "post": {
+        "operationId": "append_event_v2_assurance_test_runs__run_id__events_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UatEventIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Append Event V2 Assurance Test Runs  Run Id  Events Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Append Event",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/assurance/test-runs/{run_id}/evidence": {
+      "get": {
+        "operationId": "evidence_v2_assurance_test_runs__run_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audience",
+            "required": false,
+            "schema": {
+              "default": "auditor",
+              "pattern": "^[a-z]{7,9}$",
+              "title": "Audience",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence V2 Assurance Test Runs  Run Id  Evidence Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence",
+        "tags": [
+          "assurance-v2"
+        ]
+      }
+    },
+    "/v2/documents/extract": {
+      "post": {
+        "operationId": "extract_v2_documents_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2ExtractIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Extract V2 Documents Extract Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract",
+        "tags": [
+          "evidence-v2"
         ]
       }
     },

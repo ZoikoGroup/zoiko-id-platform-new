@@ -30,6 +30,7 @@ REASONS = {
     "REGION_NOT_RELEASED": HARD,
     "PRICE_BOOK_NOT_APPROVED": HARD,
     "PRICE_BOOK_NOT_EFFECTIVE": HARD,
+    "PRICE_BOOK_CURRENCY_MISMATCH": HARD,  # a book in one currency never prices an account that is billed in another (GLB-35)
     "PRICE_MISSING": HARD,
     "PASSTHROUGH_DISCOUNT": HARD,
     "PREPAID_DISCOUNT_CEILING": HARD,
@@ -109,6 +110,9 @@ class Quote:
     prepaid_discount_pct: Decimal = Decimal(0)
     liability_capped: bool = True
     residency_commitment: str | None = None
+    account_currency: str | None = (
+        None  # what the account is billed in; None means the caller did not say
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +154,10 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
         if code not in reasons:
             reasons.append(code)
 
+    if quote.account_currency is not None and quote.account_currency != quote.currency:
+        add(
+            "PRICE_BOOK_CURRENCY_MISMATCH"
+        )  # no conversion is ever assumed: a missing signed book in the account currency blocks
     if quote.price_book_status != "APPROVED":
         add("PRICE_BOOK_NOT_APPROVED")
     elif (

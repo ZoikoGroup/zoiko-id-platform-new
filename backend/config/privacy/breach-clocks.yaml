@@ -1,0 +1,16 @@
+# status: DRAFT. Hours within which the regulator must be told of a personal-data breach, by jurisdiction.
+# Engineers must not fill these in: a value is set by counsel for the market, with its source and effective date (ZID-PRI-004 section 16).
+# A jurisdiction that is missing or says COUNSEL has NO deadline here, and the API reports NOT_SET_BY_COUNSEL instead of guessing one.
+# approval_ref: null
+# version: 0.1.0
+hours_to_notify_authority:
+  EU: COUNSEL
+  UK: COUNSEL
+  US: COUNSEL
+  CA: COUNSEL
+  BR: COUNSEL
+  IN: COUNSEL
+  SG: COUNSEL
+  AU: COUNSEL
+  ZA: COUNSEL
+  AE: COUNSEL

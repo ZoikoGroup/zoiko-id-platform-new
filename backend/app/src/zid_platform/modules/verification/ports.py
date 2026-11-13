@@ -12,6 +12,10 @@ from zid_platform.modules.verification.application import (
     suspensions,
 )
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
+from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
+from zid_platform.modules.verification.application.entitlements import (
+    change_status as change_entitlement_status,
+)
 from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
@@ -64,6 +68,24 @@ from zid_platform.modules.verification.domain.policy_packs import (
 
 # `PackError` is the service pack registry's (service_packs); the policy pack lifecycle's own error keeps its own name.
 from zid_platform.modules.verification.domain.policy_packs import PackError as PolicyPackError
+from zid_platform.modules.verification.domain.product_lines import (
+    LineRegistry,
+    LineState,
+    ProductLine,
+    ProductLineError,
+    require_available,
+)
+from zid_platform.modules.verification.domain.provider_adapter import (
+    Entitlement,
+    EntitlementStatus,
+    Refusal,
+    RouteRequest,
+    WebhookRefusal,
+    entitlement_refusals,
+    route,
+    sign_webhook,
+    verify_webhook,
+)
 from zid_platform.modules.verification.domain.service_packs import (
     PackError,
     PackRegistry,
@@ -73,7 +95,9 @@ from zid_platform.modules.verification.domain.service_packs import (
 )
 from zid_platform.modules.verification.infrastructure import attestation_store as attestations
 from zid_platform.modules.verification.infrastructure import conformance_store as conformance
-from zid_platform.modules.verification.infrastructure import entitlement_store as entitlements
+from zid_platform.modules.verification.infrastructure import (
+    contract_entitlement_store as entitlements,
+)
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
@@ -82,6 +106,9 @@ from zid_platform.modules.verification.infrastructure.conformance_matrix import 
 from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
 from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
+from zid_platform.modules.verification.infrastructure.product_line_registry import (
+    product_line_registry,
+)
 
 __all__ = [
     "APPROVER_ROLES",
@@ -94,8 +121,13 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "Entitlement",
+    "EntitlementNotFound",
+    "EntitlementStatus",
     "GateDecision",
     "LegalSource",
+    "LineRegistry",
+    "LineState",
     "Outcome",
     "PackError",
     "PackKey",
@@ -103,15 +135,21 @@ __all__ = [
     "PackStatus",
     "PolicyPack",
     "PolicyPackError",
+    "ProductLine",
+    "ProductLineError",
+    "Refusal",
     "Resolution",
+    "RouteRequest",
     "Rules",
     "ServicePack",
     "SourceStatus",
+    "WebhookRefusal",
     "assurance",
     "attestation_model",
     "attestations",
     "availability",
     "certification_registry",
+    "change_entitlement_status",
     "claim_matches",
     "claim_model",
     "claim_templates",
@@ -119,6 +157,7 @@ __all__ = [
     "conformance_matrix",
     "conformance_model",
     "entitlement_model",
+    "entitlement_refusals",
     "entitlements",
     "fresh_reproof",
     "gate_decision",
@@ -130,6 +169,7 @@ __all__ = [
     "policy_packs",
     "privacy_overlay_model",
     "privacy_overlays",
+    "product_line_registry",
     "public_view",
     "reconcile_delayed",
     "reconstruct_decision",
@@ -139,15 +179,19 @@ __all__ = [
     "regulated_claims",
     "release_model",
     "require",
+    "require_available",
     "resolve",
     "revoke",
     "right_to_rent",
+    "route",
     "rtr_model",
     "seed_representative_proofing",
     "shared_assertions",
+    "sign_webhook",
     "suspension_model",
     "suspensions",
     "verification_session_view",
+    "verify_webhook",
 ]
 
 

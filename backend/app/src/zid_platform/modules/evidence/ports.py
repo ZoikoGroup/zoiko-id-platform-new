@@ -12,6 +12,8 @@ Worker: `worker_pass` (sequence, checkpoint, anchor, retention sweep).
 
 from __future__ import annotations
 
+from zid_platform.modules.evidence.application.assessment import Assessment, assess
+from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
 from zid_platform.modules.evidence.application.provenance import (
     Node,
     add_edges,
@@ -35,6 +37,7 @@ from zid_platform.modules.evidence.application.runtime import (
     current_runtime,
     runtime_from_settings,
 )
+from zid_platform.modules.evidence.application.seals import SealCheck, check_signed_xml
 from zid_platform.modules.evidence.application.vault import (
     ErasureResult,
     TenantErasure,
@@ -51,8 +54,10 @@ from zid_platform.modules.evidence.application.vault import (
 from zid_platform.modules.evidence.application.worker import WorkerReport, worker_pass
 from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
 from zid_platform.modules.evidence.domain.receipts import AuditFacts, ReceiptFacts, ReplayResult
+from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 
 __all__ = [
+    "Assessment",
     "AuditFacts",
     "ErasureResult",
     "EvidenceClass",
@@ -61,11 +66,14 @@ __all__ = [
     "Node",
     "ReceiptFacts",
     "ReplayResult",
+    "SealCheck",
     "TenantErasure",
     "WorkerReport",
     "actor_handle",
     "add_edges",
     "artifact",
+    "assess",
+    "check_signed_xml",
     "commitment",
     "configure_runtime",
     "current_runtime",
@@ -84,11 +92,13 @@ __all__ = [
     "record_audit",
     "record_decision_receipt",
     "register_artifact",
+    "register_issuer_binding",
     "register_replayer",
     "runtime_from_settings",
     "sequence_pending",
     "store_object",
     "subject_ref",
+    "trust_config",
     "unusable_evidence",
     "upload_summary",
     "uploads_by_subject",

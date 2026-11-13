@@ -3067,3 +3067,26 @@ export type RegulatoryReadiness = {
   modes: Record<string, string>;
   empty_configuration: string[];
 };
+
+/** Independent assurance (ZID-UAT-005). Statuses come from signed evidence only; nothing here is typed in by a person. */
+export type UatCase = { case_id: string; suite: string; risk: string; dependency: "OWN" | "THIRD_PARTY" | "PEOPLE"; assertion: string; status: string; manifest_id: string | null };
+export type UatRequirements = { baseline: { baseline_id: string; version: string; source_sha256: string } | null; cases: UatCase[]; counts: Record<string, number> };
+export type UatGate = { gate: string; passed: boolean; reasons: string[] };
+export type UatDecision = { status: "GO" | "NO_GO"; reason: string; p0_required: number; p0_pass: number; open_critical: number; missing: string[]; gates: UatGate[] };
+export type UatPreview = { release_id: string; candidate_status: string; locked_reason: string | null; decision: UatDecision; signatures: { role: string; decision: string }[] };
+export type ProviderLabFault = { fault: string; expected: string; observed: string; held: boolean };
+export type ProviderLabReport = { faults: ProviderLabFault[]; all_held: boolean; note: string };
+export type UatFixture = { fixture_id: string; name: string; revision: number; state: "DRAFT" | "APPROVED" | "REJECTED"; content_sha256: string; author: string; reviewer: string | null; created_at: string };
+export type UatFixtureList = { items: UatFixture[] };
+export type UatRun = { run_id: string; environment_id: string; build_sha256: string; release_unit: Record<string, unknown>; tester_principal: string; created_at: string; events: number; manifests: number };
+export type UatRunList = { items: UatRun[] };
+export type UatManifestView = { manifest_id: string; case_id: string; verdict: string; manifest_sha256: string; problems?: string[]; manifest?: Record<string, unknown>; jws?: string };
+export type UatEvidence = { run_id: string; audience: string; build_sha256: string; events: number; chain_head: string; chain_problems: string[]; manifests: UatManifestView[]; note: string };
+export type UatVerifyResult = { valid: boolean; problems: string[]; locked_releases: string[] };
+export type UatVerifyIn = { manifest_id?: string; manifest?: Record<string, unknown>; jws?: string; events?: Record<string, unknown>[] };
+export type UatDecisionIn = { role: "QA_LEAD" | "CTO" | "SECURITY_GRC" | "PRIVACY" | "COUNTRY_LEGAL"; decision: "APPROVE" | "REJECT"; rationale: string };
+export type UatSigned = { release_id: string; candidate_status: string; decision: UatDecision; jws: string };
+export type UatRollbackIn = { scope: Record<string, string>; reason: string };
+export type UatRolledBack = { release_id: string; rollback_id: string; candidate_status: string; scope: Record<string, unknown>; evidence_kept: boolean; provider_route_closed: boolean | null };
+export type UatRiskConfirmed = { baseline_id: string; version: string; confirmed: number; confirmed_by: string };
+

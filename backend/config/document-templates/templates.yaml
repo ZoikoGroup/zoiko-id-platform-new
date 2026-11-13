@@ -1,0 +1,21 @@
+# Document layout templates for bounded OCR (ZID-GAP-001 v2.0 DTV-16; CR-073 P2-4). Versioned configuration, not tenant data.
+# status: PROPOSED. Every template here is a SAMPLE. A template is a statement about LAYOUT only: where to read and what a region should look
+# like. Matching one proves nothing about a document, and a SAMPLE has not been checked against any real issuer's documents.
+#
+# To add a real one: read real documents of that issuer, write the regions (x, y, w, h as fractions of the image) and patterns, and run
+# them against specimens; then set status APPROVED with approved_by and approved_on (a template marked APPROVED without both does not load).
+# A group named `value` in a pattern picks the part of the text to keep; without one the whole region text is kept.
+# version: 0.1.0
+
+version: 0.1.0
+templates:
+  - id: sample-card
+    version: 1
+    status: SAMPLE
+    lang: eng
+    description: "A sample card with three labelled lines (surname, document number, birth date). It exists to exercise the reader and the route; it matches no real issuer."
+    min_confidence: 60
+    regions:
+      - {name: surname, x: 0.02, y: 0.05, w: 0.96, h: 0.22, pattern: 'SURNAME: (?P<value>[A-Z]+)'}
+      - {name: document_number, x: 0.02, y: 0.30, w: 0.96, h: 0.22, pattern: 'DOCUMENT NO: (?P<value>[A-Z0-9]{6,12})'}
+      - {name: birth_date, x: 0.02, y: 0.55, w: 0.96, h: 0.22, pattern: 'BORN: (?P<value>\d{1,2} [A-Z]{3} \d{4})'}

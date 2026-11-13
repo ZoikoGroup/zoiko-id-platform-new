@@ -220,7 +220,7 @@ class AttestationIn(SupplierScopeIn):
     evidence_locator: str = Field(min_length=3, max_length=256)
 
 
-class EntitlementIn(BaseModel):
+class ContractEntitlementIn(BaseModel):
     """What Zoiko may use one provider for in one country, capability and purpose (CR-074)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -609,7 +609,7 @@ async def list_entitlements(
 
 @router.post("/v1/regulatory/entitlements", status_code=201)
 async def record_entitlement(
-    body: EntitlementIn, request: Request, op: OperatorDep
+    body: ContractEntitlementIn, request: Request, op: OperatorDep
 ) -> dict[str, Any]:
     scope = v.entitlement_model.Scope(body.provider, body.country, body.capability, body.purpose)
     target = f"{scope.provider}/{scope.country}/{scope.capability}/{scope.purpose}"

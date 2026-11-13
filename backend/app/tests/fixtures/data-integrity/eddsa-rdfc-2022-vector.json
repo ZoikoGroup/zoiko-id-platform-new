@@ -1,0 +1,106 @@
+{
+ "source": "W3C VC Data Integrity EdDSA Cryptosuites v1.0, Appendix B.2, 'Enhanced Example for Representation: eddsa-rdfc-2022'",
+ "public_key_multibase": "z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+ "unsigned": {
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://w3id.org/citizenship/v4rc1"
+  ],
+  "type": [
+   "VerifiableCredential",
+   "EmploymentAuthorizationDocumentCredential"
+  ],
+  "issuer": {
+   "id": "did:key:zDnaegE6RR3atJtHKwTRTWHsJ3kNHqFwv7n9YjTgmU7TyfU76",
+   "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NgUPr/HwADaAIhG61j/AAAAABJRU5ErkJggg=="
+  },
+  "credentialSubject": {
+   "type": [
+    "Person",
+    "EmployablePerson"
+   ],
+   "givenName": "JOHN",
+   "additionalName": "JACOB",
+   "familyName": "SMITH",
+   "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2Ng+M/wHwAEAQH/7yMK/gAAAABJRU5ErkJggg==",
+   "gender": "Male",
+   "residentSince": "2015-01-01",
+   "birthCountry": "Bahamas",
+   "birthDate": "1999-07-17",
+   "employmentAuthorizationDocument": {
+    "type": "EmploymentAuthorizationDocument",
+    "identifier": "83627465",
+    "lprCategory": "C09",
+    "lprNumber": "999-999-999"
+   }
+  },
+  "name": "Employment Authorization Document",
+  "description": "Example Employment Authorization Document.",
+  "validFrom": "2019-12-03T00:00:00Z",
+  "validUntil": "2029-12-03T00:00:00Z"
+ },
+ "canonical_unsigned": "<did:key:zDnaegE6RR3atJtHKwTRTWHsJ3kNHqFwv7n9YjTgmU7TyfU76> <https://schema.org/image> <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NgUPr/HwADaAIhG61j/AAAAABJRU5ErkJggg==> .\n_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#EmploymentAuthorizationDocumentCredential> .\n_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .\n_:c14n0 <https://schema.org/description> \"Example Employment Authorization Document.\" .\n_:c14n0 <https://schema.org/name> \"Employment Authorization Document\" .\n_:c14n0 <https://www.w3.org/2018/credentials#credentialSubject> _:c14n1 .\n_:c14n0 <https://www.w3.org/2018/credentials#issuer> <did:key:zDnaegE6RR3atJtHKwTRTWHsJ3kNHqFwv7n9YjTgmU7TyfU76> .\n_:c14n0 <https://www.w3.org/2018/credentials#validFrom> \"2019-12-03T00:00:00Z\"^^<http://www.w3.org/2001/XMLSchema#dateTime> .\n_:c14n0 <https://www.w3.org/2018/credentials#validUntil> \"2029-12-03T00:00:00Z\"^^<http://www.w3.org/2001/XMLSchema#dateTime> .\n_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Person> .\n_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#EmployablePerson> .\n_:c14n1 <https://schema.org/additionalName> \"JACOB\" .\n_:c14n1 <https://schema.org/birthDate> \"1999-07-17\"^^<http://www.w3.org/2001/XMLSchema#dateTime> .\n_:c14n1 <https://schema.org/familyName> \"SMITH\" .\n_:c14n1 <https://schema.org/gender> \"Male\" .\n_:c14n1 <https://schema.org/givenName> \"JOHN\" .\n_:c14n1 <https://schema.org/image> <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2Ng+M/wHwAEAQH/7yMK/gAAAABJRU5ErkJggg==> .\n_:c14n1 <https://w3id.org/citizenship#birthCountry> \"Bahamas\" .\n_:c14n1 <https://w3id.org/citizenship#employmentAuthorizationDocument> _:c14n2 .\n_:c14n1 <https://w3id.org/citizenship#residentSince> \"2015-01-01\"^^<http://www.w3.org/2001/XMLSchema#dateTime> .\n_:c14n2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#EmploymentAuthorizationDocument> .\n_:c14n2 <https://schema.org/identifier> \"83627465\" .\n_:c14n2 <https://w3id.org/citizenship#lprCategory> \"C09\" .\n_:c14n2 <https://w3id.org/citizenship#lprNumber> \"999-999-999\" .\n",
+ "unsigned_hash": "03f59e5b04ab575b1172cb684f22eede72f0e9033e0b5c67d0e2506768d6ce11",
+ "proof_options": {
+  "type": "DataIntegrityProof",
+  "cryptosuite": "eddsa-rdfc-2022",
+  "created": "2023-02-24T23:36:38Z",
+  "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+  "proofPurpose": "assertionMethod",
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://w3id.org/citizenship/v4rc1"
+  ]
+ },
+ "canonical_proof_options": "_:c14n0 <http://purl.org/dc/terms/created> \"2023-02-24T23:36:38Z\"^^<http://www.w3.org/2001/XMLSchema#dateTime> .\n_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#DataIntegrityProof> .\n_:c14n0 <https://w3id.org/security#cryptosuite> \"eddsa-rdfc-2022\"^^<https://w3id.org/security#cryptosuiteString> .\n_:c14n0 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> .\n_:c14n0 <https://w3id.org/security#verificationMethod> <did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2> .\n",
+ "proof_options_hash": "bea7b7acfbad0126b135104024a5f1733e705108f42d59668b05c0c50004c6b0",
+ "combined_hash": "bea7b7acfbad0126b135104024a5f1733e705108f42d59668b05c0c50004c6b003f59e5b04ab575b1172cb684f22eede72f0e9033e0b5c67d0e2506768d6ce11",
+ "signature_hex": "20b1a944960b75ca69ba070af4820de6e6acae1afe827d8c566c0f7b932d1bd3abde3222b3095088051439a8b4e7a5356c7ba6d246774f875ebb6ddee1577003",
+ "signature_base58": "zeuuS9pi2ZR8Q41bFFJKS9weSWkwa7pRcxHTHzxjDEHtVSZp3D9Rm3JdzT82EQpmXMb9wvfFJLuDPeSXZaRX1q1c",
+ "signed": {
+  "@context": [
+   "https://www.w3.org/ns/credentials/v2",
+   "https://w3id.org/citizenship/v4rc1"
+  ],
+  "type": [
+   "VerifiableCredential",
+   "EmploymentAuthorizationDocumentCredential"
+  ],
+  "issuer": {
+   "id": "did:key:zDnaegE6RR3atJtHKwTRTWHsJ3kNHqFwv7n9YjTgmU7TyfU76",
+   "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NgUPr/HwADaAIhG61j/AAAAABJRU5ErkJggg=="
+  },
+  "credentialSubject": {
+   "type": [
+    "Person",
+    "EmployablePerson"
+   ],
+   "givenName": "JOHN",
+   "additionalName": "JACOB",
+   "familyName": "SMITH",
+   "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2Ng+M/wHwAEAQH/7yMK/gAAAABJRU5ErkJggg==",
+   "gender": "Male",
+   "residentSince": "2015-01-01",
+   "birthCountry": "Bahamas",
+   "birthDate": "1999-07-17",
+   "employmentAuthorizationDocument": {
+    "type": "EmploymentAuthorizationDocument",
+    "identifier": "83627465",
+    "lprCategory": "C09",
+    "lprNumber": "999-999-999"
+   }
+  },
+  "name": "Employment Authorization Document",
+  "description": "Example Employment Authorization Document.",
+  "validFrom": "2019-12-03T00:00:00Z",
+  "validUntil": "2029-12-03T00:00:00Z",
+  "proof": {
+   "type": "DataIntegrityProof",
+   "cryptosuite": "eddsa-rdfc-2022",
+   "created": "2023-02-24T23:36:38Z",
+   "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+   "proofPurpose": "assertionMethod",
+   "proofValue": "zeuuS9pi2ZR8Q41bFFJKS9weSWkwa7pRcxHTHzxjDEHtVSZp3D9Rm3JdzT82EQpmXMb9wvfFJLuDPeSXZaRX1q1c"
+  }
+ }
+}

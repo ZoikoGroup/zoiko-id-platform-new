@@ -9,20 +9,23 @@ adds no cryptography of its own. The answer is the five separate facts of `evide
   credential, fresh, for this verifier); a copied credential presented by someone else is not bound (GLB-06);
 - status: read from the issuer's own status list; an unreadable status is UNKNOWN, never acceptance (GLB-23);
 - the result is a CLAIM with provenance, never a primary-source confirmation and never a license (GLB-36).
-EDC (European Digital Credential) e-seals are XML/JSON-LD seals that this path cannot validate, so they are refused, not guessed.
+An EDC (European Digital Credential) delivered as a vc+jwt is verified like any other VC, with its JWS as the seal under the issuer's pinned key and qualified status
+NOT_ASSESSED. XML EDC e-seals (XAdES) are validated on `/v2/credentials/edc/verify`. A JSON-LD credential secured by a Data Integrity proof needs RDF
+canonicalization, which is not here, so it never reaches this function (it is not a vc+jwt) and is refused as malformed, not guessed.
 """
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_crypto import CryptoError, verify_external_jws
 
-from zid_platform.modules.credential.application import verifier
+from zid_platform.modules.credential.application import data_integrity, verifier
 from zid_platform.modules.credential.domain import vcdm
 from zid_platform.modules.credential.domain.claims import ClaimType, CredentialStatus, EvidenceTier
 from zid_platform.modules.credential.domain.credentials import (
@@ -84,6 +87,7 @@ class VcOutcome:
             "statutory_license": r.statutory_license,
             "reason_codes": list(r.reasons),
             "explanation": self.explanation.as_dict(),
+            **({"qualified_seal": "NOT_ASSESSED"} if self.kind is Kind.EDC else {}),
         }
 
 
@@ -103,8 +107,6 @@ async def verify_vc(
     if vc_header.get("typ") != vcdm.VC_TYP:
         raise CredentialError("VC_MALFORMED", "typ")
     kind = kind_of(vc_unverified)
-    if kind is Kind.EDC:
-        raise CredentialError("EDC_SEAL_VALIDATION_NOT_AVAILABLE")
     issuer = vcdm.issuer_of(vc_unverified)
     ctype = next(
         (t for t in reversed(vcdm._types(vc_unverified)) if t != "VerifiableCredential"), ""
@@ -139,11 +141,35 @@ async def verify_vc(
                     ),
                     CredentialStatus.UNKNOWN,
                 )
-    doc = vc if proof_valid else vc_unverified
+    bound = bool(
+        proof_valid and holder_proof and _holder_bound(vc, vc_jwt, holder_proof, settings, now)
+    )
+    return _conclude(
+        kind,
+        issuer,
+        vc if proof_valid else vc_unverified,
+        proof_valid=proof_valid,
+        in_registry=in_registry,
+        status=status,
+        bound=bound,
+        now=now,
+    )
+
+
+def _conclude(
+    kind: Kind,
+    issuer: str | None,
+    doc: Mapping[str, Any],
+    *,
+    proof_valid: bool,
+    in_registry: bool,
+    status: CredentialStatus,
+    bound: bool,
+    now: datetime,
+) -> VcOutcome:
+    """The answer from the facts, the same for a vc+jwt and a Data Integrity credential: five separate facts, never a primary-source
+    confirmation or a license."""
     parsed = facts_from_json(doc, kind)
-    bound = False
-    if proof_valid and holder_proof:
-        bound = _holder_bound(vc, vc_jwt, holder_proof, settings, now)
     facts = VcFacts(
         kind=kind,
         proof_valid=proof_valid,
@@ -154,6 +180,9 @@ async def verify_vc(
         status=status,
         valid_from=parsed["valid_from"],
         valid_until=parsed["valid_until"],
+        # An EDC secured by a JWS or a Data Integrity proof is sealed by that proof: the signature under the issuer's own pinned key. It is
+        # NOT a qualified e-seal (that is the XML path, /v2/credentials/edc/verify), so the response says qualified status is not assessed.
+        seal_valid=kind is Kind.EDC and proof_valid,
     )
     result = evaluate_vc(facts, on=now)
     kinds = []
@@ -169,6 +198,107 @@ async def verify_vc(
         checked_at=now,
     )
     return VcOutcome(kind, result, explanation, issuer)
+
+
+def _proof_key(
+    keys: Mapping[str, Any], verification_method: str, suite: str
+) -> data_integrity.VerificationKey | None:
+    """The issuer's PINNED key that the proof names, of the type its suite uses (Ed25519 for eddsa-rdfc-2022, P-256 for ecdsa-rdfc-2019), or None.
+    A key matches when its `kid` is the verification method or its fragment; a key of another type is never used."""
+    fragment = verification_method.rsplit("#", 1)[-1]
+    want = {"eddsa-rdfc-2022": ("OKP", "Ed25519"), "ecdsa-rdfc-2019": ("EC", "P-256")}.get(suite)
+    if want is None:
+        return None
+
+    def b64(value: str) -> bytes | None:
+        try:
+            return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        except ValueError:
+            return None
+
+    for jwk in keys.get("keys", []):
+        if (jwk.get("kty"), jwk.get("crv")) != want or not jwk.get("x"):
+            continue
+        kid = str(jwk.get("kid", ""))
+        if not kid or kid not in {verification_method, fragment}:
+            continue
+        x = b64(jwk["x"])
+        if suite == "eddsa-rdfc-2022":
+            return data_integrity.VerificationKey("ed25519", x) if x and len(x) == 32 else None
+        y = b64(str(jwk.get("y", "")))
+        if x and y and len(x) == 32 and len(y) == 32:
+            return data_integrity.VerificationKey(
+                "p256", b"\x04" + x + y
+            )  # an uncompressed SEC1 point
+        return None
+    return None
+
+
+async def verify_vc_di(
+    conn: AsyncConnection,
+    settings: verifier.VerifierSettings,
+    contexts: data_integrity.BundledContexts,
+    *,
+    vc: Mapping[str, Any],
+    jurisdiction: str | None,
+    now: datetime,
+) -> VcOutcome:
+    """A JSON-LD credential secured by a Data Integrity proof (eddsa-rdfc-2022 or ecdsa-rdfc-2019), verified offline against the issuer's PINNED key.
+
+    The issuer must be in the typed trust table for this credential type, and the proof must name a key that table holds: a good signature from
+    a key nobody vouched for is integrity at most. There is no holder binding here (that is a vp+jwt presentation), so such a credential is
+    never accepted as a claim on its own. Contexts come only from the hash-pinned bundle; nothing is fetched."""
+    doc = dict(vc)
+    try:
+        issuer = vcdm.issuer_of(doc)
+    except CredentialError as e:
+        raise CredentialError("VC_MALFORMED", e.code) from e
+    kind = kind_of(doc)
+    ctype = next((t for t in reversed(vcdm._types(doc)) if t != "VerifiableCredential"), "")
+    proof = doc.get("proof")
+    vm = str(proof.get("verificationMethod", "")) if isinstance(proof, Mapping) else ""
+    proof_valid, in_registry, status = False, False, CredentialStatus.UNKNOWN
+    reasons: tuple[str, ...] = ()
+    found = await store.load_trust(conn, issuer)
+    if found is not None and vm:
+        trust, row = found
+        try:
+            keys = await verifier._issuer_keys(conn, settings, row, now)
+        except CredentialError:
+            keys = {"keys": []}
+        key = _proof_key(keys, vm, str((proof or {}).get("cryptosuite", "")))
+        if key is not None:
+            verdict = data_integrity.verify(doc, key, contexts)
+            proof_valid, reasons = verdict.status == "VERIFIED", verdict.reasons
+        if proof_valid:
+            try:
+                trust_decision(trust, credential_type=ctype, jurisdiction=jurisdiction, now=now)
+                in_registry = True
+            except CredentialError:
+                in_registry = False  # a good signature from an issuer not trusted for this type: integrity only
+            if "credentialStatus" in doc:
+                status = STATUS_MAP.get(
+                    await verifier._bitstring_status(
+                        settings, doc, issuer, keys, list(row["algorithms"]), now
+                    ),
+                    CredentialStatus.UNKNOWN,
+                )
+    out = _conclude(
+        kind,
+        issuer,
+        doc,
+        proof_valid=proof_valid,
+        in_registry=in_registry,
+        status=status,
+        bound=False,
+        now=now,
+    )
+    if not proof_valid and reasons:  # say WHY the proof was not accepted, by its own name
+        merged = tuple(dict.fromkeys((*out.result.reasons, *reasons)))
+        out = VcOutcome(
+            out.kind, replace(out.result, reasons=merged), out.explanation, out.issuer_id
+        )
+    return out
 
 
 def _holder_bound(

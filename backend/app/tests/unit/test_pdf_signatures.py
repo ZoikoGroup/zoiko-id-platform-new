@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives import hashes
 from pdf_signing import (
     NOW,
     Pki,
@@ -33,7 +35,12 @@ S = docs.Status
 def result(pdf: bytes, config: tr.TrustConfig, at=None) -> docs.CheckResult:
     return sg.signature_result(
         cms.inspect_pdf(
-            pdf, anchors=config.anchors, at=at, tsa_roots=config.tsa_roots, crls=config.crls
+            pdf,
+            anchors=config.anchors,
+            at=at,
+            tsa_roots=config.tsa_roots,
+            crls=config.crls,
+            ocsp_responses=config.ocsp_responses,
         ),
         config,
     )
@@ -371,3 +378,118 @@ def test_plain_verified_needs_every_proof_and_anything_less_is_limited_or_worse(
     assert (
         result(pdf, tr.TrustConfig(tsa_roots=(tsa.root,), crls=(crl,))).status is S.INDETERMINATE
     )  # no anchor
+
+
+# ---------------------------------------------------------------------------------------------------------- OCSP (DTV-02)
+
+
+def _ocsp(blob: bytes):
+    from cryptography.x509 import ocsp
+
+    return ocsp.load_der_ocsp_response(blob)
+
+
+def _rev(p: Pki, *responses, crls=(), tsa_roots=(), pdf=None):
+    cfg = trusting(
+        p, tsa_roots=tsa_roots, crls=crls, ocsp_responses=tuple(_ocsp(r) for r in responses)
+    )
+    return result(pdf or sign_pdf(p), cfg).detail["signatures"][0]["revocation"]
+
+
+def test_a_good_ocsp_response_from_the_issuer_checks_revocation() -> None:
+    from pdf_signing import make_ocsp
+
+    p = pki()
+    assert _rev(p, make_ocsp(p.signer.cert, p.root)) == "GOOD"
+
+
+def test_an_ocsp_revocation_before_the_trusted_signing_time_fails_and_after_it_does_not() -> None:
+    from pdf_signing import make_ocsp
+
+    p = pki()
+    pdf, tsa = timestamped(p, NOW - timedelta(days=10))
+    before = make_ocsp(p.signer.cert, p.root, status="revoked", revoked_at=NOW - timedelta(days=20))
+    after = make_ocsp(p.signer.cert, p.root, status="revoked", revoked_at=NOW - timedelta(days=5))
+    assert _rev(p, before, tsa_roots=(tsa.root,), pdf=pdf) == "REVOKED"
+    assert _rev(p, after, tsa_roots=(tsa.root,), pdf=pdf) == "GOOD"
+
+
+def test_an_ocsp_response_signed_by_an_unrelated_key_proves_nothing() -> None:
+    from pdf_signing import make_ocsp
+
+    p, other = pki(), pki()
+    forged = make_ocsp(
+        p.signer.cert,
+        p.root,
+        status="revoked",
+        revoked_at=NOW - timedelta(days=2),
+        signer=other.root,
+    )
+    assert _rev(p, forged) == "PARTIAL", (
+        "a forged revocation must not count, and neither may it count as good"
+    )
+
+
+def test_a_stale_or_future_ocsp_response_proves_nothing() -> None:
+    from pdf_signing import make_ocsp
+
+    p = pki()
+    stale = make_ocsp(
+        p.signer.cert,
+        p.root,
+        this_update=NOW - timedelta(days=9),
+        next_update=NOW - timedelta(days=2),
+    )
+    future = make_ocsp(
+        p.signer.cert,
+        p.root,
+        this_update=NOW + timedelta(days=1),
+        next_update=NOW + timedelta(days=3),
+    )
+    assert _rev(p, stale) == "PARTIAL"
+    assert _rev(p, future) == "PARTIAL"
+
+
+def test_an_unknown_status_and_a_response_for_another_certificate_prove_nothing() -> None:
+    from pdf_signing import make_ocsp
+
+    p, q = pki(), pki()
+    assert _rev(p, make_ocsp(p.signer.cert, p.root, status="unknown")) == "PARTIAL"
+    assert _rev(p, make_ocsp(q.signer.cert, q.root)) == "PARTIAL"
+
+
+def test_a_delegated_responder_signs_only_when_the_issuer_issued_it_for_ocsp() -> None:
+    from pdf_signing import ec_key, make_cert, make_ocsp, ocsp_signing_cert
+
+    p = pki()
+    responder = ocsp_signing_cert(p.root)
+    ok = make_ocsp(p.signer.cert, p.root, signer=responder, include_signer_cert=True)
+    assert _rev(p, ok) == "GOOD"
+    stranger = ocsp_signing_cert(pki().root)  # issued by someone else
+    bad = make_ocsp(p.signer.cert, p.root, signer=stranger, include_signer_cert=True)
+    assert _rev(p, bad) == "PARTIAL"
+    plain = make_cert("Not an OCSP signer", ec_key(), p.root)  # no OCSP-signing key usage
+    nok = make_ocsp(p.signer.cert, p.root, signer=plain, include_signer_cert=True)
+    assert _rev(p, nok) == "PARTIAL"
+
+
+def test_the_library_refuses_to_build_a_sha1_signed_ocsp_response() -> None:
+    from pdf_signing import make_ocsp
+
+    p = pki()
+    # The library will not even build a SHA-1 signed response, so no such response can be made here; the guard in
+    # `_ocsp_signed_properly` covers responses produced elsewhere.
+    with pytest.raises(UnsupportedAlgorithm):
+        make_ocsp(p.signer.cert, p.root, sign_hash=hashes.SHA1())
+
+
+def test_the_ocsp_folder_is_read_and_a_bad_file_is_skipped(tmp_path) -> None:
+    from pdf_signing import make_ocsp
+
+    p = pki()
+    (tmp_path / "ocsp").mkdir()
+    (tmp_path / "ocsp" / "signer.ocsp").write_bytes(make_ocsp(p.signer.cert, p.root))
+    (tmp_path / "ocsp" / "junk.der").write_bytes(b"not an ocsp response")
+    cfg = tr.load_trust(tmp_path)
+    assert len(cfg.ocsp_responses) == 1
+    assert "NO_CRLS_SUPPLIED" not in cfg.notes()

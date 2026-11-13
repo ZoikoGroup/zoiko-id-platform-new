@@ -1,0 +1,10 @@
+# status: DISABLED. Official registers the assurance plane could watch for drift (ZID-UAT-005 OPS-03, RNT-04, RNT-05, DOC-05).
+# Nothing here fetches anything: every source ships disabled with no address, and a person enables one by naming its URL, its cadence and the parser
+# that reads it, after the source's terms allow automated reading, and a deployment registers the function that fetches it. A source that is disabled reports
+# nothing and closes nothing. `simulated: true` marks a stand-in register used only to exercise the loop: its snapshots are stored as simulated and are never evidence.
+# approval_ref: null
+# version: 0.1.0
+sources:
+  uk-digital-verification-register: {enabled: false, simulated: false, url: null, cadence_hours: null, parser: null}
+  uk-right-to-rent-supplier-register: {enabled: false, simulated: false, url: null, cadence_hours: null, parser: null}
+  eu-trusted-lists: {enabled: false, simulated: false, url: null, cadence_hours: null, parser: null}
