@@ -77,6 +77,14 @@ _SECRET_VALUE = (
         r"(?i)\b(password|passwd|secret|api[_-]?key|client_secret|private_key)\s*[=:]\s*\S+"
     ),
     re.compile(r"\b(?:zid|sk|pk|ghp|gho|xox[abp])_[A-Za-z0-9]{16,}\b"),  # vendor-style tokens
+    # ZID-UX-PRICE-004 P47: no card number or security code reaches a log line or span attribute, in any of the shapes a payload or a message puts them in
+    re.compile(r"(?<![\w-])3[47]\d{2}[ -]?\d{6}[ -]?\d{5}(?![\w-])"),  # American Express 4-6-5
+    re.compile(
+        r"(?i)[\"']?\b(cvc2?|cvv2?|cid|csc|security[ _-]?code|card[ _-]?verification(?:[ _-]?(?:code|value))?)\b[\"']?(?:\s*[=:]\s*|\s+)[\"']?\d{3,4}\b[\"']?"
+    ),  # a labelled security code
+    re.compile(
+        r"(?i)[\"']?\b(card[ _-]?number|card[ _-]?no|primary[ _-]?account[ _-]?number|pan)\b[\"']?\s*[=:]\s*[\"']?[\d \-]{12,}[\"']?"
+    ),  # a labelled card number
 )
 
 

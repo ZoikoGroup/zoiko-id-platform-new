@@ -408,3 +408,22 @@ def test_webhook_resolution_rules_match_the_shared_guard() -> None:
             check_resolution([address])
     for address in ALLOWED_ADDRESSES:
         check_resolution([address])
+
+
+def test_p47_no_application_log_call_names_a_card_number_or_security_code() -> None:
+    """ZID-UX-PRICE-004 P47: the card is entered on the processor's hosted page, so no log call in the application names one."""
+    import re
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "src"
+    call = re.compile(
+        r"\b(?:log|logger|logging|_log|_logger)\.(?:debug|info|warning|warn|error|exception|critical)\("
+    )
+    card = re.compile(r"(?i)\b(cvc2?|cvv2?|card_?number|card_?no|pan|security_?code|card\[)\b")
+    hits = [
+        f"{p.relative_to(src)}:{n}"
+        for p in src.rglob("*.py")
+        for n, ln in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+        if call.search(ln) and card.search(ln)
+    ]
+    assert hits == []
