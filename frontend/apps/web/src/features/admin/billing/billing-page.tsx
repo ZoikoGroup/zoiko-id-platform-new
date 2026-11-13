@@ -17,6 +17,7 @@ import { PaymentSection } from "./payment";
 import { PlanFeaturesSection } from "./plan-features-section";
 import { PreviewSection } from "./preview";
 import { ProfileSection } from "./profile";
+import { SolutionBuilderSection } from "./solution-builder-section";
 import { BILLING_KEY, STATE_COPY } from "./shared";
 import { PlansSection, SubscriptionSection } from "./subscription";
 import { ActivationBanner } from "./activation-banner";
@@ -47,6 +48,7 @@ export function BillingPage() {
           can("billing.overview.read") ? { id: "subscription", label: "Subscription", content: <SubscriptionSection goto={setTab} /> } : null,
           can("billing.overview.read") ? { id: "plans", label: "Plans", content: <PlansSection /> } : null,
           { id: "features", label: "Plan features", content: <PlanFeaturesSection /> },
+          { id: "configure", label: "Configure a solution", content: <SolutionBuilderSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },
           can("billing.overview.read") ? { id: "preview", label: "Bill preview", content: <PreviewSection /> } : null,
           can("billing.invoice.read") ? { id: "invoices", label: "Invoices", content: <InvoicesSection /> } : null,

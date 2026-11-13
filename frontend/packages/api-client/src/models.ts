@@ -2925,3 +2925,63 @@ export type UatRollbackIn = { scope: Record<string, string>; reason: string };
 export type UatRolledBack = { release_id: string; rollback_id: string; candidate_status: string; scope: Record<string, unknown>; evidence_kept: boolean; provider_route_closed: boolean | null };
 export type UatRiskConfirmed = { baseline_id: string; version: string; confirmed: number; confirmed_by: string };
 
+/* ---- the solution builder (ZID-COM-WF-2026-11 WF-C01, WF-C02, B06): offers by market, dependencies, preview, drafts and quote requests. No price is ever on these. */
+export type OfferState = "AVAILABLE" | "CONTACT_SALES" | "NOT_ELIGIBLE" | "RESEARCH_ONLY" | "MARKET_REQUIRED";
+export type OfferReason = { cause: string; text: string };
+export type OfferMarketTerms = { seller_entity: string; merchant_route: string; currency: string; tax_class: string; data_region: string };
+export type OfferCard = {
+  family: string;
+  name: string;
+  unit: string;
+  sales_qualifier: string;
+  regulated: boolean;
+  depends_on: string[];
+  sellable: boolean;
+  next_action: string;
+  causes: string[];
+  refusals: { code: string; cause: string; dimension: string | null }[];
+  state: OfferState;
+  reasons: OfferReason[];
+  market: OfferMarketTerms | null;
+  provider_attribution?: string;
+};
+export type OffersView = { market_matrix_version: number | null; market: string | null; payer_country: string | null; operating_region: string | null; cards: OfferCard[]; note: string };
+export type OffersQuery = { market?: string; payer_country?: string; operating_region?: string };
+export type CapabilityDependencies = { version: string; families: { family: string; depends_on: string[]; needs_provider: boolean; regulated: boolean }[] };
+export type SolutionPurpose = "ONBOARDING" | "COMPLIANCE" | "PROFESSIONAL_HIRING" | "REGULATED_TRANSACTION" | "MARKETPLACE";
+export type SolutionVolumes = Record<string, Partial<Record<"expected_units" | "rechecks_per_year" | "manual_reviews", number>>>;
+export type SolutionIn = {
+  purpose: SolutionPurpose;
+  families: string[];
+  subject_country?: string | null;
+  payer_country?: string | null;
+  operating_region?: string | null;
+  volumes: SolutionVolumes;
+};
+export type QuotePreview = {
+  binding: false;
+  configurable: boolean;
+  scope: SolutionIn;
+  scope_hash: string;
+  market_matrix_version: number | null;
+  problems: { code: string; family: string; needs: string }[];
+  families: OfferCard[];
+  request_quote: string[];
+  assumptions: string[];
+  estimate: null;
+};
+export type SolutionDraft = {
+  draft_id: string;
+  purpose: SolutionPurpose;
+  families: string[];
+  subject_country: string | null;
+  payer_country: string | null;
+  operating_region: string | null;
+  volumes: SolutionVolumes;
+  scope_hash: string;
+  status: "DRAFT" | "QUOTE_REQUESTED";
+  state: "DRAFT" | "QUOTE_REQUESTED" | "EXPIRED";
+  created_at: string;
+  expires_at: string;
+  quote_requested_at: string | null;
+};

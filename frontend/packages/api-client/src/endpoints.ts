@@ -698,6 +698,17 @@ export function createCellApi(t: Transport) {
       /** The rated lines of a month, each with its formula; 404 RATING_NOT_FOUND until the month is rated. */
       rated: (month: string) => get<M.RatedUsage>("/v1/usage/rated", { month }),
       invoices: () => get<M.Items<M.Invoice>>("/v1/invoices"),
+      /** The offer catalogue for a market, evaluated on the server from the active market matrix. A card never carries a price. */
+      offers: (q: M.OffersQuery = {}) => get<M.OffersView>("/v1/commercial/offers", { market: q.market, payer_country: q.payer_country, operating_region: q.operating_region }),
+      /** Which services need which (a signature needs a verified identity). Public. */
+      capabilityDependencies: () => get<M.CapabilityDependencies>("/v1/commercial/capability-dependencies"),
+      /** The configuration as the deal desk would receive it: canonical scope and hash, no price, nothing saved. */
+      previewQuote: (body: M.SolutionIn) => post<M.QuotePreview>("/v1/commercial/quotes/preview", body),
+      /** Save a configuration as a draft. A draft is not an entitlement and expires after 30 days. */
+      saveConfiguration: (body: M.SolutionIn) => post<M.SolutionDraft>("/v1/commercial/configurations", body),
+      configurations: () => get<M.Items<M.SolutionDraft>>("/v1/commercial/configurations"),
+      /** Send a saved draft to the deal desk. Commits the company to nothing. */
+      requestQuote: (draftId: string) => post<M.SolutionDraft>(`/v1/commercial/configurations/${seg(draftId)}:request-quote`),
       budgets: () => get<M.Items<M.UsageBudget>>("/v1/budgets"),
       setBudget: (body: M.BudgetIn) => t.request<M.UsageBudget>("PUT", "/v1/budgets", { body }),
       evaluateBudgets: () => post<{ raised: { key: string; threshold: number }[] }>("/v1/budgets:evaluate"),
