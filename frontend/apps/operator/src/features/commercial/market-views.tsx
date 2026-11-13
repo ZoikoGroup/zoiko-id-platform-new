@@ -1,6 +1,6 @@
 "use client";
 
-import type { FamilyTextRevision, FxRateSet, SalesLead, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
+import type { FamilyTextRevision, FxRateSet, PublicNoticeRow, RateCardSummary, SalesLead, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
 import { Badge, Banner, Card, CopyId, DataTable, EmptyState, type Column } from "@zoiko/ui";
 import { Globe2 } from "lucide-react";
 import { useState } from "react";
@@ -22,6 +22,9 @@ export function MarketView() {
       <MatricesCard />
       <RolloutCard />
       <FxCard />
+      <PricingPageCard />
+      <RateCardsCard />
+      <NoticesCard />
       <FamilyTextCard />
       <LeadsCard />
       <QuoteRequestsCard />
@@ -138,6 +141,121 @@ function FxCard() {
     <Card title="FX rate sets" description="Used only to total reports in dollars. There are no default rates: with no active set, nothing but dollars is added." padded={false}>
       <QueryView query={list}>
         {(d) => <DataTable<FxRateSet> caption="FX rate sets" columns={columns} rows={d.items} rowKey={(f) => f.set_id} empty={<EmptyState title="No rate set" icon={Globe2}>Create a draft with a named source in the actions below.</EmptyState>} />}
+      </QueryView>
+    </Card>
+  );
+}
+
+function PricingPageCard() {
+  const state = useCellQuery([...COMMERCIAL_KEY, "pricing-page"], (api) => api.commercial.pricingPage());
+  return (
+    <Card title="Public pricing page packaging" description="The plan packaging buyers see is marked as being finalised until an appointed Founder and CCO, as different people, sign the page file by its hash.">
+      <QueryView query={state}>
+        {(d) => (
+          <dl className="space-y-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <dt className="font-medium">Status</dt>
+              <dd>
+                <Badge tone={d.status === "APPROVED" ? "ok" : "info"} size="xs">
+                  {d.status}
+                </Badge>
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Signed by</dt>
+              <dd>{d.signed_by.length ? d.signed_by.join(", ") : "nobody yet"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Still needed</dt>
+              <dd>{d.missing.length ? d.missing.join(", ") : "none"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Page version and content hash</dt>
+              <dd className="flex flex-wrap items-center gap-2">
+                {d.version} <CopyId value={d.content_hash} label="content hash" />
+              </dd>
+            </div>
+          </dl>
+        )}
+      </QueryView>
+    </Card>
+  );
+}
+
+function RateCardsCard() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "rate-cards"], (api) => api.commercial.rateCards());
+  const [open, setOpen] = useState<string | null>(null);
+  const columns: Column<RateCardSummary>[] = [
+    { key: "v", header: "Version", pinned: true, render: (c) => `v${c.version}`, sortValue: (c) => c.version },
+    { key: "s", header: "Status", render: (c) => <Badge tone={c.status === "ACTIVE" ? "ok" : c.status === "DRAFT" ? "info" : "neutral"} size="xs">{c.status}</Badge> },
+    { key: "i", header: "Rate card ID", render: (c) => <CopyId value={c.card_id} label="rate card" /> },
+    { key: "e", header: "Effective from", render: (c) => when(c.effective_from) },
+    { key: "n", header: "Note", render: (c) => c.note ?? "—" },
+    { key: "o", header: "Lines", render: (c) => <button type="button" className="font-medium text-brand-700 underline" onClick={() => setOpen(open === c.card_id ? null : c.card_id)}>{open === c.card_id ? "Hide" : "Show"}</button> },
+  ];
+  return (
+    <Card title="Family rate cards" description="The rate for each service, payer country and period that buyers see and the estimate uses. There are no default rates. The CFO, CCO and Founder sign, as three different people." padded={false}>
+      <QueryView query={list}>
+        {(d) => (
+          <>
+            <DataTable<RateCardSummary> caption="Family rate cards" columns={columns} rows={d.items} rowKey={(c) => c.card_id} empty={<EmptyState title="No rate card" icon={Globe2}>With none active, every service reads Quote required. Create a draft in the actions below.</EmptyState>} />
+            {open ? <RateCardDetailView id={open} /> : null}
+          </>
+        )}
+      </QueryView>
+    </Card>
+  );
+}
+
+function RateCardDetailView({ id }: { id: string }) {
+  const q = useCellQuery([...COMMERCIAL_KEY, "rate-card", id], (api) => api.commercial.rateCard(id));
+  return (
+    <div className="border-t border-border p-4 text-sm">
+      <QueryView query={q}>
+        {(d) => (
+          <div className="space-y-3">
+            <p>
+              Signed: {d.approvals.length ? d.approvals.map((a) => a.role).join(", ") : "nobody yet"}. Still needed: {d.missing_approvals.length ? d.missing_approvals.join(", ") : "none"}.
+            </p>
+            {d.lines.length === 0 ? (
+              <p className="text-ink-muted">No lines yet.</p>
+            ) : (
+              <ul className="space-y-1">
+                {d.lines.map((l) => (
+                  <li key={`${l.family}-${l.country}-${l.period}`}>
+                    <span className="font-medium">{l.family} {l.country} {l.period.toLowerCase()}</span>: {l.currency} {l.unit_amount} per {l.charge_unit}, {l.included_units.toLocaleString("en")} included
+                    {l.minimum_amount ? `, ${l.minimum_model === "FLOOR" ? "minimum spend" : "platform fee"} ${l.currency} ${l.minimum_amount}` : ""}. <span className="text-ink-muted">Source {l.source_ref}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </QueryView>
+    </div>
+  );
+}
+
+function NoticesCard() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "public-notices"], (api) => api.commercial.publicNotices());
+  const columns: Column<PublicNoticeRow>[] = [
+    { key: "v", header: "Version", pinned: true, render: (n) => n.version },
+    { key: "s", header: "Status", render: (n) => <Badge tone={n.status === "ACTIVE" ? "ok" : n.status === "DRAFT" ? "info" : "neutral"} size="xs">{n.status}</Badge> },
+    { key: "i", header: "Notice ID", render: (n) => <CopyId value={n.notice_id} label="notice" /> },
+    { key: "t", header: "Text", render: (n) => n.body },
+    { key: "a", header: "Activated", render: (n) => when(n.activated_at) },
+  ];
+  return (
+    <Card title="Inquiry privacy notice" description="Legal's text shown beside the public inquiry form. Until one is activated, visitors see a marked draft and each inquiry records that draft's version." padded={false}>
+      <QueryView query={list}>
+        {(d) => (
+          <>
+            <p className="px-4 pt-3 text-sm">
+              Shown now: <span className="font-mono">{d.served.version}</span> ({d.served.status === "DRAFT" ? "draft, pending legal approval" : "active"}).
+            </p>
+            <DataTable<PublicNoticeRow> caption="Inquiry privacy notices" columns={columns} rows={d.items} rowKey={(n) => n.notice_id} empty={<EmptyState title="No notice proposed" icon={Globe2}>Propose Legal's text in the actions below.</EmptyState>} />
+          </>
+        )}
       </QueryView>
     </Card>
   );

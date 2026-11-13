@@ -3264,6 +3264,18 @@ export type PublicLeadIn = {
 };
 export type PublicLeadOut = { reference: string; status: string; duplicate: boolean; message: string };
 
+export type RateCardSummary = { card_id: string; version: number; status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "WITHDRAWN"; effective_from: string | null; activated_at: string | null; note: string | null };
+export type RateCardLine = {
+  family: string; country: string; period: PricingPeriod; currency: string; charge_unit: string; included_units: number; unit_amount: string;
+  minimum_amount: string | null; minimum_model: "FLOOR" | "PLATFORM_FEE" | null; source_ref: string;
+};
+export type RateCardDetail = RateCardSummary & {
+  lines: RateCardLine[]; approvals: { role: "CFO" | "CCO" | "FOUNDER"; approver: string; approved_at: string | null }[]; missing_approvals: string[];
+};
+export type PricingPageState = { version: string; content_hash: string; status: "PROPOSED" | "APPROVED"; signed_by: string[]; missing: string[] };
+export type PublicNoticeRow = { notice_id: string; kind: string; version: string; body: string; status: "DRAFT" | "ACTIVE" | "WITHDRAWN" | "SUPERSEDED"; created_by: string; created_at: string | null; activated_by: string | null; activated_at: string | null };
+export type PublicNotices = { served: { version: string; text: string; status: "ACTIVE" | "DRAFT" }; items: PublicNoticeRow[] };
+
 export type SalesLeadStatus = "RECEIVED" | "QUALIFIED" | "SCOPED" | "REVIEW" | "OFFER_SENT" | "CLOSED" | "SPAM";
 export type SalesLead = {
   lead_id: string; kind: "ENTERPRISE" | "PARTNER"; partner_type: string | null; contact_name: string; work_email: string; company: string; country: string; region: string | null;

@@ -866,6 +866,13 @@ export function createOperatorApi(t: Transport) {
       salesLeads: (status?: string) => get<M.Items<M.SalesLead>>("/v1/commercial/sales-leads", { status }),
       /** FX rate sets for reporting: a named source, USD per unit, activated by a different person. There are no default rates. */
       fxRateSets: () => get<M.Items<M.FxRateSet>>("/v1/commercial/fx-rate-sets"),
+      /** Family rate cards, newest first, and one with its lines and signatures. There are no default rates. */
+      rateCards: () => get<M.Items<M.RateCardSummary>>("/v1/commercial/family-rate-cards"),
+      rateCard: (id: string) => get<M.RateCardDetail>(`/v1/commercial/family-rate-cards/${seg(id)}`),
+      /** Whether the public pricing page's packaging is approved: the file's hash, who has signed it and who is still needed. */
+      pricingPage: () => get<M.PricingPageState>("/v1/commercial/pricing-page"),
+      /** The privacy notice texts for the inquiry form and the one visitors are shown now. */
+      publicNotices: () => get<M.PublicNotices>("/v1/commercial/public-notices"),
       /** Where each market of the active matrix is in its staged rollout. */
       marketRollout: () => get<M.Items<M.MarketRolloutItem>>("/v1/commercial/market-rollout"),
       /** Every company's saved configuration sent for a quote, for the deal desk. */
