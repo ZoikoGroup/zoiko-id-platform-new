@@ -103,6 +103,7 @@ from zid_platform.modules.verification.infrastructure.claim_templates import cla
 from zid_platform.modules.verification.infrastructure.conformance_matrix import conformance_matrix
 from zid_platform.modules.verification.infrastructure.country_registry import registry
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
+from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
 from zid_platform.modules.verification.infrastructure.product_line_registry import (
     product_line_registry,
 )
@@ -165,6 +166,7 @@ __all__ = [
     "person_assurance_current",
     "policy_packs",
     "privacy_overlay_model",
+    "privacy_overlays",
     "product_line_registry",
     "public_view",
     "reconcile_delayed",
