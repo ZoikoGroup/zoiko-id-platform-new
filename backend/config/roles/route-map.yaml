@@ -188,6 +188,16 @@ rules:
   - {match: "POST /v1/machine/tool-calls:authorize", exempt: PROTOCOL, why: "an agent asks the tool gateway with its own workload credential; the policy decision and the sponsor checks decide (WP-11)"}
   - {match: "POST /v1/machine/tool-grants:redeem", exempt: PROTOCOL, why: "a tool's own server spends a grant it was issued; the audience must be its own principal and the chain is re-checked (WP-11)"}
   - {match: "POST /v1/machine/tools", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "GET /v1/access-readiness/*", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /v1/access-readiness/agents", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "PATCH /v1/access-readiness/agents/*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/agents/*/dry-runs", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/agents/*/publish-requests:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/access-readiness/agents/*/publish-requests", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/agents/*/runs*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/agents/*:pause", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/access-readiness/agents/*:resume", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/review-proposals/*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
   - {match: "POST /v1/machine/tools/*:activate", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/tools/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/environments/*", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}

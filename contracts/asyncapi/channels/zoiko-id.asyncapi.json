@@ -12,6 +12,15 @@
         },
         "agent_registered": {
           "$ref": "#/components/messages/agent_registered"
+        },
+        "agent_review_proposal_created": {
+          "$ref": "#/components/messages/agent_review_proposal_created"
+        },
+        "agent_run_completed": {
+          "$ref": "#/components/messages/agent_run_completed"
+        },
+        "agent_run_policy_denied": {
+          "$ref": "#/components/messages/agent_run_policy_denied"
         }
       },
       "parameters": {
@@ -2364,6 +2373,17 @@
         "x-zid-source": "ZID-MACHINE-001",
         "x-zid-status": "catalogued"
       },
+      "agent_review_proposal_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.review.proposal_created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The access readiness agent appended a review proposal for a person; proposal id, rule and finding code only. No right changed.",
+        "title": "agent.review.proposal_created",
+        "x-zid-source": "ZID-AG-WF-001; CR-091",
+        "x-zid-status": "proposed"
+      },
       "agent_revoked": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.agent.revoked.v1",
@@ -2374,6 +2394,28 @@
         "title": "agent.revoked",
         "x-zid-source": "ZID-MACHINE-001",
         "x-zid-status": "catalogued"
+      },
+      "agent_run_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.run.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An access readiness run reached a terminal state (completed, needs review, failed or canceled); counts and the result digest only.",
+        "title": "agent.run.completed",
+        "x-zid-source": "ZID-AG-WF-001; CR-091",
+        "x-zid-status": "proposed"
+      },
+      "agent_run_policy_denied": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.agent.run.policy_denied.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An access readiness run was refused at its preflight; run id, agent id, denial codes and policy hash only (ZID-AG-WF-001 section 10).",
+        "title": "agent.run.policy_denied",
+        "x-zid-source": "ZID-AG-WF-001; CR-091",
+        "x-zid-status": "proposed"
       },
       "agent_suspended": {
         "contentType": "application/cloudevents+json",

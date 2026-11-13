@@ -736,3 +736,21 @@ events:
     source: ZID-RCG-003 09.2; CR-085
     lane: evidence
     source_status: "proposed"
+  agent.run.policy_denied:
+    cloudevents_type: com.zoiko.id.agent.run.policy_denied.v1
+    meaning: "An access readiness run was refused at its preflight; run id, agent id, denial codes and policy hash only (ZID-AG-WF-001 section 10)."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"
+  agent.run.completed:
+    cloudevents_type: com.zoiko.id.agent.run.completed.v1
+    meaning: "An access readiness run reached a terminal state (completed, needs review, failed or canceled); counts and the result digest only."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"
+  agent.review.proposal_created:
+    cloudevents_type: com.zoiko.id.agent.review.proposal_created.v1
+    meaning: "The access readiness agent appended a review proposal for a person; proposal id, rule and finding code only. No right changed."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"

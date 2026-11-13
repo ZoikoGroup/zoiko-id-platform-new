@@ -111,6 +111,8 @@ def create_app(
             "builds must be approved (set it to auto or enforce)"
         )
     app.state.agent_builds = settings.agent_builds
+    app.state.access_readiness_enabled = settings.access_readiness_enabled
+    app.state.access_readiness_regions = tuple(settings.access_readiness_regions)
     if settings.regulatory_packs == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
             "ZID_REGULATORY_PACKS=off would let an enabled country run a regulated capability with no approved policy pack; "
@@ -316,6 +318,7 @@ def create_app(
         app.state.organization_state = (
             organization_state  # read by verification (it cannot import onboarding)
         )
+        from .modules.access_readiness.api.readiness import router as access_readiness_router
         from .modules.assurance.api.v2 import router as assurance_v2_router
         from .modules.authentication.api.recovery import router as recovery_router
         from .modules.authentication.api.step_up import router as step_up_router
@@ -501,6 +504,7 @@ def create_app(
             alerts_router,
             search_router,
             agents_router,
+            access_readiness_router,
             tool_calls_router,
             screening_signals_router,
             settings_router,

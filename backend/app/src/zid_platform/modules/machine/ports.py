@@ -10,13 +10,19 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.machine.application.agents import lifecycle_sweep
+from zid_platform.modules.machine.application.identity_status import (
+    AgentIdentityStatus,
+    agent_identity_status,
+)
 from zid_platform.modules.machine.application.workload import WorkloadPrincipal, resolve_workload
 from zid_platform.modules.machine.domain.agents import MachineError
 
 __all__ = [
+    "AgentIdentityStatus",
     "MachineError",
     "WorkloadPrincipal",
     "activate_agent",
+    "agent_identity_status",
     "agent_status",
     "lifecycle_sweep",
     "resolve_workload",

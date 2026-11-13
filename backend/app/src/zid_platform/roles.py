@@ -30,6 +30,7 @@ PLANES: dict[str, tuple[str, ...]] = {
         "authority",
         "mandate",
         "machine",
+        "access_readiness",
     ),
     "trust": ("organization", "verification", "credential", "screening"),
     "security-evidence": ("signals", "evidence", "privacy", "assurance"),
