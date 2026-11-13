@@ -87,3 +87,10 @@ That makes 49 of 50 acceptance tests linked, 7 of them mechanism-only (AT-010, 0
 | The counsel content itself (every `COUNSEL` field in the packs, ADM, collection and breach-clock files) | A legal statement for each market, not code |
 | A real PAD engine and its ISO/IEC 30107-3 assessment; the independent fairness evaluation with cohort data | Third parties and measured data; the records and routing are ready to receive them |
 | Controller DPIAs, the G0 to G7 signatures, the penetration test, the red team and a staged breach drill | People and sign-off, outlined in the owner pack |
+
+
+## Evaluation tooling (2026-11-13)
+
+`privacy/domain/trial_metrics.py` and `tools/scripts/trial_report.py` turn an independent evaluator's RAW trials into the measures the model gate (PR-16, AT-015) reads: each measure as `{value, ci_low, ci_high}` with the counts behind it, exact binomial (Clopper-Pearson) intervals checked against textbook values, APCER per presentation-attack species with the worst as the headline (never averaged), BPCER, failure to acquire reported on its own, FMR and FNMR for face matching, and per-cohort rates and pairwise differences for a fairness review (PR-15). A small sample is never reported as "no difference". `test_trial_metrics.py` (24).
+
+This is the CALCULATOR only. It defines no threshold, makes no verdict and cannot make an evaluation independent. PR-06 (the PAD engine), PR-15 (cohort data and an independent evaluator) and the DPIA and gate sign-offs still need a vendor or engine, real consented cohorts, an independent evaluator and named signatories.
