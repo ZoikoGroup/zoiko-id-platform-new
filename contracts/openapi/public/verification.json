@@ -230,29 +230,6 @@
         "title": "EntitlementIn",
         "type": "object"
       },
-      "EstimateIn": {
-        "additionalProperties": false,
-        "properties": {
-          "estimated_age": {
-            "maximum": 130.0,
-            "minimum": 0.0,
-            "title": "Estimated Age",
-            "type": "number"
-          },
-          "margin": {
-            "maximum": 60.0,
-            "minimum": 0.0,
-            "title": "Margin",
-            "type": "number"
-          }
-        },
-        "required": [
-          "estimated_age",
-          "margin"
-        ],
-        "title": "EstimateIn",
-        "type": "object"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -517,7 +494,7 @@
           "estimate": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/EstimateIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_age__EstimateIn"
               },
               {
                 "type": "null"
@@ -573,6 +550,29 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__v2_age__EstimateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_age": {
+            "maximum": 130.0,
+            "minimum": 0.0,
+            "title": "Estimated Age",
+            "type": "number"
+          },
+          "margin": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "estimated_age",
+          "margin"
+        ],
+        "title": "EstimateIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__verification__StartIn": {
@@ -1027,6 +1027,62 @@
           }
         },
         "summary": "Record Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/impact": {
+      "get": {
+        "description": "Impact analysis before a kill switch is pulled (Doc 03 RCG-G08). Changes nothing.",
+        "operationId": "withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdrawal Impact V2 Providers  Provider Id  Entitlements  Service  Impact Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdrawal Impact",
         "tags": [
           "verification-v2"
         ]

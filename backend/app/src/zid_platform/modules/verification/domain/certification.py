@@ -13,7 +13,7 @@ module is the only place that says who holds what, and it fails closed:
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
 from typing import Any
@@ -190,3 +190,96 @@ def parse(doc: Mapping[str, Any]) -> CertRegistry:
 
 def _d(value: Any) -> date:
     return value if isinstance(value, date) else date.fromisoformat(str(value))
+
+
+# ------------------------------------------------------------------------------------------ register reconciliation (RCG-G02)
+
+REGISTER_REGISTERED = "REGISTERED"
+REGISTER_SUSPENDED = "SUSPENDED"
+REGISTER_WITHDRAWN = "WITHDRAWN"
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterEntry:
+    """One line of an official register (a trusted list, a regulator's register of certified providers) as a fetcher normalized it."""
+
+    entity: str
+    scheme: str
+    country: str
+    service_code: str
+    certificate_ref: str
+    status: str  # REGISTERED | SUSPENDED | WITHDRAWN
+    valid_until: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SuspensionProof:
+    """Why a record stopped counting: what we held, what the register said, which snapshot said it, and when it was read."""
+
+    record_id: str
+    previous_status: str
+    effective_status: str
+    reason: str  # NOT_IN_REGISTER | REGISTER_SUSPENDED | REGISTER_WITHDRAWN | REGISTER_EXPIRES_EARLIER | REGISTER_STATUS_UNRECOGNIZED
+    source_id: str
+    snapshot_sha256: str
+    checked_at: str
+
+
+def reconcile(
+    registry: CertRegistry,
+    entries: Sequence[RegisterEntry],
+    *,
+    source_id: str,
+    snapshot_sha256: str,
+    checked_at: str,
+) -> tuple[CertRegistry, tuple[SuspensionProof, ...]]:
+    """Compare what we hold with what the official register says, and DOWNGRADE every record the register does not support. It never upgrades.
+
+    - a record the register does not list is not relied on (SUSPENDED, NOT_IN_REGISTER): a certification we cannot see on its own register is not
+      one we can claim, and silence is not confirmation;
+    - a register entry that is suspended or withdrawn makes the record so, at once, with no one having to edit a file;
+    - a register date earlier than ours shortens the record to the register's date;
+    - a status the register uses that we do not know is treated as not certified;
+    - a record already SUSPENDED, WITHDRAWN or EXPIRED stays so: reinstatement is a person's decision with new evidence, never a side effect of a fetch;
+    - register entries with no record of ours are ignored (nothing is claimed on their account).
+    Pure: nothing is fetched here. Each downgrade comes with the proof of what was read and when."""
+    index = {
+        (e.entity, e.scheme, e.country.upper(), e.service_code, e.certificate_ref): e
+        for e in entries
+    }
+    out: list[Certification] = []
+    proofs: list[SuspensionProof] = []
+    for rec in registry.records:
+        if rec.status is not CertStatus.ACTIVE:
+            out.append(rec)
+            continue
+        entry = index.get(
+            (rec.entity, rec.scheme, rec.country, rec.service_code, rec.certificate_ref)
+        )
+        new, reason = rec, ""
+        if entry is None:
+            new, reason = replace(rec, status=CertStatus.SUSPENDED), "NOT_IN_REGISTER"
+        elif entry.status == REGISTER_WITHDRAWN:
+            new, reason = replace(rec, status=CertStatus.WITHDRAWN), "REGISTER_WITHDRAWN"
+        elif entry.status == REGISTER_SUSPENDED:
+            new, reason = replace(rec, status=CertStatus.SUSPENDED), "REGISTER_SUSPENDED"
+        elif entry.status != REGISTER_REGISTERED:
+            new, reason = replace(rec, status=CertStatus.SUSPENDED), "REGISTER_STATUS_UNRECOGNIZED"
+        elif entry.valid_until is not None and (
+            rec.valid_until is None or entry.valid_until < rec.valid_until
+        ):
+            new, reason = replace(rec, valid_until=entry.valid_until), "REGISTER_EXPIRES_EARLIER"
+        out.append(new)
+        if reason:
+            proofs.append(
+                SuspensionProof(
+                    record_id=rec.record_id,
+                    previous_status=rec.status.value,
+                    effective_status=new.status.value,
+                    reason=reason,
+                    source_id=source_id,
+                    snapshot_sha256=snapshot_sha256,
+                    checked_at=checked_at,
+                )
+            )
+    return CertRegistry(registry.version, tuple(out)), tuple(proofs)

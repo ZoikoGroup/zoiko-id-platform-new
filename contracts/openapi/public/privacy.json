@@ -650,69 +650,6 @@
         "title": "HoldIn",
         "type": "object"
       },
-      "NoticeBody": {
-        "additionalProperties": false,
-        "properties": {
-          "approval_request_id": {
-            "format": "uuid",
-            "title": "Approval Request Id",
-            "type": "string"
-          },
-          "audience": {
-            "maxLength": 64,
-            "minLength": 2,
-            "title": "Audience",
-            "type": "string"
-          },
-          "code": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Code",
-            "type": "string"
-          },
-          "content": {
-            "maxLength": 200000,
-            "minLength": 20,
-            "title": "Content",
-            "type": "string"
-          },
-          "content_uri": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content Uri"
-          },
-          "jurisdictions": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 50,
-            "title": "Jurisdictions",
-            "type": "array"
-          },
-          "processing_activity_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 50,
-            "title": "Processing Activity Codes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "code",
-          "audience",
-          "content",
-          "approval_request_id"
-        ],
-        "title": "NoticeBody",
-        "type": "object"
-      },
       "OnBehalfBody": {
         "additionalProperties": false,
         "properties": {
@@ -2523,6 +2460,69 @@
         "title": "CloseBody",
         "type": "object"
       },
+      "zid_platform__modules__privacy__api__privacy__NoticeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_request_id": {
+            "format": "uuid",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "audience": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Audience",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 200000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "content_uri": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Uri"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "processing_activity_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Processing Activity Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "audience",
+          "content",
+          "approval_request_id"
+        ],
+        "title": "NoticeBody",
+        "type": "object"
+      },
       "zid_platform__modules__privacy__api__privacy__RoleBody": {
         "additionalProperties": false,
         "properties": {
@@ -2748,7 +2748,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoticeBody"
+                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__privacy__NoticeBody"
               }
             }
           },
@@ -6680,6 +6680,62 @@
           }
         },
         "summary": "Record Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/entitlements/{service}/impact": {
+      "get": {
+        "description": "Impact analysis before a kill switch is pulled (Doc 03 RCG-G08). Changes nothing.",
+        "operationId": "withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{1,62}$",
+              "title": "Service",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdrawal Impact V2 Providers  Provider Id  Entitlements  Service  Impact Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdrawal Impact",
         "tags": [
           "verification-v2"
         ]

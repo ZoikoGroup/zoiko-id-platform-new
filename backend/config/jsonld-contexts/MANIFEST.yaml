@@ -12,3 +12,11 @@ contexts:
   - url: "https://purl.imsglobal.org/spec/clr/v2p0/context-2.0.1.json"
     file: clr-v2p0.json
     sha256: 880f1902d4158f2f33ce06af41b90719977cd1ea337a9de2e41edb3ff5e543d6
+  # added 2026-11-13: what Europass European Digital Credentials are written against. Both were fetched, read (no @import, no remote reference
+  # beyond standard vocabulary namespaces) and pinned here. The EU context is served as text/plain by its publisher; the bytes are what is pinned.
+  - url: "https://www.w3.org/2018/credentials/v1"
+    file: credentials-v1.json
+    sha256: ab4ddd9a531758807a79a5b450510d61ae8d147eab966cc9a200c07095b0cdcc
+  - url: "https://data.europa.eu/snb/model/context/edc-ap"
+    file: europass-edc-ap.json
+    sha256: fde0b3fd92e98a8870c173fb98baff361be6dd07e44653a9a5ac6c0fe626b411

@@ -134,6 +134,31 @@ class CaseView:
     relationship: str | None = None  # how the person says they act for the company
 
 
+UsageSink = Callable[[AsyncConnection, str, str, str, int, datetime, bool], Awaitable[None]]
+_usage_sink: UsageSink | None = None
+
+
+def configure_usage_sink(sink: UsageSink | None) -> None:
+    """Where a usage fact goes: (connection, tenant, "CHECK" or "PERIOD", case, version, when, done by a person). Wired by the composition root, so screening
+    knows nothing of what the fact is used for and a decision never depends on it."""
+    global _usage_sink
+    _usage_sink = sink
+
+
+async def _used(
+    conn: AsyncConnection,
+    tenant_id: str,
+    kind: str,
+    case_id: str,
+    version: int,
+    at: datetime,
+    *,
+    human: bool,
+) -> None:
+    if _usage_sink is not None:
+        await _usage_sink(conn, tenant_id, kind, case_id, version, at, human)
+
+
 def _view(case: store.CaseRow, now: datetime) -> CaseView:
     status = effective_status(case.status, case.expiry_at, now)
     return CaseView(
@@ -260,6 +285,10 @@ async def _record(
             details={**summary, "version": version},
         ),
     )
+    if (
+        decided_by is None
+    ):  # an automated screening run is one check; a reviewer's ruling on it is not another
+        await _used(conn, tenant_id, "CHECK", case.case_id, version, now, human=actor is not None)
     return _view(await store.load_case(conn, tenant_id, case.case_id), now)
 
 
@@ -389,6 +418,8 @@ async def rescreen(
         carry={"triggers": sorted(set(triggers))} if triggers else None, now=now,
     )  # fmt: skip
     await store.close_triggers(conn, tenant_id, case_id, version)
+    # continuous monitoring is its own fact: one period per case per UTC month, separate from the check each rescreen performs
+    await _used(conn, tenant_id, "PERIOD", case_id, version, now, human=False)
     return view
 
 

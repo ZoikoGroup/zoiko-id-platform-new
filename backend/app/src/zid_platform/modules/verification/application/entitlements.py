@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
-from zid_platform.modules.verification.infrastructure import entitlement_store as store
+from zid_platform.modules.verification.infrastructure import route_entitlement_store as store
 
 
 class EntitlementNotFound(Exception):

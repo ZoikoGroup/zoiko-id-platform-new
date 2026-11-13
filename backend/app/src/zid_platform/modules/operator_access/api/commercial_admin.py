@@ -38,7 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from zid_db import in_tenant, tenant_transaction
-from zid_errors import ZidError
+from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import request_engine
 from zid_platform.modules.commercial.ports import (
@@ -59,22 +59,37 @@ from zid_platform.modules.commercial.ports import (
     billable_store,
     enforcement_store,
     entitlement_changed,
+    family_rate_store,
+    family_registry,
+    family_text_store,
     finance,
     freeze_month,
+    fx_store,
     invoicing,
+    lead_store,
     ledger_summary,
     log_change,
+    market_matrix_model,
+    market_matrix_store,
     meter_window_frozen,
     next_month,
+    notice_store,
     open_payment_refund,
     operator_scope,
     orders,
+    partner_model,
+    partner_store,
     payment_event_queue,
     plan_requests,
+    pricing_governance,
+    profitability_service,
+    purchase_order_store,
     reconcile,
     resolve_payment_event,
+    rollout_store,
     run_rating,
     service_requests,
+    solution_store,
     vendors,
     verify_chain,
     verify_change_log,
@@ -84,6 +99,9 @@ from zid_platform.modules.commercial.ports import (
 )
 from zid_platform.modules.commercial.ports import (
     catalogue_store as store,
+)
+from zid_platform.modules.commercial.ports import (
+    family_rates_model as rate_model,
 )
 from zid_platform.modules.evidence.ports import current_runtime
 from zid_platform.modules.operator_access.ports import (
@@ -105,6 +123,77 @@ _STATUS = {
     "PRICE_BOOK_EMPTY": 422,
     "ENTITLEMENT_EFFECTIVE_DATE": 409,
     "OPERATOR_CAPABILITY_REQUIRED": 403,
+    "MARKET_MATRIX_NOT_FOUND": 404,
+    "MARKET_MATRIX_NOT_DRAFT": 409,
+    "MARKET_MATRIX_SELF_APPROVAL": 403,
+    "MARKET_MATRIX_ROLE_ALREADY_SIGNED": 409,
+    "MARKET_MATRIX_PERSON_ALREADY_SIGNED": 409,
+    "MARKET_MATRIX_APPROVALS_MISSING": 409,
+    "MARKET_MATRIX_APPROVAL_REFUSED": 409,
+    "MARKET_MATRIX_EMPTY": 422,
+    "MARKET_MATRIX_ROLE_UNKNOWN": 422,
+    "ROLLOUT_NOT_IN_ACTIVE_MATRIX": 404,
+    "ROLLOUT_STAGE_UNKNOWN": 422,
+    "PARTNER_NOT_FOUND": 404,
+    "FAMILY_TEXT_NOT_FOUND": 404,
+    "LEAD_NOT_FOUND": 404,
+    "PAGE_CHANGED": 409,
+    "RATE_CARD_NOT_FOUND": 404,
+    "RATE_CARD_NOT_DRAFT": 409,
+    "RATE_CARD_SELF_APPROVAL": 403,
+    "RATE_CARD_ROLE_ALREADY_SIGNED": 409,
+    "RATE_CARD_PERSON_ALREADY_SIGNED": 409,
+    "RATE_CARD_APPROVALS_MISSING": 409,
+    "RATE_CARD_APPROVAL_REFUSED": 409,
+    "RATE_CARD_EMPTY": 422,
+    "RATE_CARD_ROLE_UNKNOWN": 422,
+    "RATE_CARD_NOT_APPOINTED": 403,
+    "RATE_LINE_REFUSED": 422,
+    "NOT_A_SIGNATORY": 403,
+    "ALREADY_SIGNED": 409,
+    "NOTICE_NOT_FOUND": 404,
+    "NOTICE_NOT_DRAFT": 409,
+    "NOTICE_SELF_ACTIVATION": 403,
+    "NOTICE_VERSION_EXISTS": 409,
+    "NOTICE_REFUSED": 409,
+    "LEAD_TRANSITION_REFUSED": 409,
+    "LEAD_REASON_REQUIRED": 422,
+    "FAMILY_TEXT_NOT_DRAFT": 409,
+    "FAMILY_TEXT_SELF_ACTIVATION": 403,
+    "FAMILY_TEXT_REFUSED": 409,
+    "FAMILY_UNKNOWN": 404,
+    "NAME_LENGTH": 422,
+    "UNIT_LENGTH": 422,
+    "QUALIFIER_LENGTH": 422,
+    "PRICE_IN_TEXT": 422,
+    "CLAIM_IN_LABEL": 422,
+    "FX_SET_NOT_FOUND": 404,
+    "FX_SET_NOT_DRAFT": 409,
+    "FX_SELF_ACTIVATION": 403,
+    "FX_SET_REFUSED": 409,
+    "FX_RATE_REFUSED": 422,
+    "FX_ACTIVATION_REFUSED": 409,
+    "PO_NUMBER_EXISTS": 409,
+    "PO_NOT_OPEN": 409,
+    "PO_REFUSED": 409,
+    "PARTNER_NOT_PROPOSED": 409,
+    "PARTNER_SELF_ACTIVATION": 403,
+    "PARTNER_REFUSED": 409,
+    "PARTNER_STATUS_REFUSED": 409,
+    "PARTNER_TERMINATED": 409,
+    "CHILD_IS_PARTNER": 422,
+    "CHILD_ALREADY_IN_CHANNEL": 409,
+    "CHILD_NOT_FOUND": 404,
+    "SETTLEMENT_NOT_FOUND": 404,
+    "SETTLEMENT_ALREADY_DECIDED": 409,
+    "SETTLEMENT_SELF_APPROVAL": 403,
+    "SETTLEMENT_REFUSED": 409,
+    "ROLLOUT_NOT_STARTED": 409,
+    "ROLLOUT_ALREADY_IN_STAGE": 409,
+    "ROLLOUT_NOT_LIVE": 409,
+    "ROLLOUT_AT_END": 409,
+    "ROLLOUT_STAGE_SKIP": 409,
+    "ROLLOUT_SAME_PERSON": 403,
 }
 
 
@@ -302,6 +391,1282 @@ async def approve_book(
         b = await store.price_book(conn, str(price_book_id))
     assert b is not None
     return _book_view(b)
+
+
+# --------------------------------------------------------------------------------------------- the market matrix (F06 / O01)
+
+
+class MatrixRowBody(BaseModel):
+    """One (family, country) row. Every field is a recorded statement or a reference to signed evidence: this API cannot make a reference true."""
+
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    seller_entity: str = Field(min_length=1, max_length=160)
+    merchant_route: str = Field(min_length=1, max_length=160)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    tax_class: str = Field(min_length=1, max_length=80)
+    data_region: str = Field(min_length=1, max_length=40)
+    offer_ref: str = Field(min_length=1, max_length=255)
+    legal_basis_ref: str = Field(min_length=1, max_length=255)
+    release_evidence_ref: str = Field(min_length=1, max_length=255)
+    payment_configured: bool
+    tax_configured: bool
+    provider_rights_ref: str | None = Field(default=None, max_length=255)
+    regulated_status_ref: str | None = Field(default=None, max_length=255)
+    provider_rights_expires: date | None = None
+    regulated_status_expires: date | None = None
+    document_issuer_countries: list[Annotated[str, Field(pattern=r"^[A-Z]{2}$")]] = Field(
+        default_factory=list, max_length=250
+    )
+
+
+class MatrixApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["PRODUCT", "FINANCE", "LEGAL_PRIVACY", "SECURITY_QA"]
+
+
+def _matrix_view(m: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "matrix_id": str(m["matrix_id"]),
+        "version": m["version"],
+        "status": m["status"],
+        "effective_from": _iso(m["effective_from"]),
+        "activated_at": _iso(m["activated_at"]),
+        "note": m["note"],
+    }
+
+
+def _matrix_row_view(r: Any) -> dict[str, Any]:
+    return {k: getattr(r, k) for k in r.__slots__}
+
+
+@router.get("/v1/commercial/market-matrices")
+async def list_matrices(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return {"items": [_matrix_view(m) for m in await market_matrix_store.matrices(conn)]}
+
+
+class RolloutBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    stage: Literal["SANDBOX", "STAGING", "PILOT", "CANARY", "PRODUCTION", "PAUSED", "ROLLED_BACK"]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/v1/commercial/market-rollout")
+async def list_rollout(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Where every market of the active matrix is in its staged rollout, and who made the latest move."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        _, rows = await market_matrix_store.active_rows(conn, datetime.now(UTC))
+        latest = await rollout_store.current(conn)
+    return {
+        "items": [
+            {
+                "family": f,
+                "country": c,
+                "stage": latest.get((f, c), {}).get("stage"),
+                "decided_by": str(latest[(f, c)]["decided_by"]) if (f, c) in latest else None,
+                "decided_at": _iso(latest[(f, c)]["decided_at"]) if (f, c) in latest else None,
+            }
+            for (f, c) in sorted(rows)
+        ]
+    }
+
+
+@router.post("/v1/commercial/market-rollout", status_code=201)
+async def move_rollout(body: RolloutBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Move one market of the active matrix one stage on, pause it, or roll it back. Advancing needs a different person than the last move; stopping never does."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            out = await rollout_store.move(
+                conn,
+                family=body.family,
+                country=body.country,
+                target=body.stage,
+                decider=str(op.principal_id),
+                reason=body.reason,
+            )
+            await log_change(
+                conn,
+                kind="MARKET_ROLLOUT_MOVED",
+                ref=f"{body.family}:{body.country}",
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"stage": body.stage},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return out
+
+
+class PartnerBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=160)
+    kind: Literal["RESELLER", "REFERRAL", "EMBEDDED_ISV"]
+    parent_tenant_id: uuid.UUID
+    bill_to: Literal["PARTNER", "CHILD"]
+    territory: list[Annotated[str, Field(pattern=r"^[A-Z]{2}$")]] = Field(
+        min_length=1, max_length=250
+    )
+    agreement_ref: str = Field(min_length=1, max_length=255)
+    brand_terms_ref: str | None = Field(default=None, max_length=255)
+    settlement_ref: str | None = Field(default=None, max_length=255)
+    effective_until: datetime | None = None
+
+
+class PartnerStatusBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["ACTIVE", "SUSPENDED", "TERMINATED"]
+
+
+class PartnerChildBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    child_tenant_id: uuid.UUID
+    downstream_consent_ref: str | None = Field(default=None, max_length=255)
+    usage_visible: bool = False
+
+
+class SettlementBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    period: date
+    kind: Literal["COMMISSION", "BILLING_REPORT", "CREDIT_NOTE"]
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
+class SettlementDecisionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approve: bool
+    reason: str = Field(min_length=3, max_length=500)
+
+
+def _partner_view(p: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in p.items()},
+        "territory": list(p["territory"]),
+        "effective_from": _iso(p["effective_from"]),
+        "effective_until": _iso(p["effective_until"]),
+        "created_at": _iso(p["created_at"]),
+        "activated_at": _iso(p["activated_at"]),
+    }
+
+
+@router.get("/v1/commercial/partners")
+async def list_partners(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return {"items": [_partner_view(p) for p in await partner_store.partners(conn)]}
+
+
+@router.get("/v1/commercial/partners/{partner_id}")
+async def get_partner(partner_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        p = await partner_store.get(conn, str(partner_id))
+        if p is None:
+            raise _fail(CommercialError("PARTNER_NOT_FOUND"))
+        kids = await partner_store.children(conn, str(partner_id))
+    return {
+        **_partner_view(p),
+        "children": [
+            {
+                "child_tenant_id": str(c["child_tenant_id"]),
+                "downstream_consent_ref": c["downstream_consent_ref"],
+                "usage_visible": c["usage_visible"],
+                "revoked_at": _iso(c["revoked_at"]),
+            }
+            for c in kids
+        ],
+    }
+
+
+@router.post("/v1/commercial/partners", status_code=201)
+async def create_partner(body: PartnerBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Record a partner as PROPOSED, with a reference to its signed channel agreement. Another person activates it; nothing is sold or paid until then."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            p = await partner_store.create(
+                conn,
+                name=body.name,
+                kind=body.kind,
+                parent_tenant_id=str(body.parent_tenant_id),
+                bill_to=body.bill_to,
+                territory=body.territory,
+                agreement_ref=body.agreement_ref,
+                brand_terms_ref=body.brand_terms_ref,
+                settlement_ref=body.settlement_ref,
+                effective_from=None,
+                effective_until=body.effective_until,
+                created_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return _partner_view(p)
+
+
+@router.post("/v1/commercial/partners/{partner_id}:activate")
+async def activate_partner(
+    partner_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.activate(
+                conn,
+                str(partner_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="PARTNER_ACTIVATED",
+                ref=str(partner_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/partners/{partner_id}:status")
+async def set_partner_status(
+    partner_id: uuid.UUID, body: PartnerStatusBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Suspend, resume or terminate. New operations stop at once; evidence already recorded is kept."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.set_status(conn, str(partner_id), body.status)
+            await log_change(
+                conn,
+                kind="PARTNER_STATUS",
+                ref=str(partner_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"status": body.status},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "status": body.status}
+
+
+@router.put("/v1/commercial/partners/{partner_id}/children", status_code=201)
+async def add_partner_child(
+    partner_id: uuid.UUID, body: PartnerChildBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.add_child(
+                conn,
+                str(partner_id),
+                child_tenant_id=str(body.child_tenant_id),
+                permitted_by=str(op.principal_id),
+                downstream_consent_ref=body.downstream_consent_ref,
+                usage_visible=body.usage_visible,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "child_tenant_id": str(body.child_tenant_id)}
+
+
+@router.post("/v1/commercial/partners/{partner_id}/children/{child_tenant_id}:revoke")
+async def revoke_partner_child(
+    partner_id: uuid.UUID, child_tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.revoke_child(conn, str(partner_id), str(child_tenant_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"partner_id": str(partner_id), "child_tenant_id": str(child_tenant_id), "revoked": True}
+
+
+@router.get("/v1/commercial/partners/{partner_id}/usage")
+async def partner_usage(
+    partner_id: uuid.UUID,
+    request: Request,
+    op: OperatorDep,
+    month: str = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+) -> dict[str, Any]:
+    """The usage attributed to a partner in a month, reconciled once: every event carries the one payer the agreement names, and none is counted twice."""
+    first = date(int(month[:4]), int(month[5:7]), 1)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        p = await partner_store.get(conn, str(partner_id))
+        if p is None:
+            raise _fail(CommercialError("PARTNER_NOT_FOUND"))
+        events = await partner_store.attributed_events(conn, str(partner_id), first)
+    result = partner_model.reconcile(events, partner_store.model(p))
+    by_child: dict[str, dict[str, str]] = {}
+    for e in events:
+        meters = by_child.setdefault(str(e["tenant_id"]), {})
+        meters[e["meter_id"]] = str(
+            Decimal(meters.get(e["meter_id"], "0")) + Decimal(e["quantity"])
+        )
+    return {"partner_id": str(partner_id), "month": month, **result, "by_child": by_child}
+
+
+@router.post("/v1/commercial/partners/{partner_id}/settlements", status_code=201)
+async def propose_partner_settlement(
+    partner_id: uuid.UUID, body: SettlementBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Propose a commission, a billing report or a credit note for a partner. Only where a signed settlement arrangement is on file; a second person decides it. Nothing is paid by this."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            sid = await partner_store.propose_settlement(
+                conn,
+                str(partner_id),
+                period=body.period,
+                kind=body.kind,
+                amount=str(body.amount),
+                currency=body.currency,
+                proposed_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"settlement_id": sid, "status": "PROPOSED"}
+
+
+@router.post("/v1/commercial/partner-settlements/{settlement_id}:decide")
+async def decide_partner_settlement(
+    settlement_id: uuid.UUID, body: SettlementDecisionBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await partner_store.decide_settlement(
+                conn,
+                str(settlement_id),
+                decider=str(op.principal_id),
+                approve=body.approve,
+                reason=body.reason,
+            )
+            await log_change(
+                conn,
+                kind="PARTNER_SETTLEMENT_DECIDED",
+                ref=str(settlement_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"approve": body.approve},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "settlement_id": str(settlement_id),
+        "status": "APPROVED" if body.approve else "REJECTED",
+    }
+
+
+class PurchaseOrderBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    po_number: str = Field(min_length=1, max_length=80)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    value: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    valid_from: date
+    valid_until: date
+
+
+def _po_view(r: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "po_id": str(r["po_id"]),
+        "po_number": r["po_number"],
+        "currency": r["currency"],
+        "value": str(r["value"]),
+        "drawn": str(r["drawn"]),
+        "remaining": str(Decimal(r["value"]) - Decimal(r["drawn"])),
+        "valid_from": r["valid_from"].isoformat(),
+        "valid_until": r["valid_until"].isoformat(),
+        "status": r["status"],
+    }
+
+
+@router.get("/v1/commercial/tenants/{tenant_id}/purchase-orders")
+async def list_purchase_orders(
+    tenant_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        return {
+            "items": [_po_view(r) for r in await purchase_order_store.operator_list(conn, tenant)]
+        }
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/purchase-orders", status_code=201)
+async def record_purchase_order(
+    tenant_id: uuid.UUID, body: PurchaseOrderBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Record a purchase order the company supplied. From then on its invoices are issued only against a PO that fits."""
+    tenant = str(tenant_id)
+    if body.valid_until < body.valid_from:
+        raise ZidError(
+            "PO_VALIDITY_INVALID", "A purchase order cannot end before it starts.", http_status=422
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                po_id = await purchase_order_store.record(
+                    conn,
+                    tenant_id=tenant,
+                    po_number=body.po_number,
+                    currency=body.currency,
+                    value=str(body.value),
+                    valid_from=body.valid_from,
+                    valid_until=body.valid_until,
+                    created_by=str(op.principal_id),
+                )
+                await log_change(
+                    conn,
+                    kind="PURCHASE_ORDER_RECORDED",
+                    ref=po_id,
+                    tenant_id=tenant,
+                    actor=op.principal_id,
+                    detail={"po_number": body.po_number, "currency": body.currency},
+                )
+            except CommercialError as e:
+                raise _fail(e) from e
+    return {"po_id": po_id}
+
+
+@router.post("/v1/commercial/tenants/{tenant_id}/purchase-orders/{po_id}:close")
+async def close_purchase_order(
+    tenant_id: uuid.UUID, po_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    tenant = str(tenant_id)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", tenant, f"tenant:{tenant}")
+        async with in_tenant(conn, tenant):
+            try:
+                await purchase_order_store.close(conn, str(po_id))
+            except CommercialError as e:
+                raise _fail(e) from e
+    return {"po_id": str(po_id), "status": "CLOSED"}
+
+
+@router.get("/v1/commercial/profitability")
+async def profitability(
+    request: Request,
+    op: OperatorDep,
+    from_: str = Query(alias="from", pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+    to: str = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+) -> dict[str, Any]:
+    """Margin by SKU (rated revenue less provider cost in the same currency), run-rate and revenue retention over a range of months. Read only; finance authority."""
+    start, end = date(int(from_[:4]), int(from_[5:7]), 1), date(int(to[:4]), int(to[5:7]), 1)
+    if end < start or (end.year - start.year) * 12 + end.month - start.month > 24:
+        raise ZidError(
+            "RANGE_INVALID",
+            "The range must run forwards and cover at most 25 months.",
+            http_status=422,
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.billing.manage", None, "commercial:finance")
+        out: dict[str, Any] = await profitability_service.report(
+            conn, start=start, end=end, as_of=datetime.now(UTC).date()
+        )
+        return out
+
+
+class FxSetBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_ref: str = Field(min_length=3, max_length=255)
+    as_of: date
+
+
+class FxRateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    usd_per_unit: Decimal = Field(gt=0, max_digits=24, decimal_places=12)
+
+
+@router.get("/v1/commercial/fx-rate-sets")
+async def list_fx_sets(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        out = []
+        for s in await fx_store.sets(conn):
+            out.append(
+                {
+                    "set_id": str(s["set_id"]),
+                    "version": s["version"],
+                    "status": s["status"],
+                    "source_ref": s["source_ref"],
+                    "as_of": s["as_of"].isoformat(),
+                    "rates": {
+                        k: str(v) for k, v in (await fx_store.rates(conn, str(s["set_id"]))).items()
+                    },
+                }
+            )
+    return {"items": out}
+
+
+@router.post("/v1/commercial/fx-rate-sets", status_code=201)
+async def create_fx_set(body: FxSetBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """A draft rate set with its named source and as-of date. There are no default rates: the owner supplies each one from the named source."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            return await fx_store.create_draft(
+                conn, source_ref=body.source_ref, as_of=body.as_of, created_by=str(op.principal_id)
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.put("/v1/commercial/fx-rate-sets/{set_id}/rates")
+async def put_fx_rate(
+    set_id: uuid.UUID, body: FxRateBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.put_rate(conn, str(set_id), body.currency, str(body.usd_per_unit))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "currency": body.currency}
+
+
+@router.post("/v1/commercial/fx-rate-sets/{set_id}:activate")
+async def activate_fx_set(set_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.activate(
+                conn, str(set_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="FX_RATE_SET_ACTIVATED",
+                ref=str(set_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/fx-rate-sets/{set_id}:withdraw")
+async def withdraw_fx_set(set_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await fx_store.withdraw(conn, str(set_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"set_id": str(set_id), "status": "WITHDRAWN"}
+
+
+class FamilyTextBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    name: str = Field(min_length=2, max_length=80)
+    unit: str = Field(min_length=2, max_length=120)
+    sales_qualifier: str = Field(default="", max_length=300)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/v1/commercial/service-family-texts")
+async def list_family_texts(
+    request: Request,
+    op: OperatorDep,
+    family: str | None = Query(default=None, pattern=r"^[A-Z]{2,8}$"),
+) -> dict[str, Any]:
+    """Every wording revision (newest first) beside the reviewed file's wording, so a reviewer sees what would change."""
+    base = family_registry()
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        revs = await family_text_store.revisions(conn, family)
+    return {
+        "baseline": {
+            f.code: {"name": f.name, "unit": f.unit, "sales_qualifier": f.sales_qualifier}
+            for f in base.families.values()
+            if family in (None, f.code)
+        },
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "created_at": _iso(r["created_at"]),
+                "activated_at": _iso(r["activated_at"]),
+            }
+            for r in revs
+        ],
+    }
+
+
+@router.post("/v1/commercial/service-family-texts", status_code=201)
+async def propose_family_text(
+    body: FamilyTextBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Propose new wording for one family. It changes nothing until a different person activates it, and it can never change what the family needs or does."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await family_text_store.create_draft(
+                conn,
+                family=body.family,
+                name=body.name,
+                unit=body.unit,
+                sales_qualifier=body.sales_qualifier,
+                reason=body.reason,
+                created_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/service-family-texts/{rev_id}:activate")
+async def activate_family_text(
+    rev_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await family_text_store.activate(
+                conn, str(rev_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="FAMILY_TEXT_ACTIVATED",
+                ref=str(rev_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"rev_id": str(rev_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/service-family-texts/{rev_id}:withdraw")
+async def withdraw_family_text(
+    rev_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await family_text_store.withdraw(conn, str(rev_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"rev_id": str(rev_id), "status": "WITHDRAWN"}
+
+
+class LeadAdvanceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["QUALIFIED", "SCOPED", "REVIEW", "OFFER_SENT", "CLOSED", "SPAM"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/v1/commercial/sales-leads")
+async def list_sales_leads(
+    request: Request,
+    op: OperatorDep,
+    status: str | None = Query(default=None, pattern=r"^[A-Z_]{4,12}$"),
+) -> dict[str, Any]:
+    """The inquiries from the public pricing page, newest first. A lead is a conversation, never an account or a commitment."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        rows = await lead_store.leads(conn, status)
+    return {
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "capabilities": list(r["capabilities"]),
+                "created_at": _iso(r["created_at"]),
+                "updated_at": _iso(r["updated_at"]),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/v1/commercial/sales-leads/{lead_id}:advance")
+async def advance_sales_lead(
+    lead_id: uuid.UUID, body: LeadAdvanceBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Move an inquiry one step on, or close it or mark it spam with a reason. Nothing moves backwards, and none of it creates an entitlement."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await lead_store.advance(
+                conn,
+                str(lead_id),
+                to=body.status,
+                reason=body.reason,
+                decided_by=str(op.principal_id),
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"lead_id": str(lead_id), "status": body.status}
+
+
+class PageSignBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class NoticeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: str = Field(pattern=r"^[A-Za-z0-9._-]{3,40}$")
+    body: str = Field(min_length=40, max_length=4000)
+
+
+@router.get("/v1/commercial/pricing-page")
+async def pricing_page_state(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Whether the public pricing page's packaging is approved: the file's current hash, who has signed it, and who is still needed."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        return await pricing_governance.page_state(conn)
+
+
+@router.post("/v1/commercial/pricing-page:sign")
+async def sign_pricing_page(
+    body: PageSignBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """An appointed Founder or CCO signs the pricing page file by the hash they were shown. Both, as different people, make it APPROVED; any change to the file unsigns it."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await pricing_governance.sign_page(
+                conn, signer=str(op.principal_id), shown_hash=body.content_hash
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.get("/v1/commercial/public-notices")
+async def list_public_notices(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        rows = await notice_store.notices(conn)
+        served = await pricing_governance.served_notice(conn)
+    return {
+        "served": served,
+        "items": [
+            {
+                **{k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in r.items()},
+                "created_at": _iso(r["created_at"]),
+                "activated_at": _iso(r["activated_at"]),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/v1/commercial/public-notices", status_code=201)
+async def propose_public_notice(
+    body: NoticeBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Legal's text for the inquiry form's privacy notice, as a draft. It changes nothing a visitor sees until a different person activates it."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await notice_store.propose(
+                conn, version=body.version, body=body.body, created_by=str(op.principal_id)
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/public-notices/{notice_id}:activate")
+async def activate_public_notice(
+    notice_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await notice_store.activate(
+                conn, str(notice_id), activator=str(op.principal_id), now=datetime.now(UTC)
+            )
+            await log_change(
+                conn,
+                kind="PUBLIC_NOTICE_ACTIVATED",
+                ref=str(notice_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"notice_id": str(notice_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/public-notices/{notice_id}:withdraw")
+async def withdraw_public_notice(
+    notice_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await notice_store.withdraw(conn, str(notice_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"notice_id": str(notice_id), "status": "WITHDRAWN"}
+
+
+class RateLineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    family: str = Field(pattern=r"^[A-Z]{2,8}$")
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    period: Literal["MONTHLY", "ANNUAL"]
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    charge_unit: str = Field(min_length=3, max_length=120)
+    included_units: int = Field(ge=0, le=1_000_000_000_000, default=0)
+    unit_amount: Decimal = Field(ge=0, max_digits=18, decimal_places=6, default=Decimal(0))
+    minimum_amount: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=6)
+    minimum_model: Literal["FLOOR", "PLATFORM_FEE"] | None = None
+    source_ref: str = Field(min_length=1, max_length=255)
+
+
+class RateLinesImport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lines: list[RateLineBody] = Field(min_length=1, max_length=500)
+
+
+class RateApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["CFO", "CCO", "FOUNDER"]
+
+
+def _rate_of(b: RateLineBody) -> rate_model.Rate:
+    return rate_model.Rate(
+        b.family,
+        b.country,
+        b.period,
+        b.currency,
+        b.charge_unit,
+        b.included_units,
+        b.unit_amount,
+        b.minimum_amount,
+        b.minimum_model,
+    )
+
+
+def _rate_problems(b: RateLineBody, registry: Any) -> list[str]:
+    found = rate_model.rate_problems(_rate_of(b))
+    if registry.get(b.family) is None:
+        found = ["FAMILY_UNKNOWN", *found]
+    return found
+
+
+@router.get("/v1/commercial/family-rate-cards")
+async def list_rate_cards(request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        items = [
+            {
+                "card_id": str(c["card_id"]), "version": c["version"], "status": c["status"], "effective_from": _iso(c["effective_from"]),
+                "activated_at": _iso(c["activated_at"]), "note": c["note"],
+            }
+            for c in await family_rate_store.cards(conn)
+        ]  # fmt: skip
+    return {"items": items}
+
+
+@router.get("/v1/commercial/family-rate-cards/{card_id}")
+async def get_rate_card(card_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        c = await family_rate_store.card(conn, str(card_id))
+        if c is None:
+            raise _fail(CommercialError("RATE_CARD_NOT_FOUND"))
+        lines = await family_rate_store.lines(conn, str(card_id))
+        signed = await family_rate_store.approvals(conn, str(card_id))
+    return {
+        "card_id": str(c["card_id"]), "version": c["version"], "status": c["status"], "effective_from": _iso(c["effective_from"]), "note": c["note"],
+        "lines": [
+            {
+                "family": r.family, "country": r.country, "period": r.period, "currency": r.currency, "charge_unit": r.charge_unit,
+                "included_units": r.included_units, "unit_amount": str(r.unit_amount),
+                "minimum_amount": str(r.minimum_amount) if r.minimum_amount is not None else None, "minimum_model": r.minimum_model, "source_ref": ref,
+            }
+            for r, ref in lines
+        ],
+        "approvals": [{"role": a["role"], "approver": str(a["approver"]), "approved_at": _iso(a["approved_at"])} for a in signed],
+        "missing_approvals": [r for r in family_rate_store.ROLES if r not in {a["role"] for a in signed}],
+    }  # fmt: skip
+
+
+@router.post("/v1/commercial/family-rate-cards", status_code=201)
+async def create_rate_card(body: DraftBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """A draft rate card. There are no default rates: every line is entered by an owner from a signed source."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            return await family_rate_store.create_draft(
+                conn,
+                copy_of=str(body.copy_of) if body.copy_of else None,
+                created_by=str(op.principal_id),
+                note=body.note,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}/lines:import")
+async def import_rate_lines(
+    card_id: uuid.UUID, body: RateLinesImport, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Add or replace up to 500 rate lines of a DRAFT card at once. All or nothing, with every problem listed by line."""
+    registry = family_registry()
+    problems: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for i, b in enumerate(body.lines, start=1):
+        found = _rate_problems(b, registry)
+        key = (b.family, b.country, b.period)
+        if key in seen:
+            found = [*found, "DUPLICATE_IN_IMPORT"]
+        seen.add(key)
+        if found:
+            problems.append(
+                {"line": i, "key": f"{b.family} {b.country} {b.period}", "problems": found}
+            )
+    if problems:
+        raise ZidError(
+            "RATE_IMPORT_REJECTED", f"{len(problems)} of {len(body.lines)} lines have problems; nothing was written.", http_status=422,
+            details=[ErrorDetail(field=f"line {p['line']} {p['key']}", issue=",".join(p["problems"])) for p in problems[:50]],
+        )  # fmt: skip
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            for b in body.lines:
+                await family_rate_store.put_line(conn, str(card_id), _rate_of(b), b.source_ref)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "lines_written": len(body.lines)}
+
+
+@router.put("/v1/commercial/family-rate-cards/{card_id}/lines")
+async def put_rate_line(
+    card_id: uuid.UUID, body: RateLineBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    problems = _rate_problems(body, family_registry())
+    if problems:
+        raise ZidError(
+            problems[0], f"This rate line is not valid: {', '.join(problems)}.", http_status=422
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.put_line(conn, str(card_id), _rate_of(body), body.source_ref)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "card_id": str(card_id),
+        "family": body.family,
+        "country": body.country,
+        "period": body.period,
+    }
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:approve")
+async def approve_rate_card(
+    card_id: uuid.UUID, body: RateApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """The CFO, the CCO and the Founder sign, as three different people, none the author. Each must hold that appointment."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        if not await finance.holds(conn, str(op.principal_id), body.role, now):
+            raise _fail(
+                CommercialError(
+                    "RATE_CARD_NOT_APPOINTED", f"you do not hold the {body.role} appointment"
+                )
+            )
+        try:
+            await family_rate_store.approve(
+                conn, str(card_id), role=body.role, approver=str(op.principal_id)
+            )
+            await log_change(
+                conn,
+                kind="RATE_CARD_APPROVED",
+                ref=str(card_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"role": body.role},
+            )
+            signed = await family_rate_store.approvals(conn, str(card_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "card_id": str(card_id),
+        "signed": [a["role"] for a in signed],
+        "missing": [r for r in family_rate_store.ROLES if r not in {a["role"] for a in signed}],
+    }
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:activate")
+async def activate_rate_card(
+    card_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.activate(
+                conn,
+                str(card_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="RATE_CARD_ACTIVATED",
+                ref=str(card_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "status": "ACTIVE"}
+
+
+@router.post("/v1/commercial/family-rate-cards/{card_id}:withdraw")
+async def withdraw_rate_card(
+    card_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:finance")
+        try:
+            await family_rate_store.withdraw(conn, str(card_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"card_id": str(card_id), "status": "WITHDRAWN"}
+
+
+@router.get("/v1/commercial/quote-requests")
+async def list_quote_requests(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The deal desk's queue: every company's saved configuration that was sent for a quote, with the scope, assumptions and market exceptions frozen at the time."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        return {"items": await solution_store.operator_requests(conn)}
+
+
+@router.get("/v1/commercial/market-matrices/{matrix_id}")
+async def get_matrix(matrix_id: uuid.UUID, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """One matrix with its rows, who has signed which role, and the roles still missing before it can be activated."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        m = await market_matrix_store.matrix(conn, str(matrix_id))
+        if m is None:
+            raise _fail(CommercialError("MARKET_MATRIX_NOT_FOUND"))
+        rows = await market_matrix_store.rows(conn, str(matrix_id))
+        signed = await market_matrix_store.approvals(conn, str(matrix_id))
+    registry = family_registry()
+    return {
+        **_matrix_view(m),
+        "rows": [_matrix_row_view(r) for r in rows],
+        "incomplete_rows": [
+            {
+                "family": r.family,
+                "country": r.country,
+                "problems": market_matrix_model.row_problems(r, registry),
+            }
+            for r in rows
+            if market_matrix_model.row_problems(r, registry)
+        ],
+        "rights_alerts": market_matrix_model.rights_alerts(rows, datetime.now(UTC).date()),
+        "approvals": [
+            {
+                "role": a["role"],
+                "approver": str(a["approver"]),
+                "approved_at": _iso(a["approved_at"]),
+            }
+            for a in signed
+        ],
+        "missing_approvals": list(
+            market_matrix_model.missing_approvals([a["role"] for a in signed])
+        ),
+    }
+
+
+@router.post("/v1/commercial/market-matrices", status_code=201)
+async def create_matrix(body: DraftBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await market_matrix_store.create_draft(
+                conn,
+                copy_of=str(body.copy_of) if body.copy_of else None,
+                created_by=str(op.principal_id),
+                note=body.note,
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+
+
+@router.put("/v1/commercial/market-matrices/{matrix_id}/rows")
+async def put_matrix_row(
+    matrix_id: uuid.UUID, body: MatrixRowBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    row = market_matrix_model.Row(
+        **{
+            **body.model_dump(),
+            "document_issuer_countries": tuple(sorted(set(body.document_issuer_countries))),
+        }
+    )
+    try:
+        market_matrix_model.check_row(row, family_registry())
+    except market_matrix_model.MatrixError as e:
+        raise ZidError(e.code, f"This row is incomplete: {e.detail}.", http_status=422) from e
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.put_row(conn, str(matrix_id), row)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "family": row.family, "country": row.country}
+
+
+class MatrixRowsImport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rows: list[MatrixRowBody] = Field(min_length=1, max_length=500)
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}/rows:import")
+async def import_matrix_rows(
+    matrix_id: uuid.UUID, body: MatrixRowsImport, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Add or replace up to 500 rows of a DRAFT matrix at once. All or nothing: if any row is incomplete or repeats a (family, country), nothing is written and every problem is
+    listed by row, so a spreadsheet can be corrected in one pass. A row is still only a reference to signed evidence."""
+    registry = family_registry()
+    problems: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    rows = []
+    for i, b in enumerate(body.rows, start=1):
+        row = market_matrix_model.Row(
+            **{
+                **b.model_dump(),
+                "document_issuer_countries": tuple(sorted(set(b.document_issuer_countries))),
+            }
+        )
+        found = market_matrix_model.row_problems(row, registry)
+        if (row.family, row.country) in seen:
+            found = [*found, "DUPLICATE_IN_IMPORT"]
+        seen.add((row.family, row.country))
+        if found:
+            problems.append(
+                {"row": i, "family": row.family, "country": row.country, "problems": found}
+            )
+        rows.append(row)
+    if problems:
+        raise ZidError(
+            "MARKET_MATRIX_IMPORT_REJECTED",
+            f"{len(problems)} of {len(rows)} rows have problems; nothing was written.",
+            http_status=422,
+            details=[
+                ErrorDetail(
+                    field=f"row {p['row']} {p['family']} {p['country']}",
+                    issue=",".join(p["problems"]),
+                )
+                for p in problems[:50]
+            ],
+        )
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            for row in rows:
+                await market_matrix_store.put_row(conn, str(matrix_id), row)
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "rows_written": len(rows)}
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:approve")
+async def approve_matrix(
+    matrix_id: uuid.UUID, body: MatrixApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """One of four independent roles signs a DRAFT matrix. The author cannot, and one person cannot sign for two roles."""
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.approve(
+                conn, str(matrix_id), role=body.role, approver=str(op.principal_id)
+            )
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_APPROVED",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"role": body.role},
+            )
+            signed = await market_matrix_store.approvals(conn, str(matrix_id))
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {
+        "matrix_id": str(matrix_id),
+        "signed": [a["role"] for a in signed],
+        "missing": list(market_matrix_model.missing_approvals([a["role"] for a in signed])),
+    }
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:activate")
+async def activate_matrix(
+    matrix_id: uuid.UUID, body: ApproveBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Make a fully approved matrix the one in force. Needs all four approvals, at least one complete row, and someone other than the author."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        registry = family_registry()
+        bad = [
+            r
+            for r in await market_matrix_store.rows(conn, str(matrix_id))
+            if market_matrix_model.row_problems(r, registry)
+        ]
+        if bad:
+            raise ZidError(
+                "MARKET_MATRIX_ROW_INCOMPLETE",
+                f"{len(bad)} row(s) are incomplete; fix them before activation.",
+                http_status=422,
+            )
+        try:
+            await market_matrix_store.activate(
+                conn,
+                str(matrix_id),
+                activator=str(op.principal_id),
+                effective_from=body.effective_from or now,
+                now=now,
+            )
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_ACTIVATED",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={"effective_from": (body.effective_from or now).isoformat()},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+        m = await market_matrix_store.matrix(conn, str(matrix_id))
+    assert m is not None
+    return _matrix_view(m)
+
+
+@router.post("/v1/commercial/market-matrices/{matrix_id}:withdraw")
+async def withdraw_matrix(
+    matrix_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            await market_matrix_store.withdraw(conn, str(matrix_id))
+            await log_change(
+                conn,
+                kind="MARKET_MATRIX_WITHDRAWN",
+                ref=str(matrix_id),
+                tenant_id=None,
+                actor=op.principal_id,
+                detail={},
+            )
+        except CommercialError as e:
+            raise _fail(e) from e
+    return {"matrix_id": str(matrix_id), "status": "WITHDRAWN"}
 
 
 class PlanRequestAnswer(BaseModel):

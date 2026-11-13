@@ -28,20 +28,28 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from c14n.Canonicalize import canonicalize as canonicalize_json  # type: ignore[import-untyped]
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from pyld import jsonld
+from pyld.canon import URDNA2015
 
 Loader = Callable[[str, Mapping[str, Any] | None], dict[str, Any]]
 SUITE = "eddsa-rdfc-2022"  # the first suite; kept for callers that name it
-ECDSA_SUITE = "ecdsa-rdfc-2019"  # P-256 with SHA-256
-SUITES = (SUITE, ECDSA_SUITE)
+ECDSA_SUITE = "ecdsa-rdfc-2019"  # P-256 with SHA-256, or P-384 with SHA-384 (the key says which)
+EDDSA_JCS_SUITE = (
+    "eddsa-jcs-2022"  # Ed25519, SHA-256, RFC 8785 canonical JSON (no JSON-LD processing)
+)
+ECDSA_JCS_SUITE = "ecdsa-jcs-2019"  # as ecdsa-rdfc-2019, over RFC 8785 canonical JSON
+SUITES = (SUITE, ECDSA_SUITE, EDDSA_JCS_SUITE, ECDSA_JCS_SUITE)
+JCS_SUITES = frozenset({EDDSA_JCS_SUITE, ECDSA_JCS_SUITE})
 _B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 ED25519_MULTICODEC = b"\xed\x01"
 P256_MULTICODEC = b"\x80\x24"
+P384_MULTICODEC = bytes([0x81, 0x24])
 
 
 class DataIntegrityError(ValueError):
@@ -98,8 +106,31 @@ def p256_public_key(multikey: str) -> VerificationKey:
     return VerificationKey("p256", raw[2:])
 
 
-# which key type each suite uses: a key of the wrong type is never tried
-_SUITE_KEY = {SUITE: "ed25519", ECDSA_SUITE: "p256"}
+def p384_public_key(multikey: str) -> VerificationKey:
+    """The P-384 key from a Multikey `publicKeyMultibase` (prefix 0x8124, then the 49-byte compressed point). Off the curve, another curve or
+    any other key type is refused."""
+    raw = decode_multibase(multikey)
+    if not raw.startswith(P384_MULTICODEC) or len(raw) != 51:
+        raise DataIntegrityError("KEY_NOT_P384_MULTIKEY")
+    try:
+        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP384R1(), raw[2:])
+    except ValueError as e:
+        raise DataIntegrityError("KEY_NOT_ON_THE_P384_CURVE") from e
+    return VerificationKey("p384", raw[2:])
+
+
+# which key types each suite may use: a key of the wrong type is never tried
+_SUITE_KEYS = {
+    SUITE: ("ed25519",),
+    ECDSA_SUITE: ("p256", "p384"),
+    EDDSA_JCS_SUITE: ("ed25519",),
+    ECDSA_JCS_SUITE: ("p256", "p384"),
+}
+# the curve fixes the hash and the signature width (SHA-256 and 64 bytes for P-256, SHA-384 and 96 bytes for P-384)
+_CURVES: dict[str, tuple[Any, Any, Any, int]] = {
+    "p256": (ec.SECP256R1(), hashes.SHA256, hashlib.sha256, 64),
+    "p384": (ec.SECP384R1(), hashes.SHA384, hashlib.sha384, 96),
+}
 
 
 class BundledContexts:
@@ -142,14 +173,34 @@ class BundledContexts:
         return frozenset(self._docs)
 
 
-def canonicalize(document: Mapping[str, Any], loader: Loader) -> str:
-    """URDNA2015 as N-Quads. The algorithm is named on purpose: the library's default is a different one."""
-    return str(
-        jsonld.normalize(
-            dict(document),
-            {"algorithm": "URDNA2015", "format": "application/n-quads", "documentLoader": loader},
-        )
+class _Sha384Canon(URDNA2015):  # type: ignore[misc]
+    """URDNA2015 with SHA-384 as its hash, which the ECDSA suites require when the key is on P-384 (the library's own class is SHA-256 only)."""
+
+    def create_hash(self) -> Any:
+        return hashlib.sha384()
+
+
+def jcs(document: Mapping[str, Any]) -> str:
+    """RFC 8785 canonical JSON. These suites sign the JSON text itself: no context is read and nothing is expanded, so every member present is
+    covered by the signature, and a key that is not a plain string or a number that is not finite is refused by the canonicalizer."""
+    try:
+        return str(canonicalize_json(dict(document)).decode("utf-8"))
+    except (ValueError, TypeError) as e:
+        raise DataIntegrityError("JCS_CANONICALIZATION_FAILED", type(e).__name__) from e
+
+
+def canonicalize(document: Mapping[str, Any], loader: Loader, hash_name: str = "sha256") -> str:
+    """URDNA2015 as N-Quads. The algorithm is named on purpose: the library's default is a different one. `hash_name` is the algorithm's own
+    hash (SHA-256, or SHA-384 for a P-384 key): it changes the blank node labels, so a wrong choice cannot verify."""
+    options = {"algorithm": "URDNA2015", "format": "application/n-quads", "documentLoader": loader}
+    if hash_name == "sha256":
+        return str(jsonld.normalize(dict(document), options))
+    if hash_name != "sha384":
+        raise DataIntegrityError("CANONICALIZATION_HASH_NOT_SUPPORTED", hash_name)
+    dataset = jsonld.to_rdf(
+        dict(document), {"documentLoader": loader, "produceGeneralizedRdf": False}
     )
+    return str(_Sha384Canon().main(dataset, {"format": "application/n-quads"}))
 
 
 def _norm(value: Any) -> Any:
@@ -184,11 +235,23 @@ class Hashes:
 
 
 def hashes_for(
-    unsecured: Mapping[str, Any], proof_config: Mapping[str, Any], loader: Loader
+    unsecured: Mapping[str, Any],
+    proof_config: Mapping[str, Any],
+    loader: Loader,
+    digest: Callable[[bytes], Any] = hashlib.sha256,
+    *,
+    json_canonical: bool = False,
 ) -> Hashes:
+    """The two hashes of the suite: over RDF canonical form (default) or, for the JCS suites, over RFC 8785 canonical JSON."""
+    name = digest(b"").name
+    if json_canonical:
+        return Hashes(
+            digest(jcs(proof_config).encode("utf-8")).digest(),
+            digest(jcs(unsecured).encode("utf-8")).digest(),
+        )
     return Hashes(
-        hashlib.sha256(canonicalize(proof_config, loader).encode("utf-8")).digest(),
-        hashlib.sha256(canonicalize(unsecured, loader).encode("utf-8")).digest(),
+        digest(canonicalize(proof_config, loader, name).encode("utf-8")).digest(),
+        digest(canonicalize(unsecured, loader, name).encode("utf-8")).digest(),
     )
 
 
@@ -200,8 +263,11 @@ class Verdict:
     created: str | None = None
 
 
-def split(vc: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """(the credential without its proof, the proof configuration), refusing anything the suite does not allow."""
+def split(
+    vc: Mapping[str, Any], purpose: str = "assertionMethod"
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(the credential without its proof, the proof configuration), refusing anything the suite does not allow. `purpose` is the proof purpose
+    the caller requires: a credential's issuer proves `assertionMethod`, a holder's presentation proves `authentication`; the other is refused."""
     proof = vc.get("proof")
     if isinstance(proof, list):
         raise DataIntegrityError("MULTIPLE_PROOFS_NOT_SUPPORTED")
@@ -209,8 +275,12 @@ def split(vc: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise DataIntegrityError("PROOF_MISSING")
     if proof.get("type") != "DataIntegrityProof" or proof.get("cryptosuite") not in SUITES:
         raise DataIntegrityError("CRYPTOSUITE_NOT_SUPPORTED", str(proof.get("cryptosuite")))
-    if proof.get("proofPurpose") != "assertionMethod":
-        raise DataIntegrityError("PROOF_PURPOSE_NOT_ASSERTION_METHOD")
+    if proof.get("proofPurpose") != purpose:
+        raise DataIntegrityError(
+            "PROOF_PURPOSE_NOT_ASSERTION_METHOD"
+            if purpose == "assertionMethod"
+            else "PROOF_PURPOSE_NOT_AUTHENTICATION"
+        )
     if "@context" not in vc:
         raise DataIntegrityError("CONTEXT_MISSING")
     unsecured = {k: v for k, v in vc.items() if k != "proof"}
@@ -224,21 +294,45 @@ def split(vc: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
 def _check(suite: str, key: VerificationKey, signature: bytes, data: bytes) -> bool:
     """True if `signature` over `data` verifies under `key` for this suite. A malformed key or signature is a failure, never an exception."""
     try:
-        if suite == SUITE:
+        if key.kind == "ed25519":
             Ed25519PublicKey.from_public_bytes(key.raw).verify(signature, data)
-        else:  # ecdsa-rdfc-2019 over P-256: the signature is the fixed-width r||s form, over the combined hash with SHA-256
-            public = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), key.raw)
+        else:  # ecdsa-rdfc-2019: the signature is the fixed-width r||s form, over the combined hash with the curve's own hash
+            curve, hash_cls, _digest, width = _CURVES[key.kind]
+            public = ec.EllipticCurvePublicKey.from_encoded_point(curve, key.raw)
+            half = width // 2
             der = encode_dss_signature(
-                int.from_bytes(signature[:32], "big"), int.from_bytes(signature[32:], "big")
+                int.from_bytes(signature[:half], "big"), int.from_bytes(signature[half:], "big")
             )
-            public.verify(der, data, ec.ECDSA(hashes.SHA256()))
+            public.verify(der, data, ec.ECDSA(hash_cls()))
     except (InvalidSignature, ValueError):
         return False
     return True
 
 
+def did_key_verification_key(identifier: str) -> VerificationKey:
+    """The key a `did:key` names, worked out from the identifier alone (it is self-certifying: nothing is fetched and nobody vouches for it).
+    Accepts the DID or a verification method `did:key:<id>#<id>` whose fragment is the same identifier. Ed25519, P-256 and P-384 only."""
+    did, _, fragment = identifier.partition("#")
+    if not did.startswith("did:key:z"):
+        raise DataIntegrityError("DID_METHOD_NOT_SUPPORTED")
+    multikey = did.removeprefix("did:key:")
+    if fragment and fragment != multikey:
+        raise DataIntegrityError("DID_KEY_FRAGMENT_MISMATCH")
+    raw = decode_multibase(multikey)
+    if raw.startswith(ED25519_MULTICODEC):
+        return VerificationKey("ed25519", ed25519_public_key(multikey))
+    if raw.startswith(P256_MULTICODEC):
+        return p256_public_key(multikey)
+    if raw.startswith(P384_MULTICODEC):
+        return p384_public_key(multikey)
+    raise DataIntegrityError("DID_KEY_TYPE_NOT_SUPPORTED")
+
+
 def verify(
-    vc: Mapping[str, Any], public_key: bytes | VerificationKey, contexts: BundledContexts
+    vc: Mapping[str, Any],
+    public_key: bytes | VerificationKey,
+    contexts: BundledContexts,
+    purpose: str = "assertionMethod",
 ) -> Verdict:
     """The proof on `vc`, against the key the caller took from its issuer trust table. Raw bytes mean an Ed25519 key (the first suite); a
     `VerificationKey` names its type, and a key whose type does not belong to the proof's suite is refused, never tried."""
@@ -257,17 +351,22 @@ def verify(
             raise
 
     try:
-        unsecured, config = split(vc)
+        unsecured, config = split(vc, purpose)
         proof = vc["proof"]
         suite = str(proof["cryptosuite"])
-        if _SUITE_KEY[suite] != key.kind:
+        if key.kind not in _SUITE_KEYS[suite]:
             raise DataIntegrityError("KEY_DOES_NOT_MATCH_SUITE")
         signature = decode_multibase(str(proof.get("proofValue", "")))
-        if len(signature) != 64:
+        width = _CURVES[key.kind][3] if key.kind in _CURVES else 64
+        if len(signature) != width:
             raise DataIntegrityError("PROOF_VALUE_LENGTH_INVALID")
-        assert_nothing_dropped(unsecured, loader)
-        assert_nothing_dropped(config, loader)
-        data = hashes_for(unsecured, config, loader).combined
+        if suite not in JCS_SUITES:
+            assert_nothing_dropped(unsecured, loader)
+            assert_nothing_dropped(config, loader)
+        digest = _CURVES[key.kind][2] if key.kind in _CURVES else hashlib.sha256
+        data = hashes_for(
+            unsecured, config, loader, digest, json_canonical=suite in JCS_SUITES
+        ).combined
     except DataIntegrityError as e:
         return Verdict("INDETERMINATE", (e.code,))
     except jsonld.JsonLdError:

@@ -358,6 +358,26 @@ EN: dict[str, tuple[str, str, str]] = {
         "Identity verification is a separate step and is not complete.",
         "Complete identity verification.",
     ),
+    "CREDENTIAL_SIGNATURE_NOT_VALID": (
+        "The credential's signature did not check out",
+        "The credential was changed after it was signed, or it was not signed by the key its issuer published.",
+        "Ask the issuer for a fresh credential. Do not rely on this one.",
+    ),
+    "CREDENTIAL_TYPE_NOT_ACCEPTED_AS_EVIDENCE_OF_IDENTITY": (
+        "This kind of credential is not accepted as proof of who someone is",
+        "The credential may be genuine, but its type is not on the list of credentials accepted as identity evidence.",
+        "Present an accepted identity credential, or use another way of verifying identity.",
+    ),
+    "CREDENTIAL_STATUS_NOT_CONFIRMED": (
+        "The credential's status could not be confirmed",
+        "The issuer's status information was missing or could not be read, so it is not clear the credential is still valid.",
+        "Try again later, or present a credential whose issuer publishes its status.",
+    ),
+    "BIRTH_DATE_NOT_A_VALID_DATE": (
+        "The birth date in the credential is not a valid date",
+        "The credential's birth date is missing its proper form, falls in the future or is implausibly old.",
+        "Ask the issuer to correct the credential.",
+    ),
     "RESTRICTION_ON_RECORD": (
         "A restriction is on record",
         "A confirmed, final restriction applies.",

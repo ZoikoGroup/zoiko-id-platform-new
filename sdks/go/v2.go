@@ -168,6 +168,16 @@ func (c *V2Client) Coverage(ctx context.Context, country, profession string) (Do
 	return c.get(ctx, "/v2/coverage"+q)
 }
 
+// CaptureAlternatives lists the other ways to complete a check instead of a selfie or a photographed document. No reason is needed and
+// choosing one is not a failed attempt; show the answer to the person, never decide for them. reason is optional ("" omits it).
+func (c *V2Client) CaptureAlternatives(ctx context.Context, country, reason string) (Doc, error) {
+	q := "?country=" + url.QueryEscape(country)
+	if reason != "" {
+		q += "&reason=" + url.QueryEscape(reason)
+	}
+	return c.get(ctx, "/v2/capture-alternatives"+q)
+}
+
 // ---- credentials
 
 // VerifyCredential runs one credential check. extra may carry subject_ref, evidence_refs, purpose, consent_ref and consumer.
@@ -327,6 +337,7 @@ func (c *V2Client) ReplayEvent(ctx context.Context, id string) (Doc, error) {
 var Paths = []string{
 	"GET /v2/capabilities",
 	"GET /v2/coverage",
+	"GET /v2/capture-alternatives",
 	"POST /v2/credentials/verify",
 	"GET /v2/credentials/{ref}",
 	"POST /v2/eligibility/evaluate",

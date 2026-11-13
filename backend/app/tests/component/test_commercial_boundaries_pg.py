@@ -147,6 +147,15 @@ def test_no_customer_role_reaches_an_internal_finance_discount_credit_or_operato
     )
     _seed_role(rt_url, o.tenant, o.second, "ADMIN", create=False)
     app = create_app(settings(rt_url), keyring=o.ring)
+    # The customer-facing routes of the solution builder and the company's own purchase orders share the /v1/commercial/ prefix. They are tenant routes
+    # (own company only, commercial.read or the plan-request authority), pinned by name so a new /v1/commercial/ route is internal unless listed here.
+    customer_facing = (
+        "/v1/commercial/capability-dependencies",
+        "/v1/commercial/offers",
+        "/v1/commercial/purchase-orders",
+        "/v1/commercial/quotes/preview",
+        "/v1/commercial/configurations",
+    )
     internal = sorted(
         {
             (m, c.path)
@@ -154,6 +163,7 @@ def test_no_customer_role_reaches_an_internal_finance_discount_credit_or_operato
             if c.path.startswith(
                 ("/v1/commercial/", "/operator/", "/ops/", "/platform/", "/v1/lockbox-requests")
             )
+            and not c.path.startswith(customer_facing)
             for m in c.methods - {"HEAD", "OPTIONS"}
         }
     )

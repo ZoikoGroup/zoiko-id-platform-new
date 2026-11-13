@@ -232,3 +232,51 @@ def test_the_platform_never_claims_a_deletion_the_provider_did_not_confirm() -> 
     assert "has not yet confirmed" in unconfirmed and "confirmed the case" not in unconfirmed
     assert "deleted" in pa.deletion_statement(pa.CancelResult(True, True))
     assert "has not confirmed" in pa.deletion_statement(pa.CancelResult(False, False))
+
+
+# ------------------------------------------------------------------------------------- withdrawal impact (RCG-G08)
+
+
+def _ent(pid: str, assurance: int, countries=("GB",)):
+    return pa.Entitlement(
+        provider_id=pid,
+        service_code="idv",
+        countries=frozenset(countries),
+        purposes=frozenset({"onboarding"}),
+        processing_regions=frozenset({"eu"}),
+        valid_from=date(2020, 1, 1),
+        valid_until=None,
+        assurance=assurance,
+    )
+
+
+def test_withdrawal_with_no_other_provider_loses_the_scope_and_never_falls_back() -> None:
+    a = _ent("a", 5)
+    impact = pa.withdrawal_impact([a], a, NOW)
+    assert [i.outcome for i in impact] == ["LOST"]
+    assert impact[0].after is None
+
+
+def test_a_weaker_replacement_is_degraded_and_an_equal_one_is_rerouted() -> None:
+    a, weak, peer = _ent("a", 5), _ent("w", 3), _ent("z", 5)
+    assert [i.outcome for i in pa.withdrawal_impact([a, weak], a, NOW)] == ["DEGRADED"]
+    assert [i.outcome for i in pa.withdrawal_impact([a, weak, peer], a, NOW)] == ["REROUTED"]
+
+
+def test_a_scope_another_provider_already_wins_is_unaffected() -> None:
+    a, strong = _ent("a", 5), _ent("s", 7)
+    assert [i.outcome for i in pa.withdrawal_impact([a, strong], a, NOW)] == ["UNAFFECTED"]
+
+
+def test_a_replacement_for_another_country_does_not_cover_this_one() -> None:
+    a, other = _ent("a", 5, ("GB", "FR")), _ent("o", 5, ("FR",))
+    got = {i.country: i.outcome for i in pa.withdrawal_impact([a, other], a, NOW)}
+    assert got == {"FR": "REROUTED", "GB": "LOST"}
+
+
+def test_an_entitlement_too_broad_to_enumerate_is_refused_not_truncated() -> None:
+    import pytest
+
+    a = _ent("a", 5, ("GB", "FR", "DE"))
+    with pytest.raises(pa.ImpactTooLarge):
+        pa.withdrawal_impact([a], a, NOW, max_scopes=2)

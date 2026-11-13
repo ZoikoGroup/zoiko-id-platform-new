@@ -27,7 +27,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import cast
@@ -93,6 +93,12 @@ class Finding:
     timestamp_token_present: bool = False
     timestamp: str = "NONE"  # NONE | VALID | INVALID | NO_TSA_ROOTS | UNAVAILABLE
     trusted_time: str | None = None
+    visible_timestamp_stamps: int = (
+        0  # document timestamps drawn on a page after signing (bounded; see pdfobjects)
+    )
+    time_source: str = (
+        "NONE"  # NONE | SIGNATURE_TIMESTAMP | DOCUMENT_TIMESTAMP (what fixed trusted_time)
+    )
     revocation: str = "NOT_CHECKED"  # NOT_CHECKED | GOOD | PARTIAL | REVOKED
     revocation_source: str = "NONE"  # NONE | OPERATOR | EMBEDDED (carried inside the signed file, used only with a trusted time)
     anchor: str | None = None
@@ -129,6 +135,8 @@ class Finding:
             "timestamp_token_present": self.timestamp_token_present,
             "timestamp": self.timestamp,
             "trusted_time": self.trusted_time,
+            "time_source": self.time_source,
+            "visible_timestamp_stamps": self.visible_timestamp_stamps,
             "revocation": self.revocation,
             "revocation_checked": self.revocation in {"GOOD", "PARTIAL"},
             "revocation_source": self.revocation_source,
@@ -287,6 +295,21 @@ def inspect_document_timestamps(
         previous_end = max(previous_end, end)
         previous_time = gen or previous_time
     return out
+
+
+def existence_time_for(stamps: Sequence[dict[str, object]], signature_end: int) -> datetime | None:
+    """The earliest time a verified document timestamp proves the signature (everything up to `signature_end`) already existed, or None.
+    Only a stamp that verified against a configured TSA root, has no problem and reaches past the signature counts. It is a proof of
+    EXISTENCE: the signer's own claimed time is still never trusted, and a signature made earlier than the stamp is judged as of the stamp."""
+    times = [
+        datetime.fromisoformat(str(s["time"]))
+        for s in stamps
+        if s["state"] == "VALID"
+        and not s["problems"]
+        and s["time"]
+        and int(str(s["covers_bytes"])) > signature_end
+    ]
+    return min(times) if times else None
 
 
 def archive_state(stamps: Sequence[dict[str, object]]) -> str:
@@ -742,6 +765,7 @@ def _assess(
     embedded_certs: Sequence[x509.Certificate] = (),
     embedded_crls: Sequence[x509.CertificateRevocationList] = (),
     embedded_ocsp: Sequence[ocsp.OCSPResponse] = (),
+    existence_time: datetime | None = None,
 ) -> Finding:
     """Everything known about ONE parsed CMS signature over `content`: digest, value, signing certificate, time, chain and revocation.
     Shared by PDF (content = the signed byte ranges) and standalone CAdES (content = the file the signature is detached from)."""
@@ -779,6 +803,10 @@ def _assess(
             problems.append("SIGNING_CERTIFICATE_DIGEST_MISMATCH")
             value_ok = False
     ts_state, ts_time = _trusted_time(signer, tsa_roots, when)
+    time_source = "SIGNATURE_TIMESTAMP" if ts_state == "VALID" else "NONE"
+    if ts_state == "NONE" and existence_time is not None:
+        # no timestamp of its own: a verified document timestamp over the file still proves the signature existed by then
+        ts_state, ts_time, time_source = "VALID", existence_time, "DOCUMENT_TIMESTAMP"
     judged_at = ts_time or when
     chain, certs_in_chain, anchor = build_chain(cert, [*certs, *embedded_certs], anchors, judged_at)
     revocation = (
@@ -813,6 +841,7 @@ def _assess(
         timestamp_token_present=signer.timestamp_token is not None,
         timestamp=ts_state,
         trusted_time=ts_time.isoformat() if ts_time else None,
+        time_source=time_source,
         revocation=revocation,
         revocation_source=revocation_source,
         anchor=anchor,
@@ -876,14 +905,17 @@ def inspect_pdf(
         if kind
         != DOCUMENT_TIMESTAMP  # a document timestamp is checked on its own (inspect_document_timestamps), never as a signature
     ]
+    stamps = inspect_document_timestamps(pdf, tsa_roots=tsa_roots, at=when)
     for i, (br, cms) in enumerate(signatures):
         problems: list[str] = []
         covers = br[0] == 0 and br[2] + br[3] == len(pdf)
         embedded: pdfobjects.DssEvidence | None = None
+        visible_stamps = 0
         if not covers and br[0] == 0 and br[2] + br[3] < len(pdf):
             # PAdES long-term: validation data and document timestamps appended after signing are fine; anything else appended is a change
             update = pdfobjects.validation_update(pdf[: br[2] + br[3]], pdf[br[2] + br[3] :])
             embedded = update.evidence if update is not None else None
+            visible_stamps = update.visible_stamps if update is not None else 0
             covers = update is not None
         if not covers:
             problems.append("CONTENT_ADDED_AFTER_SIGNING")
@@ -895,22 +927,22 @@ def inspect_pdf(
         except (DerError, IndexError, ValueError):
             findings.append(Finding(i, covers, problems=(*problems, "SIGNATURE_UNREADABLE")))
             continue
-        findings.append(
-            _assess(
-                i,
-                certs,
-                signer,
-                _signed_content(pdf, br),
-                covers,
-                problems,
-                anchors=anchors,
-                when=when,
-                tsa_roots=tsa_roots,
-                crls=crls,
-                ocsp_responses=ocsp_responses,
-                embedded_certs=embedded.certificates if embedded else (),
-                embedded_crls=embedded.crls if embedded else (),
-                embedded_ocsp=embedded.ocsp_responses if embedded else (),
-            )
+        found = _assess(
+            i,
+            certs,
+            signer,
+            _signed_content(pdf, br),
+            covers,
+            problems,
+            anchors=anchors,
+            when=when,
+            tsa_roots=tsa_roots,
+            crls=crls,
+            ocsp_responses=ocsp_responses,
+            embedded_certs=embedded.certificates if embedded else (),
+            embedded_crls=embedded.crls if embedded else (),
+            embedded_ocsp=embedded.ocsp_responses if embedded else (),
+            existence_time=existence_time_for(stamps, br[2] + br[3]),
         )
+        findings.append(replace(found, visible_timestamp_stamps=visible_stamps))
     return findings

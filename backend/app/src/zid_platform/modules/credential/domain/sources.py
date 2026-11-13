@@ -4,7 +4,7 @@
 A provider having a product is not a licence to use its data. Before any source is asked, `may_query` checks, in order, and
 refuses on the first failure with its own code (so each case has its own test and its own audit reason):
   contract in force -> claim type covered -> purpose permitted -> processing region allowed -> transfer lawful
-  -> sensitive category entitled (consent or legal basis, a named authorized user, and a reviewer).
+  -> an employment check has a consent or legal basis -> sensitive category entitled (consent or legal basis, a named authorized user, and a reviewer).
 Nothing is queried, cached or reused when a check fails (GLB-15, GLB-16, GLB-18).
 
 `coverage` turns a registry into the only public statement of reach: a country with no permitted primary source is
@@ -92,6 +92,9 @@ def may_query(contract: SourceContract | None, req: Request) -> None:
         raise SourceError(
             "SOURCE_TRANSFER_NOT_LAWFUL", f"{req.subject_region}->{req.processing_region}"
         )
+    if req.claim_type == "EMPLOYMENT_ASSERTION" and not (req.consent_ref or req.legal_basis_ref):
+        # an employer is asked about a person only on a recorded consent or legal basis (WORK checks), whatever the source's own sensitivity
+        raise SourceError("EMPLOYMENT_NO_BASIS", contract.source_id)
     if contract.sensitivity is not Sensitivity.STANDARD:
         if not (req.consent_ref or req.legal_basis_ref):
             raise SourceError("SENSITIVE_NO_BASIS", contract.sensitivity.value)

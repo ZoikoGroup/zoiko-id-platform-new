@@ -1,0 +1,155 @@
+# The 16 commercial service families and their units (ZID-COM-WF-2026-11 v3.0, section 02 and 03.1).
+#
+# status: PROPOSED. The document says so itself: "Commercial catalog families are proposals for implementable SKU namespaces, not live SKU IDs or prices."
+# Nothing here is a price, a launch SKU, a published plan name or a statement that a family is sold anywhere. A family is "sellable" only when every fact
+# in `domain/market_availability.py` holds for a given market, and today none is recorded, so every family answers REQUEST A QUOTE (CAT-06).
+#
+# Fields
+#   code             the family id (product_family_id); a SKU namespace later, never a SKU by itself
+#   unit             the exact chargeable unit, as the document words it
+#   depends_on       what the document says must be sold or verified first, as family codes. Only dependencies the document states are listed
+#                    (a signature needs a verified identity, section WF-C02 step 2); a product owner adds more by an approved change
+#   regulated        true when the family involves a regulated outcome or licensed data, so it needs documented provider, source and regulatory
+#                    rights before it is sold (section 05.3, INV-11): never "Zoiko holds a licence" unless evidence exists
+#   needs_provider   true when the family cannot run without a provider or source right in the market (section 05.1 "Provider permissions")
+#   issuer_scoped    true when what can be checked depends on the country that issued the document or credential (identity, document, qualification, licence,
+#                    employment). A buyer who names an issuing country is judged against the issuing countries a market row lists; one who names none is not
+#   meter            the existing meter register id (config/entitlements/meter-register.yaml) when one already counts it, else null. A family with
+#                    no meter is not billed at all, and no meter is created here: a meter is ratified by the owners
+#   sales_qualifier  the document's own "dependency / sales qualifier" text
+version: "ZID-COM-WF-2026-11-v3.0-families"
+status: PROPOSED
+families:
+  - code: IDV
+    name: Identity verification
+    unit: Verification case / approved identity check
+    depends_on: []
+    regulated: false
+    needs_provider: true
+    issuer_scoped: true
+    meter: idv.check
+    sales_qualifier: Biographical and identity-document proof; verified decision state
+  - code: DOC
+    name: Document authenticity
+    unit: Document / authenticity examination
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    issuer_scoped: true
+    meter: null
+    sales_qualifier: OCR, tamper, document-type support and source trace
+  - code: BIO
+    name: Biometrics & liveness
+    unit: Liveness session / matching step
+    depends_on: []
+    regulated: true
+    needs_provider: true
+    meter: null
+    sales_qualifier: Consent, risk policy, biometric minimization
+  - code: KYB
+    name: Business verification
+    unit: Legal entity / registered business check
+    depends_on: []
+    regulated: false
+    needs_provider: true
+    meter: kyb.check
+    sales_qualifier: Entity, corporate hierarchy, LEI and beneficial owner add-ons
+  - code: SCR
+    name: Sanctions & risk screening
+    unit: Screening subject / continuous-monitor period
+    depends_on: []
+    regulated: true
+    needs_provider: true
+    meter: null
+    sales_qualifier: PEP, sanctions, adverse-media only with licensed source eligibility
+  - code: QUAL
+    name: Academic qualifications
+    unit: Credential / issuing institution check
+    depends_on: []
+    regulated: false
+    needs_provider: true
+    issuer_scoped: true
+    meter: credential.check
+    sales_qualifier: Issuer authority and degree authenticity; escalation when source unavailable
+  - code: PRO
+    name: Professional standing
+    unit: License / credential / recertification check
+    depends_on: []
+    regulated: true
+    needs_provider: true
+    issuer_scoped: true
+    meter: credential.check
+    sales_qualifier: Regulator, membership, registration, expiration and jurisdiction
+  - code: WORK
+    name: Employment & insurance
+    unit: Employer check / coverage check
+    depends_on: []
+    regulated: false
+    needs_provider: true
+    issuer_scoped: true
+    meter: credential.check
+    sales_qualifier: Evidence permissions, consent, valid issuer or insurer evidence
+  - code: AUTHN
+    name: Authentication & SSO
+    unit: Active identity / monthly auth events
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: auth.mau
+    sales_qualifier: Passkeys, MFA, SSO, secure session features
+  - code: DELEG
+    name: Delegated authority & agent mandates
+    unit: Mandate / verified authorization / active mandate
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: agent.principal
+    sales_qualifier: Natural-person, corporate and software-agent scope, expiry, revocation
+  - code: VC
+    name: Portable credentials & wallets
+    unit: Issuer-issued VC / presentation verified
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: credential.verify
+    sales_qualifier: W3C VC, issuer permission, status and proof validation
+  - code: SIGN
+    name: Electronic signatures & trust
+    unit: Signature envelope / trusted transaction
+    depends_on: [IDV]
+    regulated: true
+    needs_provider: true
+    meter: null
+    sales_qualifier: Qualified-class availability only through authorized local partners
+  - code: EVID
+    name: Evidence & portable attestations
+    unit: Evidence package / attestation export
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: data.retention
+    sales_qualifier: Audit-grade logs, redaction, export rights and proof verifier
+  - code: API
+    name: Developer integrations
+    unit: Active API tenant / eligible billable calls
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: api.request
+    sales_qualifier: SDK/API, webhooks, connector availability and resilience
+  - code: SOV
+    name: Sovereign, regional & dedicated
+    unit: Contracted environment / service tier
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: null
+    sales_qualifier: Data residency/security/processing routes, not automatic compliance
+  - code: REV
+    name: Managed reviews & rechecks
+    unit: Manual reviewer action / scheduled recheck
+    depends_on: []
+    regulated: false
+    needs_provider: false
+    meter: null
+    sales_qualifier: Priced by work performed under approved service entitlement

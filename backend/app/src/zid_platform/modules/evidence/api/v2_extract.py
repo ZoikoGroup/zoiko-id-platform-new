@@ -21,7 +21,7 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.evidence.application import barcode, cms, pdfobjects
+from zid_platform.modules.evidence.application import barcode, cms, epassport, pdfobjects
 from zid_platform.modules.evidence.domain import mrz, templates
 from zid_platform.modules.evidence.infrastructure import ocr_client
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
@@ -217,6 +217,46 @@ async def _ocr_fields(image_base64: str, template_id: str) -> dict[str, Any]:
         "authenticity": "NOT_ASSESSED",
         "assurance_ceiling": "SELF_DECLARED",
         "limitations": OCR_LIMITATIONS,
+    }
+
+
+MAX_CHIP_GROUP_BYTES = epassport.MAX_DATA_GROUP
+
+
+class V2ChipIn(BaseModel):
+    """What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. The photo group (2) is not needed and
+    is best not sent: nothing here uses it."""
+
+    model_config = ConfigDict(extra="forbid")
+    sod_base64: str = Field(min_length=8, max_length=(epassport.MAX_SOD * 4) // 3 + 16)
+    data_groups: dict[
+        Annotated[str, Field(pattern=r"^([1-9]|1[0-6])$")],
+        Annotated[str, Field(min_length=4, max_length=(MAX_CHIP_GROUP_BYTES * 4) // 3 + 16)],
+    ] = Field(min_length=1, max_length=16)
+
+
+@router.post("/v2/documents/chip-verify")
+async def chip_verify(body: V2ChipIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Passive authentication of a passport or eID chip (ICAO Doc 9303). Stateless: nothing is stored and the photo is never read."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="evidence.verify", resource="document:chip")
+    try:
+        sod = base64.b64decode(body.sod_base64, validate=True)
+        groups = {int(k): base64.b64decode(v, validate=True) for k, v in body.data_groups.items()}
+    except (binascii.Error, ValueError) as e:
+        raise ZidError(
+            "VALIDATION_FAILED", "The chip data is not valid base64.", http_status=422
+        ) from e
+    config = getattr(request.app.state, "trust_config", None) or trust_config()
+    verdict = epassport.verify(sod, groups, csca=config.csca, crls=config.crls)
+    return {
+        **_ids(),
+        **verdict.public(),
+        "authenticity": "DOCUMENT_INTEGRITY" if verdict.document_authentic else "NOT_ASSESSED",
+        "assurance_ceiling": "ISSUER_AUTHENTICATED"
+        if verdict.document_authentic
+        else "SELF_DECLARED",
+        "csca_configured": bool(config.csca),
     }
 
 
