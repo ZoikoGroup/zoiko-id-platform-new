@@ -3244,3 +3244,10 @@ export type PublicLeadIn = {
   website?: string | null;
 };
 export type PublicLeadOut = { reference: string; status: string; duplicate: boolean; message: string };
+
+export type SalesLeadStatus = "RECEIVED" | "QUALIFIED" | "SCOPED" | "REVIEW" | "OFFER_SENT" | "CLOSED" | "SPAM";
+export type SalesLead = {
+  lead_id: string; kind: "ENTERPRISE" | "PARTNER"; partner_type: string | null; contact_name: string; work_email: string; company: string; country: string; region: string | null;
+  capabilities: string[]; volume_band: string; entities: number | null; referral_source: string | null; security_needs: string | null; notice_version: string;
+  status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
+};

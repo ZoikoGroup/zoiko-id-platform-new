@@ -295,6 +295,27 @@ export const ACTIONS: Action[] = [
     fields: [{ key: "rev_id", label: "Draft revision ID", in: "path", required: true }],
   },
   {
+    id: "lead-advance",
+    group: "sales",
+    title: "Move a sales inquiry on, or close it",
+    description:
+      "One step at a time: received, qualified, scoped, in review, offer sent. Closing or marking spam needs a reason. Nothing moves backwards, and no inquiry ever creates an account, quote, contract or payment.",
+    method: "POST",
+    path: "/v1/commercial/sales-leads/{lead_id}:advance",
+    capability: "commercial.catalog.manage",
+    fields: [
+      { key: "lead_id", label: "Inquiry ID", in: "path", required: true },
+      {
+        key: "status",
+        label: "Move to",
+        kind: "select",
+        required: true,
+        options: ["QUALIFIED", "SCOPED", "REVIEW", "OFFER_SENT", "CLOSED", "SPAM"].map((id) => ({ id, label: id })),
+      },
+      { key: "reason", label: "Reason", help: "Required to close or mark as spam." },
+    ],
+  },
+  {
     id: "matrix-withdraw",
     group: "catalogue",
     title: "Withdraw a draft market matrix",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { FamilyTextRevision, FxRateSet, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
+import type { FamilyTextRevision, FxRateSet, SalesLead, MarketMatrixSummary, MarketRolloutItem, QuoteRequestItem } from "@zoiko/api-client";
 import { Badge, Banner, Card, CopyId, DataTable, EmptyState, type Column } from "@zoiko/ui";
 import { Globe2 } from "lucide-react";
 import { useState } from "react";
@@ -23,6 +23,7 @@ export function MarketView() {
       <RolloutCard />
       <FxCard />
       <FamilyTextCard />
+      <LeadsCard />
       <QuoteRequestsCard />
     </div>
   );
@@ -156,6 +157,27 @@ function FamilyTextCard() {
     <Card title="Family wording" description="Only the name, unit and sales qualifier a buyer reads. What a family needs or does stays in the reviewed catalogue file." padded={false}>
       <QueryView query={list}>
         {(d) => <DataTable<FamilyTextRevision> caption="Family wording revisions" columns={columns} rows={d.items} rowKey={(r) => r.rev_id} empty={<EmptyState title="No revisions" icon={Globe2}>Buyers see the wording in the reviewed catalogue file until a revision is activated.</EmptyState>} />}
+      </QueryView>
+    </Card>
+  );
+}
+
+function LeadsCard() {
+  const list = useCellQuery([...COMMERCIAL_KEY, "sales-leads"], (api) => api.commercial.salesLeads());
+  const columns: Column<SalesLead>[] = [
+    { key: "w", header: "Received", pinned: true, render: (l) => when(l.created_at), sortValue: (l) => l.created_at ?? "" },
+    { key: "s", header: "Status", render: (l) => <Badge tone={l.status === "OFFER_SENT" ? "ok" : l.status === "SPAM" || l.status === "CLOSED" ? "neutral" : "info"} size="xs">{l.status.replace("_", " ")}</Badge> },
+    { key: "i", header: "Inquiry ID", render: (l) => <CopyId value={l.lead_id} label="inquiry" /> },
+    { key: "k", header: "Kind", render: (l) => (l.partner_type ? `${l.kind.toLowerCase()} (${l.partner_type.toLowerCase().replaceAll("_", " ")})` : l.kind.toLowerCase()) },
+    { key: "c", header: "Company", render: (l) => `${l.company} (${l.country})` },
+    { key: "p", header: "Contact", render: (l) => `${l.contact_name}, ${l.work_email}` },
+    { key: "v", header: "Volume", render: (l) => l.volume_band.toLowerCase().replaceAll("_", " ") },
+    { key: "f", header: "Services asked about", render: (l) => l.capabilities.join(", ") || "—" },
+  ];
+  return (
+    <Card title="Sales inquiries" description="From the public pricing page. Each is a request for a conversation; none has created an account, quote, contract or payment." padded={false}>
+      <QueryView query={list}>
+        {(d) => <DataTable<SalesLead> caption="Sales inquiries" columns={columns} rows={d.items} rowKey={(l) => l.lead_id} empty={<EmptyState title="No inquiries" icon={Globe2}>An inquiry appears when someone sends the form on the pricing page.</EmptyState>} />}
       </QueryView>
     </Card>
   );
