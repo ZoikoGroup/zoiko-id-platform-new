@@ -7,10 +7,20 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.credential.application.fairness import check_disparity
 from zid_platform.modules.credential.application.issuer_binding import resolve_and_bind
-from zid_platform.modules.credential.application.trust_service import recheck_due
+from zid_platform.modules.credential.application.trust_service import (
+    recheck_due,
+    review_proofs_of_lost_issuers,
+)
 
-__all__ = ["credentials_issued_between", "recheck_due", "resolve_and_bind"]
+__all__ = [
+    "check_disparity",
+    "credentials_issued_between",
+    "recheck_due",
+    "resolve_and_bind",
+    "review_proofs_of_lost_issuers",
+]
 
 
 async def credentials_issued_between(

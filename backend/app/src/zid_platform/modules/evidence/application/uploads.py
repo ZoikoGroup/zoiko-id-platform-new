@@ -8,6 +8,7 @@ means no upload.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from collections.abc import Mapping, Sequence
@@ -159,6 +160,50 @@ async def open_content(upload_id: str, sealed: Mapping[str, Any]) -> bytes:
         zeroize(dek)
 
 
+async def record_quarantine(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    actor: str,
+    target: str,
+    content: bytes,
+    kinds: Sequence[str],
+    path: str,
+    now: datetime,
+) -> None:
+    """T41: the audit record of a PDF refused for the active content it carries: who sent it, which path refused it, the digest, the size and the
+    kinds found. Never the content. `target` is the upload id, or the digest for a document that was only pasted."""
+    from zid_platform.modules.evidence.application.receipts import record_audit
+    from zid_platform.modules.evidence.domain.active_content import QUARANTINED
+    from zid_platform.modules.evidence.domain.ledger import EvidenceClass
+    from zid_platform.modules.evidence.domain.receipts import AuditFacts
+
+    await record_audit(
+        conn,
+        tenant_id,
+        AuditFacts(
+            event_type=QUARANTINED,
+            actor_type="HUMAN",
+            action="quarantined",
+            target_type="document",
+            target_ref=target,
+            outcome="DENIED",
+            evidence_class=EvidenceClass.E3,
+            occurred_at=now,
+            actor_principal_id=actor,
+            reason_code="ACTIVE_CONTENT",
+            source_service="evidence",
+            source_event_id=str(uuid.uuid4()),
+            details={
+                "path": path,
+                "kinds": sorted(set(kinds)),
+                "size_bytes": len(content),
+                "content_hash": hashlib.sha256(content).hexdigest(),
+            },
+        ),
+    )
+
+
 async def receive(
     conn: AsyncConnection, scanner: sc.Scanner | None, upload_id: str, content: bytes, now: datetime
 ) -> Received:
@@ -180,6 +225,17 @@ async def receive(
         )
     except intake.UploadError as e:
         await store.reject(conn, upload_id, reason=e.code, now=now)
+        if e.code == "ACTIVE_CONTENT":
+            await record_quarantine(
+                conn,
+                str(row["tenant_id"]),
+                actor=str(row["uploaded_by"]),
+                target=upload_id,
+                content=content,
+                kinds=str(e).split(": ", 1)[-1].split(","),
+                path="upload",
+                now=now,
+            )
         return Received("REJECTED", e.code, "NOT_SCANNED")
     # scan EXACTLY what arrived, before anything is cleaned: stripping drops trailing bytes, and a marker hidden after an image's end
     # would otherwise vanish before the scanner ever saw it. Only the cleaned copy is kept, and only if the original scanned clean.

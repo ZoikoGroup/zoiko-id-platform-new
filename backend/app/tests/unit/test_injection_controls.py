@@ -58,6 +58,16 @@ REVIEWED_SITES: dict[tuple[str, str, str], str] = {
         "run_once",
         "where",
     ): "PURGE/SWEEP are module-level literal tuples",
+    (
+        "access_readiness/infrastructure/store.py",
+        "update_setup",
+        "', '.join(sets)",
+    ): "each SET clause names a column from a fixed allowlist (SETUP_FIELD_UNKNOWN otherwise); values are bound",
+    (
+        "access_readiness/infrastructure/store.py",
+        "list_proposals",
+        "' AND '.join(where)",
+    ): "WHERE fragments are literals; status and run id are bound parameters",
     ("entrypoints/maintenance.py", "run_once", "statement"): "values of the literal SWEEP dict",
     (
         "tenant/infrastructure/tenant_store.py",

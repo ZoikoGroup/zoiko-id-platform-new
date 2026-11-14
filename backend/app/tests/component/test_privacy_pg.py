@@ -862,3 +862,263 @@ def test_rectifying_an_externally_sourced_fact_asks_the_source_instead_of_overwr
         asyncio.run(run())
     finally:
         privacy._RECTIFICATION_SOURCES.pop("REGISTRY", None)
+
+
+async def _newsletter_consent(
+    c: Any, tenant: str, author: str, reviewer: str, subject: str, *, also_on_contract: bool = False
+) -> str:
+    """A governed consent-based activity for the NEWSLETTER purpose, a notice, and one consent of `subject`."""
+    aid = await governed_activity(c, tenant, author, reviewer)
+    await privacy.assign_role(
+        c,
+        tenant,
+        aid,
+        data_controller_principal_id=tenant,
+        zoiko_role="PROCESSOR",
+        jurisdiction_pack_id="uk-gdpr",
+        approval_ref="COUNSEL-1",
+        created_by=author,
+        approved_by=reviewer,
+        contract_or_dpa_ref="DPA-7",
+    )
+    await privacy.activate_activity(c, tenant, aid, actor=author)
+    if also_on_contract:  # the same purpose is also served on a basis that is not consent
+        other = await privacy.create_activity(
+            c,
+            tenant,
+            code="NEWS_BY_CONTRACT",
+            name="Service notices",
+            purpose_codes=["NEWSLETTER"],
+            data_categories=["D1"],
+            lawful_basis="CONTRACT",
+            jurisdiction_pack_id="uk-gdpr",
+            actor=author,
+        )
+        await privacy.assign_role(
+            c,
+            tenant,
+            other,
+            data_controller_principal_id=tenant,
+            zoiko_role="CONTROLLER",
+            jurisdiction_pack_id="uk-gdpr",
+            approval_ref="COUNSEL-3",
+            created_by=author,
+            approved_by=reviewer,
+        )
+        await privacy.activate_activity(c, tenant, other, actor=author)
+    await registry.publish_notice(
+        c,
+        tenant,
+        code="NEWS_NOTICE",
+        audience="end_user",
+        content="We send product news monthly.",
+        created_by=author,
+        approved_by=reviewer,
+        processing_activity_codes=["MARKETING_EMAIL"],
+    )
+    return await privacy.give_consent(
+        c,
+        tenant,
+        subject_principal_id=subject,
+        activity_code="MARKETING_EMAIL",
+        purpose_code="NEWSLETTER",
+        notice_version="NEWS_NOTICE@1",
+        capture_method="WEB",
+        affirmative_action="checkbox:newsletter",
+    )
+
+
+async def _register_newsletter_data(
+    c: Any, tenant: str, subject: str, author: str, reviewer: str
+) -> None:
+    await privacy.create_retention_policy(
+        c,
+        tenant,
+        code="NEWS_STATUTORY",
+        object_type="invoice",
+        jurisdiction_pack_id="uk-gdpr",
+        trigger="CREATED_AT",
+        retention_days=3650,
+        action="DELETE",
+        created_by=author,
+        approved_by=reviewer,
+        legally_required=True,
+    )
+    await registry.register_processor(
+        c,
+        tenant,
+        processor_id="mail-vendor",
+        name="Mail Vendor",
+        role="PROCESSOR",
+        data_categories=["D1"],
+        locations=["GB"],
+        created_by=author,
+        deletion_sla_days=30,
+        contract_ref="DPA-MAIL-1",
+    )
+    await registry.set_processor_status(c, tenant, "mail-vendor", "APPROVED", actor=reviewer)
+    base = {
+        "subject_principal_id": subject,
+        "store_name": "test.records",
+        "data_category": "D1",
+        "retention_policy_code": None,
+    }
+    for ref, kind, purpose, extra in (
+        ("news-profile", "subscriber_profile", "NEWSLETTER", {}),
+        ("news-invoice", "invoice", "NEWSLETTER", {"retention_policy_code": "NEWS_STATUTORY"}),
+        ("news-mailbox", "mail_contact", "NEWSLETTER", {"processor_id": "mail-vendor"}),
+        ("account-profile", "profile", "ACCOUNT", {}),
+    ):
+        await privacy.register_personal_data(
+            c, tenant, object_type=kind, object_ref=ref, purpose_code=purpose, **{**base, **extra}
+        )
+
+
+def test_t30_withdrawing_consent_erases_what_was_kept_only_for_it_with_the_usual_exemptions(
+    rt_url: str,
+) -> None:
+    tenant, author, reviewer, subject = uid(), uid(), uid(), uid()
+    DISPOSED.clear()
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            consent = await _newsletter_consent(c, tenant, author, reviewer, subject)
+            await _register_newsletter_data(c, tenant, subject, author, reviewer)
+            await privacy.withdraw_consent(
+                c,
+                tenant,
+                consent,
+                subject_principal_id=subject,
+                reason="no more news",
+                authn_level=2,
+                auth_age=timedelta(minutes=1),
+            )
+            request = (
+                await c.execute(
+                    text(
+                        "SELECT request_id, status, request_type, identity_verification_state, fulfilment_items "
+                        "FROM privacy.rights_request WHERE subject_principal_id = :s"
+                    ),
+                    {"s": uuid.UUID(subject)},
+                )
+            ).one()
+            assert request.request_type == "ERASURE"
+            assert request.identity_verification_state == "VERIFIED"
+            items = {i["item_id"]: i for i in request.fulfilment_items}
+            # what was kept for the withdrawn purpose, and nothing else
+            assert items["test.records:news-profile"]["state"] == "DONE"
+            assert items["test.records:news-invoice"]["state"] == "RETAINED_RESTRICTED"
+            assert items["test.records:news-invoice"]["reason"] == "LEGAL_OBLIGATION"
+            assert items["test.records:news-mailbox"]["state"] == "PENDING_PROCESSOR_ACK"
+            assert (
+                "test.records:account-profile" not in items
+            )  # kept for another purpose: untouched
+            assert "evidence-vault" not in items and "caches" not in items  # not erased as a whole
+            assert request.status == "FULFILLING"  # never complete while a processor is pending
+            assert ("news-profile", "DELETE") in DISPOSED
+            assert all(r != "account-profile" for r, _ in DISPOSED)
+            status = {
+                r.object_ref: r.status
+                for r in (
+                    await c.execute(
+                        text(
+                            "SELECT object_ref, status FROM privacy.data_map_entry WHERE subject_principal_id = :s"
+                        ),
+                        {"s": uuid.UUID(subject)},
+                    )
+                ).all()
+            }
+            assert status["news-profile"] == "DISPOSED" and status["account-profile"] == "ACTIVE"
+            assert status["news-invoice"] == "RESTRICTED"
+
+            done = await privacy.acknowledge_item(
+                c,
+                tenant,
+                str(request.request_id),
+                "test.records:news-mailbox",
+                ack_ref="mail-ticket-9",
+                actor=reviewer,
+            )
+            assert done.status == "PARTIALLY_DENIED" and done.completed_at is not None
+            kept = (
+                await c.execute(
+                    text("SELECT status FROM privacy.consent_receipt WHERE consent_id = :i"),
+                    {"i": uuid.UUID(consent)},
+                )
+            ).scalar_one()
+            assert kept == "WITHDRAWN"  # the consent record itself is evidence and stays
+            events = set(
+                (await c.execute(text("SELECT event_type FROM evidence.audit_record"))).scalars()
+            )
+            assert {
+                "privacy.consent.withdrawn",
+                "privacy.deletion.started",
+                "privacy.deletion.completed",
+                "privacy.processor.deletion.confirmed",
+            } <= events  # the deletion proof
+
+    asyncio.run(run())
+
+
+def test_t30_an_unverified_withdrawal_waits_and_another_lawful_basis_keeps_the_data(
+    rt_url: str,
+) -> None:
+    tenant, author, reviewer, subject = uid(), uid(), uid(), uid()
+    DISPOSED.clear()
+
+    async def waits() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            consent = await _newsletter_consent(c, tenant, author, reviewer, subject)
+            await _register_newsletter_data(c, tenant, subject, author, reviewer)
+            await privacy.withdraw_consent(
+                c, tenant, consent, subject_principal_id=subject, reason="no"
+            )
+            request = (
+                await c.execute(
+                    text(
+                        "SELECT identity_verification_state FROM privacy.rights_request WHERE subject_principal_id = :s"
+                    ),
+                    {"s": uuid.UUID(subject)},
+                )
+            ).one()
+            assert request.identity_verification_state == "PENDING"  # no session proves the subject
+            assert not any(r == "news-profile" for r, _ in DISPOSED)
+
+    asyncio.run(waits())
+
+    other_tenant, other_subject = uid(), uid()
+
+    async def other_basis() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(other_tenant)) as c:
+            consent = await _newsletter_consent(
+                c, other_tenant, author, reviewer, other_subject, also_on_contract=True
+            )
+            await _register_newsletter_data(c, other_tenant, other_subject, author, reviewer)
+            await privacy.withdraw_consent(
+                c,
+                other_tenant,
+                consent,
+                subject_principal_id=other_subject,
+                reason="no",
+                authn_level=2,
+                auth_age=timedelta(minutes=1),
+            )
+            request = (
+                await c.execute(
+                    text(
+                        "SELECT status, fulfilment_items FROM privacy.rights_request WHERE subject_principal_id = :s"
+                    ),
+                    {"s": uuid.UUID(other_subject)},
+                )
+            ).one()
+            news = [
+                i for i in request.fulfilment_items if i["item_id"].startswith("test.records:news-")
+            ]
+            assert news and all(
+                i["state"] == "RETAINED_OTHER_BASIS" and i["reason"] == "OTHER_LAWFUL_BASIS"
+                for i in news
+            )
+            assert request.status == "PARTIALLY_DENIED"
+            assert not any(r.startswith("news-") for r, _ in DISPOSED)
+
+    asyncio.run(other_basis())

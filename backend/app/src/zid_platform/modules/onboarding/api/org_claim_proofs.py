@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from zid_db import tenant_transaction
@@ -61,6 +61,24 @@ def _error(e: ProofError) -> ZidError:
         http_status=_STATUS.get(e.code, 422),
         retryable=e.code == "PROOF_SCAN_UNAVAILABLE",
     )
+
+
+async def _unreachable(
+    request: Request, caller: Caller, case_id: uuid.UUID, attempt: str, e: KybError
+) -> NoReturn:
+    """T12: audit a denied attempt on a claim the caller cannot see, in its own transaction (the refused one ends in an error). The
+    answer to the caller stays the plain 404 it always was."""
+    if e.code == "CASE_NOT_FOUND" and caller.ctx.principal_id:
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await proof_service.record_case_unreachable(
+                conn,
+                caller.ctx.tenant_id or "",
+                case_id=str(case_id),
+                actor=caller.ctx.principal_id,
+                attempt=attempt,
+                now=datetime.now(UTC),
+            )
+    raise _kyb_error(e) from e
 
 
 def _shown(p: proof_service.ProofView) -> dict[str, Any]:
@@ -130,6 +148,7 @@ async def upload_proof(
     now = datetime.now(UTC)
     tenant = caller.ctx.tenant_id or ""
     refusal: ProofError | None = None
+    missing: KybError | None = None
     result: tuple[proof_service.ProofView, bool] | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         me = await _require_admin(conn, caller)
@@ -157,7 +176,9 @@ async def upload_proof(
         except ProofError as e:
             refusal = e  # leave the block normally so the audit record of the refusal is committed
         except KybError as e:
-            raise _kyb_error(e) from e
+            missing = e  # answered below, so the record of a refused attempt can commit
+    if missing is not None:
+        await _unreachable(request, caller, claim_id, "upload", missing)
     if refusal is not None:
         raise _error(refusal)
     assert result is not None
@@ -171,6 +192,7 @@ async def upload_proof(
     dependencies=[Depends(matrix_gate("b.view-verification-state-expiration", Mode.READ))],
 )
 async def list_proofs(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    missing: KybError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _require_admin(conn, caller)
         try:
@@ -178,7 +200,9 @@ async def list_proofs(claim_id: uuid.UUID, request: Request, caller: CallerDep) 
                 conn, caller.ctx.tenant_id or "", str(claim_id)
             )
         except KybError as e:
-            raise _kyb_error(e) from e
+            missing = e
+    if missing is not None:
+        await _unreachable(request, caller, claim_id, "list", missing)
     return {
         "claim_id": str(claim_id),
         "proofs": [_shown(p) for p in proofs],
@@ -190,6 +214,7 @@ async def list_proofs(claim_id: uuid.UUID, request: Request, caller: CallerDep) 
 async def reviewer_list_proofs(
     case_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
+    missing: KybError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="organization.kyb.review", resource=f"kyb_case:{case_id}"
@@ -197,7 +222,9 @@ async def reviewer_list_proofs(
         try:
             proofs = await proof_service.list_proofs(conn, caller.ctx.tenant_id or "", str(case_id))
         except KybError as e:
-            raise _kyb_error(e) from e
+            missing = e
+    if missing is not None:
+        await _unreachable(request, caller, case_id, "review_list", missing)
     return {
         "claim_id": str(case_id),
         "proofs": [_shown(p) for p in proofs],
@@ -209,6 +236,7 @@ async def reviewer_list_proofs(
 async def read_proof(
     case_id: uuid.UUID, proof_id: uuid.UUID, request: Request, caller: CallerDep
 ) -> Response:
+    missing: KybError | None = None
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="organization.kyb.review", resource=f"kyb_case:{case_id}"
@@ -225,7 +253,9 @@ async def read_proof(
         except ProofError as e:
             raise _error(e) from e
         except KybError as e:
-            raise _kyb_error(e) from e
+            missing = e
+    if missing is not None:
+        await _unreachable(request, caller, case_id, "review_read", missing)
     return Response(
         content,
         media_type=proof.media_type,

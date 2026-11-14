@@ -73,6 +73,8 @@ const API_PATH_PREFIXES = [
   "/v1/onboarding/",
   "/v1/integration/",
   "/v1/machine/",
+  // The Delegated Authority & Access Readiness agent screens (CR-091). The cell answers 404 for every route while the feature is off.
+  "/v1/access-readiness/",
   "/v1/webhooks/",
   "/v1/alerts",
   "/v1/search",

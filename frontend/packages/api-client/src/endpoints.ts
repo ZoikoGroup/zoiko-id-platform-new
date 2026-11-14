@@ -769,6 +769,40 @@ export function createCellApi(t: Transport) {
       notificationKinds: () => get<M.Items<M.NotificationKind>>("/v1/settings/notification-kinds"),
     },
 
+    /** Delegated Authority & Access Readiness agent (CR-091). Every route answers 404 while the feature is off; the tenant and region are never sent. */
+    accessReadiness: {
+      setups: () => get<M.Items<M.ReadinessSetup>>("/v1/access-readiness/agents"),
+      setup: (agentId: string) => get<M.ReadinessSetup>(`/v1/access-readiness/agents/${seg(agentId)}`),
+      createSetup: (body: M.ReadinessCreateIn) => post<M.ReadinessSetup>("/v1/access-readiness/agents", body),
+      changeSetup: (agentId: string, body: M.ReadinessPatchIn) => t.request<M.ReadinessSetup>("PATCH", `/v1/access-readiness/agents/${seg(agentId)}`, { body }),
+      dryRun: (agentId: string, body: { fixture?: string; policy_version?: string } = {}) =>
+        post<M.ReadinessDryRun>(`/v1/access-readiness/agents/${seg(agentId)}/dry-runs`, body),
+      requestPublish: (agentId: string) => post<M.ReadinessSetup>(`/v1/access-readiness/agents/${seg(agentId)}/publish-requests`),
+      approvePublish: (agentId: string) => post<M.ReadinessSetup>(`/v1/access-readiness/agents/${seg(agentId)}/publish-requests:approve`),
+      pause: (agentId: string, reason?: string) => post<M.ReadinessSetup>(`/v1/access-readiness/agents/${seg(agentId)}:pause`, reason ? { reason } : {}),
+      resume: (agentId: string) => post<M.ReadinessSetup>(`/v1/access-readiness/agents/${seg(agentId)}:resume`),
+      startRun: (agentId: string, idempotencyKey: string) =>
+        post<M.ReadinessRun>(
+          `/v1/access-readiness/agents/${seg(agentId)}/runs`,
+          { purpose: "access_posture_review", resource_selector: { kind: "mandates" }, mode: "manual" },
+          { idempotencyKey },
+        ),
+      runs: (agentId: string) => get<M.Items<M.ReadinessRun>>(`/v1/access-readiness/agents/${seg(agentId)}/runs`),
+      run: (agentId: string, runId: string) => get<M.ReadinessRunDetail>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}`),
+      decisions: (agentId: string, runId: string) => get<M.Items<M.ReadinessDecision>>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/decisions`),
+      evidence: (agentId: string, runId: string) => get<M.ReadinessEvidence>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/evidence`),
+      /** Permitted evidence of one run, references and digests only. A stated purpose is required; the export is recorded. */
+      exportEvidence: (agentId: string, runId: string, purpose: string) =>
+        post<M.ReadinessEvidenceExport>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/evidence:export`, { purpose }),
+      retryRun: (agentId: string, runId: string) => post<M.ReadinessRun>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}:retry`),
+      proposals: (status?: M.ReadinessProposalStatus) => get<M.Items<M.ReadinessProposal> & { notice: string }>("/v1/access-readiness/review-proposals", { status }),
+      proposal: (id: string) => get<M.ReadinessProposal>(`/v1/access-readiness/review-proposals/${seg(id)}`),
+      dismissProposal: (id: string) => post<M.ReadinessProposal>(`/v1/access-readiness/review-proposals/${seg(id)}:dismiss`),
+      assignProposal: (id: string, assignee: string) => post<M.ReadinessProposal>(`/v1/access-readiness/review-proposals/${seg(id)}:assign`, { assignee }),
+      /** Records a signed request for the governed access workflow. Executes nothing. */
+      handoffProposal: (id: string) => post<M.ReadinessProposal>(`/v1/access-readiness/review-proposals/${seg(id)}:handoff`),
+    },
+
     agents: {
       list: (status?: M.AgentStatus) => get<M.Items<M.AgentItem>>("/v1/machine/agents", { status }),
       get: (id: string) => get<M.AgentDetail>(`/v1/machine/agents/${seg(id)}`),

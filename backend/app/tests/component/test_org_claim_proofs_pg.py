@@ -265,7 +265,7 @@ def test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_
         rt_url, scanner, extra_actions=REVIEW_ACTIONS, extra_resources=REVIEW_RESOURCES
     )
     second = o.bearer(o.second)
-    _other, api_b, _, owner_b = make(rt_url, FakeScanner())
+    _other, api_b, tenant_b, owner_b = make(rt_url, FakeScanner())
     with api, api_b:
         claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()[
             "claim_id"
@@ -282,6 +282,31 @@ def test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_
         assert api_b.get(
             f"/v1/reviews/kyb-cases/{claim}/proofs/{proof}", headers=owner_b
         ).status_code in (401, 403, 404)
+
+        # T12: the denied attempts are audited in the ATTACKER's own organization (and only there), with the id they supplied and the
+        # kind of attempt; the other organization's record shows nothing, and the answers above stay the plain 404
+        async def denied(url: str, tenant_id: str) -> list[Any]:
+            async with engine(url) as eng, eng.begin() as c:
+                return list(
+                    (
+                        await c.execute(
+                            text(
+                                "SELECT outcome, reason_code, target_ref, body::text AS body FROM evidence.audit_record "
+                                "WHERE event_type = 'organization.kyb.proof_access_denied' AND tenant_id = :t ORDER BY created_at"
+                            ),
+                            {"t": uuid.UUID(tenant_id)},
+                        )
+                    ).all()
+                )
+
+        mine = asyncio.run(denied(owner_url, tenant_b))
+        assert [(r.outcome, r.reason_code, r.target_ref) for r in mine] == [
+            ("DENIED", "CASE_NOT_VISIBLE", claim),
+            ("DENIED", "CASE_NOT_VISIBLE", claim),
+            ("DENIED", "CASE_NOT_VISIBLE", ghost),
+            ("DENIED", "CASE_NOT_VISIBLE", ghost),
+        ]  # a list and an upload for each id: indistinguishable from a claim that never existed
+        assert asyncio.run(denied(owner_url, _tenant)) == []
 
         # being the owner is not being a reviewer: an organization whose people hold no review action cannot open its own document
         _c, api_c, _t, owner_c = make(rt_url, FakeScanner())

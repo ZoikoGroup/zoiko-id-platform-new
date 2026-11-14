@@ -18,6 +18,7 @@ from zid_platform.modules.verification.application.entitlements import Entitleme
 from zid_platform.modules.verification.application.entitlements import (
     change_status as change_entitlement_status,
 )
+from zid_platform.modules.verification.application.policy_review import reevaluate_pending
 from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
@@ -183,6 +184,7 @@ __all__ = [
     "reconcile_delayed",
     "reconstruct_decision",
     "record_presentation",
+    "reevaluate_pending",
     "refuse_unbacked_claim",
     "register_refresh",
     "register_sources",

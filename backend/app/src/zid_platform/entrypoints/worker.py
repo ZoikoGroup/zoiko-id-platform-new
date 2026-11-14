@@ -304,6 +304,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await reconcile_delayed(conn, now, secrets=secrets)
 
+    async def verification_policy_review(conn: AsyncConnection, now: datetime) -> object:
+        """T40: a pending verification session whose region's policy pack changed, or whose provider was suspended, is re-evaluated and its organization told."""
+        from zid_platform.modules.verification.ports import reevaluate_pending
+
+        return await reevaluate_pending(conn, now, mode=settings.regulatory_packs)
+
     async def claim_housekeeping(conn: AsyncConnection, now: datetime) -> object:
         """WF-13B: close the claims nobody submitted in time (abandoned), so no half-made claim watches people for ever."""
         from zid_platform.modules.onboarding.application.claims import abandon_drafts
@@ -352,9 +358,20 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
     async def credential_recheck(conn: AsyncConnection, now: datetime) -> object:
         """GID-058: announce, once a day each, the current credential checks that expire soon or have gone stale."""
-        from zid_platform.modules.credential.ports import recheck_due
+        from zid_platform.modules.credential.ports import recheck_due, review_proofs_of_lost_issuers
 
-        return {"announced": await recheck_due(conn, now)}
+        # T42: proofs under an issuer or accreditation body that lost its status are flagged and their recheck made due first,
+        # so the announcement that follows carries the reason
+        reviewed = await review_proofs_of_lost_issuers(conn, now)
+        return {"reviewed": reviewed, "announced": await recheck_due(conn, now)}
+
+    async def fairness(conn: AsyncConnection, now: datetime) -> object:
+        """T44: hold, for a person, the automated adverse name-match answers of a cohort with a material disparity (or of every cohort until the owners approve a threshold). Off by default."""
+        if settings.fairness_check != "on":
+            return "off"
+        from zid_platform.modules.credential.ports import check_disparity
+
+        return await check_disparity(conn, now)
 
     async def evidence_purge(conn: AsyncConnection, now: datetime) -> object:
         """CR-071: erase the bytes of uploaded evidence whose retention has run out (the row stays as the record)."""
@@ -396,6 +413,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("company_refresh", company_refresh),
         ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
+        ("verification_policy_review", verification_policy_review),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("claim_autoverify", claim_autoverify),
@@ -403,6 +421,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("agent_lifecycle", agent_lifecycle),
         ("signal_housekeeping", signal_housekeeping),
         ("credential_recheck", credential_recheck),
+        ("fairness", fairness),
         ("evidence_purge", evidence_purge),
         ("refunds", refunds),
     ]

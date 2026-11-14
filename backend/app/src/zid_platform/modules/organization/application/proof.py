@@ -28,7 +28,11 @@ from zid_platform.modules.organization.domain.proof import (
     check_proof,
     sanitize_name,
 )
-from zid_platform.modules.organization.domain.proof_events import PROOF_READ, PROOF_REJECTED
+from zid_platform.modules.organization.domain.proof_events import (
+    PROOF_ACCESS_DENIED,
+    PROOF_READ,
+    PROOF_REJECTED,
+)
 from zid_platform.modules.organization.infrastructure import kyb_store, proof_store
 from zid_platform.modules.organization.infrastructure.proof_scan import Scanner, ScanStatus
 
@@ -98,6 +102,18 @@ async def _audit(
             details=details,
         ),
     )
+
+
+async def record_case_unreachable(
+    conn: AsyncConnection, tenant_id: str, *, case_id: str, actor: str, attempt: str, now: datetime
+) -> None:
+    """T12: the caller asked for a claim that is not theirs to see (another organization's, or none at all: Row-Level Security makes
+    the two indistinguishable, and the answer stays the same 404 for both). The attempt is audited in the CALLER's own tenant. The id
+    the caller supplied and the kind of attempt only; nothing about the other organization is known or recorded."""
+    await _audit(
+        conn, tenant_id, event=PROOF_ACCESS_DENIED, outcome="DENIED", case_id=case_id, actor=actor, reason="CASE_NOT_VISIBLE",
+        details={"attempt": attempt, "reason": "CASE_NOT_VISIBLE"}, now=now,
+    )  # fmt: skip
 
 
 async def add_proof(

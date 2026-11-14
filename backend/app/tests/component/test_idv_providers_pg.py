@@ -16,6 +16,7 @@ import pytest
 from admin_fixture import make_admin
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
@@ -50,6 +51,35 @@ def uid() -> str:
 
 def mac(secret: str, body: bytes) -> str:
     return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+
+def rejected_callbacks(rt_url: str, tenant: str) -> tuple[list[Any], list[Any]]:
+    """T35: what the platform recorded (audit) and raised (alerts) for refused provider callbacks."""
+
+    async def rows() -> tuple[list[Any], list[Any]]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            t = {"t": uuid.UUID(tenant)}
+            audit = (
+                await c.execute(
+                    text(
+                        "SELECT outcome, reason_code, target_ref, body::text AS body FROM evidence.audit_record "
+                        "WHERE tenant_id = :t AND event_type = 'verification.callback.rejected' ORDER BY created_at"
+                    ),
+                    t,
+                )
+            ).all()
+            alerts = (
+                await c.execute(
+                    text(
+                        "SELECT severity, mandatory, occurrences, correlation_key FROM platform.notification_request "
+                        "WHERE tenant_id = :t AND kind = 'verification.callback.rejected'"
+                    ),
+                    t,
+                )
+            ).all()
+            return list(audit), list(alerts)
+
+    return asyncio.run(rows())
 
 
 @pytest.mark.parametrize("only", ["veriff", "sumsub"])
@@ -240,6 +270,18 @@ def test_veriff_and_sumsub_sessions_and_webhooks(rt_url: str, only: str) -> None
                 http.post(cb + "veriff", content=raw + b" ", headers=good).status_code == 401
             )  # altered in transit
             assert http.post(cb + "veriff", content=raw).status_code == 401  # unsigned
+            # T35: every refusal is recorded as a DENIED audit event and raises one mandatory HIGH alert (repeats fold into it)
+            audit, alerts = rejected_callbacks(rt_url, tenant)
+            assert [(a.outcome, a.reason_code, a.target_ref) for a in audit] == [
+                ("DENIED", "CALLBACK_SIGNATURE_INVALID", "veriff")
+            ] * 3
+            assert all(mac("vs", raw) not in a.body and "vk" not in a.body for a in audit)
+            assert len(alerts) == 1
+            assert (alerts[0].severity, alerts[0].mandatory, alerts[0].occurrences) == (
+                "HIGH",
+                True,
+                3,
+            )
             assert (
                 http.get(f"/verifications/{vid}", headers=svc).json()["status"]
                 == "PENDING_EXTERNAL"
@@ -252,6 +294,20 @@ def test_veriff_and_sumsub_sessions_and_webhooks(rt_url: str, only: str) -> None
                 http.post(cb + "veriff", content=raw, headers=good).json()["outcome"] == "DUPLICATE"
             )
             assert http.get(f"/verifications/{vid}", headers=svc).json()["status"] == "VERIFIED"
+            # T35 replay: the same event id re-sent with a different (correctly signed) body is refused, recorded and alerted
+            replay = json.dumps({**payload, "note": "changed"}).encode()
+            sent = http.post(
+                cb + "veriff",
+                content=replay,
+                headers={"X-AUTH-CLIENT": "vk", "X-HMAC-SIGNATURE": mac("vs", replay)},
+            )
+            assert sent.status_code == 409 and sent.json()["error"] == "CALLBACK_CONFLICT"
+            audit, alerts = rejected_callbacks(rt_url, tenant)
+            assert audit[-1].reason_code == "CALLBACK_CONFLICT" and audit[-1].outcome == "DENIED"
+            assert {a.correlation_key.rsplit(":", 1)[1] for a in alerts} == {
+                "CALLBACK_SIGNATURE_INVALID",
+                "CALLBACK_CONFLICT",
+            }
         else:
             payload = {
                 "type": "applicantReviewed",

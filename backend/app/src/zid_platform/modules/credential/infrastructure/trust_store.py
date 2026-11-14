@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -107,7 +108,7 @@ async def due_monitors(
         (
             await conn.execute(
                 text(
-                    "SELECT m.check_id, m.tenant_id, m.claim_type, m.status, m.expires_at, m.next_check_at "
+                    "SELECT m.check_id, m.tenant_id, m.claim_type, m.status, m.expires_at, m.next_check_at, m.review_reason "
                     "FROM cred.claim_monitor m JOIN cred.claim_check c ON c.check_id = m.check_id "
                     "WHERE c.superseded_at IS NULL AND m.next_check_at <= :n "
                     "ORDER BY m.next_check_at LIMIT :l"
@@ -504,3 +505,33 @@ async def latest_outcome(
         )
     ).first()
     return str(row[0]) if row else None
+
+
+async def flag_for_review(
+    conn: AsyncConnection,
+    *,
+    issuer_ids: Sequence[str],
+    statement_id: str,
+    reason: str,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """Flag the CURRENT proofs issued under any of these issuers for review and make their source recheck due now. A proof the same statement
+    already flagged is left alone, so one statement flags a proof once. Runs across tenants (the worker role)."""
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    "UPDATE cred.claim_monitor m SET review_statement_id = :s, review_reason = :r, review_requested_at = :n, "
+                    "next_check_at = LEAST(m.next_check_at, :n), updated_at = :n FROM cred.claim_check c "
+                    "WHERE c.check_id = m.check_id AND c.superseded_at IS NULL "
+                    "AND c.assertion ->> 'issuer_ref' = ANY(CAST(:ids AS text[])) "
+                    "AND m.review_statement_id IS DISTINCT FROM :s "
+                    "RETURNING m.check_id, m.tenant_id, m.claim_type"
+                ),
+                {"s": statement_id, "r": reason, "n": now, "ids": list(issuer_ids)},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]

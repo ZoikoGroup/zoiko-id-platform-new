@@ -736,3 +736,39 @@ events:
     source: ZID-RCG-003 09.2; CR-085
     lane: evidence
     source_status: "proposed"
+  agent.run.policy_denied:
+    cloudevents_type: com.zoiko.id.agent.run.policy_denied.v1
+    meaning: "An access readiness run was refused at its preflight; run id, agent id, denial codes and policy hash only (ZID-AG-WF-001 section 10)."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"
+  agent.run.completed:
+    cloudevents_type: com.zoiko.id.agent.run.completed.v1
+    meaning: "An access readiness run reached a terminal state (completed, needs review, failed or canceled); counts and the result digest only."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"
+  agent.review.proposal_created:
+    cloudevents_type: com.zoiko.id.agent.review.proposal_created.v1
+    meaning: "The access readiness agent appended a review proposal for a person; proposal id, rule and finding code only. No right changed."
+    source: ZID-AG-WF-001; CR-091
+    lane: domain
+    source_status: "proposed"
+  credential.proof.review_required:
+    cloudevents_type: com.zoiko.id.credential.proof.review_required.v1
+    meaning: "A current proof was flagged for review because the issuer or accreditation body behind it lost its status; check id, claim type, issuer id, loss reason codes and the statement id only."
+    source: ZID-RCG-003 section 12 T42; CR-092
+    lane: domain
+    source_status: "proposed"
+  verification.session.policy_reevaluated:
+    cloudevents_type: com.zoiko.id.verification.session.policy_reevaluated.v1
+    meaning: "A verification session that had not finished was re-evaluated because the policy pack governing its region changed or its provider was suspended; session id, country, capability, the pack it started under, the pack that governs now and the result only."
+    source: ZID-RCG-003 section 12 T40; CR-092
+    lane: domain
+    source_status: "proposed"
+  credential.fairness.path_held:
+    cloudevents_type: com.zoiko.id.credential.fairness.path_held.v1
+    meaning: "The disparity check held the automated 'different person' answers of a name cohort for a person; cohort, reason code and aggregate counts and rates only, never a name or a person."
+    source: ZID-RCG-003 section 12 T44; CR-092
+    lane: domain
+    source_status: "proposed"

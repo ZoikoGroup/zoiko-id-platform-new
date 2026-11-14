@@ -321,7 +321,7 @@ def summarize(items: Sequence[Mapping[str, Any]]) -> RightsStatus:
     states = {i["state"] for i in items}
     if states & {"PENDING", "PENDING_PROCESSOR_ACK", "FAILED"}:
         return RightsStatus.FULFILLING
-    if "RETAINED_RESTRICTED" in states or "DENIED" in states:
+    if states & {"RETAINED_RESTRICTED", "RETAINED_OTHER_BASIS", "DENIED"}:
         return RightsStatus.PARTIALLY_DENIED
     return RightsStatus.COMPLETED
 

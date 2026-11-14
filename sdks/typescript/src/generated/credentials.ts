@@ -1288,6 +1288,10 @@ export interface components {
             credential: {
                 [key: string]: unknown;
             };
+            /** Holder Presentation */
+            holder_presentation?: {
+                [key: string]: unknown;
+            } | null;
             /** Jurisdiction */
             jurisdiction?: string | null;
         };

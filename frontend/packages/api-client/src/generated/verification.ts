@@ -136,6 +136,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/providers/{provider_id}/entitlements/{service}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Withdrawal Impact
+         * @description Impact analysis before a kill switch is pulled (Doc 03 RCG-G08). Changes nothing.
+         */
+        get: operations["withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/providers/{provider_id}/entitlements/{service}/revoke": {
         parameters: {
             query?: never;
@@ -479,13 +499,6 @@ export interface components {
             /** Valid Until */
             valid_until?: string | null;
         };
-        /** EstimateIn */
-        EstimateIn: {
-            /** Estimated Age */
-            estimated_age: number;
-            /** Margin */
-            margin: number;
-        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -576,7 +589,7 @@ export interface components {
         V2AgeIn: {
             /** Birth Date */
             birth_date?: string | null;
-            estimate?: components["schemas"]["EstimateIn"] | null;
+            estimate?: components["schemas"]["zid_platform__modules__verification__api__v2_age__EstimateIn"] | null;
             /** Threshold */
             threshold: number;
         };
@@ -592,6 +605,13 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** EstimateIn */
+        zid_platform__modules__verification__api__v2_age__EstimateIn: {
+            /** Estimated Age */
+            estimated_age: number;
+            /** Margin */
+            margin: number;
         };
         /** StartIn */
         zid_platform__modules__verification__api__verification__StartIn: {
@@ -878,6 +898,40 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+                service: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

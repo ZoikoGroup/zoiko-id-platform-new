@@ -1,0 +1,19 @@
+# Owner content (CR-092, ZID-RCG-003 T44): when is a gap between cohorts in the automated "different person" rate material?
+#
+# NOTHING IS APPROVED HERE. The numbers below are empty on purpose: no legal or policy value is invented by engineering. With no approved
+# threshold the disparity check FAILS CLOSED: every cohort with automated outcomes is held, so its "different person" answers go to a person
+# instead of being final, until the owners approve a threshold.
+#
+# To approve: set status to APPROVED, set both numbers, and name who approved and the reference of the decision. Anything incomplete is read as
+# not approved.
+#   max_rate_gap     0..1, absolute: a cohort whose automated NOT_MATCHED rate is at least this far above the lowest cohort's is held
+#   min_cohort_size  a cohort with fewer automated outcomes than this cannot be judged and is reported, not held
+version: 0.1.0
+status: PENDING_OWNER_APPROVAL
+metric: automated_not_matched_rate_gap_by_name_script
+max_rate_gap: null
+min_cohort_size: null
+approval: null
+# approval:
+#   approved_by: <name or role>
+#   reference: <decision or ticket reference>
