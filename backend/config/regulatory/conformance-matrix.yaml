@@ -150,12 +150,14 @@ cases:
   - case: T20
     title: Proof response is stale
     expected: EXPIRED/RECHECK_REQUIRED; no cached active status
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_standing_and_eligibility.py::test_a_license_that_does_not_count_blocks_with_its_reason
       - app/tests/unit/test_lifecycle_portable_outreach.py::test_an_unreachable_source_never_flips_a_status_it_only_loses_confirmation
       - app/tests/unit/test_attestation.py::test_t07_a_snapshot_older_than_the_limit_is_hold_so_an_unreachable_register_cannot_keep_a_certification_alive
-    note: Stale proof is never active (BLOCKED, HOLD), but no proof response carries an explicit EXPIRED or RECHECK_REQUIRED status.
+      - app/tests/unit/test_proof_staleness.py::test_a_proof_past_its_validity_is_expired_even_though_it_was_stored_as_active
+      - app/tests/unit/test_proof_staleness.py::test_a_source_answer_older_than_the_freshness_requires_a_recheck
+      - app/tests/component/test_v2_facade_pg.py::test_t20_a_stale_proof_response_reads_expired_or_recheck_required_never_active
   - case: T21
     title: Valid PAdES signature nonqualified certificate
     expected: CRYPTO_VALID and NOT_QUALIFIED
@@ -223,11 +225,12 @@ cases:
   - case: T30
     title: Consent withdrawal after unnecessary evidence retention
     expected: correct workflow, exemptions and deletion proof
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_privacy_pg.py::test_erasure_holds_processors_and_retention
       - app/tests/component/test_privacy_pg.py::test_registry_role_map_consent_and_processing_check
-    note: Exemptions, processor acknowledgement and the deletion audit are proven, and withdrawal stops processing; no test has a withdrawal trigger erasure of the retained evidence.
+      - app/tests/component/test_privacy_pg.py::test_t30_withdrawing_consent_erases_what_was_kept_only_for_it_with_the_usual_exemptions
+      - app/tests/component/test_privacy_pg.py::test_t30_an_unverified_withdrawal_waits_and_another_lawful_basis_keeps_the_data
   - case: T31
     title: Biometric path inaccessible/refused
     expected: compliant alternate route presented
@@ -301,28 +304,31 @@ cases:
   - case: T40
     title: Regional policy updated and valid sessions exist
     expected: re-evaluate affected pending cases, emit scoped notices
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_org_approvals_pg.py::test_an_approved_request_is_held_when_policy_or_trust_changes
       - app/tests/component/test_regulatory_api_pg.py::test_a_pack_goes_from_draft_to_published_and_back_through_the_operator_plane
-    note: Pending approvals are held when policy changes, and a pack change is announced on the outbox; pending verification sessions of that region are not re-evaluated.
+      - app/tests/component/test_session_policy_review_pg.py::test_t40_a_policy_change_re_evaluates_the_pending_sessions_of_that_region_and_tells_only_them
   - case: T41
     title: Malicious PDF polyglot or embedded active content
     expected: quarantine before validator
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_org_claim_proofs_pg.py::test_what_is_not_a_clean_document_is_refused_with_an_audit_record_and_nothing_stored
       - app/tests/unit/test_kyb_proof.py::test_a_pdf_that_can_run_something_is_refused
-    note: Active content is refused before the scanner, with an audit record, on organization proofs; it is refused rather than quarantined, and the credential document path is not covered.
+      - app/tests/unit/test_active_content.py::test_the_upload_intake_refuses_it_with_its_kinds_before_the_type_is_weighed
+      - app/tests/component/test_v2_uploads_pg.py::test_t41_a_pdf_with_active_content_is_quarantined_before_the_scanner_and_the_validator
   - case: T42
     title: Accreditation/certification body loses status
     expected: source recheck and affected proof review
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_attestation.py::test_a_suspended_withdrawn_or_expired_certification_is_hold_with_its_own_reason
       - app/tests/component/test_regulated_claims_pg.py::test_an_issuer_recorded_in_the_ledger_is_trusted_by_a_live_claim_check_and_a_correction_takes_it_away
       - app/tests/component/test_regulated_claims_pg.py::test_a_claim_is_published_only_while_its_certification_and_market_hold_and_its_proof_is_exported
-    note: Lost status takes trust and claims away at once; no test schedules a source recheck or a review of the proofs already issued under it.
+      - app/tests/unit/test_issuer_status_lost.py::test_a_revocation_that_has_taken_effect_is_a_loss_once
+      - app/tests/unit/test_issuer_status_lost.py::test_an_accreditation_that_ended_or_was_removed_is_a_loss_and_a_new_one_is_not
+      - app/tests/component/test_issuer_status_review_pg.py::test_t42_a_body_that_loses_its_status_flags_the_proofs_under_it_and_schedules_their_recheck
   - case: T43
     title: GDPR subject access request for multi-source check
     expected: role/legal basis-aware export without third-party leakage
@@ -334,10 +340,12 @@ cases:
   - case: T44
     title: Accuracy/fairness disaggregated test finds material disparity
     expected: hold affected automated path; alternative review
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/unit/test_name_matching_fairness.py::test_unreadable_scripts_always_go_to_a_person_with_a_clear_reason
-    note: The known disparity (unreadable scripts) goes to a person; nothing detects a disparity and holds the automated path.
+      - app/tests/unit/test_fairness_check.py::test_a_material_disparity_holds_the_affected_cohort_and_only_that_one
+      - app/tests/unit/test_fairness_check.py::test_without_an_approved_threshold_every_cohort_with_outcomes_is_held
+      - app/tests/component/test_fairness_check_pg.py::test_t44_a_material_disparity_holds_the_cohort_and_with_no_threshold_every_cohort_fails_closed
   - case: T45
     title: Outage/incident notification deadline simulation
     expected: routing, legal escalation, clock and evidence verified

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import uuid
 from dataclasses import replace
@@ -30,6 +31,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.application import signatures, uploads
 from zid_platform.modules.evidence.application.issuer_hook import issuer_binding
 from zid_platform.modules.evidence.domain import documents as docs
+from zid_platform.modules.evidence.domain.active_content import active_content
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 from zid_platform.protected import protected_action
 
@@ -180,6 +182,24 @@ async def validate_document(
             raise ZidError(
                 "VALIDATION_FAILED", "content_base64 is not valid base64.", http_status=422
             ) from e
+    quarantined = active_content(content)
+    if quarantined:  # T41: before the validator, and before anything else reads the file; refused, recorded, nothing kept
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await uploads.record_quarantine(
+                conn,
+                caller.ctx.tenant_id or "",
+                actor=str(caller.ctx.principal_id),
+                target=upload_id or hashlib.sha256(content).hexdigest(),
+                content=content,
+                kinds=quarantined,
+                path="validate",
+                now=datetime.now(UTC),
+            )
+        raise ZidError(
+            "DOCUMENT_QUARANTINED",
+            "That document carries active content and was not examined.",
+            http_status=422,
+        )
     try:
         v = docs.validate(
             content,

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import struct
 
+from zid_platform.modules.evidence.domain.active_content import active_content
 from zid_platform.modules.evidence.domain.documents import ALLOWED_TYPES, sniff
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # mirrors the table CHECK
@@ -37,6 +38,11 @@ def check_content(content: bytes, *, declared_type: str, size_bytes: int, sha256
         raise UploadError("SIZE_MISMATCH", f"announced {size_bytes}, received {len(content)}")
     if hashlib.sha256(content).hexdigest() != sha256:
         raise UploadError("DIGEST_MISMATCH")
+    found = active_content(
+        content
+    )  # T41: before the type is even weighed, and before the scanner or any validator sees it
+    if found:
+        raise UploadError("ACTIVE_CONTENT", ",".join(found))
     sniffed = sniff(content)
     if sniffed is None or sniffed != declared_type:
         raise UploadError("TYPE_MISMATCH", f"declared {declared_type}, bytes are {sniffed}")

@@ -523,6 +523,9 @@
         "credential_eligibility_decided": {
           "$ref": "#/components/messages/credential_eligibility_decided"
         },
+        "credential_fairness_path_held": {
+          "$ref": "#/components/messages/credential_fairness_path_held"
+        },
         "credential_issuance_started": {
           "$ref": "#/components/messages/credential_issuance_started"
         },
@@ -534,6 +537,9 @@
         },
         "credential_profile_deprecated": {
           "$ref": "#/components/messages/credential_profile_deprecated"
+        },
+        "credential_proof_review_required": {
+          "$ref": "#/components/messages/credential_proof_review_required"
         },
         "credential_status_changed": {
           "$ref": "#/components/messages/credential_status_changed"
@@ -2188,6 +2194,9 @@
         "verification_screening_decided": {
           "$ref": "#/components/messages/verification_screening_decided"
         },
+        "verification_session_policy_reevaluated": {
+          "$ref": "#/components/messages/verification_session_policy_reevaluated"
+        },
         "verification_started": {
           "$ref": "#/components/messages/verification_started"
         }
@@ -3088,6 +3097,17 @@
         "x-zid-source": "ZID-GAP-001 v2.0; CR-069",
         "x-zid-status": "proposed"
       },
+      "credential_fairness_path_held": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.fairness.path_held.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The disparity check held the automated 'different person' answers of a name cohort for a person; cohort, reason code and aggregate counts and rates only, never a name or a person.",
+        "title": "credential.fairness.path_held",
+        "x-zid-source": "ZID-RCG-003 section 12 T44; CR-092",
+        "x-zid-status": "proposed"
+      },
       "credential_issuance_started": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.credential.issuance.started.v1",
@@ -3131,6 +3151,17 @@
         "title": "credential.profile.deprecated",
         "x-zid-source": "ZID-VC-001",
         "x-zid-status": "catalogued"
+      },
+      "credential_proof_review_required": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.credential.proof.review_required.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A current proof was flagged for review because the issuer or accreditation body behind it lost its status; check id, claim type, issuer id, loss reason codes and the statement id only.",
+        "title": "credential.proof.review_required",
+        "x-zid-source": "ZID-RCG-003 section 12 T42; CR-092",
+        "x-zid-status": "proposed"
       },
       "credential_revoked": {
         "contentType": "application/cloudevents+json",
@@ -6221,6 +6252,17 @@
         "summary": "A director, beneficial-owner and sanctions screening decision was recorded (case id, decision status, reason codes, evidence hash, policy version, country and alert count; no names, dates of birth or list entry text).",
         "title": "verification.screening.decided",
         "x-zid-source": "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening section 04-06; CR-043",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_policy_reevaluated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.policy_reevaluated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification session that had not finished was re-evaluated because the policy pack governing its region changed or its provider was suspended; session id, country, capability, the pack it started under, the pack that governs now and the result only.",
+        "title": "verification.session.policy_reevaluated",
+        "x-zid-source": "ZID-RCG-003 section 12 T40; CR-092",
         "x-zid-status": "proposed"
       },
       "verification_started": {

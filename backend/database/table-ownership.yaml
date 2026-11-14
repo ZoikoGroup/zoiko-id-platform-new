@@ -1034,6 +1034,11 @@ tables:
     module: credential
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G04 issuer and accreditation history with provenance, append-only (proposed, CR-075)"
+  cred.fairness_hold:
+    role: cell
+    module: credential
+    tenant_scoped: false
+    source: "ZID-RCG-003 section 12 T44 held automated path per name cohort, aggregate counts only (proposed, CR-092)"
   cred.rp_registration:
     role: cell
     module: credential

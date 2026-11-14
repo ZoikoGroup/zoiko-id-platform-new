@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
 from zid_platform.modules.credential.application import assertion_contract as ac
+from zid_platform.modules.credential.application import fairness
 from zid_platform.modules.credential.application import resilience as rs
 from zid_platform.modules.credential.application.identity_match import Holder, match_holder
 from zid_platform.modules.credential.domain import sources as src
@@ -48,7 +49,7 @@ from zid_platform.modules.credential.domain.claims import (
 from zid_platform.modules.credential.domain.evidence_quality import EvidenceKind, explain
 from zid_platform.modules.credential.domain.reasons import describe_all
 from zid_platform.modules.credential.infrastructure import claim_store as store
-from zid_platform.modules.credential.infrastructure import trust_store
+from zid_platform.modules.credential.infrastructure import fairness_store, trust_store
 from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
 from zid_platform.modules.verification.ports import (
     SANDBOX_ENVIRONMENTS,
@@ -339,6 +340,15 @@ KINDS_BY_TIER = {
 }
 
 
+async def _match(
+    conn: AsyncConnection, holder: Holder, source_name: str, birth_year: Any
+) -> tuple[SubjectMatch, dict[str, Any]]:
+    """Match the holder to the source's record, then apply any fairness hold on the holder's name cohort (T44): a held cohort's automated NOT_MATCHED
+    goes to a person instead. Returns the answer to use and what to record about it (cohort and automated answer, never the name)."""
+    subject, _ = match_holder(holder, source_name, source_birth_year=birth_year)
+    return fairness.apply_hold(subject, holder.legal_name, await fairness_store.held_cohorts(conn))
+
+
 def _issuer_name(claimed: Mapping[str, Any]) -> str | None:
     return next((str(claimed[k]) for k in ISSUER_NAME_FIELDS if claimed.get(k)), None)
 
@@ -474,6 +484,7 @@ async def run_check(
                         accreditation = None
     answer: SourceAnswer
     employment_disclosed: dict[str, Any] | None = None
+    fairness_record: dict[str, Any] | None = None
     source_fault: dict[str, Any] | None = None
     if stop is not None:
         decision, reasons, authenticity = stop
@@ -537,8 +548,8 @@ async def run_check(
             answer.fields.get("subject_name") if answer.result is SourceResult.RESPONDED else None
         )
         if holder is not None and source_name:
-            subject, _ = match_holder(
-                holder, str(source_name), source_birth_year=answer.fields.get("birth_year")
+            subject, fairness_record = await _match(
+                conn, holder, str(source_name), answer.fields.get("birth_year")
             )
         entity_is_subject = None
         if claim is ClaimType.INSURANCE_ASSERTION and holder is not None:
@@ -584,6 +595,10 @@ async def run_check(
     extras = _extras(
         claim, answer, standing_restrictions, issuer_ref, entity_is_subject, accreditation
     )
+    if fairness_record is not None:
+        extras["fairness"] = (
+            fairness_record  # the cohort and the automated answer, for the disparity check (T44)
+        )
     if employment_disclosed is not None:
         extras["employment"] = employment_disclosed
     extras["expires_at"] = expires.isoformat() if expires else None
@@ -736,11 +751,11 @@ async def run_disciplinary_check(
     )
     subject = answer.subject
     name = answer.fields.get("subject_name") if answer.result is SourceResult.RESPONDED else None
-    if holder is not None and name:
-        subject, _ = match_holder(
-            holder, str(name), source_birth_year=answer.fields.get("birth_year")
-        )
     extras: dict[str, Any] = {"issuer_ref": res.issuer_id, "expires_at": None}
+    if holder is not None and name:
+        subject, extras["fairness"] = await _match(
+            conn, holder, str(name), answer.fields.get("birth_year")
+        )
     if answer.result is SourceResult.UNAVAILABLE:
         assertion = assertion_from_facts(
             ClaimType.DISCIPLINARY_FINDING,

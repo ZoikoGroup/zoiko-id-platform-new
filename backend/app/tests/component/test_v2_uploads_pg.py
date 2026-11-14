@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import struct
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -660,3 +661,93 @@ def test_a_really_signed_pdf_is_verified_through_the_api_against_the_configured_
             later["document_results"][0]["status"] == "VERIFIED_LIMITED"
             and later["document_results"][0]["detail"]["trust_notes"]
         )
+
+
+ACTIVE_PDF = (
+    b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>\n"
+    b"endobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"
+)
+
+
+def quarantine_audits(rt_url: str, tenant: str) -> list[dict]:
+    async def go() -> list[dict]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            rows = (
+                await c.execute(
+                    text(
+                        "SELECT outcome, reason_code, target_ref, body FROM evidence.audit_record "
+                        "WHERE event_type = 'evidence.document.quarantined' ORDER BY created_at"
+                    )
+                )
+            ).all()
+        out = []
+        for r in rows:
+            body = json.loads(r.body) if isinstance(r.body, str) else r.body
+            out.append(
+                {
+                    "outcome": r.outcome,
+                    "reason": r.reason_code,
+                    "target": r.target_ref,
+                    "body": body,
+                }
+            )
+        return out
+
+    return asyncio.run(go())
+
+
+def test_t41_a_pdf_with_active_content_is_quarantined_before_the_scanner_and_the_validator(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import base64
+
+    from zid_platform.modules.evidence.domain import documents as docs
+
+    with world(rt_url) as (http, mine, tenant, _admin):
+        scans: list[int] = []
+
+        class Counting:
+            name = "counting"
+
+            async def scan(self, content: bytes):
+                scans.append(len(content))
+                return await sc.SimulatorScanner().scan(content)
+
+        http.app.state.evidence_scanner = Counting()
+
+        # the upload path: refused before the scanner, no bytes kept, and the refusal is audited
+        a = announce(http, mine, ACTIVE_PDF, kind="application/pdf").json()
+        r = put(http, mine, a, ACTIVE_PDF)
+        assert r.status_code == 422 and r.json()["code"] == "evidence_rejected_active_content", (
+            r.text
+        )
+        held = row(rt_url, tenant, a["evidence_ref"])
+        assert held["state"] == "REJECTED" and held["content"] is None
+        assert held["reject_reason"] == "ACTIVE_CONTENT" and held["scan_state"] == "NOT_SCANNED"
+        assert scans == [], "a file that can run something never reaches the scanner"
+
+        # the paste path: the validator is never called, and the refusal is audited
+        def validator_must_not_run(*args: object, **kw: object) -> None:
+            raise AssertionError("the validator was reached")
+
+        monkeypatch.setattr(docs, "validate", validator_must_not_run)
+        pasted = http.post(
+            "/v2/documents/validate",
+            headers=mine,
+            json={
+                "content_base64": base64.b64encode(ACTIVE_PDF).decode(),
+                "declared_type": "application/pdf",
+                "checks": ["integrity"],
+            },
+        )
+        assert pasted.status_code == 422, pasted.text
+        assert "QUARANTINED" in pasted.text.upper()
+
+        audits = quarantine_audits(rt_url, tenant)
+        assert [x["outcome"] for x in audits] == ["DENIED", "DENIED"]
+        assert {x["body"]["details"]["path"] for x in audits} == {"upload", "validate"}
+        for x in audits:
+            assert x["reason"] == "ACTIVE_CONTENT"
+            assert "JAVASCRIPT" in x["body"]["details"]["kinds"]
+            assert x["body"]["details"]["content_hash"] == sha(ACTIVE_PDF)
+            assert "app.alert" not in json.dumps(x["body"])  # the content itself is never recorded

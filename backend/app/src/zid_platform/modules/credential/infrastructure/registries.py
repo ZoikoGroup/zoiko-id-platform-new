@@ -17,6 +17,7 @@ import yaml
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.credential.domain import eligibility as el
+from zid_platform.modules.credential.domain import fairness as fa
 from zid_platform.modules.credential.domain import practice as pr
 from zid_platform.modules.credential.domain import sources as src
 from zid_platform.modules.credential.domain import trust_graph as tg
@@ -116,3 +117,9 @@ def find_policy(
         and p.service_code == service
     ]
     return max(found, key=lambda p: p.version) if found else None
+
+
+def fairness_threshold() -> fa.Threshold | None:
+    """The approved disparity threshold, or None (T44): the file is owner content and ships unapproved. Read on every use, so approving it
+    takes effect at the next check without a restart."""
+    return fa.parse_threshold(_doc("fairness-thresholds.yaml"))

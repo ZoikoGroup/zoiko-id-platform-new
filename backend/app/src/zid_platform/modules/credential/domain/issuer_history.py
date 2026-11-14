@@ -231,3 +231,41 @@ def award_check(
         "accreditation": state.value,
         "name_at_award": name,
     }
+
+
+# ------------------------------------------------------------------------------------------------ status lost (T42)
+
+REVOKED = "ISSUER_REVOKED"
+AUTHORITY_LOST = "ISSUER_AUTHORITY_LOST"
+ACCREDITATION_LOST = "ACCREDITATION_LOST"
+
+
+def _in_force(accreditation: tg.Accreditation, on: date) -> bool:
+    return accreditation.valid_from <= on and (
+        accreditation.valid_until is None or on <= accreditation.valid_until
+    )
+
+
+def status_lost(prev: tg.Issuer | None, new: tg.Issuer, *, on: date) -> tuple[str, ...]:
+    """What the issuer or accreditation body LOST between two statements, as of `on`: it is now revoked, it no longer holds an OFFICIAL
+    authority, or an accreditation that covered `on` no longer does. A first statement loses nothing; gaining or keeping a status is not a
+    loss. The proofs already issued under a lost status are reviewed (T42)."""
+    if prev is None:
+        return ()
+    lost: list[str] = []
+    revoked_now = new.revoked_on is not None and new.revoked_on <= on
+    revoked_before = prev.revoked_on is not None and prev.revoked_on <= on
+    if revoked_now and not revoked_before:
+        lost.append(REVOKED)
+    if prev.authority is tg.Authority.OFFICIAL and new.authority is not tg.Authority.OFFICIAL:
+        lost.append(AUTHORITY_LOST)
+    held = {(a.body_issuer_id, a.program) for a in prev.accreditations if _in_force(a, on)}
+    kept = {(a.body_issuer_id, a.program) for a in new.accreditations if _in_force(a, on)}
+    if held - kept:
+        lost.append(ACCREDITATION_LOST)
+    return tuple(lost)
+
+
+def accredited_by(issuer: tg.Issuer, body_issuer_id: str) -> bool:
+    """Whether the issuer ever listed an accreditation from that body: the proofs it issued rest on it, in force or ended."""
+    return any(a.body_issuer_id == body_issuer_id for a in issuer.accreditations)

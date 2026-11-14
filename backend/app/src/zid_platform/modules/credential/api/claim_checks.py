@@ -33,6 +33,7 @@ from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks as checks
 from zid_platform.modules.credential.application import resilience as rs
 from zid_platform.modules.credential.application.identity_match import Holder
+from zid_platform.modules.credential.domain import lifecycle as lc
 from zid_platform.modules.credential.domain import trust_graph as tg
 from zid_platform.modules.credential.domain.claims import ClaimError, ClaimType
 from zid_platform.modules.credential.domain.sources import SourceError, coverage
@@ -102,6 +103,10 @@ class CredCheckIn(BaseModel):
     # section 08.1: which consumer the assertion is for, and the consent it was requested under
     consumer: str = Field(default="direct", pattern=r"^[a-z][a-z0-9_-]{1,31}$")
     consent_ref: str | None = Field(default=None, max_length=200)
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 def _err(e: ClaimError | PackError | SourceError) -> ZidError:
@@ -349,7 +354,12 @@ async def read_assertion(
     if row is None:
         raise ZidError("NOT_FOUND", "Not found.", http_status=404)
     # the stored body is what was signed: return it as is, plus whether a newer check has replaced it
-    return {**row["assertion"], "superseded": row["superseded_at"] is not None}
+    # judged at this moment, a stale proof says EXPIRED or RECHECK_REQUIRED, never a cached ACTIVE (T20)
+    return {
+        **row["assertion"],
+        "superseded": row["superseded_at"] is not None,
+        "proof_status": lc.proof_status(row["assertion"], now=_now()).value,
+    }
 
 
 @router.get("/v1/credential-packs")

@@ -108,3 +108,20 @@ async def registry_at(
     ).all()
     histories: Mapping[str, list[Statement]] = {r.issuer_id: [_statement(r)] for r in rows}
     return registry_as_known_at(histories, at, base)
+
+
+async def latest_two(conn: AsyncConnection, at: datetime) -> dict[str, list[Statement]]:
+    """For every issuer, its last two statements recorded by `at`, oldest first: what a status-loss review compares. One query."""
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_COLUMNS} FROM (SELECT *, row_number() OVER (PARTITION BY issuer_id ORDER BY seq DESC) AS rn "
+                "FROM cred.issuer_statement WHERE recorded_at <= :at) s WHERE rn <= 2 ORDER BY issuer_id, seq"
+            ),
+            {"at": at},
+        )
+    ).all()
+    out: dict[str, list[Statement]] = {}
+    for r in rows:
+        out.setdefault(r.issuer_id, []).append(_statement(r))
+    return out
