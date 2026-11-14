@@ -1245,6 +1245,8 @@ def test_a_company_wide_stop_cuts_off_twenty_running_agents_inside_the_target(
         )  # fmt: skip
     assert len(gv.run(lambda c: store.running_runs(c))) == 20
     tool = gv.run(lambda c: machine_store.load_tools(c))["docs.read"]
+    in_company = gv.w.owner("SELECT count(*) FROM agent.agent_profile WHERE tenant_id = :t")[0][0]
+    assert in_company >= 20  # the fixture seeds a couple more agents besides these; a company-wide stop reaches every one of them
 
     started = time.perf_counter()
     stop = gv.run(
@@ -1273,7 +1275,7 @@ def test_a_company_wide_stop_cuts_off_twenty_running_agents_inside_the_target(
 
     refused = gv.w.run(probe())
     finished = time.perf_counter()
-    assert stop["agents_suspended"] == 20 and all(
+    assert stop["agents_suspended"] == in_company and all(
         r == (str(g.Code.EMERGENCY_FROZEN),) for r in refused
     )
     assert (
@@ -1399,6 +1401,9 @@ def test_evidence_chains_are_per_agent_and_a_tampered_row_is_found_in_its_own_ch
         "SELECT seq FROM agent.governance_event WHERE tenant_id = :t AND chain_key = :k ORDER BY seq LIMIT 1",
         k=gv.agent,
     )[0][0]
+    original = gv.w.owner(
+        "SELECT outcome FROM agent.governance_event WHERE seq = :s AND tenant_id = :t", s=victim
+    )[0][0]  # put back exactly what was there, whatever it was
     gv.w.owner("ALTER TABLE agent.governance_event DISABLE TRIGGER governance_event_append_only")
     try:
         gv.w.owner(
@@ -1408,8 +1413,9 @@ def test_evidence_chains_are_per_agent_and_a_tampered_row_is_found_in_its_own_ch
         broken = gv.run(lambda c: store.verify_chain(c))
     finally:
         gv.w.owner(
-            "UPDATE agent.governance_event SET outcome = 'ALLOW' WHERE seq = :s AND tenant_id = :t",
+            "UPDATE agent.governance_event SET outcome = :o WHERE seq = :s AND tenant_id = :t",
             s=victim,
+            o=original,
         )
         gv.w.owner("ALTER TABLE agent.governance_event ENABLE TRIGGER governance_event_append_only")
     assert broken["intact"] is False and broken["broken_at"] == victim
