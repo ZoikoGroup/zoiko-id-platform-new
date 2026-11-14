@@ -84,6 +84,7 @@ export function fieldIssues(error: unknown): Record<string, string> {
     SOURCE_NOT_APPROVED: "resource_kinds",
     SCOPE_INVALID: "max_records",
     PURPOSE_NOT_ALLOWED: "purpose",
+    AI_EXPLANATION_DISABLED: "ai_explanation",
   };
   const mapped = byCode[error.code];
   if (mapped) out[mapped] = readinessMessage(error.code, error.message);
@@ -95,7 +96,7 @@ export function fieldIssues(error: unknown): Record<string, string> {
 }
 
 /** The first field, in form order, that the server refused. Focus goes here. */
-export const FIELD_ORDER = ["agent", "sponsor", "display_name", "purpose", "resource_kinds", "max_records", "warning_window_days"];
+export const FIELD_ORDER = ["agent", "sponsor", "display_name", "purpose", "resource_kinds", "max_records", "warning_window_days", "ai_explanation"];
 export function firstInvalid(issues: Record<string, string>): string | undefined {
   return FIELD_ORDER.find((f) => issues[f]) ?? Object.keys(issues)[0];
 }
@@ -119,6 +120,8 @@ const MESSAGES: Record<string, string> = {
   POLICY_VERSION_UNKNOWN: "The policy changed since this page loaded. Reload and run the dry run again.",
   RUN_NOT_RETRYABLE: "A finished run cannot be retried.",
   SETUP_INVALID_TRANSITION: "That change is not possible from the setup's current state.",
+  AI_EXPLANATION_DISABLED: "The optional AI explanation is switched off in this workspace's region.",
+  EXPORT_PURPOSE_REQUIRED: "State the purpose of the export (at least 3 characters).",
 };
 
 export function readinessMessage(code: string, fallback: string): string {
@@ -144,6 +147,14 @@ const REASONS: Record<string, string> = {
   PROPOSAL_CREATED: "A review proposal was created.",
   PROPOSAL_DUPLICATE: "The proposal already existed, so none was added.",
   RULES_APPLIED: "The rules were applied.",
+  CREDENTIAL_DENIED: "The worker was refused its short-lived credential, so nothing was read.",
+  CREDENTIAL_REVOKED: "The run's credential was revoked, so the run stopped at its next step.",
+  CREDENTIAL_EXPIRED: "The run's short-lived credential expired, so the run stopped.",
+  ATTESTATION_INSUFFICIENT: "The worker's verified attestation is below the level a credential needs.",
+  ENVIRONMENT_QUARANTINED: "The worker's environment is quarantined.",
+  WORKLOAD_IDENTITY_UNREGISTERED: "The agent has no live workload binding.",
+  WORKLOAD_BINDING_INACTIVE: "The agent's workload binding is not active.",
+  BLUEPRINT_REVOKED: "The agent's blueprint release was revoked.",
 };
 export function reasonText(code: string): string {
   return REASONS[code] ?? code;

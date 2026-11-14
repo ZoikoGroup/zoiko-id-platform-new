@@ -1,7 +1,8 @@
 """Delegated Authority & Access Readiness agent over HTTP and against PostgreSQL with RLS (ZID-AG-WF-001; CR-091).
 
 Acceptance cases: AT-01 AT-02 AT-03 AT-04 AT-05 AT-06 AT-07 AT-08 AT-09 AT-10 AT-11 AT-12 AT-13 AT-14 AT-18 AT-19 AT-20 AT-21 AT-23 AT-24.
-(AT-15 to AT-17 are about the optional model, AT-22 about the console; neither is built.) Every record is synthetic.
+(The run's credential, the sponsor notification, the evidence export and AT-15 to AT-17, the optional model, are in
+test_access_readiness_runtime_pg.py; AT-22 is the console's readiness-a11y Playwright spec.) Every record is synthetic.
 """
 
 from __future__ import annotations
@@ -413,11 +414,13 @@ def test_run_proposals_idempotency_evidence_handoff_and_kill_switches(
             ).json()
             assert ev["verified"] is True and ev["integrity_exceptions"] == []
             kinds = [e["event_type"] for e in ev["items"]]
-            assert (
-                kinds[:4]
-                == ["preflight_passed", "metadata_read", "rules_evaluated", "proposal_created"]
-                and kinds[-1] == "run_needs_review"
-            )
+            assert kinds[:5] == [
+                "preflight_passed",
+                "credential_issued",
+                "metadata_read",
+                "rules_evaluated",
+                "proposal_created",
+            ] and kinds[-3:] == ["credential_revoked", "sponsor_notified", "run_needs_review"]
             assert all(
                 e["payload_digest"].startswith("sha256:")
                 and e["classification"] == "METADATA"

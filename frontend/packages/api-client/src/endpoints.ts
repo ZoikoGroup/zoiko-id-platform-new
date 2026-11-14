@@ -791,6 +791,9 @@ export function createCellApi(t: Transport) {
       run: (agentId: string, runId: string) => get<M.ReadinessRunDetail>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}`),
       decisions: (agentId: string, runId: string) => get<M.Items<M.ReadinessDecision>>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/decisions`),
       evidence: (agentId: string, runId: string) => get<M.ReadinessEvidence>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/evidence`),
+      /** Permitted evidence of one run, references and digests only. A stated purpose is required; the export is recorded. */
+      exportEvidence: (agentId: string, runId: string, purpose: string) =>
+        post<M.ReadinessEvidenceExport>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}/evidence:export`, { purpose }),
       retryRun: (agentId: string, runId: string) => post<M.ReadinessRun>(`/v1/access-readiness/agents/${seg(agentId)}/runs/${seg(runId)}:retry`),
       proposals: (status?: M.ReadinessProposalStatus) => get<M.Items<M.ReadinessProposal> & { notice: string }>("/v1/access-readiness/review-proposals", { status }),
       proposal: (id: string) => get<M.ReadinessProposal>(`/v1/access-readiness/review-proposals/${seg(id)}`),

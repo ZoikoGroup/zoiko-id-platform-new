@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReadinessRunDetail } from "@zoiko/api-client";
-import { Badge, Banner, Button, ButtonLink, Card, CopyId, DateTime, PageHeader, Tabs } from "@zoiko/ui";
+import type { ReadinessExplanation, ReadinessRunDetail } from "@zoiko/api-client";
+import { Badge, Banner, Button, ButtonLink, Card, CopyId, DateTime, Dialog, PageHeader, Tabs, TextField } from "@zoiko/ui";
 import { useState } from "react";
 
 import { useCellMutation, useCellQuery } from "@/lib/cell";
@@ -29,6 +29,86 @@ function downloadJson(name: string, value: unknown) {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Sections 07 and 09 step 8. Shown only when present, labelled, and always below the rule result it explains. */
+function ExplanationCard({ explanation }: { explanation: ReadinessExplanation }) {
+  const fromModel = explanation.source === "MODEL";
+  return (
+    <Card
+      title={fromModel ? "AI explanation" : "Explanation (fixed text)"}
+      description={
+        fromModel
+          ? "Written by a model from the rule codes and counts, then checked against them. It does not change the result above, which is authoritative."
+          : "The AI explanation was not used for this run, so fixed text built from the result is shown. It does not change the result above."
+      }
+    >
+      <p className="text-sm">{explanation.text}</p>
+      <p className="mt-2 text-xs text-ink-subtle">
+        {fromModel ? `Model ${explanation.model ?? "unknown"}. ` : `Reason: ${FALLBACK_TEXT[explanation.fallback_reason ?? ""] ?? explanation.fallback_reason}. `}
+        Not a decision and not evidence of one.
+      </p>
+    </Card>
+  );
+}
+
+const FALLBACK_TEXT: Record<string, string> = {
+  MODEL_NOT_CONFIGURED: "no approved model is configured",
+  MODEL_TIMEOUT: "the model did not answer in time",
+  MODEL_UNAVAILABLE: "the model was unavailable",
+  UNSUPPORTED_CLAIM: "the model's text did not match the result",
+};
+
+/** WF-AG-03 "Export permitted evidence": the server decides what is permitted and records the export with its purpose. */
+function ExportEvidenceControl({ agentId, runId }: { agentId: string; runId: string }) {
+  const [open, setOpen] = useState(false);
+  const [purpose, setPurpose] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  const exporter = useCellMutation((api, why: string) => api.accessReadiness.exportEvidence(agentId, runId, why), { success: "Evidence exported" });
+  return (
+    <>
+      <Button variant="secondary" size="lg" onPress={() => setOpen(true)}>
+        Export permitted evidence
+      </Button>
+      <Dialog
+        isOpen={open}
+        onOpenChange={setOpen}
+        size="md"
+        title="Export permitted evidence"
+        description="References and digests only. The export is recorded with its purpose. Without the review role it is redacted."
+        footer={
+          <>
+            <Button variant="secondary" size="lg" isDisabled={exporter.isPending} onPress={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="lg"
+              pending={exporter.isPending}
+              isDisabled={purpose.trim().length < 3}
+              onPress={() => {
+                setError(null);
+                exporter
+                  .mutateAsync(purpose.trim())
+                  .then((out) => {
+                    downloadJson(`access-readiness-evidence-${runId}.json`, out);
+                    setOpen(false);
+                    setPurpose("");
+                  })
+                  .catch(setError);
+              }}
+            >
+              Export
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <TextField label="Purpose of the export" isRequired value={purpose} onChange={setPurpose} description="At least 3 characters, for example a case or audit reference." />
+          {error ? <WriteError error={error} /> : null}
+        </div>
+      </Dialog>
+    </>
+  );
 }
 
 /** WF-AG-03. Read only for most observers. A role that cannot see the run sees that it is redacted, never a run with nothing in it. */
@@ -86,6 +166,7 @@ function RunBody({ agentId, run }: { agentId: string; run: ReadinessRunDetail })
       ) : null}
       {run.state === "FAILED" ? <Banner tone="danger" title="The run failed">It stopped without a complete result. Nothing was changed.</Banner> : null}
       {!refused ? <Counts run={run} /> : null}
+      {run.explanation ? <ExplanationCard explanation={run.explanation} /> : null}
       <AgentEvidenceTimeline steps={steps} />
       {run.proposals.length ? (
         <Card title="Review proposals from this run">
@@ -220,7 +301,13 @@ function RunBody({ agentId, run }: { agentId: string; run: ReadinessRunDetail })
             </div>
             <div>
               <dt className="text-ink-muted">Model used</dt>
-              <dd>No. AI explanation is off.</dd>
+              <dd>
+                {run.explanation?.source === "MODEL"
+                  ? `Yes, for the explanation only (${run.explanation.model ?? "unknown"})`
+                  : run.explanation
+                    ? "No. A fixed explanation was used."
+                    : "No. AI explanation is off."}
+              </dd>
             </div>
             <div>
               <dt className="text-ink-muted">Evidence completeness</dt>
@@ -235,14 +322,7 @@ function RunBody({ agentId, run }: { agentId: string; run: ReadinessRunDetail })
                 Open review proposal
               </ButtonLink>
             ) : null}
-            <Button
-              variant="secondary"
-              size="lg"
-              isDisabled={!evidence.data}
-              onPress={() => evidence.data && downloadJson(`access-readiness-evidence-${run.run_id}.json`, evidence.data)}
-            >
-              Export permitted evidence
-            </Button>
+            <ExportEvidenceControl agentId={agentId} runId={run.run_id} />
             {run.state === "FAILED" ? (
               <Button
                 variant="secondary"

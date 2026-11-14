@@ -113,6 +113,9 @@ def create_app(
     app.state.agent_builds = settings.agent_builds
     app.state.access_readiness_enabled = settings.access_readiness_enabled
     app.state.access_readiness_regions = tuple(settings.access_readiness_regions)
+    app.state.access_readiness_ai_explain = settings.access_readiness_ai_explain
+    # no model gateway ships in the platform image (CR-091): a deployment that approves one sets app.state.access_readiness_explainer
+    app.state.access_readiness_explainer = None
     if settings.regulatory_packs == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
             "ZID_REGULATORY_PACKS=off would let an enabled country run a regulated capability with no approved policy pack; "

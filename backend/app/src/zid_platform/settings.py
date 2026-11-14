@@ -289,6 +289,10 @@ class Settings(ServiceSettings):
     # cell outside the list fails closed with REGION_UNSUPPORTED. Turning the switch off is also the global kill switch for new runs.
     access_readiness_enabled: bool = False
     access_readiness_regions: tuple[str, ...] = ()
+    # ZID_ACCESS_READINESS_AI_EXPLAIN (CR-091; sections 06, 09 step 8): may a setup opt in to the optional plain-language explanation of a run? Default
+    # OFF. Even on, a setup must opt in (its approval signs the flag) and only codes and counts leave the rules; without an approved model gateway
+    # handed to the app the fixed deterministic text is shown. The rule result is the same either way.
+    access_readiness_ai_explain: bool = False
     # ZID_FAIRNESS_CHECK (ZID-RCG-003 T44, CR-092): run the disaggregated disparity check on automated name matches? off (default) never runs it and
     # holds nothing. on = the worker pass holds, for a person, the automated "different person" answers of a name cohort with a material disparity,
     # and, until the owners approve a threshold in config/credential-trust/fairness-thresholds.yaml (none ships), of EVERY cohort with outcomes.

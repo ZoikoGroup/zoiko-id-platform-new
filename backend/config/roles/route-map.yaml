@@ -194,6 +194,7 @@ rules:
   - {match: "POST /v1/access-readiness/agents/*/dry-runs", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
   - {match: "POST /v1/access-readiness/agents/*/publish-requests:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/access-readiness/agents/*/publish-requests", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/access-readiness/agents/*/runs/*/evidence:export", gate: {action: f.request-sensitive-evidence-export, mode: S}}
   - {match: "POST /v1/access-readiness/agents/*/runs*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
   - {match: "POST /v1/access-readiness/agents/*:pause", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/access-readiness/agents/*:resume", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}

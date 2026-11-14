@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit, next_version
 
+from zid_platform.modules.access_readiness.application.explain import ExplanationGateway
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 
 DEFAULT_APPROVAL_TTL = timedelta(days=7)
@@ -25,6 +26,10 @@ SETUP_RESUMED = "access_readiness.setup.resumed"
 RUN_REQUESTED = "access_readiness.run.requested"
 PROPOSAL_REVIEWED = "access_readiness.proposal.reviewed"
 HANDOFF_SIGNED = "access_readiness.handoff.signed"
+EVIDENCE_EXPORTED = "access_readiness.evidence.exported"
+EVIDENCE_EXPORT_REFUSED = "access_readiness.evidence.export_refused"
+# the notification raised for the agent's sponsor when a run ends (the alert kind; run id, state and counts only)
+RUN_FINISHED_ALERT = "access_readiness.run.finished"
 # Emitted events (ZID-AG-WF-001 section 10)
 EVENT_RUN_DENIED = "agent.run.policy_denied"
 EVENT_RUN_COMPLETED = "agent.run.completed"
@@ -41,6 +46,10 @@ class Runtime:
     cell_uuid: str | None = None
     approval_ttl: timedelta = DEFAULT_APPROVAL_TTL
     signer: Callable[[dict[str, Any]], str] | None = None
+    # the optional explanation (ZID_ACCESS_READINESS_AI_EXPLAIN, default off; a setup must also opt in) and the gateway that drafts it
+    ai_explain: bool = False
+    explainer: ExplanationGateway | None = None
+    ai_timeout_seconds: float = 8.0
 
     @property
     def region_supported(self) -> bool:

@@ -95,6 +95,8 @@ class Scope:
     max_records: int
     warning_window_days: int
     home_region: str
+    # the optional plain-language explanation (section 06: off by default; the publish sign-off covers the model flag)
+    ai_explanation: bool = False
 
 
 NAME = re.compile(r"^[^\x00-\x1f\x7f]{1,80}$")
@@ -117,6 +119,7 @@ def validate_scope(scope: Scope) -> Scope:
         scope.max_records,
         scope.warning_window_days,
         scope.home_region,
+        bool(scope.ai_explanation),
     )
 
 
@@ -130,7 +133,8 @@ def validate_name(name: str) -> str:
 def scope_digest(
     scope: Scope, *, agent_id: str, blueprint: tuple[str, str], allowed_tools: Collection[str]
 ) -> str:
-    """The digest an approval is bound to: the scope, the agent, its exact blueprint release and its tool set, the rule set and policy.
+    """The digest an approval is bound to: the scope (with the model flag), the agent, its exact blueprint release and its tool set, the
+    rule set and policy.
     Any change to one of them is a different digest, so a prior validation or approval no longer applies (AT-05)."""
     return digest(
         {
@@ -142,6 +146,7 @@ def scope_digest(
             "max_records": scope.max_records,
             "window_days": scope.warning_window_days,
             "region": scope.home_region,
+            "model": bool(scope.ai_explanation),
             "rules": RULE_SET_VERSION,
             "policy": POLICY_VERSION,
         }

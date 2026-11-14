@@ -162,6 +162,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/access-readiness/agents/{agent_id}/runs/{run_id}/evidence:export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Run Evidence
+         * @description WF-AG-03 'Export permitted evidence': references and digests only, the chain verified now. Reading the run is required; without
+         *     the review role the export is redacted (and says so). A stated purpose is required and every export or refusal is recorded.
+         */
+        post: operations["export_run_evidence_v1_access_readiness_agents__agent_id__runs__run_id__evidence_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/access-readiness/agents/{agent_id}/runs/{run_id}:retry": {
         parameters: {
             query?: never;
@@ -321,6 +342,11 @@ export interface components {
         ReadinessCreateBody: {
             /** Agent Principal Id */
             agent_principal_id: string;
+            /**
+             * Ai Explanation
+             * @default false
+             */
+            ai_explanation: boolean;
             /** Display Name */
             display_name: string;
             /**
@@ -349,8 +375,18 @@ export interface components {
              */
             policy_version: string;
         };
+        /** ReadinessExportBody */
+        ReadinessExportBody: {
+            /**
+             * Purpose
+             * @default
+             */
+            purpose: string;
+        };
         /** ReadinessPatchBody */
         ReadinessPatchBody: {
+            /** Ai Explanation */
+            ai_explanation?: boolean | null;
             /** Display Name */
             display_name?: string | null;
             /** Expected Revision */
@@ -790,6 +826,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_run_evidence_v1_access_readiness_agents__agent_id__runs__run_id__evidence_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadinessExportBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

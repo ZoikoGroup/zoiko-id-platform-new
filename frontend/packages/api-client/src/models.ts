@@ -3294,7 +3294,14 @@ export type SalesLead = {
 /* ---------------------------------------------------------------- access readiness agent (CR-091, ZID-AG-WF-001) */
 
 export type ReadinessSetupStatus = "DRAFT" | "SANDBOX_READY" | "PENDING_APPROVAL" | "APPROVED" | "PAUSED";
-export type ReadinessScope = { resource_kinds: string[]; max_records: number; warning_window_days: number; home_region: string };
+export type ReadinessScope = {
+  resource_kinds: string[];
+  max_records: number;
+  warning_window_days: number;
+  home_region: string;
+  /** The optional AI explanation. Part of the digest an approver signs; refused while the cell has it switched off. */
+  ai_explanation?: boolean;
+};
 export type ReadinessApproval = { approval_id: string; scope_digest: string; requested_by: string; approved_by: string | null; expires_at: Iso };
 export type ReadinessSetup = {
   setup_id: string;
@@ -3317,8 +3324,22 @@ export type ReadinessSetup = {
   blocked: string[];
   agent?: { status: string; sponsor_active: boolean; attested: boolean; blueprint: string };
 };
-export type ReadinessCreateIn = { agent_principal_id: string; display_name: string; resource_kinds?: string[]; max_records?: number; warning_window_days?: number };
-export type ReadinessPatchIn = { display_name?: string; resource_kinds?: string[]; max_records?: number; warning_window_days?: number; expected_revision?: number };
+export type ReadinessCreateIn = {
+  agent_principal_id: string;
+  display_name: string;
+  resource_kinds?: string[];
+  max_records?: number;
+  warning_window_days?: number;
+  ai_explanation?: boolean;
+};
+export type ReadinessPatchIn = {
+  display_name?: string;
+  resource_kinds?: string[];
+  max_records?: number;
+  warning_window_days?: number;
+  ai_explanation?: boolean;
+  expected_revision?: number;
+};
 export type ReadinessFinding = {
   rule_id: string;
   rule_version: string;
@@ -3373,6 +3394,19 @@ export type ReadinessRun = {
   created_at: Iso;
   terminal_at: Iso | null;
   links: { self: string };
+  /** Present only when the cell and the setup both opted in. Never authoritative: the summary is the result. */
+  explanation?: ReadinessExplanation | null;
+};
+/** MODEL: a model's text that verified against the rule result. TEMPLATE: the fixed text (model off, failed, slow or unsupported claim). */
+export type ReadinessExplanation = {
+  source: "MODEL" | "TEMPLATE";
+  text: string;
+  fallback_reason: "MODEL_NOT_CONFIGURED" | "MODEL_TIMEOUT" | "MODEL_UNAVAILABLE" | "UNSUPPORTED_CLAIM" | null;
+  provider: string | null;
+  model: string | null;
+  prompt_version: string;
+  facts_digest: string;
+  authoritative: false;
 };
 export type ReadinessProposalStatus = "OPEN" | "ASSIGNED" | "DISMISSED" | "HANDED_OFF";
 export type ReadinessProposal = {
@@ -3425,3 +3459,31 @@ export type ReadinessEvidenceEnvelope = {
   recorded_at: Iso;
 };
 export type ReadinessEvidence = { verified: boolean; integrity_exceptions: string[]; items: ReadinessEvidenceEnvelope[] };
+/** WF-AG-03 "Export permitted evidence": references and digests only. `redacted` is true for a caller without the review role. */
+export type ReadinessEvidenceExport = {
+  schema: "zid.access-readiness.evidence.v1";
+  run_id: string;
+  agent_id: string;
+  state: ReadinessRunState;
+  rule_set_version: string;
+  policy_hash: string;
+  run_definition_hash: string;
+  result_digest: string | null;
+  region: string;
+  exported_at: Iso;
+  redacted: boolean;
+  chain: { verified: boolean; integrity_exceptions: string[] };
+  evidence: Omit<ReadinessEvidenceEnvelope, "event_id" | "run_id" | "retention_policy_ref">[];
+  decisions: { action: string; resource: string; outcome: "ALLOW" | "DENY"; reason_code: string; policy_hash: string; decided_at: Iso }[];
+  proposals: {
+    proposal_id: string;
+    rule_id: string;
+    rule_version: string;
+    finding_code: string;
+    severity: string;
+    status: ReadinessProposalStatus;
+    target: string;
+    evidence_refs: string[];
+    evidence_ref_count: number;
+  }[];
+};

@@ -8,6 +8,7 @@ digests and references only. The one write is a new review proposal; this module
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import logging
 from collections.abc import Awaitable, Callable
@@ -22,6 +23,11 @@ from zid_platform.modules.access_readiness.application.adapters import (
     MetadataAdapter,
 )
 from zid_platform.modules.access_readiness.application.common import Runtime, record, utcnow
+from zid_platform.modules.access_readiness.application.explain import (
+    PROMPT_VERSION,
+    explain,
+    facts_of,
+)
 from zid_platform.modules.access_readiness.application.setup import current_digest, scope_of
 from zid_platform.modules.access_readiness.domain.policy import (
     ALLOWED_TOOLS,
@@ -51,9 +57,21 @@ from zid_platform.modules.access_readiness.domain.rules import (
     proposal_key,
 )
 from zid_platform.modules.access_readiness.infrastructure import store
-from zid_platform.modules.machine.ports import AgentIdentityStatus, agent_identity_status
+from zid_platform.modules.machine.ports import (
+    AgentIdentityStatus,
+    MachineError,
+    WorkloadLease,
+    agent_identity_status,
+    issue_workload_lease,
+    lease_problems,
+    revoke_workload_lease,
+)
+from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
 
 log = logging.getLogger("zid.access_readiness")
+
+# who the run's short-lived credential is for: the read-only metadata adapter and the proposal write of this module, nothing else
+CREDENTIAL_AUDIENCE = "zid:access-readiness:metadata-adapter"
 
 # Whether the policy service permits the run now. It may raise (the service is down): that is a refusal, never a permit.
 PolicyGate = Callable[[AsyncConnection, str, str], Awaitable[bool]]
@@ -66,6 +84,10 @@ class _Stop(Exception):
 
 
 def run_view(run: dict[str, Any]) -> dict[str, Any]:
+    summary = run["summary"]
+    explanation = summary.get("explanation") if isinstance(summary, dict) else None
+    if isinstance(summary, dict) and "explanation" in summary:
+        summary = {k: v for k, v in summary.items() if k != "explanation"}
     return {
         "run_id": run["run_id"],
         "agent_id": run["agent_principal_id"],
@@ -75,7 +97,9 @@ def run_view(run: dict[str, Any]) -> dict[str, Any]:
         "purpose": run["purpose"],
         "resource_selector": run["resource_selector"],
         "denial_codes": list(run["denial_codes"] or []),
-        "summary": run["summary"],
+        "summary": summary,
+        # present only when the setup opted in and the deployment allows it; never authoritative (the summary is)
+        "explanation": explanation,
         "rule_set_version": run["rule_set_version"],
         "policy_hash": run["policy_hash"],
         "run_definition_hash": run["run_definition_hash"],
@@ -291,6 +315,7 @@ async def _deny(conn: AsyncConnection, run: dict[str, Any], codes: list[str]) ->
             outcome="DENY",
             reason=code,
         )
+    await _notify_sponsor(conn, run, RunState.DENIED, {})  # the denial envelope stays the last one
     await _evidence(conn, run, "preflight_denied", "preflight", {"codes": codes})
     run_transition(RunState.PREFLIGHT, RunState.DENIED)
     await store.set_run_state(
@@ -316,6 +341,66 @@ async def _deny(conn: AsyncConnection, run: dict[str, Any], codes: list[str]) ->
     )
 
 
+async def _notify_sponsor(
+    conn: AsyncConnection, run: dict[str, Any], state: RunState, summary: dict[str, Any]
+) -> None:
+    """Section 09 step 9: tell the agent's sponsor the run ended, through the notification module. The run id, its state and counts
+    only: no person, no mandate, no finding detail. A notification that cannot be raised never changes the run's result."""
+    count = {
+        k: int(summary.get(k) or 0)
+        for k in ("records_read", "findings", "proposals_created", "privileges_changed")
+    }
+    body = (
+        f"Run {run['run_id']} ended {state.value}. Records checked: {count['records_read']}. "
+        f"Findings: {count['findings']}. New review proposals: {count['proposals_created']}. "
+        f"Privileges changed: {count['privileges_changed']}."
+    )
+    attention = state is not RunState.COMPLETED
+    draft = AlertDraft(
+        severity=Severity.MEDIUM if attention else Severity.INFO,
+        kind=common.RUN_FINISHED_ALERT,
+        title="An access readiness run finished",
+        body=body,
+        object_type="agent_run",
+        object_ref=run["run_id"],
+        href=f"/admin/agents/readiness/{run['agent_principal_id']}/runs/{run['run_id']}",
+        recommended_action="For the agent's sponsor: open the run and review its proposals. Nothing was changed.",
+        is_task=state is RunState.NEEDS_REVIEW,
+        mandatory=False,
+        correlation_key=f"{common.RUN_FINISHED_ALERT}:{run['run_id']}:{state.value}:{run['attempt']}",
+    )
+    try:
+        async with conn.begin_nested():
+            await raise_alert(conn, run["tenant_id"], draft, now=utcnow())
+        outcome = "sponsor_notified"
+    except Exception:  # noqa: BLE001 - the result stands; the missed notice is itself evidence
+        outcome = "sponsor_notification_failed"
+        log.warning("access readiness run %s: the sponsor notification failed", run["run_id"])
+    await _evidence(
+        conn,
+        run,
+        outcome,
+        "notification",
+        {"kind": draft.kind, "state": state.value, "body": body},
+    )
+
+
+async def _release(
+    conn: AsyncConnection, run: dict[str, Any], lease: WorkloadLease | None, reason: str
+) -> None:
+    """Section 09 step 9, 'revoke lease': the run's credential ends with the run, whatever the outcome."""
+    if lease is None:
+        return
+    if await revoke_workload_lease(conn, run["tenant_id"], lease, reason=reason):
+        await _evidence(
+            conn,
+            run,
+            "credential_revoked",
+            "workload-lease",
+            {"lease": lease.lease_id, "reason": reason},
+        )
+
+
 async def _end(
     conn: AsyncConnection,
     run: dict[str, Any],
@@ -324,8 +409,11 @@ async def _end(
     reason: str,
     summary: dict[str, Any],
     codes: list[str] | None = None,
+    lease: WorkloadLease | None = None,
 ) -> None:
     run_transition(RunState.RUNNING, state)
+    await _release(conn, run, lease, state.value)
+    await _notify_sponsor(conn, run, state, summary)  # the run's own envelope stays the last one
     await _evidence(
         conn,
         run,
@@ -379,6 +467,26 @@ async def execute_run(
         await _deny(conn, run, blockers or ["AGENT_NOT_FOUND"])
         log.info("access readiness run %s denied", run_id)
         return await _reload(conn, run_id)
+    # Section 09 step 3 (AT-07): a short-lived, audience-restricted, purpose-bound credential from the machine module's workload
+    # issuance decision. An unattested, revoked, quarantined or rebound worker gets none, and the run is denied. Never stored or logged.
+    try:
+        async with conn.begin_nested():
+            lease = await issue_workload_lease(
+                conn,
+                tenant_id,
+                run["agent_principal_id"],
+                audience=CREDENTIAL_AUDIENCE,
+                purpose=run["purpose"],
+                scope=ALLOWED_TOOLS,
+            )
+    except MachineError as e:
+        await _deny(conn, run, list(dict.fromkeys(["CREDENTIAL_DENIED", e.code])))
+        log.info("access readiness run %s denied: no workload credential", run_id)
+        return await _reload(conn, run_id)
+    except Exception:  # noqa: BLE001 - an issuer that cannot answer never issues anything
+        await _deny(conn, run, ["CREDENTIAL_DENIED", "DEPENDENCY_UNAVAILABLE"])
+        log.warning("access readiness run %s denied: the credential issuer is unavailable", run_id)
+        return await _reload(conn, run_id)
     await _decide(
         conn,
         run,
@@ -394,10 +502,26 @@ async def execute_run(
         "preflight",
         {"agent": run["agent_principal_id"], "attested": True, "sponsor_active": True},
     )
+    await _evidence(
+        conn,
+        run,
+        "credential_issued",
+        "workload-lease",
+        {
+            "lease": lease.lease_id,
+            "audience": lease.audience,
+            "purpose": lease.purpose,
+            "scope": sorted(lease.scope),
+            "binding": lease.binding_id,
+            "expires_at": lease.expires_at.isoformat(),
+        },
+    )
     run_transition(RunState.PREFLIGHT, RunState.RUNNING)
     await store.set_run_state(
         conn, run_id, RunState.RUNNING.value, attestation_id=agent.attestation_id
     )
+    # every way out of a running run revokes its credential
+    end = functools.partial(_end, lease=lease)
 
     selector = check_selector(
         run["resource_selector"],
@@ -413,14 +537,22 @@ async def execute_run(
         run["policy_hash"],
     )
 
-    async def authorize(tool: str, resource: str) -> None:
+    async def credential_stop(use: str) -> str | None:
+        """None while the run's credential may be used for this step; else why it stopped (revoked or expired: no broader one)."""
+        problems = await lease_problems(
+            conn, lease, audience=CREDENTIAL_AUDIENCE, purpose=run["purpose"], use=use
+        )
+        if not problems:
+            return None
+        return "CREDENTIAL_EXPIRED" if problems == ["CREDENTIAL_EXPIRED"] else "CREDENTIAL_REVOKED"
 
+    async def authorize(tool: str, resource: str) -> None:
         reason = read_denial(
             ctx,
             ReadRequest(
                 tenant_id, run["agent_principal_id"], run["purpose"], resource, tool, policy_hash()
             ),
-        )
+        ) or await credential_stop(tool)
         await _decide(
             conn,
             run,
@@ -441,7 +573,7 @@ async def execute_run(
             now=utcnow(),
         )
     except ReadinessError as e:
-        await _end(
+        await end(
             conn,
             run,
             RunState.FAILED,
@@ -459,7 +591,7 @@ async def execute_run(
             outcome="DENY",
             reason="DEPENDENCY_UNAVAILABLE",
         )
-        await _end(
+        await end(
             conn,
             run,
             RunState.FAILED,
@@ -501,6 +633,9 @@ async def execute_run(
                 )  # the only write is authorized again, each time
                 if again:
                     raise _Stop(again[0])
+                stopped = await credential_stop(CREATE_PROPOSAL)
+                if stopped:
+                    raise _Stop(stopped)
                 if (
                     CREATE_PROPOSAL not in ALLOWED_TOOLS
                 ):  # pragma: no cover - the allowlist is a constant
@@ -565,7 +700,7 @@ async def execute_run(
             outcome="DENY",
             reason=stop.code,
         )
-        await _end(
+        await end(
             conn,
             run,
             RunState.CANCELED,
@@ -583,7 +718,7 @@ async def execute_run(
             outcome="DENY",
             reason="DEPENDENCY_UNAVAILABLE",
         )
-        await _end(
+        await end(
             conn,
             run,
             RunState.FAILED,
@@ -594,13 +729,31 @@ async def execute_run(
         log.warning("access readiness run %s failed while writing proposals", run_id)
         return await _reload(conn, run_id)
     state = terminal_state(proposals=len(result.findings), complete=result.complete)
-    await _end(
-        conn,
-        run,
-        state,
-        reason="RULES_APPLIED",
-        summary=_summary(len(facts), result, created, existing),
-    )
+    summary = _summary(len(facts), result, created, existing)
+    if rt.ai_explain and bool(setup.get("ai_explanation")):
+        # Section 09 step 8: decided above, explained here. Only codes and counts go out, the text is verified against them, and
+        # anything else (off, no gateway, an error, a timeout, an unsupported claim) is the fixed template. The result does not move.
+        explanation = await explain(
+            facts_of(
+                result, state=state.value, records=len(facts), created=created, existing=existing
+            ),
+            rt.explainer,
+            timeout_seconds=rt.ai_timeout_seconds,
+        )
+        summary["explanation"] = explanation.as_dict()
+        await _evidence(
+            conn,
+            run,
+            "explanation_attached",
+            PROMPT_VERSION,
+            {
+                "source": explanation.source,
+                "fallback_reason": explanation.fallback_reason,
+                "facts": explanation.facts_digest,
+                "text": digest(explanation.text),
+            },
+        )
+    await end(conn, run, state, reason="RULES_APPLIED", summary=summary)
     log.info("access readiness run %s %s", run_id, state.value)
     return await _reload(conn, run_id)
 

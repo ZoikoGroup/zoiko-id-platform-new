@@ -12,6 +12,7 @@ the tenant is never in the path; it comes from the authenticated principal. The 
     POST   /v1/access-readiness/agents/{id}:pause | :resume              the kill switch for this agent
     POST   /v1/access-readiness/agents/{id}/runs                         Idempotency-Key -> 202 and the run
     GET    /v1/access-readiness/agents/{id}/runs | /{run_id} | /{run_id}/decisions | /{run_id}/evidence
+    POST   /v1/access-readiness/agents/{id}/runs/{run_id}/evidence:export  purpose required; redacted without the review role
     POST   /v1/access-readiness/agents/{id}/runs/{run_id}:retry
     GET    /v1/access-readiness/review-proposals | /{proposal_id}
     POST   /v1/access-readiness/review-proposals/{id}:dismiss | :assign | :handoff   access_readiness.review
@@ -30,8 +31,8 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.modules.access_readiness.application import export, runs, setup
 from zid_platform.modules.access_readiness.application import review as review_service
-from zid_platform.modules.access_readiness.application import runs, setup
 from zid_platform.modules.access_readiness.application.common import Runtime
 from zid_platform.modules.access_readiness.domain.policy import ProposalStatus, ReadinessError
 from zid_platform.modules.access_readiness.domain.rules import POLICY_VERSION, PURPOSE
@@ -68,6 +69,7 @@ _UNPROCESSABLE = {
     "MODE_NOT_ALLOWED",
     "SELECTOR_INVALID",
     "USE_HANDOFF",
+    "AI_EXPLANATION_DISABLED",
 }
 
 
@@ -100,6 +102,8 @@ def runtime(request: Request) -> Runtime:
         region=str(getattr(state, "home_cell", "") or ""),
         cell_uuid=getattr(state, "cell_uuid", None),
         signer=signer,
+        ai_explain=bool(getattr(state, "access_readiness_ai_explain", False)),
+        explainer=getattr(state, "access_readiness_explainer", None),
     )
 
 
@@ -135,6 +139,9 @@ class ReadinessCreateBody(BaseModel):
     resource_kinds: list[str] = Field(default_factory=lambda: ["mandates"], max_length=4)
     max_records: int = Field(default=100, ge=1, le=500)
     warning_window_days: int = Field(default=14, ge=1, le=90)
+    ai_explanation: bool = (
+        False  # the optional explanation; refused while the cell has it switched off
+    )
 
 
 class ReadinessPatchBody(BaseModel):
@@ -143,6 +150,7 @@ class ReadinessPatchBody(BaseModel):
     resource_kinds: list[str] | None = Field(default=None, max_length=4)
     max_records: int | None = Field(default=None, ge=1, le=500)
     warning_window_days: int | None = Field(default=None, ge=1, le=90)
+    ai_explanation: bool | None = None
     expected_revision: int | None = Field(default=None, ge=1)
 
 
@@ -171,6 +179,7 @@ async def create_setup(
             resource_kinds=tuple(body.resource_kinds),
             max_records=body.max_records,
             warning_window_days=body.warning_window_days,
+            ai_explanation=body.ai_explanation,
         )
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
@@ -397,6 +406,58 @@ async def run_evidence(
         }
 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
+
+
+class ReadinessExportBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    purpose: str = Field(
+        default="", max_length=200
+    )  # checked in the handler so a missing one is refused AND recorded, as for every evidence export
+
+
+@router.post("/agents/{agent_id}/runs/{run_id}/evidence:export")
+async def export_run_evidence(
+    agent_id: str,
+    run_id: str,
+    body: ReadinessExportBody,
+    request: Request,
+    caller: CallerDep,
+) -> dict[str, Any]:
+    """WF-AG-03 'Export permitted evidence': references and digests only, the chain verified now. Reading the run is required; without
+    the review role the export is redacted (and says so). A stated purpose is required and every export or refusal is recorded."""
+
+    async def go(conn: Any) -> dict[str, Any] | None:
+        await _allow(conn, caller, "access_readiness.read", f"agent:{agent_id}")
+        run = await _run_of(conn, agent_id, run_id)
+        if not export.has_purpose(body.purpose):
+            return None
+        try:
+            await _allow(conn, caller, "access_readiness.review", f"agent:{agent_id}")
+            full = True
+        except ZidError as e:
+            if e.http_status != 403:
+                raise
+            full = False
+        return await export.export_evidence(
+            conn, _tenant(caller), actor=_actor(caller), run=run, purpose=body.purpose, full=full
+        )
+
+    out = await _run(request, caller, go)
+    if out is not None:
+        return out  # type: ignore[no-any-return]
+
+    async def refuse(conn: Any) -> None:
+        await export.record_refusal(
+            conn,
+            _tenant(caller),
+            actor=_actor(caller),
+            run_id=run_id,
+            code="EXPORT_PURPOSE_MISSING",
+        )
+
+    # written in its own transaction: the refused request's own would not keep the record
+    await _run(request, caller, refuse)
+    raise ZidError("EXPORT_PURPOSE_REQUIRED", "State the purpose of the export.", http_status=422)
 
 
 @router.post("/agents/{agent_id}/runs/{run_id}:retry", status_code=202)

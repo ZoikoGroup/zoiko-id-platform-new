@@ -131,10 +131,19 @@ export function EffectiveScopeSummary({ setup }: { setup: ReadinessSetup | null 
   );
 }
 
-/** Bounded first-party worker only in v1: shown as facts, not as choices. */
-export function ExecutionModeCard() {
+/** Bounded first-party worker only in v1: shown as facts, not as choices. The AI explanation is the one opt-in, off by default. */
+export function ExecutionModeCard({
+  aiExplanation = false,
+  onAiExplanation,
+  error,
+}: {
+  aiExplanation?: boolean;
+  /** Without it the flag is shown read-only. */
+  onAiExplanation?: (on: boolean) => void;
+  error?: string;
+}) {
   return (
-    <Card title="Execution mode" description="Fixed in this release. Nothing here can be changed.">
+    <Card title="Execution mode" description="Fixed in this release, except the optional AI explanation.">
       <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-ink-muted">Worker</dt>
@@ -151,10 +160,34 @@ export function ExecutionModeCard() {
         </div>
         <div>
           <dt className="text-ink-muted">AI explanation</dt>
-          <dd className="font-medium">Off</dd>
-          <dd className="text-xs text-ink-subtle">Results come from fixed rules only.</dd>
+          <dd className="font-medium">{aiExplanation ? "On" : "Off"}</dd>
+          <dd className="text-xs text-ink-subtle">Results come from fixed rules only. An explanation never changes them.</dd>
         </div>
       </dl>
+      {onAiExplanation ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              name="ai_explanation"
+              checked={aiExplanation}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "ai-explanation-help ai-explanation-error" : "ai-explanation-help"}
+              onChange={(e) => onAiExplanation(e.target.checked)}
+              className="size-5"
+            />
+            Add a plain-language AI explanation to each run
+          </label>
+          <p id="ai-explanation-help" className="text-xs text-ink-subtle">
+            Off by default. Only rule codes and counts are sent, never names, ids or documents. Text that does not match the result is replaced by fixed text. The approver signs this choice.
+          </p>
+          {error ? (
+            <p id="ai-explanation-error" className="text-xs font-medium text-danger-fg">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   );
 }

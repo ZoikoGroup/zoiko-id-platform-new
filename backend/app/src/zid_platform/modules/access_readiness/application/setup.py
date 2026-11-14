@@ -49,6 +49,7 @@ def scope_of(setup: dict[str, Any]) -> Scope:
         int(setup["max_records"]),
         int(setup["warning_window_days"]),
         setup["home_region"],
+        bool(setup.get("ai_explanation", False)),
     )
 
 
@@ -75,6 +76,14 @@ def _blockers(rt: Runtime, agent: AgentIdentityStatus | None) -> list[str]:
     )
 
 
+def _check_ai(rt: Runtime, wanted: bool) -> None:
+    """A setup may only ask for the explanation where the deployment allows it (ZID_ACCESS_READINESS_AI_EXPLAIN, default off)."""
+    if wanted and not rt.ai_explain:
+        raise ReadinessError(
+            "AI_EXPLANATION_DISABLED", "the optional AI explanation is switched off in this cell"
+        )
+
+
 async def _load(conn: AsyncConnection, agent_id: str, *, lock: bool = False) -> dict[str, Any]:
     setup = await store.load_setup(conn, agent_id, lock=lock)
     if setup is None:
@@ -98,6 +107,7 @@ def view(
             "max_records": setup["max_records"],
             "warning_window_days": setup["warning_window_days"],
             "home_region": setup["home_region"],
+            "ai_explanation": bool(setup.get("ai_explanation", False)),
         },
         "rule_set_version": setup["rule_set_version"],
         "policy_version": setup["policy_version"],
@@ -152,9 +162,11 @@ async def create_setup(
     resource_kinds: tuple[str, ...],
     max_records: int,
     warning_window_days: int,
+    ai_explanation: bool = False,
 ) -> dict[str, Any]:
     if not rt.enabled:
         raise ReadinessError("FEATURE_DISABLED")
+    _check_ai(rt, ai_explanation)
     name = validate_name(display_name)
     agent = await _identity(conn, agent_id)
     blockers = _blockers(rt, agent)
@@ -162,7 +174,7 @@ async def create_setup(
         raise ReadinessError(blockers[0], ", ".join(blockers))
     assert agent is not None
     scope = validate_scope(
-        Scope(PURPOSE, resource_kinds, max_records, warning_window_days, rt.region)
+        Scope(PURPOSE, resource_kinds, max_records, warning_window_days, rt.region, ai_explanation)
     )
     digest = scope_digest(
         scope,
@@ -179,6 +191,7 @@ async def create_setup(
         resource_kinds=scope.resource_kinds,
         max_records=scope.max_records,
         warning_window_days=scope.warning_window_days,
+        ai_explanation=scope.ai_explanation,
         home_region=scope.home_region,
         rule_set_version=RULE_SET_VERSION,
         policy_version=POLICY_VERSION,
@@ -231,9 +244,12 @@ async def change_setup(
         int(changes.get("max_records", merged.max_records)),
         int(changes.get("warning_window_days", merged.warning_window_days)),
         rt.region,
+        bool(changes.get("ai_explanation", merged.ai_explanation)),
     )
+    if "ai_explanation" in changes:
+        _check_ai(rt, bool(changes["ai_explanation"]))
     scope = validate_scope(merged)
-    for key in ("resource_kinds", "max_records", "warning_window_days"):
+    for key in ("resource_kinds", "max_records", "warning_window_days", "ai_explanation"):
         if key in changes:
             fields[key] = getattr(scope, key)
     digest = scope_digest(

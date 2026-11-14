@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ queries: {} as Record<string, unknown>, retry: vi.fn(), pause: vi.fn() }));
+const state = vi.hoisted(() => ({ queries: {} as Record<string, unknown>, retry: vi.fn(), pause: vi.fn(), exported: vi.fn() }));
 
 vi.mock("@/lib/cell", () => ({
   useCellQuery: (key: string[]) => {
@@ -17,6 +17,10 @@ vi.mock("@/lib/cell", () => ({
     mutateAsync: (v: unknown) => {
       if (opts.success === "Retry queued") state.retry(v);
       if (opts.success === "Future runs paused") state.pause(v);
+      if (opts.success === "Evidence exported") {
+        state.exported(v);
+        return Promise.resolve({ schema: "zid.access-readiness.evidence.v1", redacted: false });
+      }
       return Promise.resolve({});
     },
   }),
@@ -34,6 +38,7 @@ beforeEach(() => {
   state.queries = {};
   state.retry.mockReset();
   state.pause.mockReset();
+  state.exported.mockReset();
 });
 
 const err = (status: number, code: string) => new ApiError({ status, code, message: code });
@@ -177,6 +182,68 @@ describe("run detail", () => {
     expect(screen.getByRole("alertdialog")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Pause agent" }));
     expect(state.pause).toHaveBeenCalledWith("OPERATOR_DECISION");
+  });
+
+  it("exports permitted evidence from the server only after a purpose is stated", async () => {
+    const create = vi.fn(() => "blob:x");
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    given();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Export permitted evidence" }));
+    const dialog = screen.getByRole("dialog");
+    const go = within(dialog).getByRole("button", { name: "Export" });
+    expect(go.hasAttribute("disabled") || go.getAttribute("aria-disabled") === "true").toBe(true);
+    await user.type(within(dialog).getByRole("textbox", { name: /Purpose of the export/ }), "Quarterly audit Q4");
+    await user.click(within(dialog).getByRole("button", { name: "Export" }));
+    expect(state.exported).toHaveBeenCalledWith("Quarterly audit Q4");
+    expect(create).toHaveBeenCalledTimes(1); // the server's answer is what is saved, not the page's own copy
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it("shows no explanation when there is none, and says the model was not used", () => {
+    given();
+    expect(screen.queryByText("AI explanation")).toBeNull();
+    expect(screen.getByText("No. AI explanation is off.")).toBeTruthy();
+  });
+
+  it("labels a model explanation as not changing the result", () => {
+    given({
+      explanation: {
+        source: "MODEL",
+        text: "The run checked 12 records and flagged 2 findings.",
+        fallback_reason: null,
+        provider: "fake",
+        model: "model-x",
+        prompt_version: "daara-explain/1",
+        facts_digest: "sha256:f",
+        authoritative: false,
+      },
+    });
+    expect(screen.getByText("AI explanation")).toBeTruthy();
+    expect(screen.getByText(/does not change the result above, which is authoritative/)).toBeTruthy();
+    expect(screen.getByText("The run checked 12 records and flagged 2 findings.")).toBeTruthy();
+    expect(screen.getByText("Yes, for the explanation only (model-x)")).toBeTruthy();
+    expect(screen.getByText(/Checked 12 permitted records/)).toBeTruthy(); // the rule result is still shown, first
+  });
+
+  it("labels the fixed fallback text with its reason", () => {
+    given({
+      explanation: {
+        source: "TEMPLATE",
+        text: "This run checked 12 permitted records.",
+        fallback_reason: "UNSUPPORTED_CLAIM",
+        provider: null,
+        model: null,
+        prompt_version: "daara-explain/1",
+        facts_digest: "sha256:f",
+        authoritative: false,
+      },
+    });
+    expect(screen.getByText("Explanation (fixed text)")).toBeTruthy();
+    expect(screen.getByText(/the model's text did not match the result/)).toBeTruthy();
+    expect(screen.getByText("No. A fixed explanation was used.")).toBeTruthy();
   });
 
   it("exposes landmarks and a single page heading", () => {

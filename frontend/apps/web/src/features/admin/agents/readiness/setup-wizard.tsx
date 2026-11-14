@@ -30,7 +30,7 @@ import { ReadinessQuery, WriteError } from "./shared";
 
 const KIND_OPTIONS = [{ id: "mandates", label: "Mandate metadata" }];
 
-type Form = { agentId: string; name: string; kinds: string[]; maxRecords: string; windowDays: string };
+type Form = { agentId: string; name: string; kinds: string[]; maxRecords: string; windowDays: string; ai: boolean };
 
 function formFrom(setup: ReadinessSetup | undefined, agentId: string, agentName: string): Form {
   return {
@@ -39,6 +39,7 @@ function formFrom(setup: ReadinessSetup | undefined, agentId: string, agentName:
     kinds: setup?.scope.resource_kinds ?? ["mandates"],
     maxRecords: String(setup?.scope.max_records ?? 100),
     windowDays: String(setup?.scope.warning_window_days ?? 14),
+    ai: setup?.scope.ai_explanation ?? false,
   };
 }
 
@@ -78,9 +79,9 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
   const formRef = useRef<HTMLFormElement>(null);
   const keys = [READINESS_KEY];
 
-  const create = useCellMutation((api, v: Form) => api.accessReadiness.createSetup({ agent_principal_id: v.agentId, display_name: v.name, resource_kinds: v.kinds, max_records: Number(v.maxRecords), warning_window_days: Number(v.windowDays) }), { invalidate: keys });
+  const create = useCellMutation((api, v: Form) => api.accessReadiness.createSetup({ agent_principal_id: v.agentId, display_name: v.name, resource_kinds: v.kinds, max_records: Number(v.maxRecords), warning_window_days: Number(v.windowDays), ai_explanation: v.ai }), { invalidate: keys });
   const change = useCellMutation(
-    (api, v: Form) => api.accessReadiness.changeSetup(v.agentId, { display_name: v.name, resource_kinds: v.kinds, max_records: Number(v.maxRecords), warning_window_days: Number(v.windowDays), expected_revision: setup?.draft_revision }),
+    (api, v: Form) => api.accessReadiness.changeSetup(v.agentId, { display_name: v.name, resource_kinds: v.kinds, max_records: Number(v.maxRecords), warning_window_days: Number(v.windowDays), ai_explanation: v.ai, expected_revision: setup?.draft_revision }),
     { invalidate: keys },
   );
   const test = useCellMutation(async (api, id: string) => ({ dry: await api.accessReadiness.dryRun(id), setup: await api.accessReadiness.setup(id) }), { invalidate: keys });
@@ -148,7 +149,7 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
 
   async function next() {
     const i = stageIndex(stage);
-    if (stage === "purpose" || stage === "scope") {
+    if (stage === "purpose" || stage === "scope" || stage === "runtime") {
       if (!(await save())) return;
     }
     const target = STAGES[i + 1];
@@ -182,6 +183,7 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
   const invalidStages: StageId[] = [
     ...(issues.agent || issues.sponsor || issues.display_name || issues.purpose ? (["purpose"] as StageId[]) : []),
     ...(issues.resource_kinds || issues.max_records || issues.warning_window_days ? (["scope"] as StageId[]) : []),
+    ...(issues.ai_explanation ? (["runtime"] as StageId[]) : []),
   ];
   const gates = publishGates(setup);
   const waiting = setup?.status === "PENDING_APPROVAL";
@@ -336,7 +338,7 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
 
           {stage === "runtime" ? (
             <div className="space-y-4">
-              <ExecutionModeCard />
+              <ExecutionModeCard aiExplanation={form.ai} onAiExplanation={(ai) => edit({ ai })} error={issues.ai_explanation} />
               <Banner tone="info" title="Tools are fixed">
                 Only read mandate metadata, read agent identity status and create an access review proposal. Any other tool is refused at the gateway and the worker.
               </Banner>

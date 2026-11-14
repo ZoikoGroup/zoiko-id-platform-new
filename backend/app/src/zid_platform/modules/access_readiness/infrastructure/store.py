@@ -54,13 +54,14 @@ async def insert_setup(
     policy_version: str,
     scope_digest: str,
     created_by: str,
+    ai_explanation: bool = False,
 ) -> dict[str, Any]:
     row = (
         await conn.execute(
             text(
                 "INSERT INTO agent.access_review_setup (setup_id, tenant_id, agent_principal_id, display_name, purpose, resource_kinds, "
-                "max_records, warning_window_days, home_region, rule_set_version, policy_version, status, scope_digest, created_by) "
-                "VALUES (:id, :t, :a, :n, :p, :k, :m, :w, :r, :rv, :pv, 'DRAFT', :d, :by) "
+                "max_records, warning_window_days, home_region, rule_set_version, policy_version, status, scope_digest, created_by, "
+                "ai_explanation) VALUES (:id, :t, :a, :n, :p, :k, :m, :w, :r, :rv, :pv, 'DRAFT', :d, :by, :ai) "
                 "ON CONFLICT (tenant_id, agent_principal_id) DO NOTHING RETURNING *"
             ),
             {
@@ -77,6 +78,7 @@ async def insert_setup(
                 "pv": policy_version,
                 "d": scope_digest,
                 "by": uuid.UUID(created_by),
+                "ai": bool(ai_explanation),
             },
         )
     ).first()
@@ -133,7 +135,13 @@ async def update_setup(
     if clear_validation:
         sets.append("validated_digest = NULL")
     for column, value in (fields or {}).items():
-        if column not in {"display_name", "resource_kinds", "max_records", "warning_window_days"}:
+        if column not in {
+            "display_name",
+            "resource_kinds",
+            "max_records",
+            "warning_window_days",
+            "ai_explanation",
+        }:
             raise ReadinessError("SETUP_FIELD_UNKNOWN", column)
         sets.append(f"{column} = :f_{column}")
         params[f"f_{column}"] = list(value) if column == "resource_kinds" else value

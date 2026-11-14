@@ -49,6 +49,11 @@
             "title": "Agent Principal Id",
             "type": "string"
           },
+          "ai_explanation": {
+            "default": false,
+            "title": "Ai Explanation",
+            "type": "boolean"
+          },
           "display_name": {
             "maxLength": 80,
             "minLength": 1,
@@ -104,9 +109,33 @@
         "title": "ReadinessDryRunBody",
         "type": "object"
       },
+      "ReadinessExportBody": {
+        "additionalProperties": false,
+        "properties": {
+          "purpose": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "title": "ReadinessExportBody",
+        "type": "object"
+      },
       "ReadinessPatchBody": {
         "additionalProperties": false,
         "properties": {
+          "ai_explanation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Explanation"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -832,6 +861,70 @@
           }
         },
         "summary": "Run Evidence",
+        "tags": [
+          "access-readiness"
+        ]
+      }
+    },
+    "/v1/access-readiness/agents/{agent_id}/runs/{run_id}/evidence:export": {
+      "post": {
+        "description": "WF-AG-03 'Export permitted evidence': references and digests only, the chain verified now. Reading the run is required; without\nthe review role the export is redacted (and says so). A stated purpose is required and every export or refusal is recorded.",
+        "operationId": "export_run_evidence_v1_access_readiness_agents__agent_id__runs__run_id__evidence_export_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadinessExportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Export Run Evidence V1 Access Readiness Agents  Agent Id  Runs  Run Id  Evidence Export Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Run Evidence",
         "tags": [
           "access-readiness"
         ]
