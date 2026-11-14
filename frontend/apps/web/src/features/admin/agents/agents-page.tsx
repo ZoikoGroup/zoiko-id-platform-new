@@ -92,6 +92,13 @@ export function AgentsPage() {
       <div className="space-y-4">
         <AuthorityNotice needs={["machine.tool.manage", "machine.build.register", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
         <SetupGuide onGo={setTab} />
+        <Banner tone="info" title="Access readiness agent">
+          A reference agent that checks mandate metadata and proposes reviews for a person. It cannot change access, and it is off unless your environment turns it on.{" "}
+          <Link className="font-medium underline" href="/admin/agents/readiness">
+            Open access readiness
+          </Link>
+          .
+        </Banner>
         <Banner tone="info" title="Identity, not authority">
           An active agent can act only through grants and mandates, and a tool that shows up in a server&apos;s tool list is not executable until it is
           active here. Runtime bindings are managed under{" "}

@@ -3290,3 +3290,138 @@ export type SalesLead = {
   capabilities: string[]; volume_band: string; entities: number | null; referral_source: string | null; security_needs: string | null; notice_version: string;
   status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
 };
+
+/* ---------------------------------------------------------------- access readiness agent (CR-091, ZID-AG-WF-001) */
+
+export type ReadinessSetupStatus = "DRAFT" | "SANDBOX_READY" | "PENDING_APPROVAL" | "APPROVED" | "PAUSED";
+export type ReadinessScope = { resource_kinds: string[]; max_records: number; warning_window_days: number; home_region: string };
+export type ReadinessApproval = { approval_id: string; scope_digest: string; requested_by: string; approved_by: string | null; expires_at: Iso };
+export type ReadinessSetup = {
+  setup_id: string;
+  agent_id: string;
+  display_name: string;
+  purpose: string;
+  scope: ReadinessScope;
+  rule_set_version: string;
+  policy_version: string;
+  status: ReadinessSetupStatus;
+  draft_revision: number;
+  /** The digest an approver signs. Any change to the scope is a different digest. */
+  scope_digest: string;
+  /** True only when the last passing dry run was on exactly this digest. */
+  validated: boolean;
+  paused_reason: string | null;
+  approval: ReadinessApproval | null;
+  /** What the agent may do, and what it never does; the screens show both as text. */
+  permitted_tools: string[];
+  blocked: string[];
+  agent?: { status: string; sponsor_active: boolean; attested: boolean; blueprint: string };
+};
+export type ReadinessCreateIn = { agent_principal_id: string; display_name: string; resource_kinds?: string[]; max_records?: number; warning_window_days?: number };
+export type ReadinessPatchIn = { display_name?: string; resource_kinds?: string[]; max_records?: number; warning_window_days?: number; expected_revision?: number };
+export type ReadinessFinding = {
+  rule_id: string;
+  rule_version: string;
+  finding_code: string;
+  severity: string;
+  confidence: string;
+  target_ref: string;
+  evidence_refs: string[];
+  detail: Record<string, string | number | boolean>;
+};
+export type ReadinessDryRun = {
+  synthetic: boolean;
+  live_writes: number;
+  passed: boolean;
+  fixture: string;
+  policy_version: string;
+  policy_hash: string;
+  rule_set_version: string;
+  result_digest: string;
+  rules_covered: string[];
+  findings: ReadinessFinding[];
+  unknown: number;
+  setup_status: ReadinessSetupStatus;
+};
+export type ReadinessRunState = "QUEUED" | "PREFLIGHT" | "RUNNING" | "DENIED" | "COMPLETED" | "NEEDS_REVIEW" | "FAILED" | "CANCELED";
+export type ReadinessRunSummary = {
+  records_read?: number;
+  findings?: number;
+  unknown?: number;
+  complete?: boolean;
+  proposals_created?: number;
+  proposals_existing?: number;
+  privileges_changed?: number;
+  result_digest?: string;
+};
+export type ReadinessRun = {
+  run_id: string;
+  agent_id: string;
+  state: ReadinessRunState;
+  attempt: number;
+  mode: string;
+  purpose: string;
+  resource_selector: Record<string, unknown>;
+  denial_codes: string[];
+  summary: ReadinessRunSummary | null;
+  rule_set_version: string;
+  policy_hash: string;
+  run_definition_hash: string;
+  region: string;
+  trace_id: string | null;
+  worker_attestation_id: string | null;
+  created_at: Iso;
+  terminal_at: Iso | null;
+  links: { self: string };
+};
+export type ReadinessProposalStatus = "OPEN" | "ASSIGNED" | "DISMISSED" | "HANDED_OFF";
+export type ReadinessProposal = {
+  proposal_id: string;
+  submitted_by: { type: "agent"; agent_id: string };
+  /** Masked to its kind and the first characters of its id. */
+  target: string;
+  rule_id: string;
+  rule_version: string;
+  finding_code: string;
+  /** How serious the finding is. A different question from `confidence`. */
+  severity: string;
+  confidence: string;
+  evidence_refs: string[];
+  run_id: string;
+  status: ReadinessProposalStatus;
+  reviewed_by: string | null;
+  assignee: string | null;
+  created_at: Iso;
+  handoff: { handoff_id: string; target_workflow: string; handoff_digest: string; signature: string; executes: boolean; signed_at: Iso } | null;
+  notice: string;
+};
+export type ReadinessRunDetail = ReadinessRun & { proposals: ReadinessProposal[] };
+export type ReadinessDecision = {
+  decision_id: string;
+  run_id: string | null;
+  actor: string;
+  subject: string;
+  resource: string;
+  action: string;
+  purpose: string;
+  outcome: "ALLOW" | "DENY";
+  reason_code: string;
+  policy_hash: string;
+  decided_at: Iso;
+  trace_id: string | null;
+};
+export type ReadinessEvidenceEnvelope = {
+  event_id: string;
+  run_id: string;
+  seq: number;
+  event_type: string;
+  source_id: string;
+  source_version: string;
+  payload_digest: string;
+  chain_digest: string;
+  classification: string;
+  region: string;
+  retention_policy_ref: string;
+  recorded_at: Iso;
+};
+export type ReadinessEvidence = { verified: boolean; integrity_exceptions: string[]; items: ReadinessEvidenceEnvelope[] };
