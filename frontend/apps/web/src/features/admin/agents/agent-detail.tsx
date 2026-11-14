@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { GATE_NOTES } from "./agents-logic";
+import { ApiBindingCard } from "./api-agent";
 import { RegisterChildDialog } from "./register-child-dialog";
 import { AGENTS_KEY, BLOCKER_TEXT, GATES, PLATFORM_CHECKS } from "./shared";
 
@@ -243,6 +244,7 @@ export function AgentDetailPanel({ agentId, onClose }: { agentId: string; onClos
                   {attest.error ? <ApiErrorView error={attest.error} /> : null}
                 </div>
               </Dialog>
+              <ApiBindingCard agentId={agentId} />
               {addingChild ? <RegisterChildDialog parent={a} onClose={() => setAddingChild(false)} /> : null}
             </>
           );

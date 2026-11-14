@@ -70,16 +70,20 @@ async def _record(
     evidence: EvidenceClass = EvidenceClass.E3,
     actor_type: str = "HUMAN",
     outcome: str = "SUCCESS",
+    event_aggregate_id: str | None = None,
 ) -> None:
     event_id = None
     if event:
+        # The outbox keys an event on (type, id, version) across the whole platform, and the version is counted per company. An id a person
+        # chose (a tool id) can be the same in two companies, so such events carry a company-scoped id; the audit record keeps the plain one.
+        key = event_aggregate_id or aggregate_id
         event_id = await emit(
             conn,
             name=name,
             tenant_id=tenant_id,
             aggregate_type=aggregate_type,
-            aggregate_id=aggregate_id,
-            aggregate_version=await next_version(conn, aggregate_type, aggregate_id),
+            aggregate_id=key,
+            aggregate_version=await next_version(conn, aggregate_type, key),
             data={**data, "evidence_class": evidence.value},
         )
     await record_audit(
@@ -918,6 +922,7 @@ async def change_tool(
         event=event is not None,
         aggregate_type="tool",
         aggregate_id=tool_id,
+        event_aggregate_id=f"{tenant_id}:{tool_id}",
         actor=actor,
         data={"tool_id": tool_id, "reason_code": reason},
     )

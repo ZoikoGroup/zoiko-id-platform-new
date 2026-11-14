@@ -157,7 +157,8 @@ async def clear_attestations(conn: AsyncConnection, agent_id: str) -> None:
 
 
 async def live_binding_count(conn: AsyncConnection, agent_id: str) -> int:
-    return int(
+    """Live runtime bindings: a workload (container) binding or an API client binding. Either satisfies the runtime gate."""
+    workload = int(
         (
             await conn.execute(
                 text(
@@ -168,6 +169,18 @@ async def live_binding_count(conn: AsyncConnection, agent_id: str) -> int:
             )
         ).scalar_one()
     )
+    api = int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM agent.api_client_binding WHERE agent_principal_id = :a "
+                    "AND status = 'ACTIVE' AND valid_to > now()"
+                ),
+                {"a": uuid.UUID(agent_id)},
+            )
+        ).scalar_one()
+    )
+    return workload + api
 
 
 async def descendants(conn: AsyncConnection, agent_id: str) -> list[str]:
@@ -202,7 +215,14 @@ async def move_bindings(
         ),
         {"to": to, "ids": [uuid.UUID(i) for i in agent_ids], "from": list(from_status)},
     )
-    return int(result.rowcount)
+    api = await conn.execute(
+        text(
+            "UPDATE agent.api_client_binding SET status = :to, security_revision = security_revision + 1 "
+            "WHERE agent_principal_id = ANY(:ids) AND status = ANY(:from)"
+        ),
+        {"to": to, "ids": [uuid.UUID(i) for i in agent_ids], "from": list(from_status)},
+    )
+    return int(result.rowcount) + int(api.rowcount)
 
 
 async def suspend_bindings_for_digest(conn: AsyncConnection, artifact_digest: str) -> int:
@@ -214,7 +234,14 @@ async def suspend_bindings_for_digest(conn: AsyncConnection, artifact_digest: st
         ),
         {"d": _norm(artifact_digest)},
     )
-    return int(result.rowcount)
+    api = await conn.execute(
+        text(
+            "UPDATE agent.api_client_binding SET status = 'SUSPENDED', security_revision = security_revision + 1 "
+            "WHERE descriptor_digest = :d AND status = 'ACTIVE'"
+        ),
+        {"d": _norm(artifact_digest)},
+    )
+    return int(result.rowcount) + int(api.rowcount)
 
 
 async def agents_using_blueprint(
@@ -271,3 +298,107 @@ async def revoke_blueprints_for_digest(conn: AsyncConnection, artifact_digest: s
         {"d": _norm(artifact_digest)},
     )
     return int(result.rowcount)
+
+
+# ---------------------------------------------------------------- API client bindings (CR-093)
+
+
+async def insert_api_binding(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    binding_id: str,
+    agent_id: str,
+    build_id: str,
+    client_id: str,
+    descriptor_digest: str,
+    valid_to: Any,
+    created_by: str,
+) -> None:
+    await conn.execute(
+        text(
+            "INSERT INTO agent.api_client_binding (binding_id, tenant_id, agent_principal_id, build_id, client_id, descriptor_digest, "
+            "status, valid_to, created_by) VALUES (:b, :t, :a, :bd, :c, :d, 'ACTIVE', :v, :by)"
+        ),
+        {
+            "b": uuid.UUID(binding_id), "t": uuid.UUID(tenant_id), "a": uuid.UUID(agent_id), "bd": uuid.UUID(build_id),
+            "c": client_id, "d": descriptor_digest, "v": valid_to, "by": uuid.UUID(created_by),
+        },
+    )  # fmt: skip
+
+
+async def api_binding(conn: AsyncConnection, agent_id: str) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT * FROM agent.api_client_binding WHERE agent_principal_id = :a ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"a": uuid.UUID(agent_id)},
+        )
+    ).first()
+    return dict(row._mapping) if row else None
+
+
+async def api_bound_agents(conn: AsyncConnection, agent_ids: list[str]) -> set[str]:
+    """Which of these agents hold an API client binding that is not revoked. Used to cap what an API-bound agent may hold."""
+    if not agent_ids:
+        return set()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT agent_principal_id FROM agent.api_client_binding "
+                "WHERE agent_principal_id = ANY(CAST(:ids AS uuid[])) AND status IN ('ACTIVE', 'SUSPENDED')"
+            ),
+            {"ids": [uuid.UUID(i) for i in agent_ids]},
+        )
+    ).all()
+    return {str(r[0]) for r in rows}
+
+
+async def revoke_api_binding(conn: AsyncConnection, agent_id: str, reason: str) -> bool:
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE agent.api_client_binding SET status = 'REVOKED', revoked_at = now(), revoke_reason = :why, "
+                "security_revision = security_revision + 1 WHERE agent_principal_id = :a AND status IN ('ACTIVE', 'SUSPENDED') "
+                "RETURNING binding_id"
+            ),
+            {"a": uuid.UUID(agent_id), "why": reason[:200]},
+        )
+    ).first()
+    return row is not None
+
+
+async def api_binding_by_client(conn: AsyncConnection, client_id: str) -> dict[str, Any] | None:
+    """The newest binding of a client id inside the current tenant (row-level security scopes it)."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT * FROM agent.api_client_binding WHERE client_id = :c ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"c": client_id},
+        )
+    ).first()
+    return dict(row._mapping) if row else None
+
+
+async def claim_api_assertion(
+    conn: AsyncConnection, tenant_id: str, *, jti: str, binding_id: str, expires_at: Any
+) -> bool:
+    """Burn an assertion id. False when it was already used: a replay. Expired ids are swept first, a few at a time."""
+    await conn.execute(
+        text(
+            "DELETE FROM agent.api_assertion_jti WHERE ctid IN "
+            "(SELECT ctid FROM agent.api_assertion_jti WHERE expires_at < now() - interval '1 hour' LIMIT 50)"
+        )
+    )
+    row = (
+        await conn.execute(
+            text(
+                "INSERT INTO agent.api_assertion_jti (tenant_id, jti, binding_id, expires_at) VALUES (:t, :j, :b, :e) "
+                "ON CONFLICT (tenant_id, jti) DO NOTHING RETURNING jti"
+            ),
+            {"t": uuid.UUID(tenant_id), "j": jti, "b": uuid.UUID(binding_id), "e": expires_at},
+        )
+    ).first()
+    return row is not None

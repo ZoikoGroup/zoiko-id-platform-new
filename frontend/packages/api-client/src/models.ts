@@ -3290,3 +3290,337 @@ export type SalesLead = {
   capabilities: string[]; volume_band: string; entities: number | null; referral_source: string | null; security_needs: string | null; notice_version: string;
   status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
 };
+
+/* Agent governance (ZID-AG-WF-002, CR-091). Money is always a decimal string, never a number. */
+export type GovSlot = "SECURITY" | "AUTHORITY" | "PRIVACY" | "FINANCE";
+export type GovRequestState = "PENDING" | "CLARIFICATION" | "APPROVED" | "REJECTED" | "EXPIRED" | "INVALIDATED" | "APPLIED";
+export type GovAttentionItem = {
+  rule: string;
+  severity: "P0" | "P1" | "P2";
+  agent_id: string | null;
+  detail: string;
+  alert_key?: string;
+  state?: "OPEN" | "ACKNOWLEDGED" | "ROUTED" | "RESOLVED";
+  tracked?: boolean;
+  occurrences?: number;
+  first_seen?: Iso | null;
+  sla_due?: Iso | null;
+  sla_breached?: boolean;
+  acknowledged_by?: string | null;
+  owner?: string | null;
+  route?: string | null;
+};
+export type GovAgentRow = {
+  agent_id: string;
+  name: string | null;
+  sponsor: string | null;
+  state: string;
+  risk: string | null;
+  policy_version: number | null;
+  spend_today: string;
+  last_evidence_at: Iso | null;
+  governed: boolean;
+};
+export type GovRequest = {
+  request_id: string;
+  ref?: string;
+  agent_id: string;
+  kind: "PUBLISH" | "SCOPE_EXTENSION" | "AI_ENABLE" | "BUDGET_INCREASE" | "QUOTA_INCREASE" | "RESTORE" | "PRIVILEGE_MUTATION";
+  subject?: "POLICY" | "BUDGET" | "RESTORE";
+  state: GovRequestState;
+  requested_by: string;
+  policy_hash: string;
+  base_policy_hash: string | null;
+  delta_hash: string;
+  delta?: Record<string, unknown>;
+  required_slots: GovSlot[];
+  open_slots: GovSlot[];
+  signatures: { slot: GovSlot; signer: string; signed_at: Iso }[];
+  created_at: Iso;
+  expires_at: Iso;
+  expired: boolean;
+  evidence_ref?: string | null;
+  decided_reason?: string | null;
+  can_review?: boolean;
+  review_unavailable?: "SEPARATION_OF_DUTIES" | null;
+};
+export type GovOverview = {
+  kpis: {
+    active_agents: number;
+    pending_approvals: number;
+    denied_calls_24h: number;
+    shadow_denials_24h: number;
+    budget_used_today: string;
+    risk_signals: number;
+  };
+  agents: GovAgentRow[];
+  requires_attention: GovAttentionItem[];
+  pending: GovRequest[];
+  telemetry: { state: "CURRENT" | "STALE" | "UNKNOWN"; last_ingest: Iso | null; message: string | null };
+  mode: "off" | "shadow" | "enforce";
+  as_of: Iso;
+  timezone: string;
+  counts_source: string;
+};
+export type GovLease = {
+  grant_id: string;
+  tool_id: string;
+  action: string;
+  resource_kind: string;
+  resource_selector: string;
+  purpose: string;
+  region: string;
+  data_class: string;
+  valid_until: Iso;
+  approval_ref: string | null;
+  state: "REQUESTED" | "EFFECTIVE" | "EXPIRED";
+  ceiling_source?: string;
+  effective?: boolean;
+};
+export type GovPolicy = {
+  policy_id: string;
+  agent_id: string;
+  version: number;
+  state: "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "SUPERSEDED" | "REJECTED";
+  risk_tier: "LOW" | "MEDIUM" | "HIGH";
+  region: string;
+  policy_hash: string;
+  ai_enabled: boolean;
+  quotas: Record<string, number | boolean>;
+  expires_at: Iso | null;
+  grants: GovLease[];
+};
+export type GovBaseline = {
+  allowed_tools: string[];
+  allowed_regions: string[];
+  ai_providers: string[];
+  quotas: Record<string, number | boolean>;
+  schedules_allowed: boolean;
+  frozen: boolean;
+};
+export type GovEffectiveAccess = {
+  agent_id: string;
+  policy: GovPolicy | null;
+  approval: GovRequest | null;
+  effective_leases: GovLease[];
+  requested: GovPolicy[];
+  company_baseline: GovBaseline | null;
+  frozen: boolean;
+  hard_denies: string[];
+  hierarchy: string[];
+  evaluated_at: Iso;
+};
+export type GovSimulation = {
+  simulation: true;
+  synthetic: true;
+  effective: false;
+  decision: "ALLOW" | "DENY";
+  code: string | null;
+  reason: string;
+  policy_hash: string | null;
+  trace: { gate: string; result: string }[];
+  note: string;
+};
+export type GovBudgetRow = {
+  budget_id: string;
+  name: string;
+  scope: string;
+  currency: string;
+  window: "DAY" | "MONTH" | "CALL";
+  hard_cap: string;
+  committed: string;
+  reserved: string;
+  available: string;
+  level: "OFF" | "OK" | "WARN_70" | "WARN_90" | "EXHAUSTED";
+  warn_pct: [number, number];
+  revision: number;
+  resets_at: Iso | null;
+};
+export type GovBudgetView = {
+  agent_id: string;
+  ceilings: GovBudgetRow[];
+  pending: { budget_id: string; scope: string; period: string; currency: string; hard_cap: string; approval_request_id: string | null }[];
+  ai_spend: string;
+  external_spend: string;
+  as_of: Iso;
+  timezone: string;
+};
+export type GovEvent = {
+  event_id: string;
+  seq: number;
+  agent_principal_id: string | null;
+  action: string;
+  outcome: "ALLOW" | "DENY" | "SHADOW_DENY" | "INFO";
+  code: string | null;
+  occurred_at: Iso;
+  digest: string;
+  prev_digest: string;
+  tool_id?: string | null;
+  resource?: string | null;
+  region?: string | null;
+  policy_hash?: string | null;
+  correlation_id?: string;
+  actor?: string | null;
+  cost_receipt?: Record<string, unknown> | null;
+};
+export type GovEvents = { items: GovEvent[]; next_cursor: number | null; redacted: boolean };
+export type GovMonitoring = {
+  agent_id: string;
+  name: string;
+  state: string;
+  summary: { allowed_24h: number; denied_24h: number; shadow_denied_24h: number };
+  sponsor: { principal_id: string | null; active: boolean };
+  expires_at: Iso | null;
+  policy: GovPolicy | null;
+  active_runs: { run_id: string; started_at: Iso; deadline_at: Iso; records: number; proposals: number }[];
+  alerts: GovAttentionItem[];
+  incident: { case_id: string; scope: string; generation: number; reason: string }[];
+  telemetry: { state: "CURRENT" | "STALE" | "UNKNOWN"; last_ingest: Iso | null };
+  as_of: Iso;
+};
+export type GovFreeze = {
+  case_id: string;
+  scope: "AGENT" | "TENANT";
+  agent_id: string | null;
+  generation: number;
+  initiator: string;
+  reason: string;
+  severity: "P0" | "P1" | "P2";
+  issued_at: Iso;
+  restored_at: Iso | null;
+  restore_request_id: string | null;
+  state: "FROZEN" | "RESTORED";
+};
+export type GovLeaseInput = {
+  tool_id: string;
+  resource_kind: string;
+  resource_selector: string;
+  purpose: string;
+  region?: string;
+  data_class?: "metadata" | "status" | "evidence_reference";
+  valid_until: Iso;
+};
+export type GovDraftInput = {
+  leases: GovLeaseInput[];
+  quotas?: Record<string, number | boolean>;
+  region: string;
+  ai_enabled?: boolean;
+  risk_tier?: "LOW" | "MEDIUM" | "HIGH";
+  expires_at?: Iso | null;
+};
+export type GovBudgetInput = {
+  scope: "COMPANY" | "WORKSPACE" | "AGENT" | "CALL";
+  agent_id?: string | null;
+  currency: string;
+  period: "DAY" | "MONTH" | "CALL";
+  hard_cap: string;
+  warn_pct?: [number, number];
+  reason_code: string;
+};
+
+/* The DAARA reference agent, its review queue and alert handling (ZID-AG-WF-001, CR-092) */
+export type DaaraStage = "NOT_ENABLED" | "DRAFT" | "READY_TO_RUN_SANDBOX" | "SANDBOX_READY" | "PENDING_APPROVAL" | "ACTIVE";
+export type DaaraTemplate = {
+  template: string;
+  purpose: string;
+  rule_set_version: string;
+  tools: { tool_id: string; action: string; side_effect: string; resource: string; why: string }[];
+  does: string[];
+  does_not: string[];
+  release_default: string;
+};
+export type DaaraSetup = {
+  agent_id: string;
+  template: DaaraTemplate;
+  enabled: boolean;
+  stage: DaaraStage;
+  blockers: string[];
+  publish_blockers?: string[];
+  setup: { label: string; rationale: string | null; warn_days: number; region: string; ai_explain: boolean; schedule: "MANUAL" | "DAILY"; config_hash: string; validated: boolean; sandbox_passed: boolean } | null;
+  effective_scope?: { permitted: { tool: string; resource: string; purpose: string; region: string }[]; blocked: string[]; note: string };
+  policy?: { version: number; hash: string } | null;
+};
+export type DaaraSetupInput = { label: string; rationale?: string | null; warn_days: number; region: string; ai_explain: boolean; schedule?: "MANUAL" | "DAILY" };
+export type DaaraDryRun = { passed: boolean; synthetic: true; findings: string[]; expected: number; wrote: number };
+export type ReviewProposal = {
+  proposal_id: string;
+  ref: string;
+  agent_id: string;
+  submitted_by: "AGENT";
+  run_id: string;
+  target: string;
+  rule_id: string;
+  rule_version: string;
+  finding_code: string;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  confidence_basis: string;
+  meaning: string;
+  evidence_refs: string[];
+  seen_count: number;
+  status: "OPEN" | "DISMISSED" | "ASSIGNED" | "HANDED_OFF";
+  created_at: Iso;
+  decided_at: Iso | null;
+  decision_reason: string | null;
+  has_handoff: boolean;
+  notice: string;
+};
+export type DaaraRun = {
+  run_id: string;
+  agent_id: string;
+  mode: "LIVE" | "DRY_RUN";
+  state: "COMPLETED" | "NEEDS_REVIEW" | "FAILED" | "DENIED" | "CANCELED" | "QUEUED";
+  incomplete: boolean;
+  checked: number;
+  issues: number;
+  proposals: number;
+  privileges_changed: number;
+  rule_set_version: string;
+  policy_hash: string | null;
+  summary: Record<string, unknown>;
+  explanation: string | null;
+  explanation_source: "FIXED" | "MODEL";
+  reason_code: string | null;
+  completed_at: Iso | null;
+  replayed?: boolean;
+};
+export type DaaraRunDetail = DaaraRun & {
+  timeline: { seq: number; at: Iso | null; step: string; outcome: string; code: string | null }[];
+  policy_decisions: { seq: number; action: string; outcome: string; code: string | null; policy_hash: string | null }[];
+  evidence: { complete: boolean; events: number; missing: string[] };
+  proposals_for_run: ReviewProposal[];
+  redacted: boolean;
+  model_used: boolean;
+};
+export type ReviewQueue = { items: ReviewProposal[]; open: number; notice: string };
+export type ReviewDecision = { status: string; handoff_digest: string | null; notice: string };
+
+/* API-based agents (CR-093): a registered API client in place of a container image */
+export type ApiClientCreate = { name: string; jwks: { keys: Record<string, string>[] }; audiences: string[]; source_ref?: string | null; provenance_ref?: string | null };
+export type ApiClientRegistered = {
+  build_id: string;
+  name: string;
+  artifact_digest: string;
+  review_status: string;
+  kind: "API_CLIENT";
+  client_id: string;
+  thumbprints: string[];
+  audiences: string[];
+  next: string;
+};
+export type ApiBinding = {
+  agent_id: string;
+  bound: boolean;
+  binding: {
+    binding_id: string;
+    status: "ACTIVE" | "SUSPENDED" | "REVOKED";
+    client_id: string;
+    descriptor_digest: string;
+    thumbprints: string[];
+    audiences: string[];
+    valid_to: Iso;
+    created_at: Iso;
+    revoke_reason: string | null;
+  } | null;
+  limits?: { max_risk_class: number; side_effects: string[]; attestation_cap: number; note: string };
+  agent_suspended?: boolean;
+};

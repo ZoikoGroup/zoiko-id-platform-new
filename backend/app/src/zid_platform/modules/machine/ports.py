@@ -10,6 +10,14 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.machine.application.agents import lifecycle_sweep
+from zid_platform.modules.machine.application.daara import schedule_due as daara_schedule_due
+from zid_platform.modules.machine.application.daara import work_queue as daara_work_queue
+from zid_platform.modules.machine.application.governance import (
+    configure as configure_agent_governance,
+)
+from zid_platform.modules.machine.application.governance import (
+    sweep_all_tenants as governance_sweep,
+)
 from zid_platform.modules.machine.application.workload import WorkloadPrincipal, resolve_workload
 from zid_platform.modules.machine.domain.agents import MachineError
 
@@ -18,6 +26,10 @@ __all__ = [
     "WorkloadPrincipal",
     "activate_agent",
     "agent_status",
+    "configure_agent_governance",
+    "daara_schedule_due",
+    "daara_work_queue",
+    "governance_sweep",
     "lifecycle_sweep",
     "resolve_workload",
 ]

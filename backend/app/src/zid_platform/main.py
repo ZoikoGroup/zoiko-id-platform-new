@@ -161,6 +161,15 @@ def create_app(
         screening_usage_sink
     )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
+    if settings.agent_governance == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_AGENT_GOVERNANCE=off would let agents call tools with no policy, approval, quota or budget check; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    from .modules.machine.ports import configure_agent_governance
+
+    configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+    app.state.agent_governance = settings.agent_governance
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
     app.state.build_images = tuple(i.strip() for i in settings.build_images if i.strip())
@@ -358,6 +367,9 @@ def create_app(
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
+        from .modules.machine.api.api_agents import router as api_agents_router
+        from .modules.machine.api.daara import router as agent_daara_router
+        from .modules.machine.api.governance import router as agent_governance_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
@@ -507,6 +519,9 @@ def create_app(
             alerts_router,
             search_router,
             agents_router,
+            api_agents_router,
+            agent_governance_router,
+            agent_daara_router,
             tool_calls_router,
             screening_signals_router,
             settings_router,

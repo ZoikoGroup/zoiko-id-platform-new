@@ -350,6 +350,32 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await lifecycle_sweep(conn, now)
 
+    async def agent_governance(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-002: free allowances a crashed run left reserved, end runs past their deadline, expire unsigned change requests."""
+        from zid_platform.modules.machine.ports import configure_agent_governance, governance_sweep
+
+        configure_agent_governance(
+            settings.agent_governance, settings.commercial_enforcement
+        )  # the worker is its own process
+        return await governance_sweep(conn, now)
+
+    async def daara_queue(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-001: run the queued access readiness runs, each re-checked when it is claimed."""
+        from zid_platform.modules.machine.ports import configure_agent_governance, daara_work_queue
+
+        configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+        return await daara_work_queue(conn, now)
+
+    async def daara_schedule(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-001: queue the daily run of each agent whose policy and company baseline allow a schedule (none, until an owner allows it)."""
+        from zid_platform.modules.machine.ports import (
+            configure_agent_governance,
+            daara_schedule_due,
+        )
+
+        configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+        return await daara_schedule_due(conn, now)
+
     async def credential_recheck(conn: AsyncConnection, now: datetime) -> object:
         """GID-058: announce, once a day each, the current credential checks that expire soon or have gone stale."""
         from zid_platform.modules.credential.ports import recheck_due
@@ -401,6 +427,9 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("claim_autoverify", claim_autoverify),
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
+        ("agent_governance", agent_governance),
+        ("daara_schedule", daara_schedule),
+        ("daara_queue", daara_queue),
         ("signal_housekeeping", signal_housekeeping),
         ("credential_recheck", credential_recheck),
         ("evidence_purge", evidence_purge),

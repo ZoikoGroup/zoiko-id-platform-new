@@ -794,6 +794,10 @@ export function createCellApi(t: Transport) {
       resolveBuild: (image: string) => post<M.BuildLookup>("/v1/machine/builds:resolve", { image }),
       buildVersions: (image: string) => post<M.BuildVersions>("/v1/machine/builds:versions", { image }),
       registerBuild: (body: M.BuildCreate) => post<M.BuildItem>("/v1/machine/builds", body),
+      registerApiClient: (body: M.ApiClientCreate) => post<M.ApiClientRegistered>("/v1/machine/api-clients", body),
+      apiBinding: (id: string) => get<M.ApiBinding>(`/v1/machine/agents/${seg(id)}/api-binding`),
+      bindApiClient: (id: string) => post<M.ApiBinding>(`/v1/machine/agents/${seg(id)}/api-binding`),
+      revokeApiBinding: (id: string, reason_code: string) => post<M.ApiBinding>(`/v1/machine/agents/${seg(id)}/api-binding:revoke`, { reason_code }),
       approveBuild: (id: string) => post<M.BuildItem>(`/v1/machine/builds/${seg(id)}:approve`),
       revokeBuild: (id: string, reason_code: string) => post<M.BuildRevoked>(`/v1/machine/builds/${seg(id)}:revoke`, { reason_code }),
       tools: () => get<M.Items<M.ToolItem>>("/v1/machine/tools"),
@@ -801,6 +805,62 @@ export function createCellApi(t: Transport) {
       activateTool: (id: string) => post<M.ToolItem>(`/v1/machine/tools/${seg(id)}:activate`),
       suspendTool: (id: string, reason_code: string) => post<M.ToolItem>(`/v1/machine/tools/${seg(id)}:suspend`, { reason_code }),
       retireTool: (id: string) => post<M.ToolItem>(`/v1/machine/tools/${seg(id)}:retire`),
+    },
+
+    /** Agent governance (ZID-AG-WF-002, CR-091): permissions, spending, approvals, monitoring and the emergency stop. */
+    agentGovernance: {
+      overview: () => get<M.GovOverview>("/v1/machine/governance/overview"),
+      baseline: () => get<{ configured: boolean; revision?: number } & Partial<M.GovBaseline>>("/v1/machine/governance/baseline"),
+      requests: (query: { agent_id?: string; state?: M.GovRequestState } = {}) => get<M.Items<M.GovRequest>>("/v1/machine/governance/requests", query),
+      decide: (id: string, decision: "approve" | "reject" | "clarify", body: { policy_hash: string; reason?: string }) =>
+        post<{ state: string; open_slots?: string[] }>(`/v1/machine/governance/requests/${seg(id)}:${decision}`, body),
+      apply: (id: string) => post<{ policy_hash: string; version: number }>(`/v1/machine/governance/requests/${seg(id)}:apply`),
+      effectiveAccess: (agentId: string) => get<M.GovEffectiveAccess>(`/v1/machine/agents/${seg(agentId)}/effective-access`),
+      policyVersions: (agentId: string) => get<M.Items<M.GovPolicy>>(`/v1/machine/agents/${seg(agentId)}/policy`),
+      draftPolicy: (agentId: string, body: M.GovDraftInput) => post<M.GovPolicy>(`/v1/machine/agents/${seg(agentId)}/policy/drafts`, body),
+      simulate: (
+        agentId: string,
+        body: { tool_id: string; resource_kind: string; resource_id: string; purpose?: string; region?: string; action?: string },
+      ) => post<M.GovSimulation>(`/v1/machine/agents/${seg(agentId)}/policy/simulate`, body),
+      requestChange: (agentId: string, body: { policy_id: string; reason_code: string }) =>
+        post<M.GovRequest>(`/v1/machine/agents/${seg(agentId)}/change-requests`, body),
+      budget: (agentId: string) => get<M.GovBudgetView>(`/v1/machine/agents/${seg(agentId)}/budget`),
+      setBudget: (body: M.GovBudgetInput) =>
+        post<{ state: "ACTIVE" | "PENDING"; budget_id: string; hard_cap: string; approval_request_id?: string; required_slots?: string[] }>(
+          "/v1/machine/budgets",
+          body,
+        ),
+      monitoring: (agentId: string) => get<M.GovMonitoring>(`/v1/machine/agents/${seg(agentId)}/monitoring`),
+      events: (agentId: string | null, query: { cursor?: number; outcome?: string; limit?: number } = {}) =>
+        get<M.GovEvents>(agentId ? `/v1/machine/agents/${seg(agentId)}/events` : "/v1/machine/governance/events", query),
+      verifyEvidence: () => get<{ intact: boolean; broken_at: number | null; checked: number }>("/v1/machine/governance/evidence:verify"),
+      pauseAgent: (agentId: string, body: { reason: string; severity: "P0" | "P1" | "P2" }) =>
+        post<{ case_id: string; generation: number; agents_suspended?: number; already_frozen: boolean }>(`/v1/machine/agents/${seg(agentId)}/pause`, body),
+      pauseCompany: (body: { reason: string; severity: "P0" | "P1" | "P2" }) =>
+        post<{ case_id: string; generation: number; agents_suspended?: number; already_frozen: boolean }>("/v1/machine/governance/pause", body),
+      freezes: () => get<M.Items<M.GovFreeze>>("/v1/machine/governance/freezes"),
+      requestRestore: (caseId: string) => post<M.GovRequest>(`/v1/machine/governance/freezes/${seg(caseId)}:request-restore`),
+    },
+
+    /** The DAARA reference agent and its human review queue (ZID-AG-WF-001, CR-092). */
+    daara: {
+      template: () => get<M.DaaraTemplate>("/v1/machine/daara/template"),
+      setup: (agentId: string) => get<M.DaaraSetup>(`/v1/machine/agents/${seg(agentId)}/daara`),
+      saveSetup: (agentId: string, body: M.DaaraSetupInput) => t.request<M.DaaraSetup>("PUT", `/v1/machine/agents/${seg(agentId)}/daara`, { body }),
+      validate: (agentId: string) => post<{ validated: boolean; config_hash: string }>(`/v1/machine/agents/${seg(agentId)}/daara:validate`),
+      dryRun: (agentId: string) => post<M.DaaraDryRun>(`/v1/machine/agents/${seg(agentId)}/daara/dry-run`),
+      requestPublish: (agentId: string) => post<M.GovRequest>(`/v1/machine/agents/${seg(agentId)}/daara:request-publish`),
+      startRun: (agentId: string, idempotencyKey: string, mode: "inline" | "queued" = "inline") =>
+        post<M.DaaraRun>(`/v1/machine/agents/${seg(agentId)}/daara/runs`, {}, { idempotencyKey, query: { mode } }),
+      runs: (agentId: string) => get<M.Items<M.DaaraRun>>(`/v1/machine/agents/${seg(agentId)}/daara/runs`),
+      run: (agentId: string, runId: string) => get<M.DaaraRunDetail>(`/v1/machine/agents/${seg(agentId)}/daara/runs/${seg(runId)}`),
+      queue: (status?: M.ReviewProposal["status"]) => get<M.ReviewQueue>("/v1/machine/agent-review", { status }),
+      proposal: (id: string) => get<M.ReviewProposal>(`/v1/machine/agent-review/${seg(id)}`),
+      decide: (id: string, action: "dismiss" | "assign" | "handoff", body: { reason?: string; assignee?: string }) =>
+        post<M.ReviewDecision>(`/v1/machine/agent-review/${seg(id)}:${action}`, body),
+      acknowledgeAlert: (key: string, note?: string) => post<{ state: string }>(`/v1/machine/governance/alerts/${seg(key)}:acknowledge`, { note }),
+      routeAlert: (key: string, body: { route: "SECURITY" | "AUTHORITY" | "PRIVACY" | "FINANCE" | "SRE"; owner?: string; note?: string }) =>
+        post<{ state: string; route: string }>(`/v1/machine/governance/alerts/${seg(key)}:route`, body),
     },
 
     workloads: {
