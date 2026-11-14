@@ -87,7 +87,7 @@ export function AccessReviewProposalCard({
               <span className="mt-1 block break-all font-mono text-xs">{proposal.handoff.handoff_digest}</span>
             </Banner>
           ) : null}
-          {can.assign && canAssign ? <div className="max-w-md">{assigneeField}</div> : null}
+          {can.assign ? <div className="max-w-md">{assigneeField}</div> : null}
         </div>
         <div className="mt-6 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap">
           <Button variant="secondary" size="lg" className="w-full sm:w-auto" isDisabled={!can.dismiss || pending} onPress={onDismiss}>

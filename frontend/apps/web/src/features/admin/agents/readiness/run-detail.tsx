@@ -16,7 +16,7 @@ function Counts({ run }: { run: ReadinessRunDetail }) {
   if (!s || s.records_read === undefined) return <p className="text-sm text-ink-muted">No summary was recorded for this run.</p>;
   const proposals = (s.proposals_created ?? 0) + (s.proposals_existing ?? 0);
   return (
-    <p className="text-sm font-medium" aria-label="Run summary">
+    <p className="text-sm font-medium">
       Checked {s.records_read} permitted records · {s.findings ?? 0} issues flagged · {proposals} review proposals · {s.privileges_changed ?? 0} privileges changed
     </p>
   );

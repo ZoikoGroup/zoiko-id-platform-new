@@ -252,7 +252,7 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
                   placeholder="Access Readiness — Finance"
                   description="A label people recognize, up to 80 characters. Not unique; the identity is the immutable ID."
                 />
-                <div aria-invalid={Boolean(issues.sponsor)}>
+                <div>
                   <p className="text-sm font-medium text-ink">
                     Sponsor <span aria-hidden className="text-danger-fg">*</span>
                   </p>
@@ -294,6 +294,8 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
                         <input
                           type="checkbox"
                           name="resource_kinds"
+                          aria-invalid={issues.resource_kinds ? true : undefined}
+                          aria-describedby={issues.resource_kinds ? "resource-kinds-error" : undefined}
                           checked={form.kinds.includes(k.id)}
                           onChange={(e) => edit({ kinds: e.target.checked ? [...new Set([...form.kinds, k.id])] : form.kinds.filter((x) => x !== k.id) })}
                           className="size-5"
@@ -302,7 +304,7 @@ function Wizard({ initialAgentId, existing, agents, agentsLoaded }: { initialAge
                       </label>
                     ))}
                   </div>
-                  {issues.resource_kinds ? <p className="text-xs font-medium text-danger-fg">{issues.resource_kinds}</p> : null}
+                  {issues.resource_kinds ? <p id="resource-kinds-error" className="text-xs font-medium text-danger-fg">{issues.resource_kinds}</p> : null}
                 </fieldset>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TextField
