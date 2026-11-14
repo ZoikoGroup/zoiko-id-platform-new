@@ -53,3 +53,21 @@ describe("operator commercial actions", () => {
     expect(r.path).toBe("/v1/commercial/orders/..%2Fx%3Fy:activate");
   });
 });
+
+describe("the pricing-page actions", () => {
+  it("builds a rate line with exact decimals and whole units, and a minimum that names its model", () => {
+    const r = buildRequest(get("rate-card-line"), { card_id: "c-1", family: "API", country: "DE", period: "MONTHLY", currency: "EUR", charge_unit: "completed check", included_units: "100", unit_amount: "0.50", minimum_amount: "49.00", minimum_model: "FLOOR", source_ref: "sched-1" });
+    expect(r.path).toBe("/v1/commercial/family-rate-cards/c-1/lines");
+    expect(r.body).toMatchObject({ included_units: 100, unit_amount: "0.50", minimum_amount: "49.00", minimum_model: "FLOOR" });
+  });
+  it("sends the issuer countries of a market row as a list", () => {
+    const f = get("matrix-row").fields.find((x) => x.key === "document_issuer_countries");
+    expect(f?.kind).toBe("json");
+  });
+  it("asks for a confirmation sentence before a rate card is signed, activated or shown publicly, and before the page or a notice is signed or activated", () => {
+    for (const id of ["rate-card-approve", "rate-card-activate", "page-sign", "notice-activate"]) expect(get(id).confirm, id).toBeTruthy();
+  });
+  it("lets only the three finance roles sign a rate card", () => {
+    expect(get("rate-card-approve").fields.find((x) => x.key === "role")?.options?.map((o) => o.id)).toEqual(["CFO", "CCO", "FOUNDER"]);
+  });
+});

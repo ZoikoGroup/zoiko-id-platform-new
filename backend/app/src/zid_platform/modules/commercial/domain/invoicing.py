@@ -74,6 +74,8 @@ NEVER_RESTRICTED = (
     "security_signal_intake",
     "decisions_on_existing_authority",
     "data_export",
+    "audit_evidence_access",  # a company's own audit evidence stays readable whatever its plan or billing state (ZID-UX-PRICE-004 P50)
+    "data_rights_requests",
     "paying_an_invoice",
 )
 

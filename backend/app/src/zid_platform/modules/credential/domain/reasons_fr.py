@@ -327,6 +327,26 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La vérification d'identité est une étape distincte et elle n'est pas terminée.",
         "Terminez la vérification d'identité.",
     ),
+    "CREDENTIAL_SIGNATURE_NOT_VALID": (
+        "La signature de l'attestation n'est pas valide",
+        "L'attestation a été modifiée après sa signature, ou elle n'a pas été signée par la clé publiée par son émetteur.",
+        "Demandez une nouvelle attestation à l'émetteur. Ne vous fiez pas à celle-ci.",
+    ),
+    "CREDENTIAL_TYPE_NOT_ACCEPTED_AS_EVIDENCE_OF_IDENTITY": (
+        "Ce type d'attestation n'est pas accepté comme preuve d'identité",
+        "L'attestation peut être authentique, mais son type ne figure pas dans la liste des attestations acceptées comme preuve d'identité.",
+        "Présentez une attestation d'identité acceptée ou utilisez un autre moyen de vérifier l'identité.",
+    ),
+    "CREDENTIAL_STATUS_NOT_CONFIRMED": (
+        "Le statut de l'attestation n'a pas pu être confirmé",
+        "Les informations de statut de l'émetteur étaient absentes ou illisibles, donc on ne sait pas si l'attestation est toujours valide.",
+        "Réessayez plus tard ou présentez une attestation dont l'émetteur publie le statut.",
+    ),
+    "BIRTH_DATE_NOT_A_VALID_DATE": (
+        "La date de naissance de l'attestation n'est pas une date valide",
+        "La date de naissance n'a pas la forme attendue, se situe dans le futur ou est invraisemblablement ancienne.",
+        "Demandez à l'émetteur de corriger l'attestation.",
+    ),
     "RESTRICTION_ON_RECORD": (
         "Une restriction est enregistrée",
         "Une restriction confirmée et définitive s'applique.",

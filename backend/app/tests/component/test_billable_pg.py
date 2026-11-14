@@ -557,3 +557,68 @@ def test_reconciliation_over_http_recovers_sessions_that_were_never_billed(rt_ur
     got = asyncio.run(rows())
     assert sorted(k for k, _ in got) == sorted(f"auth:{s}" for s in o.sessions.values())
     assert all(rec for _, rec in got)
+
+
+def test_the_usage_context_fields_are_stored_and_the_database_repeats_the_partner_rule(
+    rt_url: str,
+) -> None:
+    t, payer, partner = uid(), uid(), uid()
+
+    async def run() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(t)) as c:
+            assert await recorder.record(
+                c, tenant_id=t, meter="AUTH_EVENT", key="auth:ctx1", legal_payer_id=payer, origin="PARTNER", partner_id=partner,
+                transaction_type="PROVIDER_EXECUTED", billable_result="CHARGEABLE", finality="PROVISIONAL",
+                market_policy="DE:2026-11", supplier_rate_version="sr-7",
+            )  # fmt: skip
+            assert await recorder.record(c, tenant_id=t, meter="AUTH_EVENT", key="auth:plain")
+            row = (
+                (
+                    await c.execute(
+                        text(
+                            "SELECT * FROM commercial.billable_event WHERE deduplication_key = 'auth:ctx1'"
+                        )
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert str(row["legal_payer_id"]) == payer and str(row["partner_id"]) == partner
+            assert (row["origin"], row["finality"], row["market_policy"]) == (
+                "PARTNER",
+                "PROVISIONAL",
+                "DE:2026-11",
+            )
+            plain = (
+                (
+                    await c.execute(
+                        text(
+                            "SELECT * FROM commercial.billable_event WHERE deduplication_key = 'auth:plain'"
+                        )
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            assert plain["legal_payer_id"] is None and plain["finality"] is None, (
+                "not stated stays not stated"
+            )
+
+            # the code refuses a half-stated partner event; so does the database if code is bypassed
+            before = recorder.STATS["write_failed"]
+            assert not await recorder.record(
+                c, tenant_id=t, meter="AUTH_EVENT", key="auth:bad", origin="PARTNER"
+            )
+            assert recorder.STATS["write_failed"] == before + 1
+            with pytest.raises(DBAPIError, match="billable_event_partner_origin"):
+                async with c.begin_nested():
+                    await c.execute(
+                        text(
+                            "INSERT INTO commercial.billable_event (event_id, tenant_id, deduplication_key, meter_id, quantity, "
+                            "occurred_at, window_month, environment_id, region, row_hash, origin) VALUES (gen_random_uuid(), :t, "
+                            "'auth:raw', 'AUTH_EVENT', 1, now(), date_trunc('month', now())::date, 'x', 'x', 'h', 'PARTNER')"
+                        ),
+                        {"t": uuid.UUID(t)},
+                    )
+
+    asyncio.run(run())

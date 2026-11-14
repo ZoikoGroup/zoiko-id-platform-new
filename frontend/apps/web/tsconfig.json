@@ -1,6 +1,7 @@
 {
   "extends": "../../packages/config/tsconfig.next.json",
   "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "src", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],

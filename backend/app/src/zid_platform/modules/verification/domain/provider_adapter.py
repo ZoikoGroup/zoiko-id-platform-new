@@ -127,6 +127,84 @@ def route(
     return RouteDecision(best.provider_id, (), considered, approved)
 
 
+MAX_IMPACT_SCOPES = 5000
+
+
+class ImpactTooLarge(ValueError):
+    """The entitlement covers more scopes than one analysis will enumerate: narrow it rather than report a partial answer."""
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeImpact:
+    country: str
+    purpose: str
+    region: str
+    outcome: str  # LOST (no lawful provider remains), DEGRADED (a weaker one takes over), REROUTED (same or stronger), UNAFFECTED
+    before: str | None
+    after: str | None
+    refusals_after: tuple[Refusal, ...] = ()
+
+
+def withdrawal_impact(
+    entitlements: Sequence[Entitlement],
+    target: Entitlement,
+    now: datetime,
+    *,
+    max_scopes: int = MAX_IMPACT_SCOPES,
+) -> list[ScopeImpact]:
+    """What withdrawing `target` (suspend or revoke) would do, scope by scope, before anyone does it (read-only; Doc 03 RCG-G08).
+
+    Every (country, purpose, region) the target is lawful for today is routed twice: with and without it. A scope with no lawful
+    provider afterwards is LOST: callers get a refusal, never a quiet fallback. A scope a weaker provider would take over is DEGRADED."""
+    scopes = [
+        (c, p, g)
+        for c in sorted(target.countries)
+        for p in sorted(target.purposes)
+        for g in sorted(target.processing_regions)
+    ]
+    if len(scopes) > max_scopes:
+        raise ImpactTooLarge(f"{len(scopes)} scopes exceed {max_scopes}")
+    same_service = [e for e in entitlements if e.service_code == target.service_code]
+    rest = [e for e in same_service if e.provider_id != target.provider_id]
+    out: list[ScopeImpact] = []
+    for country, purpose, region in scopes:
+        req = RouteRequest(country, target.service_code, purpose, region, 0)
+        before = route(same_service, req, now)
+        if before.provider_id != target.provider_id:
+            if before.provider_id is None and not entitlement_refusals(target, req, now):
+                before = RouteDecision(target.provider_id)
+            else:
+                out.append(
+                    ScopeImpact(
+                        country,
+                        purpose,
+                        region,
+                        "UNAFFECTED",
+                        before.provider_id,
+                        before.provider_id,
+                    )
+                )
+                continue
+        after = route(rest, req, now)
+        if after.provider_id is None:
+            outcome = "LOST"
+        else:
+            replacement = next(e for e in rest if e.provider_id == after.provider_id)
+            outcome = "DEGRADED" if replacement.assurance < target.assurance else "REROUTED"
+        out.append(
+            ScopeImpact(
+                country,
+                purpose,
+                region,
+                outcome,
+                target.provider_id,
+                after.provider_id,
+                after.refusals,
+            )
+        )
+    return out
+
+
 # ------------------------------------------------------------------------------------------------ webhooks
 
 

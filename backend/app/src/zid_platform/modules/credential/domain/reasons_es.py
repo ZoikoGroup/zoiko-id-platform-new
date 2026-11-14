@@ -327,6 +327,26 @@ TEXT: dict[str, tuple[str, str, str]] = {
         "La verificación de identidad es un paso aparte y no está completa.",
         "Complete la verificación de identidad.",
     ),
+    "CREDENTIAL_SIGNATURE_NOT_VALID": (
+        "La firma de la credencial no es válida",
+        "La credencial se modificó después de firmarse, o no la firmó la clave que publicó su emisor.",
+        "Pida al emisor una credencial nueva. No confíe en esta.",
+    ),
+    "CREDENTIAL_TYPE_NOT_ACCEPTED_AS_EVIDENCE_OF_IDENTITY": (
+        "Este tipo de credencial no se acepta como prueba de identidad",
+        "La credencial puede ser auténtica, pero su tipo no está en la lista de credenciales aceptadas como prueba de identidad.",
+        "Presente una credencial de identidad aceptada o use otra forma de verificar la identidad.",
+    ),
+    "CREDENTIAL_STATUS_NOT_CONFIRMED": (
+        "No se pudo confirmar el estado de la credencial",
+        "La información de estado del emisor faltaba o no se pudo leer, por lo que no está claro que la credencial siga siendo válida.",
+        "Inténtelo de nuevo más tarde o presente una credencial cuyo emisor publique su estado.",
+    ),
+    "BIRTH_DATE_NOT_A_VALID_DATE": (
+        "La fecha de nacimiento de la credencial no es una fecha válida",
+        "La fecha de nacimiento no tiene el formato correcto, está en el futuro o es inverosímilmente antigua.",
+        "Pida al emisor que corrija la credencial.",
+    ),
     "RESTRICTION_ON_RECORD": (
         "Hay una restricción registrada",
         "Se aplica una restricción confirmada y definitiva.",

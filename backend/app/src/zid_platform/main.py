@@ -155,9 +155,13 @@ def create_app(
             "ZID_MONITORING_SCOPE=off would let ongoing monitoring run in markets with no legal and commercial approval; "
             "outside local, test and dev use shadow or enforce"
         )
-    from .modules.screening.ports import configure_monitoring_scope
+    from .modules.commercial.ports import screening_usage_sink
+    from .modules.screening.ports import configure_monitoring_scope, configure_usage_sink
 
     configure_monitoring_scope(settings.monitoring_scope)
+    configure_usage_sink(
+        screening_usage_sink
+    )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
@@ -343,6 +347,7 @@ def create_app(
         from .modules.credential.api.v2_authority import router as credential_v2_authority_router
         from .modules.credential.api.v2_cases import router as credential_v2_cases_router
         from .modules.credential.api.v2_edc import router as credential_v2_edc_router
+        from .modules.credential.api.v2_identity import router as credential_v2_identity_router
         from .modules.credential.api.v2_issuer import router as credential_v2_issuer_router
         from .modules.credential.api.v2_presentations import router as credential_v2_pres_router
         from .modules.decision.api.authzen import router as authzen_router
@@ -454,6 +459,7 @@ def create_app(
             credential_v2_cases_router,
             credential_v2_edc_router,
             credential_v2_authority_router,
+            credential_v2_identity_router,
             evidence_v2_extract_router,
             principals_router,
             evidence_router,

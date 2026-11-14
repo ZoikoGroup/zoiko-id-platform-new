@@ -11,9 +11,12 @@ takes the narrow path between them and fails closed:
 - an update counts as validation data ONLY when every object it defines is one of: the catalog (redefined with /DSS added and every other entry
   unchanged), the /DSS dictionary, its /VRI entries, or the certificate, CRL and OCSP streams they list. One other object, one redefined
   object, one changed catalog entry, and the whole update is refused and the caller keeps reporting content added after signing;
-- a DOCUMENT TIMESTAMP update is recognised only in one narrow shape: the timestamp dictionary, ONE invisible signature field for it (zero
-  rectangle, no appearance), the form entry gaining exactly that field, and the page's annotation list gaining exactly that field. A visible
-  stamp, a second kind of object, or any other change to the form or the page, and the whole update is refused;
+- a DOCUMENT TIMESTAMP update is recognised only in one narrow shape: the timestamp dictionary, ONE signature field for it, the form entry
+  gaining exactly that field, and the page's annotation list gaining exactly that field. The field is either invisible (zero rectangle, no
+  appearance) or a VISIBLE stamp: a valid rectangle no larger than a quarter of the page, and one appearance that is a plain Form XObject stream
+  (no scripts, actions or new resources; any resource it names already existed in the signed revision). A visible stamp is the one case where
+  something drawn after signing could cover content, so it is bounded in size, reported to the caller (`visible_stamps`), and a visible
+  field with no appearance is refused. A second kind of object, or any other change to the form or the page, and the whole update is refused;
 - anything else that adds page content, fields or annotations stays "content added after signing".
 
 Pure: bytes in, evidence out. No network, no files.
@@ -175,6 +178,9 @@ def parse_objects(data: bytes) -> dict[int, Obj]:
         try:
             value, after = _value(data, m.end())
         except (PdfError, ValueError, IndexError):
+            out[number] = Obj(
+                number, None
+            )  # defined but unreadable: it counts as an object, so an update holding one is never "only validation data"
             pos = m.end()
             continue
         stream: bytes | None = None
@@ -198,8 +204,48 @@ def parse_objects(data: bytes) -> dict[int, Obj]:
                 stream = _decode(value, data[start:end])
                 after = end + 9
         out[number] = Obj(number, value, stream)
+        if isinstance(value, dict):
+            kind = value.get("Type")
+            if kind == Name("XRef"):
+                del out[number]  # a cross-reference stream only indexes objects; it holds none
+            elif (
+                kind == Name("ObjStm")
+                and stream is not None
+                and _expand_object_stream(value, stream, out)
+            ):
+                del out[
+                    number
+                ]  # fully read: its objects are in `out` instead. Any doubt and it stays, as an object nothing may add
         pos = after
     return out
+
+
+def _expand_object_stream(info: dict[str, Any], data: bytes, out: dict[int, Obj]) -> bool:
+    """Read the objects held in an object stream into `out` (as plain objects, never streams). True only if EVERY one was read: a stream that
+    is malformed, short, over the limits or holds anything unreadable is not expanded, so the caller keeps it as an object nothing may add."""
+    count, first = info.get("N"), info.get("First")
+    if "Extends" in info or not (isinstance(count, int) and isinstance(first, int)):
+        return False
+    if not (0 <= count <= MAX_OBJECTS - len(out) and 0 <= first <= len(data)):
+        return False
+    try:
+        header = [int(x) for x in data[:first].split()]
+    except ValueError:
+        return False
+    if len(header) != 2 * count:
+        return False
+    found: dict[int, Obj] = {}
+    for i in range(count):
+        number, offset = header[2 * i], header[2 * i + 1]
+        if number in found or offset < 0 or first + offset >= len(data):
+            return False
+        try:
+            value, _ = _value(data, first + offset)
+        except (PdfError, ValueError, IndexError):
+            return False
+        found[number] = Obj(number, value)
+    out.update(found)
+    return True
 
 
 @dataclass(slots=True)
@@ -236,9 +282,14 @@ class ValidationUpdate:
     evidence: DssEvidence
     has_dss: bool
     timestamps: list[DocTimeStampObject]
+    visible_stamps: int = 0  # timestamp stamps that are drawn on a page (each bounded to a quarter of it, with a plain appearance)
 
 
-_WIDGET_KEYS = frozenset({"Type", "Subtype", "FT", "T", "Rect", "F", "P", "V"})
+_WIDGET_KEYS = frozenset({"Type", "Subtype", "FT", "T", "Rect", "F", "P", "V", "AP"})
+_FORM_KEYS = frozenset(
+    {"Type", "Subtype", "BBox", "Matrix", "Resources", "Length", "Filter", "FormType"}
+)
+MAX_VISIBLE_FRACTION = 0.25  # a visible timestamp stamp may cover at most this share of its page
 
 
 def _merged(before: dict[int, Obj], after: dict[int, Obj]) -> dict[int, Obj]:
@@ -262,11 +313,57 @@ def _zero_rect(value: Any) -> bool:
     )
 
 
+def _numbers(value: Any, count: int) -> list[float] | None:
+    if (
+        isinstance(value, list)
+        and len(value) == count
+        and all(isinstance(v, int | float) and not isinstance(v, bool) for v in value)
+    ):
+        return [float(v) for v in value]
+    return None
+
+
+def _rect_area(value: Any) -> float | None:
+    """The area of a valid, non-degenerate rectangle, or None."""
+    n = _numbers(value, 4)
+    if n is None:
+        return None
+    width, height = abs(n[2] - n[0]), abs(n[3] - n[1])
+    return width * height if width > 0 and height > 0 else None
+
+
+def _refs_in(value: Any) -> list[int]:
+    if isinstance(value, Ref):
+        return [value.number]
+    if isinstance(value, dict):
+        return [n for v in value.values() for n in _refs_in(v)]
+    if isinstance(value, list):
+        return [n for v in value for n in _refs_in(v)]
+    return []
+
+
+def _plain_form(obj: Obj | None, before: dict[int, Obj]) -> bool:
+    """An appearance that is only drawing: a Form XObject stream whose dictionary holds nothing but the keys of a plain form, whose bounding
+    box is valid, and whose resources name only objects the signed revision already had."""
+    if obj is None or obj.stream is None or not isinstance(obj.value, dict):
+        return False
+    v = obj.value
+    if set(v) - _FORM_KEYS or v.get("Subtype") != Name("Form") or _rect_area(v.get("BBox")) is None:
+        return False
+    if v.get("Type") not in (None, Name("XObject")):
+        return False
+    res = v.get("Resources")
+    if res is not None and not isinstance(res, dict):
+        return False
+    return all(n in before for n in _refs_in(res))
+
+
 def _timestamps_and_widgets(
     after: dict[int, Obj], before: dict[int, Obj]
-) -> tuple[list[DocTimeStampObject], dict[int, int]] | None:
+) -> tuple[list[DocTimeStampObject], dict[int, int], dict[int, float], set[int]] | None:
     """The document timestamp dictionaries in the update, and for each the number of its widget. None when anything about them is not exactly
-    the narrow shape: one invisible signature field per timestamp, nothing else."""
+    the narrow shape: one signature field per timestamp (invisible, or a bounded visible stamp with a plain appearance), nothing else. Also returns
+    the visible widgets' rectangle areas and the appearance objects the update defines."""
     stamps: list[DocTimeStampObject] = []
     for n, o in after.items():
         v = o.value
@@ -287,6 +384,8 @@ def _timestamps_and_widgets(
             return None
         stamps.append(DocTimeStampObject(n, (br[0], br[1], br[2], br[3]), contents))
     widgets: dict[int, int] = {}  # timestamp object number -> widget object number
+    visible: dict[int, float] = {}  # widget object number -> rectangle area, for the visible ones
+    appearances: set[int] = set()
     for n, o in after.items():
         v = o.value
         if not (
@@ -301,16 +400,32 @@ def _timestamps_and_widgets(
             or set(v) - _WIDGET_KEYS
             or not isinstance(link, Ref)
             or not isinstance(v.get("P"), Ref)
-            or not _zero_rect(
-                v.get("Rect")
-            )  # a visible stamp needs an appearance stream: not recognised, so refused
             or link.number in widgets
         ):
             return None
+        if _zero_rect(v.get("Rect")):
+            if "AP" in v:
+                return None  # an invisible field carries no appearance
+        else:
+            area = _rect_area(v.get("Rect"))
+            ap = v.get("AP")
+            normal = ap.get("N") if isinstance(ap, dict) and set(ap) == {"N"} else None
+            if (
+                area is None
+                or not isinstance(normal, Ref)
+                or normal.number not in after
+                or normal.number in before
+                or not _plain_form(after[normal.number], before)
+            ):
+                return None  # a visible stamp with no readable plain appearance is not recognised
+            visible[n] = area
+            appearances.add(normal.number)
         widgets[link.number] = n
     if {s.number for s in stamps} != set(widgets):
         return None  # a timestamp with no field, or a signature field that is not one of the timestamps
-    return stamps, widgets
+    if len(appearances) != len(visible):
+        return None  # two stamps may not share one appearance
+    return stamps, widgets, visible, appearances
 
 
 def validation_update(signed: bytes, appended: bytes) -> ValidationUpdate | None:
@@ -413,9 +528,9 @@ def validation_update(signed: bytes, appended: bytes) -> ValidationUpdate | None
     found = _timestamps_and_widgets(after, before)
     if found is None:
         return None
-    stamps, widgets = found
+    stamps, widgets, visible, appearances = found
     if stamps:
-        allowed |= {s.number for s in stamps} | set(widgets.values())
+        allowed |= {s.number for s in stamps} | set(widgets.values()) | appearances
         new_fields = set(widgets.values())
         # the form: the catalog's AcroForm, as it stands after the update, may differ from before ONLY by these fields
         old_ac_value = old_cat.get("AcroForm") if old_cat else None
@@ -484,6 +599,11 @@ def validation_update(signed: bytes, appended: bytes) -> ValidationUpdate | None
             added = new_an[len(old_an) :]
             if {r.number for r in added if isinstance(r, Ref)} != wset or len(added) != len(wset):
                 return None
+            for w in wset & set(visible):
+                box = _numbers(old_page.get("MediaBox"), 4)
+                page_area = _rect_area(box)
+                if page_area is None or visible[w] > MAX_VISIBLE_FRACTION * page_area:
+                    return None  # a stamp that could cover much of the page, or a page whose size is not known
             allowed.add(page_no)
             redefinable.add(page_no)
             for annots in (old_page.get("Annots"), new_page.get("Annots")):
@@ -514,7 +634,9 @@ def validation_update(signed: bytes, appended: bytes) -> ValidationUpdate | None
                         evidence.ocsp_responses.append(ocsp.load_der_ocsp_response(obj.stream))
                 except ValueError:
                     continue  # an item that does not parse is skipped, never trusted
-    return ValidationUpdate(evidence, has_dss, sorted(stamps, key=lambda s: s.byte_range[2]))
+    return ValidationUpdate(
+        evidence, has_dss, sorted(stamps, key=lambda s: s.byte_range[2]), len(visible)
+    )
 
 
 def dss_update(signed: bytes, appended: bytes) -> DssEvidence | None:

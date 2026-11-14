@@ -698,6 +698,17 @@ export function createCellApi(t: Transport) {
       /** The rated lines of a month, each with its formula; 404 RATING_NOT_FOUND until the month is rated. */
       rated: (month: string) => get<M.RatedUsage>("/v1/usage/rated", { month }),
       invoices: () => get<M.Items<M.Invoice>>("/v1/invoices"),
+      /** The offer catalogue for a market, evaluated on the server from the active market matrix. A card never carries a price. */
+      offers: (q: M.OffersQuery = {}) => get<M.OffersView>("/v1/commercial/offers", { market: q.market, payer_country: q.payer_country, operating_region: q.operating_region }),
+      /** Which services need which (a signature needs a verified identity). Public. */
+      capabilityDependencies: () => get<M.CapabilityDependencies>("/v1/commercial/capability-dependencies"),
+      /** The configuration as the deal desk would receive it: canonical scope and hash, no price, nothing saved. */
+      previewQuote: (body: M.SolutionIn) => post<M.QuotePreview>("/v1/commercial/quotes/preview", body),
+      /** Save a configuration as a draft. A draft is not an entitlement and expires after 30 days. */
+      saveConfiguration: (body: M.SolutionIn) => post<M.SolutionDraft>("/v1/commercial/configurations", body),
+      configurations: () => get<M.Items<M.SolutionDraft>>("/v1/commercial/configurations"),
+      /** Send a saved draft to the deal desk. Commits the company to nothing. */
+      requestQuote: (draftId: string) => post<M.SolutionDraft>(`/v1/commercial/configurations/${seg(draftId)}:request-quote`),
       budgets: () => get<M.Items<M.UsageBudget>>("/v1/budgets"),
       setBudget: (body: M.BudgetIn) => t.request<M.UsageBudget>("PUT", "/v1/budgets", { body }),
       evaluateBudgets: () => post<{ raised: { key: string; threshold: number }[] }>("/v1/budgets:evaluate"),
@@ -846,6 +857,26 @@ export function createOperatorApi(t: Transport) {
           `/v1/commercial/price-books/${seg(id)}/readiness`,
         ),
       /** First-month plan payments an operator marked to be returned, with the processor reference to refund (CR-062). */
+      /** The market matrices, newest first, and one with its rows, signatures and what is still missing. */
+      marketMatrices: () => get<M.Items<M.MarketMatrixSummary>>("/v1/commercial/market-matrices"),
+      marketMatrix: (id: string) => get<M.MarketMatrixDetail>(`/v1/commercial/market-matrices/${seg(id)}`),
+      /** Wording revisions of the sixteen service families beside the reviewed file's wording. Wording only: structure never changes here. */
+      familyTexts: (family?: string) => get<M.FamilyTexts>("/v1/commercial/service-family-texts", { family }),
+      /** Inquiries from the public pricing page, newest first. A lead is a conversation, never an account or a commitment. */
+      salesLeads: (status?: string) => get<M.Items<M.SalesLead>>("/v1/commercial/sales-leads", { status }),
+      /** FX rate sets for reporting: a named source, USD per unit, activated by a different person. There are no default rates. */
+      fxRateSets: () => get<M.Items<M.FxRateSet>>("/v1/commercial/fx-rate-sets"),
+      /** Family rate cards, newest first, and one with its lines and signatures. There are no default rates. */
+      rateCards: () => get<M.Items<M.RateCardSummary>>("/v1/commercial/family-rate-cards"),
+      rateCard: (id: string) => get<M.RateCardDetail>(`/v1/commercial/family-rate-cards/${seg(id)}`),
+      /** Whether the public pricing page's packaging is approved: the file's hash, who has signed it and who is still needed. */
+      pricingPage: () => get<M.PricingPageState>("/v1/commercial/pricing-page"),
+      /** The privacy notice texts for the inquiry form and the one visitors are shown now. */
+      publicNotices: () => get<M.PublicNotices>("/v1/commercial/public-notices"),
+      /** Where each market of the active matrix is in its staged rollout. */
+      marketRollout: () => get<M.Items<M.MarketRolloutItem>>("/v1/commercial/market-rollout"),
+      /** Every company's saved configuration sent for a quote, for the deal desk. */
+      quoteRequests: () => get<M.Items<M.QuoteRequestItem>>("/v1/commercial/quote-requests"),
       activationRefunds: () => get<M.Items<M.ActivationRefund>>("/v1/commercial/activation-refunds"),
       /** What was deleted for a closed company, what is held and what is still owed. */
       dataDeletion: (tenantId: string) => get<Record<string, unknown>>(`/v1/commercial/tenants/${seg(tenantId)}/data-deletion`),

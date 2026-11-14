@@ -1,0 +1,65 @@
+# The public pricing page's structure (ZID-UX-PRICE-004 v4.0, sections 03 and 03.1). Versioned configuration, reviewed in code review.
+#
+# STATUS: PROPOSED. The tier names, who they serve and which families each tier includes are design proposals in the document: Product and the Founder approve the
+# labels and the family-capability registry (gate G0) before they are published as final. Until then the page says plan contents are being finalised.
+#
+# This file holds NO price, rate, discount, trial, country coverage or compliance claim. Prices come only from an approved price book; availability only from the
+# active market matrix; qualified or regulated status only from a recorded, unexpired reference in that matrix. A test scans the wording below for all of that.
+#
+# family_state per tier says how a family is packaged on the page:
+#   included  part of the tier (a metered unit may still apply; nothing here says it is free)
+#   optional  a module the buyer can add to the tier, subject to the market
+#   quote     not self-serve in this tier: scoped with Sales
+version: "ZID-UX-PRICE-004-proposal-v1"
+status: PROPOSED
+
+tiers:
+  - code: ESSENTIALS
+    label: Essentials
+    fit: Launch trusted onboarding
+    cta_kind: VIEW_RATES
+    cta_label: View eligible rates
+    family_state: {IDV: included, DOC: included, BIO: optional, KYB: quote, SCR: quote, QUAL: quote, PRO: quote, WORK: quote, AUTHN: included, DELEG: quote, VC: quote, SIGN: quote, EVID: included, API: included, SOV: quote, REV: quote}
+  - code: BUSINESS
+    label: Business
+    fit: Expand verification and credential trust
+    cta_kind: CONFIGURE
+    cta_label: Configure Business
+    family_state: {IDV: included, DOC: included, BIO: optional, KYB: optional, SCR: optional, QUAL: optional, PRO: optional, WORK: optional, AUTHN: included, DELEG: optional, VC: optional, SIGN: quote, EVID: included, API: included, SOV: quote, REV: optional}
+  - code: ENTERPRISE
+    label: Enterprise
+    fit: Global, multi-entity assurance
+    cta_kind: BUILD_SOLUTION
+    cta_label: Request enterprise quote
+    family_state: {IDV: included, DOC: included, BIO: optional, KYB: optional, SCR: optional, QUAL: optional, PRO: optional, WORK: optional, AUTHN: included, DELEG: optional, VC: optional, SIGN: quote, EVID: included, API: included, SOV: quote, REV: optional}
+
+paths:
+  - code: SANDBOX
+    label: Developer sandbox
+    text: Test integrations without live charges. Signing up starts you on the developer plan with no payment step. A live pilot, with a stated cap and end date, needs separate approval and never converts to a paid plan by itself.
+    cta_kind: EXPLORE_SANDBOX
+    cta_label: Explore the sandbox
+  - code: PARTNER
+    label: Embedded partner
+    text: Rights-scoped reseller and embedded offers with child-tenant attribution. Partner terms are agreed by contract and are not available as general checkout.
+    cta_kind: PARTNER_INQUIRY
+    cta_label: Partner inquiry
+
+# Each use case preloads the services a buyer is likely to need. It is a starting point, never a guaranteed result or a legal basis.
+use_cases:
+  - {code: CUSTOMER_KYC, label: Customer onboarding, families: [IDV, DOC, BIO]}
+  - {code: BUSINESS_ONBOARDING, label: Business onboarding, families: [KYB, IDV, SCR]}
+  - {code: ACADEMIC_DEGREE, label: Academic degree check, families: [QUAL, DOC]}
+  - {code: PROFESSIONAL_LICENSE, label: Professional licence check, families: [PRO, DOC]}
+  - {code: EMPLOYMENT, label: Employment check, families: [WORK, IDV]}
+  - {code: PROPERTY, label: Property and tenancy, families: [IDV, DOC, EVID]}
+  - {code: TELECOM, label: Telecom onboarding, families: [IDV, DOC, BIO, API]}
+  - {code: PARTNER_PLATFORM, label: Partner platform, families: [API, EVID]}
+
+disclosures:
+  price_basis: Prices appear only where an approved rate card is effective for your market. Where none is, the page says Quote required and shows no amount.
+  tax: Tax is shown as estimated, exempt or calculated at checkout, depending on what is known for your seller and payer.
+  commitment: A minimum is stated as either a spend floor applied against usage or a platform fee billed in addition to usage, never silently both.
+  no_surprise: A retry of one operation is not billed twice. A test or pilot never converts to a paid plan by itself.
+  plan_change: A plan change is made through an order and takes effect on the date and for the term that order states. Nothing changes before it is accepted.
+  exit: Ending or changing a plan never restricts sign-in, security controls or your access to your own audit evidence. What is kept after exit, and for how long, follows your agreement and the law.
