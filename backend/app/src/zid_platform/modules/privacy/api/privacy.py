@@ -212,7 +212,13 @@ async def withdraw(
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         r = await service.withdraw_consent(
-            conn, _tenant(caller), str(consent_id), subject_principal_id=me, reason=body.reason
+            conn,
+            _tenant(caller),
+            str(consent_id),
+            subject_principal_id=me,
+            reason=body.reason,
+            authn_level=caller.authn.level,
+            auth_age=_age(caller),
         )
         return {"consent_id": str(r.consent_id), "status": r.status}
 

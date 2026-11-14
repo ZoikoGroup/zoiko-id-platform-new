@@ -34,7 +34,7 @@ import base64
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, NoReturn
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -241,11 +241,34 @@ async def annotate(
     return {"annotation_id": annotation_id, "receipt_id": rid, "kind": body.kind}
 
 
+def _has_purpose(purpose: str | None) -> bool:
+    return len((purpose or "").strip()) >= 3
+
+
+async def _refuse_missing_purpose(
+    request: Request, caller: Caller, *, resource: str, mode: str
+) -> NoReturn:
+    """T38: an export asked for without a stated purpose is refused, and the refusal is recorded. Written in its own transaction
+    because the refused request's transaction ends in an error and would roll the record back."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await replay.record_export_refusal(
+            conn,
+            _tenant(caller),
+            principal_id=caller.ctx.principal_id or "",
+            resource=resource,
+            mode=mode,
+            code="EXPORT_PURPOSE_MISSING",
+        )
+    raise ZidError("EXPORT_PURPOSE_REQUIRED", "State the purpose of the export.", http_status=422)
+
+
 class PackageBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     receipt_id: uuid.UUID
     mode: str = Field(pattern="^(" + "|".join(sorted(EXPORT_MODES)) + ")$")
-    purpose: str = Field(min_length=3, max_length=200)
+    purpose: str = Field(
+        default="", max_length=200
+    )  # checked in the handler so a missing one is refused AND recorded (T38)
     case_ref: str = Field(min_length=1, max_length=128)
     redact: list[Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]] = Field(
         default_factory=list, max_length=40
@@ -266,26 +289,32 @@ async def export(body: PackageBody, request: Request, caller: CallerDep) -> dict
             )  # handed in by main.py: evidence must not import commercial
             if gate is not None:
                 await gate(conn, "advanced.advanced-evidence-export-and-analytics")
-            return await replay.export_package(
-                conn,
-                _tenant(caller),
-                rid,
-                mode=body.mode,
-                purpose=body.purpose,
-                case_ref=body.case_ref,
-                custodian_principal_id=caller.ctx.principal_id or "",
-                redact=body.redact or None,
-                case_id=str(body.case_id) if body.case_id else None,
-            )
+            if _has_purpose(body.purpose):
+                return await replay.export_package(
+                    conn,
+                    _tenant(caller),
+                    rid,
+                    mode=body.mode,
+                    purpose=body.purpose,
+                    case_ref=body.case_ref,
+                    custodian_principal_id=caller.ctx.principal_id or "",
+                    redact=body.redact or None,
+                    case_id=str(body.case_id) if body.case_id else None,
+                )
     except LedgerError as e:
         raise http(e) from e
+    await _refuse_missing_purpose(
+        request, caller, resource=f"decision_receipt:{rid}", mode=body.mode
+    )
 
 
 class BulkBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     receipt_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
     mode: str = Field(pattern="^(" + "|".join(sorted(EXPORT_MODES)) + ")$")
-    purpose: str = Field(min_length=3, max_length=200)
+    purpose: str = Field(
+        default="", max_length=200
+    )  # checked in the handler so a missing one is refused AND recorded (T38)
     case_ref: str = Field(min_length=1, max_length=128)
     ttl_minutes: int | None = Field(default=None, ge=5, le=10080)
 
@@ -299,30 +328,32 @@ async def bulk_export(body: BulkBody, request: Request, caller: CallerDep) -> di
             await protected_action(
                 conn, caller, action="evidence.export", resource="evidence_export:bulk"
             )
-            await composed_step_up(
-                request,
-                conn,
-                caller,
-                action="export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii",
-                resource="evidence_export:bulk",
-                change={
-                    "mode": body.mode,
-                    "receipts": len(body.receipt_ids),
-                    "case_ref": body.case_ref,
-                },
-            )
-            return await bulk.create(
-                conn,
-                _tenant(caller),
-                [str(r) for r in body.receipt_ids],
-                mode=body.mode,
-                purpose=body.purpose,
-                case_ref=body.case_ref,
-                custodian_principal_id=caller.ctx.principal_id or "",
-                ttl_minutes=body.ttl_minutes,
-            )
+            if _has_purpose(body.purpose):
+                await composed_step_up(
+                    request,
+                    conn,
+                    caller,
+                    action="export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii",
+                    resource="evidence_export:bulk",
+                    change={
+                        "mode": body.mode,
+                        "receipts": len(body.receipt_ids),
+                        "case_ref": body.case_ref,
+                    },
+                )
+                return await bulk.create(
+                    conn,
+                    _tenant(caller),
+                    [str(r) for r in body.receipt_ids],
+                    mode=body.mode,
+                    purpose=body.purpose,
+                    case_ref=body.case_ref,
+                    custodian_principal_id=caller.ctx.principal_id or "",
+                    ttl_minutes=body.ttl_minutes,
+                )
     except LedgerError as e:
         raise http(e) from e
+    await _refuse_missing_purpose(request, caller, resource="evidence_export:bulk", mode=body.mode)
 
 
 @router.get("/bulk-exports")

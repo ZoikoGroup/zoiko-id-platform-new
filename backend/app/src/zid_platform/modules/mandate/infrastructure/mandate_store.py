@@ -273,3 +273,45 @@ async def pause_or_revoke_for_grants(
             continue  # only ACTIVE mandates pause; PENDING ones simply never activate
         await set_mandate_status(conn, mid, status)
     return changes
+
+
+@dataclass(frozen=True, slots=True)
+class MandateMetadata:
+    """The metadata projection an access review may read (CR-091): ids, state, dates and scope sets; no budget, no amounts."""
+
+    mandate_id: str
+    status: str
+    valid_to: datetime
+    executor_principal_id: str
+    authority_grant_id: str
+    allowed_actions: frozenset[str]
+    tools: frozenset[str]
+
+
+async def mandate_metadata_page(
+    conn: AsyncConnection, *, home_cell: str, statuses: Iterable[str], limit: int
+) -> list[MandateMetadata]:
+    """Live mandates homed in this cell, in a stable order (RLS scopes the read to the caller's tenant). A mandate whose home is
+    another cell is not read from here: raw metadata stays in its region."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT mandate_id, status, valid_to, executor_principal_id, authority_grant_id, allowed_actions, tools "
+                "FROM agent.mandate WHERE home_cell_id = :cell AND status::text = ANY(:st) "
+                "ORDER BY mandate_id LIMIT :lim"
+            ),
+            {"cell": uuid.UUID(home_cell), "st": list(statuses), "lim": limit},
+        )
+    ).all()
+    return [
+        MandateMetadata(
+            str(r.mandate_id),
+            str(r.status),
+            r.valid_to,
+            str(r.executor_principal_id),
+            str(r.authority_grant_id),
+            frozenset(r.allowed_actions or ()),
+            frozenset(r.tools or ()),
+        )
+        for r in rows
+    ]

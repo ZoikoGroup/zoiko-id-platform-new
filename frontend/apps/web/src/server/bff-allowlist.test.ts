@@ -30,6 +30,7 @@ describe("the proxy allowlist", () => {
     ["service dependencies for the solution builder","/v1/commercial/capability-dependencies"],
     ["the quote preview","/v1/commercial/quotes/preview"],
     ["saved solution configurations and quote requests","/v1/commercial/configurations"],
+    ["the access readiness agent setup, runs and review proposals", "/v1/access-readiness/"],
     ["provisioning sources (list, register, suspend)", "/provisioning/sources"],
     ["directory syncs (connect, run, pause, resume, replace the secret)", "/provisioning/directory-syncs"],
   ])("lets a screen reach %s", (_what, prefix) => {

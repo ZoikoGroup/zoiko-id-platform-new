@@ -3,6 +3,9 @@
 Workload identity (DEC-F7; F-W6):
 - `resolve_workload(conn, spiffe_id=<mesh-verified SpiffeId>, environment_id=..., artifact_digest=...)`
   -> WorkloadPrincipal (the logical principal it may act as) or MachineError with every blocker.
+- `issue_workload_lease(conn, tenant, agent_id, audience=, purpose=, scope=)` -> a short-lived, audience- and purpose-bound lease for
+  an in-process agent run, from the same issuance decision (CR-091). `lease_problems` re-checks it at every step and
+  `revoke_workload_lease` ends it. A lease is never a bearer token, so there is nothing secret to store or log.
 """
 
 from __future__ import annotations
@@ -10,16 +13,34 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.machine.application.agents import lifecycle_sweep
+from zid_platform.modules.machine.application.identity_status import (
+    AgentIdentityStatus,
+    agent_identity_status,
+)
+from zid_platform.modules.machine.application.leases import (
+    LEASE_LIFETIME,
+    WorkloadLease,
+    issue_workload_lease,
+    lease_problems,
+    revoke_workload_lease,
+)
 from zid_platform.modules.machine.application.workload import WorkloadPrincipal, resolve_workload
 from zid_platform.modules.machine.domain.agents import MachineError
 
 __all__ = [
+    "LEASE_LIFETIME",
+    "AgentIdentityStatus",
     "MachineError",
+    "WorkloadLease",
     "WorkloadPrincipal",
     "activate_agent",
+    "agent_identity_status",
     "agent_status",
+    "issue_workload_lease",
+    "lease_problems",
     "lifecycle_sweep",
     "resolve_workload",
+    "revoke_workload_lease",
 ]
 
 

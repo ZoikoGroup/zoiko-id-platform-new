@@ -21,6 +21,7 @@ from zid_outbox import emit
 from zid_platform.modules.credential.application import assertion_contract as ac
 from zid_platform.modules.credential.application import claim_checks
 from zid_platform.modules.credential.domain import eligibility as el
+from zid_platform.modules.credential.domain import issuer_history as ih
 from zid_platform.modules.credential.domain import lifecycle as lc
 from zid_platform.modules.credential.domain import outreach as oc
 from zid_platform.modules.credential.domain import portable as pt
@@ -35,9 +36,24 @@ from zid_platform.modules.credential.domain.claims import (
     SourceResult,
     SubjectMatch,
 )
-from zid_platform.modules.credential.infrastructure import claim_store, trust_store
+from zid_platform.modules.credential.domain.disclosure_events import (
+    DISCLOSURE_DENIED,
+    PROOF_REVIEW_ALERT,
+)
+from zid_platform.modules.credential.infrastructure import (
+    claim_store,
+    issuer_history_store,
+    trust_store,
+)
 from zid_platform.modules.credential.infrastructure.registries import find_practice_rule
-from zid_platform.modules.evidence.ports import EvidenceClass, ReceiptFacts, record_decision_receipt
+from zid_platform.modules.evidence.ports import (
+    AuditFacts,
+    EvidenceClass,
+    ReceiptFacts,
+    record_audit,
+    record_decision_receipt,
+)
+from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
 from zid_platform.modules.verification.ports import person_assurance_current
 
 
@@ -526,6 +542,48 @@ async def disclose_check(
     )
 
 
+async def record_disclosure_denied(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    principal_id: str | None,
+    grant_id: str,
+    check_id: str,
+    consumer: str,
+    purpose: str,
+    code: str,
+    now: datetime,
+) -> None:
+    """T48: a release that was refused (the consent does not cover this consumer, recipient or purpose, or is not in force) is recorded
+    with the purpose the consumer stated. Ids, the refusal code, the consumer and the purpose string only: never the claim, the
+    recipient or anything the grant would have released. Written in its own transaction by the caller (the refused request's
+    transaction ends in an error)."""
+    await record_audit(
+        conn,
+        tenant_id,
+        AuditFacts(
+            event_type=DISCLOSURE_DENIED,
+            actor_type="HUMAN",
+            action="denied",
+            target_type="disclosure_grant",
+            target_ref=grant_id,
+            outcome="DENIED",
+            evidence_class=EvidenceClass.E3,
+            occurred_at=now,
+            actor_principal_id=principal_id,
+            reason_code=code,
+            source_service="credential",
+            details={
+                "grant_id": grant_id,
+                "check_id": check_id,
+                "consumer": consumer[:100],
+                "purpose": purpose[:200],
+                "reason": code,
+            },
+        ),
+    )
+
+
 async def public_assertion(
     conn: AsyncConnection, *, grant_id: str, check_id: str, now: datetime
 ) -> dict[str, Any]:
@@ -918,7 +976,9 @@ async def recheck_due(
     due = await trust_store.due_monitors(conn, now)
     for m in due:
         cid = str(m["check_id"])
-        reason = "EXPIRED" if m["expires_at"] and m["expires_at"] <= now else "DUE"
+        reason = m["review_reason"] or (
+            "EXPIRED" if m["expires_at"] and m["expires_at"] <= now else "DUE"
+        )  # a lost issuer status is named
         await emit(
             conn,
             name="credential.claim.recheck.due",
@@ -1005,3 +1065,83 @@ async def replay_dead_letter(
         return "OPEN"
     await trust_store.resolve_dead_letter(conn, letter_id, state="REPLAYED", by=by, now=now)
     return "REPLAYED"
+
+
+# ------------------------------------------------------------------------------------------ lost issuer status (T42)
+
+
+async def review_proofs_of_lost_issuers(conn: AsyncConnection, now: datetime) -> dict[str, int]:
+    """Worker pass (T42). When an issuer or an accreditation body has LOST its status (revoked, no longer officially authorized, an accreditation
+    ended) between its last two recorded statements, flag every current proof issued under it, or under an institution it accredited, for review,
+    make the source recheck of each due now (the daily recheck pass announces it with the reason), tell consumers once per proof
+    (credential.proof.review_required) and raise one mandatory alert per tenant. A statement flags a proof once, so a repeated pass does nothing."""
+    today = now.date()
+    latest = await issuer_history_store.latest_two(conn, now)
+    issuers: dict[str, tg.Issuer] = {}
+    for sid, statements in latest.items():
+        try:
+            issuers[sid] = ih.issuer_of(statements[-1])
+        except ih.IssuerHistoryError:
+            continue  # a record that does not parse is the ledger's own refusal to handle; nothing is reviewed on a guess
+    flagged = 0
+    issuers_lost = 0
+    for issuer_id, statements in latest.items():
+        if issuer_id not in issuers:
+            continue
+        try:
+            before = ih.issuer_of(statements[-2]) if len(statements) > 1 else None
+        except ih.IssuerHistoryError:
+            before = None
+        codes = ih.status_lost(before, issuers[issuer_id], on=today)
+        if not codes:
+            continue
+        issuers_lost += 1
+        statement = statements[-1]
+        # the proofs rest on this issuer, and on every institution that listed it as its accrediting body
+        under = [issuer_id] + [
+            other for other, rec in issuers.items() if ih.accredited_by(rec, issuer_id)
+        ]
+        reason = ",".join(codes)
+        rows = await trust_store.flag_for_review(
+            conn, issuer_ids=under, statement_id=statement.statement_id, reason=reason, now=now
+        )
+        per_tenant: dict[str, int] = {}
+        for m in rows:
+            cid, tenant = str(m["check_id"]), str(m["tenant_id"])
+            per_tenant[tenant] = per_tenant.get(tenant, 0) + 1
+            await emit(
+                conn,
+                name="credential.proof.review_required",
+                tenant_id=tenant,
+                aggregate_type="claim_check",
+                aggregate_id=cid,
+                aggregate_version=await trust_store.next_event_version(conn, "claim_check", cid),
+                data={
+                    "check_id": cid,
+                    "claim_type": m["claim_type"],
+                    "issuer_id": issuer_id,
+                    "reasons": list(codes),
+                    "statement_id": statement.statement_id,
+                },
+            )
+        flagged += len(rows)
+        for tenant, n in per_tenant.items():
+            await raise_alert(
+                conn,
+                tenant,
+                AlertDraft(
+                    severity=Severity.HIGH,
+                    kind=PROOF_REVIEW_ALERT,
+                    title="Proofs need review: an issuer lost its status",
+                    body=f"{n} proof(s) issued under issuer {issuer_id[:64]} need review ({reason}). Their source recheck is scheduled.",
+                    object_type="credential_issuer",
+                    object_ref=issuer_id[:128],
+                    href="/admin/credentials",
+                    recommended_action="Review the flagged proofs once the source has been asked again.",
+                    is_task=True,
+                    mandatory=True,
+                    correlation_key=f"{PROOF_REVIEW_ALERT}:{issuer_id[:64]}:{statement.statement_id}",
+                ),
+                now=now,
+            )
+    return {"issuers_lost": issuers_lost, "proofs_flagged": flagged}

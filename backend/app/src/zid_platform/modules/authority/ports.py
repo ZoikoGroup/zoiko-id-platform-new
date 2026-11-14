@@ -28,6 +28,8 @@ from zid_platform.modules.authority.infrastructure.approval_store import (
     evaluate as evaluate_approval,
 )
 from zid_platform.modules.authority.infrastructure.grant_store import (
+    GrantReviewFacts,
+    grant_review_facts,
     holds_any_action,
     load_grant,
     load_grants_for_grantee,
@@ -39,6 +41,7 @@ __all__ = [
     "AuthorityDecision",
     "ContinuityMode",
     "Grant",
+    "GrantReviewFacts",
     "GrantStatus",
     "GrantType",
     "Request",
@@ -46,6 +49,7 @@ __all__ = [
     "Window",
     "authorize_request",
     "evaluate_approval",
+    "grant_review_facts",
     "holds_any_action",
     "issue_grant",
     "load_grant",

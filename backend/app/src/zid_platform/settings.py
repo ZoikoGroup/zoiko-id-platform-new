@@ -284,6 +284,19 @@ class Settings(ServiceSettings):
     # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
     # enforce = always; off = never, which a deployed environment refuses at start-up.
     agent_builds: Literal["auto", "off", "enforce"] = "auto"
+    # ZID_ACCESS_READINESS_ENABLED (CR-091, ZID-AG-WF-001): the Delegated Authority & Access Readiness agent. Default OFF: every route answers 404 and
+    # no run executes. ZID_ACCESS_READINESS_REGIONS (JSON list of cell names, e.g. ["uk-1"]): the regions approved for it; empty means none, and a
+    # cell outside the list fails closed with REGION_UNSUPPORTED. Turning the switch off is also the global kill switch for new runs.
+    access_readiness_enabled: bool = False
+    access_readiness_regions: tuple[str, ...] = ()
+    # ZID_ACCESS_READINESS_AI_EXPLAIN (CR-091; sections 06, 09 step 8): may a setup opt in to the optional plain-language explanation of a run? Default
+    # OFF. Even on, a setup must opt in (its approval signs the flag) and only codes and counts leave the rules; without an approved model gateway
+    # handed to the app the fixed deterministic text is shown. The rule result is the same either way.
+    access_readiness_ai_explain: bool = False
+    # ZID_FAIRNESS_CHECK (ZID-RCG-003 T44, CR-092): run the disaggregated disparity check on automated name matches? off (default) never runs it and
+    # holds nothing. on = the worker pass holds, for a person, the automated "different person" answers of a name cohort with a material disparity,
+    # and, until the owners approve a threshold in config/credential-trust/fairness-thresholds.yaml (none ships), of EVERY cohort with outcomes.
+    fairness_check: Literal["off", "on"] = "off"
     # ZID_REGULATORY_PACKS (ZID-RCG-003, CR-067): must a regulated capability that is ENABLED in the country registry also have an approved policy
     # pack for the market? shadow (default) = the check runs and a would-be refusal is only logged; enforce = it is refused before any provider is
     # called; off = never, which a deployed environment refuses at start-up. The country registry stays the baseline either way.
