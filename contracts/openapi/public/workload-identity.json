@@ -146,6 +146,22 @@
         "title": "ApiClientBody",
         "type": "object"
       },
+      "AssertionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assertion": {
+            "maxLength": 4096,
+            "minLength": 20,
+            "title": "Assertion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assertion"
+        ],
+        "title": "AssertionBody",
+        "type": "object"
+      },
       "AttestBody": {
         "additionalProperties": false,
         "properties": {
@@ -3563,6 +3579,50 @@
           }
         },
         "summary": "Suspend Agent",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/api-agent-token": {
+      "post": {
+        "description": "Exchange a signed one-time assertion for a short-lived token for the agent's principal. Nothing is read from a header the caller sets:\nthe company and client come from the assertion only to choose where to look, and the token is minted only if the signature verifies against\nthe PUBLIC keys stored with the approved build. The token is bound to the signing key (DPoP) and carries the gateway scope, so every later\ncall is still governed (authority, mandate, policy, the tool cap).",
+        "operationId": "api_agent_token_route_v1_machine_api_agent_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssertionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Agent Token Route V1 Machine Api Agent Token Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Api Agent Token Route",
         "tags": [
           "agent-registry"
         ]

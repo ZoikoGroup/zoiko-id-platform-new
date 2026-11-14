@@ -21,7 +21,7 @@ from zid_platform.modules.machine.domain.governance import digest, has_wildcard
 MAX_KEYS = 5
 MAX_AUDIENCES = 5
 MIN_RSA_BITS = 2048
-API_MAX_RISK_CLASS = 2  # an API-bound agent may not hold a tool above this risk class
+API_MAX_RISK_CLASS = 1 # an API-bound agent may not hold a tool above this risk class
 API_ALLOWED_SIDE_EFFECTS = frozenset({"NONE", "REVERSIBLE"})
 API_ATTESTATION_CAP = (
     1  # the highest runtime attestation an API client can show: it proves a key, never the code

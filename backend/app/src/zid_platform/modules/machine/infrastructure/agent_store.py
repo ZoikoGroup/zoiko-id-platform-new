@@ -385,13 +385,8 @@ async def api_binding_by_client(conn: AsyncConnection, client_id: str) -> dict[s
 async def claim_api_assertion(
     conn: AsyncConnection, tenant_id: str, *, jti: str, binding_id: str, expires_at: Any
 ) -> bool:
-    """Burn an assertion id. False when it was already used: a replay. Expired ids are swept first, a few at a time."""
-    await conn.execute(
-        text(
-            "DELETE FROM agent.api_assertion_jti WHERE ctid IN "
-            "(SELECT ctid FROM agent.api_assertion_jti WHERE expires_at < now() - interval '1 hour' LIMIT 50)"
-        )
-    )
+    """Burn an assertion id. False when it was already used: a replay. Rows are never deleted by the runtime role (it holds no DELETE);
+    an id stays burned for good, and a retention sweep by the data owner may remove rows long past `expires_at`."""
     row = (
         await conn.execute(
             text(

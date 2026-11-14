@@ -217,6 +217,7 @@ rules:
   - {match: "POST /v1/machine/workload-bindings*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "POST /v1/machine/attestations:verify", exempt: PROTOCOL, why: "a workload proves itself"}
   - {match: "POST /v1/machine/workload-token", exempt: PROTOCOL, why: "a workload exchanges its attestation"}
+  - {match: "POST /v1/machine/api-agent-token", exempt: PROTOCOL, why: "an API client proves a registered key with a signed one-time assertion (CR-094)"}
   - {match: "POST /v1/integration/routes:resolve", exempt: PROTOCOL, why: "a service resolves a route with its own credential"}
   - {match: "GET /v1/webhooks/*", gate: {action: e.inspect-assigned-api-event-metadata, mode: R}}
   - {match: "POST /v1/webhooks/deliveries/*:replay", gate: {action: e.rotate-assigned-nonprivileged-api-credential, mode: X}}

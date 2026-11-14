@@ -32,7 +32,7 @@ Changing a key is a different descriptor, so a different digest, so a different 
 
 An API client proves it holds a private key. It cannot prove what code runs behind that key, which is exactly what the image attestor proves on the image path. So, by code and not by policy text:
 
-- An agent bound to an API client may hold only tools whose side effect is `NONE` or `REVERSIBLE` and whose risk class is at most 2. A tool that moves money, cannot be undone or is above the ceiling is refused at binding and again at every gateway call (`API_AGENT_TOOL_NOT_ALLOWED`).
+- An agent bound to an API client may hold only tools whose side effect is `NONE` or `REVERSIBLE` and whose risk class is at most 1 (lowered from 2 on 2026-11-14 to match the token class; see the decision pack). A tool that moves money, cannot be undone or is above the ceiling is refused at binding and again at every gateway call (`API_AGENT_TOOL_NOT_ALLOWED`).
 - An attestation ceiling of 1 for such an agent is defined (`API_ATTESTATION_CAP`) but **no gate reads it yet**: today the protection is the tool cap above. It becomes meaningful only when the token path exists and an owner sets the floor for it.
 
 ## What it deliberately does not do
@@ -44,7 +44,7 @@ An API client proves it holds a private key. It cannot prove what code runs behi
 
 ## Owner decisions still needed
 
-1. May an API-only agent exist at all, and is risk class 2 the right ceiling?
+1. May an API-only agent exist at all, and is risk class 1 the right ceiling (it was 2 until 2026-11-14)?
 2. Which actions may a signed-key client call, and how does it obtain a token for the agent (extends CR-066)?
 3. Does the attestation floor for risk class 2 tools stay at the image-path level for everyone else while API agents are capped at 1?
 

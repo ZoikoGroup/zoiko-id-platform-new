@@ -118,6 +118,7 @@ class Registry:
                     c, self.t, agent_id, gate, note="checked", actor=who
                 )
             )
+        self.run(lambda c: agents_service.submit(c, self.t, agent_id, actor=w.human))
         self.run(lambda c: agents_service.activate(c, self.t, agent_id, actor=w.approver))
 
     def status(self, agent_id: str) -> str:
@@ -223,7 +224,7 @@ def test_an_api_agent_reaches_active_with_no_image_and_is_capped_at_the_gateway(
     assert (
         bound["bound"] is True
         and bound["binding"]["status"] == "ACTIVE"
-        and bound["limits"]["max_risk_class"] == 2
+        and bound["limits"]["max_risk_class"] == 1
     )
     assert (
         "AGENT_RUNTIME_BINDING_REQUIRED"

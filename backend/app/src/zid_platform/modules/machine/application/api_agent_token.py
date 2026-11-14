@@ -102,13 +102,13 @@ async def exchange(
     if problems:
         await agent_service._record(
             conn, tenant_id, name="agent_registry.api_credential_refused", event=False, aggregate_type="agent", aggregate_id=agent_id,
-            actor=None, actor_type="MACHINE", outcome="DENIED", data={**base, "codes": sorted(set(problems))},
+            actor=agent_id, actor_type="AGENT", outcome="DENIED", data={**base, "codes": ",".join(sorted(set(problems)))},
         )  # fmt: skip
         return {"ok": False, "codes": list(dict.fromkeys(problems)), "verified": True}
     expires_at = now + timedelta(seconds=d.API_TOKEN_LIFETIME_SECONDS)
     await agent_service._record(
         conn, tenant_id, name="agent_registry.api_credential_issued", event=False, aggregate_type="agent", aggregate_id=agent_id,
-        actor=None, actor_type="MACHINE",
+        actor=agent_id, actor_type="AGENT",
         data={**base, "resource": claims["resource"], "jkt": jkt, "expires_at": expires_at.isoformat(), "attestation_cap": d.API_ATTESTATION_CAP},
     )  # fmt: skip
     return {
