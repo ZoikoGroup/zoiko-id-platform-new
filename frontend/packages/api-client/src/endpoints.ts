@@ -1093,6 +1093,7 @@ export function createOperatorApi(t: Transport) {
         post<M.SuspensionVersion>(`/v1/regulatory/suspensions/${seg(id)}:lift`, { reason, evidence_ref: evidenceRef }),
 
       issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
+      recordIssuerStatement: (body: M.IssuerStatementIn) => post<M.IssuerStatementRecorded>("/v1/regulatory/issuers", body),
       issuerStatements: (issuerId: string) => get<M.Items<M.IssuerStatement>>(`/v1/regulatory/issuers/${seg(issuerId)}/statements`),
       awardCheck: (issuerId: string, program: string, awardedOn: string, knownAt?: string) =>
         get<M.AwardCheck>(`/v1/regulatory/issuers/${seg(issuerId)}/award-check`, { program, awarded_on: awardedOn, known_at: knownAt }),
@@ -1106,6 +1107,7 @@ export function createOperatorApi(t: Transport) {
 
       conformanceMatrix: () => get<M.ConformanceMatrix>("/v1/regulatory/conformance-matrix"),
       conformanceRuns: () => get<M.Items<M.ConformanceRun>>("/v1/regulatory/conformance-runs"),
+      conformanceRun: (runId: string) => get<M.ConformanceRun>(`/v1/regulatory/conformance-runs/${seg(runId)}`),
       reviewConformanceRun: (runId: string, decision: "ACCEPTED" | "REJECTED", signedHash: string, noteRef: string) =>
         post<M.ConformanceRun>(`/v1/regulatory/conformance-runs/${seg(runId)}:review`, { decision, signed_hash: signedHash, note_ref: noteRef }),
 

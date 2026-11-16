@@ -3014,6 +3014,27 @@ export type IssuerStatement = {
   recorded_by: string;
   recorded_at: Iso;
 };
+/** POST /v1/regulatory/issuers (IssuerStatementIn; not in the generated credential spec). A full issuer record plus the official source it came
+ * from; dates are YYYY-MM-DD. An UPDATE only adds or ends facts going forward; changing what an earlier statement said about the past is a CORRECTION. */
+export type IssuerKind = "UNIVERSITY" | "REGULATOR" | "EMPLOYER" | "INSURER" | "VENDOR" | "ACCREDITOR";
+export type IssuerStatementIn = {
+  issuer_id: string;
+  issuer_kind: IssuerKind;
+  authority: "OFFICIAL" | "UNRECORDED";
+  countries?: string[];
+  claim_types?: string[];
+  names: { name: string; from?: string | null; until?: string | null }[];
+  accreditations?: { body: string; program?: string | null; from: string; until?: string | null }[];
+  revoked_on?: string | null;
+  successor_of?: string | null;
+  statement?: "UPDATE" | "CORRECTION";
+  reason?: string | null;
+  source_url: string;
+  source_hash: string;
+  evidence_locator: string;
+};
+/** The saved statement, with what a CORRECTION changed about the past (empty for an update). */
+export type IssuerStatementRecorded = IssuerStatement & { retroactive_changes: string[] };
 export type AwardCheck = { outcome: "PASS" | "REVIEW"; reasons: string[]; accreditation: string; name_at_award?: string | null };
 
 export type ClaimJudgement = {
