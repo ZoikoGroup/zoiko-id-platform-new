@@ -43,8 +43,25 @@ export function adverseMediaSummary(d: SignalReview["detail"]): string {
   return `Adverse media: ${matches}${sev}${where}`;
 }
 
+/** "4 people linked by 2 kinds of shared detail". A link is a reason to look, never proof that people are the same or acting together. */
+export function identitySummary(d: SignalReview["detail"]): string {
+  const people = d.people ?? 0;
+  const kinds = d.kinds_shared ?? 0;
+  const who = people === 0 ? "People" : `${people} ${people === 1 ? "person" : "people"}`;
+  const how = kinds === 0 ? "share a device" : `linked by ${kinds} ${kinds === 1 ? "kind" : "kinds"} of shared detail`;
+  return `${who} ${how}`;
+}
+
+export const SOURCE_LABEL: Record<SignalReview["source"], string> = {
+  VELOCITY: "Velocity",
+  ADVERSE_MEDIA: "Adverse media",
+  IDENTITY_SIGNAL: "Identity link",
+};
+
 export function signalSummary(s: Pick<SignalReview, "source" | "detail">): string {
-  return s.source === "VELOCITY" ? velocitySummary(s.detail) : adverseMediaSummary(s.detail);
+  if (s.source === "VELOCITY") return velocitySummary(s.detail);
+  if (s.source === "IDENTITY_SIGNAL") return identitySummary(s.detail);
+  return adverseMediaSummary(s.detail);
 }
 
 /** Shortened hash for a table cell; the full value goes in a title. */

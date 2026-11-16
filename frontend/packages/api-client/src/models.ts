@@ -868,6 +868,13 @@ export type AdverseMediaDetail = {
   rationale?: string;
   reasons?: string[];
 };
+/** An identity signal (CR-101, CR-102): people linked by a shared device or contact. Counts only: never an identifier, a name or a verdict. */
+export type IdentitySignalDetail = {
+  people?: number;
+  kinds_shared?: number;
+  identifiers_shared?: number;
+  recommendation_is_review_only?: number;
+};
 export type SignalReview = {
   review_id: string;
   signal_id: string;
@@ -880,7 +887,7 @@ export type SignalReview = {
   evidence_ref: string | null;
   source: SignalSource;
   rule: string;
-  detail: VelocityDetail & AdverseMediaDetail;
+  detail: VelocityDetail & AdverseMediaDetail & IdentitySignalDetail;
   risk_tier: SignalRiskTier;
   created_at: Iso;
 };
@@ -3967,3 +3974,20 @@ export type OwnGraph = OwnGraphSummary & {
   findings_error?: string;
   confirmations: OwnDecision[];
 };
+
+/* ------------------------------------------------------------- reviewer rulings on company cases (WF-13B, ZID-ED-03, ZID-ED-04) */
+
+export type ScreeningAlert = { list_id: string; score?: number; reasons?: string[]; list_version?: string; [key: string]: unknown };
+export type ScreeningCaseDetail = {
+  case_id: string;
+  status: string;
+  reasons: string[];
+  versions: { version: number; status: string; decided_by: string | null }[];
+  alerts: ScreeningAlert[];
+  appeals: unknown[];
+  register: unknown;
+};
+export type ScreeningReplay = { replayable: boolean; version: number; reason?: string; matches?: boolean; [key: string]: unknown };
+export type ScreeningRulingIn = { outcome: "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED"; rationale: string; confirm_mandate?: boolean };
+export type KybRulingIn = { outcome: "VERIFIED" | "REJECTED" | "NEEDS_REVIEW"; rationale: string };
+export type CaseRuling = { case_id: string; status: string; version: number };

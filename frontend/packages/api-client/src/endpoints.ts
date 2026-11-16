@@ -979,6 +979,14 @@ export function createOperatorApi(t: Transport) {
     challengeSignal: (id: string, body: M.SignalChallengeIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/challenge`, body),
     resolveSignal: (id: string, body: M.SignalResolutionIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/resolution`, body),
 
+    /** A reviewer's work on a company case: screening alerts with the listed names, a past decision decided again, and the ruling. Reviewer routes are protected actions: a role flag never grants them. */
+    caseReviews: {
+      screening: (id: string) => get<M.ScreeningCaseDetail>(`/v1/reviews/screening-cases/${seg(id)}`),
+      replay: (id: string, version: number) => get<M.ScreeningReplay>(`/v1/reviews/screening-cases/${seg(id)}/replay`, { version }),
+      screeningRuling: (id: string, body: M.ScreeningRulingIn) => post<M.CaseRuling>(`/v1/reviews/screening-cases/${seg(id)}/rulings`, body),
+      kybRuling: (id: string, body: M.KybRulingIn) => post<M.CaseRuling>(`/v1/reviews/kyb-cases/${seg(id)}/rulings`, body),
+    },
+
     /** Commercial operator surface (ZID-COM-001). Reads are typed; every write goes through `call`, driven by the
      * action catalogue in the operator console so that each route has exactly one description of its body. */
     commercial: {
