@@ -34,6 +34,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.access_readiness.application import export, runs, setup
 from zid_platform.modules.access_readiness.application import review as review_service
 from zid_platform.modules.access_readiness.application.common import Runtime
+from zid_platform.modules.access_readiness.application.observe import chain_problems
 from zid_platform.modules.access_readiness.domain.policy import ProposalStatus, ReadinessError
 from zid_platform.modules.access_readiness.domain.rules import POLICY_VERSION, PURPOSE
 from zid_platform.modules.access_readiness.infrastructure import store
@@ -104,6 +105,8 @@ def runtime(request: Request) -> Runtime:
         signer=signer,
         ai_explain=bool(getattr(state, "access_readiness_ai_explain", False)),
         explainer=getattr(state, "access_readiness_explainer", None),
+        # the usage and budget hook (None: the Q1 hook with no thresholds); whatever is handed in fails closed
+        usage_policy=getattr(state, "access_readiness_usage_policy", None),
     )
 
 
@@ -396,9 +399,11 @@ async def run_evidence(
 
     async def go(conn: Any) -> dict[str, Any]:
         await _allow(conn, caller, "access_readiness.read", f"agent:{agent_id}")
-        await _run_of(conn, agent_id, run_id)
+        run = await _run_of(conn, agent_id, run_id)
         envelopes = await store.list_evidence(conn, run_id)
-        problems = store.verify_chain(envelopes)
+        problems = await chain_problems(
+            conn, run, envelopes
+        )  # a broken chain also raises the mandatory alert
         return {
             "verified": not problems and bool(envelopes),
             "integrity_exceptions": problems,

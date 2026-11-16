@@ -9,6 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const HASH = "ab".repeat(32);
 
+// jsdom has no CSS.escape, which react-aria's Select uses to focus the option it opens on.
+if (!(globalThis as { CSS?: unknown }).CSS) Object.defineProperty(globalThis, "CSS", { value: { escape: (v: string) => v.replace(/[^\w-]/g, (c) => `\\${c}`) } });
+
 const fake = vi.hoisted(() => ({
   regulatory: {
     readiness: vi.fn(),
@@ -23,6 +26,11 @@ const fake = vi.hoisted(() => ({
     evidenceBundle: vi.fn(),
     conformanceMatrix: vi.fn(),
     conformanceRuns: vi.fn(),
+    conformanceRun: vi.fn(),
+    reviewConformanceRun: vi.fn(),
+    issuers: vi.fn(),
+    issuerStatements: vi.fn(),
+    recordIssuerStatement: vi.fn(),
   },
 }));
 
@@ -33,6 +41,7 @@ vi.mock("@/lib/runtime", () => ({
 import { ClaimsPage } from "./claims";
 import { ConformancePage } from "./conformance";
 import { HoldsPage } from "./holds";
+import { IssuersPage } from "./issuers";
 import { OfferingsPage } from "./offerings";
 import { ReadinessPage } from "./readiness";
 import { ReleasesPage } from "./releases";
@@ -203,5 +212,148 @@ describe("conformance", () => {
     expect(await screen.findByText("T45")).toBeTruthy();
     expect(screen.getByText("no automated test")).toBeTruthy();
     expect(screen.getByText("GAP: 1")).toBeTruthy();
+  });
+});
+
+const SOURCE_HASH = "cd".repeat(32);
+
+/** Paste rather than type: a long value typed key by key outlasts the timeout when the whole suite runs at once. */
+async function fill(field: HTMLElement, text: string) {
+  await userEvent.click(field);
+  await userEvent.paste(text);
+}
+
+describe("issuer statements", () => {
+  it("records a first statement with exactly the body the backend model takes, then refreshes the issuers", async () => {
+    fake.regulatory.issuers.mockResolvedValue({ items: [] });
+    fake.regulatory.issuerStatements.mockResolvedValue({ items: [] });
+    fake.regulatory.recordIssuerStatement.mockResolvedValue({ issuer_id: "uni-of-example", seq: 1, statement: "UPDATE", retroactive_changes: [] });
+    mount(<IssuersPage />);
+    expect(await screen.findByText("No issuer history")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Record issuer statement" }));
+    const dialog = await screen.findByRole("dialog");
+    const record = within(dialog).getByRole("button", { name: "Record statement" });
+    expect(record.hasAttribute("disabled") || record.getAttribute("aria-disabled") === "true").toBe(true);
+    await fill(within(dialog).getByLabelText(/^Issuer ID/), "uni-of-example");
+    await fill(within(dialog).getByLabelText(/^Claim types/), "degree");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Countries/ }));
+    await userEvent.click(await screen.findByRole("option", { name: "GB - United Kingdom" }));
+    await fill(within(dialog).getByLabelText(/^Name 1(?! used)/), "University of Example");
+    await fill(within(dialog).getByLabelText(/^Source URL/), "https://register.example.gov/institutions/1234");
+    await userEvent.click(within(dialog).getByLabelText(/^Source hash/));
+    await userEvent.paste(SOURCE_HASH.toUpperCase());
+    await fill(within(dialog).getByLabelText(/^Evidence locator/), "s3://evidence/issuers/uni-of-example.html");
+    await userEvent.click(record);
+    await waitFor(() =>
+      expect(fake.regulatory.recordIssuerStatement).toHaveBeenCalledWith({
+        issuer_id: "uni-of-example",
+        issuer_kind: "UNIVERSITY",
+        authority: "OFFICIAL",
+        countries: ["GB"],
+        claim_types: ["DEGREE"],
+        names: [{ name: "University of Example", from: null, until: null }],
+        accreditations: [],
+        revoked_on: null,
+        successor_of: null,
+        statement: "UPDATE",
+        reason: null,
+        source_url: "https://register.example.gov/institutions/1234",
+        source_hash: SOURCE_HASH,
+        evidence_locator: "s3://evidence/issuers/uni-of-example.html",
+      }),
+    );
+    await waitFor(() => expect(fake.regulatory.issuers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("starts from the latest statement and explains a retroactive change the server refuses", async () => {
+    fake.regulatory.issuers.mockResolvedValue({ items: ["uni-of-example"] });
+    fake.regulatory.issuerStatements.mockResolvedValue({
+      items: [
+        {
+          issuer_id: "uni-of-example", seq: 1, statement_id: "iss-uni-of-example-1", statement: "UPDATE", reason: null,
+          record: {
+            issuer_id: "uni-of-example", kind: "UNIVERSITY", authority: "OFFICIAL", countries: ["GB"], claim_types: ["DEGREE"],
+            names: [{ name: "University of Example", from: "1990-01-01" }],
+            accreditations: [{ body: "example-accreditor", program: "BSc Nursing", from: "2010-09-01" }],
+          },
+          source_url: "https://register.example.gov/institutions/1234", source_hash: HASH, evidence_locator: "s3://e/1", recorded_by: "op-2", recorded_at: "2026-11-01T00:00:00Z",
+        },
+      ],
+    });
+    fake.regulatory.recordIssuerStatement.mockRejectedValue(
+      new ApiError({ status: 422, code: "ISSUER_STATEMENT_RETROACTIVE", message: "accreditation_removed:example-accreditor/BSc Nursing: record it as a CORRECTION with a reason" }),
+    );
+    mount(<IssuersPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /Issuer/ }));
+    await userEvent.click(await screen.findByRole("option", { name: "uni-of-example" }));
+    expect(await screen.findByText("History of uni-of-example")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Record issuer statement" }));
+    const dialog = await screen.findByRole("dialog");
+    expect((within(dialog).getByLabelText(/^Name 1(?! used)/) as HTMLInputElement).value).toBe("University of Example");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove accreditation 1" }));
+    await fill(within(dialog).getByLabelText(/^Source URL/), "https://register.example.gov/institutions/1234");
+    await userEvent.click(within(dialog).getByLabelText(/^Source hash/));
+    await userEvent.paste(SOURCE_HASH);
+    await fill(within(dialog).getByLabelText(/^Evidence locator/), "s3://evidence/issuers/2.html");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record statement" }));
+    await waitFor(() =>
+      expect(fake.regulatory.recordIssuerStatement).toHaveBeenCalledWith(
+        expect.objectContaining({ issuer_id: "uni-of-example", names: [{ name: "University of Example", from: "1990-01-01", until: null }], accreditations: [], claim_types: ["DEGREE"] }),
+      ),
+    );
+    expect(await within(dialog).findByText(/Keep the earlier facts and end them from today/)).toBeTruthy();
+    expect(within(dialog).getByText(/record it as a CORRECTION with a reason$/)).toBeTruthy();
+  });
+});
+
+const run = {
+  run_id: "run-1",
+  commit: "a".repeat(40),
+  environment: "ci",
+  matrix_hash: "ef".repeat(32),
+  started_at: "2026-11-14T10:00:00Z",
+  finished_at: "2026-11-14T10:20:00Z",
+  recorded_by: "op-recorder",
+  run_hash: HASH,
+  results: [
+    { case: "T01", outcome: "PASS", passed: ["tests/t01.py::test_refused"], failed: [], not_run: [] },
+    { case: "T02", outcome: "FAIL", passed: [], failed: ["tests/t02.py::test_kill_switch"], not_run: [] },
+    { case: "T03", outcome: "NOT_RUN", passed: [], failed: [], not_run: ["tests/t03.py::test_slow"] },
+  ],
+  reviews: [{ reviewer: "op-9", decision: "REJECTED", note_ref: "QA-0", reviewed_at: "2026-11-15T00:00:00Z" }],
+  p0_exit: { met: false, reasons: ["P0_CASE_NOT_PASSING:T02"], counts: { PASS: 1, FAIL: 1, NOT_RUN: 1 } },
+};
+
+describe("conformance run detail", () => {
+  it("lists every case outcome with its tests, makes the FAIL visible, and only then lets the reviewer sign the run hash", async () => {
+    fake.regulatory.conformanceMatrix.mockResolvedValue({ matrix_hash: HASH, counts: {}, as_of: "2026-11-12T00:00:00Z", cases: [] });
+    fake.regulatory.conformanceRuns.mockResolvedValue({ items: [run] });
+    fake.regulatory.conformanceRun.mockResolvedValue(run);
+    fake.regulatory.reviewConformanceRun.mockResolvedValue(run);
+    mount(<ConformancePage />);
+    await userEvent.click(await screen.findByRole("tab", { name: "Runs" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Open run run-1" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("1 case failed")).toBeTruthy();
+    expect(fake.regulatory.conformanceRun).toHaveBeenCalledWith("run-1");
+    expect(within(dialog).getByText("tests/t02.py::test_kill_switch")).toBeTruthy();
+    expect(within(dialog).getByText("tests/t03.py::test_slow")).toBeTruthy();
+    expect(within(dialog).getByText("FAIL: 1")).toBeTruthy();
+    expect(within(dialog).getByText("NOT_RUN: 1")).toBeTruthy();
+    expect(within(dialog).getByText("PASS: 1")).toBeTruthy();
+    expect(within(dialog).getByText("a".repeat(40))).toBeTruthy();
+    expect(within(dialog).getByText("ef".repeat(32))).toBeTruthy();
+    expect(within(dialog).getByText(HASH)).toBeTruthy();
+    expect(within(dialog).getByText(/QA-0/)).toBeTruthy();
+    const table = within(dialog).getByRole("table", { name: "Case outcomes in this run" });
+    expect(within(table).getByText("FAIL")).toBeTruthy();
+
+    const sign = within(dialog).getByRole("button", { name: "Sign run hash" });
+    await userEvent.type(within(dialog).getByLabelText(/^Note reference/), "QA-1");
+    expect(sign.hasAttribute("disabled") || sign.getAttribute("aria-disabled") === "true").toBe(true);
+    await userEvent.click(within(dialog).getByText("I have read this run's outcomes"));
+    await userEvent.click(sign);
+    await waitFor(() => expect(fake.regulatory.reviewConformanceRun).toHaveBeenCalledWith("run-1", "ACCEPTED", HASH, "QA-1"));
   });
 });

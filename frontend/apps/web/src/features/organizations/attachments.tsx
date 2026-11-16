@@ -75,7 +75,7 @@ export function AttachmentsCard({ orgId, requestId, reference }: { orgId: string
                     {d.may_open ? (
                       <a
                         className="text-sm font-medium text-accent underline"
-                        href={`/v1/organizations/${encodeURIComponent(orgId)}/approvals/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(a.attachment_id)}`}
+                        href={`/api/bff/v1/organizations/${encodeURIComponent(orgId)}/approvals/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(a.attachment_id)}`}
                         rel="noreferrer noopener"
                         download={a.label}
                       >

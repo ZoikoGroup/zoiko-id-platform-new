@@ -4,7 +4,7 @@
 version: "ZID-ENG-DEC-008-v1.0"
 # The last four meters (credential.check, credential.sensitive_check, screening.check, screening.monitor_period) are NOT in the owner-ratified
 # record's eight. The two credential ones were added by CR-070 on the engineering owner's instruction of 2026-11-12 as definitions, and on
-# 2026-11-16 are backed by two USAGE-ONLY meters (CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK), as the screening ones are by CR-090: recorded as
+# 2026-11-16 are backed by two USAGE-ONLY meters (CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK), as the screening ones are by CR-104: recorded as
 # usage facts, unpriced, no quota, `bill_on_commit: false`, and no SKU behind them. Billing them still needs the CFO and CCO price numbers and the
 # owners' ruling on the recording point; until then a quote line for them is refused (PRICE_MISSING) and nothing is billed silently.
 meters:
@@ -113,7 +113,7 @@ meters:
     existing_meter: SCREEN_CHECK
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-104).
     bill_on_commit: false
     priced: false
   screening.monitor_period:
@@ -123,7 +123,7 @@ meters:
     existing_meter: SCREEN_MONITOR_PERIOD
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-090).
+    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-104).
     bill_on_commit: false
     priced: false
   credential.sensitive_check:

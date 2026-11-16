@@ -1,4 +1,4 @@
-# Agent governance: turning it on and running it (ZID-AG-WF-002, CR-091)
+# Agent governance: turning it on and running it (ZID-AG-WF-002, CR-105)
 
 Written for the people who operate the platform and for a company's Owner and Security lead. It describes what the build does today, not what is certified. Every number mentioned is a proposed pilot value from the document, not a promise to a customer.
 
@@ -49,7 +49,7 @@ Every governed call, run start, reservation, approval, apply, pause and restore 
 
 ## Known limits (read before relying on it)
 
-- The DAARA runner (Agent Wireframe 01, CR-092) can run inline or be queued for a worker, and it calls the governance gates directly rather than requesting a gateway grant per read. A daily schedule exists but is switched off by the platform ceiling in `config/agent-governance/governance.yaml` (`platform_quota_ceiling.schedules_enabled`); an owner raising it is not enough on its own, because the company baseline and the agent's approved policy must allow it too.
+- The DAARA runner (Agent Wireframe 01, CR-106) can run inline or be queued for a worker, and it calls the governance gates directly rather than requesting a gateway grant per read. A daily schedule exists but is switched off by the platform ceiling in `config/agent-governance/governance.yaml` (`platform_quota_ceiling.schedules_enabled`); an owner raising it is not enough on its own, because the company baseline and the agent's approved policy must allow it too.
 - Not measured: the 5-second stop target, 100-way concurrency at production load, and screen-reader use of the five pages.
 - The wireframe's "ten console roles" do not exist here; slots are delegates (decision AG2-D02).
 - Alerts are computed from live state, then tracked: each can be acknowledged and routed to a team, has a response time (P0 15 min, P1 4 h, P2 24 h, provisional), is grouped when it repeats, and leaves the list when its condition stops. Acknowledging clears nothing and lifts no limit.

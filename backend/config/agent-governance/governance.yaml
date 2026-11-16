@@ -1,4 +1,4 @@
-# Agent governance parameters (ZID-AG-WF-002 v1.0; CR-091). Versioned configuration, not tenant data.
+# Agent governance parameters (ZID-AG-WF-002 v1.0; CR-105). Versioned configuration, not tenant data.
 # status: PROVISIONAL. Every number below is the document's proposed PILOT value or an engineering default. None is approved commercial policy,
 # a customer promise or a price (AG2-D04 quotas, AG2-D05 budgets, AG2-D09 emergency-stop targets are still open decisions).
 # version: 0.1.0

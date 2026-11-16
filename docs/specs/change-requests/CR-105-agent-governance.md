@@ -1,4 +1,4 @@
-# CR-091: agent governance: permissions, spending, usage, approvals and the emergency stop (ZID-AG-WF-002 v1.0)
+# CR-105: agent governance: permissions, spending, usage, approvals and the emergency stop (ZID-AG-WF-002 v1.0)
 
 Status: **applied, default `shadow`.** Built on the engineering owner's instruction of 2026-11-14 to complete Agent Wireframe 02. The document is a build specification, not a signed policy: the numbers in it are proposed pilot values and the open decisions AG2-D01 to AG2-D11 are the owners'. Nothing here makes an agent GA, sets a price or approves a spend.
 
@@ -30,7 +30,7 @@ The agent registry, workload identity and tool gateway (CR-021, CR-042, CR-067) 
 | AG2-D05 | No budget is created by default. With no ceiling a paid step is refused. Any cap above the one in force, and the first cap, needs Finance and Security. A reduction is live at once. Currencies are the approved list. The price version is `UNPRICED`. | Section 05: AI is $0 until opt-in and FinOps approval. |
 | AG2-D07 | Routes are `/v1/machine/...` (the existing prefix), not `/api/v1/...`. The console is `/admin/agents/governance`, not `/console/...`. | One routing standard. |
 | Mode | Default is `shadow`: a refusal is recorded as `SHADOW_DENY` and the call proceeds. Moving to `enforce` is an owner decision per environment. The emergency freeze is enforced in every mode. | The pattern of CR-072 to CR-086. |
-| Entitlement | Every governed call reads the plan's agent feature (`advanced.agent-workload-identities`) through the commercial resolver and follows the platform's commercial enforcement switch; an answer that cannot be read is POLICY_UNAVAILABLE. | Added in CR-092; it was a constant before. |
+| Entitlement | Every governed call reads the plan's agent feature (`advanced.agent-workload-identities`) through the commercial resolver and follows the platform's commercial enforcement switch; an answer that cannot be read is POLICY_UNAVAILABLE. | Added in CR-106; it was a constant before. |
 | Step-up | Enforced by the route guard (`config/step-up/route-actions.yaml`) in front of signing, applying, delegating and requesting a restore. | The platform switch decides enforcement. |
 
 ## What it deliberately does not do
@@ -38,7 +38,7 @@ The agent registry, workload identity and tool gateway (CR-021, CR-042, CR-067) 
 - It does not build the DAARA runner (Agent Wireframe 01). The run, reservation and settlement routes are the integration point a runner will call; nothing here runs an agent.
 - It has no AI explanation adapter and no model gateway. The reservation path for AI cost exists and refuses until a provider is approved and a cap is set.
 - It does not mark `agent.run.manage` as machine-callable (CR-066 is not ratified for more than `machine.build.register`). A runner must act through a person's or service's governed grant until the Security owner rules.
-- Alerts are computed from live state. Acknowledge, route, SLA and grouping were added in CR-092; there is still no incident casework beyond the freeze row.
+- Alerts are computed from live state. Acknowledge, route, SLA and grouping were added in CR-106; there is still no incident casework beyond the freeze row.
 - Restoring a freeze does not reactivate the agent: it stays SUSPENDED until it passes its activation gates again.
 - It measures nothing about performance: the 5-second emergency target and the 100-concurrency proof are tested for correctness, not timed at scale.
 

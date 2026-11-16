@@ -255,9 +255,14 @@ class Explanation:
 
 
 async def explain(
-    facts: Facts, gateway: ExplanationGateway | None, *, timeout_seconds: float
+    facts: Facts,
+    gateway: ExplanationGateway | None,
+    *,
+    timeout_seconds: float,
+    blocked: str | None = None,
 ) -> Explanation:
-    """The model's text when it verifies; otherwise the fixed template with the reason. Never raises."""
+    """The model's text when it verifies; otherwise the fixed template with the reason. Never raises. `blocked` is why no request may
+    be made (the usage and budget hook refused it): the fixed template with that reason, and the gateway is not called."""
     facts_digest = digest(facts.as_dict())
 
     def fixed(reason: str) -> Explanation:
@@ -265,6 +270,8 @@ async def explain(
 
     if gateway is None:
         return fixed("MODEL_NOT_CONFIGURED")
+    if blocked:
+        return fixed(blocked)
     request = ExplainRequest(system=SYSTEM_PROMPT, facts=render_facts(facts))
     try:
         draft = await asyncio.wait_for(gateway.draft(request), timeout=timeout_seconds)

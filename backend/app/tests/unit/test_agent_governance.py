@@ -1,4 +1,4 @@
-"""Agent governance rules (ZID-AG-WF-002, CR-091): policy gates, hard denials, quotas, money, approvals, freeze.
+"""Agent governance rules (ZID-AG-WF-002, CR-105): policy gates, hard denials, quotas, money, approvals, freeze.
 
 Pure domain tests. Rows T01-T46 of the acceptance register that these exercise are named in each docstring; none of
 this is an independent pass.

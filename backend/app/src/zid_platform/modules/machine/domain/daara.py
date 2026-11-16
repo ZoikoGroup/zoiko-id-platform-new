@@ -1,4 +1,4 @@
-"""The Delegated Authority and Access Readiness Agent, DAARA (ZID-AG-WF-001 v1.0, CR-092).
+"""The Delegated Authority and Access Readiness Agent, DAARA (ZID-AG-WF-001 v1.0, CR-106).
 
 A deterministic reference agent. It reads minimal metadata about mandates and agent identities, applies six versioned rules, and
 proposes a human review. It never changes a right: nothing in this module can, because it only produces findings and proposals as
