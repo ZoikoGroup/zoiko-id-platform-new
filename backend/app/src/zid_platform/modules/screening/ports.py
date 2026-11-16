@@ -43,9 +43,11 @@ from zid_platform.modules.screening.application.signals import (
 )
 from zid_platform.modules.screening.application.signals import (
     AdverseMediaPort,
+    IdentityFinding,
     check_adverse_media,
     note_attempt,
     prune_velocity,
+    raise_identity_findings,
     record_attempt,
     retry_failed_notifications,
     review_view,
@@ -67,7 +69,7 @@ from zid_platform.modules.screening.domain.lists import ListId, PartyKind
 from zid_platform.modules.screening.domain.matching import Party, name_score
 from zid_platform.modules.screening.domain.monitoring_scope import Kind as MonitoringKind
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
-from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES
+from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES, RiskTier
 from zid_platform.modules.screening.domain.signals import Action as AttemptAction
 from zid_platform.modules.screening.infrastructure.config import config as screening_config
 
@@ -84,6 +86,7 @@ __all__ = [
     "Graph",
     "Holder",
     "HolderKind",
+    "IdentityFinding",
     "ListId",
     "MonitoringKind",
     "MonitoringNotApproved",
@@ -91,6 +94,7 @@ __all__ = [
     "PartyKind",
     "RegisterEvidence",
     "RegisterPerson",
+    "RiskTier",
     "Role",
     "Ruling",
     "ScreeningError",
@@ -114,6 +118,7 @@ __all__ = [
     "open_case",
     "open_signal_queue",
     "prune_velocity",
+    "raise_identity_findings",
     "record_attempt",
     "record_register",
     "replay",

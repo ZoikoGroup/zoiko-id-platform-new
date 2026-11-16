@@ -1,0 +1,40 @@
+# A SAMPLE verification workflow (ZID-GAP-001 v2.0 DTV-30; CR-099). Engineering wrote it to exercise the machinery; it is not a compliance document and
+# nobody has approved it. A workflow is data: steps and a fixed vocabulary of conditions, nothing that runs. Nothing executes it yet (there is no runtime).
+#
+# What the rules guarantee about every workflow, this one included (checked by `workflow.analyze` before a version can be published):
+#   - it ends on every path, has no loop, and every DECISION has an `else`, so an unexpected result goes to a person on purpose;
+#   - it never declines anyone: the only end outcomes are APPROVED, REFER_TO_PERSON and COMPLETED_NO_DECISION;
+#   - it reaches APPROVED only along a path where every required check ran AND came back VERIFIED (VERIFIED_LIMITED only if allow_limited is true).
+id: standard_onboarding_sample
+version: 0.1.0-SAMPLE
+start: identity
+required_checks: [IDENTITY_DOCUMENT, LIVENESS]
+allow_limited: false
+steps:
+  identity:
+    type: CHECK
+    check: IDENTITY_DOCUMENT
+    next: liveness
+  liveness:
+    type: CHECK
+    check: LIVENESS
+    next: decide
+  decide:
+    type: DECISION
+    branches:
+      - when:
+          all_of:
+            - {check: IDENTITY_DOCUMENT, outcome_in: [VERIFIED]}
+            - {check: LIVENESS, outcome_in: [VERIFIED]}
+        next: approved
+    else: look
+  look:
+    type: REVIEW
+    role: verification_reviewer
+    next: refer
+  refer:
+    type: END
+    outcome: REFER_TO_PERSON
+  approved:
+    type: END
+    outcome: APPROVED

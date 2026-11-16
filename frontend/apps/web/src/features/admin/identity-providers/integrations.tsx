@@ -10,6 +10,7 @@ import { useCellMutation, useCellQuery } from "@/lib/cell";
 import { EditIntegrationDialog, IdpInitiatedDialog, LoginUrlDialog, RotateDialog } from "./integration-actions";
 import { CreateIntegrationDialog, INTEGRATIONS_KEY } from "./integration-form";
 import { AdminQueryView, R3ActionDialog } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 type RowAction = "rotate" | "idp" | "login" | "disable" | "enable" | "edit";
 type Open = { kind: RowAction; row: FederationIntegration } | { kind: "create" } | null;
@@ -36,7 +37,7 @@ export function IntegrationsSection() {
       sortValue: (r) => r.display_name,
       render: (r) => (
         <div className="min-w-0">
-          <div className="font-medium text-ink">{r.display_name}</div>
+          <div className="font-medium text-ink"><UserText>{r.display_name}</UserText></div>
           <CopyId value={r.connection_id} label="connection" />
         </div>
       ),

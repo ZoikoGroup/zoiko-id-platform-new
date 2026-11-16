@@ -281,6 +281,15 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
             contact=str(body.subject_principal_id),
             **attempt_inputs(request),
         )
+    from zid_platform.modules.verification.application.identity_signal_feed import observe_request
+
+    await observe_request(
+        request_engine(request),
+        caller.ctx,
+        str(body.subject_principal_id),
+        request,
+        datetime.now(UTC),
+    )
     _country_gate(request, body.jurisdiction)
     basis = await _pack_gate(request, caller, body.jurisdiction)
     privacy = await _privacy_gate(

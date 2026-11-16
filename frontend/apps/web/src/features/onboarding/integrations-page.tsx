@@ -35,6 +35,7 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { ApprovalStep } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 const CONNECTORS_KEY = ["integration", "connectors"];
 const ROUTES_KEY = ["integration", "routes"];
@@ -265,7 +266,7 @@ function ConnectorsSection() {
   const [adding, setAdding] = useState(false);
   const [dialog, setDialog] = useState<{ kind: "credential" | "quarantine" | "release"; c: Connector } | null>(null);
   const columns: Column<Connector>[] = [
-    { key: "name", header: "Connector", pinned: true, render: (c) => <span className="font-medium text-ink">{c.display_name}</span>, sortValue: (c) => c.display_name },
+    { key: "name", header: "Connector", pinned: true, render: (c) => <span className="font-medium text-ink"><UserText>{c.display_name}</UserText></span>, sortValue: (c) => c.display_name },
     { key: "type", header: "Type", render: (c) => TYPES.find((t) => t.id === c.connector_type)?.label ?? c.connector_type },
     { key: "health", header: "Health", render: (c) => <StatusBadge state={c.health} kind="Connector health" size="xs" />, sortValue: (c) => c.health },
     { key: "fresh", header: "Fresh until", render: (c) => <RelativeTime value={c.fresh_until} /> },

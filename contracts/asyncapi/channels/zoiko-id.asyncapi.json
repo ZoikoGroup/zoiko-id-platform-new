@@ -2216,6 +2216,9 @@
         "verification_assertion_revoked": {
           "$ref": "#/components/messages/verification_assertion_revoked"
         },
+        "verification_assertion_stale": {
+          "$ref": "#/components/messages/verification_assertion_stale"
+        },
         "verification_provider_quarantined": {
           "$ref": "#/components/messages/verification_provider_quarantined"
         },
@@ -6029,9 +6032,9 @@
         "payload": {
           "$ref": "#/components/schemas/CloudEvent"
         },
-        "summary": "Assertion freshness elapsed.",
+        "summary": "A verification assertion passed its valid-until date and is no longer relied on.",
         "title": "verification.assertion.expired",
-        "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-source": "ZID-GAP-001 DTV-29",
         "x-zid-status": "catalogued"
       },
       "verification_assertion_revoked": {
@@ -6043,6 +6046,17 @@
         "summary": "Assertion invalidated.",
         "title": "verification.assertion.revoked",
         "x-zid-source": "ZID-VERIFY-001",
+        "x-zid-status": "catalogued"
+      },
+      "verification_assertion_stale": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.assertion.stale.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification assertion rests on a provider that is no longer trusted; ask again before relying on it.",
+        "title": "verification.assertion.stale",
+        "x-zid-source": "ZID-GAP-001 DTV-29",
         "x-zid-status": "catalogued"
       },
       "verification_case_completed": {

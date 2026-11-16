@@ -345,3 +345,98 @@ Tests: `test_data_integrity.py` (65), `test_pdf_doc_timestamps.py` (25), `test_p
 |---|---|---|---|
 | Which issuers and credential types count as proof of identity | Partly closed from the documents | Document 03 RCG-G11: a service is accepted only when the exact listed provider held the status on the relevant date. So an EU PID counts only when an official-register attestation (CR-073) lists its issuer as a PID provider for the Member State on the issuance date. This is now enforced on `POST /v2/identity/credential-verify` (`PID_MEMBER_STATE_REQUIRED`, `PID_ISSUE_DATE_UNKNOWN`, `PID_PROVIDER_NOT_LISTED`); the PID type names are listed in `config/identity-credentials`; the typed trust table still has to pin the issuer. Tested against a real recorded attestation (`test_identity_credential_pg.py`, 5) | The list of non-PID issuers and types (a national eID, a bank scheme): Document 01 section 15 says "Issuer network partnerships: Legal + Procurement, NOT VERIFIED", "no invented policy". The evidence required before an issuer is pinned is in `docs/signoff/identity-evidence-decisions.md` |
 | Feeding a credential-based identity into the engagement check's IDENTITY dimension | Not built, on purpose; the decision is written up | Document 03: name matching alone is insufficient, so a credential cannot be tied to a Zoiko principal by name. The platform's own tier rule needs binding and liveness "or an accepted equivalent", and that equivalence is an owner approval. The record proposes the profile, the binding (the principal presents it inside their own authenticated session) and the expiry rule | Product, Privacy, Security and Legal approval; then engineering builds the session and assertion bridge |
+
+
+## Status update, nineteenth pass (2026-11-16, buildable items closed and stale lines corrected)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-19 age assurance | Built (this row was stale: `POST /v2/age-checks` already existed and was tested) | The route now has one source of VERIFIED birth dates: a passport or eID `chip` (the same input as `/v2/documents/chip-verify`), passively authenticated; the date is read only from a verified data group whose check digits hold. The answer says HOLDER_NOT_BOUND and CLONE_NOT_DETECTED. A failed chip is UNDETERMINED with the reason and never hides a clear estimate (`age.combine` no longer lets an unusable verified method shadow a decisive one). No date is echoed | A government age-verification service or an estimation provider; a country signing CA must be configured for any chip to verify |
+| DTV-28 source of funds and wealth | Built as machinery (CR-096); the line stays DESIGN | `verification/domain/source_of_funds.py`, `config/questionnaires/source_of_funds/0.1.0-SAMPLE.yaml`, migration `verification_0015` (`verify.sof_case`, `verify.sof_decision`, row-level security, append-only decisions), seven `/v2/source-of-funds` routes behind the product line gate, three actions, privacy adapter (export, governed erasure). The system never clears anyone; a reviewer is never the submitter; an adverse first decision is never final; an appeal goes to a third person; no score and no free text. 48 unit and 5 component tests | The compliance officer's real questionnaire and legal basis, the data protection officer's retention and DPIA entry, the owners' decision to move the line to STAGING |
+| GID-062 right-to-left | Built for the screens that show names | `UserText` now wraps 19 places in 16 screens where a company, person, integration, connector or file name is shown as text (agents, identity providers, provisioning, onboarding, organizations, team, overview). Template-string titles and attributes are not wrapped | A browser (axe) run on right-to-left pages, the WCAG report, translations |
+| GID-063 SDKs | Corrected and exercised | Go, Java and .NET are built (the fourth-pass lines saying they are empty are stale). The Python and TypeScript SDKs are now run against a REAL server over HTTP (`test_sdk_live_pg.py`): capabilities, coverage, a credential check with replay, an evidence upload through the returned upload URL, a webhook, and a wrong token | Go, Java and .NET against a running platform (their toolchains are only in Docker here) |
+| CR-072 market releases console | Corrected: built | `frontend/apps/operator/src/features/regulatory/releases.tsx` exists (open, freeze, four approvals, launch, withdraw); CR-072's "no console yet" line was stale | Owners confirm the points in CR-072 |
+| Contract hygiene | Fixed | Two OpenAPI schema-name collisions removed (`RevokeBody` in the API-agent routes, and a new model of mine named `CaseIn`); the workload-identity TypeScript types were stale and are regenerated | |
+
+
+## Status update, twentieth pass (2026-11-16, the remaining buildable engineering)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-28 console screens | Built | `/admin/source-of-funds` (the queue, which shows no answers) and `/admin/source-of-funds/{caseId}` (answers in words, evidence references, what is missing, the decision record, a reviewer's decision form and the person's appeal). A switched-off line reads as Not available, a role without the read permission reads as Withheld, a lapsed clearance reads as expired. The BFF allowlist and the API client carry the routes. 50 web tests (logic, screens, structural accessibility, the allowlist) | A navigation entry (it needs a role-matrix mapping, which is a product decision, and the line is DESIGN); the keyboard-and-screen-reader pass |
+| DTV-33 Travel Rule shell | Built (CR-097) | IVMS101 payload validation, the counterparty VASP check (LEI check digits, listed, ACTIVE for the jurisdiction), the threshold question (UNKNOWN unless configured), `POST /v2/travel-rule/validate` behind the product line gate. The registry ships empty | A partner, a legal basis, the real registry and thresholds; the message record belongs with the partner adapter |
+| DTV-20, DTV-21, DTV-22 | Rules and the provider interface built (CR-098); no provider and no route | Phone and email shape, a keyed hash, shared devices, a deterministic link graph with hub handling, `SignalProvider` with a provider that fails treated as unavailable | A provider, a purpose and lawful basis, a retention value, a DPIA entry; wiring into the signal queue |
+| DTV-30 workflow studio | Rules built (CR-099); no editor, no executor | A workflow is data. Static analysis before publish: no loop, every path ends, every DECISION has an else, no DECLINED outcome, APPROVED guarded by the required checks being VERIFIED, a regulated check needs a person after it, a product line that is off blocks publish. Simulation and the maker-checker gate. A brute-force test proves the approval guard | The editor, a store for drafts and approvals, the executor |
+| DTV-04 predictors and filter chains | Built | PNG predictors 10 to 15 and the TIFF predictor, chains of up to four of Flate, ASCIIHex and ASCII85, each checked against independent encoders. Anything else is not read and the object stays one nothing may add | A third-party specimen; LZW and image filters stay unread on purpose |
+| Access Readiness and the governance stop | Built | The company-wide and per-agent emergency stop of agent governance now stops the readiness agent too, before every page, and a stop that cannot be read refuses the run. DAARA's routes are NOT retired: that waits for the owners' decision (`adr-two-implementations-of-wf-001.md`) | The decision; a budget and quota hook if the owners want one |
+| GID-063 SDKs | All five exercised against a real server | Python, TypeScript, Go, .NET and Java each run the same calls over HTTP (the last three from Docker). The Java SDK failed its first POST over plain http (the default client offered an HTTP/2 upgrade the server does not take) and is fixed by pinning HTTP/1.1: a fault no fake transport could show | |
+| AG2-T04, T33, T44, T45 | Linked, IN_PROGRESS | Tests for the agent id surviving name edits and for an alert or billing outage never lifting a hard cap; T44 and T45 link to the existing accessibility spec and the wording tests | An independent run |
+| GID-064 credential-check meter | Not built, on purpose | The meter register is an owner-ratified record pinned by a test, and a price book is a CFO and CCO decision. Building a billable meter now would contradict both | The decision |
+
+
+## Status update, twenty-first pass (2026-11-16, the two items left for the owners, done on the engineering owner's instruction)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| GID-064 credential-check meter | Usage metering built; billing NOT built (CR-070) | Two usage-only meters, `CREDENTIAL_CHECK` and `CREDENTIAL_SENSITIVE_CHECK`, exactly as CR-090 did for screening: `commercial_0043` widens the closed meter set, the credential module reports each completed check through a sink the composition root wires, the key is derived from the check id (a repeat is one event). Nothing is counted when nothing was checked (refused before a source, or source unavailable). No SKU, no price, never rated or invoiced. The register entries now name their meters, and the pinned register test says so | Whether checks are billed at all, the unit and the price per market (CFO, CCO), provider pass-through, the recording point; a price book line per market |
+| DAARA retired in favour of Access Readiness | Applied (option 1 of `adr-two-implementations-of-wf-001.md`), unsigned | `ZID_DAARA_ENABLED` (default false): the eleven DAARA routes answer 404 naming the Access Readiness agent, its worker steps do nothing, the console shows "Replaced by the Access readiness agent". Nothing deleted: code, `machine_0009` tables and records stay, and the flag brings it back unchanged. The governance alert routes that shared the file are untouched | The platform and security owners' signatures; whether Access Readiness should also reserve a budget; dropping the code and archiving the tables, later, under the privacy officer's retention rules |
+
+
+## Status update, twenty-second pass (2026-11-16, the rest of the buildable list, on the engineering owner's instruction)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-30 workflow studio | Built (CR-099, second slice) | Migration `verification_0016`, store, executor, `/v2/workflows` and `/v2/workflow-runs`, and the console (list, editor, version page with simulate, approve, retire). A different person approves; an unsafe workflow cannot be approved; a run follows only the event it awaits | A runs screen; who may author and approve; an independent run |
+| DTV-17 address rules | Rules built (CR-100) | Compare, policy as data (SAMPLE), proof assessment that never rises above document presented | A provider; the approved policy |
+| DTV-26, 27, 32, 34 shells | Rules built (CR-100) | Open banking, payment-method ownership (card numbers refused), transaction monitoring (alerts are a reason to look), on-chain screening (unavailable with no provider) | Providers, rule sets, thresholds |
+| DTV-24 ownership chains | Rules built (CR-100) | Exact shares, loops refused, gaps reported, candidates only | The threshold per market; a screen and a store |
+| Navigation | Built | Source of funds and Verification workflows are in the console menu and the guide, shown to administrators only | The role matrix for other roles |
+| DTV-31 unified compliance console | Not built, on purpose | It would put operator-side and company-side records in one screen, which crosses the plane boundary | A design decision on which plane owns it |
+| Signal-queue wiring, Travel Rule message record | Not built | Need the role matrix and the partner message format | Those decisions |
+
+
+## Status update, twenty-third pass (2026-11-16, the three items that waited for decisions, taken as the engineering owner's decisions)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-31 compliance console | Built (CR-101), company plane | `/admin/compliance` lists the company's own source of funds cases and workflow runs waiting for a person, each under its own permission; no decision control; the reviewer signal queue stays on the operator side | Whether reviewer queues ever join it |
+| Identity signals into the queue | Built (CR-101) | Link groups and shared devices open one review item each, counts only; `screening_0005` allows the source | Which events feed observations |
+| Travel Rule message record | Built (CR-101), line still DESIGN | `verification_0017`, append-only, findings and hashes and company identifiers only, three routes, two actions | Retention of message contents (Legal and the partner) |
+
+
+## Status update, twenty-fourth pass (2026-11-16, identity verification with no Veriff and no Sumsub)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Self-run session (CR-102) | Built, OFF by default | `/v2/self-run/verifications` and `.../{id}/chip`: a session no provider handles, judged from the chip by the profile; a chip that cannot be judged keeps waiting; a chip alone never binds the holder | Switching it on (`ZID_SELF_RUN_ENABLED`), the country master lists, legal acceptance |
+| Evaluation harness (CR-102) | Built | Wilson upper bounds, per-cohort rates and disparity flag, a draft record for the engine gate | The trials, the independent lab, the DPIA, the licence check |
+| Engine adapters (CR-102) | Built, never on | DeepFace face match, Silent-Face liveness wrapper, composed engine; fail closed | An evaluated engine; the face and liveness media path through the API |
+| Active Authentication (CR-102) | Verifier built, not wired | ECDSA clone check against DG15 | Challenge issue per session, RSA AA, Chip Authentication, PACE, the phone app |
+| No-chip path | Not built, on purpose | A reviewer approving from text alone could verify a person with no verified claim | A product and legal decision |
+
+
+## Status update, twenty-fifth pass (2026-11-16, the rest of the identity verification code list)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Active Authentication wiring (CR-102) | Built (ECDSA) | The session issues a one-use challenge, replaced after every attempt that leaves it waiting; the chip route verifies the answer; a copy is a fraud signal | RSA AA, Chip Authentication, PACE, the phone app that carries the challenge to the chip |
+| Face and liveness media path (CR-102) | Built, never on | The chip route takes a live image and a liveness capture and uses them only with an accepted engine and a DG2 photo the signed object covered | An evaluated engine and its record |
+| Re-verification sweep (CR-102, DTV-29) | Built | Expiry, stale on a distrusted provider, a reminder 30 days before a lapse; worker step `verification_reverification` and two catalogued events | Issuer-side credential expiry triggers |
+| Identity feed hook (CR-102) | Built (devices only) | `verification_0018` observations, worker step `identity_signal_feed`, WEAK links open nothing | Phone and email observations; the retention number |
+| Ownership chains screen and store (CR-102, DTV-24) | Built | `organization_0008`, `/v2/ownership-graphs`, `/admin/ownership` | The threshold per market; who confirms a candidate |
+| Workflow run screens (CR-102, DTV-30) | Built | `/admin/workflows/runs` and the run page | |
+| No-chip path | Not built, on purpose | A reviewer approving from text alone could verify a person with no verified claim | A product and legal decision |
+| Phone app and capture flow | Not buildable here | A native app that reads the chip and captures a face | A mobile team |
+
+
+## Status update, twenty-sixth pass (2026-11-16, what was left of the identity verification code list)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Ownership candidate decisions (CR-103) | Built | `organization_0009`, a decision with a reason and evidence, never by the graph author, append-only, and the form on the ownership page | Which role decides; whether CONFIRMED needs a second person |
+| RSA Active Authentication (CR-103) | Built, no real vector | ISO/IEC 9796-2 scheme 1 verifier | A real passport vector from two issuing countries |
+| Contract for the phone app (CR-103) | Written | `docs/specs/self-run-mobile-client-contract.md` | The app itself: a mobile team |
+| Chip Authentication and PACE | Not buildable on the server | Key agreement between chip and phone; only the phone can check it | |
+| Phone and email observations | Not built | No phone number is collected, and the email hash lives in another tenant | A decision on what is collected and where |
+| Issuer-side credential expiry triggers | Already built (GID-058) | The earlier list was wrong to call them open | |
+| No-chip path; provider adapters | Not built | A decision, and provider contracts | |

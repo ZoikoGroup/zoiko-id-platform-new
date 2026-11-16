@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
-import { ageText, OUTCOME_HELP, OUTCOME_LABEL, shortHash, SIGNAL_ERROR_HELP, signalSummary, windowText } from "./signals-format";
+import { ageText, OUTCOME_HELP, OUTCOME_LABEL, shortHash, SIGNAL_ERROR_HELP, signalSummary, SOURCE_LABEL, windowText } from "./signals-format";
 
 const SIGNALS_KEY = ["operator", "signals"];
 const TIER_TONE = { LOW: "neutral", ELEVATED: "warn", HIGH: "danger" } as const;
@@ -56,7 +56,14 @@ function Detail({ s }: { s: SignalReview }) {
           ["Window", windowText(d.window_seconds)],
           ["Key hash", d.key_hash ? <Hash value={d.key_hash} /> : "-"],
         ]
-      : [
+      : s.source === "IDENTITY_SIGNAL"
+        ? [
+            ["Rule", s.rule],
+            ["People in the group", String(d.people ?? "-")],
+            ["Kinds of shared detail", String(d.kinds_shared ?? "-")],
+            ["Shared identifiers", String(d.identifiers_shared ?? "-")],
+          ]
+        : [
           ["Provider", d.provider ?? "-"],
           ["Queried", d.queried_at ? <DateTime value={d.queried_at} /> : "-"],
           ["Provider outcome", d.outcome ?? "-"],
@@ -188,7 +195,7 @@ export function SignalsPage() {
         </Badge>
       ),
     },
-    { key: "source", header: "Source", render: (s) => (s.source === "VELOCITY" ? "Velocity" : "Adverse media") },
+    { key: "source", header: "Source", render: (s) => SOURCE_LABEL[s.source] },
     { key: "rule", header: "Rule", render: (s) => <span className="font-mono text-2xs">{s.rule}</span> },
     { key: "summary", header: "What was seen", render: (s) => signalSummary(s) },
     { key: "status", header: "Status", render: (s) => <StatusBadge state={s.status} kind="Signal status" /> },

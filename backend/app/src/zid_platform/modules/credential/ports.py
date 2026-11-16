@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.credential.application.claim_checks import configure_usage_sink
 from zid_platform.modules.credential.application.fairness import check_disparity
 from zid_platform.modules.credential.application.issuer_binding import resolve_and_bind
 from zid_platform.modules.credential.application.trust_service import (
@@ -16,6 +17,7 @@ from zid_platform.modules.credential.application.trust_service import (
 
 __all__ = [
     "check_disparity",
+    "configure_usage_sink",
     "credentials_issued_between",
     "recheck_due",
     "resolve_and_bind",

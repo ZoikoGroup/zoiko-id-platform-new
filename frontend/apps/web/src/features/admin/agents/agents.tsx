@@ -8,8 +8,10 @@ import { useState } from "react";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { AgentDetailPanel } from "./agent-detail";
+import { RegisterApiClientDialog } from "./api-agent";
 import { RegisterAgentDialog } from "./register-agent-dialog";
 import { AGENTS_KEY } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 const STATUS_OPTIONS = [
   { id: "", label: "All statuses" },
@@ -23,6 +25,7 @@ export function AgentsSection() {
   const [status, setStatus] = useState("");
   const agents = useCellQuery([...AGENTS_KEY, status], (api) => api.agents.list((status || undefined) as AgentStatus | undefined));
   const [creating, setCreating] = useState(false);
+  const [apiClient, setApiClient] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
 
   const columns: Column<AgentItem>[] = [
@@ -32,7 +35,7 @@ export function AgentsSection() {
       pinned: true,
       render: (a) => (
         <span className="inline-flex flex-col">
-          <span className="font-medium">{a.agent_name}</span>
+          <span className="font-medium"><UserText>{a.agent_name}</UserText></span>
           <span className="font-mono text-2xs text-ink-subtle">{a.agent_principal_id.slice(0, 8)}…</span>
         </span>
       ),
@@ -63,6 +66,9 @@ export function AgentsSection() {
         actions={
           <span className="flex items-end gap-3">
             <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
+            <Button size="sm" variant="secondary" onPress={() => setApiClient(true)}>
+              Register API client
+            </Button>
             <Button size="sm" icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
               Register agent
             </Button>
@@ -96,6 +102,7 @@ export function AgentsSection() {
         </QueryView>
       </Card>
       {selected ? <AgentDetailPanel agentId={selected} onClose={() => setSelected(null)} /> : null}
+      <RegisterApiClientDialog isOpen={apiClient} onClose={() => setApiClient(false)} />
       <RegisterAgentDialog isOpen={creating} onClose={() => setCreating(false)} onCreated={(id) => setSelected(id)} />
     </div>
   );

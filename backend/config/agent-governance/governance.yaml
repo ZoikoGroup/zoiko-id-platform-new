@@ -1,0 +1,61 @@
+# Agent governance parameters (ZID-AG-WF-002 v1.0; CR-091). Versioned configuration, not tenant data.
+# status: PROVISIONAL. Every number below is the document's proposed PILOT value or an engineering default. None is approved commercial policy,
+# a customer promise or a price (AG2-D04 quotas, AG2-D05 budgets, AG2-D09 emergency-stop targets are still open decisions).
+# version: 0.1.0
+
+version: 0.1.0
+status: PROVISIONAL
+
+# The most any company may set its own quota baseline to. A company can lower these, never raise them (section 07). The pilot defaults
+# live in the code (domain.governance.QuotaLimits); an owner can widen the platform ceiling here once AG2-D04 is decided.
+platform_quota_ceiling:
+  concurrent_runs_per_agent: 2
+  running_agents_per_tenant: 5
+  runs_per_agent_day: 20
+  runs_per_tenant_day: 100
+  records_per_run: 500
+  records_per_tenant_day: 2000
+  run_seconds: 300
+  tool_timeout_seconds: 30
+  proposals_per_run: 50
+  retries_per_read_step: 3
+  ai_input_tokens: 16000
+  ai_output_tokens: 4000
+  schedules_enabled: false
+
+# ISO 4217 minor units. A budget may only be set in one of these (GOV03-02). Extending the list is a finance decision.
+approved_currencies:
+  USD: 2
+  EUR: 2
+  GBP: 2
+  JPY: 0
+
+# How long a reserved allowance may stay open before the sweep releases it (a crashed run must not hold budget forever).
+reservation_ttl_seconds: 300
+
+# Telemetry older than this is shown as STALE, never as healthy (GOV01-05, GOV05-02).
+telemetry_max_age_seconds: 900
+
+# How long an unsigned change request stays open (section 04: proposed maximum 24 hours while pending).
+approval_ttl_hours: 24
+
+# A restore needs fresh health checks no older than this.
+restore_health_max_age_seconds: 300
+
+# Provisional target for new calls after an emergency stop (section 15). A target, not an SLO; the integration test asserts the next call.
+emergency_stop_target_seconds: 5
+
+# AI inference has no price source yet, so a reservation records this label and the budget stays $0 until finance supplies one.
+price_version: UNPRICED
+
+# How long an alert may stay unacknowledged before it is shown as past its SLA (section 15). Provisional; the SRE and Security owners decide (AG2-D09).
+alert_sla_minutes:
+  P0: 15
+  P1: 240
+  P2: 1440
+
+# What the optional model rewrite of a DAARA explanation reserves per call. Used only when a company has approved a provider, the policy has AI
+# on and a cap exists; with no cap the reservation is refused and the fixed text is used. An illustration from the document, not a price.
+ai_explain_reservation:
+  amount: "0.10"
+  currency: USD

@@ -10,6 +10,7 @@ import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/ce
 import { ConnectionDetails } from "./connection-details";
 import { CreateSourceDialog, SOURCES_KEY, SourceError } from "./create-source-dialog";
 import { DirectorySyncSection } from "./directory-sync";
+import { UserText } from "@/lib/user-text";
 
 export function ProvisioningPage() {
   const sources = useCellQuery(SOURCES_KEY, (api) => api.provisioning.sources());
@@ -41,7 +42,7 @@ export function ProvisioningPage() {
   };
 
   const columns: Column<ProvisioningSourceItem>[] = [
-    { key: "name", header: "Source", pinned: true, render: (s) => <span className="font-medium">{s.display_name}</span>, sortValue: (s) => s.display_name },
+    { key: "name", header: "Source", pinned: true, render: (s) => <span className="font-medium"><UserText>{s.display_name}</UserText></span>, sortValue: (s) => s.display_name },
     { key: "status", header: "Status", render: (s) => <StatusBadge state={s.status} kind="Source status" />, sortValue: (s) => s.status },
     { key: "client", header: "OAuth client", render: (s) => <CopyId value={s.client_id} label="client ID" />, sortValue: (s) => s.client_id },
     { key: "id", header: "Source ID", render: (s) => <CopyId value={s.source_id} label="source ID" /> },
@@ -127,7 +128,7 @@ export function ProvisioningPage() {
         <div className="space-y-3 text-sm text-ink-muted">
           <RiskBadge risk="R3" />
           <p>
-            <strong className="text-ink">{suspending?.display_name}</strong> stops at once: its SCIM requests are refused. Accounts it already
+            <strong className="text-ink"><UserText>{suspending?.display_name}</UserText></strong> stops at once: its SCIM requests are refused. Accounts it already
             provisioned stay as they are. You can resume it later; its OAuth client stays bound to it.
           </p>
           {suspend.error ? <ApiErrorView error={suspend.error} /> : null}
@@ -154,7 +155,7 @@ export function ProvisioningPage() {
         <div className="space-y-3 text-sm text-ink-muted">
           <RiskBadge risk="R3" />
           <p>
-            <strong className="text-ink">{resuming?.display_name}</strong> can create, change and suspend its accounts again as soon as it is resumed. It needs a
+            <strong className="text-ink"><UserText>{resuming?.display_name}</UserText></strong> can create, change and suspend its accounts again as soon as it is resumed. It needs a
             fresh passkey check, room for another source in your plan, and an active OAuth client.
           </p>
           <TextField

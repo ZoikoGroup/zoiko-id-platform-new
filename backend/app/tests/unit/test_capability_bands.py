@@ -338,13 +338,16 @@ def test_the_meter_register_is_the_records_eight_meters_plus_the_cr070_and_cr088
             "screening.monitor_period",
         }
     )
-    for key in ("credential.check", "credential.sensitive_check"):
+    for key, meter in (
+        ("credential.check", "CREDENTIAL_CHECK"),
+        ("credential.sensitive_check", "CREDENTIAL_SENSITIVE_CHECK"),
+    ):
         m = reg[key]
         assert not (m.priced or m.hard_quota or m.bill_on_commit), (
-            "defined, not priced, not capped, not recording"
+            "defined, not priced, not capped, not billing"
         )
-        assert m.existing_meter is None and m.existing_sku is None, (
-            "no billable meter or SKU stands behind them"
+        assert m.existing_meter == meter and m.existing_sku is None, (
+            "a usage meter stands behind it (CR-070), and no SKU or price"
         )
     for key, meter in (
         ("screening.check", "SCREEN_CHECK"),

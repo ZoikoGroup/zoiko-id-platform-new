@@ -7,6 +7,7 @@ frees authority to improve availability.
 """
 
 import uuid
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -15,6 +16,7 @@ from zid_platform.modules.mandate.application.decision_check import MandateCheck
 from zid_platform.modules.mandate.domain.subagent import CascadeEffect
 from zid_platform.modules.mandate.infrastructure.mandate_store import (
     MandateMetadata,
+    list_mandates,
     mandate_metadata_page,
     pause_or_revoke_for_grants,
 )
@@ -44,6 +46,33 @@ async def quarantine_open_reservations(conn: AsyncConnection) -> int:
     return int(r.rowcount or 0)
 
 
+async def metadata_projection(conn: AsyncConnection, *, limit: int) -> list[dict[str, Any]]:
+    """The minimal, read-only view of the tenant's mandates that an access-readiness review needs (ZID-AG-WF-001 section 06): the
+    mandate's own id, state, end date and the actions it allows, plus what its source grant allows and whether that grant is still
+    live. No represented person, no resource scope, no value, no purpose text: nothing a reviewer or a model could be misled by.
+    The caller owns pagination: it asks for one more than it will keep so an overflow is never silent."""
+    from zid_platform.modules.authority.ports import (
+        load_grant,  # here, not at the top: authority imports this module
+    )
+
+    out: list[dict[str, Any]] = []
+    for m in await list_mandates(conn, limit=limit):
+        grant = await load_grant(conn, m.authority_grant_id)
+        allowed = grant.authority.actions if grant is not None else None
+        out.append(
+            {
+                "mandate_id": m.terms.mandate_id,
+                "status": m.terms.status.value,
+                "valid_to": m.terms.valid_to,
+                "actions": sorted(m.terms.actions),
+                "approved_actions": sorted(allowed) if isinstance(allowed, frozenset) else None,
+                "grant_found": grant is not None,
+                "grant_status": grant.status.value if grant is not None else None,
+            }
+        )
+    return out
+
+
 __all__ = [
     "CascadeEffect",
     "MandateCheck",
@@ -51,6 +80,7 @@ __all__ = [
     "advance_writer",
     "check_for_decision",
     "mandate_metadata_page",
+    "metadata_projection",
     "pause_or_revoke_for_grants",
     "quarantine_open_reservations",
 ]

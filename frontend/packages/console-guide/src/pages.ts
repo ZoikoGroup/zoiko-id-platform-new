@@ -48,6 +48,10 @@ export const PAGES: readonly GuidePage[] = [
   { id: "residency", label: "Residency", href: "/admin/residency", group: "Administration", keywords: "residency data region location" },
   { id: "agents", label: "Agents & tools", href: "/admin/agents", group: "Administration", keywords: "agents tools machine automation" },
   { id: "workloads", label: "Workload identity", href: "/admin/workloads", group: "Administration", keywords: "workload identity services spiffe" },
+  { id: "ownership", label: "Ownership chains", href: "/admin/ownership", group: "Administration", keywords: "ownership chains beneficial owners ubo shareholders" },
+  { id: "compliance", label: "Compliance cases", href: "/admin/compliance", group: "Administration", keywords: "compliance cases waiting review person queue" },
+  { id: "source-of-funds", label: "Source of funds", href: "/admin/source-of-funds", group: "Administration", keywords: "source of funds wealth cases review" },
+  { id: "workflows", label: "Verification workflows", href: "/admin/workflows", group: "Administration", keywords: "verification workflows studio checks approval simulate" },
   { id: "developers", label: "Developers", href: "/admin/developers", group: "Administration", keywords: "developers api webhooks keys events sdk" },
 ];
 

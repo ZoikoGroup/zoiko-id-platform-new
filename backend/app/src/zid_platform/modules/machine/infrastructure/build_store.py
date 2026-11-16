@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 _COLUMNS = (
     "build_id, name, artifact_digest, source_ref, provenance_ref, registered_by, review_status, approved_by, "
-    "registered_at, approved_at, revoked_at, revoke_reason"
+    "registered_at, approved_at, revoked_at, revoke_reason, kind, client_descriptor"
 )
 
 
@@ -32,6 +33,10 @@ def _view(r: Any) -> dict[str, Any]:
         "approved_at": _iso(r.approved_at),
         "revoked_at": _iso(r.revoked_at),
         "revoke_reason": r.revoke_reason,
+        "kind": r.kind,
+        "client_descriptor": json.loads(r.client_descriptor)
+        if isinstance(r.client_descriptor, str)
+        else r.client_descriptor,
     }
 
 
@@ -118,4 +123,35 @@ async def revoke(conn: AsyncConnection, build_id: str, reason: str) -> None:
             "WHERE build_id = :i"
         ),
         {"r": reason, "i": uuid.UUID(build_id)},
+    )
+
+
+async def insert_api_client(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    build_id: str,
+    name: str,
+    artifact_digest: str,
+    source_ref: str | None,
+    provenance_ref: str | None,
+    registered_by: str,
+    client_descriptor: dict[str, Any],
+) -> None:
+    """A build whose digest names an API client's public descriptor. Same lifecycle as an image build: DRAFT, then a second person approves."""
+    await conn.execute(
+        text(
+            "INSERT INTO agent.build_artifact (build_id, tenant_id, name, artifact_digest, source_ref, provenance_ref, registered_by, "
+            "review_status, kind, client_descriptor) VALUES (:i, :t, :n, :d, :s, :p, :r, 'DRAFT', 'API_CLIENT', CAST(:c AS jsonb))"
+        ),
+        {
+            "i": uuid.UUID(build_id),
+            "t": uuid.UUID(tenant_id),
+            "n": name,
+            "d": artifact_digest,
+            "s": source_ref,
+            "p": provenance_ref,
+            "r": uuid.UUID(registered_by),
+            "c": json.dumps(client_descriptor, sort_keys=True),
+        },
     )

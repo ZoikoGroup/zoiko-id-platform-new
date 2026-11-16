@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
@@ -414,6 +414,37 @@ def _extras(
     return out
 
 
+UsageSink = Callable[[AsyncConnection, str, str, str, datetime, bool], Awaitable[None]]
+_usage_sink: UsageSink | None = None
+
+
+def configure_usage_sink(sink: UsageSink | None) -> None:
+    """Where a usage fact goes: (connection, tenant, "CHECK" or "SENSITIVE_CHECK", check id, when, done by a person). Wired by the composition root, so this
+    module knows nothing of what the fact is used for and a decision never depends on it (CR-070)."""
+    global _usage_sink
+    _usage_sink = sink
+
+
+async def record_usage(
+    conn: AsyncConnection,
+    tenant_id: str,
+    kind: str,
+    check_id: str,
+    at: datetime,
+    *,
+    human: bool,
+    source_result: str,
+) -> None:
+    """One completed check is one usage fact. A check that never reached a source (refused before it was asked, or the source was unavailable) is not
+    one: the guardrail in the meter register is that nothing is counted when nothing was checked."""
+    if _usage_sink is None or source_result in (
+        SourceResult.UNAVAILABLE.value,
+        SourceResult.NOT_QUERIED.value,
+    ):
+        return
+    await _usage_sink(conn, tenant_id, kind, check_id, at, human)
+
+
 async def run_check(
     conn: AsyncConnection,
     *,
@@ -642,6 +673,15 @@ async def run_check(
         source_checked_at=answer.checked_at,
         assertion=final,
     )
+    await record_usage(
+        conn,
+        tenant_id,
+        "CHECK",
+        check_id,
+        now,
+        human=gate.actor is not None,
+        source_result=answer.result.value,
+    )
     fresh = now + timedelta(days=gate.freshness_days)
     next_check = min(fresh, expires - timedelta(days=gate.recheck_lead_days)) if expires else fresh
     await trust_store.insert_monitor(
@@ -834,6 +874,15 @@ async def run_disciplinary_check(
         source_result=answer.result.value,
         source_checked_at=answer.checked_at,
         assertion=final,
+    )
+    await record_usage(
+        conn,
+        tenant_id,
+        "SENSITIVE_CHECK",
+        check_id,
+        now,
+        human=gate.actor is not None,
+        source_result=answer.result.value,
     )
     await trust_store.insert_monitor(
         conn,

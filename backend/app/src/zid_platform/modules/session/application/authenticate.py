@@ -94,6 +94,13 @@ def verify_dpop_proof(
     return thumbprint, proof
 
 
+def _is_api_agent_credential(client_id: str, scope: frozenset[str], proof_verified: bool) -> bool:
+    """True only for a token this platform minted for an API-based agent (CR-094: `client_id` is `api-agent:<client>`, scope `workload`)
+    and only when the request carried a verified DPoP proof of the key the token is bound to. Both facts come from the signed token and
+    the verified proof, never from a header the caller sets."""
+    return proof_verified and "workload" in scope and client_id.startswith("api-agent:")
+
+
 async def authenticate(
     engine: AsyncEngine,
     settings: TokenSettings,
@@ -191,6 +198,10 @@ async def authenticate(
                 raise TokenError("PRINCIPAL_NOT_ACTIVE") from e
             if principal.status is not PrincipalStatus.ACTIVE:
                 raise TokenError("PRINCIPAL_NOT_ACTIVE")
+            if _is_api_agent_credential(claims.client_id, claims.scope, proof is not None):
+                # CR-094: possession of the agent's own key, proven on THIS request by the DPoP proof, is basic assurance (Z1). That clears
+                # the R1 floor the token's risk class allows and nothing above it: R2 needs Z2 and R3 needs Z3, which a key proof never reaches.
+                aal, auth_time = AAL.Z1, claims.issued_at
     if failure is not None:  # raised after commit, so the new session state is kept
         raise TokenError(failure)
     bound = proof is not None or claims.cnf_x5t is not None

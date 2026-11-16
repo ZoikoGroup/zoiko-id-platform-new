@@ -8,6 +8,7 @@ import { useId, useRef, useState } from "react";
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { PROOF_ACCEPT, PROOF_KINDS, attemptId, proofKey, proofMessage, proofProblem, sizeLabel } from "./org-claim";
+import { UserText } from "@/lib/user-text";
 
 /** WF-13B section 06: supporting documents. They help a reviewer; they never verify the company by themselves, and nothing here
  * ever shows a document back. The browser checks size and type for convenience; the server checks the file's own bytes again. */
@@ -89,7 +90,7 @@ export function ProofsCard({ claimId }: { claimId: string }) {
               {d.proofs.map((p) => (
                 <li key={p.proof_id} className="flex flex-wrap items-center gap-3 p-3">
                   <div className="min-w-0 flex-1">
-                    <p className="break-words font-medium text-ink">{p.label}</p>
+                    <p className="break-words font-medium text-ink"><UserText>{p.label}</UserText></p>
                     <p className="text-xs text-ink-muted">
                       {PROOF_KINDS.find((k) => k.id === p.kind)?.label ?? "Document"} · {sizeLabel(p.size_bytes)} · added <DateTime value={p.uploaded_at} />
                     </p>
