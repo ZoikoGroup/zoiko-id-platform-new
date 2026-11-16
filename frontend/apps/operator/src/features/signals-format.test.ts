@@ -35,3 +35,17 @@ describe("signal wording", () => {
     expect(ageText("nonsense", now)).toBe("unknown");
   });
 });
+
+describe("identity signal wording (CR-101)", () => {
+  it("says people were linked, never that they are the same person or acting together", () => {
+    const text = signalSummary({ source: "IDENTITY_SIGNAL", detail: { people: 4, kinds_shared: 2, identifiers_shared: 3 } });
+    expect(text).toBe("4 people linked by 2 kinds of shared detail");
+    expect(text).not.toMatch(/same person|fraud|acting together/i);
+    expect(signalSummary({ source: "IDENTITY_SIGNAL", detail: { people: 5 } })).toBe("5 people share a device");
+    expect(signalSummary({ source: "IDENTITY_SIGNAL", detail: {} })).toBe("People share a device");
+  });
+  it("does not describe an identity link as adverse media", () => {
+    expect(signalSummary({ source: "IDENTITY_SIGNAL", detail: { people: 2, kinds_shared: 1 } })).not.toMatch(/adverse media/i);
+    expect(signalSummary({ source: "ADVERSE_MEDIA", detail: { hit_count: 1 } })).toMatch(/Adverse media/);
+  });
+});
