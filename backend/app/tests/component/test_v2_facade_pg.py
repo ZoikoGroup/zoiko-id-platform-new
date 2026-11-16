@@ -47,6 +47,8 @@ ACTIONS = [
     "evidence.verify",
     "evidence.upload.manage",
     "verification.travel_rule.validate",
+    "verification.travel_rule.record",
+    "verification.travel_rule.read",
 ]
 RESOURCES = [
     "credential-claim:*",

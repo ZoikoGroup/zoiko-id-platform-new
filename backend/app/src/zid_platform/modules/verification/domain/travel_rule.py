@@ -139,6 +139,10 @@ class Assessment:
     beneficiary_vasp: Counterparty
     threshold: Threshold
     notes: tuple[str, ...] = field(default=())
+    originating_lei: str | None = (
+        None  # a company identifier as stated in the payload, never a person
+    )
+    beneficiary_lei: str | None = None
 
 
 def _persons(block: Any, key: str, path: str, out: list[Finding]) -> list[Mapping[str, Any]]:
@@ -311,4 +315,6 @@ def assess(payload: Mapping[str, Any], registry: VaspRegistry, *, jurisdiction: 
         _counterparty(benef_lei, jurisdiction, registry),
         threshold_for(registry, jurisdiction, amount, currency),
         notes,
+        origin_lei,
+        benef_lei,
     )

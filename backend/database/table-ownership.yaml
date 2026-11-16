@@ -1074,6 +1074,11 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  verify.travel_rule_message:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-33 (what was found about a Travel Rule message, never the people in it; append-only); CR-101"
   verify.workflow_version:
     role: cell
     module: verification

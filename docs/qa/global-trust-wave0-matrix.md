@@ -393,3 +393,12 @@ Tests: `test_data_integrity.py` (65), `test_pdf_doc_timestamps.py` (25), `test_p
 | Navigation | Built | Source of funds and Verification workflows are in the console menu and the guide, shown to administrators only | The role matrix for other roles |
 | DTV-31 unified compliance console | Not built, on purpose | It would put operator-side and company-side records in one screen, which crosses the plane boundary | A design decision on which plane owns it |
 | Signal-queue wiring, Travel Rule message record | Not built | Need the role matrix and the partner message format | Those decisions |
+
+
+## Status update, twenty-third pass (2026-11-16, the three items that waited for decisions, taken as the engineering owner's decisions)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-31 compliance console | Built (CR-101), company plane | `/admin/compliance` lists the company's own source of funds cases and workflow runs waiting for a person, each under its own permission; no decision control; the reviewer signal queue stays on the operator side | Whether reviewer queues ever join it |
+| Identity signals into the queue | Built (CR-101) | Link groups and shared devices open one review item each, counts only; `screening_0005` allows the source | Which events feed observations |
+| Travel Rule message record | Built (CR-101), line still DESIGN | `verification_0017`, append-only, findings and hashes and company identifiers only, three routes, two actions | Retention of message contents (Legal and the partner) |

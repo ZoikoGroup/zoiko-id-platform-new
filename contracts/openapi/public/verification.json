@@ -631,6 +631,36 @@
         "title": "TravelRuleIn",
         "type": "object"
       },
+      "TravelRuleRecordIn": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "OUTGOING",
+              "INCOMING"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "ivms101": {
+            "additionalProperties": true,
+            "title": "Ivms101",
+            "type": "object"
+          },
+          "jurisdiction": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "jurisdiction",
+          "ivms101"
+        ],
+        "title": "TravelRuleRecordIn",
+        "type": "object"
+      },
       "V2AgeIn": {
         "additionalProperties": false,
         "properties": {
@@ -1791,6 +1821,115 @@
           }
         },
         "summary": "Read Questionnaire",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/travel-rule/messages": {
+      "get": {
+        "operationId": "list_messages_v2_travel_rule_messages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Messages V2 Travel Rule Messages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "verification-v2"
+        ]
+      },
+      "post": {
+        "description": "Record a message: what was found about it, never the message. Nothing is sent, and nothing is decided about the transfer.",
+        "operationId": "record_message_v2_travel_rule_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TravelRuleRecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Message V2 Travel Rule Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Message",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/travel-rule/messages/{message_id}": {
+      "get": {
+        "operationId": "get_message_v2_travel_rule_messages__message_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Message V2 Travel Rule Messages  Message Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Message",
         "tags": [
           "verification-v2"
         ]

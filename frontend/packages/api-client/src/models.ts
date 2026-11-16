@@ -847,7 +847,7 @@ export type BreakGlassReview = {
 /** A fraud or adverse-media signal waiting for a person (reviewer plane). `detail` carries hashes only, never an address or a device identifier. */
 export type SignalReviewStatus = "OPEN" | "CHALLENGED" | "RESOLVED";
 export type SignalNotifyState = "PENDING" | "SENT" | "FAILED";
-export type SignalSource = "VELOCITY" | "ADVERSE_MEDIA";
+export type SignalSource = "VELOCITY" | "ADVERSE_MEDIA" | "IDENTITY_SIGNAL";
 export type SignalRiskTier = "LOW" | "ELEVATED" | "HIGH";
 export type SignalOutcome = "CLEARED_BY_REVIEWER" | "CONFIRMED_RISK" | "ESCALATED";
 export type VelocityDetail = {

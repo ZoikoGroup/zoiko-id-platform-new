@@ -293,6 +293,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/travel-rule/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Messages */
+        get: operations["list_messages_v2_travel_rule_messages_get"];
+        put?: never;
+        /**
+         * Record Message
+         * @description Record a message: what was found about it, never the message. Nothing is sent, and nothing is decided about the transfer.
+         */
+        post: operations["record_message_v2_travel_rule_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/travel-rule/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Message */
+        get: operations["get_message_v2_travel_rule_messages__message_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/travel-rule/validate": {
         parameters: {
             query?: never;
@@ -940,6 +978,20 @@ export interface components {
         };
         /** TravelRuleIn */
         TravelRuleIn: {
+            /** Ivms101 */
+            ivms101: {
+                [key: string]: unknown;
+            };
+            /** Jurisdiction */
+            jurisdiction: string;
+        };
+        /** TravelRuleRecordIn */
+        TravelRuleRecordIn: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "OUTGOING" | "INCOMING";
             /** Ivms101 */
             ivms101: {
                 [key: string]: unknown;
@@ -1633,6 +1685,96 @@ export interface operations {
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_v2_travel_rule_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    record_message_v2_travel_rule_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TravelRuleRecordIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_message_v2_travel_rule_messages__message_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
