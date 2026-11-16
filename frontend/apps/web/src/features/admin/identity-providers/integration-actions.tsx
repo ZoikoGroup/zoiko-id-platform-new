@@ -9,6 +9,7 @@ import { jsonInput, listInput, useCellMutation } from "@/lib/cell";
 import { INTEGRATIONS_KEY } from "./integration-form";
 import { parseProviderKeys } from "./provider-keys";
 import { AlgorithmPicker, FormDialog, certificatesInput, isoFromLocal, localDateTimeFromNow, optional, required, type Alg } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 type ClientAuth = "private_key_jwt" | "client_secret_basic";
 
@@ -375,7 +376,7 @@ export function LoginUrlDialog({ integration, onClose }: { integration: Federati
     <Dialog isOpen onOpenChange={(o) => !o && onClose()} title="Sign-in link" size="md" footer={<Button onPress={onClose}>Done</Button>}>
       <div className="space-y-3 text-sm text-ink-muted">
         <p>
-          Sends users to <strong className="text-ink">{integration.display_name}</strong> and back into this app. Add{" "}
+          Sends users to <strong className="text-ink"><UserText>{integration.display_name}</UserText></strong> and back into this app. Add{" "}
           <Code>?returnTo=/path</Code> to land somewhere other than the account page.
         </p>
         <div className="rounded-lg border border-border bg-canvas/60 p-3">

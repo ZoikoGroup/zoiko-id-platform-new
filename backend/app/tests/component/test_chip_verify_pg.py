@@ -75,3 +75,64 @@ def test_malformed_requests_are_refused_and_nothing_is_stored(rt_url: str) -> No
         assert post({**body(chip), "unknown": 1}).status_code == 422
         junk = post({"sod_base64": b64(b"not a sod at all"), "data_groups": {"1": b64(b"abcd")}})
         assert junk.status_code == 200 and junk.json()["document_authentic"] is False
+
+
+def test_a_chip_is_a_verified_birth_date_source_for_age_checks_and_says_it_does_not_bind_the_holder(
+    rt_url: str,
+) -> None:
+    """DTV-19: the chip's birth date counts only after passive authentication; no date is ever echoed."""
+    chip = make_chip()  # the fixture person was born 1974-08-12
+    with world(rt_url) as (http, mine, _tenant, _admin):
+
+        def age(threshold: int, **evidence) -> dict:
+            r = http.post("/v2/age-checks", headers=mine, json={"threshold": threshold, **evidence})
+            assert r.status_code == 200, r.text
+            assert "1974" not in r.text, "the birth date is never echoed"
+            return r.json()
+
+        chip_in = {"chip": body(chip)}
+
+        # no country signing CA configured: the chip proves nothing, and the person is offered a documented check
+        none = age(18, **chip_in)
+        assert none["result"] == "UNDETERMINED" and none["fallback_offered"] is True
+        assert none["reason_codes"][0] == "CHIP_NOT_VERIFIED"
+
+        http.app.state.trust_config = TrustConfig(csca=(chip.csca.cert,))
+        adult = age(18, **chip_in)
+        assert adult["result"] == "AT_LEAST" and adult["method"] == "VERIFIED_BIRTH_DATE"
+        assert adult["valid_until"] is None
+        assert adult["reason_codes"] == ["HOLDER_NOT_BOUND", "CLONE_NOT_DETECTED"]
+        assert any(
+            "not that the person presenting it is the holder" in x for x in adult["limitations"]
+        )
+        assert age(65, **chip_in)["result"] == "UNDER"
+
+        # a typed date beside the chip never overrides it
+        both = age(18, **chip_in, birth_date="2015-01-01")
+        assert both["result"] == "AT_LEAST" and both["method"] == "VERIFIED_BIRTH_DATE"
+
+        # a changed data group is not verified, so the chip decides nothing
+        forged = {**chip.data_groups, 1: dg1(mrz_td3(surname="IMPOSTER"))}
+        bad = age(18, chip=body(chip, forged))
+        assert bad["result"] == "UNDETERMINED" and "CHIP_NOT_VERIFIED" in bad["reason_codes"]
+
+        # a chip that failed does not stop a clear estimate from deciding
+        mixed = age(
+            18,
+            **chip_in | {"chip": body(chip, forged)},
+            estimate={"estimated_age": 45, "margin": 3},
+        )
+        assert mixed["result"] == "AT_LEAST" and mixed["method"] == "ESTIMATION"
+
+        assert http.post("/v2/age-checks", headers=mine, json={"threshold": 18}).status_code == 422
+        assert (
+            http.post(
+                "/v2/age-checks",
+                headers=mine,
+                json={
+                    "threshold": 18,
+                    "chip": {"sod_base64": "!!bad!!", "data_groups": {"1": "AAAA"}},
+                },
+            ).status_code
+            == 422
+        )

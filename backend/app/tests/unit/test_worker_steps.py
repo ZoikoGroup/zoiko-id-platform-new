@@ -35,22 +35,3 @@ def test_every_step_is_an_async_callable() -> None:
 
     for name, step in steps(Settings(environment="test")):
         assert inspect.iscoroutinefunction(step), name
-
-
-def test_the_access_readiness_queue_consumer_runs_after_the_agent_lifecycle_sweep() -> None:
-    """CR-091: a queued run is preflighted against agents the lifecycle sweep has just suspended."""
-    wired = names()
-    assert wired.index("access_readiness") > wired.index("agent_lifecycle")
-
-
-def test_the_access_readiness_step_does_nothing_while_the_switch_is_off() -> None:
-    import asyncio
-    from datetime import UTC, datetime
-
-    step = dict(steps(Settings(environment="test")))["access_readiness"]
-
-    class Untouchable:
-        def __getattr__(self, name: str) -> object:
-            raise AssertionError(f"the connection was used ({name}) while the switch is off")
-
-    assert asyncio.run(step(Untouchable(), datetime.now(UTC))) == "off"  # type: ignore[arg-type]

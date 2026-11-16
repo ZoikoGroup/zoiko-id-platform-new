@@ -77,6 +77,7 @@ from zid_platform.modules.machine.ports import (
     MachineError,
     WorkloadLease,
     agent_identity_status,
+    emergency_frozen,
     issue_workload_lease,
     lease_problems,
     revoke_workload_lease,
@@ -227,6 +228,13 @@ async def _preflight(
                 extra.append("POLICY_DENIED")
         except Exception:  # noqa: BLE001 - a policy service that cannot answer never permits anything
             available = False
+    # the company-wide and per-agent emergency stop of agent governance (AG-WF-002): a stopped agent reads nothing, whatever mode governance is in.
+    # Re-read before every page, so a stop that arrives mid-run ends the run at the next page. A stop that cannot be read refuses the run.
+    try:
+        if await emergency_frozen(conn, [agent_id]):
+            extra.append("EMERGENCY_FROZEN")
+    except Exception:  # noqa: BLE001 - a freeze that cannot be read never lets a run proceed
+        extra.append("GOVERNANCE_UNAVAILABLE")
     if run["policy_hash"] != policy_hash():
         extra.append("POLICY_CHANGED")
     if setup is not None:

@@ -90,6 +90,95 @@
         "title": "AgentBody",
         "type": "object"
       },
+      "ApiBindingRevokeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "ApiBindingRevokeBody",
+        "type": "object"
+      },
+      "ApiClientBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audiences": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Audiences",
+            "type": "array"
+          },
+          "jwks": {
+            "additionalProperties": true,
+            "title": "Jwks",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "provenance_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance Ref"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          }
+        },
+        "required": [
+          "name",
+          "jwks",
+          "audiences"
+        ],
+        "title": "ApiClientBody",
+        "type": "object"
+      },
+      "AssertionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assertion": {
+            "maxLength": 4096,
+            "minLength": 20,
+            "title": "Assertion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assertion"
+        ],
+        "title": "AssertionBody",
+        "type": "object"
+      },
       "AttestBody": {
         "additionalProperties": false,
         "properties": {
@@ -316,6 +405,829 @@
           "sponsor_principal_id"
         ],
         "title": "ChildBody",
+        "type": "object"
+      },
+      "DaaraAckBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "DaaraAckBody",
+        "type": "object"
+      },
+      "DaaraDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NOT_A_RISK",
+                  "ALREADY_HANDLED",
+                  "DUPLICATE",
+                  "ACCEPTED_RISK"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "DaaraDecisionBody",
+        "type": "object"
+      },
+      "DaaraRouteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "route": {
+            "enum": [
+              "SECURITY",
+              "AUTHORITY",
+              "PRIVACY",
+              "FINANCE",
+              "SRE"
+            ],
+            "title": "Route",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route"
+        ],
+        "title": "DaaraRouteBody",
+        "type": "object"
+      },
+      "DaaraSetupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_explain": {
+            "default": false,
+            "title": "Ai Explain",
+            "type": "boolean"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Region",
+            "type": "string"
+          },
+          "schedule": {
+            "default": "MANUAL",
+            "enum": [
+              "MANUAL",
+              "DAILY"
+            ],
+            "title": "Schedule",
+            "type": "string"
+          },
+          "warn_days": {
+            "default": 14,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Warn Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "region"
+        ],
+        "title": "DaaraSetupBody",
+        "type": "object"
+      },
+      "GovAdjustBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "title": "Amount",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "LATE_INVOICE",
+              "REFUND",
+              "REVERSAL"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "reservation_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Reservation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reservation_id",
+          "reason",
+          "amount"
+        ],
+        "title": "GovAdjustBody",
+        "type": "object"
+      },
+      "GovBaselineBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_providers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Ai Providers",
+            "type": "array"
+          },
+          "allowed_regions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allowed Regions",
+            "type": "array"
+          },
+          "allowed_tools": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Allowed Tools",
+            "type": "array"
+          },
+          "quotas": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quotas"
+          },
+          "schedules_allowed": {
+            "default": false,
+            "title": "Schedules Allowed",
+            "type": "boolean"
+          }
+        },
+        "title": "GovBaselineBody",
+        "type": "object"
+      },
+      "GovBudgetBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "hard_cap": {
+            "maxLength": 32,
+            "title": "Hard Cap",
+            "type": "string"
+          },
+          "period": {
+            "enum": [
+              "DAY",
+              "MONTH",
+              "CALL"
+            ],
+            "title": "Period",
+            "type": "string"
+          },
+          "reason_code": {
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "COMPANY",
+              "WORKSPACE",
+              "AGENT",
+              "CALL"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "warn_pct": {
+            "default": [
+              70,
+              90
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Warn Pct",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scope",
+          "currency",
+          "period",
+          "hard_cap",
+          "reason_code"
+        ],
+        "title": "GovBudgetBody",
+        "type": "object"
+      },
+      "GovChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "reason_code"
+        ],
+        "title": "GovChangeBody",
+        "type": "object"
+      },
+      "GovDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Policy Hash",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "policy_hash"
+        ],
+        "title": "GovDecisionBody",
+        "type": "object"
+      },
+      "GovDelegateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "slot": {
+            "enum": [
+              "SECURITY",
+              "AUTHORITY",
+              "PRIVACY",
+              "FINANCE"
+            ],
+            "title": "Slot",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "slot"
+        ],
+        "title": "GovDelegateBody",
+        "type": "object"
+      },
+      "GovDraftBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_enabled": {
+            "default": false,
+            "title": "Ai Enabled",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "leases": {
+            "items": {
+              "$ref": "#/components/schemas/GovLeaseBody"
+            },
+            "maxItems": 50,
+            "title": "Leases",
+            "type": "array"
+          },
+          "quotas": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quotas"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Region",
+            "type": "string"
+          },
+          "risk_tier": {
+            "default": "LOW",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "title": "Risk Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region"
+        ],
+        "title": "GovDraftBody",
+        "type": "object"
+      },
+      "GovFinishBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "enum": [
+              "COMPLETED",
+              "FAILED",
+              "CANCELED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "GovFinishBody",
+        "type": "object"
+      },
+      "GovLeaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "data_class": {
+            "default": "metadata",
+            "enum": [
+              "metadata",
+              "status",
+              "evidence_reference"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "resource_kind": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "resource_selector": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Resource Selector",
+            "type": "string"
+          },
+          "tool_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_id",
+          "resource_kind",
+          "resource_selector",
+          "purpose",
+          "valid_until"
+        ],
+        "title": "GovLeaseBody",
+        "type": "object"
+      },
+      "GovPauseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "severity": {
+            "default": "P1",
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "GovPauseBody",
+        "type": "object"
+      },
+      "GovProgressBody": {
+        "additionalProperties": false,
+        "properties": {
+          "proposals": {
+            "default": 0,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Proposals",
+            "type": "integer"
+          },
+          "records": {
+            "default": 0,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Records",
+            "type": "integer"
+          }
+        },
+        "title": "GovProgressBody",
+        "type": "object"
+      },
+      "GovReleaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "TOOL_FAILED",
+            "pattern": "^[A-Z0-9_]{2,64}$",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "GovReleaseBody",
+        "type": "object"
+      },
+      "GovReserveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "amount": {
+            "maxLength": 32,
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "resource_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "spend_class": {
+            "enum": [
+              "AI_INFERENCE",
+              "INTERNAL",
+              "EXTERNAL_TRANSACTION",
+              "PAID_VENDOR_CHECK"
+            ],
+            "title": "Spend Class",
+            "type": "string"
+          },
+          "tool_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Tool Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id",
+          "tool_id",
+          "resource_kind",
+          "resource_id",
+          "spend_class",
+          "amount",
+          "currency"
+        ],
+        "title": "GovReserveBody",
+        "type": "object"
+      },
+      "GovSettleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "actual": {
+            "maxLength": 32,
+            "title": "Actual",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual"
+        ],
+        "title": "GovSettleBody",
+        "type": "object"
+      },
+      "GovSimulateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "data_class": {
+            "default": "metadata",
+            "title": "Data Class",
+            "type": "string"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "resource_id": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "side_effect": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NONE",
+                  "REVERSIBLE",
+                  "IRREVERSIBLE",
+                  "EXTERNAL_TRANSACTION"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side Effect"
+          },
+          "tool_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Tool Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_id",
+          "resource_kind",
+          "resource_id"
+        ],
+        "title": "GovSimulateBody",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -681,6 +1593,299 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/machine/agent-review": {
+      "get": {
+        "operationId": "review_queue_v1_machine_agent_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "OPEN",
+                    "DISMISSED",
+                    "ASSIGNED",
+                    "HANDED_OFF"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Queue V1 Machine Agent Review Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Queue",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agent-review/{proposal_id}": {
+      "get": {
+        "operationId": "read_proposal_v1_machine_agent_review__proposal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Proposal V1 Machine Agent Review  Proposal Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Proposal",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agent-review/{proposal_id}:assign": {
+      "post": {
+        "operationId": "review_assign_v1_machine_agent_review__proposal_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Assign V1 Machine Agent Review  Proposal Id  Assign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Assign",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agent-review/{proposal_id}:dismiss": {
+      "post": {
+        "operationId": "review_dismiss_v1_machine_agent_review__proposal_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Dismiss V1 Machine Agent Review  Proposal Id  Dismiss Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Dismiss",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agent-review/{proposal_id}:handoff": {
+      "post": {
+        "operationId": "review_handoff_v1_machine_agent_review__proposal_id__handoff_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Handoff V1 Machine Agent Review  Proposal Id  Handoff Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Handoff",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
     "/v1/machine/agents": {
       "get": {
         "operationId": "list_agents_v1_machine_agents_get",
@@ -825,6 +2030,244 @@
         ]
       }
     },
+    "/v1/machine/agents/{agent_id}/api-binding": {
+      "get": {
+        "operationId": "read_binding_v1_machine_agents__agent_id__api_binding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Binding V1 Machine Agents  Agent Id  Api Binding Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Binding",
+        "tags": [
+          "agent-registry"
+        ]
+      },
+      "post": {
+        "operationId": "bind_v1_machine_agents__agent_id__api_binding_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Bind V1 Machine Agents  Agent Id  Api Binding Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/api-binding:revoke": {
+      "post": {
+        "operationId": "revoke_v1_machine_agents__agent_id__api_binding_revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiBindingRevokeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke V1 Machine Agents  Agent Id  Api Binding Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/budget": {
+      "get": {
+        "operationId": "read_budget_v1_machine_agents__agent_id__budget_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Budget V1 Machine Agents  Agent Id  Budget Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Budget",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/change-requests": {
+      "post": {
+        "operationId": "change_request_v1_machine_agents__agent_id__change_requests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Change Request V1 Machine Agents  Agent Id  Change Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
     "/v1/machine/agents/{agent_id}/children": {
       "post": {
         "operationId": "register_child_v1_machine_agents__agent_id__children_post",
@@ -876,6 +2319,974 @@
         "summary": "Register Child",
         "tags": [
           "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara": {
+      "get": {
+        "operationId": "read_setup_v1_machine_agents__agent_id__daara_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Setup V1 Machine Agents  Agent Id  Daara Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Setup",
+        "tags": [
+          "agent-daara"
+        ]
+      },
+      "put": {
+        "operationId": "save_setup_v1_machine_agents__agent_id__daara_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraSetupBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Setup V1 Machine Agents  Agent Id  Daara Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Setup",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara/dry-run": {
+      "post": {
+        "operationId": "dry_run_v1_machine_agents__agent_id__daara_dry_run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dry Run V1 Machine Agents  Agent Id  Daara Dry Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dry Run",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara/runs": {
+      "get": {
+        "operationId": "list_runs_v1_machine_agents__agent_id__daara_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Runs V1 Machine Agents  Agent Id  Daara Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "agent-daara"
+        ]
+      },
+      "post": {
+        "description": "`inline` runs now and returns the result (201). `queued` accepts the run and returns 202 with state QUEUED; a worker starts it.",
+        "operationId": "start_run_v1_machine_agents__agent_id__daara_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "inline",
+              "enum": [
+                "inline",
+                "queued"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Run V1 Machine Agents  Agent Id  Daara Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara/runs/{run_id}": {
+      "get": {
+        "operationId": "read_run_v1_machine_agents__agent_id__daara_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Run V1 Machine Agents  Agent Id  Daara Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Run",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara:request-publish": {
+      "post": {
+        "operationId": "request_publish_v1_machine_agents__agent_id__daara_request_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Publish V1 Machine Agents  Agent Id  Daara Request Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Publish",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/daara:validate": {
+      "post": {
+        "operationId": "validate_v1_machine_agents__agent_id__daara_validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate V1 Machine Agents  Agent Id  Daara Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/effective-access": {
+      "get": {
+        "operationId": "effective_access_v1_machine_agents__agent_id__effective_access_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Effective Access V1 Machine Agents  Agent Id  Effective Access Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Effective Access",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/events": {
+      "get": {
+        "operationId": "agent_events_v1_machine_agents__agent_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ALLOW",
+                    "DENY",
+                    "SHADOW_DENY",
+                    "INFO"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Agent Events V1 Machine Agents  Agent Id  Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Events",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/events:export": {
+      "get": {
+        "operationId": "export_agent_events_v1_machine_agents__agent_id__events_export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Agent Events",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/monitoring": {
+      "get": {
+        "operationId": "monitoring_v1_machine_agents__agent_id__monitoring_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Monitoring V1 Machine Agents  Agent Id  Monitoring Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Monitoring",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/pause": {
+      "post": {
+        "operationId": "pause_agent_v1_machine_agents__agent_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovPauseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Agent V1 Machine Agents  Agent Id  Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Agent",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/policy": {
+      "get": {
+        "operationId": "list_policy_versions_v1_machine_agents__agent_id__policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Policy Versions V1 Machine Agents  Agent Id  Policy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Policy Versions",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/policy/drafts": {
+      "post": {
+        "operationId": "draft_v1_machine_agents__agent_id__policy_drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Draft V1 Machine Agents  Agent Id  Policy Drafts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Draft",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/policy/simulate": {
+      "post": {
+        "operationId": "simulate_v1_machine_agents__agent_id__policy_simulate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovSimulateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Simulate V1 Machine Agents  Agent Id  Policy Simulate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/agents/{agent_id}/runs": {
+      "post": {
+        "operationId": "start_run_v1_machine_agents__agent_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Run V1 Machine Agents  Agent Id  Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "agent-governance"
         ]
       }
     },
@@ -1173,6 +3584,93 @@
         ]
       }
     },
+    "/v1/machine/api-agent-token": {
+      "post": {
+        "description": "Exchange a signed one-time assertion for a short-lived token for the agent's principal. Nothing is read from a header the caller sets:\nthe company and client come from the assertion only to choose where to look, and the token is minted only if the signature verifies against\nthe PUBLIC keys stored with the approved build. The token is bound to the signing key (DPoP) and carries the gateway scope, so every later\ncall is still governed (authority, mandate, policy, the tool cap).",
+        "operationId": "api_agent_token_route_v1_machine_api_agent_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssertionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Agent Token Route V1 Machine Api Agent Token Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Api Agent Token Route",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/api-clients": {
+      "post": {
+        "operationId": "register_api_client_v1_machine_api_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiClientBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Api Client V1 Machine Api Clients Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Api Client",
+        "tags": [
+          "agent-registry"
+        ]
+      }
+    },
     "/v1/machine/attestations:verify": {
       "post": {
         "description": "Record a runtime attestation signed by an attestor this cell trusts (MACHINE-001 \u00a79, \u00a721). The signature is the\nonly credential: the tenant is read from the signed SPIFFE ID, the claims are checked only after the signature\npasses, and an out-of-date but genuinely signed statement is kept as a FAILED record so the refusal is evidence.",
@@ -1394,6 +3892,256 @@
         "summary": "Revoke Blueprint",
         "tags": [
           "agent-registry"
+        ]
+      }
+    },
+    "/v1/machine/budget-adjustments": {
+      "post": {
+        "operationId": "adjust_v1_machine_budget_adjustments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovAdjustBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Adjust V1 Machine Budget Adjustments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adjust",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/budget-reservations": {
+      "post": {
+        "operationId": "reserve_budget_v1_machine_budget_reservations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovReserveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reserve Budget V1 Machine Budget Reservations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reserve Budget",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/budget-reservations/{reservation_id}:release": {
+      "post": {
+        "operationId": "release_reservation_v1_machine_budget_reservations__reservation_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovReleaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Reservation V1 Machine Budget Reservations  Reservation Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Reservation",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/budget-reservations/{reservation_id}:settle": {
+      "post": {
+        "operationId": "settle_reservation_v1_machine_budget_reservations__reservation_id__settle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovSettleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Settle Reservation V1 Machine Budget Reservations  Reservation Id  Settle Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settle Reservation",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/budgets": {
+      "post": {
+        "operationId": "set_budget_v1_machine_budgets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovBudgetBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Budget V1 Machine Budgets Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Budget",
+        "tags": [
+          "agent-governance"
         ]
       }
     },
@@ -1680,6 +4428,29 @@
         ]
       }
     },
+    "/v1/machine/daara/template": {
+      "get": {
+        "operationId": "template_v1_machine_daara_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Template V1 Machine Daara Template Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Template",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
     "/v1/machine/environments/{environment_id}:quarantine": {
       "post": {
         "operationId": "quarantine_v1_machine_environments__environment_id__quarantine_post",
@@ -1775,6 +4546,1073 @@
         "summary": "Release",
         "tags": [
           "workload-identity"
+        ]
+      }
+    },
+    "/v1/machine/governance/alerts/{alert_key}:acknowledge": {
+      "post": {
+        "operationId": "acknowledge_v1_machine_governance_alerts__alert_key__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_key",
+            "required": true,
+            "schema": {
+              "title": "Alert Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraAckBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Acknowledge V1 Machine Governance Alerts  Alert Key  Acknowledge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/governance/alerts/{alert_key}:route": {
+      "post": {
+        "operationId": "route_alert_v1_machine_governance_alerts__alert_key__route_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_key",
+            "required": true,
+            "schema": {
+              "title": "Alert Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaaraRouteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Route Alert V1 Machine Governance Alerts  Alert Key  Route Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route Alert",
+        "tags": [
+          "agent-daara"
+        ]
+      }
+    },
+    "/v1/machine/governance/baseline": {
+      "get": {
+        "operationId": "read_baseline_v1_machine_governance_baseline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Baseline V1 Machine Governance Baseline Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Baseline",
+        "tags": [
+          "agent-governance"
+        ]
+      },
+      "put": {
+        "operationId": "put_baseline_v1_machine_governance_baseline_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovBaselineBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Baseline V1 Machine Governance Baseline Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Baseline",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/delegates": {
+      "get": {
+        "operationId": "read_delegates_v1_machine_governance_delegates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Delegates V1 Machine Governance Delegates Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Delegates",
+        "tags": [
+          "agent-governance"
+        ]
+      },
+      "post": {
+        "operationId": "give_slot_v1_machine_governance_delegates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDelegateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Give Slot V1 Machine Governance Delegates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Slot",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/delegates:revoke": {
+      "post": {
+        "operationId": "take_slot_v1_machine_governance_delegates_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDelegateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Take Slot V1 Machine Governance Delegates Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Slot",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/events": {
+      "get": {
+        "operationId": "fleet_events_v1_machine_governance_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ALLOW",
+                    "DENY",
+                    "SHADOW_DENY",
+                    "INFO"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Events V1 Machine Governance Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Events",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/events:export": {
+      "get": {
+        "operationId": "export_fleet_events_v1_machine_governance_events_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Fleet Events",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/evidence:verify": {
+      "get": {
+        "operationId": "verify_evidence_v1_machine_governance_evidence_verify_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Evidence V1 Machine Governance Evidence Verify Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Verify Evidence",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/freezes": {
+      "get": {
+        "operationId": "list_freezes_v1_machine_governance_freezes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Freezes V1 Machine Governance Freezes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Freezes",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/freezes/{case_id}:request-restore": {
+      "post": {
+        "operationId": "request_restore_v1_machine_governance_freezes__case_id__request_restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Restore V1 Machine Governance Freezes  Case Id  Request Restore Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Restore",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/overview": {
+      "get": {
+        "operationId": "overview_v1_machine_governance_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Overview V1 Machine Governance Overview Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/pause": {
+      "post": {
+        "operationId": "pause_company_v1_machine_governance_pause_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovPauseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Company V1 Machine Governance Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Company",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests": {
+      "get": {
+        "operationId": "list_requests_v1_machine_governance_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "CLARIFICATION",
+                    "APPROVED",
+                    "REJECTED",
+                    "EXPIRED",
+                    "INVALIDATED",
+                    "APPLIED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Requests V1 Machine Governance Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests/{request_id}": {
+      "get": {
+        "operationId": "read_request_v1_machine_governance_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Request V1 Machine Governance Requests  Request Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests/{request_id}:apply": {
+      "post": {
+        "operationId": "apply_request_v1_machine_governance_requests__request_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Apply Request V1 Machine Governance Requests  Request Id  Apply Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests/{request_id}:approve": {
+      "post": {
+        "operationId": "approve_request_v1_machine_governance_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Request V1 Machine Governance Requests  Request Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests/{request_id}:clarify": {
+      "post": {
+        "operationId": "clarify_request_v1_machine_governance_requests__request_id__clarify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Clarify Request V1 Machine Governance Requests  Request Id  Clarify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clarify Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/governance/requests/{request_id}:reject": {
+      "post": {
+        "operationId": "reject_request_v1_machine_governance_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Request V1 Machine Governance Requests  Request Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Request",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/runs/{run_id}:finish": {
+      "post": {
+        "operationId": "run_finish_v1_machine_runs__run_id__finish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovFinishBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Finish V1 Machine Runs  Run Id  Finish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Finish",
+        "tags": [
+          "agent-governance"
+        ]
+      }
+    },
+    "/v1/machine/runs/{run_id}:progress": {
+      "post": {
+        "operationId": "run_progress_v1_machine_runs__run_id__progress_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovProgressBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Progress V1 Machine Runs  Run Id  Progress Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Progress",
+        "tags": [
+          "agent-governance"
         ]
       }
     },

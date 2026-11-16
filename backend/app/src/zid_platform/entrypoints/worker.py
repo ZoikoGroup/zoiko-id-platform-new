@@ -16,8 +16,7 @@ Same image as the API, separate process. Each pass, in its own transaction per s
 - sandbox_identities: developer test identities past their expiry are retired;
 - directory_sync: each connected company directory (Auth0 first) is read and its SCIM source brought in step with it;
 - sanctions_lists / screening: lists with a verified address are fetched and loaded, and cases a list change or an expiry has
-  made stale are screened again (ED-04);
-- access_readiness: queued access readiness runs are preflighted again and executed, a bounded number per pass (CR-091; off by default).
+  made stale are screened again (ED-04).
 A failing step is logged and retried on the next pass; it never stops the others.
 
     ZID_WORKER_DATABASE_URL  the worker role: BYPASSRLS, SELECT/INSERT/UPDATE on the evidence,
@@ -102,6 +101,18 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             now=now,
             on_root_changed=on_root_changed,
         )
+
+    async def identity_signal_feed(conn: AsyncConnection, now: datetime) -> object:
+        """Identity signals: turn new device and contact observations into review items (DTV-20, DTV-21, DTV-22)."""
+        from zid_platform.modules.verification.ports import identity_feed_pass
+
+        return await identity_feed_pass(conn, now)
+
+    async def verification_reverification(conn: AsyncConnection, now: datetime) -> object:
+        """Verification: expire what has lapsed, mark stale what rests on a distrusted provider, remind before the rest lapses (DTV-29)."""
+        from zid_platform.modules.verification.ports import reverification_sweep
+
+        return await reverification_sweep(conn, now)
 
     async def domains(conn: AsyncConnection, now: datetime) -> object:
         from zid_platform.modules.tenant.application.domains import default_checks, reverify_due
@@ -357,23 +368,31 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await lifecycle_sweep(conn, now)
 
-    async def access_readiness(conn: AsyncConnection, now: datetime) -> object:
-        """CR-091 (ZID-AG-WF-001 sections 04 and 11): take the oldest queued access readiness runs, each preflighted again under its own
-        tenant and in its own savepoint. Off (nothing read) unless ZID_ACCESS_READINESS_ENABLED; no model gateway in the worker."""
-        if not settings.access_readiness_enabled:
-            return "off"
-        from zid_platform.modules.access_readiness.ports import Runtime, drain_queued
+    async def agent_governance(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-002: free allowances a crashed run left reserved, end runs past their deadline, expire unsigned change requests."""
+        from zid_platform.modules.machine.ports import configure_agent_governance, governance_sweep
 
-        return await drain_queued(
-            conn,
-            Runtime(
-                enabled=True,
-                regions=frozenset(settings.access_readiness_regions),
-                region=settings.cell_id,
-                cell_uuid=settings.cell_uuid,
-                ai_explain=settings.access_readiness_ai_explain,
-            ),
+        configure_agent_governance(
+            settings.agent_governance, settings.commercial_enforcement
+        )  # the worker is its own process
+        return await governance_sweep(conn, now)
+
+    async def daara_queue(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-001: run the queued access readiness runs, each re-checked when it is claimed."""
+        from zid_platform.modules.machine.ports import configure_agent_governance, daara_work_queue
+
+        configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+        return await daara_work_queue(conn, now)
+
+    async def daara_schedule(conn: AsyncConnection, now: datetime) -> object:
+        """ZID-AG-WF-001: queue the daily run of each agent whose policy and company baseline allow a schedule (none, until an owner allows it)."""
+        from zid_platform.modules.machine.ports import (
+            configure_agent_governance,
+            daara_schedule_due,
         )
+
+        configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+        return await daara_schedule_due(conn, now)
 
     async def credential_recheck(conn: AsyncConnection, now: datetime) -> object:
         """GID-058: announce, once a day each, the current credential checks that expire soon or have gone stale."""
@@ -433,15 +452,19 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
         ("verification_policy_review", verification_policy_review),
+        ("verification_reverification", verification_reverification),
+        ("identity_signal_feed", identity_signal_feed),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("claim_autoverify", claim_autoverify),
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
-        (
-            "access_readiness",
-            access_readiness,
-        ),  # after the lifecycle sweep, so a run sees an agent it has just suspended
+        ("agent_governance", agent_governance),
+        *(
+            (("daara_schedule", daara_schedule), ("daara_queue", daara_queue))
+            if settings.daara_enabled
+            else ()
+        ),
         ("signal_housekeeping", signal_housekeeping),
         ("credential_recheck", credential_recheck),
         ("fairness", fairness),

@@ -17,6 +17,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
@@ -33,10 +34,16 @@ from zid_db import in_tenant, tenant_transaction
 from zid_outbox import emit
 
 from zid_platform.modules.commercial.ports import record_vendor_check
-from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.evidence.ports import (
+    AuditFacts,
+    EvidenceClass,
+    record_audit,
+    verify_active_authentication,
+)
 from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
 from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
+from zid_platform.modules.verification.application import self_run as self_run_app
 from zid_platform.modules.verification.domain.audit_events import CALLBACK_REJECTED
 from zid_platform.modules.verification.domain.providers import (
     ProviderKind,
@@ -50,6 +57,7 @@ from zid_platform.modules.verification.domain.providers import (
     veriff_result,
     veriff_signature_ok,
 )
+from zid_platform.modules.verification.domain.self_run import ChipEvidence
 from zid_platform.modules.verification.domain.verification import (
     IAL_RANK,
     SESSION_TTL,
@@ -355,6 +363,10 @@ async def _normalize(
         if not isinstance(event_id, str) or not isinstance(ref, str):
             raise VerificationError("CALLBACK_SCHEMA_INVALID")
         return event_id, ref, _result(claims.get("result") or {})
+    if (
+        kind is ProviderKind.SELF_RUN
+    ):  # there is no external callback to trust: the result is made inside the platform
+        raise VerificationError("CALLBACK_SIGNATURE_INVALID", "self-run takes no provider callback")
     cfg = adapter.get("provider_config") or {}
     get = secrets or (lambda _name: None)
     if kind is ProviderKind.VERIFF:
@@ -1171,3 +1183,187 @@ async def claim_matches(
             if store.commitment(str(r.assertion_id), r.claim_type, value) == stored:
                 return True
     return False
+
+
+# ---- self-run identity verification (CR-095, CR-102): the platform's own check, with no external provider ---------------------------------------
+
+SELF_RUN_ADAPTER = (
+    "self-run"  # a name, not an adapter row: no provider is asked and no callback is trusted
+)
+SELF_RUN_MAPPING = "self-run-1"
+
+
+@dataclass(frozen=True, slots=True)
+class SelfRunSubmitted:
+    status: str  # the session's status after this submission; IN_PROGRESS when the chip could not be judged yet
+    outcome: str | None
+    codes: tuple[str, ...]
+    next_challenge: str | None = (
+        None  # a fresh Active Authentication challenge when the session is still waiting; the old one is spent
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ActiveAuthInput:
+    """What the client sends for the clone check: the chip's signed answer to the session's challenge, and DG15 with the proof that the signed
+    object covered it."""
+
+    response: bytes
+    dg15: bytes
+    dg15_verified: bool
+    hash_name: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BiometricInput:
+    """A live probe, a liveness capture and the chip photo (only from a data group the signed object covered), for an accepted engine. None of it is kept."""
+
+    engine: Any
+    probe: bytes
+    media: bytes
+    chip_photo: bytes
+
+
+def _new_challenge() -> str:
+    """8 random bytes, never all zero, for the chip to sign. One per attempt: a spent challenge is never accepted again."""
+    while True:
+        c = secrets.token_bytes(8)
+        if any(c):
+            return c.hex()
+
+
+async def start_self_run(
+    engine: AsyncEngine,
+    *,
+    ctx: RequestContext,
+    profile_id: str,
+    subject_principal_id: str,
+    purpose: str,
+    jurisdiction: str,
+    floor: str | None,
+    now: datetime,
+    country_registry_version: str | None = None,
+) -> tuple[store.VSession, str]:
+    """The same start as a provider session (profile floor, processing purpose, events), but no provider is chosen or called: the session waits
+    IN_PROGRESS for the person's chip evidence."""
+    async with tenant_transaction(engine, ctx) as conn:
+        profile = await store.load_profile(conn, profile_id)
+        select_profile(profile, floor=floor, jurisdiction=jurisdiction)
+        await enforce_processing(
+            conn,
+            ctx.tenant_id or "",
+            activity_code="IDENTITY_VERIFICATION",
+            purpose=purpose,
+            data_category="D3",
+            subject_principal_id=subject_principal_id,
+        )
+        s = store.VSession(
+            session_id=str(uuid.uuid4()),
+            tenant_id=ctx.tenant_id or "",
+            profile_id=profile.profile_id,
+            subject_principal_id=subject_principal_id,
+            purpose=purpose,
+            jurisdiction=jurisdiction,
+            status=SessionStatus.CREATED,
+            adapter_id=None,
+            provider_transaction_ref=None,
+            attempted_adapters=(),
+            outcome_code=None,
+            pending_result=None,
+            row_version=1,
+            created_at=now,
+            expires_at=now + SESSION_TTL,
+        )
+        await store.create_session(conn, s, None)
+        await _event(
+            conn, "verification.created", s, 1, profile_id=profile.profile_id,
+            country=jurisdiction, country_registry_version=country_registry_version,
+        )  # fmt: skip
+        s = await store.update_session(
+            conn,
+            s,
+            status=transition(s.status, SessionStatus.IN_PROGRESS),
+            now=now,
+            adapter_id=SELF_RUN_ADAPTER,
+            attempted=(SELF_RUN_ADAPTER,),
+            pending={"aa_challenge": (challenge := _new_challenge())},
+        )
+        await _event(conn, "verification.started", s, 2, method="SELF_RUN")
+        return s, challenge
+
+
+async def submit_self_run(
+    engine: AsyncEngine,
+    *,
+    ctx: RequestContext,
+    session_id: str,
+    chip: ChipEvidence,
+    now: datetime,
+    country_check: Callable[[str], Awaitable[None] | None] | None = None,
+    active_auth: ActiveAuthInput | None = None,
+    biometric: BiometricInput | None = None,
+) -> SelfRunSubmitted:
+    """Judge one chip's evidence for a waiting self-run session. The chip decides nothing by itself: the profile decides what the facts are worth,
+    exactly as for a provider. A chip that cannot be judged yet (no country signing CA configured) leaves the session waiting; a session already
+    decided never changes."""
+    async with tenant_transaction(engine, ctx) as conn:
+        s = await store.load_session(conn, session_id, lock=True)
+        if s.adapter_id != SELF_RUN_ADAPTER:
+            raise VerificationError("VERIFICATION_NOT_FOUND")
+        if s.status is not SessionStatus.IN_PROGRESS:
+            raise VerificationError("SESSION_NOT_AWAITING_EVIDENCE")
+        if country_check is not None:
+            checked = country_check(s.jurisdiction)
+            if inspect.isawaitable(checked):
+                await checked
+        profile = await store.load_profile(conn, s.profile_id)
+        fraud: tuple[str, ...] = ()
+        codes: tuple[str, ...] = ("SELF_RUN_CLONE_NOT_CHECKED",)
+        challenge = (s.pending_result or {}).get("aa_challenge")
+        if active_auth is not None:
+            if not isinstance(challenge, str):
+                codes = ("SELF_RUN_CLONE_NOT_ASSESSED", "AA_NO_CHALLENGE")
+            else:
+                aa = verify_active_authentication(
+                    active_auth.dg15,
+                    bytes.fromhex(challenge),
+                    active_auth.response,
+                    dg15_verified=active_auth.dg15_verified,
+                    hash_name=active_auth.hash_name,
+                )
+                if aa.status == "CLONE_SUSPECTED":
+                    fraud, codes = ("CLONE_SUSPECTED",), ("SELF_RUN_CLONE_SUSPECTED", *aa.reasons)
+                elif aa.status == "GENUINE_KEY_HELD":
+                    codes = ("SELF_RUN_CLONE_CHECKED",)
+                else:
+                    codes = ("SELF_RUN_CLONE_NOT_ASSESSED", *aa.reasons)
+        outcome = self_run_app.assess(
+            chip,
+            session_ref=s.session_id,
+            engine=biometric.engine if biometric else None,
+            probe=biometric.probe if biometric else None,
+            media=biometric.media if biometric else None,
+            chip_photo=biometric.chip_photo if biometric else None,
+            extra_fraud=fraud,
+            extra_codes=codes,
+        )
+        decision = decide(profile, outcome.result, jurisdiction=s.jurisdiction)
+        basis = decision_basis(
+            outcome.result,
+            adapter_id=SELF_RUN_ADAPTER,
+            mapping_version=SELF_RUN_MAPPING,
+            salt=s.session_id,
+        )
+        await _apply(conn, s, profile, decision, SELF_RUN_ADAPTER, outcome.result, now, basis)
+        after = await store.load_session(conn, s.session_id)
+        fresh: str | None = None
+        if (
+            after.status is SessionStatus.IN_PROGRESS
+        ):  # still waiting: the challenge just used is spent, so a captured answer cannot be replayed
+            fresh = _new_challenge()
+            await store.update_session(
+                conn, after, status=after.status, now=now, pending={"aa_challenge": fresh}
+            )
+        return SelfRunSubmitted(
+            after.status.value, after.outcome_code, outcome.result.reason_codes, fresh
+        )

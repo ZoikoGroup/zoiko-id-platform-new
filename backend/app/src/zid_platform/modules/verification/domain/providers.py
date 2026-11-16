@@ -41,6 +41,7 @@ class ProviderKind(StrEnum):
     GENERIC = "GENERIC"  # a provider that speaks Zoiko's own signed-JSON protocol
     VERIFF = "VERIFF"
     SUMSUB = "SUMSUB"
+    SELF_RUN = "SELF_RUN"  # chip passive authentication plus an accepted face and liveness engine, run by us (CR-095); never an adapter row
 
 
 _SAFE = re.compile(r"[^A-Z0-9_]")
@@ -300,6 +301,11 @@ def validate_provider_config(
     kind: ProviderKind, config: Mapping[str, Any], jurisdictions: list[str]
 ) -> dict[str, Any]:
     """A provider adapter names its secrets and settings, never carries them. The UK-certified flow is one adapter, for GB only."""
+    if kind is ProviderKind.SELF_RUN:
+        raise VerificationError(
+            "PROFILE_INVALID",
+            "self-run verification is configured by the deployment file, not by an adapter",
+        )
     if kind is ProviderKind.GENERIC:
         if config:
             raise VerificationError(

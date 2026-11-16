@@ -8,8 +8,10 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { GATE_NOTES } from "./agents-logic";
+import { ApiBindingCard } from "./api-agent";
 import { RegisterChildDialog } from "./register-child-dialog";
 import { AGENTS_KEY, BLOCKER_TEXT, GATES, PLATFORM_CHECKS } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 type Action = "submit" | "activate" | "suspend" | "revoke" | "retire";
 
@@ -99,7 +101,7 @@ export function AgentDetailPanel({ agentId, onClose }: { agentId: string; onClos
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <h2 id="agent-detail-title" className="text-base font-semibold text-ink">
-                    {a.agent_name}
+                    <UserText>{a.agent_name}</UserText>
                   </h2>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2">
                     <CopyId value={a.agent_principal_id} short={false} label="agent principal ID" />
@@ -243,6 +245,7 @@ export function AgentDetailPanel({ agentId, onClose }: { agentId: string; onClos
                   {attest.error ? <ApiErrorView error={attest.error} /> : null}
                 </div>
               </Dialog>
+              <ApiBindingCard agentId={agentId} />
               {addingChild ? <RegisterChildDialog parent={a} onClose={() => setAddingChild(false)} /> : null}
             </>
           );

@@ -38,6 +38,8 @@ rules:
   - {match: "POST /v1/machine/blueprints", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/builds", action: create-production-signing-keys-or-privileged-api-clients, machine: exempt}  # CR-066: a pipeline only PROPOSES a build
   - {match: "POST /v1/machine/tools", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/api-clients", action: create-production-signing-keys-or-privileged-api-clients}
+  - {match: "POST /v1/machine/agents/*/api-binding", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/workload-bindings*", action: create-production-signing-keys-or-privileged-api-clients}
   - {match: "POST /v1/machine/environments/*", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}
 
@@ -47,6 +49,10 @@ rules:
   - {match: "POST /v1/mandates", action: create-expand-high-privilege-ai-agent-mandate}
   - {match: "POST /v1/mandates/*:activate", action: create-expand-high-privilege-ai-agent-mandate}
   - {match: "POST /v1/machine/agents/*:activate", action: create-expand-high-privilege-ai-agent-mandate}
+  - {match: "POST /v1/machine/governance/requests/*:approve", action: create-expand-high-privilege-ai-agent-mandate}  # AG-WF-002 §11: step-up before a signature
+  - {match: "POST /v1/machine/governance/requests/*:apply", action: create-expand-high-privilege-ai-agent-mandate}
+  - {match: "POST /v1/machine/governance/delegates*", action: grant-expand-transfer-or-revoke-high-impact-delegated-authority}
+  - {match: "POST /v1/machine/governance/freezes/*:request-restore", action: rotate-revoke-critical-enterprise-keys-or-production-certificates}
 
   # ------------------------------------------------------------------ evidence, privacy and retention
   - {match: "POST /v1/evidence/bulk-exports", action: export-raw-id-proof-biometric-evidence-ubo-records-or-bulk-pii}

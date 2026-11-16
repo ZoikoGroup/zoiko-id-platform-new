@@ -729,6 +729,91 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (ZID-GAP-001 WP-11; CR-067)"
+  agent.governance_policy:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.governance_change_request:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.governance_signature:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.governance_delegate:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.company_baseline:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.budget:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.budget_reservation:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.budget_adjustment:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.run_ledger:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.governance_event:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.freeze_control:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-002; CR-091)"
+  agent.daara_instance:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+  agent.daara_run_result:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+  agent.review_proposal:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+  agent.alert_state:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+  agent.api_assertion_jti:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-MACHINE-001 §9, §16; CR-094)"
+  agent.api_client_binding:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "proposed (ZID-MACHINE-001 §9, §16; CR-093)"
   agent.agent_profile:
     role: cell
     module: machine
@@ -989,6 +1074,46 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  org.ownership_graph:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-24 (one immutable version of an ownership graph: opaque entity ids and recorded links; no names); CR-102"
+  org.ownership_confirmation:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-24 (a person decision on one ownership candidate; append-only; reviewer is never the graph author); CR-103"
+  verify.identity_observation:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-21/22 (a keyed digest of a device seen with a person, for the link rules; removed after 90 days); CR-102"
+  verify.travel_rule_message:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-33 (what was found about a Travel Rule message, never the people in it; append-only); CR-101"
+  verify.workflow_version:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-30 (a workflow definition as data, frozen once approved, maker-checker); CR-099"
+  verify.workflow_run:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-30 (one applicant run pinned to a version; results are outcome words); CR-099"
+  verify.sof_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-28 (answers and evidence references, never the evidence; a person decides); CR-096"
+  verify.sof_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-28 (append-only record of each human decision, reason codes only); CR-096"
   verify.provider_callback:
     role: cell
     module: verification

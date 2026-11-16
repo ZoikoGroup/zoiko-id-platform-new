@@ -1,6 +1,6 @@
 "use client";
 
-import { Banner, Button, Card, PageHeader, Tabs } from "@zoiko/ui";
+import { Banner, Button, Card, PageHeader, Tabs, buttonClass } from "@zoiko/ui";
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -88,6 +88,11 @@ export function AgentsPage() {
       <PageHeader
         title="Agents & tools"
         description="AI agents, the blueprints they are built from, and the tools they may use. An agent is an identity with accountable people behind it, not a user account."
+        actions={
+          <Link className={buttonClass("secondary", "md")} href="/admin/agents/governance">
+            Governance &amp; monitoring
+          </Link>
+        }
       />
       <div className="space-y-4">
         <AuthorityNotice needs={["machine.tool.manage", "machine.build.register", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />

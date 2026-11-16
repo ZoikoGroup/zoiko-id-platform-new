@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "ActiveAuthIn": {
+        "additionalProperties": false,
+        "description": "The chip's signed answer to the challenge the session issued (`aa_challenge`), as base64 of the plain r||s signature. DG15 must be among the\ndata groups sent.",
+        "properties": {
+          "hash_name": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SHA-256",
+                  "SHA-384",
+                  "SHA-512"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash Name"
+          },
+          "response_base64": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Response Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "response_base64"
+        ],
+        "title": "ActiveAuthIn",
+        "type": "object"
+      },
       "AdapterIn": {
         "additionalProperties": false,
         "properties": {
@@ -150,6 +183,37 @@
         "title": "BulkStartIn",
         "type": "object"
       },
+      "ChipIn": {
+        "additionalProperties": false,
+        "description": "What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. Only group 1 (the MRZ) is read.",
+        "properties": {
+          "data_groups": {
+            "maxProperties": 16,
+            "minProperties": 1,
+            "patternProperties": {
+              "^([1-9]|1[0-6])$": {
+                "maxLength": 349541,
+                "minLength": 4,
+                "type": "string"
+              }
+            },
+            "title": "Data Groups",
+            "type": "object"
+          },
+          "sod_base64": {
+            "maxLength": 87397,
+            "minLength": 8,
+            "title": "Sod Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sod_base64",
+          "data_groups"
+        ],
+        "title": "ChipIn",
+        "type": "object"
+      },
       "EntitlementIn": {
         "additionalProperties": false,
         "properties": {
@@ -230,6 +294,30 @@
         "title": "EntitlementIn",
         "type": "object"
       },
+      "FaceIn": {
+        "additionalProperties": false,
+        "description": "A live face image and a liveness capture, each base64. Used only when the deployment has an accepted engine and the chip photo came from a data\ngroup the signed object covered; never kept.",
+        "properties": {
+          "liveness_base64": {
+            "maxLength": 11184826,
+            "minLength": 8,
+            "title": "Liveness Base64",
+            "type": "string"
+          },
+          "probe_base64": {
+            "maxLength": 2796218,
+            "minLength": 8,
+            "title": "Probe Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "probe_base64",
+          "liveness_base64"
+        ],
+        "title": "FaceIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -241,6 +329,86 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "OwnershipDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "CONFIRMED",
+              "NOT_CONFIRMED",
+              "ESCALATED"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "entity_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "decision",
+          "reason",
+          "evidence_ref"
+        ],
+        "title": "OwnershipDecisionIn",
+        "type": "object"
+      },
+      "OwnershipGraphIn": {
+        "additionalProperties": false,
+        "properties": {
+          "entities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Entities",
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 2000,
+            "title": "Links",
+            "type": "array"
+          },
+          "target": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+            "title": "Target",
+            "type": "string"
+          },
+          "threshold": {
+            "default": "25",
+            "maxLength": 10,
+            "title": "Threshold",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "entities"
+        ],
+        "title": "OwnershipGraphIn",
         "type": "object"
       },
       "PrivV2ReceiptIn": {
@@ -476,6 +644,211 @@
         "title": "RouteIn",
         "type": "object"
       },
+      "SelfRunChipIn": {
+        "additionalProperties": false,
+        "description": "What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64.",
+        "properties": {
+          "active_authentication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveAuthIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_groups": {
+            "maxProperties": 16,
+            "minProperties": 1,
+            "patternProperties": {
+              "^([1-9]|1[0-6])$": {
+                "maxLength": 349541,
+                "minLength": 4,
+                "type": "string"
+              }
+            },
+            "title": "Data Groups",
+            "type": "object"
+          },
+          "face": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FaceIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sod_base64": {
+            "maxLength": 87397,
+            "minLength": 8,
+            "title": "Sod Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sod_base64",
+          "data_groups"
+        ],
+        "title": "SelfRunChipIn",
+        "type": "object"
+      },
+      "SofCaseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "type": "string"
+          },
+          "subject_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Subject Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_principal_id",
+          "country"
+        ],
+        "title": "SofCaseIn",
+        "type": "object"
+      },
+      "SofDecideIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "CLEAR",
+              "NOT_CLEAR",
+              "ASK_FOR_MORE"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "reason_codes"
+        ],
+        "title": "SofDecideIn",
+        "type": "object"
+      },
+      "SofEvidenceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "question_id": {
+            "pattern": "^[A-Z][A-Z0-9-]{1,31}$",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "type": {
+            "pattern": "^[A-Z_]{3,48}$",
+            "title": "Type",
+            "type": "string"
+          },
+          "upload_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "type",
+          "upload_id"
+        ],
+        "title": "SofEvidenceRef",
+        "type": "object"
+      },
+      "SofSubmitIn": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "additionalProperties": true,
+            "maxProperties": 60,
+            "title": "Answers",
+            "type": "object"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SofEvidenceRef"
+            },
+            "maxItems": 120,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "SofSubmitIn",
+        "type": "object"
+      },
+      "TravelRuleIn": {
+        "additionalProperties": false,
+        "properties": {
+          "ivms101": {
+            "additionalProperties": true,
+            "title": "Ivms101",
+            "type": "object"
+          },
+          "jurisdiction": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jurisdiction",
+          "ivms101"
+        ],
+        "title": "TravelRuleIn",
+        "type": "object"
+      },
+      "TravelRuleRecordIn": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "OUTGOING",
+              "INCOMING"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "ivms101": {
+            "additionalProperties": true,
+            "title": "Ivms101",
+            "type": "object"
+          },
+          "jurisdiction": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Jurisdiction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "jurisdiction",
+          "ivms101"
+        ],
+        "title": "TravelRuleRecordIn",
+        "type": "object"
+      },
       "V2AgeIn": {
         "additionalProperties": false,
         "properties": {
@@ -490,6 +863,16 @@
               }
             ],
             "title": "Birth Date"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChipIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "estimate": {
             "anyOf": [
@@ -550,6 +933,73 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkflowCheckReportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "pattern": "^[A-Z_]{3,40}$",
+            "title": "Check",
+            "type": "string"
+          },
+          "outcome": {
+            "pattern": "^[A-Z_]{3,40}$",
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check",
+          "outcome"
+        ],
+        "title": "WorkflowCheckReportIn",
+        "type": "object"
+      },
+      "WorkflowDefinitionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "additionalProperties": true,
+            "title": "Definition",
+            "type": "object"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "WorkflowDefinitionIn",
+        "type": "object"
+      },
+      "WorkflowRunIn": {
+        "additionalProperties": false,
+        "properties": {
+          "subject_principal_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Subject Principal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_principal_id"
+        ],
+        "title": "WorkflowRunIn",
+        "type": "object"
+      },
+      "WorkflowSimulateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "title": "Results",
+            "type": "object"
+          }
+        },
+        "title": "WorkflowSimulateIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__v2_age__EstimateIn": {
@@ -825,6 +1275,212 @@
         "summary": "List Alternatives",
         "tags": [
           "verification-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs": {
+      "get": {
+        "operationId": "list_graphs_v2_ownership_graphs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Graphs V2 Ownership Graphs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Graphs",
+        "tags": [
+          "organization-v2"
+        ]
+      },
+      "post": {
+        "operationId": "record_v2_ownership_graphs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipGraphIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record V2 Ownership Graphs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs/{graph_id}": {
+      "get": {
+        "operationId": "get_graph_v2_ownership_graphs__graph_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "graph_id",
+            "required": true,
+            "schema": {
+              "title": "Graph Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Graph V2 Ownership Graphs  Graph Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Graph",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs/{graph_id}/confirmations": {
+      "post": {
+        "description": "A person decides on one candidate. The platform never does: a decision needs a reason and an evidence reference, and the person who recorded the graph cannot make it.",
+        "operationId": "decide_v2_ownership_graphs__graph_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "graph_id",
+            "required": true,
+            "schema": {
+              "title": "Graph Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide V2 Ownership Graphs  Graph Id  Confirmations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs:analyze": {
+      "post": {
+        "operationId": "analyze_v2_ownership_graphs_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipGraphIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Analyze V2 Ownership Graphs Analyze Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze",
+        "tags": [
+          "organization-v2"
         ]
       }
     },
@@ -1213,6 +1869,1229 @@
           }
         },
         "summary": "Suspend Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications": {
+      "post": {
+        "operationId": "start_v2_self_run_verifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__StartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start V2 Self Run Verifications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications/{verification_id}/chip": {
+      "post": {
+        "operationId": "submit_chip_v2_self_run_verifications__verification_id__chip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfRunChipIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Chip V2 Self Run Verifications  Verification Id  Chip Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Chip",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/cases": {
+      "get": {
+        "operationId": "case_queue_v2_source_of_funds_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Case Queue V2 Source Of Funds Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Case Queue",
+        "tags": [
+          "verification-v2"
+        ]
+      },
+      "post": {
+        "operationId": "start_case_v2_source_of_funds_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SofCaseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Case V2 Source Of Funds Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Case",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/cases/{case_id}": {
+      "get": {
+        "operationId": "read_case_v2_source_of_funds_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Case V2 Source Of Funds Cases  Case Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Case",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/cases/{case_id}:appeal": {
+      "post": {
+        "operationId": "appeal_case_v2_source_of_funds_cases__case_id__appeal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appeal Case V2 Source Of Funds Cases  Case Id  Appeal Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal Case",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/cases/{case_id}:decide": {
+      "post": {
+        "operationId": "decide_case_v2_source_of_funds_cases__case_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SofDecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Case V2 Source Of Funds Cases  Case Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Case",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/cases/{case_id}:submit": {
+      "post": {
+        "operationId": "submit_case_v2_source_of_funds_cases__case_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SofSubmitIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Case V2 Source Of Funds Cases  Case Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Case",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/source-of-funds/questionnaire": {
+      "get": {
+        "operationId": "read_questionnaire_v2_source_of_funds_questionnaire_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "country",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z]{2}$",
+              "title": "Country",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Questionnaire V2 Source Of Funds Questionnaire Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Questionnaire",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/travel-rule/messages": {
+      "get": {
+        "operationId": "list_messages_v2_travel_rule_messages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Messages V2 Travel Rule Messages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "verification-v2"
+        ]
+      },
+      "post": {
+        "description": "Record a message: what was found about it, never the message. Nothing is sent, and nothing is decided about the transfer.",
+        "operationId": "record_message_v2_travel_rule_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TravelRuleRecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Message V2 Travel Rule Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Message",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/travel-rule/messages/{message_id}": {
+      "get": {
+        "operationId": "get_message_v2_travel_rule_messages__message_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Message V2 Travel Rule Messages  Message Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Message",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/travel-rule/validate": {
+      "post": {
+        "operationId": "validate_v2_travel_rule_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TravelRuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate V2 Travel Rule Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflow-runs": {
+      "get": {
+        "operationId": "list_runs_v2_workflow_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 30,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Runs V2 Workflow Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflow-runs/{run_id}": {
+      "get": {
+        "operationId": "read_run_v2_workflow_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Run V2 Workflow Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Run",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflow-runs/{run_id}:complete-review": {
+      "post": {
+        "operationId": "complete_review_v2_workflow_runs__run_id__complete_review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Complete Review V2 Workflow Runs  Run Id  Complete Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Review",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflow-runs/{run_id}:report-check": {
+      "post": {
+        "operationId": "report_check_v2_workflow_runs__run_id__report_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCheckReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Check V2 Workflow Runs  Run Id  Report Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Check",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows": {
+      "get": {
+        "operationId": "list_workflows_v2_workflows_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Workflows V2 Workflows Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workflows",
+        "tags": [
+          "verification-v2"
+        ]
+      },
+      "post": {
+        "operationId": "create_draft_v2_workflows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowDefinitionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Draft V2 Workflows Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Draft",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows/{workflow_id}/versions/{version}": {
+      "get": {
+        "operationId": "read_version_v2_workflows__workflow_id__versions__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Version V2 Workflows  Workflow Id  Versions  Version  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Version",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows/{workflow_id}/versions/{version}/runs": {
+      "post": {
+        "operationId": "start_run_v2_workflows__workflow_id__versions__version__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowRunIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Run V2 Workflows  Workflow Id  Versions  Version  Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows/{workflow_id}/versions/{version}:approve": {
+      "post": {
+        "operationId": "approve_v2_workflows__workflow_id__versions__version__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V2 Workflows  Workflow Id  Versions  Version  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows/{workflow_id}/versions/{version}:retire": {
+      "post": {
+        "operationId": "retire_v2_workflows__workflow_id__versions__version__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire V2 Workflows  Workflow Id  Versions  Version  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows/{workflow_id}/versions/{version}:simulate": {
+      "post": {
+        "operationId": "simulate_v2_workflows__workflow_id__versions__version__simulate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowSimulateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Simulate V2 Workflows  Workflow Id  Versions  Version  Simulate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/workflows:check": {
+      "post": {
+        "operationId": "check_definition_v2_workflows_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowDefinitionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Definition V2 Workflows Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Definition",
         "tags": [
           "verification-v2"
         ]

@@ -951,3 +951,42 @@ def test_an_untrusted_clock_or_unreadable_state_is_incomplete_never_healthy(
         and out["summary"]["proposals_created"] == 0
     )
     assert out["state"] != "COMPLETED"
+
+
+def test_an_emergency_stop_of_agent_governance_stops_the_readiness_agent_too(
+    rt_url: str, owner_url: str
+) -> None:
+    """The company-wide and per-agent stop of ZID-AG-WF-002 binds every agent, this one included: a stopped agent reads nothing."""
+    from zid_platform.modules.machine.application import governance
+
+    w = World(rt_url, owner_url).start()
+    adm = w.bearer(w.admin)
+    with TestClient(w.on(), base_url="https://id.zoiko.test") as http:
+        release(http, w, w.daara)
+        ok = http.post(
+            f"{BASE}/agents/{w.daara}/runs",
+            headers={**adm, "Idempotency-Key": "freeze-ok-01"},
+            json={},
+        )
+        assert ok.status_code == 202 and ok.json()["state"] == "NEEDS_REVIEW", ok.text
+        assert count(w, "access_review_proposal") > 0
+
+        # a company-wide stop, with no approval asked for (it is the kill switch)
+        w.db(
+            lambda c: governance.pause(
+                c, w.tenant, w.admin, scope="TENANT", agent_id=None, reason="suspected misuse"
+            )
+        )
+        before = count(w, "access_review_proposal")
+        stopped = http.post(
+            f"{BASE}/agents/{w.daara}/runs",
+            headers={**adm, "Idempotency-Key": "freeze-no-01"},
+            json={},
+        )
+        assert stopped.status_code == 202, stopped.text
+        out = stopped.json()
+        assert out["state"] == "DENIED" and "EMERGENCY_FROZEN" in out["denial_codes"], out
+        assert (
+            count(w, "access_review_proposal") == before
+        )  # nothing was read and nothing was proposed
+        assert out["summary"].get("records_read", 0) == 0

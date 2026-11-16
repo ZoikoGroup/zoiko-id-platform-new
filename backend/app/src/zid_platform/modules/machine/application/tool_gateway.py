@@ -24,8 +24,10 @@ from zid_context import uuid7
 from zid_platform.modules.authority.ports import evaluate_approval
 from zid_platform.modules.decision.ports import AccessQuery
 from zid_platform.modules.evidence.ports import EvidenceClass
+from zid_platform.modules.machine.application import governance
 from zid_platform.modules.machine.application.agents import _record, sponsor_is_active
 from zid_platform.modules.machine.domain.agents import AgentProfile, MachineError, Tool
+from zid_platform.modules.machine.domain.api_agents import api_tool_blockers
 from zid_platform.modules.machine.domain.tool_gateway import (
     APPROVAL_REQUIRED,
     ARGS_DIGEST,
@@ -39,7 +41,7 @@ from zid_platform.modules.machine.domain.tool_gateway import (
     grant_problems,
     mandate_blockers,
 )
-from zid_platform.modules.machine.infrastructure import grant_store, machine_store
+from zid_platform.modules.machine.infrastructure import agent_store, grant_store, machine_store
 
 Decide = Callable[[AccessQuery], Awaitable[dict[str, Any]]]
 Sign = Callable[[Mapping[str, Any], str], str]
@@ -170,6 +172,10 @@ async def authorize_tool_call(
     problems = chain_blockers(
         chain, sponsors_active=sponsors, tool_id=call.tool_id, registry=registry, now=now
     )
+    if tool is not None and await agent_store.api_bound_agents(conn, list(ids)):
+        problems.extend(
+            api_tool_blockers(tool.side_effect.value, tool.default_risk_class)
+        )  # CR-093: the code behind an API client is unproven
     if tool is not None and not action_catalogued(tool.canonical_action):
         problems.append(
             "ACTION_UNKNOWN"
@@ -188,6 +194,21 @@ async def authorize_tool_call(
             tool.canonical_action, f"{call.resource_type}:{call.resource_id}", call.arguments_digest
         )
         problems.extend(approval_blockers(tool, await _approval_state(conn, call, context, now)))
+    if tool is not None and not problems:
+        # ZID-AG-WF-002: the governance gates (freeze, lease, region, baseline, approval hash, quotas). In shadow they record what
+        # enforce would refuse; an emergency freeze refuses in every mode.
+        problems.extend(
+            await governance.govern_tool_call(
+                conn,
+                tenant_id,
+                agent_id=chain[0].agent_principal_id,
+                tool=tool,
+                resource_type=call.resource_type,
+                resource_id=call.resource_id,
+                purpose=call.purpose,
+                now=now,
+            )
+        )
     if problems:
         codes = tuple(problems)
         await _audit(
@@ -335,6 +356,11 @@ async def redeem_grant(
         now=now,
     )
     ids = [a.agent_principal_id for a in chain]
+    frozen = await governance.frozen_codes(
+        conn, ids
+    )  # a freeze issued after the grant was signed still stops it
+    if frozen:
+        current = [*frozen, *current]
     call = ToolCall(
         agent_id=ids[0],
         tool_id=str(claims["tool_id"]),
