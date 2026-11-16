@@ -111,6 +111,7 @@ def self_run_result(
     face_reference: str | None = None,
     liveness: Liveness | None = None,
     extra_fraud: Sequence[str] = (),
+    extra_codes: Sequence[str] = (),
 ) -> SelfRunOutcome:
     fraud = [_code("SELF_RUN_RISK", s) for s in extra_fraud if isinstance(s, str) and s]
     audit: dict[str, Any] = {"chip_status": chip.status, "engine": gate.audit() if gate else None}
@@ -127,6 +128,10 @@ def self_run_result(
             gate.engine_id if gate else "", gate.engine_version if gate else "", gate.evaluation_id if gate else "",
             audit.get("face_score"), audit.get("liveness_score"),
         )  # fmt: skip
+        codes = [
+            *codes,
+            *(c for c in extra_codes if isinstance(c, str) and c),
+        ]  # facts other checks found (a clone check), added to the reasons
         audit["codes"] = list(codes)
         return SelfRunOutcome(
             ProviderResult(

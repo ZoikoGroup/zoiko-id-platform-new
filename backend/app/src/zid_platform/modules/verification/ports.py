@@ -18,7 +18,13 @@ from zid_platform.modules.verification.application.entitlements import Entitleme
 from zid_platform.modules.verification.application.entitlements import (
     change_status as change_entitlement_status,
 )
+from zid_platform.modules.verification.application.identity_signal_feed import (
+    feed_pass as identity_feed_pass,
+)
 from zid_platform.modules.verification.application.policy_review import reevaluate_pending
+from zid_platform.modules.verification.application.reverification import (
+    sweep as reverification_sweep,
+)
 from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
@@ -169,6 +175,7 @@ __all__ = [
     "entitlements",
     "fresh_reproof",
     "gate_decision",
+    "identity_feed_pass",
     "market_releases",
     "offerings_catalog",
     "offerings_model",
@@ -195,6 +202,7 @@ __all__ = [
     "require",
     "require_available",
     "resolve",
+    "reverification_sweep",
     "revoke",
     "right_to_rent",
     "route",

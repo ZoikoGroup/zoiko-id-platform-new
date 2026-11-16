@@ -29,16 +29,29 @@ def assess(
     media: bytes | None = None,
     gate: EngineGate | None = None,
     extra_fraud: tuple[str, ...] = (),
+    extra_codes: tuple[str, ...] = (),
     today: date | None = None,
 ) -> SelfRunOutcome:
     """`chip_photo` is the DG2 image taken from the chip whose hash passed. `gate` defaults to the deployment's accepted engine (None while off)."""
     gate = gate if gate is not None else self_run_config.accepted_engine(today)
     if gate is None or engine is None or probe is None or chip_photo is None or media is None:
-        return self_run_result(chip, session_ref=session_ref, gate=gate, extra_fraud=extra_fraud)
+        return self_run_result(
+            chip,
+            session_ref=session_ref,
+            gate=gate,
+            extra_fraud=extra_fraud,
+            extra_codes=extra_codes,
+        )
     if (
         chip.status != "VERIFIED_LIMITED"
     ):  # no point scoring a face against a chip that proved nothing
-        return self_run_result(chip, session_ref=session_ref, gate=gate, extra_fraud=extra_fraud)
+        return self_run_result(
+            chip,
+            session_ref=session_ref,
+            gate=gate,
+            extra_fraud=extra_fraud,
+            extra_codes=extra_codes,
+        )
     try:
         face = engine.match(probe, chip_photo)
         live = engine.liveness(media)
@@ -67,4 +80,5 @@ def assess(
         face_reference=CHIP_PHOTO,
         liveness=live,
         extra_fraud=extra_fraud,
+        extra_codes=extra_codes,
     )

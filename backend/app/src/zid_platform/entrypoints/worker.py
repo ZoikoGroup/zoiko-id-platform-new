@@ -102,6 +102,18 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             on_root_changed=on_root_changed,
         )
 
+    async def identity_signal_feed(conn: AsyncConnection, now: datetime) -> object:
+        """Identity signals: turn new device and contact observations into review items (DTV-20, DTV-21, DTV-22)."""
+        from zid_platform.modules.verification.ports import identity_feed_pass
+
+        return await identity_feed_pass(conn, now)
+
+    async def verification_reverification(conn: AsyncConnection, now: datetime) -> object:
+        """Verification: expire what has lapsed, mark stale what rests on a distrusted provider, remind before the rest lapses (DTV-29)."""
+        from zid_platform.modules.verification.ports import reverification_sweep
+
+        return await reverification_sweep(conn, now)
+
     async def domains(conn: AsyncConnection, now: datetime) -> object:
         from zid_platform.modules.tenant.application.domains import default_checks, reverify_due
 
@@ -440,6 +452,8 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
         ("verification_policy_review", verification_policy_review),
+        ("verification_reverification", verification_reverification),
+        ("identity_signal_feed", identity_signal_feed),
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("claim_autoverify", claim_autoverify),

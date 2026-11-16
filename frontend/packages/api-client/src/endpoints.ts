@@ -780,6 +780,17 @@ export function createCellApi(t: Transport) {
       approve: (id: string, version: string) => post<M.WfVersion>(`/v2/workflows/${seg(id)}/versions/${seg(version)}:approve`),
       retire: (id: string, version: string) => post<M.WfVersion>(`/v2/workflows/${seg(id)}/versions/${seg(version)}:retire`),
       runs: (status?: string) => get<{ items: M.WfRunSummary[]; notice: string }>("/v2/workflow-runs", { status }),
+      run: (id: string) => get<M.WfRun>(`/v2/workflow-runs/${seg(id)}`),
+      reportCheck: (id: string, check: string, outcome: string) => post<M.WfRun>(`/v2/workflow-runs/${seg(id)}:report-check`, { check, outcome }),
+      completeReview: (id: string) => post<M.WfRun>(`/v2/workflow-runs/${seg(id)}:complete-review`),
+    },
+
+    /** Ownership chains (DTV-24, CR-102): candidates and gaps for a person to confirm; never a named owner. */
+    ownership: {
+      list: () => get<{ items: M.OwnGraphSummary[] }>("/v2/ownership-graphs"),
+      graph: (id: string) => get<M.OwnGraph>(`/v2/ownership-graphs/${seg(id)}`),
+      analyze: (body: M.OwnGraphIn) => post<M.OwnFindings>("/v2/ownership-graphs:analyze", body),
+      record: (body: M.OwnGraphIn) => post<M.OwnGraph>("/v2/ownership-graphs", body),
     },
 
     /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */

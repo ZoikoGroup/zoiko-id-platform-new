@@ -1074,6 +1074,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  org.ownership_graph:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-24 (one immutable version of an ownership graph: opaque entity ids and recorded links; no names); CR-102"
+  verify.identity_observation:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-21/22 (a keyed digest of a device seen with a person, for the link rules; removed after 90 days); CR-102"
   verify.travel_rule_message:
     role: cell
     module: verification

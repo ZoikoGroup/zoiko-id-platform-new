@@ -402,3 +402,28 @@ Tests: `test_data_integrity.py` (65), `test_pdf_doc_timestamps.py` (25), `test_p
 | DTV-31 compliance console | Built (CR-101), company plane | `/admin/compliance` lists the company's own source of funds cases and workflow runs waiting for a person, each under its own permission; no decision control; the reviewer signal queue stays on the operator side | Whether reviewer queues ever join it |
 | Identity signals into the queue | Built (CR-101) | Link groups and shared devices open one review item each, counts only; `screening_0005` allows the source | Which events feed observations |
 | Travel Rule message record | Built (CR-101), line still DESIGN | `verification_0017`, append-only, findings and hashes and company identifiers only, three routes, two actions | Retention of message contents (Legal and the partner) |
+
+
+## Status update, twenty-fourth pass (2026-11-16, identity verification with no Veriff and no Sumsub)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Self-run session (CR-102) | Built, OFF by default | `/v2/self-run/verifications` and `.../{id}/chip`: a session no provider handles, judged from the chip by the profile; a chip that cannot be judged keeps waiting; a chip alone never binds the holder | Switching it on (`ZID_SELF_RUN_ENABLED`), the country master lists, legal acceptance |
+| Evaluation harness (CR-102) | Built | Wilson upper bounds, per-cohort rates and disparity flag, a draft record for the engine gate | The trials, the independent lab, the DPIA, the licence check |
+| Engine adapters (CR-102) | Built, never on | DeepFace face match, Silent-Face liveness wrapper, composed engine; fail closed | An evaluated engine; the face and liveness media path through the API |
+| Active Authentication (CR-102) | Verifier built, not wired | ECDSA clone check against DG15 | Challenge issue per session, RSA AA, Chip Authentication, PACE, the phone app |
+| No-chip path | Not built, on purpose | A reviewer approving from text alone could verify a person with no verified claim | A product and legal decision |
+
+
+## Status update, twenty-fifth pass (2026-11-16, the rest of the identity verification code list)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Active Authentication wiring (CR-102) | Built (ECDSA) | The session issues a one-use challenge, replaced after every attempt that leaves it waiting; the chip route verifies the answer; a copy is a fraud signal | RSA AA, Chip Authentication, PACE, the phone app that carries the challenge to the chip |
+| Face and liveness media path (CR-102) | Built, never on | The chip route takes a live image and a liveness capture and uses them only with an accepted engine and a DG2 photo the signed object covered | An evaluated engine and its record |
+| Re-verification sweep (CR-102, DTV-29) | Built | Expiry, stale on a distrusted provider, a reminder 30 days before a lapse; worker step `verification_reverification` and two catalogued events | Issuer-side credential expiry triggers |
+| Identity feed hook (CR-102) | Built (devices only) | `verification_0018` observations, worker step `identity_signal_feed`, WEAK links open nothing | Phone and email observations; the retention number |
+| Ownership chains screen and store (CR-102, DTV-24) | Built | `organization_0008`, `/v2/ownership-graphs`, `/admin/ownership` | The threshold per market; who confirms a candidate |
+| Workflow run screens (CR-102, DTV-30) | Built | `/admin/workflows/runs` and the run page | |
+| No-chip path | Not built, on purpose | A reviewer approving from text alone could verify a person with no verified claim | A product and legal decision |
+| Phone app and capture flow | Not buildable here | A native app that reads the chip and captures a face | A mobile team |

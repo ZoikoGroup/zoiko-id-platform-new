@@ -68,6 +68,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/ownership-graphs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Graphs */
+        get: operations["list_graphs_v2_ownership_graphs_get"];
+        put?: never;
+        /** Record */
+        post: operations["record_v2_ownership_graphs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/ownership-graphs/{graph_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Graph */
+        get: operations["get_graph_v2_ownership_graphs__graph_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/ownership-graphs:analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Analyze */
+        post: operations["analyze_v2_ownership_graphs_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/providers/entitlements": {
         parameters: {
             query?: never;
@@ -184,6 +236,40 @@ export interface paths {
         put?: never;
         /** Suspend Entitlement */
         post: operations["suspend_entitlement_v2_providers__provider_id__entitlements__service__suspend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/self-run/verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_v2_self_run_verifications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/self-run/verifications/{verification_id}/chip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Chip */
+        post: operations["submit_chip_v2_self_run_verifications__verification_id__chip_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -771,6 +857,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActiveAuthIn
+         * @description The chip's signed answer to the challenge the session issued (`aa_challenge`), as base64 of the plain r||s signature. DG15 must be among the
+         *     data groups sent.
+         */
+        ActiveAuthIn: {
+            /** Hash Name */
+            hash_name?: ("SHA-256" | "SHA-384" | "SHA-512") | null;
+            /** Response Base64 */
+            response_base64: string;
+        };
         /** AdapterIn */
         AdapterIn: {
             /** Adapter Id */
@@ -855,10 +952,39 @@ export interface components {
             /** Valid Until */
             valid_until?: string | null;
         };
+        /**
+         * FaceIn
+         * @description A live face image and a liveness capture, each base64. Used only when the deployment has an accepted engine and the chip photo came from a data
+         *     group the signed object covered; never kept.
+         */
+        FaceIn: {
+            /** Liveness Base64 */
+            liveness_base64: string;
+            /** Probe Base64 */
+            probe_base64: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** OwnershipGraphIn */
+        OwnershipGraphIn: {
+            /** Entities */
+            entities: {
+                [key: string]: unknown;
+            }[];
+            /** Links */
+            links?: {
+                [key: string]: unknown;
+            }[];
+            /** Target */
+            target: string;
+            /**
+             * Threshold
+             * @default 25
+             */
+            threshold: string;
         };
         /** PrivV2ReceiptIn */
         PrivV2ReceiptIn: {
@@ -940,6 +1066,18 @@ export interface components {
             required_assurance: number;
             /** Service Code */
             service_code: string;
+        };
+        /**
+         * SelfRunChipIn
+         * @description What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64.
+         */
+        SelfRunChipIn: {
+            active_authentication?: components["schemas"]["ActiveAuthIn"] | null;
+            /** Data Groups */
+            data_groups: Record<string, never>;
+            face?: components["schemas"]["FaceIn"] | null;
+            /** Sod Base64 */
+            sod_base64: string;
         };
         /** SofCaseIn */
         SofCaseIn: {
@@ -1217,6 +1355,131 @@ export interface operations {
             };
         };
     };
+    list_graphs_v2_ownership_graphs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    record_v2_ownership_graphs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnershipGraphIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_graph_v2_ownership_graphs__graph_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_v2_ownership_graphs_analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnershipGraphIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_entitlements_v2_providers_entitlements_get: {
         parameters: {
             query?: {
@@ -1444,6 +1707,78 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_v2_self_run_verifications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__verification__StartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_chip_v2_self_run_verifications__verification_id__chip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfRunChipIn"];
             };
         };
         responses: {

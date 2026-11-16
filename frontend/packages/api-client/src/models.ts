@@ -3901,3 +3901,35 @@ export type WfRunSummary = {
   created_at: string;
   updated_at: string;
 };
+
+export type WfRunEvent = { step: string; kind: string; detail: string };
+export type WfRun = WfRunSummary & {
+  content_hash: string;
+  step: string;
+  results: Record<string, string>;
+  events: WfRunEvent[];
+  notifications: unknown[];
+  erased: boolean;
+  notice: string;
+};
+
+/* ------------------------------------------------------------- ownership chains (DTV-24, CR-102) */
+
+export type OwnEntity = { id: string; kind: "PERSON" | "COMPANY" | "TRUST" | "LISTED_COMPANY" | "GOVERNMENT" };
+export type OwnLink = { owner: string; owned: string; percent?: string; control?: boolean; evidenced?: boolean };
+export type OwnGraphIn = { target: string; entities: OwnEntity[]; links: OwnLink[]; threshold?: string };
+export type OwnCandidate = { entity_id: string; effective_percent: string; reasons: string[]; paths: number; status: "NEEDS_CONFIRMATION" | "NEEDS_EVIDENCE" };
+export type OwnGap = { code: string; entity_id: string; effective_percent: string };
+export type OwnFindings = {
+  target: string;
+  threshold: string;
+  candidates: OwnCandidate[];
+  gaps: OwnGap[];
+  recognised_ends: string[];
+  complete: boolean;
+  recommendation: string;
+  fallback: string | null;
+  notes: string[];
+};
+export type OwnGraphSummary = { graph_id: string; target: string; version: number; content_hash: string; author: string; created_at: string };
+export type OwnGraph = OwnGraphSummary & { threshold: string; entities: OwnEntity[]; links: OwnLink[]; findings: OwnFindings | null; findings_error?: string };

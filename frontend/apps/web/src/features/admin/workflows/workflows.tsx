@@ -37,7 +37,14 @@ export function WorkflowListPage() {
         title="Verification workflows"
         description="Which checks run and what happens on each result. A workflow never declines anyone: an approval needs every required check Verified, and every other result ends with a person."
         breadcrumbs={[{ label: "Workflows" }]}
-        actions={<ButtonLink href="/admin/workflows/new">New workflow</ButtonLink>}
+        actions={
+          <div className="flex gap-2">
+            <ButtonLink href="/admin/workflows/runs" variant="secondary">
+              Runs
+            </ButtonLink>
+            <ButtonLink href="/admin/workflows/new">New workflow</ButtonLink>
+          </div>
+        }
       />
       {list.isPending && list.fetchStatus !== "idle" ? <LoadingRows rows={4} /> : null}
       {list.isError ? <Failed error={list.error} /> : null}

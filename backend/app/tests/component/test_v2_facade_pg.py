@@ -49,6 +49,8 @@ ACTIONS = [
     "verification.travel_rule.validate",
     "verification.travel_rule.record",
     "verification.travel_rule.read",
+    "org.ownership.manage",
+    "org.ownership.read",
 ]
 RESOURCES = [
     "credential-claim:*",
@@ -61,6 +63,7 @@ RESOURCES = [
     "evidence-upload:*",
     "age-check:*",
     "travel-rule:*",
+    "ownership:*",
 ]
 BODY = {
     "credential_type": "professional_license",

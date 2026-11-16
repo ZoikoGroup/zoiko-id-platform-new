@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "ActiveAuthIn": {
+        "additionalProperties": false,
+        "description": "The chip's signed answer to the challenge the session issued (`aa_challenge`), as base64 of the plain r||s signature. DG15 must be among the\ndata groups sent.",
+        "properties": {
+          "hash_name": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SHA-256",
+                  "SHA-384",
+                  "SHA-512"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash Name"
+          },
+          "response_base64": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Response Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "response_base64"
+        ],
+        "title": "ActiveAuthIn",
+        "type": "object"
+      },
       "AdapterIn": {
         "additionalProperties": false,
         "properties": {
@@ -261,6 +294,30 @@
         "title": "EntitlementIn",
         "type": "object"
       },
+      "FaceIn": {
+        "additionalProperties": false,
+        "description": "A live face image and a liveness capture, each base64. Used only when the deployment has an accepted engine and the chip photo came from a data\ngroup the signed object covered; never kept.",
+        "properties": {
+          "liveness_base64": {
+            "maxLength": 11184826,
+            "minLength": 8,
+            "title": "Liveness Base64",
+            "type": "string"
+          },
+          "probe_base64": {
+            "maxLength": 2796218,
+            "minLength": 8,
+            "title": "Probe Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "probe_base64",
+          "liveness_base64"
+        ],
+        "title": "FaceIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -272,6 +329,47 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "OwnershipGraphIn": {
+        "additionalProperties": false,
+        "properties": {
+          "entities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Entities",
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 2000,
+            "title": "Links",
+            "type": "array"
+          },
+          "target": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+            "title": "Target",
+            "type": "string"
+          },
+          "threshold": {
+            "default": "25",
+            "maxLength": 10,
+            "title": "Threshold",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "entities"
+        ],
+        "title": "OwnershipGraphIn",
         "type": "object"
       },
       "PrivV2ReceiptIn": {
@@ -505,6 +603,57 @@
           "processing_region"
         ],
         "title": "RouteIn",
+        "type": "object"
+      },
+      "SelfRunChipIn": {
+        "additionalProperties": false,
+        "description": "What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64.",
+        "properties": {
+          "active_authentication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveAuthIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_groups": {
+            "maxProperties": 16,
+            "minProperties": 1,
+            "patternProperties": {
+              "^([1-9]|1[0-6])$": {
+                "maxLength": 349541,
+                "minLength": 4,
+                "type": "string"
+              }
+            },
+            "title": "Data Groups",
+            "type": "object"
+          },
+          "face": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FaceIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sod_base64": {
+            "maxLength": 87397,
+            "minLength": 8,
+            "title": "Sod Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sod_base64",
+          "data_groups"
+        ],
+        "title": "SelfRunChipIn",
         "type": "object"
       },
       "SofCaseIn": {
@@ -1090,6 +1239,157 @@
         ]
       }
     },
+    "/v2/ownership-graphs": {
+      "get": {
+        "operationId": "list_graphs_v2_ownership_graphs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Graphs V2 Ownership Graphs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Graphs",
+        "tags": [
+          "organization-v2"
+        ]
+      },
+      "post": {
+        "operationId": "record_v2_ownership_graphs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipGraphIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record V2 Ownership Graphs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs/{graph_id}": {
+      "get": {
+        "operationId": "get_graph_v2_ownership_graphs__graph_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "graph_id",
+            "required": true,
+            "schema": {
+              "title": "Graph Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Graph V2 Ownership Graphs  Graph Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Graph",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs:analyze": {
+      "post": {
+        "operationId": "analyze_v2_ownership_graphs_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipGraphIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Analyze V2 Ownership Graphs Analyze Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
     "/v2/providers/entitlements": {
       "get": {
         "operationId": "list_entitlements_v2_providers_entitlements_get",
@@ -1475,6 +1775,104 @@
           }
         },
         "summary": "Suspend Entitlement",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications": {
+      "post": {
+        "operationId": "start_v2_self_run_verifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__StartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start V2 Self Run Verifications Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications/{verification_id}/chip": {
+      "post": {
+        "operationId": "submit_chip_v2_self_run_verifications__verification_id__chip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfRunChipIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Chip V2 Self Run Verifications  Verification Id  Chip Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Chip",
         "tags": [
           "verification-v2"
         ]

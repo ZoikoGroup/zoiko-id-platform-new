@@ -112,6 +112,7 @@ def create_app(
         )
     app.state.agent_builds = settings.agent_builds
     app.state.daara_enabled = settings.daara_enabled
+    app.state.self_run_enabled = settings.self_run_enabled
     app.state.access_readiness_enabled = settings.access_readiness_enabled
     app.state.access_readiness_regions = tuple(settings.access_readiness_regions)
     app.state.access_readiness_ai_explain = settings.access_readiness_ai_explain
@@ -418,6 +419,7 @@ def create_app(
             router as regulatory_suspensions_router,
         )
         from .modules.operator_access.api.regulatory_v2 import router as regulatory_v2_router
+        from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
@@ -448,6 +450,7 @@ def create_app(
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
         from .modules.verification.api.v2_providers import router as v2_providers_router
+        from .modules.verification.api.v2_self_run import router as v2_self_run_router
         from .modules.verification.api.v2_source_of_funds import router as v2_sof_router
         from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
         from .modules.verification.api.v2_workflows import router as v2_workflows_router
@@ -512,6 +515,8 @@ def create_app(
             v2_sof_router,
             v2_travel_rule_router,
             v2_workflows_router,
+            v2_self_run_router,
+            v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,
             privacy_v2_router,
