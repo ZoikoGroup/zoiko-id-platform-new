@@ -57,6 +57,7 @@ const FALLBACK_TEXT: Record<string, string> = {
   MODEL_TIMEOUT: "the model did not answer in time",
   MODEL_UNAVAILABLE: "the model was unavailable",
   UNSUPPORTED_CLAIM: "the model's text did not match the result",
+  BUDGET_POLICY_DENY: "the usage and budget policy did not permit a model request",
 };
 
 /** WF-AG-03 "Export permitted evidence": the server decides what is permitted and records the export with its purpose. */

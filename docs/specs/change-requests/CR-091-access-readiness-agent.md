@@ -72,6 +72,50 @@ against actual Zoiko iD routing"), so this CR records the mapping and what is bu
   `app.state.access_readiness_explainer` is None, so even with both switches on the fixed text is shown until an approved gateway (provider, region,
   budget) is handed in.
 
+### Queue consumer (section 11; section 04 QUEUED -> PREFLIGHT)
+- The worker step `access_readiness` (`entrypoints/worker.py`, after `agent_lifecycle`) calls `runs.drain_queued` on the worker's BYPASSRLS
+  connection. With `ZID_ACCESS_READINESS_ENABLED` off it returns `off` and reads nothing. On, it takes at most 25 queued runs per pass (oldest
+  first, across tenants, `FOR UPDATE SKIP LOCKED` so two workers never take the same run), sets each run's tenant scope and executes it in its
+  own savepoint with a full preflight, so a run queued before a pause, a drift or a revocation is denied when it is drained.
+- A run whose execution breaks unexpectedly is rolled back and then denied with `DEPENDENCY_UNAVAILABLE` in a second savepoint, so it neither
+  stops the other runs nor breaks every later pass. The worker has no model gateway and uses the Q1 usage hook.
+
+### Usage and budget control hook (sections 08 and 12)
+- `application/usage.py`: a hook is asked before a run starts and before each step: each read (`read_mandate_metadata`,
+  `read_agent_identity_status`), the rule evaluation (`evaluate_rules`), each proposal write (`create_access_review_proposal`) and a model
+  request for the explanation (`explain_model_request`). It receives ids and the step name only, no connection.
+- The hook that ships (`no_thresholds`) sets no limit and permits. Anything other than exactly `ALLOW` is a denial with
+  `BUDGET_POLICY_DENY`: an explicit `DENY`, an error, no answer within 2 seconds (`usage_timeout_seconds`) or any other answer. Each denial is
+  a policy decision (`usage_policy.check`, `step:<step>`, DENY) and a `budget_policy_denied` evidence envelope with the step and the cause
+  (DENY, ERROR, TIMEOUT, UNKNOWN); the permit at the start is a decision too (`USAGE_PERMITTED`). There is no fallback: at the start the run
+  is DENIED, at a read or the rules it is FAILED, at a write it is CANCELED with any proposal it had begun rolled back, and a refused model
+  request is never sent (the fixed text, `fallback_reason: BUDGET_POLICY_DENY`).
+- Injectable: `app.state.access_readiness_usage_policy` (None by default, which is the Q1 hook); tests hand in their own.
+- The thresholds (quotas, spend, schedules, approval limits) are Q2 (D-07) and are not built. The commercial usage reservations
+  (`/v1/usage/reservations`) were not reused: they meter billed customer usage per commercial meter, and using them would mean inventing a
+  meter and a limit for the agent.
+
+### Observability (section 11)
+- Metrics through the platform's governed registry (`zid_telemetry.metrics`, the cell's scrape endpoint):
+  `zid_access_readiness_runs_total{state}` (every terminal state, including runs canceled by a pause),
+  `zid_access_readiness_denials_total{reason}` (every DENY policy decision, by reason code) and
+  `zid_access_readiness_alerts_total{kind,result}`. No tenant, agent, run or person label.
+- Log lines of a run read `access readiness run=<run id> trace=<trace id> ...` with codes and counts only; never a token, a document, a metadata
+  string or a personal field (the JSON formatter scrubs the message too).
+- Two mandatory alerts through `notification.ports.raise_alert`, as the run notification is raised (`application/observe.py`):
+  `access_readiness.policy_drift` (HIGH, a task) when a run is stopped by `APPROVAL_DIGEST_MISMATCH` or `POLICY_CHANGED`, at the preflight or
+  before a write, folded per agent (`access_readiness.policy_drift:<agent>`), so every run the same drift stops is one alert with a count; and
+  `access_readiness.evidence_integrity` (CRITICAL, a task) when a run's evidence chain does not verify on the evidence read or the export,
+  folded per run. An alert that cannot be raised never changes the run or the read; it is logged and counted.
+
+### Metadata is data (section 12, "Malicious prompt in metadata")
+- `domain/untrusted.py`: after the read, every metadata string (ids, status, references, actions, tools) is checked against a small,
+  conservative pattern set (ignore-instructions phrases, role markers, persona switches, requests to call a tool, requests to widen access).
+  No detector exists elsewhere in the platform image (the public assistant's patterns are in a separate service), so this is new.
+- A match is a policy decision (`metadata.instruction`, `mandate:<id>#<field>`, DENY, `UNTRUSTED_INSTRUCTION_IGNORED`), an
+  `untrusted_instruction_marker` evidence envelope (field, rule, digest) and a log line with the same; never the string. A suspicious id is
+  referred to by its digest. The rules run on exactly the same facts, so the result does not change.
+
 ## Path mapping (the document's illustration to this repository)
 The repository has no `/v1/tenants/{t}/...` style: the tenant comes from the authenticated principal and is never in a path or a body. The agent
 instance is an existing machine agent (`/v1/machine/agents`), so there is no second registration.
@@ -99,20 +143,27 @@ Events: `agent.run.policy_denied`, `agent.run.completed`, `agent.review.proposal
   changes. Owner to confirm.
 - A handoff is signed with the `set` key ring (JWS, typ `zid-access-review-handoff+jwt`); without a key no handoff is recorded. Owner to confirm which
   key purpose should sign it.
-- Execution is inline after the request is queued; `execute_queued` is the worker's pass and each queued run is preflighted again.
+- Execution is inline after the request is queued; a run left queued is taken by the worker's `access_readiness` step (`drain_queued`), and
+  each queued run is preflighted again.
 - The run's credential is issued at the risk-2 attestation floor the workload-token path uses, so a binding attested only at level 1 passes the
   preflight's "attested" check but gets no credential. Owner decision 2026-11-16: the risk-2 floor stays.
 
 ## Tests
 - `backend/app/tests/unit/test_access_readiness.py`, `backend/app/tests/unit/test_access_readiness_explain.py` (pure: rules, policy, the explanation
-  verifier, injection, no tools, fallbacks; fake gateways only).
+  verifier, injection, no tools, fallbacks; fake gateways only), `backend/app/tests/unit/test_access_readiness_controls.py` (the usage hook
+  fails closed, the injection patterns and their redacted markers, metric labels, log lines), `backend/app/tests/unit/test_worker_steps.py`
+  (the step is wired after the lifecycle sweep and does nothing while off).
 - `backend/app/tests/component/test_access_readiness_pg.py`, `backend/app/tests/component/test_access_readiness_runtime_pg.py` (PostgreSQL with RLS:
-  the credential, the notification, the export, the explanation).
+  the credential, the notification, the export, the explanation), `backend/app/tests/component/test_access_readiness_controls_pg.py` (the
+  worker step: off, bounded, one broken run isolated and denied, a drifted run denied; the usage hook at each step and through `app.state`; the
+  drift and integrity alerts and their folding; an instruction in metadata recorded as a redacted marker with the result unchanged).
 - Web: the readiness feature's vitest files; `frontend/tests/e2e/readiness-a11y.spec.ts` (the automated part of AT-22: axe WCAG 2.2 AA, 320 px,
   landscape, 200 percent zoom, keyboard tabs) needs the running stack and the mail sink, like the other a11y specs.
 
 ## Not built
-- Schedules, quotas, spend and approval thresholds (D-07, Q2). Only manual runs exist; `mode: scheduled` is refused.
+- Schedules, quotas, spend and approval thresholds (D-07, Q2). Only manual runs exist; `mode: scheduled` is refused. The usage and budget hook
+  is in place and fails closed, but sets no threshold.
+- Alerting rules on the new metrics in `deploy/observability` (the counters are exposed; no Prometheus rule was added for them).
 - A manual screen-reader and zoom pass on real devices (the rest of AT-22); the Playwright spec is automated evidence only.
 - A production model gateway for the explanation, a broker-issued bearer token for an external worker and a per-person sponsor notification (the
   gaps above).

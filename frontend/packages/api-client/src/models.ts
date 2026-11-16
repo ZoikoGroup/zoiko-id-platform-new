@@ -3397,11 +3397,11 @@ export type ReadinessRun = {
   /** Present only when the cell and the setup both opted in. Never authoritative: the summary is the result. */
   explanation?: ReadinessExplanation | null;
 };
-/** MODEL: a model's text that verified against the rule result. TEMPLATE: the fixed text (model off, failed, slow or unsupported claim). */
+/** MODEL: a model's text that verified against the rule result. TEMPLATE: the fixed text (model off, failed, slow, unsupported claim, or the request refused by the usage and budget hook). */
 export type ReadinessExplanation = {
   source: "MODEL" | "TEMPLATE";
   text: string;
-  fallback_reason: "MODEL_NOT_CONFIGURED" | "MODEL_TIMEOUT" | "MODEL_UNAVAILABLE" | "UNSUPPORTED_CLAIM" | null;
+  fallback_reason: "MODEL_NOT_CONFIGURED" | "MODEL_TIMEOUT" | "MODEL_UNAVAILABLE" | "UNSUPPORTED_CLAIM" | "BUDGET_POLICY_DENY" | null;
   provider: string | null;
   model: string | null;
   prompt_version: string;
