@@ -2,12 +2,12 @@
   "approved_registries": ["ghcr.io/zoikogroup/"],
   "oidc_issuer": "https://token.actions.githubusercontent.com",
   "approved_signer_identities": [
-    "https://github.com/ZoikoGroup/Zoiko-ID-Platform/.github/workflows/build-image.yml@refs/heads/main"
+    "https://github.com/ZoikoGroup/zoiko-id-platform-new/.github/workflows/build-image.yml@refs/heads/main"
   ],
   "approved_builders": [
-    "https://github.com/ZoikoGroup/Zoiko-ID-Platform/.github/workflows/build-image.yml@refs/heads/main"
+    "https://github.com/ZoikoGroup/zoiko-id-platform-new/.github/workflows/build-image.yml@refs/heads/main"
   ],
-  "approved_sources": ["https://github.com/ZoikoGroup/Zoiko-ID-Platform"],
+  "approved_sources": ["https://github.com/ZoikoGroup/zoiko-id-platform-new"],
   "release_refs": ["refs/heads/main"],
   "min_slsa_build_level": 3,
   "sbom_formats": ["CycloneDX"],

@@ -22,7 +22,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}   # the agent's image; the console can look this host up (ZID_BUILD_REGISTRIES names ghcr.io)
-  PLATFORM_TOOLS_REPO: ZoikoGroup/Zoiko-ID-Platform
+  PLATFORM_TOOLS_REPO: ZoikoGroup/zoiko-id-platform-new
   PLATFORM_TOOLS_REF: REPLACE_WITH_A_FULL_COMMIT_SHA
 
 jobs:

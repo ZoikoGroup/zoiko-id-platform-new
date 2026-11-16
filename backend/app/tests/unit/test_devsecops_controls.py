@@ -149,7 +149,7 @@ def test_pull_request_workflows_hold_no_secret_or_signing_identity_and_release_i
         assert not ({"pull_request", "pull_request_target"} & _triggers(_workflows()[name])), name
     release = _workflows()["release.yml"]
     assert release["jobs"]["build"]["if"].startswith("github.event_name == 'push'")
-    assert "ZoikoGroup/Zoiko-ID-Platform" in release["jobs"]["build"]["if"], (
+    assert "ZoikoGroup/zoiko-id-platform-new" in release["jobs"]["build"]["if"], (
         "forks must not run the signing build"
     )
 

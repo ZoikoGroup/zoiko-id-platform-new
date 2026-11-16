@@ -8,7 +8,7 @@ set -eu
 cd "$(dirname "$0")"
 DIGEST="${1:?usage: deploy.sh sha256:<backend-digest> [sha256:<web-digest>]}"
 WEB_DIGEST="${2:-}"
-REPO="${GITHUB_REPOSITORY:-ZoikoGroup/Zoiko-ID-Platform}"
+REPO="${GITHUB_REPOSITORY:-ZoikoGroup/zoiko-id-platform-new}"
 ISSUER=https://token.actions.githubusercontent.com
 PROFILES="${ZID_PROFILES:-edge events}"
 

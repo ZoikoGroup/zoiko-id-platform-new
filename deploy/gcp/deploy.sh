@@ -7,7 +7,7 @@
 set -eu
 DIGEST="${1:?usage: deploy.sh sha256:<backend-digest> [sha256:<web-digest>]}"
 WEB_DIGEST="${2:-}"
-REPO="${GITHUB_REPOSITORY:-ZoikoGroup/Zoiko-ID-Platform}"
+REPO="${GITHUB_REPOSITORY:-ZoikoGroup/zoiko-id-platform-new}"
 ISSUER=https://token.actions.githubusercontent.com
 
 verify() { # image-ref workflow-file
