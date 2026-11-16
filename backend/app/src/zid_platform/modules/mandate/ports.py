@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_platform.modules.mandate.application.decision_check import MandateCheck, check_for_decision
 from zid_platform.modules.mandate.domain.subagent import CascadeEffect
 from zid_platform.modules.mandate.infrastructure.mandate_store import (
+    MandateMetadata,
     list_mandates,
+    mandate_metadata_page,
     pause_or_revoke_for_grants,
 )
 
@@ -74,8 +76,10 @@ async def metadata_projection(conn: AsyncConnection, *, limit: int) -> list[dict
 __all__ = [
     "CascadeEffect",
     "MandateCheck",
+    "MandateMetadata",
     "advance_writer",
     "check_for_decision",
+    "mandate_metadata_page",
     "metadata_projection",
     "pause_or_revoke_for_grants",
     "quarantine_open_reservations",

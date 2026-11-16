@@ -36,13 +36,15 @@ from zid_evidence import (
 from zid_outbox import emit
 
 from zid_platform.modules.evidence.application import ledger
-from zid_platform.modules.evidence.application.receipts import material_commitment
+from zid_platform.modules.evidence.application.receipts import material_commitment, record_audit
 from zid_platform.modules.evidence.application.runtime import EvidenceRuntime, current_runtime
 from zid_platform.modules.evidence.application.vault import actor_handle, read_object
-from zid_platform.modules.evidence.domain.ledger import LedgerError
+from zid_platform.modules.evidence.domain.export_events import EXPORT_REFUSED
+from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
 from zid_platform.modules.evidence.domain.receipts import (
     CUSTODY_ACTIONS,
     EXPORT_MODES,
+    AuditFacts,
     ReplayResult,
     compare_outcome,
 )
@@ -343,6 +345,39 @@ async def export_package(
         },
     )
     return {"manifest": manifest, "manifest_signature": signature, "bundle": bundle, "keys": keys}
+
+
+async def record_export_refusal(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    principal_id: str,
+    resource: str,
+    mode: str,
+    code: str,
+) -> None:
+    """T38: an export that was refused (no stated purpose) is itself recorded: who asked, for what, in which mode, and why it was
+    refused. Ids and codes only; the purpose text is absent by definition."""
+    from datetime import UTC, datetime
+
+    await record_audit(
+        conn,
+        tenant_id,
+        AuditFacts(
+            event_type=EXPORT_REFUSED,
+            actor_type="HUMAN",
+            action="refused",
+            target_type=resource.split(":", 1)[0],
+            target_ref=resource,
+            outcome="DENIED",
+            evidence_class=EvidenceClass.E3,
+            occurred_at=datetime.now(UTC),
+            actor_principal_id=principal_id or None,
+            reason_code=code,
+            source_service="evidence",
+            details={"export_mode": mode, "reason": code},
+        ),
+    )
 
 
 async def record_custody(

@@ -15,7 +15,7 @@ capabilities:
     name: Identity Service
     owns: "Principal IDs, identifiers, external subject links, lifecycle"
     must_not_own: "Authorization policy or raw verification vendor payloads"
-    modules: [principal, machine]
+    modules: [principal, machine, access_readiness]
     forbidden_schemas: [authz, verify]
 
   organization:

@@ -6,5 +6,6 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   oxc: { jsx: { runtime: "automatic" } },
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
-  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
+  // Same limit as the web app: form tests type character by character, which outlasts 5 s on a slow CI runner.
+  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"], testTimeout: 15_000 },
 });

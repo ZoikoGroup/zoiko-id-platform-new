@@ -130,6 +130,7 @@ TENANT_ADMIN_ACTIONS = (
     "communication.read",
     "configuration.read",
     "credential.read",
+    "access_readiness.read",
     "machine.agent.read",
     "agent.governance.read",
     "agent.policy.read",
@@ -150,4 +151,8 @@ TENANT_ADMIN_ACTIONS = (
     "configuration.manage",
     "notification.alert.manage",
     "webhook.endpoint.manage",
+    # the access readiness agent (CR-091): it proposes reviews and changes no right; approving still needs a second person
+    "access_readiness.manage",
+    "access_readiness.approve",
+    "access_readiness.review",
 )

@@ -829,6 +829,41 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (MACHINE spec §12.1; CR-021)"
+  agent.access_review_setup:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 10; CR-091)"
+  agent.access_review_approval:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 06, 10; CR-091)"
+  agent.access_review_run:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 10 AgentRun; CR-091)"
+  agent.access_review_policy_decision:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 10 PolicyDecision; CR-091)"
+  agent.access_review_evidence:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 10 EvidenceEnvelope; CR-091)"
+  agent.access_review_proposal:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 10 ReviewProposal; CR-091)"
+  agent.access_review_handoff:
+    role: cell
+    module: access_readiness
+    tenant_scoped: true
+    source: "proposed (ZID-AG-WF-001 section 08; CR-091)"
   agent.environment_quarantine:
     role: cell
     module: machine
@@ -1084,6 +1119,11 @@ tables:
     module: credential
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G04 issuer and accreditation history with provenance, append-only (proposed, CR-075)"
+  cred.fairness_hold:
+    role: cell
+    module: credential
+    tenant_scoped: false
+    source: "ZID-RCG-003 section 12 T44 held automated path per name cohort, aggregate counts only (proposed, CR-092)"
   cred.rp_registration:
     role: cell
     module: credential

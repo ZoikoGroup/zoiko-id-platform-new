@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -317,3 +317,37 @@ async def holds_any_action(
         )
     ).first()
     return row is not None
+
+
+@dataclass(frozen=True, slots=True)
+class GrantReviewFacts:
+    """What an access review may know of a grant (CR-091): its state, window, approved scope sets and evidence reference."""
+
+    grant_id: str
+    status: str
+    valid_to: datetime | None
+    actions: frozenset[str]  # "*" when the grant names no limit
+    tools: frozenset[str]
+    evidence_ref: str | None
+
+
+async def grant_review_facts(conn: AsyncConnection, grant_id: str) -> GrantReviewFacts | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT authority_grant_id, status::text AS status, valid_to, actions, tools, evidence_ref "
+                "FROM authz.authority_grant WHERE authority_grant_id = :id"
+            ),
+            {"id": uuid.UUID(grant_id)},
+        )
+    ).first()
+    if row is None:
+        return None
+    return GrantReviewFacts(
+        str(row.authority_grant_id),
+        str(row.status),
+        row.valid_to,
+        frozenset(row.actions) if row.actions is not None else frozenset({"*"}),
+        frozenset(row.tools) if row.tools is not None else frozenset({"*"}),
+        str(row.evidence_ref) if row.evidence_ref else None,
+    )

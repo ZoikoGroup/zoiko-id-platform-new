@@ -805,7 +805,8 @@ def test_contacts_and_unsubscribe_over_http(rt_url: str, owner_url: str) -> None
         )
         assert done.status_code == 200 and done.json() == {"status": "UNSUBSCRIBED"}
         assert asyncio.run(_suppressed(rt_url, h)) == {"UNSUBSCRIBED"}
-        forged = url[:-3] + "AAA"
+        # always differ from the real signature (it ends in "AAA" about once in 65,000 random keys)
+        forged = url[:-3] + ("BBB" if url.endswith("AAA") else "AAA")
         assert http.post(forged).status_code == 400 and http.get(forged).status_code == 400
         other = service.unsubscribe_url("", "ph1.1.someone-else-entirely", "product_updates")
         assert (

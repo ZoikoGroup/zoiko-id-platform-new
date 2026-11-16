@@ -346,9 +346,14 @@ def test_the_meter_register_is_the_records_eight_meters_plus_the_cr070_and_cr088
         assert m.existing_meter is None and m.existing_sku is None, (
             "no billable meter or SKU stands behind them"
         )
-    for key, meter in (("screening.check", "SCREEN_CHECK"), ("screening.monitor_period", "SCREEN_MONITOR_PERIOD")):
+    for key, meter in (
+        ("screening.check", "SCREEN_CHECK"),
+        ("screening.monitor_period", "SCREEN_MONITOR_PERIOD"),
+    ):
         m = reg[key]
-        assert m.existing_meter == meter and m.existing_sku is None, "a usage meter stands behind it, and no SKU or price"
+        assert m.existing_meter == meter and m.existing_sku is None, (
+            "a usage meter stands behind it, and no SKU or price"
+        )
         assert not (m.priced or m.hard_quota or m.bill_on_commit)
     assert not any(
         m.priced or m.hard_quota for m in reg.values()

@@ -615,6 +615,15 @@ async def callback(adapter_ref: str, request: Request) -> Response:
         )
     except ValueError as e:
         code = e.code if isinstance(e, VerificationError) else "PROVIDER_UNTRUSTED"
+        if code in service.REJECTED_CALLBACKS:  # T35: refused, recorded and alerted
+            await service.record_rejected_callback(
+                request_engine(request),
+                tenant_id=tenant,
+                adapter_id=adapter_id,
+                code=code,
+                base_ctx=_ctx(),
+                now=datetime.now(UTC),
+            )
         return JSONResponse({"error": code}, status_code=_STATUS.get(code, 409))
     # Veriff and Sumsub retry anything that is not a plain 200, so their callbacks are answered 200; Zoiko's own protocol keeps 202
     return JSONResponse(

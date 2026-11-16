@@ -516,3 +516,35 @@ def test_the_v2_document_validation_reports_each_check_on_its_own_and_stores_not
             "/v2/documents/validate", headers=mine, json={**body, "content_base64": huge}
         ).status_code in (413, 422)
         assert http.post("/v2/documents/validate", json=body).status_code in (401, 403)
+
+
+def test_t20_a_stale_proof_response_reads_expired_or_recheck_required_never_active(
+    rt_url: str, monkeypatch: Any
+) -> None:
+    from zid_platform.modules.credential.api import claim_checks as v1_api
+
+    with world(rt_url) as (http, mine, _tenant, _admin):
+        made = http.post(
+            "/v2/credentials/verify",
+            headers={**mine, "Idempotency-Key": "stale-key-0001"},
+            json=BODY,
+        )
+        assert made.status_code == 201, made.text
+        ref = made.json()["credential_ref"]
+        check_id = ref.removeprefix("cred_")
+        assert made.json()["dimensions"][0]["outcome"] == "VERIFIED"
+
+        # now: current on both routes
+        assert http.get(f"/v2/credentials/{ref}", headers=mine).json()["proof_status"] == "CURRENT"
+        v1_now = http.get(f"/v1/credentials/assertions/{check_id}", headers=mine).json()
+        assert v1_now["proof_status"] == "CURRENT"
+
+        # a year and more later the same stored answer is read: no cached VERIFIED survives
+        later = datetime.now(UTC) + timedelta(days=400)
+        monkeypatch.setattr(v1_api, "_now", lambda: later)
+        v2 = http.get(f"/v2/credentials/{ref}", headers=mine).json()
+        assert v2["proof_status"] in {"EXPIRED", "RECHECK_REQUIRED"}
+        assert v2["dimensions"][0]["outcome"] not in {"VERIFIED", "VERIFIED_LIMITED"}
+        assert v2["proof_status"] in v2["dimensions"][0]["limitations"]
+        v1_later = http.get(f"/v1/credentials/assertions/{check_id}", headers=mine).json()
+        assert v1_later["proof_status"] in {"EXPIRED", "RECHECK_REQUIRED"}

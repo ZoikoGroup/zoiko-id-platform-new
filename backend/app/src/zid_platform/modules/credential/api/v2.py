@@ -33,6 +33,7 @@ from zid_platform.modules.credential.api import claim_checks as v1
 from zid_platform.modules.credential.api import trust as t1
 from zid_platform.modules.credential.application import trust_service as svc
 from zid_platform.modules.credential.application import v2_view as vw
+from zid_platform.modules.credential.domain import lifecycle as lc
 from zid_platform.modules.credential.domain.claims import ClaimType
 from zid_platform.modules.credential.domain.sources import coverage
 from zid_platform.modules.credential.infrastructure import claim_store, trust_store
@@ -243,6 +244,18 @@ async def read_credential(
         correlation_id=cid,
     )
     out["superseded"] = row["superseded_at"] is not None
+    # T20: judged now, a stale proof is EXPIRED or RECHECK_REQUIRED and its dimension is lowered, never a cached VERIFIED
+    status = lc.proof_status(row["assertion"], now=v1._now())
+    out["proof_status"] = status.value
+    if status is not lc.ProofStatus.CURRENT:
+        dim = out["dimensions"][0]
+        if dim["outcome"] in (vw.Outcome.VERIFIED.value, vw.Outcome.VERIFIED_LIMITED.value):
+            dim["outcome"] = (
+                vw.Outcome.EXPIRED.value
+                if status is lc.ProofStatus.EXPIRED
+                else vw.Outcome.INDETERMINATE.value
+            )
+        dim["limitations"] = [*dim["limitations"], status.value]
     return out
 
 

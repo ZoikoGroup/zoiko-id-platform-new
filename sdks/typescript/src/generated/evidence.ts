@@ -842,6 +842,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/documents/chip-verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chip Verify
+         * @description Passive authentication of a passport or eID chip (ICAO Doc 9303). Stateless: nothing is stored and the photo is never read.
+         */
+        post: operations["chip_verify_v2_documents_chip_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/documents/extract": {
         parameters: {
             query?: never;
@@ -986,7 +1006,10 @@ export interface components {
             case_ref: string;
             /** Mode */
             mode: string;
-            /** Purpose */
+            /**
+             * Purpose
+             * @default
+             */
             purpose: string;
             /** Receipt Ids */
             receipt_ids: string[];
@@ -1059,7 +1082,10 @@ export interface components {
             case_ref: string;
             /** Mode */
             mode: string;
-            /** Purpose */
+            /**
+             * Purpose
+             * @default
+             */
             purpose: string;
             /**
              * Receipt Id
@@ -1358,6 +1384,17 @@ export interface components {
             current: components["schemas"]["UatServiceIn"][];
             /** Previous */
             previous: components["schemas"]["UatServiceIn"][];
+        };
+        /**
+         * V2ChipIn
+         * @description What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. The photo group (2) is not needed and
+         *     is best not sent: nothing here uses it.
+         */
+        V2ChipIn: {
+            /** Data Groups */
+            data_groups: Record<string, never>;
+            /** Sod Base64 */
+            sod_base64: string;
         };
         /** V2DocumentIn */
         V2DocumentIn: {
@@ -3169,6 +3206,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chip_verify_v2_documents_chip_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["V2ChipIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

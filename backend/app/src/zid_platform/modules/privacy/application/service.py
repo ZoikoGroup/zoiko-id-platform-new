@@ -595,8 +595,12 @@ async def withdraw_consent(
     *,
     subject_principal_id: str,
     reason: str,
+    authn_level: int = 0,
+    auth_age: timedelta | None = None,
 ) -> Row[Any]:
-    """Stops only consent-dependent processing (PRIV-02); the record is never rewritten (PRIV-03)."""
+    """Stops only consent-dependent processing (PRIV-02); the record is never rewritten (PRIV-03). Evidence kept only because of the consent is
+    then erased through the ordinary erasure workflow (T30): see `_open_consent_erasure`. The session's own authentication level and age decide
+    whether that request is already verified; without them it waits for verification, as any erasure request does."""
     row = await store.load_consent(conn, consent_id, lock=True)
     if row is None or str(row.subject_principal_id) != subject_principal_id:
         raise PrivacyError("NOT_FOUND", "unknown consent")
@@ -612,7 +616,76 @@ async def withdraw_consent(
         actor=subject_principal_id,
         version=2,
     )
+    await _open_consent_erasure(
+        conn,
+        tenant_id,
+        row,
+        subject_principal_id=subject_principal_id,
+        authn_level=authn_level,
+        auth_age=auth_age,
+    )
     return out
+
+
+CONSENT_WITHDRAWAL = "CONSENT_WITHDRAWAL"
+
+
+async def _open_consent_erasure(
+    conn: AsyncConnection,
+    tenant_id: str,
+    consent: Row[Any],
+    *,
+    subject_principal_id: str,
+    authn_level: int,
+    auth_age: timedelta | None,
+) -> None:
+    """T30: a withdrawal ends the retention that rested only on the consent. If the data map holds anything of this subject kept for the consent's
+    purpose, an ERASURE rights request scoped to that purpose is opened (same deadline, items, holds, legal-obligation and processor stages, events
+    and completion record as any erasure) and, when the session already verifies the subject, fulfilled at once. Nothing held for the purpose: no
+    request. The record of the consent itself is never touched."""
+    await discover_subject(conn, tenant_id, subject_principal_id)
+    held = [
+        e
+        for e in await store.subject_entries(conn, subject_principal_id)
+        if e.purpose_code == consent.purpose_code and e.status != "DISPOSED"
+    ]
+    if not held:
+        return
+    request = await open_request(
+        conn,
+        tenant_id,
+        request_type=RightsType.ERASURE.value,
+        subject_principal_id=subject_principal_id,
+        requester_principal_id=subject_principal_id,
+        jurisdiction_pack_id=consent.jurisdiction_pack_id,
+        authn_level=authn_level,
+        auth_age=auth_age,
+        scope={
+            "trigger": CONSENT_WITHDRAWAL,
+            "purpose_code": consent.purpose_code,
+            "consent_id": str(consent.consent_id),
+        },
+        rate_limited=False,
+    )
+    if request.identity_verification_state == "VERIFIED":
+        await fulfil_request(conn, tenant_id, str(request.request_id), actor=subject_principal_id)
+
+
+async def _other_basis(
+    conn: AsyncConnection, subject: str, purpose_code: str, now: datetime
+) -> str | None:
+    """Why data kept for a purpose may stay although one consent for it was withdrawn: another live consent of the same subject for the same
+    purpose, or an active processing activity that relies on a basis other than consent (PRIV-02: only consent-dependent processing stops)."""
+    if await store.active_consent(conn, subject, purpose_code, now) is not None:
+        return "OTHER_ACTIVE_CONSENT"
+    for a in await store.list_activities(conn):
+        if (
+            a.status == "ACTIVE"
+            and purpose_code in a.purpose_codes
+            and a.lawful_basis != LawfulBasis.CONSENT.value
+        ):
+            return "OTHER_LAWFUL_BASIS"
+    return None
 
 
 # --------------------------------------------------------------------------------- preferences
@@ -981,16 +1054,18 @@ async def open_request(
     auth_age: timedelta | None = None,
     authorized_agent_ref: str | None = None,
     scope: Mapping[str, Any] | None = None,
+    rate_limited: bool = True,
 ) -> Row[Any]:
     """Every request is accepted and tracked, whatever the pack's state (a rights request is
-    never refused for a configuration gap). Opt-outs take effect at once, without verification."""
+    never refused for a configuration gap). Opt-outs take effect at once, without verification.
+    `rate_limited=False` is for a request the platform opens itself (a withdrawal's erasure): it is never turned away."""
     try:
         rtype = RightsType(request_type)
     except ValueError as e:
         raise PrivacyError("PRIVACY_SCHEMA_INVALID", "unknown request type") from e
     jp = pack(jurisdiction_pack_id)
     now = _now()
-    if rtype.value not in NOT_RATE_LIMITED:
+    if rate_limited and rtype.value not in NOT_RATE_LIMITED:
         about, by = await store.recent_request_count(
             conn,
             subject=subject_principal_id,
@@ -1250,6 +1325,11 @@ async def _erase(
     """§17: classify every data map entry, dispose what is eligible, keep what a hold or a legal
     obligation requires (restricted, reasoned), instruct processors, then crypto-erase the vault."""
     subject = str(r.subject_principal_id)
+    scope = r.scope or {}
+    only_purpose = (
+        str(scope.get("purpose_code")) if scope.get("trigger") == CONSENT_WITHDRAWAL else None
+    )  # T30: only what was kept for the withdrawn consent's purpose
+    kept_for = await _other_basis(conn, subject, only_purpose, _now()) if only_purpose else None
     await discover_subject(conn, tenant_id, subject)
     await _event(
         conn,
@@ -1275,6 +1355,11 @@ async def _erase(
                 int(policy.backup_erasure_window_days)
             )  # disposed copies age out too
         if e.status == "DISPOSED":
+            continue
+        if only_purpose and e.purpose_code != only_purpose:
+            continue
+        if kept_for is not None:
+            items.append(_item(name, "RETAINED_OTHER_BASIS", reason=kept_for))
             continue
         if await is_held(conn, tenant_id, subject_principal_id=subject, object_type=e.object_type):
             await store.set_entry_status(conn, e.entry_id, "RESTRICTED")
@@ -1313,6 +1398,8 @@ async def _erase(
         await disposer(conn, e, action)
         await store.set_entry_status(conn, e.entry_id, "DISPOSED", action=action, now=_now())
         items.append(_item(name, "DONE", action=action))
+    if only_purpose:  # the subject stays a subject: the vault, the caches and the backups of everything else are not touched
+        return items
     erasure = await erase_subject(conn, tenant_id, subject, request_ref=str(r.request_id))
     vault_state = (
         "DONE" if erasure.outcome in ("ERASED", "NOTHING_TO_ERASE") else "RETAINED_RESTRICTED"

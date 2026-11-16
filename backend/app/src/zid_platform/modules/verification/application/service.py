@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
@@ -32,8 +33,11 @@ from zid_db import in_tenant, tenant_transaction
 from zid_outbox import emit
 
 from zid_platform.modules.commercial.ports import record_vendor_check
+from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
 from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
+from zid_platform.modules.verification.domain.audit_events import CALLBACK_REJECTED
 from zid_platform.modules.verification.domain.providers import (
     ProviderKind,
     sumsub_digest_ok,
@@ -430,6 +434,67 @@ async def provider_callback(
             conn, tenant_id=tenant_id, adapter_id=adapter_id, adapter=adapter, event_id=event_id,
             ref=ref, result=result, body=body, country_check=country_check, now=now,
         )  # fmt: skip
+
+
+# T35 (ZID-RCG-003): a webhook that is forged, altered, stale or a replay with a different body is refused AND recorded AND alerted.
+REJECTED_CALLBACKS = frozenset(
+    {"CALLBACK_SIGNATURE_INVALID", "CALLBACK_STALE", "CALLBACK_CONFLICT"}
+)
+
+
+async def record_rejected_callback(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    adapter_id: str,
+    code: str,
+    base_ctx: RequestContext,
+    now: datetime,
+) -> None:
+    """Record the refusal in the audit trail and raise one security alert (folded per adapter and code while open, so a flood is one alert
+    with a count). Ids and the reason code only: never the body, the signature or any secret. It never raises: the provider is answered
+    the same way whether or not the record could be written (an unknown tenant, for one, has nowhere to write it)."""
+    if code not in REJECTED_CALLBACKS:
+        return
+    try:
+        async with tenant_transaction(engine, base_ctx.with_identity(tenant_id, None)) as conn:
+            await record_audit(
+                conn,
+                tenant_id,
+                AuditFacts(
+                    event_type=CALLBACK_REJECTED,
+                    actor_type="SYSTEM",
+                    action="rejected",
+                    target_type="verification_adapter",
+                    target_ref=adapter_id[:128],
+                    outcome="DENIED",
+                    evidence_class=EvidenceClass.E3,
+                    occurred_at=now,
+                    reason_code=code,
+                    source_service="verification",
+                    details={"adapter_id": adapter_id[:128], "reason": code},
+                ),
+            )
+            await raise_alert(
+                conn,
+                tenant_id,
+                AlertDraft(
+                    severity=Severity.HIGH,
+                    kind=CALLBACK_REJECTED,
+                    title="A provider callback was rejected",
+                    body=f"A callback for adapter {adapter_id[:64]} failed verification ({code}).",
+                    object_type="verification_adapter",
+                    object_ref=adapter_id[:128],
+                    href="/admin/verification",
+                    recommended_action="Check the provider's signing secret and whether the callback came from the provider.",
+                    is_task=False,
+                    mandatory=True,
+                    correlation_key=f"{CALLBACK_REJECTED}:{adapter_id[:64]}:{code}",
+                ),
+                now=now,
+            )
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).warning("could not record a rejected provider callback")
 
 
 async def _ingest(

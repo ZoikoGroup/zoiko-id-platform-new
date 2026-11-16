@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller
+from zid_platform.modules.privacy.api.privacy import _age
 from zid_platform.modules.privacy.api.v2 import MANAGE, READ, _ids, _me, _run, _tenant
 from zid_platform.modules.privacy.application import retention_v2, service
 from zid_platform.modules.privacy.domain.model import PrivacyError, RightsType
@@ -248,7 +249,13 @@ async def withdraw_consent(
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         r = await service.withdraw_consent(
-            conn, _tenant(caller), str(consent_id), subject_principal_id=me, reason=body.reason
+            conn,
+            _tenant(caller),
+            str(consent_id),
+            subject_principal_id=me,
+            reason=body.reason,
+            authn_level=caller.authn.level,
+            auth_age=_age(caller),
         )
         return {
             "consent_id": str(r.consent_id),

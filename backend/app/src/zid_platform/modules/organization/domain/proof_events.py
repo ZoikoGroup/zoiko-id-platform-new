@@ -2,3 +2,4 @@
 
 PROOF_REJECTED = "organization.kyb.proof_rejected"
 PROOF_READ = "organization.kyb.proof_read"
+PROOF_ACCESS_DENIED = "organization.kyb.proof_access_denied"

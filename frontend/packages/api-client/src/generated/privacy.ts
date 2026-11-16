@@ -1457,6 +1457,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/providers/{provider_id}/entitlements/{service}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Withdrawal Impact
+         * @description Impact analysis before a kill switch is pulled (Doc 03 RCG-G08). Changes nothing.
+         */
+        get: operations["withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/providers/{provider_id}/entitlements/{service}/revoke": {
         parameters: {
             query?: never;
@@ -1799,26 +1819,6 @@ export interface components {
              */
             review_at: string;
             scope: components["schemas"]["Scope"];
-        };
-        /** NoticeBody */
-        NoticeBody: {
-            /**
-             * Approval Request Id
-             * Format: uuid
-             */
-            approval_request_id: string;
-            /** Audience */
-            audience: string;
-            /** Code */
-            code: string;
-            /** Content */
-            content: string;
-            /** Content Uri */
-            content_uri?: string | null;
-            /** Jurisdictions */
-            jurisdictions?: string[];
-            /** Processing Activity Codes */
-            processing_activity_codes?: string[];
         };
         /** OnBehalfBody */
         OnBehalfBody: {
@@ -2388,6 +2388,26 @@ export interface components {
             /** Reason Code */
             reason_code: string;
         };
+        /** NoticeBody */
+        zid_platform__modules__privacy__api__privacy__NoticeBody: {
+            /**
+             * Approval Request Id
+             * Format: uuid
+             */
+            approval_request_id: string;
+            /** Audience */
+            audience: string;
+            /** Code */
+            code: string;
+            /** Content */
+            content: string;
+            /** Content Uri */
+            content_uri?: string | null;
+            /** Jurisdictions */
+            jurisdictions?: string[];
+            /** Processing Activity Codes */
+            processing_activity_codes?: string[];
+        };
         /** RoleBody */
         zid_platform__modules__privacy__api__privacy__RoleBody: {
             /** Approval Ref */
@@ -2545,7 +2565,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoticeBody"];
+                "application/json": components["schemas"]["zid_platform__modules__privacy__api__privacy__NoticeBody"];
             };
         };
         responses: {
@@ -5435,6 +5455,40 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdrawal_impact_v2_providers__provider_id__entitlements__service__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+                service: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

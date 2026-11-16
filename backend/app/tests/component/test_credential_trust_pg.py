@@ -883,3 +883,60 @@ def test_a_changed_eligibility_is_announced_as_recomputed_and_an_unchanged_or_fi
             )
 
     run(go())
+
+
+def test_a_release_denied_for_a_consent_mismatch_records_the_consumers_purpose(
+    rt_url: str,
+) -> None:
+    """T48: a consumer asking under a purpose, consumer or recipient the person did not consent to gets nothing, and the denial is
+    audited with the purpose the consumer stated, the consumer and the refusal code, and nothing the grant would have released."""
+    tenant, subject = uid(), uid()
+    asked = [
+        ("acme", "zoikorum", "MARKETING", "PURPOSE_MISMATCH"),
+        ("acme", "rooms", "ENGAGEMENT", "CONSUMER_SCOPE_MISMATCH"),
+        ("stranger", "zoikorum", "ENGAGEMENT", "RECIPIENT_MISMATCH"),
+    ]
+
+    async def go() -> list[object]:
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                r = await check(c, tenant, subject)
+                g = await svc.create_grant(
+                    c, tenant_id=tenant, subject=subject, recipient="acme", consumer="zoikorum",
+                    purpose="ENGAGEMENT", fields=["claim_type", "decision"], days=30, parent_id=None, now=NOW,
+                )  # fmt: skip
+            for recipient, consumer, purpose, code in asked:
+                denied = None
+                async with tenant_transaction(eng, ctx(tenant)) as c:
+                    try:
+                        await svc.disclose_check(
+                            c, grant_id=g.grant_id, check_id=r.check_id, recipient=recipient,
+                            consumer=consumer, purpose=purpose, now=NOW,
+                        )  # fmt: skip
+                    except pt.DisclosureError as e:
+                        denied = e
+                assert denied is not None and denied.code == code
+                async with tenant_transaction(eng, ctx(tenant)) as c:
+                    await svc.record_disclosure_denied(
+                        c, tenant_id=tenant, principal_id=None, grant_id=g.grant_id,
+                        check_id=r.check_id, consumer=consumer, purpose=purpose, code=denied.code, now=NOW,
+                    )  # fmt: skip
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                return list(
+                    (
+                        await c.execute(
+                            text(
+                                "SELECT outcome, reason_code, body::text AS body FROM evidence.audit_record "
+                                "WHERE tenant_id = :t AND event_type = 'credential.disclosure.denied' ORDER BY created_at"
+                            ),
+                            {"t": uuid.UUID(tenant)},
+                        )
+                    ).all()
+                )
+
+    rows = asyncio.run(go())
+    assert [(r.outcome, r.reason_code) for r in rows] == [("DENIED", a[3]) for a in asked]
+    for row, (_recipient, consumer, purpose, _code) in zip(rows, asked, strict=True):
+        assert f'"purpose": "{purpose}"' in row.body.replace('":"', '": "')
+        assert consumer in row.body
+        assert "VERIFIED" not in row.body  # nothing the grant would have released

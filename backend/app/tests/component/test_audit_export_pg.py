@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 import pytest
@@ -109,3 +110,43 @@ def test_only_someone_who_may_read_evidence_can_follow_the_feed(rt_url: str) -> 
             api.get("/v1/evidence/audit-events/export", headers=o.bearer(o.owner)).status_code
             == 403
         )
+
+
+def test_an_export_without_a_purpose_is_refused_and_the_refusal_is_recorded(rt_url: str) -> None:
+    """T38: no purpose, no export (single or bulk): 422 EXPORT_PURPOSE_REQUIRED, and each refusal is a DENIED audit event naming who
+    asked and the reason code, with no content in it."""
+    o = onboard(
+        rt_url,
+        extra_actions=["evidence.read", "evidence.export"],
+        extra_resources=["audit_record:*", "decision_receipt:*", "evidence_export:*"],
+    )
+    h = o.bearer(o.owner)
+    receipt = str(uuid.uuid4())
+    with TestClient(app_for(rt_url, o), base_url=ISS) as api:
+        for blank in ({}, {"purpose": ""}, {"purpose": "   "}):
+            r = api.post(
+                "/v1/evidence/packages",
+                headers=h,
+                json={"receipt_id": receipt, "mode": "CUSTOMER_VERIFY", "case_ref": "c-1", **blank},
+            )
+            assert r.status_code == 422, r.text
+            assert r.json()["error"]["code"] == "EXPORT_PURPOSE_REQUIRED", r.text
+        r = api.post(
+            "/v1/evidence/bulk-exports",
+            headers=h,
+            json={"receipt_ids": [receipt], "mode": "CUSTOMER_VERIFY", "case_ref": "c-1"},
+        )
+        assert r.status_code == 422 and r.json()["error"]["code"] == "EXPORT_PURPOSE_REQUIRED"
+        events = api.get(
+            "/v1/evidence/audit-events",
+            params={"event_type": "evidence.export.refused", "limit": 50},
+            headers=h,
+        ).json()["items"]
+    assert len(events) == 4
+    assert {(e["outcome"], e["reason_code"], e["action"]) for e in events} == {
+        ("DENIED", "EXPORT_PURPOSE_MISSING", "refused")
+    }
+    assert {e["target_ref"] for e in events} == {
+        f"decision_receipt:{receipt}",
+        "evidence_export:bulk",
+    }

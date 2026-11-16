@@ -14,9 +14,11 @@ A source tells us about a credential over time, and tells us out of order. Rules
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 from zid_platform.modules.credential.domain.claims import CredentialStatus
 from zid_platform.modules.credential.domain.eligibility import Dimension, DimStatus
@@ -124,3 +126,43 @@ def unreachable(
     """(status, confirmed): an unreachable source keeps the last status but, after the grace period, it is no longer
     CONFIRMED. The status itself is never flipped by silence."""
     return state.status, now - last_confirmed <= grace
+
+
+class ProofStatus(StrEnum):
+    """What a stored proof response says about itself when it is read again (T20): never a cached ACTIVE."""
+
+    CURRENT = "CURRENT"
+    EXPIRED = "EXPIRED"  # its own validity ended
+    RECHECK_REQUIRED = (
+        "RECHECK_REQUIRED"  # the source answer is older than the freshness the pack allows
+    )
+
+
+DEFAULT_FRESHNESS = timedelta(days=365)  # the same default as claim_checks.Gate.freshness_days
+
+
+def _instant(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        moment = value
+    elif isinstance(value, str) and value:
+        try:
+            moment = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+def proof_status(
+    contract: Mapping[str, Any], *, now: datetime, freshness: timedelta = DEFAULT_FRESHNESS
+) -> ProofStatus:
+    """Judge a stored proof response at read time. A validity that has ended is EXPIRED; a source answer older than the
+    freshness (or one whose time cannot be read) is RECHECK_REQUIRED. Neither is ever reported as current."""
+    ends = _instant(contract.get("expires_at"))
+    if ends is not None and now >= ends:
+        return ProofStatus.EXPIRED
+    checked = _instant(contract.get("source_checked_at"))
+    if checked is None or now - checked > freshness:
+        return ProofStatus.RECHECK_REQUIRED
+    return ProofStatus.CURRENT
