@@ -733,77 +733,77 @@ tables:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.governance_change_request:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.governance_signature:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.governance_delegate:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.company_baseline:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.budget:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.budget_reservation:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.budget_adjustment:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.run_ledger:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.governance_event:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.freeze_control:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-002; CR-091)"
+    source: "proposed (ZID-AG-WF-002; CR-105)"
   agent.daara_instance:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-106)"
   agent.daara_run_result:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-106)"
   agent.review_proposal:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-106)"
   agent.alert_state:
     role: cell
     module: machine
     tenant_scoped: true
-    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-092)"
+    source: "proposed (ZID-AG-WF-001, ZID-AG-WF-002; CR-106)"
   agent.api_assertion_jti:
     role: cell
     module: machine

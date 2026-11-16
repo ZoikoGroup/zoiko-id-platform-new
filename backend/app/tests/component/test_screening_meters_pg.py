@@ -1,4 +1,4 @@
-"""Public pricing page acceptance row P23 (ZID-UX-PRICE-004; CR-090): a screening check and a monitoring period are two separate usage meters.
+"""Public pricing page acceptance row P23 (ZID-UX-PRICE-004; CR-104): a screening check and a monitoring period are two separate usage meters.
 
 A screening decision is one SCREEN_CHECK, recorded once per decision. A case under continuous monitoring is one SCREEN_MONITOR_PERIOD per UTC month, however many rescreens run in it. Both are
 usage facts only: nothing is rated or invoiced because no SKU or price stands behind them.

@@ -1,4 +1,4 @@
-"""Agent governance API (ZID-AG-WF-002 v1.0, section 14; CR-091).
+"""Agent governance API (ZID-AG-WF-002 v1.0, section 14; CR-105).
 
     GET  /v1/machine/governance/overview                          fleet overview, KPIs, attention     agent.governance.read
     GET  /v1/machine/governance/baseline                          the company baseline                agent.governance.read

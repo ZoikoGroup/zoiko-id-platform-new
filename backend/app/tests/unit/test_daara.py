@@ -1,4 +1,4 @@
-"""DAARA (ZID-AG-WF-001, CR-092): the six rules, the proposal plan, the explanation checker and the setup hashes.
+"""DAARA (ZID-AG-WF-001, CR-106): the six rules, the proposal plan, the explanation checker and the setup hashes.
 
 Acceptance rows AT-01..AT-24 of the document that these exercise are named in each docstring. Developer evidence, not independent passes.
 """

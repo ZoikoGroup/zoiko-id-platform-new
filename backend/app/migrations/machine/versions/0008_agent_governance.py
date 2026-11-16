@@ -1,4 +1,4 @@
-"""Agent governance: policy versions, change approvals, budgets, reservations, runs, the evidence stream and freezes (ZID-AG-WF-002; CR-091).
+"""Agent governance: policy versions, change approvals, budgets, reservations, runs, the evidence stream and freezes (ZID-AG-WF-002; CR-105).
 
 Revision ID: machine_0008
 Revises: machine_0007

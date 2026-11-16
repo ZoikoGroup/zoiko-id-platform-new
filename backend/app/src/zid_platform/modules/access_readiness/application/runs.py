@@ -28,7 +28,21 @@ from zid_platform.modules.access_readiness.application.explain import (
     explain,
     facts_of,
 )
+from zid_platform.modules.access_readiness.application.observe import (
+    alert_policy_drift,
+    count_denial,
+    count_terminal,
+    run_log,
+)
 from zid_platform.modules.access_readiness.application.setup import current_digest, scope_of
+from zid_platform.modules.access_readiness.application.usage import (
+    BUDGET_POLICY_DENY,
+    STEP_EVALUATE,
+    STEP_EXPLAIN,
+    STEP_RUN_START,
+    UsageRequest,
+    usage_denial,
+)
 from zid_platform.modules.access_readiness.domain.policy import (
     ALLOWED_TOOLS,
     BLUEPRINT_ID,
@@ -56,6 +70,7 @@ from zid_platform.modules.access_readiness.domain.rules import (
     facts_digest,
     proposal_key,
 )
+from zid_platform.modules.access_readiness.domain.untrusted import injection_markers
 from zid_platform.modules.access_readiness.infrastructure import store
 from zid_platform.modules.machine.ports import (
     AgentIdentityStatus,
@@ -77,11 +92,20 @@ CREDENTIAL_AUDIENCE = "zid:access-readiness:metadata-adapter"
 # Whether the policy service permits the run now. It may raise (the service is down): that is a refusal, never a permit.
 PolicyGate = Callable[[AsyncConnection, str, str], Awaitable[bool]]
 
+# how many queued runs one worker pass takes (the rest wait for the next pass)
+DRAIN_LIMIT = 25
+# the reason recorded on a policy decision for a metadata string that looked like an instruction (it is data; nothing acted on it)
+UNTRUSTED_INSTRUCTION = "UNTRUSTED_INSTRUCTION_IGNORED"
+
 
 class _Stop(Exception):
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self, code: str, *, codes: list[str] | None = None, cause: str | None = None
+    ) -> None:
         super().__init__(code)
         self.code = code
+        self.codes = codes or [code]
+        self.cause = cause  # set when the usage and budget hook stopped the step
 
 
 def run_view(run: dict[str, Any]) -> dict[str, Any]:
@@ -283,6 +307,39 @@ async def _decide(
         policy_hash=run["policy_hash"],
         trace_id=run["trace_id"],
     )
+    if outcome == "DENY":
+        count_denial(reason)
+
+
+async def _usage(rt: Runtime, run: dict[str, Any], step: str) -> str | None:
+    """Ask the usage and budget hook about one step. None: go ahead; otherwise the cause of the denial (fail closed)."""
+    return await usage_denial(
+        rt.usage_policy,
+        UsageRequest(
+            tenant_id=run["tenant_id"],
+            agent_id=run["agent_principal_id"],
+            run_id=run["run_id"],
+            step=step,
+            purpose=run["purpose"],
+        ),
+        timeout_seconds=rt.usage_timeout_seconds,
+    )
+
+
+async def _usage_denied(conn: AsyncConnection, run: dict[str, Any], step: str, cause: str) -> None:
+    """A step the hook refused (or could not answer for) is a recorded policy decision and an evidence envelope: the step and the cause."""
+    await _decide(
+        conn,
+        run,
+        action="usage_policy.check",
+        resource=f"step:{step}",
+        outcome="DENY",
+        reason=BUDGET_POLICY_DENY,
+    )
+    await _evidence(
+        conn, run, "budget_policy_denied", "usage-policy", {"step": step, "cause": cause}
+    )
+    run_log(run, "usage policy denied step=%s cause=%s", step, cause, level=logging.WARNING)
 
 
 async def _evidence(
@@ -347,6 +404,9 @@ async def _deny(conn: AsyncConnection, run: dict[str, Any], codes: list[str]) ->
         reason_code=codes[0],
         data=_event_data(run, denial_codes=",".join(codes)),
     )
+    count_terminal(RunState.DENIED.value)
+    await alert_policy_drift(conn, run, codes)
+    run_log(run, "denied codes=%s", ",".join(codes))
 
 
 async def _notify_sponsor(
@@ -383,7 +443,7 @@ async def _notify_sponsor(
         outcome = "sponsor_notified"
     except Exception:  # noqa: BLE001 - the result stands; the missed notice is itself evidence
         outcome = "sponsor_notification_failed"
-        log.warning("access readiness run %s: the sponsor notification failed", run["run_id"])
+        run_log(run, "the sponsor notification failed", level=logging.WARNING)
     await _evidence(
         conn,
         run,
@@ -450,6 +510,8 @@ async def _end(
             **{k: v for k, v in summary.items() if isinstance(v, (int, bool, str))},
         ),
     )
+    count_terminal(state.value)
+    run_log(run, "ended state=%s reason=%s", state.value, reason)
 
 
 async def execute_run(
@@ -473,8 +535,21 @@ async def execute_run(
     blockers, agent, setup = await _preflight(conn, rt, tenant_id, run, gate)
     if blockers or agent is None or setup is None:
         await _deny(conn, run, blockers or ["AGENT_NOT_FOUND"])
-        log.info("access readiness run %s denied", run_id)
         return await _reload(conn, run_id)
+    # Sections 08 and 12: the usage and budget hook before the run starts (Q1: no thresholds, but it fails closed)
+    cause = await _usage(rt, run, STEP_RUN_START)
+    if cause:
+        await _usage_denied(conn, run, STEP_RUN_START, cause)
+        await _deny(conn, run, [BUDGET_POLICY_DENY])
+        return await _reload(conn, run_id)
+    await _decide(
+        conn,
+        run,
+        action="usage_policy.check",
+        resource=f"step:{STEP_RUN_START}",
+        outcome="ALLOW",
+        reason="USAGE_PERMITTED",
+    )
     # Section 09 step 3 (AT-07): a short-lived, audience-restricted, purpose-bound credential from the machine module's workload
     # issuance decision. An unattested, revoked, quarantined or rebound worker gets none, and the run is denied. Never stored or logged.
     try:
@@ -489,11 +564,10 @@ async def execute_run(
             )
     except MachineError as e:
         await _deny(conn, run, list(dict.fromkeys(["CREDENTIAL_DENIED", e.code])))
-        log.info("access readiness run %s denied: no workload credential", run_id)
         return await _reload(conn, run_id)
     except Exception:  # noqa: BLE001 - an issuer that cannot answer never issues anything
         await _deny(conn, run, ["CREDENTIAL_DENIED", "DEPENDENCY_UNAVAILABLE"])
-        log.warning("access readiness run %s denied: the credential issuer is unavailable", run_id)
+        run_log(run, "the credential issuer is unavailable", level=logging.WARNING)
         return await _reload(conn, run_id)
     await _decide(
         conn,
@@ -560,7 +634,13 @@ async def execute_run(
             ReadRequest(
                 tenant_id, run["agent_principal_id"], run["purpose"], resource, tool, policy_hash()
             ),
-        ) or await credential_stop(tool)
+        )
+        if not reason:
+            cause = await _usage(rt, run, tool)  # before each read
+            if cause:
+                await _usage_denied(conn, run, tool, cause)
+                reason = BUDGET_POLICY_DENY
+        reason = reason or await credential_stop(tool)
         await _decide(
             conn,
             run,
@@ -607,7 +687,6 @@ async def execute_run(
             summary=_summary(0, None, 0, 0),
             codes=["DEPENDENCY_UNAVAILABLE"],
         )
-        log.warning("access readiness run %s failed: adapter unavailable", run_id)
         return await _reload(conn, run_id)
     await _evidence(
         conn,
@@ -616,6 +695,41 @@ async def execute_run(
         "mandate-metadata/1",
         {"count": len(facts), "facts": facts_digest(facts)},
     )
+    # Section 12: a metadata string that reads like an instruction stays data. A redacted marker (where, which rule, a digest; never the
+    # string) is recorded, and the rules below see exactly the same facts.
+    for marker in injection_markers(facts):
+        await _decide(
+            conn,
+            run,
+            action="metadata.instruction",
+            resource=f"{marker.target_ref}#{marker.field}",
+            outcome="DENY",
+            reason=UNTRUSTED_INSTRUCTION,
+        )
+        await _evidence(
+            conn, run, "untrusted_instruction_marker", "metadata-guard", marker.as_dict()
+        )
+        run_log(
+            run,
+            "untrusted instruction marker field=%s rule=%s digest=%s",
+            marker.field,
+            marker.rule,
+            marker.value_digest,
+            level=logging.WARNING,
+        )
+
+    cause = await _usage(rt, run, STEP_EVALUATE)  # before the rules step
+    if cause:
+        await _usage_denied(conn, run, STEP_EVALUATE, cause)
+        await end(
+            conn,
+            run,
+            RunState.FAILED,
+            reason=BUDGET_POLICY_DENY,
+            summary=_summary(len(facts), None, 0, 0),
+            codes=[BUDGET_POLICY_DENY],
+        )
+        return await _reload(conn, run_id)
 
     clock = now if now is not None else utcnow()
     result = evaluate_run(
@@ -640,7 +754,10 @@ async def execute_run(
                     conn, rt, tenant_id, run, gate
                 )  # the only write is authorized again, each time
                 if again:
-                    raise _Stop(again[0])
+                    raise _Stop(again[0], codes=again)
+                cause = await _usage(rt, run, CREATE_PROPOSAL)  # before each write
+                if cause:
+                    raise _Stop(BUDGET_POLICY_DENY, cause=cause)
                 stopped = await credential_stop(CREATE_PROPOSAL)
                 if stopped:
                     raise _Stop(stopped)
@@ -700,6 +817,9 @@ async def execute_run(
                 else:
                     existing += 1
     except _Stop as stop:
+        if stop.cause:
+            await _usage_denied(conn, run, CREATE_PROPOSAL, stop.cause)
+        await alert_policy_drift(conn, run, stop.codes)
         await _decide(
             conn,
             run,
@@ -734,19 +854,26 @@ async def execute_run(
             summary=_summary(len(facts), result, 0, 0),
             codes=["DEPENDENCY_UNAVAILABLE"],
         )
-        log.warning("access readiness run %s failed while writing proposals", run_id)
         return await _reload(conn, run_id)
     state = terminal_state(proposals=len(result.findings), complete=result.complete)
     summary = _summary(len(facts), result, created, existing)
     if rt.ai_explain and bool(setup.get("ai_explanation")):
         # Section 09 step 8: decided above, explained here. Only codes and counts go out, the text is verified against them, and
         # anything else (off, no gateway, an error, a timeout, an unsupported claim) is the fixed template. The result does not move.
+        # A model request is a step too: the usage and budget hook is asked first, and a refusal means no request (the fixed text).
+        blocked = None
+        if rt.explainer is not None:
+            cause = await _usage(rt, run, STEP_EXPLAIN)
+            if cause:
+                await _usage_denied(conn, run, STEP_EXPLAIN, cause)
+                blocked = BUDGET_POLICY_DENY
         explanation = await explain(
             facts_of(
                 result, state=state.value, records=len(facts), created=created, existing=existing
             ),
             rt.explainer,
             timeout_seconds=rt.ai_timeout_seconds,
+            blocked=blocked,
         )
         summary["explanation"] = explanation.as_dict()
         await _evidence(
@@ -762,7 +889,6 @@ async def execute_run(
             },
         )
     await end(conn, run, state, reason="RULES_APPLIED", summary=summary)
-    log.info("access readiness run %s %s", run_id, state.value)
     return await _reload(conn, run_id)
 
 
@@ -832,6 +958,7 @@ async def cancel_queued(conn: AsyncConnection, tenant_id: str, agent_id: str, re
             terminal=True,
             summary={"privileges_changed": 0, "records_read": 0, "proposals_created": 0},
         )
+        count_terminal(RunState.CANCELED.value)
         n += 1
     return n
 
@@ -849,6 +976,64 @@ async def execute_queued(
         await execute_run(conn, rt, tenant_id, run_id, adapter=adapter, gate=gate)
         for run_id in await store.queued_run_ids(conn)
     ]
+
+
+async def _fail_closed(conn: AsyncConnection, run_id: str) -> None:
+    """A queued run whose execution broke unexpectedly is denied (DEPENDENCY_UNAVAILABLE), not left queued to break every pass."""
+    run = await store.load_run(conn, run_id, lock=True)
+    if run is None or run["state"] != RunState.QUEUED.value:
+        return
+    run_transition(RunState.QUEUED, RunState.PREFLIGHT)
+    await store.set_run_state(conn, run_id, RunState.PREFLIGHT.value, started=True, attempt=True)
+    await _deny(conn, run, ["DEPENDENCY_UNAVAILABLE"])
+
+
+async def drain_queued(
+    conn: AsyncConnection,
+    rt: Runtime,
+    *,
+    limit: int = DRAIN_LIMIT,
+    adapter: MetadataAdapter | None = None,
+    gate: PolicyGate | None = None,
+) -> dict[str, Any]:
+    """The worker step (section 11 'queue consumer'; section 04 QUEUED -> PREFLIGHT), on the worker's BYPASSRLS connection.
+
+    Off unless the cell has the switch on (then nothing is read). At most `limit` queued runs, oldest first, across tenants; a run another
+    worker holds is skipped. Each runs under its own tenant's scope and in its own savepoint with a full preflight, so a run queued before
+    a pause, a drift or a revocation is denied now; a run that breaks is rolled back and denied without stopping the others."""
+    if not rt.enabled:
+        return {"enabled": False}
+    states: dict[str, int] = {}
+    picked = errors = 0
+    try:
+        for tenant_id, run_id, trace_id in await store.queued_runs(conn, limit):
+            picked += 1
+            ref = {"run_id": run_id, "trace_id": trace_id}
+            await store.use_tenant(conn, tenant_id)
+            try:
+                async with conn.begin_nested():
+                    run = await execute_run(conn, rt, tenant_id, run_id, adapter=adapter, gate=gate)
+                states[run["state"]] = states.get(run["state"], 0) + 1
+                continue
+            except Exception as e:  # noqa: BLE001 - one run's failure never stops the pass
+                errors += 1
+                run_log(
+                    ref, "could not be executed error=%s", type(e).__name__, level=logging.ERROR
+                )
+            try:
+                async with conn.begin_nested():
+                    await _fail_closed(conn, run_id)
+                states[RunState.DENIED.value] = states.get(RunState.DENIED.value, 0) + 1
+            except Exception as e:  # noqa: BLE001 - it stays queued and is tried again on the next pass
+                run_log(
+                    ref,
+                    "could not be denied either error=%s",
+                    type(e).__name__,
+                    level=logging.ERROR,
+                )
+    finally:
+        await store.use_tenant(conn, "")
+    return {"enabled": True, "picked": picked, "errors": errors, "states": states}
 
 
 async def invoke_tool(

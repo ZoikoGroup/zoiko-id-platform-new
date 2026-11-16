@@ -114,7 +114,7 @@ async def screening_usage_sink(
     at: datetime,
     human: bool,
 ) -> None:
-    """Records what the screening module reports (CR-090): a CHECK is one SCREEN_CHECK per decision, a PERIOD is one SCREEN_MONITOR_PERIOD per case per UTC month.
+    """Records what the screening module reports (CR-104): a CHECK is one SCREEN_CHECK per decision, a PERIOD is one SCREEN_MONITOR_PERIOD per case per UTC month.
     Usage facts only: nothing is rated or invoiced. Wired to the screening module by the composition root."""
     if kind == "CHECK":
         await record(

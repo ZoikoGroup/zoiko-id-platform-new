@@ -61,4 +61,4 @@ U = `backend/app/tests/unit/test_agent_governance.py`, C = `backend/app/tests/co
 
 ## Not provable from code
 
-Independent execution and sign-off (gates G0 to G5), DPIAs and retention approvals (AG2-D08), the penetration review, failure injection at scale, the emergency-stop drill, and measured SLOs. See CR-091 for the decisions still open.
+Independent execution and sign-off (gates G0 to G5), DPIAs and retention approvals (AG2-D08), the penetration review, failure injection at scale, the emergency-stop drill, and measured SLOs. See CR-105 for the decisions still open.

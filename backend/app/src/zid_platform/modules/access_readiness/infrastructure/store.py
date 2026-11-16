@@ -342,6 +342,26 @@ async def queued_run_ids(conn: AsyncConnection, limit: int = 50) -> list[str]:
     return [str(r.run_id) for r in rows]
 
 
+async def queued_runs(conn: AsyncConnection, limit: int) -> list[tuple[str, str, str | None]]:
+    """(tenant, run, trace) of the oldest queued runs of every tenant, for the worker's BYPASSRLS connection. A run another worker has
+    locked is skipped, and the ones taken stay locked until this pass commits, so two workers never execute the same run."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT tenant_id, run_id, trace_id FROM agent.access_review_run WHERE state = 'QUEUED' "
+                "ORDER BY created_at, run_id LIMIT :l FOR UPDATE SKIP LOCKED"
+            ),
+            {"l": limit},
+        )
+    ).all()
+    return [(str(r.tenant_id), str(r.run_id), r.trace_id) for r in rows]
+
+
+async def use_tenant(conn: AsyncConnection, tenant_id: str) -> None:
+    """The tenant scope (row-level security) for what follows in this transaction; "" clears it."""
+    await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
+
+
 async def set_run_state(
     conn: AsyncConnection,
     run_id: str,

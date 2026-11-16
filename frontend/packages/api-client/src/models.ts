@@ -3021,6 +3021,27 @@ export type IssuerStatement = {
   recorded_by: string;
   recorded_at: Iso;
 };
+/** POST /v1/regulatory/issuers (IssuerStatementIn; not in the generated credential spec). A full issuer record plus the official source it came
+ * from; dates are YYYY-MM-DD. An UPDATE only adds or ends facts going forward; changing what an earlier statement said about the past is a CORRECTION. */
+export type IssuerKind = "UNIVERSITY" | "REGULATOR" | "EMPLOYER" | "INSURER" | "VENDOR" | "ACCREDITOR";
+export type IssuerStatementIn = {
+  issuer_id: string;
+  issuer_kind: IssuerKind;
+  authority: "OFFICIAL" | "UNRECORDED";
+  countries?: string[];
+  claim_types?: string[];
+  names: { name: string; from?: string | null; until?: string | null }[];
+  accreditations?: { body: string; program?: string | null; from: string; until?: string | null }[];
+  revoked_on?: string | null;
+  successor_of?: string | null;
+  statement?: "UPDATE" | "CORRECTION";
+  reason?: string | null;
+  source_url: string;
+  source_hash: string;
+  evidence_locator: string;
+};
+/** The saved statement, with what a CORRECTION changed about the past (empty for an update). */
+export type IssuerStatementRecorded = IssuerStatement & { retroactive_changes: string[] };
 export type AwardCheck = { outcome: "PASS" | "REVIEW"; reasons: string[]; accreditation: string; name_at_award?: string | null };
 
 export type ClaimJudgement = {
@@ -3298,7 +3319,7 @@ export type SalesLead = {
   status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
 };
 
-/* Agent governance (ZID-AG-WF-002, CR-091). Money is always a decimal string, never a number. */
+/* Agent governance (ZID-AG-WF-002, CR-105). Money is always a decimal string, never a number. */
 export type GovSlot = "SECURITY" | "AUTHORITY" | "PRIVACY" | "FINANCE";
 export type GovRequestState = "PENDING" | "CLARIFICATION" | "APPROVED" | "REJECTED" | "EXPIRED" | "INVALIDATED" | "APPLIED";
 export type GovAttentionItem = {
@@ -3485,6 +3506,9 @@ export type GovMonitoring = {
   telemetry: { state: "CURRENT" | "STALE" | "UNKNOWN"; last_ingest: Iso | null };
   as_of: Iso;
 };
+/** Who may sign agent-governance requests as Security, Authority, Privacy or Finance (CR-105 AG2-D02). */
+export type GovDelegate = { principal_id: string; slot: GovSlot; granted_by: string; granted_at: Iso };
+export type GovDelegates = { items: GovDelegate[]; slots: GovSlot[] };
 export type GovFreeze = {
   case_id: string;
   scope: "AGENT" | "TENANT";
@@ -3525,7 +3549,7 @@ export type GovBudgetInput = {
   reason_code: string;
 };
 
-/* The DAARA reference agent, its review queue and alert handling (ZID-AG-WF-001, CR-092) */
+/* The DAARA reference agent, its review queue and alert handling (ZID-AG-WF-001, CR-106) */
 export type DaaraStage = "NOT_ENABLED" | "DRAFT" | "READY_TO_RUN_SANDBOX" | "SANDBOX_READY" | "PENDING_APPROVAL" | "ACTIVE";
 export type DaaraTemplate = {
   template: string;
@@ -3738,11 +3762,11 @@ export type ReadinessRun = {
   /** Present only when the cell and the setup both opted in. Never authoritative: the summary is the result. */
   explanation?: ReadinessExplanation | null;
 };
-/** MODEL: a model's text that verified against the rule result. TEMPLATE: the fixed text (model off, failed, slow or unsupported claim). */
+/** MODEL: a model's text that verified against the rule result. TEMPLATE: the fixed text (model off, failed, slow, unsupported claim, or the request refused by the usage and budget hook). */
 export type ReadinessExplanation = {
   source: "MODEL" | "TEMPLATE";
   text: string;
-  fallback_reason: "MODEL_NOT_CONFIGURED" | "MODEL_TIMEOUT" | "MODEL_UNAVAILABLE" | "UNSUPPORTED_CLAIM" | null;
+  fallback_reason: "MODEL_NOT_CONFIGURED" | "MODEL_TIMEOUT" | "MODEL_UNAVAILABLE" | "UNSUPPORTED_CLAIM" | "BUDGET_POLICY_DENY" | null;
   provider: string | null;
   model: string | null;
   prompt_version: string;

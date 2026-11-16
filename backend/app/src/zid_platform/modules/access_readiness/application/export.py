@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.access_readiness.application import common
 from zid_platform.modules.access_readiness.application.common import record, utcnow
+from zid_platform.modules.access_readiness.application.observe import chain_problems
 from zid_platform.modules.access_readiness.application.review import mask
 from zid_platform.modules.access_readiness.infrastructure import store
 
@@ -45,7 +46,7 @@ async def export_evidence(
 ) -> dict[str, Any]:
     run_id = run["run_id"]
     envelopes = await store.list_evidence(conn, run_id)
-    problems = store.verify_chain(envelopes)
+    problems = await chain_problems(conn, run, envelopes)
     decisions = await store.list_decisions(conn, run_id)
     proposals = await store.list_proposals(conn, run_id=run_id, limit=500)
     summary = run["summary"] if isinstance(run["summary"], dict) else {}

@@ -1,6 +1,6 @@
 # CR-090: refusals are recorded (conformance T12, T35, T38, T48)
 
-Status: open (built and tested; T12 stays PARTIAL pending an owner decision).
+Status: open (built and tested; T12 COVERED by owner decision on 2026-11-16).
 
 ## Why
 ZID-RCG-003 section 12 cases T35, T38 and T48 were PARTIAL because the refusal happened but nothing recorded it; T12 was audited nowhere.
@@ -21,5 +21,5 @@ In each place the refused request's transaction ends in an error, so the record 
   organization as DENIED `organization.kyb.proof_access_denied` / `CASE_NOT_VISIBLE`. The answer stays the same 404.
 
 ## Not in this change
-- T12 stays PARTIAL: the case states 403; the platform answers 404 so that nothing confirms another organization's claim exists. Owner to
-  decide whether 404 satisfies the case.
+- (none for T12) Owner decision 2026-11-16: the deliberate 404 satisfies the case, because a 403 would confirm that another
+  organization's claim exists. T12 is COVERED: the attempt is audited and nothing leaks.
