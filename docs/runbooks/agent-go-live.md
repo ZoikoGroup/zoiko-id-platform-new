@@ -85,3 +85,27 @@ Closing a company (offboarding) quarantines its connectors, retires its applicat
 steps names the tenant in its own query and refuses to touch another's rows; a regression test with two companies (`test_offboarding_scope_pg.py`) proves the other company is left alone.
 An earlier version relied on row-level security alone and, under that worker, would have drained every company at once; if you ever ran an offboarding with that version, check the other
 companies' connectors, applications and sessions.
+
+## Check an agent end to end over the API only (no container, no database access)
+
+`tools/scripts/agents_api_check.py` drives the agents through documented HTTP routes only. It needs a running cell and two different people's access tokens
+(`ZID_TOKEN_ADMIN` registers and runs, `ZID_TOKEN_APPROVER` approves; never put a token on the command line).
+
+- `--create-api-agent --operator ID --sponsor ID --publisher ID --tenant ID --issuer URL [--api-base URL] [--tool-server ID] [--tools ...]`:
+  registers an API client (public key only; the private key stays in the script's process), has a second person approve the build and the release,
+  binds, attests the four gates, submits, has the second person activate, then signs in as the agent with a one-time signed assertion and, when
+  `--tool-server` is given, makes one governed tool call with a DPoP proof. `--api-base` is the API's canonical public URL (its `public_base_url`);
+  the DPoP proof names it, and it can differ from the token issuer.
+- `--readiness-agent ID`: Access Readiness (create, dry-run, request and approve release, run, decisions, evidence, review queue, idempotent replay).
+- `--daara-agent ID`: DAARA (template, setup, validate, dry-run, run, queue). With `--daara-release` and `ZID_TOKEN_SECURITY` and `ZID_TOKEN_AUTHORITY` (two different people, neither the requester) it also takes an unreleased agent through the release: request, each signer approves the exact policy hash, apply, then a governed run. `--daara-region` names the cell the setup is created for (default `local-1`).
+
+Exit code 0 only when every step that ran passed. The same client is tested against PostgreSQL with row-level security and over a real socket
+(`backend/app/tests/component/test_agents_api_client_pg.py`). A person gives an API agent its authority with `--grantor` (delegation from a grant the person holds).
+
+**What an API agent's token is worth (CR-094, security owner to ratify).** The token has no identity session. A request that carries a verified DPoP proof of
+the key the token is bound to counts as assurance Z1, which clears the R1 floor and nothing above it. Without this the gateway refused every API-agent call
+with `ASSURANCE_INSUFFICIENT`. The agent still needs an authority grant from a person for the tool's action; without one the gateway refuses and names why.
+
+## The review agent: Access Readiness, not DAARA
+
+The Delegated Authority and Access Readiness agent for this review is the Access Readiness agent (`/v1/access-readiness`, `ZID_ACCESS_READINESS_ENABLED`). The older DAARA reference agent is retired: its routes answer 404 unless `ZID_DAARA_ENABLED=true`, and its section above (`--daara-agent`) works only with that flag set. The Access Readiness agent stops under an emergency stop of agent governance, company-wide or per agent, and a stop that cannot be read refuses the run.

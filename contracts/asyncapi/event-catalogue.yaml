@@ -1332,6 +1332,18 @@ events:
     source: ZID-VERIFY-001
     lane: priority
     source_status: "canonical"
+  verification.assertion.expired:
+    cloudevents_type: com.zoiko.id.verification.assertion.expired.v1
+    meaning: "A verification assertion passed its valid-until date and is no longer relied on."
+    source: ZID-GAP-001 DTV-29
+    lane: domain
+    source_status: "proposal"
+  verification.assertion.stale:
+    cloudevents_type: com.zoiko.id.verification.assertion.stale.v1
+    meaning: "A verification assertion rests on a provider that is no longer trusted; ask again before relying on it."
+    source: ZID-GAP-001 DTV-29
+    lane: domain
+    source_status: "proposal"
   verification.completed:
     cloudevents_type: com.zoiko.id.verification.completed.v1
     meaning: "Canonical terminal verification outcome."

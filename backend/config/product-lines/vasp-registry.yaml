@@ -1,0 +1,10 @@
+# Counterparty virtual asset service providers and Travel Rule thresholds (ZID-GAP-001 v2.0 DTV-33; CR-097).
+# status: PROPOSED, and EMPTY ON PURPOSE. The Travel Rule line ships as DESIGN and no provider or threshold is invented here.
+#
+# vasps: each entry needs a valid LEI (ISO 17442 check digits), the jurisdictions it is permitted in, a status (ACTIVE, SUSPENDED, WITHDRAWN) and
+#        source_ref (where the operator learned it: a register entry, a contract, a regulator list). A provider not listed is UNVERIFIED_COUNTERPARTY.
+# thresholds: per jurisdiction, the legal amount at which the Travel Rule applies, its currency and legal_basis_ref (Legal's reference). With none
+#        configured for a jurisdiction the answer is THRESHOLD_UNKNOWN, never "below".
+version: 0.1.0
+vasps: []
+thresholds: {}

@@ -71,6 +71,7 @@ from zid_platform.modules.commercial.application.recorder import (
     configure as configure_ledger,
 )
 from zid_platform.modules.commercial.application.recorder import (
+    credential_usage_sink,
     freeze_month,
     ledger_summary,
     reconcile,
@@ -100,6 +101,8 @@ from zid_platform.modules.commercial.domain.billable import (
     METERS,
     BillableError,
     key_auth,
+    key_credential_check,
+    key_credential_sensitive_check,
     key_decision,
     key_m2m,
     key_screen_check,
@@ -257,6 +260,7 @@ __all__ = [
     "configure_commitment_authority",
     "configure_ledger",
     "configure_org_state",
+    "credential_usage_sink",
     "decide_feature_entitlement",
     "disputes",
     "eligibility",
@@ -274,6 +278,8 @@ __all__ = [
     "fx_store",
     "invoicing",
     "key_auth",
+    "key_credential_check",
+    "key_credential_sensitive_check",
     "key_decision",
     "key_m2m",
     "key_screen_check",

@@ -177,9 +177,32 @@ rules:
   - {match: "POST /v1/machine/agents/*:suspend", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/agents/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/agents/*:retire", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "PUT /v1/machine/agents/*/daara", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/daara:*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/daara/dry-run", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/daara/runs", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agent-review/*", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/governance/alerts/*", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/policy/drafts", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/policy/simulate", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/change-requests", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/agents/*/pause", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agents/*/runs", exempt: PROTOCOL, why: "the governed runner opens a run with its own workload credential; agent.run.manage and the governance gates decide (AG-WF-002)"}
+  - {match: "POST /v1/machine/runs/*", exempt: PROTOCOL, why: "the governed runner counts and ends its own run with its workload credential (AG-WF-002)"}
+  - {match: "POST /v1/machine/budget-reservations*", exempt: PROTOCOL, why: "the governed runner reserves, settles or releases an allowance with its workload credential; every gate and ceiling decides (AG-WF-002)"}
+  - {match: "POST /v1/machine/budgets", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/budget-adjustments", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "PUT /v1/machine/governance/baseline", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
+  - {match: "POST /v1/machine/governance/delegates*", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/governance/requests/*", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/governance/pause", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/governance/freezes/*:request-restore", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}
   - {match: "POST /v1/machine/blueprints", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/blueprints/*:approve", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
   - {match: "POST /v1/machine/blueprints/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/api-clients", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "POST /v1/machine/agents/*/api-binding", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /v1/machine/agents/*/api-binding:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/builds", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/builds:resolve", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "POST /v1/machine/builds:versions", gate: {action: e.create-privileged-service-principal, mode: S}}
@@ -205,6 +228,7 @@ rules:
   - {match: "POST /v1/machine/workload-bindings*", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
   - {match: "POST /v1/machine/attestations:verify", exempt: PROTOCOL, why: "a workload proves itself"}
   - {match: "POST /v1/machine/workload-token", exempt: PROTOCOL, why: "a workload exchanges its attestation"}
+  - {match: "POST /v1/machine/api-agent-token", exempt: PROTOCOL, why: "an API client proves a registered key with a signed one-time assertion (CR-094)"}
   - {match: "POST /v1/integration/routes:resolve", exempt: PROTOCOL, why: "a service resolves a route with its own credential"}
   - {match: "GET /v1/webhooks/*", gate: {action: e.inspect-assigned-api-event-metadata, mode: R}}
   - {match: "POST /v1/webhooks/deliveries/*:replay", gate: {action: e.rotate-assigned-nonprivileged-api-credential, mode: X}}

@@ -15,6 +15,7 @@ import {
   attachmentProblem,
   attachmentSize,
 } from "./logic";
+import { UserText } from "@/lib/user-text";
 
 const attemptId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36));
 
@@ -64,7 +65,7 @@ export function AttachmentsCard({ orgId, requestId, reference }: { orgId: string
                 {d.attachments.map((a) => (
                   <li key={a.attachment_id} className="flex flex-wrap items-center gap-3 p-3">
                     <div className="min-w-0 flex-1">
-                      <p className="break-words font-medium text-ink">{a.label}</p>
+                      <p className="break-words font-medium text-ink"><UserText>{a.label}</UserText></p>
                       <p className="text-xs text-ink-muted">
                         {ATTACHMENT_KINDS.find((k) => k.id === a.kind)?.label ?? "Document"} · {attachmentSize(a.size_bytes)} · added <DateTime value={a.uploaded_at} /> · open until{" "}
                         <DateTime value={a.access_ends_at} />

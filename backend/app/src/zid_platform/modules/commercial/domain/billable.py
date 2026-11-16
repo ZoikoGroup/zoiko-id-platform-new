@@ -14,9 +14,11 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-# SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-090) are usage facts only: no SKU and no price stand behind them, so they are recorded and never rated or invoiced.
+# SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-090), and CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK (CR-070), are usage facts only: no SKU and no price stand
+# behind them, so they are recorded and never rated or invoiced.
 METERS = (
     "MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED", "SCREEN_CHECK", "SCREEN_MONITOR_PERIOD",
+    "CREDENTIAL_CHECK", "CREDENTIAL_SENSITIVE_CHECK",
 )  # fmt: skip
 PRINCIPAL_CLASSES = ("HUMAN", "NON_HUMAN")
 ORIGINS = ("API", "SDK", "CONSOLE", "PARTNER")
@@ -71,6 +73,16 @@ def key_vc_issued(credential_id: str) -> str:
 
 def key_vc_presented(presentation_id: str) -> str:
     return f"vcp:{presentation_id}"
+
+
+def key_credential_check(check_id: str) -> str:
+    """One completed claim check: the same check recorded twice is one event, and a retry of a request is the same check."""
+    return f"crdchk:{check_id}"
+
+
+def key_credential_sensitive_check(check_id: str) -> str:
+    """One completed sensitive-category check (a regulator adverse-finding check)."""
+    return f"crdsns:{check_id}"
 
 
 def key_screen_check(case_id: str, version: int) -> str:

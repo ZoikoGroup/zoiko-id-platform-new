@@ -111,6 +111,8 @@ def create_app(
             "builds must be approved (set it to auto or enforce)"
         )
     app.state.agent_builds = settings.agent_builds
+    app.state.daara_enabled = settings.daara_enabled
+    app.state.self_run_enabled = settings.self_run_enabled
     app.state.access_readiness_enabled = settings.access_readiness_enabled
     app.state.access_readiness_regions = tuple(settings.access_readiness_regions)
     app.state.access_readiness_ai_explain = settings.access_readiness_ai_explain
@@ -158,14 +160,27 @@ def create_app(
             "ZID_MONITORING_SCOPE=off would let ongoing monitoring run in markets with no legal and commercial approval; "
             "outside local, test and dev use shadow or enforce"
         )
-    from .modules.commercial.ports import screening_usage_sink
+    from .modules.commercial.ports import credential_usage_sink, screening_usage_sink
+    from .modules.credential.ports import configure_usage_sink as configure_credential_usage_sink
     from .modules.screening.ports import configure_monitoring_scope, configure_usage_sink
 
     configure_monitoring_scope(settings.monitoring_scope)
     configure_usage_sink(
         screening_usage_sink
     )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
+    configure_credential_usage_sink(
+        credential_usage_sink
+    )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
+    if settings.agent_governance == "off" and settings.environment not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "ZID_AGENT_GOVERNANCE=off would let agents call tools with no policy, approval, quota or budget check; "
+            "outside local, test and dev use shadow or enforce"
+        )
+    from .modules.machine.ports import configure_agent_governance
+
+    configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
+    app.state.agent_governance = settings.agent_governance
     app.state.build_registries = tuple(h.lower() for h in settings.build_registries)
     app.state.build_registries_private = tuple(h.lower() for h in settings.build_registries_private)
     app.state.build_images = tuple(i.strip() for i in settings.build_images if i.strip())
@@ -364,6 +379,9 @@ def create_app(
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
         from .modules.machine.api.agents import router as agents_router
+        from .modules.machine.api.api_agents import router as api_agents_router
+        from .modules.machine.api.daara import router as agent_daara_router
+        from .modules.machine.api.governance import router as agent_governance_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
@@ -401,6 +419,7 @@ def create_app(
             router as regulatory_suspensions_router,
         )
         from .modules.operator_access.api.regulatory_v2 import router as regulatory_v2_router
+        from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
         from .modules.privacy.api.privacy import router as privacy_router
@@ -431,6 +450,10 @@ def create_app(
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
         from .modules.verification.api.v2_providers import router as v2_providers_router
+        from .modules.verification.api.v2_self_run import router as v2_self_run_router
+        from .modules.verification.api.v2_source_of_funds import router as v2_sof_router
+        from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
+        from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.webhook.api.v2 import router as webhooks_v2_router
         from .modules.webhook.api.webhooks import router as webhooks_router
@@ -489,6 +512,11 @@ def create_app(
             org_claims_router,
             v2_organizations_router,
             v2_age_router,
+            v2_sof_router,
+            v2_travel_rule_router,
+            v2_workflows_router,
+            v2_self_run_router,
+            v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,
             privacy_v2_router,
@@ -513,6 +541,9 @@ def create_app(
             alerts_router,
             search_router,
             agents_router,
+            api_agents_router,
+            agent_governance_router,
+            agent_daara_router,
             access_readiness_router,
             tool_calls_router,
             screening_signals_router,

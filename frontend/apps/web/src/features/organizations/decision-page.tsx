@@ -35,6 +35,7 @@ import {
 import { AttachmentsCard } from "./attachments";
 import { StatusWord } from "./parts";
 import { Refusal, ReviseDialog, Row, ShownOnce, useOrgId } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 const KEY = ["org-approvals"];
 
@@ -204,7 +205,7 @@ function Decision({ orgId, c, refetch }: { orgId: string; c: OrgApprovalCase; re
               <li key={v.vote_id} className="flex flex-wrap items-center gap-2 py-2">
                 <Badge tone={v.vote === "APPROVE" ? "ok" : "danger"}>{v.vote === "APPROVE" ? "Approved" : "Rejected"}</Badge>
                 <span>
-                  {v.approver ? <strong>{v.approver.label}</strong> : <>Person <span className="font-mono text-xs">{v.person_ref}</span></>} as {v.authority_basis.toLowerCase()}
+                  {v.approver ? <strong><UserText>{v.approver.label}</UserText></strong> : <>Person <span className="font-mono text-xs">{v.person_ref}</span></>} as {v.authority_basis.toLowerCase()}
                 </span>
                 <span className="text-ink-muted">
                   confirmed with a {v.step_up_tier ?? "passkey"} proof, <DateTime value={v.decided_at} />

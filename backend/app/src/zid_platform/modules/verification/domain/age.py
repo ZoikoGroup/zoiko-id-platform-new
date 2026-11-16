@@ -137,7 +137,12 @@ def combine(assertions: list[AgeAssertion]) -> AgeAssertion:
     thresholds = {a.threshold for a in assertions}
     if len(thresholds) != 1:
         raise AgeError("MIXED_THRESHOLDS")
-    exact = [a for a in assertions if a.method is Method.VERIFIED_BIRTH_DATE]
+    # a verified birth date that could not be used (UNDETERMINED) must not shadow a decisive estimate
+    exact = [
+        a
+        for a in assertions
+        if a.method is Method.VERIFIED_BIRTH_DATE and a.result is not Result.UNDETERMINED
+    ]
     if exact:
         return exact[0]
     decided = {a.result for a in assertions if a.result is not Result.UNDETERMINED}

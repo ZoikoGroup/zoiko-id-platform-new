@@ -266,6 +266,46 @@ async def check_adverse_media(
     return effect, raised
 
 
+# ---- identity signals (CR-101; DTV-20/21/22) -------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityFinding:
+    """One identity-signal result for a person to look at. Built by the verification module from its link graph; this module never
+    sees a phone, an email or a device id, only an opaque subject, a rule code and counts."""
+
+    rule: str
+    subject_ref: str
+    group_key: (
+        str  # a stable digest of who is in the group, so the same group never opens a second item
+    )
+    tier: RiskTier
+    counts: Mapping[str, int]
+
+
+async def raise_identity_findings(
+    conn: AsyncConnection,
+    tenant_id: str,
+    findings: list[IdentityFinding],
+    *,
+    now: datetime,
+    notify: NotifyChannel = EVENT,
+) -> list[Raised]:
+    """Each finding opens one review item (a repeat of the same group adds nothing). A finding is a reason for a person to look: it
+    blocks, approves and clears nothing, and the detail holds counts only."""
+    out: list[Raised] = []
+    for f in findings:
+        detail = {k: int(v) for k, v in f.counts.items()}
+        detail["recommendation_is_review_only"] = 1
+        out.append(
+            await _raise(
+                conn, tenant_id, source="IDENTITY_SIGNAL", subject_ref=f.subject_ref, rule=f.rule, detail=detail,
+                tier=f.tier, dedupe_key=f"IDENTITY_SIGNAL:{f.rule}:{f.group_key}", notify=notify, now=now,
+            )
+        )  # fmt: skip
+    return out
+
+
 # ---- review ----------------------------------------------------------------------------------------------------------
 
 
