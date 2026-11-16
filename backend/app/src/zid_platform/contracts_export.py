@@ -61,6 +61,8 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
             "/v2/age-checks",
             "/v2/capture-alternatives",
             "/v2/providers",
+            "/v2/source-of-funds",
+            "/v2/travel-rule",
         ),
         "Zoiko iD Identity Verification and Assurance API",
     ),

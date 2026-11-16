@@ -290,7 +290,10 @@ def policy_delta(old: GovernancePolicy | None, new: GovernancePolicy) -> dict[st
     """The requested change, as a diff of exact leases and limits, so a signer sees what they are approving (GOV02-05)."""
     old_c = policy_content(old) if old else {"grants": [], "quotas": {}}
     new_c = policy_content(new)
-    key = lambda g: (g["tool_id"], g["resource_kind"], g["resource_selector"], g["purpose"])
+
+    def key(g: Mapping[str, Any]) -> tuple[str, str, str, str]:
+        return (g["tool_id"], g["resource_kind"], g["resource_selector"], g["purpose"])
+
     old_g = {key(g): g for g in old_c["grants"]}
     new_g = {key(g): g for g in new_c["grants"]}
     return {
@@ -500,7 +503,9 @@ APPROVED_CURRENCIES: Mapping[str, int] = {
 }  # ISO 4217 minor units; the owner extends it
 
 
-MAX_AMOUNT = Decimal("1000000000000")  # one trillion in any approved currency: far above any cap the owners will set
+MAX_AMOUNT = Decimal(
+    1000000000000
+)  # one trillion in any approved currency: far above any cap the owners will set
 
 
 class MoneyError(ValueError):
@@ -523,7 +528,9 @@ def money(
     if not d.is_finite() or d < 0:
         raise MoneyError("MONEY_NEGATIVE_OR_INVALID")
     if d > MAX_AMOUNT:
-        raise MoneyError("MONEY_TOO_LARGE")  # a cap or a cost beyond any real budget is a typo or an attack, and never fits a column
+        raise MoneyError(
+            "MONEY_TOO_LARGE"
+        )  # a cap or a cost beyond any real budget is a typo or an attack, and never fits a column
     if -d.as_tuple().exponent > approved[currency]:  # type: ignore[operator]
         raise MoneyError("MONEY_TOO_PRECISE")
     return d

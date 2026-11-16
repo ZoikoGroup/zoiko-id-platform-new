@@ -12,7 +12,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
-from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding
 from epassport_fixture import integer, make_chip, sod_cms
 from pdf_signing import NOW, der, ec_key, make_cert
@@ -22,7 +21,10 @@ from zid_platform.modules.evidence.infrastructure import csca_import
 from zid_platform.modules.verification.application import self_run as app
 from zid_platform.modules.verification.domain import biometric_engine as be
 from zid_platform.modules.verification.domain import self_run as sr
-from zid_platform.modules.verification.domain.providers import ProviderKind, validate_provider_config
+from zid_platform.modules.verification.domain.providers import (
+    ProviderKind,
+    validate_provider_config,
+)
 from zid_platform.modules.verification.domain.verification import (
     Profile,
     SessionStatus,
@@ -57,7 +59,12 @@ def accepted(**over):
             "pad_standard": "ISO/IEC 30107-3",
             "licence_checked": True,
             "dpia_ref": "DPIA-2026-007",
-            "measured": {"false_accept": 0.0005, "false_reject": 0.03, "attack_accept": 0.02, "bona_fide_reject": 0.05},
+            "measured": {
+                "false_accept": 0.0005,
+                "false_reject": 0.03,
+                "attack_accept": 0.02,
+                "bona_fide_reject": 0.05,
+            },
         },
         "thresholds": {"face_match_min": 0.8, "liveness_min": 0.9},
     }
@@ -86,14 +93,24 @@ def chip_evidence(chip=None, **over) -> sr.ChipEvidence:
 
 
 def engine(face=0.95, live=0.97, **kw):
-    return be.FakeEngine(face, live, "deepface-arcface", "1.4.0", **kw) if kw else be.FakeEngine(face, live, "deepface-arcface", "1.4.0")
+    return (
+        be.FakeEngine(face, live, "deepface-arcface", "1.4.0", **kw)
+        if kw
+        else be.FakeEngine(face, live, "deepface-arcface", "1.4.0")
+    )
 
 
 def run(chip=None, *, g=None, face=0.95, live=0.97, reference=sr.CHIP_PHOTO, **kw):
     g = g or gate()
     e = engine(face, live)
     return sr.self_run_result(
-        chip or chip_evidence(), session_ref="s1", gate=g, face=e.match(b"p", b"r"), face_reference=reference, liveness=e.liveness(b"m"), **kw
+        chip or chip_evidence(),
+        session_ref="s1",
+        gate=g,
+        face=e.match(b"p", b"r"),
+        face_reference=reference,
+        liveness=e.liveness(b"m"),
+        **kw,
     )
 
 
@@ -130,7 +147,10 @@ def test_a_complete_evaluation_opens_the_gate_and_records_what_was_measured():
         ({"measured": {"bona_fide_reject": True}}, "MEASURED_BONA_FIDE_REJECT_MISSING"),
         ({"measured": {"false_accept": float("nan")}}, "MEASURED_FALSE_ACCEPT_MISSING"),
         ({"thresholds": {"face_match_min": 0.3, "liveness_min": 0.9}}, "FACE_THRESHOLD_INVALID"),
-        ({"thresholds": {"face_match_min": 0.8, "liveness_min": None}}, "LIVENESS_THRESHOLD_INVALID"),
+        (
+            {"thresholds": {"face_match_min": 0.8, "liveness_min": None}},
+            "LIVENESS_THRESHOLD_INVALID",
+        ),
     ],
 )
 def test_an_engine_switched_on_without_its_evidence_is_refused_and_says_why(over, code):
@@ -155,23 +175,41 @@ def test_a_chip_only_check_is_limited_and_binds_nobody():
     assert r.status == "COMPLETED" and r.binding is None and r.liveness_passed is None
     assert {c.claim for c in r.claims} == {"legal_name", "birthdate"}
     assert all(c.method == "chip" and c.evidence == ("GOVERNMENT_ID",) for c in r.claims)
-    assert "CHIP_PASSIVE_AUTH_ONLY" in r.reason_codes and "SELF_RUN_BIOMETRICS_OFF" in r.reason_codes
+    assert (
+        "CHIP_PASSIVE_AUTH_ONLY" in r.reason_codes and "SELF_RUN_BIOMETRICS_OFF" in r.reason_codes
+    )
     d = decide(PROFILE, r, jurisdiction="GB")
-    assert d.status is SessionStatus.FAILED and "BINDING_FAILED" in d.reasons  # never VERIFIED on a chip alone
+    assert (
+        d.status is SessionStatus.FAILED and "BINDING_FAILED" in d.reasons
+    )  # never VERIFIED on a chip alone
 
 
 def test_a_chip_that_proves_nothing_gives_no_claim():
-    for status, expected in (("NOT_VERIFIED", "FAILED"), ("INDETERMINATE", "PENDING"), ("SOMETHING_ELSE", "PENDING")):
-        r = sr.self_run_result(sr.ChipEvidence(status, ("NO_CSCA_CONFIGURED",), "A B", "1990-01-01", True), session_ref="s").result
+    for status, expected in (
+        ("NOT_VERIFIED", "FAILED"),
+        ("INDETERMINATE", "PENDING"),
+        ("SOMETHING_ELSE", "PENDING"),
+    ):
+        r = sr.self_run_result(
+            sr.ChipEvidence(status, ("NO_CSCA_CONFIGURED",), "A B", "1990-01-01", True),
+            session_ref="s",
+        ).result
         assert r.status == expected and r.claims == () and r.binding is None
-    r = run(sr.ChipEvidence("NOT_VERIFIED", ("DATA_GROUP_HASH_MISMATCH",), "A B", "1990-01-01", True)).result
+    r = run(
+        sr.ChipEvidence("NOT_VERIFIED", ("DATA_GROUP_HASH_MISMATCH",), "A B", "1990-01-01", True)
+    ).result
     assert r.status == "FAILED" and r.binding is None  # a good face does not rescue a bad chip
 
 
 def test_a_face_and_liveness_from_the_accepted_engine_against_the_chip_photo_bind_the_person():
     out = run()
     r = out.result
-    assert r.status == "COMPLETED" and r.binding == "BIOMETRIC" and r.liveness_passed is True and r.fraud_signals == ()
+    assert (
+        r.status == "COMPLETED"
+        and r.binding == "BIOMETRIC"
+        and r.liveness_passed is True
+        and r.fraud_signals == ()
+    )
     assert any(c.method == "chip+biometric" for c in r.claims)
     d = decide(PROFILE, r, jurisdiction="GB")
     assert d.status is SessionStatus.VERIFIED and d.outcome == "VERIFIED"
@@ -181,7 +219,10 @@ def test_a_face_and_liveness_from_the_accepted_engine_against_the_chip_photo_bin
 
 def test_the_decision_still_refuses_a_biometric_binding_where_the_profile_does_not_allow_it():
     d = decide(PROFILE, run().result, jurisdiction="DE")
-    assert d.outcome in ("BIOMETRIC_NOT_PERMITTED", "ASSURANCE_NOT_MET") and d.status is SessionStatus.FAILED
+    assert (
+        d.outcome in ("BIOMETRIC_NOT_PERMITTED", "ASSURANCE_NOT_MET")
+        and d.status is SessionStatus.FAILED
+    )
 
 
 @pytest.mark.parametrize("reference", ["DOCUMENT_IMAGE", None, "", "NAME_ONLY"])
@@ -198,13 +239,22 @@ def test_a_chip_photo_whose_hash_was_not_verified_never_binds():
 
 def test_a_face_under_the_threshold_fails_and_is_never_favourable():
     r = run(face=0.79).result
-    assert r.status == "FAILED" and r.claims == () and r.binding is None and "SELF_RUN_FACE_NO_MATCH" in r.reason_codes
+    assert (
+        r.status == "FAILED"
+        and r.claims == ()
+        and r.binding is None
+        and "SELF_RUN_FACE_NO_MATCH" in r.reason_codes
+    )
     assert run(face=0.8).result.binding == "BIOMETRIC"  # the threshold itself passes
 
 
 def test_a_liveness_under_its_threshold_raises_a_presentation_attack_signal():
     r = run(live=0.5).result
-    assert r.binding == "BIOMETRIC" and r.liveness_passed is False and "SELF_RUN_PAD_SUSPECTED" in r.fraud_signals
+    assert (
+        r.binding == "BIOMETRIC"
+        and r.liveness_passed is False
+        and "SELF_RUN_PAD_SUSPECTED" in r.fraud_signals
+    )
     d = decide(PROFILE, r, jurisdiction="GB")
     assert d.status is SessionStatus.FAILED and d.outcome == "FRAUD_SUSPECTED"
 
@@ -212,14 +262,24 @@ def test_a_liveness_under_its_threshold_raises_a_presentation_attack_signal():
 def test_missing_biometric_evidence_leaves_the_person_unbound():
     e = engine()
     for kw in ({"face": e.match(b"", b"")}, {"liveness": e.liveness(b"")}, {}):
-        r = sr.self_run_result(chip_evidence(), session_ref="s", gate=gate(), face_reference=sr.CHIP_PHOTO, **kw).result
+        r = sr.self_run_result(
+            chip_evidence(), session_ref="s", gate=gate(), face_reference=sr.CHIP_PHOTO, **kw
+        ).result
         assert r.binding is None and "SELF_RUN_BIOMETRIC_EVIDENCE_MISSING" in r.reason_codes
 
 
 def test_a_result_from_another_engine_or_version_is_not_trusted():
-    for other in (be.FakeEngine(0.99, 0.99, "other-engine", "1.4.0"), be.FakeEngine(0.99, 0.99, "deepface-arcface", "9.9")):
+    for other in (
+        be.FakeEngine(0.99, 0.99, "other-engine", "1.4.0"),
+        be.FakeEngine(0.99, 0.99, "deepface-arcface", "9.9"),
+    ):
         r = sr.self_run_result(
-            chip_evidence(), session_ref="s", gate=gate(), face=other.match(b"", b""), face_reference=sr.CHIP_PHOTO, liveness=other.liveness(b"")
+            chip_evidence(),
+            session_ref="s",
+            gate=gate(),
+            face=other.match(b"", b""),
+            face_reference=sr.CHIP_PHOTO,
+            liveness=other.liveness(b""),
         ).result
         assert r.binding is None and "SELF_RUN_ENGINE_NOT_THE_ACCEPTED_ONE" in r.reason_codes
 
@@ -229,7 +289,14 @@ def test_a_score_that_is_not_a_number_in_range_is_pending(bad):
     g = gate()
     face = be.FaceMatch(bad, g.engine_id, g.engine_version)  # type: ignore[arg-type]
     live = be.Liveness(0.99, g.engine_id, g.engine_version)
-    r = sr.self_run_result(chip_evidence(), session_ref="s", gate=g, face=face, face_reference=sr.CHIP_PHOTO, liveness=live).result
+    r = sr.self_run_result(
+        chip_evidence(),
+        session_ref="s",
+        gate=g,
+        face=face,
+        face_reference=sr.CHIP_PHOTO,
+        liveness=live,
+    ).result
     assert r.status == "PENDING" and r.binding is None and r.claims == ()
 
 
@@ -260,10 +327,21 @@ def test_a_name_comes_only_from_a_verified_data_group_that_holds_together_and_is
     assert sr.ChipEvidence.from_verdict(v.status, v.reasons, no_dg1).legal_name is None
     broken = {**detail, "document": {**detail["document"], "mrz_check_digits_hold": False}}
     assert sr.ChipEvidence.from_verdict(v.status, v.reasons, broken).legal_name is None
-    assert sr.ChipEvidence.from_verdict(v.status, (*v.reasons, "DOCUMENT_EXPIRED"), detail).legal_name is None
-    assert sr.ChipEvidence.from_verdict("INDETERMINATE", ("NO_CSCA_CONFIGURED",), detail).legal_name is None
+    assert (
+        sr.ChipEvidence.from_verdict(v.status, (*v.reasons, "DOCUMENT_EXPIRED"), detail).legal_name
+        is None
+    )
+    assert (
+        sr.ChipEvidence.from_verdict("INDETERMINATE", ("NO_CSCA_CONFIGURED",), detail).legal_name
+        is None
+    )
     assert sr.ChipEvidence.from_verdict(v.status, v.reasons, detail).photo_verified is True
-    assert sr.ChipEvidence.from_verdict(v.status, v.reasons, {**detail, "data_groups_verified": [1]}).photo_verified is False
+    assert (
+        sr.ChipEvidence.from_verdict(
+            v.status, v.reasons, {**detail, "data_groups_verified": [1]}
+        ).photo_verified
+        is False
+    )
 
 
 def test_the_audit_keeps_scores_and_versions_and_no_media_or_name():
@@ -273,7 +351,14 @@ def test_the_audit_keeps_scores_and_versions_and_no_media_or_name():
     assert chip.legal_name and chip.legal_name.upper() not in blob  # no name, no birth date
     assert chip.birth_date and chip.birth_date not in blob
     assert "PRETEND FACE IMAGE" not in blob
-    assert set(out.audit) >= {"chip_status", "engine", "face_score", "liveness_score", "commitment", "codes"}
+    assert set(out.audit) >= {
+        "chip_status",
+        "engine",
+        "face_score",
+        "liveness_score",
+        "commitment",
+        "codes",
+    }
 
 
 # ------------------------------------------------------------------------------------------------- the application layer
@@ -297,7 +382,9 @@ def test_the_application_layer_scores_with_the_injected_engine_and_calls_it_only
     ok = app.assess(chip_evidence(), engine=Spy(), **args)
     assert ok.result.binding == "BIOMETRIC" and calls == ["match", "live"]
     calls.clear()
-    bad = app.assess(sr.ChipEvidence("INDETERMINATE", ("NO_CSCA_CONFIGURED",)), engine=Spy(), **args)
+    bad = app.assess(
+        sr.ChipEvidence("INDETERMINATE", ("NO_CSCA_CONFIGURED",)), engine=Spy(), **args
+    )
     assert bad.result.status == "PENDING" and calls == []
 
 
@@ -311,13 +398,33 @@ def test_an_engine_that_raises_is_pending_never_a_pass():
         def liveness(self, media):
             raise RuntimeError("never reached")
 
-    out = app.assess(chip_evidence(), engine=Broken(), probe=b"p", chip_photo=b"r", media=b"m", gate=gate(), session_ref="s")
-    assert out.result.status == "PENDING" and out.result.claims == () and "SELF_RUN_ENGINE_UNAVAILABLE" in out.result.reason_codes
+    out = app.assess(
+        chip_evidence(),
+        engine=Broken(),
+        probe=b"p",
+        chip_photo=b"r",
+        media=b"m",
+        gate=gate(),
+        session_ref="s",
+    )
+    assert (
+        out.result.status == "PENDING"
+        and out.result.claims == ()
+        and "SELF_RUN_ENGINE_UNAVAILABLE" in out.result.reason_codes
+    )
     assert "model file" not in repr(out.audit)
 
 
 def test_with_the_engine_off_the_application_layer_is_chip_only():
-    out = app.assess(chip_evidence(), engine=engine(), probe=b"p", chip_photo=b"r", media=b"m", session_ref="s", today=TODAY)
+    out = app.assess(
+        chip_evidence(),
+        engine=engine(),
+        probe=b"p",
+        chip_photo=b"r",
+        media=b"m",
+        session_ref="s",
+        today=TODAY,
+    )
     assert out.result.binding is None and "SELF_RUN_BIOMETRICS_OFF" in out.result.reason_codes
 
 
@@ -333,11 +440,34 @@ OID_ML = ml.OID_MASTER_LIST
 
 
 def master_list(*, signer_issuer=None, extra=(), content_type=OID_ML, corrupt=False):
-    anchor = make_cert("Utopia CSCA", ec_key(), ca=True, not_before=NOW - timedelta(days=3000), not_after=NOW + timedelta(days=3000))
-    signer = make_cert("Utopia ML Signer", ec_key(), signer_issuer or anchor, not_before=NOW - timedelta(days=30), not_after=NOW + timedelta(days=300))
-    cscas = [make_cert(f"Country {i} CSCA", ec_key(), ca=True, not_before=NOW - timedelta(days=900), not_after=NOW + timedelta(days=900)) for i in range(3)]
+    anchor = make_cert(
+        "Utopia CSCA",
+        ec_key(),
+        ca=True,
+        not_before=NOW - timedelta(days=3000),
+        not_after=NOW + timedelta(days=3000),
+    )
+    signer = make_cert(
+        "Utopia ML Signer",
+        ec_key(),
+        signer_issuer or anchor,
+        not_before=NOW - timedelta(days=30),
+        not_after=NOW + timedelta(days=300),
+    )
+    cscas = [
+        make_cert(
+            f"Country {i} CSCA",
+            ec_key(),
+            ca=True,
+            not_before=NOW - timedelta(days=900),
+            not_after=NOW + timedelta(days=900),
+        )
+        for i in range(3)
+    ]
     members = [c.cert for c in cscas] + list(extra)
-    econtent = der(0x30, integer(0) + der(0x31, b"".join(c.public_bytes(Encoding.DER) for c in members)))
+    econtent = der(
+        0x30, integer(0) + der(0x31, b"".join(c.public_bytes(Encoding.DER) for c in members))
+    )
     blob = sod_cms(econtent, signer, content_type=content_type, wrap=False)
     if corrupt:
         i = blob.index(econtent) + 12
@@ -373,19 +503,31 @@ def test_a_list_whose_content_was_changed_after_signing_is_not_verified():
 def test_a_cms_that_is_not_a_master_list_or_is_unreadable_is_refused():
     blob, anchor, _ = master_list(content_type="2.23.136.1.1.1")
     assert ml.read_master_list(blob, anchors=[anchor.cert]).status == "INDETERMINATE"
-    assert ml.read_master_list(b"\x30\x03\x02\x01\x00", anchors=[anchor.cert]).status == "INDETERMINATE"
+    assert (
+        ml.read_master_list(b"\x30\x03\x02\x01\x00", anchors=[anchor.cert]).status
+        == "INDETERMINATE"
+    )
     assert ml.read_master_list(b"", anchors=[anchor.cert]).status == "INDETERMINATE"
-    assert ml.read_master_list(b"x" * (ml.MAX_BYTES + 1), anchors=[anchor.cert]).status == "INDETERMINATE"
+    assert (
+        ml.read_master_list(b"x" * (ml.MAX_BYTES + 1), anchors=[anchor.cert]).status
+        == "INDETERMINATE"
+    )
 
 
 def test_only_ca_certificates_are_taken_from_a_list():
     leaf = make_cert("Not a CA", ec_key(), ca=False)
     blob, anchor, _ = master_list(extra=(leaf.cert,))
     r = ml.read_master_list(blob, anchors=[anchor.cert])
-    assert r.ok and len(r.certificates) == 3 and ml.fingerprint(leaf.cert) not in {ml.fingerprint(c) for c in r.certificates}
+    assert (
+        r.ok
+        and len(r.certificates) == 3
+        and ml.fingerprint(leaf.cert) not in {ml.fingerprint(c) for c in r.certificates}
+    )
 
 
-def test_the_importer_writes_a_verified_list_once_and_never_overwrites_or_deletes(tmp_path: Path, capsys):
+def test_the_importer_writes_a_verified_list_once_and_never_overwrites_or_deletes(
+    tmp_path: Path, capsys
+):
     blob, anchor, _ = master_list()
     ml_file, anchor_file, out = tmp_path / "list.ml", tmp_path / "anchor.pem", tmp_path / "csca"
     ml_file.write_bytes(blob)
@@ -398,8 +540,13 @@ def test_the_importer_writes_a_verified_list_once_and_never_overwrites_or_delete
     stamp = {f: f.read_bytes() for f in files}
     (out / "keep-me.pem").write_text("operator's own file")
     assert csca_import.main(args) == 0  # second run adds nothing
-    assert {f: f.read_bytes() for f in files} == stamp and (out / "keep-me.pem").read_text() == "operator's own file"
-    assert hashlib.sha256(anchor.cert.public_bytes(Encoding.DER)).hexdigest() in capsys.readouterr().out
+    assert {f: f.read_bytes() for f in files} == stamp and (
+        out / "keep-me.pem"
+    ).read_text() == "operator's own file"
+    assert (
+        hashlib.sha256(anchor.cert.public_bytes(Encoding.DER)).hexdigest()
+        in capsys.readouterr().out
+    )
 
 
 def test_the_importer_writes_nothing_for_a_list_that_does_not_verify(tmp_path: Path):
@@ -408,7 +555,19 @@ def test_the_importer_writes_nothing_for_a_list_that_does_not_verify(tmp_path: P
     (tmp_path / "list.ml").write_bytes(blob)
     (tmp_path / "a.pem").write_bytes(stranger.pem())
     out = tmp_path / "csca"
-    assert csca_import.main(["--master-list", str(tmp_path / "list.ml"), "--anchor", str(tmp_path / "a.pem"), "--out", str(out)]) == 1
+    assert (
+        csca_import.main(
+            [
+                "--master-list",
+                str(tmp_path / "list.ml"),
+                "--anchor",
+                str(tmp_path / "a.pem"),
+                "--out",
+                str(out),
+            ]
+        )
+        == 1
+    )
     assert not out.exists()
 
 
@@ -420,9 +579,23 @@ def test_the_importer_refuses_to_run_without_an_anchor(tmp_path: Path):
 def test_a_imported_csca_is_what_the_chip_check_then_trusts():
     chip = make_chip()
     econtent = der(0x30, integer(0) + der(0x31, chip.csca.cert.public_bytes(Encoding.DER)))
-    anchor = make_cert("Utopia ML anchor", ec_key(), ca=True, not_before=NOW - timedelta(days=3000), not_after=NOW + timedelta(days=3000))
-    signer = make_cert("ML signer", ec_key(), anchor, not_before=NOW - timedelta(days=30), not_after=NOW + timedelta(days=300))
-    r = ml.read_master_list(sod_cms(econtent, signer, content_type=OID_ML, wrap=False), anchors=[anchor.cert])
+    anchor = make_cert(
+        "Utopia ML anchor",
+        ec_key(),
+        ca=True,
+        not_before=NOW - timedelta(days=3000),
+        not_after=NOW + timedelta(days=3000),
+    )
+    signer = make_cert(
+        "ML signer",
+        ec_key(),
+        anchor,
+        not_before=NOW - timedelta(days=30),
+        not_after=NOW + timedelta(days=300),
+    )
+    r = ml.read_master_list(
+        sod_cms(econtent, signer, content_type=OID_ML, wrap=False), anchors=[anchor.cert]
+    )
     assert r.ok
     assert ep.verify(chip.sod, chip.data_groups, csca=r.certificates).status == "VERIFIED_LIMITED"
     assert ep.verify(chip.sod, chip.data_groups, csca=()).status == "INDETERMINATE"

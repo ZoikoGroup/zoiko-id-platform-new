@@ -1468,7 +1468,11 @@ async def reserve(
     )
     d = g.evaluate(call, ctx, now=now)
     if not d.allowed:
-        receipt = {"amount": str(cost), "currency": currency, "spend_class": spend_class}
+        receipt: dict[str, str | None] = {
+            "amount": str(cost),
+            "currency": currency,
+            "spend_class": spend_class,
+        }
         if d.budget is not None:
             receipt.update(
                 ceiling=d.budget.ceiling,

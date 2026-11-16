@@ -1,0 +1,38 @@
+# Source of funds and wealth questionnaire (ZID-GAP-001 v2.0 DTV-28; CR-073 P2-6; CR-096).
+#
+# status: SAMPLE. Engineering wrote this to exercise the machinery. It is NOT a compliance document: no compliance officer has approved the
+# questions, the evidence they ask for, or their legal basis. The questions and evidence below are plain examples. While `status` is SAMPLE
+# the source_of_funds product line cannot be LIVE (a case is refused), and the line itself ships as DESIGN, so nothing here runs for a customer.
+#
+# To replace it: the compliance officer writes the real questionnaire as a NEW file with a new version, sets status APPROVED, and fills
+# `approved_by` and `legal_basis_ref` (the file does not load as APPROVED without both). An existing version is never edited: a case records the
+# content hash of the version it was answered against, and editing this file would change that hash.
+code: source_of_funds
+version: 0.1.0-SAMPLE
+status: SAMPLE
+countries: [GB, IE, DE, FR, ES, US]
+questions:
+  - id: SOF-01
+    text: "Where do the funds for this relationship mainly come from?"
+    answer: CHOICE
+    choices: [EMPLOYMENT, BUSINESS_INCOME, SALE_OF_PROPERTY, INHERITANCE, INVESTMENTS, GIFT, OTHER]
+    evidence_required_for:
+      EMPLOYMENT: [PAYSLIP, BANK_STATEMENT]
+      BUSINESS_INCOME: [COMPANY_ACCOUNTS]
+      SALE_OF_PROPERTY: [SALE_CONTRACT]
+      INHERITANCE: [PROBATE_OR_WILL]
+      INVESTMENTS: [INVESTMENT_STATEMENT]
+      GIFT: [GIFT_LETTER]
+      OTHER: [OTHER_DOCUMENT]
+  - id: SOF-02
+    text: "What is the total amount you expect to move through this relationship in the next twelve months?"
+    answer: AMOUNT
+  - id: SOF-03
+    text: "When did these funds first become available to you?"
+    answer: DATE
+  - id: SOF-04
+    text: "Is any part of the funds borrowed?"
+    answer: YES_NO
+  - id: SOF-05
+    text: "Describe how the funds were earned or obtained, in your own words."
+    answer: TEXT

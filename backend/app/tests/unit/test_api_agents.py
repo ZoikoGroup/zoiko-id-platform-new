@@ -110,7 +110,9 @@ def test_an_api_bound_agent_may_hold_only_tools_that_read_or_can_be_undone():
     """The code behind an API client is unproven, so nothing irreversible, nothing that moves money, nothing above the risk ceiling."""
     assert a.api_tool_blockers("NONE", 1) == []
     assert a.api_tool_blockers("REVERSIBLE", 1) == []
-    assert a.api_tool_blockers("REVERSIBLE", 2) == ["API_AGENT_TOOL_NOT_ALLOWED"]  # ceiling is the token's class (decision pack)
+    assert a.api_tool_blockers("REVERSIBLE", 2) == [
+        "API_AGENT_TOOL_NOT_ALLOWED"
+    ]  # ceiling is the token's class (decision pack)
     assert a.api_tool_blockers("IRREVERSIBLE", 1) == ["API_AGENT_TOOL_NOT_ALLOWED"]
     assert a.api_tool_blockers("EXTERNAL_TRANSACTION", 0) == ["API_AGENT_TOOL_NOT_ALLOWED"]
     assert a.api_tool_blockers("NONE", 3) == ["API_AGENT_TOOL_NOT_ALLOWED"]

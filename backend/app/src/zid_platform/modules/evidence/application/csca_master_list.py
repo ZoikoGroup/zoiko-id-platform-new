@@ -73,19 +73,35 @@ def read_master_list(
     except (ep.ChipError, cms.DerError, IndexError, ValueError):
         return MasterListResult("INDETERMINATE", ("MASTER_LIST_UNREADABLE",))
     finding = cms._assess(
-        0, certs, signer, econtent, True, [], anchors=anchors, when=when, tsa_roots=(), crls=(), ocsp_responses=()
+        0,
+        certs,
+        signer,
+        econtent,
+        True,
+        [],
+        anchors=anchors,
+        when=when,
+        tsa_roots=(),
+        crls=(),
+        ocsp_responses=(),
     )
     if not finding.digest_ok or not finding.signature_ok:
         return MasterListResult(
-            "NOT_VERIFIED", tuple(dict.fromkeys(finding.problems or ("MASTER_LIST_SIGNATURE_INVALID",))), signer=finding.signer
+            "NOT_VERIFIED",
+            tuple(dict.fromkeys(finding.problems or ("MASTER_LIST_SIGNATURE_INVALID",))),
+            signer=finding.signer,
         )
     if not finding.algorithm_ok:
         return MasterListResult(
-            "INDETERMINATE", tuple(finding.problems) or ("SIGNATURE_ALGORITHM_UNSUPPORTED",), signer=finding.signer
+            "INDETERMINATE",
+            tuple(finding.problems) or ("SIGNATURE_ALGORITHM_UNSUPPORTED",),
+            signer=finding.signer,
         )
     if finding.chain is not cms.Chain.TRUSTED:
         return MasterListResult(
-            "INDETERMINATE", ("MASTER_LIST_SIGNER_NOT_ISSUED_BY_A_SUPPLIED_ANCHOR",), signer=finding.signer
+            "INDETERMINATE",
+            ("MASTER_LIST_SIGNER_NOT_ISSUED_BY_A_SUPPLIED_ANCHOR",),
+            signer=finding.signer,
         )
     try:
         _tag, body, end, _h = cms._tlv(econtent, 0)
@@ -106,11 +122,17 @@ def read_master_list(
             if _is_ca(cert):
                 found[fingerprint(cert)] = cert
     except (cms.DerError, IndexError, ValueError):
-        return MasterListResult("NOT_VERIFIED", ("MASTER_LIST_CONTENT_UNREADABLE",), signer=finding.signer)
+        return MasterListResult(
+            "NOT_VERIFIED", ("MASTER_LIST_CONTENT_UNREADABLE",), signer=finding.signer
+        )
     if not found:
-        return MasterListResult("NOT_VERIFIED", ("MASTER_LIST_HAS_NO_CA_CERTIFICATES",), signer=finding.signer)
+        return MasterListResult(
+            "NOT_VERIFIED", ("MASTER_LIST_HAS_NO_CA_CERTIFICATES",), signer=finding.signer
+        )
     if len(found) > MAX_CERTIFICATES:
-        return MasterListResult("NOT_VERIFIED", ("MASTER_LIST_TOO_MANY_CERTIFICATES",), signer=finding.signer)
+        return MasterListResult(
+            "NOT_VERIFIED", ("MASTER_LIST_TOO_MANY_CERTIFICATES",), signer=finding.signer
+        )
     return MasterListResult(
         "VERIFIED",
         ("MASTER_LIST_SIGNED_BY_A_SUPPLIED_ANCHOR",),

@@ -212,7 +212,7 @@ def evaluate_rules(
             findings.append(_finding("R-04", target, (target, grant_ref), facts))
     for a in sorted(agents, key=lambda x: x.agent_id):
         target = f"agent:{a.agent_id}"
-        facts = {
+        agent_facts: dict[str, Any] = {
             "status": a.status,
             "sponsor": a.sponsor_active,
             "policy": a.has_policy,
@@ -226,9 +226,9 @@ def evaluate_rules(
         if a.sponsor_active is None:
             unknown.append(Unknown(target, "SPONSOR_UNVERIFIABLE"))
         elif not a.sponsor_active:
-            findings.append(_finding("R-03", target, (target,), facts))
+            findings.append(_finding("R-03", target, (target,), agent_facts))
         if a.has_policy and a.approval_effective is False:
-            findings.append(_finding("R-05", target, (target, "policy:active"), facts))
+            findings.append(_finding("R-05", target, (target, "policy:active"), agent_facts))
     ordered = sorted(findings, key=lambda f: (f.rule_id, f.target_ref, f.finding_code))
     return RuleOutcome(tuple(ordered), tuple(unknown), len(mandates) + len(agents))
 

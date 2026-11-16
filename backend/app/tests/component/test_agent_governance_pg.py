@@ -1246,7 +1246,9 @@ def test_a_company_wide_stop_cuts_off_twenty_running_agents_inside_the_target(
     assert len(gv.run(lambda c: store.running_runs(c))) == 20
     tool = gv.run(lambda c: machine_store.load_tools(c))["docs.read"]
     in_company = gv.w.owner("SELECT count(*) FROM agent.agent_profile WHERE tenant_id = :t")[0][0]
-    assert in_company >= 20  # the fixture seeds a couple more agents besides these; a company-wide stop reaches every one of them
+    assert (
+        in_company >= 20
+    )  # the fixture seeds a couple more agents besides these; a company-wide stop reaches every one of them
 
     started = time.perf_counter()
     stop = gv.run(

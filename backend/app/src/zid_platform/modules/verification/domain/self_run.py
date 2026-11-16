@@ -29,7 +29,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from zid_platform.modules.verification.domain.biometric_engine import EngineGate, FaceMatch, Liveness
+from zid_platform.modules.verification.domain.biometric_engine import (
+    EngineGate,
+    FaceMatch,
+    Liveness,
+)
 from zid_platform.modules.verification.domain.verification import ClaimResult, ProviderResult
 
 CHIP_PHOTO = "CHIP_DG2"  # the only reference that can bind a person to a document in this path
@@ -68,16 +72,23 @@ class ChipEvidence:
             and doc.get("mrz_check_digits_hold") is True
             and "DOCUMENT_EXPIRED" not in reasons
         ):
-            given, surname = str(doc.get("given_names") or "").strip(), str(doc.get("surname") or "").strip()
+            given, surname = (
+                str(doc.get("given_names") or "").strip(),
+                str(doc.get("surname") or "").strip(),
+            )
             name = " ".join(p for p in (given, surname) if p) or None
             birth = str(doc["birth_date"]) if doc.get("birth_date") else None
-        return cls(status, tuple(reasons), name, birth, 2 in groups and status == "VERIFIED_LIMITED")
+        return cls(
+            status, tuple(reasons), name, birth, 2 in groups and status == "VERIFIED_LIMITED"
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class SelfRunOutcome:
     result: ProviderResult
-    audit: dict[str, Any]  # what the decision record keeps: scores, versions, references, a commitment
+    audit: dict[
+        str, Any
+    ]  # what the decision record keeps: scores, versions, references, a commitment
 
 
 def _score(value: object) -> float | None:
@@ -104,7 +115,13 @@ def self_run_result(
     fraud = [_code("SELF_RUN_RISK", s) for s in extra_fraud if isinstance(s, str) and s]
     audit: dict[str, Any] = {"chip_status": chip.status, "engine": gate.audit() if gate else None}
 
-    def done(status: str, claims: tuple[ClaimResult, ...], binding: str | None, live: bool | None, codes: Sequence[str]) -> SelfRunOutcome:
+    def done(
+        status: str,
+        claims: tuple[ClaimResult, ...],
+        binding: str | None,
+        live: bool | None,
+        codes: Sequence[str],
+    ) -> SelfRunOutcome:
         audit["commitment"] = _commitment(
             "self_run", session_ref, chip.status, status, binding, live,
             gate.engine_id if gate else "", gate.engine_version if gate else "", gate.evaluation_id if gate else "",
@@ -112,7 +129,15 @@ def self_run_result(
         )  # fmt: skip
         audit["codes"] = list(codes)
         return SelfRunOutcome(
-            ProviderResult(status, claims, binding, live, tuple(dict.fromkeys(fraud)), tuple(dict.fromkeys(codes)), audit["commitment"]),
+            ProviderResult(
+                status,
+                claims,
+                binding,
+                live,
+                tuple(dict.fromkeys(fraud)),
+                tuple(dict.fromkeys(codes)),
+                audit["commitment"],
+            ),
             audit,
         )
 
@@ -150,7 +175,9 @@ def self_run_result(
         return done("PENDING", (), None, None, ("SELF_RUN_SCORE_INVALID",))
     audit["face_score"], audit["liveness_score"] = round(face_score, 4), round(live_score, 4)
     if face_reference != CHIP_PHOTO or not chip.photo_verified:
-        codes.append("SELF_RUN_PHOTO_NOT_CHIP_VERIFIED")  # a photo of a document, or a name, never binds a person to it
+        codes.append(
+            "SELF_RUN_PHOTO_NOT_CHIP_VERIFIED"
+        )  # a photo of a document, or a name, never binds a person to it
         return done("COMPLETED", tuple(claims), None, None, codes)
     if face_score < gate.face_threshold:
         return done("FAILED", (), None, None, ("SELF_RUN_FACE_NO_MATCH",))
@@ -160,5 +187,9 @@ def self_run_result(
         codes.append("SELF_RUN_LIVENESS_UNDER_THRESHOLD")
     codes.append("SELF_RUN_FACE_MATCHED_TO_CHIP_PHOTO")
     return done(
-        "COMPLETED", build("chip+biometric", ("GOVERNMENT_ID", "BIOMETRIC_BINDING")), "BIOMETRIC", live_ok, codes
+        "COMPLETED",
+        build("chip+biometric", ("GOVERNMENT_ID", "BIOMETRIC_BINDING")),
+        "BIOMETRIC",
+        live_ok,
+        codes,
     )

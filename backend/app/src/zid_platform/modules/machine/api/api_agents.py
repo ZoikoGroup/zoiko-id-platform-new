@@ -24,10 +24,10 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import key_m2m, record_billable
-from zid_platform.modules.machine.application import api_agent_token
-from zid_platform.modules.machine.domain import api_agents as domain
 from zid_platform.modules.machine.api.agents import _actor, _run, _tenant
+from zid_platform.modules.machine.application import api_agent_token
 from zid_platform.modules.machine.application import api_agents as service
+from zid_platform.modules.machine.domain import api_agents as domain
 from zid_platform.protected import protected_action
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-registry"])
@@ -78,14 +78,14 @@ async def bind(agent_id: str, request: Request, caller: CallerDep) -> dict[str, 
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-class RevokeBody(BaseModel):
+class ApiBindingRevokeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason_code: str = Field(min_length=2, max_length=64, pattern=r"^[A-Z0-9_]+$")
 
 
 @router.post("/agents/{agent_id}/api-binding:revoke")
 async def revoke(
-    agent_id: str, body: RevokeBody, request: Request, caller: CallerDep
+    agent_id: str, body: ApiBindingRevokeBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         await protected_action(
@@ -123,8 +123,12 @@ async def api_agent_token_route(body: AssertionBody, request: Request) -> dict[s
     try:
         tenant = str(uuid.UUID(str(hint.get("tenant_id"))))
     except ValueError:
-        raise ZidError(api_agent_token.UNVERIFIED, "The assertion was not accepted.", http_status=401) from None
-    base = current_context() or RequestContext("req_api_agent", "cor_api_agent", "zoiko-id", "unknown")
+        raise ZidError(
+            api_agent_token.UNVERIFIED, "The assertion was not accepted.", http_status=401
+        ) from None
+    base = current_context() or RequestContext(
+        "req_api_agent", "cor_api_agent", "zoiko-id", "unknown"
+    )
     ctx = base.with_identity(tenant, None)
     now = datetime.now(UTC)
     async with tenant_transaction(request_engine(request), ctx) as conn:
@@ -133,12 +137,21 @@ async def api_agent_token_route(body: AssertionBody, request: Request) -> dict[s
         )
         if out["ok"]:
             await record_billable(
-                conn, tenant_id=tenant, meter="M2M_GRANT", key=key_m2m(f"api-agent:{uuid.uuid4()}"), at=now, principal_class="NON_HUMAN"
+                conn,
+                tenant_id=tenant,
+                meter="M2M_GRANT",
+                key=key_m2m(f"api-agent:{uuid.uuid4()}"),
+                at=now,
+                principal_class="NON_HUMAN",
             )
-    if not out["ok"]:  # raised after the transaction so the burned id and the refusal evidence are kept
+    if not out[
+        "ok"
+    ]:  # raised after the transaction so the burned id and the refusal evidence are kept
         if out["verified"]:
             raise ZidError(out["codes"][0], "This agent may not act right now.", http_status=403)
-        raise ZidError(api_agent_token.UNVERIFIED, "The assertion was not accepted.", http_status=401)
+        raise ZidError(
+            api_agent_token.UNVERIFIED, "The assertion was not accepted.", http_status=401
+        )
     token = issue_access_token(
         settings.keyring, issuer=settings.issuer, audience=settings.audience, subject=out["agent_id"], tenant_id=tenant,
         client_id=f"api-agent:{out['client_id']}", now=now, scope=frozenset({"workload"}), dpop_jkt=out["jkt"],

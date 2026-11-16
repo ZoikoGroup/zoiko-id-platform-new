@@ -3821,3 +3821,50 @@ export type ReadinessEvidenceExport = {
     evidence_ref_count: number;
   }[];
 };
+
+/* ------------------------------------------------------------- source of funds and wealth (DTV-28, CR-096) */
+
+export type SofState = "DRAFT" | "INCOMPLETE" | "NEEDS_REVIEW" | "CLEARED" | "NOT_CLEARED_PENDING_APPEAL" | "APPEALED" | "NOT_CLEARED_FINAL" | "CANCELED";
+export type SofDecision = "CLEAR" | "NOT_CLEAR" | "ASK_FOR_MORE";
+export type SofQueueItem = {
+  case_id: string;
+  subject_principal_id: string;
+  country: string;
+  questionnaire_version: string;
+  state: SofState;
+  submitted_at: string | null;
+  valid_until: string | null;
+};
+export type SofQuestion = {
+  question_id: string;
+  text: string;
+  answer: "TEXT" | "CHOICE" | "AMOUNT" | "DATE" | "YES_NO";
+  required: boolean;
+  choices: string[];
+  evidence_required_for: Record<string, string[]>;
+};
+export type SofQuestionnaire = { code: string; version: string; status: "SAMPLE" | "APPROVED"; content_hash: string; questions: SofQuestion[] };
+export type SofDecisionRecord = {
+  decision: SofDecision | "APPEAL_FILED";
+  from_state: SofState;
+  to_state: SofState;
+  reason_codes: string[];
+  decided_by: string;
+  decided_at: string;
+};
+export type SofCase = {
+  case_id: string;
+  subject_principal_id: string;
+  country: string;
+  questionnaire: { code: string; version: string; content_hash: string };
+  state: SofState;
+  answers: Record<string, unknown>;
+  evidence: { question_id: string; type: string; upload_id: string }[];
+  problems: string[];
+  submitted_at: string | null;
+  valid_until: string | null;
+  erased: boolean;
+  decisions: SofDecisionRecord[];
+  notice: string;
+};
+export type SofDecideIn = { decision: SofDecision; reason_codes: string[] };

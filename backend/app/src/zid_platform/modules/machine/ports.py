@@ -18,6 +18,7 @@ from zid_platform.modules.machine.application.daara import work_queue as daara_w
 from zid_platform.modules.machine.application.governance import (
     configure as configure_agent_governance,
 )
+from zid_platform.modules.machine.application.governance import frozen_codes as _frozen_codes
 from zid_platform.modules.machine.application.governance import (
     sweep_all_tenants as governance_sweep,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "configure_agent_governance",
     "daara_schedule_due",
     "daara_work_queue",
+    "emergency_frozen",
     "governance_sweep",
     "issue_workload_lease",
     "lease_problems",
@@ -54,6 +56,11 @@ __all__ = [
     "resolve_workload",
     "revoke_workload_lease",
 ]
+
+
+async def emergency_frozen(conn: AsyncConnection, agent_ids: list[str]) -> bool:
+    """True when any of these agents, or the whole company, is under an emergency stop (AG-WF-002 section 12). Enforced in every governance mode."""
+    return bool(await _frozen_codes(conn, agent_ids))
 
 
 async def agent_status(conn: AsyncConnection, agent_id: str) -> str | None:

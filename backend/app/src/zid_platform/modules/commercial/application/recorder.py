@@ -128,6 +128,31 @@ async def screening_usage_sink(
         )  # fmt: skip
 
 
+async def credential_usage_sink(
+    conn: AsyncConnection,
+    tenant_id: str,
+    kind: str,
+    check_id: str,
+    at: datetime,
+    human: bool,
+) -> None:
+    """Records what the credential module reports (CR-070): a CHECK is one CREDENTIAL_CHECK per completed claim check, a SENSITIVE_CHECK one
+    CREDENTIAL_SENSITIVE_CHECK. Usage facts only: nothing is rated or invoiced, and a check never depends on this. Wired by the composition root."""
+    meter, key = (
+        ("CREDENTIAL_SENSITIVE_CHECK", b.key_credential_sensitive_check(check_id))
+        if kind == "SENSITIVE_CHECK"
+        else ("CREDENTIAL_CHECK", b.key_credential_check(check_id))
+    )
+    await record(
+        conn,
+        tenant_id=tenant_id,
+        meter=meter,
+        key=key,
+        at=at,
+        principal_class="HUMAN" if human else "NON_HUMAN",
+    )
+
+
 async def record_active_human(
     conn: AsyncConnection, *, tenant_id: str, principal_id: str, at: datetime | None = None
 ) -> bool:

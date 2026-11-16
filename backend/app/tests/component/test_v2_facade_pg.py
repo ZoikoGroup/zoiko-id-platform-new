@@ -46,6 +46,7 @@ ACTIONS = [
     "evidence.read",
     "evidence.verify",
     "evidence.upload.manage",
+    "verification.travel_rule.validate",
 ]
 RESOURCES = [
     "credential-claim:*",
@@ -56,6 +57,8 @@ RESOURCES = [
     "verification-case:*",
     "document:*",
     "evidence-upload:*",
+    "age-check:*",
+    "travel-rule:*",
 ]
 BODY = {
     "credential_type": "professional_license",

@@ -303,7 +303,8 @@ def validate_provider_config(
     """A provider adapter names its secrets and settings, never carries them. The UK-certified flow is one adapter, for GB only."""
     if kind is ProviderKind.SELF_RUN:
         raise VerificationError(
-            "PROFILE_INVALID", "self-run verification is configured by the deployment file, not by an adapter"
+            "PROFILE_INVALID",
+            "self-run verification is configured by the deployment file, not by an adapter",
         )
     if kind is ProviderKind.GENERIC:
         if config:

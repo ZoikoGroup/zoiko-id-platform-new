@@ -1,6 +1,6 @@
 "use client";
 
-import type { DaaraDryRun, DaaraRun } from "@zoiko/api-client";
+import { ApiError, type DaaraDryRun, type DaaraRun } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, EmptyState, KeyValues, Select, Switch, TextField } from "@zoiko/ui";
 import { PlayCircle } from "lucide-react";
 import Link from "next/link";
@@ -74,6 +74,15 @@ export function DaaraSetupPage({ agentId }: { agentId: string }) {
         title="Access readiness agent"
         description="A deterministic reference agent that checks mandates and agent identities and proposes a human review. It never changes access."
       />
+      {setup.isError && setup.error instanceof ApiError && setup.error.status === 404 ? (
+        <EmptyState icon={PlayCircle} title="Replaced by the Access readiness agent">
+          This reference agent was retired: the Access readiness agent is now the one agent for this review. Nothing was deleted, and its records stay. Open the{" "}
+          <Link className="font-medium text-brand-700 underline" href="/admin/agents/readiness">
+            Access readiness agent
+          </Link>
+          .
+        </EmptyState>
+      ) : (
       <QueryView query={setup}>
         {(d) => (
           <div className="space-y-4">
@@ -264,6 +273,7 @@ export function DaaraSetupPage({ agentId }: { agentId: string }) {
           </div>
         )}
       </QueryView>
+      )}
     </>
   );
 }

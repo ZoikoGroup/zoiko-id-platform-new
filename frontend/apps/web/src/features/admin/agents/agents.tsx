@@ -11,6 +11,7 @@ import { AgentDetailPanel } from "./agent-detail";
 import { RegisterApiClientDialog } from "./api-agent";
 import { RegisterAgentDialog } from "./register-agent-dialog";
 import { AGENTS_KEY } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 const STATUS_OPTIONS = [
   { id: "", label: "All statuses" },
@@ -34,7 +35,7 @@ export function AgentsSection() {
       pinned: true,
       render: (a) => (
         <span className="inline-flex flex-col">
-          <span className="font-medium">{a.agent_name}</span>
+          <span className="font-medium"><UserText>{a.agent_name}</UserText></span>
           <span className="font-mono text-2xs text-ink-subtle">{a.agent_principal_id.slice(0, 8)}…</span>
         </span>
       ),

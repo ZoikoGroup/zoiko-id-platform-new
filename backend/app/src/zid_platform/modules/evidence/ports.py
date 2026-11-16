@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from zid_platform.modules.evidence.application import trust as trust_model
 from zid_platform.modules.evidence.application.assessment import Assessment, assess
+from zid_platform.modules.evidence.application.epassport import verify as verify_chip
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
 from zid_platform.modules.evidence.application.provenance import (
     Node,
@@ -104,6 +105,7 @@ __all__ = [
     "unusable_evidence",
     "upload_summary",
     "uploads_by_subject",
+    "verify_chip",
     "worker_pass",
 ]
 

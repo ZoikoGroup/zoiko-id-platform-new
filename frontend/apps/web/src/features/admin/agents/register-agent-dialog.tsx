@@ -11,6 +11,7 @@ import { PrincipalField, useMe } from "../authority/shared";
 import { MODEL_PROVIDERS, NEEDS } from "./agents-logic";
 import { AuthorityNotice, PersonSelect, ToolChecklist } from "./pickers";
 import { AGENTS_KEY, BLUEPRINTS_KEY, TOOLS_KEY, UUID_RE } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: boolean; onClose: () => void; onCreated: (id: string) => void }) {
   const { api, protect } = useRuntime();
@@ -119,7 +120,7 @@ export function RegisterAgentDialog({ isOpen, onClose, onCreated }: { isOpen: bo
         </div>
         {companyId ? (
           <p className="text-sm text-ink-muted">
-            Owning organization: <span className="font-medium text-ink">{company.data?.display_name}</span>
+            Owning organization: <span className="font-medium text-ink"><UserText>{company.data?.display_name}</UserText></span>
           </p>
         ) : company.isSuccess ? (
           <PrincipalField label="Owning organization" value={orgPick} onChange={setOrgPick} preferTypes={["ORGANIZATION"]} description="Required to activate." />

@@ -142,3 +142,19 @@ def test_the_contract_never_carries_a_birth_date_an_age_or_an_estimate():
             "reason_codes",
             "fallback_offered",
         }
+
+
+def test_a_verified_birth_date_that_could_not_be_used_does_not_shadow_a_decisive_estimate():
+    """A chip that failed its checks is UNDETERMINED with the verified method; a clear estimate must still be able to decide."""
+    unusable = age.AgeAssertion(
+        18,
+        age.Result.UNDETERMINED,
+        age.Method.VERIFIED_BIRTH_DATE,
+        None,
+        ("CHIP_NOT_VERIFIED",),
+        True,
+    )
+    estimate = age.from_estimate(45, 3, 18, now=NOW)
+    assert age.combine([unusable, estimate]).result is age.Result.AT_LEAST
+    # and with nothing decisive the answer stays undetermined, never a pass
+    assert age.combine([unusable]).result is age.Result.UNDETERMINED

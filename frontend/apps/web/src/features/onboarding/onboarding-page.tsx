@@ -23,6 +23,7 @@ import {
   standing,
   useTenant,
 } from "./shared";
+import { UserText } from "@/lib/user-text";
 
 const MANAGE = "tenant.onboarding.manage";
 const ACTIVATE = "tenant.onboarding.activate";
@@ -474,7 +475,7 @@ export function OnboardingPage() {
           if (me.pendingOwner || t.status === "DRAFT" || t.status === "ORGANIZATION_VERIFYING") {
             return (
               <Banner tone="info" title="Verify your company first" action={<ButtonLink href="/admin/organization" size="sm">Verify company</ButtonLink>}>
-                Onboarding starts once {t.display_name} is verified against its official register and you are confirmed as its owner.
+                Onboarding starts once <UserText>{t.display_name}</UserText> is verified against its official register and you are confirmed as its owner.
               </Banner>
             );
           }

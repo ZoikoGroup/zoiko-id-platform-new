@@ -355,7 +355,9 @@ async def _normalize(
         if not isinstance(event_id, str) or not isinstance(ref, str):
             raise VerificationError("CALLBACK_SCHEMA_INVALID")
         return event_id, ref, _result(claims.get("result") or {})
-    if kind is ProviderKind.SELF_RUN:  # there is no external callback to trust: the result is made inside the platform
+    if (
+        kind is ProviderKind.SELF_RUN
+    ):  # there is no external callback to trust: the result is made inside the platform
         raise VerificationError("CALLBACK_SIGNATURE_INVALID", "self-run takes no provider callback")
     cfg = adapter.get("provider_config") or {}
     get = secrets or (lambda _name: None)

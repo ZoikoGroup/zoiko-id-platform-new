@@ -119,7 +119,10 @@ def engine_gate_problems(cfg: Mapping[str, Any], *, today: date) -> list[str]:
         out.append("ENGINE_ID_MISSING")
     if not isinstance(engine.get("version"), str) or not engine["version"].strip():
         out.append("ENGINE_VERSION_MISSING")
-    for key, code in (("evaluation_id", "EVALUATION_ID_MISSING"), ("dpia_ref", "DPIA_REFERENCE_MISSING")):
+    for key, code in (
+        ("evaluation_id", "EVALUATION_ID_MISSING"),
+        ("dpia_ref", "DPIA_REFERENCE_MISSING"),
+    ):
         value = engine.get(key)
         if not isinstance(value, str) or not _REF.match(value):
             out.append(code)
@@ -191,7 +194,9 @@ def engine_gate(cfg: Mapping[str, Any], *, today: date) -> EngineGate | None:
 
 class EngineGateError(ValueError):
     def __init__(self, problems: list[str]) -> None:
-        super().__init__("the biometric engine is switched on but not accepted: " + ", ".join(problems))
+        super().__init__(
+            "the biometric engine is switched on but not accepted: " + ", ".join(problems)
+        )
         self.problems = tuple(problems)
 
 

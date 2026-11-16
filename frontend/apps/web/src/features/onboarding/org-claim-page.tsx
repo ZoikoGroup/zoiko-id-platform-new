@@ -31,6 +31,7 @@ import {
   ownerRowErrors,
   tidy,
 } from "./org-claim";
+import { UserText } from "@/lib/user-text";
 
 /** Countries are discoverable everywhere (EDR-01); whether one can be verified is the server's answer, shown as it is given. */
 const COUNTRIES = [
@@ -113,7 +114,7 @@ export function FindOrganizationPage() {
                 return (
                   <li key={`${c.jurisdiction}-${c.registration_number}`} className="flex flex-wrap items-center gap-3 p-3">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink">{c.legal_name}</p>
+                      <p className="font-medium text-ink"><UserText>{c.legal_name}</UserText></p>
                       <p className="text-xs text-ink-muted">
                         <span className="font-mono">{c.registration_number}</span> · {c.jurisdiction} · {c.status || "status unknown"} · from the{" "}
                         {c.register.replace(/-/g, " ")} record

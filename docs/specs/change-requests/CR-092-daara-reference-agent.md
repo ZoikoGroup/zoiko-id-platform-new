@@ -1,6 +1,6 @@
 # CR-092: the DAARA reference agent, alert handling and the optional explanation (ZID-AG-WF-001 v1.0; ZID-AG-WF-002 section 15)
 
-Status: **applied, default `shadow`, runs are manual.** Built on the engineering owner's instruction of 2026-11-14 to complete Agent Wireframe 01 and the open items of CR-091. The document is a decision-ready proposal, not an approval: decisions D-01 to D-09 and gates G0 to G4 are the owners'. Nothing here makes the agent generally available.
+Status: **RETIRED by default on 2026-11-16 (ZID_DAARA_ENABLED=false; see docs/specs/decisions/adr-two-implementations-of-wf-001.md). Code and data kept.** Earlier status: **applied, default `shadow`, runs are manual.** Built on the engineering owner's instruction of 2026-11-14 to complete Agent Wireframe 01 and the open items of CR-091. The document is a decision-ready proposal, not an approval: decisions D-01 to D-09 and gates G0 to G4 are the owners'. Nothing here makes the agent generally available.
 
 ## Why
 

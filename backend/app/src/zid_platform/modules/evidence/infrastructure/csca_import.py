@@ -19,13 +19,21 @@ from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding
 
-from zid_platform.modules.evidence.application.csca_master_list import MasterListResult, fingerprint, read_master_list
+from zid_platform.modules.evidence.application.csca_master_list import (
+    MasterListResult,
+    fingerprint,
+    read_master_list,
+)
 
 _COUNTRY = re.compile(r"[^A-Z]")
 
 
 def load_certificate(data: bytes) -> x509.Certificate:
-    return x509.load_pem_x509_certificate(data) if b"BEGIN CERTIFICATE" in data else x509.load_der_x509_certificate(data)
+    return (
+        x509.load_pem_x509_certificate(data)
+        if b"BEGIN CERTIFICATE" in data
+        else x509.load_der_x509_certificate(data)
+    )
 
 
 def country_of(cert: x509.Certificate) -> str:
@@ -53,14 +61,26 @@ def write_certificates(result: MasterListResult, out: Path, *, dry_run: bool = F
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--master-list", required=True, type=Path, help="the master list (DER CMS) you downloaded")
-    ap.add_argument("--anchor", required=True, action="append", type=Path, help="a certificate you confirmed out of band (PEM or DER); repeatable")
-    ap.add_argument("--out", type=Path, default=None, help="the csca folder (default config/trust/csca)")
+    ap.add_argument(
+        "--master-list", required=True, type=Path, help="the master list (DER CMS) you downloaded"
+    )
+    ap.add_argument(
+        "--anchor",
+        required=True,
+        action="append",
+        type=Path,
+        help="a certificate you confirmed out of band (PEM or DER); repeatable",
+    )
+    ap.add_argument(
+        "--out", type=Path, default=None, help="the csca folder (default config/trust/csca)"
+    )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     anchors = [load_certificate(p.read_bytes()) for p in args.anchor]
     for a in anchors:
-        print(f"anchor SHA-256: {fingerprint(a)}  {a.subject.rfc4514_string()}  (compare with the country's own publication)")
+        print(
+            f"anchor SHA-256: {fingerprint(a)}  {a.subject.rfc4514_string()}  (compare with the country's own publication)"
+        )
     result = read_master_list(args.master_list.read_bytes(), anchors=anchors)
     print(f"master list: {result.status} {', '.join(result.reasons)}")
     if not result.ok:
@@ -71,7 +91,9 @@ def main(argv: list[str] | None = None) -> int:
 
         out = CONFIG / "trust" / "csca"
     done = write_certificates(result, out, dry_run=args.dry_run)
-    print(f"certificates in the list: {len(result.certificates)}; {'would write' if args.dry_run else 'written'}: {len(done)}")
+    print(
+        f"certificates in the list: {len(result.certificates)}; {'would write' if args.dry_run else 'written'}: {len(done)}"
+    )
     return 0
 
 

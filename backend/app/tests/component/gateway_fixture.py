@@ -170,7 +170,7 @@ class World:
         self.app = create_app(
             Settings(
                 database_url=self.rt_url, token_issuer=ISS, token_audience=AUD,
-                public_base_url=AUD, environment="test", cell_uuid=CELL,
+                public_base_url=AUD, environment="test", cell_uuid=CELL, daara_enabled=True,
             ),
             keyring=self.ring,
         )  # fmt: skip

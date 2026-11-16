@@ -92,7 +92,9 @@ async def exchange(
     jti = claims.get("jti")
     if isinstance(jti, str) and not any(p == "ASSERTION_ID_REQUIRED" for p in problems):
         # Burn the id before the verdict: a refused assertion cannot be replayed once the reason for refusal has gone away.
-        expires = now + timedelta(seconds=d.ASSERTION_MAX_LIFETIME_SECONDS + d.ASSERTION_SKEW_SECONDS)
+        expires = now + timedelta(
+            seconds=d.ASSERTION_MAX_LIFETIME_SECONDS + d.ASSERTION_SKEW_SECONDS
+        )
         if not await agent_store.claim_api_assertion(
             conn, tenant_id, jti=jti, binding_id=base["binding_id"], expires_at=expires
         ):

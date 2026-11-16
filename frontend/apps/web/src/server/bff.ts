@@ -42,6 +42,8 @@ const API_PATH_PREFIXES = [
   "/credentials/",
   "/v1/credentials/",
   "/v2/evidence/",
+  // Source of funds and wealth: the review queue, a case, the decision and the appeal (CR-096). The cell decides each call by role and line state.
+  "/v2/source-of-funds/",
   "/v2/documents/",
   "/v2/assurance/",
   "/presentations",

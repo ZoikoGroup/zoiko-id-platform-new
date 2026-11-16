@@ -136,6 +136,8 @@ const REASONS: Record<string, string> = {
   AGENT_EXPIRED: "The agent identity has expired.",
   SETUP_NOT_APPROVED: "The setup is not approved.",
   SETUP_PAUSED: "Runs are paused for this agent.",
+  EMERGENCY_FROZEN: "An emergency stop is in force for this agent or the whole company, so nothing was read.",
+  GOVERNANCE_UNAVAILABLE: "The emergency stop state could not be read, so the run failed closed.",
   REGION_UNSUPPORTED: "Not available in this region.",
   REGION_MISMATCH: "The run did not start in the region the setup is pinned to.",
   DEPENDENCY_UNAVAILABLE: "A required service was unavailable, so the run failed closed.",

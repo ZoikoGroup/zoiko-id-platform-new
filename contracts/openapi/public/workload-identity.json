@@ -90,6 +90,23 @@
         "title": "AgentBody",
         "type": "object"
       },
+      "ApiBindingRevokeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "ApiBindingRevokeBody",
+        "type": "object"
+      },
       "ApiClientBody": {
         "additionalProperties": false,
         "properties": {
@@ -1249,6 +1266,28 @@
         "title": "RedeemBody",
         "type": "object"
       },
+      "RevokeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "spiffe_id": {
+            "maxLength": 2048,
+            "minLength": 10,
+            "title": "Spiffe Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spiffe_id",
+          "reason"
+        ],
+        "title": "RevokeBody",
+        "type": "object"
+      },
       "ToolBody": {
         "additionalProperties": false,
         "properties": {
@@ -1531,23 +1570,6 @@
         "title": "ResolveBody",
         "type": "object"
       },
-      "zid_platform__modules__machine__api__api_agents__RevokeBody": {
-        "additionalProperties": false,
-        "properties": {
-          "reason_code": {
-            "maxLength": 64,
-            "minLength": 2,
-            "pattern": "^[A-Z0-9_]+$",
-            "title": "Reason Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason_code"
-        ],
-        "title": "RevokeBody",
-        "type": "object"
-      },
       "zid_platform__modules__machine__api__workloads__QuarantineBody": {
         "additionalProperties": false,
         "properties": {
@@ -1561,28 +1583,6 @@
           "reason"
         ],
         "title": "QuarantineBody",
-        "type": "object"
-      },
-      "zid_platform__modules__machine__api__workloads__RevokeBody": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Reason",
-            "type": "string"
-          },
-          "spiffe_id": {
-            "maxLength": 2048,
-            "minLength": 10,
-            "title": "Spiffe Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spiffe_id",
-          "reason"
-        ],
-        "title": "RevokeBody",
         "type": "object"
       }
     }
@@ -2134,7 +2134,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/zid_platform__modules__machine__api__api_agents__RevokeBody"
+                "$ref": "#/components/schemas/ApiBindingRevokeBody"
               }
             }
           },
@@ -6031,7 +6031,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/zid_platform__modules__machine__api__workloads__RevokeBody"
+                "$ref": "#/components/schemas/RevokeBody"
               }
             }
           },

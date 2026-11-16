@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { LIFETIMES, cleanPrefix, room } from "./sandbox-logic";
+import { UserText } from "@/lib/user-text";
 
 const KEY = ["admin", "developers", "sandbox-identities"];
 
@@ -61,7 +62,7 @@ export function SandboxSection() {
   const retire = useCellMutation((api, id: string) => api.integration.retireSandboxIdentity(id), { invalidate: [KEY], success: "Test identity retired" });
 
   const columns: Column<SandboxIdentity>[] = [
-    { key: "label", header: "Label", pinned: true, render: (i) => <span className="font-medium">{i.label}</span>, sortValue: (i) => i.label },
+    { key: "label", header: "Label", pinned: true, render: (i) => <span className="font-medium"><UserText>{i.label}</UserText></span>, sortValue: (i) => i.label },
     { key: "id", header: "Principal ID", render: (i) => <CopyId value={i.principal_id} label="principal ID" /> },
     { key: "status", header: "Status", render: (i) => <StatusBadge state={i.status} kind="Test identity" /> },
     { key: "expires", header: "Expires", render: (i) => <DateTime value={i.expires_at} />, sortValue: (i) => i.expires_at },

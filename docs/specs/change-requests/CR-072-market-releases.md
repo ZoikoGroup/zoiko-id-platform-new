@@ -1,6 +1,6 @@
 # CR-072: Market releases: seven evidence gates, four independent approvals (ZID-RCG-003 RCG-G10, WF-08)
 
-Status: open (domain, storage, lifecycle service, operator API, audit and the country gate built and tested; no console yet; the owners confirm the points below).
+Status: open (domain, storage, lifecycle service, operator API, audit and the country gate built and tested; the operator console screen is built: `frontend/apps/operator/src/features/regulatory/releases.tsx`, with open, freeze, the four approvals, launch and withdraw; the owners confirm the points below).
 
 ## Why
 An ENABLED country and an approved policy pack (CR-067) say what the rules are. Neither says that anyone checked the market is ready: legal

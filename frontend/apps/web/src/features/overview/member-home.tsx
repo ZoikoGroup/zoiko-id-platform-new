@@ -6,6 +6,7 @@ import { BellRing, CheckCircle2, Fingerprint, KeyRound, LifeBuoy, Link2, Monitor
 import type { ComponentType, ReactNode } from "react";
 
 import { useCellQuery } from "@/lib/cell";
+import { UserText } from "@/lib/user-text";
 
 /** What a plain member does here: their own account. Everything on this page is the member's own data (own passkeys, sessions, alerts), the one kind of
  * read the cell gives every signed-in person; company administration is never offered, so nothing here depends on a role the member does not hold. */
@@ -110,7 +111,7 @@ export function MemberHome({ tenant, roleLabel }: { tenant: TenantView; roleLabe
           </span>
           <div className="min-w-0 space-y-1">
             <p className="text-sm text-ink-muted">
-              You are signed in to <span className="font-medium text-ink">{tenant.display_name}</span> as
+              You are signed in to <span className="font-medium text-ink"><UserText>{tenant.display_name}</UserText></span> as
             </p>
             <p className="inline-flex min-h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-ink">{roleLabel}</p>
             <p className="pt-1 text-sm text-ink-muted">Members use their own account here. The company&apos;s owners manage everything else.</p>

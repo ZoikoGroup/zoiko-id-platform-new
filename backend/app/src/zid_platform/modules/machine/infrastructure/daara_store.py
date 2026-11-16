@@ -286,7 +286,7 @@ async def see_alert(
             },
         )
     ).first()
-    return _row(row)  # type: ignore[arg-type]
+    return _row(row)
 
 
 async def resolve_absent(conn: AsyncConnection, present: Sequence[str]) -> int:

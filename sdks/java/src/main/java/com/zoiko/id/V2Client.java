@@ -49,7 +49,9 @@ public final class V2Client {
     }
 
     private static Transport defaultTransport() {
-        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
+        // HTTP/1.1: the default client offers an HTTP/2 upgrade on plain http, and a server that does not take it answers a request with a body 400.
+        // These are small JSON calls, so nothing is lost; over https the connection is negotiated as usual.
+        HttpClient http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(15)).build();
         return (method, url, headers, body) -> {
             HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15));
             headers.forEach(b::header);

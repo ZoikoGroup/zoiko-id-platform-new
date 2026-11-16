@@ -446,8 +446,11 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
         ("agent_governance", agent_governance),
-        ("daara_schedule", daara_schedule),
-        ("daara_queue", daara_queue),
+        *(
+            (("daara_schedule", daara_schedule), ("daara_queue", daara_queue))
+            if settings.daara_enabled
+            else ()
+        ),
         ("signal_housekeeping", signal_housekeeping),
         ("credential_recheck", credential_recheck),
         ("fairness", fairness),

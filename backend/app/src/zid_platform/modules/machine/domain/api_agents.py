@@ -21,7 +21,7 @@ from zid_platform.modules.machine.domain.governance import digest, has_wildcard
 MAX_KEYS = 5
 MAX_AUDIENCES = 5
 MIN_RSA_BITS = 2048
-API_MAX_RISK_CLASS = 1 # an API-bound agent may not hold a tool above this risk class
+API_MAX_RISK_CLASS = 1  # an API-bound agent may not hold a tool above this risk class
 API_ALLOWED_SIDE_EFFECTS = frozenset({"NONE", "REVERSIBLE"})
 API_ATTESTATION_CAP = (
     1  # the highest runtime attestation an API client can show: it proves a key, never the code
@@ -149,11 +149,12 @@ ASSERTION_ALGORITHMS = ("ES256", "Ed25519")
 ASSERTION_MAX_LIFETIME_SECONDS = 60  # a one-time statement, not a session
 ASSERTION_SKEW_SECONDS = 30
 API_TOKEN_LIFETIME_SECONDS = 300
-API_TOKEN_RISK_CLASS = (
-    1  # what the token asks for: the attestation floor of this class is what API_ATTESTATION_CAP is held against
-)
+API_TOKEN_RISK_CLASS = 1  # what the token asks for: the attestation floor of this class is what API_ATTESTATION_CAP is held against
 MAX_JTI = 128
-_FLOOR_BY_RISK = {3: 3, 2: 2}  # the same floors the image path uses (MachineState.attestation_floor_by_risk)
+_FLOOR_BY_RISK = {
+    3: 3,
+    2: 2,
+}  # the same floors the image path uses (MachineState.attestation_floor_by_risk)
 
 
 def assertion_problems(

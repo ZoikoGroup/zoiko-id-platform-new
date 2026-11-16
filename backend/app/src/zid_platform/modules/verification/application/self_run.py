@@ -35,15 +35,29 @@ def assess(
     gate = gate if gate is not None else self_run_config.accepted_engine(today)
     if gate is None or engine is None or probe is None or chip_photo is None or media is None:
         return self_run_result(chip, session_ref=session_ref, gate=gate, extra_fraud=extra_fraud)
-    if chip.status != "VERIFIED_LIMITED":  # no point scoring a face against a chip that proved nothing
+    if (
+        chip.status != "VERIFIED_LIMITED"
+    ):  # no point scoring a face against a chip that proved nothing
         return self_run_result(chip, session_ref=session_ref, gate=gate, extra_fraud=extra_fraud)
     try:
         face = engine.match(probe, chip_photo)
         live = engine.liveness(media)
-    except Exception:  # an engine that cannot decide is never a pass; the reason is the same whatever broke
+    except Exception:  # noqa: BLE001 - an engine that cannot decide is never a pass; the reason is the same whatever broke
         return SelfRunOutcome(
-            ProviderResult("PENDING", (), None, None, tuple(extra_fraud), ("SELF_RUN_ENGINE_UNAVAILABLE",), None),
-            {"chip_status": chip.status, "engine": gate.audit(), "codes": ["SELF_RUN_ENGINE_UNAVAILABLE"]},
+            ProviderResult(
+                "PENDING",
+                (),
+                None,
+                None,
+                tuple(extra_fraud),
+                ("SELF_RUN_ENGINE_UNAVAILABLE",),
+                None,
+            ),
+            {
+                "chip_status": chip.status,
+                "engine": gate.audit(),
+                "codes": ["SELF_RUN_ENGINE_UNAVAILABLE"],
+            },
         )
     return self_run_result(
         chip,

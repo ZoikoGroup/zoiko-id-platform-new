@@ -24,6 +24,7 @@ Pure: bytes in, evidence out. No network, no files.
 
 from __future__ import annotations
 
+import base64
 import re
 import zlib
 from dataclasses import dataclass, field
@@ -142,25 +143,149 @@ def _value(data: bytes, pos: int, depth: int = 0) -> tuple[Any, int]:
     raise PdfError("TOKEN_NOT_UNDERSTOOD")
 
 
-def _decode(dictionary: dict[str, Any], raw: bytes) -> bytes | None:
-    flt = dictionary.get("Filter")
-    names = [flt] if isinstance(flt, Name) else flt if isinstance(flt, list) else []
-    if flt is None:
-        return raw
-    if (
-        len(names) != 1
-        or not isinstance(names[0], Name)
-        or names[0].value not in {"FlateDecode", "Fl"}
-    ):
-        return None  # a filter chain or an unfamiliar filter: not read
-    if "DecodeParms" in dictionary:
-        return None  # predictors are for images and cross-reference streams, never for these
+MAX_FILTERS = 4
+MAX_COLUMNS = 1 << 20
+_HEX_WS = b" \t\r\n\x0c\x00"
+
+
+def _hex_decode(raw: bytes) -> bytes | None:
+    body = raw.rstrip(_HEX_WS)
+    if not body.endswith(b">"):
+        return None
+    digits = bytes(c for c in body[:-1] if c not in _HEX_WS)
+    if len(digits) % 2:
+        digits += b"0"  # the specification: a missing last digit is zero
+    try:
+        out = bytes.fromhex(digits.decode("ascii"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return out if len(out) <= MAX_STREAM else None
+
+
+def _a85_decode(raw: bytes) -> bytes | None:
+    body = raw.rstrip(_HEX_WS)
+    if not body.endswith(b"~>"):
+        return None
+    try:
+        out = base64.a85decode(body[:-2], ignorechars=_HEX_WS)
+    except (ValueError, TypeError):
+        return None
+    return out if len(out) <= MAX_STREAM else None
+
+
+def _flate(raw: bytes) -> bytes | None:
     d = zlib.decompressobj()
     try:
         out = d.decompress(raw, MAX_STREAM + 1)
     except zlib.error:
         return None
     return out if len(out) <= MAX_STREAM else None
+
+
+def _paeth(a: int, b: int, c: int) -> int:
+    p = a + b - c
+    pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+    return a if pa <= pb and pa <= pc else b if pb <= pc else c
+
+
+def _int(value: Any, default: int) -> int | None:
+    if value is None:
+        return default
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _predict(parms: Any, data: bytes) -> bytes | None:
+    """Undo a Flate or LZW predictor (PDF 32000-1, 7.4.4.4). PNG predictors 10 to 15 and the TIFF predictor 2 at eight bits a component; anything
+    else, and any data whose size does not fit the row length exactly, is not read (None)."""
+    if parms is None:
+        return data
+    if not isinstance(parms, dict):
+        return None
+    predictor = _int(parms.get("Predictor"), 1)
+    colors, bits, columns = (
+        _int(parms.get("Colors"), 1),
+        _int(parms.get("BitsPerComponent"), 8),
+        _int(parms.get("Columns"), 1),
+    )
+    if predictor is None or colors is None or bits is None or columns is None:
+        return None
+    if predictor == 1:
+        return data
+    if not (1 <= colors <= 32 and bits in {1, 2, 4, 8, 16} and 1 <= columns <= MAX_COLUMNS):
+        return None
+    row = (columns * colors * bits + 7) // 8
+    bpp = max(1, (colors * bits + 7) // 8)
+    if predictor == 2:
+        if bits != 8 or len(data) % row:
+            return None
+        out = bytearray(data)
+        for r in range(0, len(out), row):
+            for i in range(r + colors, r + row):
+                out[i] = (out[i] + out[i - colors]) & 0xFF
+        return bytes(out)
+    if not 10 <= predictor <= 15 or len(data) % (row + 1):
+        return None
+    rows = len(data) // (row + 1)
+    out = bytearray(rows * row)
+    for y in range(rows):
+        kind = data[y * (row + 1)]
+        line = data[y * (row + 1) + 1 : (y + 1) * (row + 1)]
+        base, above = y * row, (y - 1) * row
+        for x in range(row):
+            a = out[base + x - bpp] if x >= bpp else 0
+            b = out[above + x] if y else 0
+            c = out[above + x - bpp] if y and x >= bpp else 0
+            if kind == 0:
+                v = line[x]
+            elif kind == 1:
+                v = line[x] + a
+            elif kind == 2:
+                v = line[x] + b
+            elif kind == 3:
+                v = line[x] + ((a + b) >> 1)
+            elif kind == 4:
+                v = line[x] + _paeth(a, b, c)
+            else:
+                return None
+            out[base + x] = v & 0xFF
+    return bytes(out)
+
+
+def _decode(dictionary: dict[str, Any], raw: bytes) -> bytes | None:
+    """The stream's bytes after its filters, or None when they cannot be read in full. Read: no filter, and a chain of up to four of FlateDecode (with a
+    PNG or TIFF predictor), ASCIIHexDecode and ASCII85Decode. Not read: any other filter (LZW, images, encryption), parameters that do not line up with the
+    filters, and anything over the size limit. None is never an error to guess around: the caller keeps the object as one nothing may add."""
+    flt = dictionary.get("Filter")
+    if flt is None:
+        return raw
+    names = [flt] if isinstance(flt, Name) else flt if isinstance(flt, list) else []
+    if not 1 <= len(names) <= MAX_FILTERS or not all(isinstance(n, Name) for n in names):
+        return None
+    parms = dictionary.get("DecodeParms")
+    if parms is None:
+        plist: list[Any] = [None] * len(names)
+    elif isinstance(parms, dict) and len(names) == 1:
+        plist = [parms]
+    elif isinstance(parms, list) and len(parms) == len(names):
+        plist = list(parms)
+    else:
+        return None  # parameters that do not line up with the filters are not guessed at
+    data: bytes | None = raw
+    for name, parm in zip(names, plist, strict=True):
+        if data is None:
+            return None
+        if name.value in {"FlateDecode", "Fl"}:
+            data = _flate(data)
+            data = None if data is None else _predict(parm, data)
+        elif parm is not None and not (isinstance(parm, dict) and not parm):
+            return None  # only Flate takes parameters here
+        elif name.value in {"ASCIIHexDecode", "AHx"}:
+            data = _hex_decode(data)
+        elif name.value in {"ASCII85Decode", "A85"}:
+            data = _a85_decode(data)
+        else:
+            return None
+    return data
 
 
 def parse_objects(data: bytes) -> dict[int, Obj]:

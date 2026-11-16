@@ -9,6 +9,7 @@ import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/ce
 
 import { SOURCES_KEY, SourceError } from "./create-source-dialog";
 import { INTERVALS, countsSummary, isAuth0Domain, syncErrorMessage } from "./directory-sync-logic";
+import { UserText } from "@/lib/user-text";
 
 export const SYNCS_KEY = ["admin", "provisioning", "directory-syncs"];
 
@@ -170,7 +171,7 @@ function SecretDialog({ sync, onClose }: { sync: DirectorySync | null; onClose: 
       <div className="space-y-4">
         <RiskBadge risk="R3" />
         <p className="text-sm text-ink-muted">
-          The old secret stops working for <strong className="text-ink">{sync?.display_name}</strong> at once. Use this after you rotate the secret in Auth0.
+          The old secret stops working for <strong className="text-ink"><UserText>{sync?.display_name}</UserText></strong> at once. Use this after you rotate the secret in Auth0.
         </p>
         <TextField label="New client secret" isRequired mono type="password" value={secret} onChange={setSecret} autoComplete="off" />
         {set.error ? <ApiErrorView error={set.error} /> : null}
@@ -191,7 +192,7 @@ export function DirectorySyncSection({ sources }: { sources: ProvisioningSourceI
   const resume = useCellMutation((api, id: string) => api.provisioning.resumeDirectorySync(id), { ...refresh, success: "Resumed" });
 
   const columns: Column<DirectorySync>[] = [
-    { key: "name", header: "Directory", pinned: true, render: (s) => <span className="font-medium">{s.display_name}</span>, sortValue: (s) => s.display_name },
+    { key: "name", header: "Directory", pinned: true, render: (s) => <span className="font-medium"><UserText>{s.display_name}</UserText></span>, sortValue: (s) => s.display_name },
     { key: "domain", header: "Auth0 tenant", render: (s) => <span className="font-mono text-xs">{s.settings.domain}</span> },
     { key: "source", header: "Feeds", render: (s) => sourceName(s.source_id) },
     { key: "status", header: "Status", render: (s) => <StatusBadge state={s.status} kind="Sync status" /> },

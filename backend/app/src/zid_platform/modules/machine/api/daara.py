@@ -21,6 +21,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller
 from zid_platform.modules.machine.api.governance import IdemKey, _can_see_detail, _run
@@ -32,6 +33,19 @@ router = APIRouter(prefix="/v1/machine", tags=["agent-daara"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 
 
+async def _daara_on(request: Request) -> None:
+    """DAARA is retired (ZID_DAARA_ENABLED, default off): every DAARA route answers 404. The governance alert routes below are not DAARA's and stay on."""
+    if not getattr(request.app.state, "daara_enabled", False):
+        raise ZidError(
+            "NOT_FOUND",
+            "The DAARA agent has been replaced by the Access Readiness agent (/v1/access-readiness).",
+            http_status=404,
+        )
+
+
+DAARA_ONLY = [Depends(_daara_on)]
+
+
 def _tenant(c: Caller) -> str:
     return c.ctx.tenant_id or ""
 
@@ -40,7 +54,7 @@ def _actor(c: Caller) -> str:
     return c.ctx.principal_id or ""
 
 
-@router.get("/daara/template")
+@router.get("/daara/template", dependencies=DAARA_ONLY)
 async def template(request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         await protected_action(conn, caller, action="agent.daara.read", resource="agent:*")
@@ -49,7 +63,7 @@ async def template(request: Request, caller: CallerDep) -> dict[str, Any]:
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.get("/agents/{agent_id}/daara")
+@router.get("/agents/{agent_id}/daara", dependencies=DAARA_ONLY)
 async def read_setup(agent_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         await protected_action(
@@ -70,7 +84,7 @@ class DaaraSetupBody(BaseModel):
     schedule: Literal["MANUAL", "DAILY"] = "MANUAL"
 
 
-@router.put("/agents/{agent_id}/daara")
+@router.put("/agents/{agent_id}/daara", dependencies=DAARA_ONLY)
 async def save_setup(
     agent_id: str, body: DaaraSetupBody, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -85,7 +99,7 @@ async def save_setup(
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.post("/agents/{agent_id}/daara:validate")
+@router.post("/agents/{agent_id}/daara:validate", dependencies=DAARA_ONLY)
 async def validate(agent_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> Any:
         await protected_action(
@@ -96,7 +110,7 @@ async def validate(agent_id: str, request: Request, caller: CallerDep) -> dict[s
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.post("/agents/{agent_id}/daara/dry-run")
+@router.post("/agents/{agent_id}/daara/dry-run", dependencies=DAARA_ONLY)
 async def dry_run(agent_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> Any:
         await protected_action(
@@ -107,7 +121,7 @@ async def dry_run(agent_id: str, request: Request, caller: CallerDep) -> dict[st
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.post("/agents/{agent_id}/daara:request-publish", status_code=201)
+@router.post("/agents/{agent_id}/daara:request-publish", status_code=201, dependencies=DAARA_ONLY)
 async def request_publish(agent_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> Any:
         await protected_action(
@@ -118,7 +132,7 @@ async def request_publish(agent_id: str, request: Request, caller: CallerDep) ->
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.post("/agents/{agent_id}/daara/runs", status_code=201)
+@router.post("/agents/{agent_id}/daara/runs", status_code=201, dependencies=DAARA_ONLY)
 async def start_run(
     agent_id: str,
     request: Request,
@@ -144,7 +158,7 @@ async def start_run(
     return data
 
 
-@router.get("/agents/{agent_id}/daara/runs")
+@router.get("/agents/{agent_id}/daara/runs", dependencies=DAARA_ONLY)
 async def list_runs(
     agent_id: str, request: Request, caller: CallerDep, limit: int = Query(default=20, ge=1, le=100)
 ) -> dict[str, Any]:
@@ -157,7 +171,7 @@ async def list_runs(
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.get("/agents/{agent_id}/daara/runs/{run_id}")
+@router.get("/agents/{agent_id}/daara/runs/{run_id}", dependencies=DAARA_ONLY)
 async def read_run(
     agent_id: str, run_id: str, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
@@ -175,7 +189,7 @@ async def read_run(
 # ---------------------------------------------------------------- the review queue
 
 
-@router.get("/agent-review")
+@router.get("/agent-review", dependencies=DAARA_ONLY)
 async def review_queue(
     request: Request, caller: CallerDep, status: Literal["OPEN", "DISMISSED", "ASSIGNED", "HANDED_OFF"] | None = None,
     agent_id: str | None = Query(default=None, min_length=36, max_length=36), limit: int = Query(default=100, ge=1, le=200),
@@ -187,7 +201,7 @@ async def review_queue(
     return await _run(request, caller, go)  # type: ignore[no-any-return]
 
 
-@router.get("/agent-review/{proposal_id}")
+@router.get("/agent-review/{proposal_id}", dependencies=DAARA_ONLY)
 async def read_proposal(proposal_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
         await protected_action(conn, caller, action="agent.review.read", resource="agent:*")
@@ -231,6 +245,7 @@ for _action in ("dismiss", "assign", "handoff"):
         _decide(_action),
         methods=["POST"],
         name=f"review_{_action}",
+        dependencies=DAARA_ONLY,
     )
 
 

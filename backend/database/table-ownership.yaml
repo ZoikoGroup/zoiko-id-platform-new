@@ -1074,6 +1074,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  verify.sof_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-28 (answers and evidence references, never the evidence; a person decides); CR-096"
+  verify.sof_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-28 (append-only record of each human decision, reason codes only); CR-096"
   verify.provider_callback:
     role: cell
     module: verification

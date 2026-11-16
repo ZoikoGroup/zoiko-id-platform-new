@@ -421,6 +421,13 @@ def test_the_record_cap_fails_the_run_instead_of_returning_a_partial_success(
 # ====================================================================== the optional model explanation
 
 
+def _ceiling(dd: Any, scope: str) -> dict[str, Any]:
+    """One ceiling by scope. The view lists ceilings in budget-id order (the lock order), which is random, never in the order they were set."""
+    found = [c for c in dd.view()["ceilings"] if c["scope"] == scope]
+    assert len(found) == 1
+    return found[0]
+
+
 def test_the_model_explanation_is_optional_checked_and_never_changes_a_result(
     rt_url: str, owner_url: str
 ) -> None:
@@ -478,7 +485,7 @@ def test_the_model_explanation_is_optional_checked_and_never_changes_a_result(
     assert set(seen[-1]) == {"counts", "findings"} and all(
         set(f) == {"rule", "code", "severity", "target"} for f in seen[-1]["findings"]
     )
-    assert Decimal(dd.view()["ceilings"][1]["committed"]) == Decimal(
+    assert Decimal(_ceiling(dd, "agent")["committed"]) == Decimal(
         "0.10"
     )  # the call was reserved and settled once
 
@@ -506,7 +513,7 @@ def test_the_model_explanation_is_optional_checked_and_never_changes_a_result(
         e["code"] for e in dd.events() if e["action"] == "daara.explain_fallback"
     }
     assert (
-        Decimal(dd.view()["ceilings"][1]["reserved"]) == 0
+        Decimal(_ceiling(dd, "agent")["reserved"]) == 0
     )  # every failed rewrite gave its reservation back
 
 

@@ -47,6 +47,7 @@ Gates, in order. G0 needs the signed boundary ADR and the inventory (AG2-D07, D-
 | How does the client get a token? | **Signed one-time assertion** over a registered public key, exact audience, short expiry, single use, lifetime in minutes, refused if the binding is not active or the agent is frozen. No secret is stored. Extends CR-066 | Security owner |
 | Is risk class 2 the right ceiling? | Start at 1 for the first month; raise to 2 after review of the evidence | Security owner |
 | Does the image path keep a higher attestation floor? | **Yes.** Images stay at the existing floor; API agents never exceed 1 | Security owner |
+| Is a verified DPoP proof of the agent's own key enough for assurance Z1 (R0 and R1 only)? | **Yes, as built (CR-094 amendment).** Without it no API-agent tool call can ever be granted. R2 and R3 are untouched (they need Z2 and Z3). Alternative if refused: mark the read-only tool actions `machine_callable` and drop the rule | Security owner |
 
 ## D. What cannot be closed by code
 

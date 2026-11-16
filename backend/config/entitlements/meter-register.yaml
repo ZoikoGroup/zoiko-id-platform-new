@@ -2,10 +2,11 @@
 # No numerical cap, rate, automatic overage or included quantity is approved by the record. `priced: false` is the honest
 # state; a meter without an approved price, limit or definition is never billed silently (see usage reservations).
 version: "ZID-ENG-DEC-008-v1.0"
-# The last two meters (credential.check, credential.sensitive_check) are NOT in the owner-ratified record's eight. They are added by CR-070 on the
-# engineering owner's instruction of 2026-11-12, as definitions only: unpriced, no quota, no recording (`bill_on_commit: false`), and no billable
-# meter or SKU behind them. Pricing them, or recording them, still needs the CFO and CCO price numbers and the owners' ruling on the recording point;
-# until then a quote line for them is refused (PRICE_MISSING) and nothing is billed silently.
+# The last four meters (credential.check, credential.sensitive_check, screening.check, screening.monitor_period) are NOT in the owner-ratified
+# record's eight. The two credential ones were added by CR-070 on the engineering owner's instruction of 2026-11-12 as definitions, and on
+# 2026-11-16 are backed by two USAGE-ONLY meters (CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK), as the screening ones are by CR-090: recorded as
+# usage facts, unpriced, no quota, `bill_on_commit: false`, and no SKU behind them. Billing them still needs the CFO and CCO price numbers and the
+# owners' ruling on the recording point; until then a quote line for them is refused (PRICE_MISSING) and nothing is billed silently.
 meters:
   auth.mau:
     example_unit: "Monthly active distinct principal"
@@ -99,10 +100,10 @@ meters:
     example_unit: "Claim check against a source"
     counts: "One completed check of one claim (academic, license, certificate, CPD, employment, insurance) that reached a source or whose issuer outreach concluded; counted once per logical check, not per retry"
     guardrail: "No charge for a check refused before a source is asked (no pack, no contract, bad claim) or when the source was unavailable; provider pass-through shown separately, never discounted"
-    existing_meter: null
+    existing_meter: CREDENTIAL_CHECK
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-070).
+    # A usage meter stands behind it (CR-070): recorded, never rated or invoiced. Billing stays off until the owners rule on the recording point and the CFO and CCO approve a price per region.
     bill_on_commit: false
     priced: false
   screening.check:
@@ -129,9 +130,9 @@ meters:
     example_unit: "Regulator adverse-finding check"
     counts: "One completed sensitive-category check"
     guardrail: "Only under a recorded basis, an authorized user and a reviewer; priced separately from standard checks"
-    existing_meter: null
+    existing_meter: CREDENTIAL_SENSITIVE_CHECK
     existing_sku: null
     hard_quota: false
-    # Off until the owners rule on the recording point and the CFO and CCO approve a price per region (CR-070).
+    # A usage meter stands behind it (CR-070): recorded, never rated or invoiced. Billing stays off until the owners rule on the recording point and the CFO and CCO approve a price per region.
     bill_on_commit: false
     priced: false

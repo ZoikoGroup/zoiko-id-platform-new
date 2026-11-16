@@ -769,6 +769,15 @@ export function createCellApi(t: Transport) {
       notificationKinds: () => get<M.Items<M.NotificationKind>>("/v1/settings/notification-kinds"),
     },
 
+    /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */
+    sourceOfFunds: {
+      queue: (state?: string) => get<{ items: M.SofQueueItem[]; notice: string }>("/v2/source-of-funds/cases", { state }),
+      case: (id: string) => get<M.SofCase>(`/v2/source-of-funds/cases/${seg(id)}`),
+      questionnaire: (country: string) => get<M.SofQuestionnaire>("/v2/source-of-funds/questionnaire", { country }),
+      decide: (id: string, body: M.SofDecideIn) => post<M.SofCase>(`/v2/source-of-funds/cases/${seg(id)}:decide`, body),
+      appeal: (id: string) => post<M.SofCase>(`/v2/source-of-funds/cases/${seg(id)}:appeal`),
+    },
+
     /** Delegated Authority & Access Readiness agent (CR-091). Every route answers 404 while the feature is off; the tenant and region are never sent. */
     accessReadiness: {
       setups: () => get<M.Items<M.ReadinessSetup>>("/v1/access-readiness/agents"),

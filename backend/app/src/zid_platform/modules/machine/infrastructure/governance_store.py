@@ -752,8 +752,9 @@ async def usage_snapshot(
             {"a": uuid.UUID(agent_id), "d": day_start},
         )
     ).first()
+    assert row is not None  # an aggregate over no rows still returns one row
     return g.UsageSnapshot(
-        active_runs_agent=int(row[0]),  # type: ignore[index]
+        active_runs_agent=int(row[0]),
         running_agents_tenant=int(
             row[1]
         ),  # other agents; the caller adds itself when it is not yet running
