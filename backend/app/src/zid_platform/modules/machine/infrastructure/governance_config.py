@@ -1,4 +1,4 @@
-"""Loader for config/agent-governance/governance.yaml (ZID-AG-WF-002; CR-091). Read once; a missing or invalid file stops start-up use."""
+"""Loader for config/agent-governance/governance.yaml (ZID-AG-WF-002; CR-105). Read once; a missing or invalid file stops start-up use."""
 
 from __future__ import annotations
 

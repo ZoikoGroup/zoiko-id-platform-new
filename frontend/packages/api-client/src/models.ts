@@ -3312,7 +3312,7 @@ export type SalesLead = {
   status: SalesLeadStatus; status_reason: string | null; created_at: string | null; updated_at: string | null;
 };
 
-/* Agent governance (ZID-AG-WF-002, CR-091). Money is always a decimal string, never a number. */
+/* Agent governance (ZID-AG-WF-002, CR-105). Money is always a decimal string, never a number. */
 export type GovSlot = "SECURITY" | "AUTHORITY" | "PRIVACY" | "FINANCE";
 export type GovRequestState = "PENDING" | "CLARIFICATION" | "APPROVED" | "REJECTED" | "EXPIRED" | "INVALIDATED" | "APPLIED";
 export type GovAttentionItem = {
@@ -3499,6 +3499,9 @@ export type GovMonitoring = {
   telemetry: { state: "CURRENT" | "STALE" | "UNKNOWN"; last_ingest: Iso | null };
   as_of: Iso;
 };
+/** Who may sign agent-governance requests as Security, Authority, Privacy or Finance (CR-105 AG2-D02). */
+export type GovDelegate = { principal_id: string; slot: GovSlot; granted_by: string; granted_at: Iso };
+export type GovDelegates = { items: GovDelegate[]; slots: GovSlot[] };
 export type GovFreeze = {
   case_id: string;
   scope: "AGENT" | "TENANT";
@@ -3539,7 +3542,7 @@ export type GovBudgetInput = {
   reason_code: string;
 };
 
-/* The DAARA reference agent, its review queue and alert handling (ZID-AG-WF-001, CR-092) */
+/* The DAARA reference agent, its review queue and alert handling (ZID-AG-WF-001, CR-106) */
 export type DaaraStage = "NOT_ENABLED" | "DRAFT" | "READY_TO_RUN_SANDBOX" | "SANDBOX_READY" | "PENDING_APPROVAL" | "ACTIVE";
 export type DaaraTemplate = {
   template: string;

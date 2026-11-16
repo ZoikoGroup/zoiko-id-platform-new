@@ -1,4 +1,4 @@
-"""The DAARA reference agent service (ZID-AG-WF-001 v1.0; CR-092).
+"""The DAARA reference agent service (ZID-AG-WF-001 v1.0; CR-106).
 
 A governed, deterministic runner. A manual run goes: governance preflight (freeze, active agent and sponsor, the approved policy for its
 exact hash, run quotas) -> a governed read of mandate metadata and agent identity status -> six versioned rules -> a governed append of
@@ -385,7 +385,7 @@ async def request_publish(
     conn: AsyncConnection, tenant_id: str, agent_id: str, actor: str, now: datetime | None = None
 ) -> Outcome:
     """Put the DAARA policy forward for the independent approvals. Disabled until validation and the sandbox test both passed for THIS
-    configuration (AT-05). The approval, and applying it, are the governance plane's (CR-091): this only drafts and requests."""
+    configuration (AT-05). The approval, and applying it, are the governance plane's (CR-105): this only drafts and requests."""
     now = now or _now()
     inst = await store.get_instance(conn, agent_id, lock=True)
     if inst is None:

@@ -170,7 +170,7 @@ def create_app(
     configure_monitoring_scope(settings.monitoring_scope)
     configure_usage_sink(
         screening_usage_sink
-    )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
+    )  # usage facts for the screening meters (CR-104); screening itself never imports commercial
     configure_credential_usage_sink(
         credential_usage_sink
     )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial

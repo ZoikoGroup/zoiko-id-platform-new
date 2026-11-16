@@ -875,7 +875,7 @@ export function createCellApi(t: Transport) {
       retireTool: (id: string) => post<M.ToolItem>(`/v1/machine/tools/${seg(id)}:retire`),
     },
 
-    /** Agent governance (ZID-AG-WF-002, CR-091): permissions, spending, approvals, monitoring and the emergency stop. */
+    /** Agent governance (ZID-AG-WF-002, CR-105): permissions, spending, approvals, monitoring and the emergency stop. */
     agentGovernance: {
       overview: () => get<M.GovOverview>("/v1/machine/governance/overview"),
       baseline: () => get<{ configured: boolean; revision?: number } & Partial<M.GovBaseline>>("/v1/machine/governance/baseline"),
@@ -908,9 +908,14 @@ export function createCellApi(t: Transport) {
         post<{ case_id: string; generation: number; agents_suspended?: number; already_frozen: boolean }>("/v1/machine/governance/pause", body),
       freezes: () => get<M.Items<M.GovFreeze>>("/v1/machine/governance/freezes"),
       requestRestore: (caseId: string) => post<M.GovRequest>(`/v1/machine/governance/freezes/${seg(caseId)}:request-restore`),
+      delegates: () => get<M.GovDelegates>("/v1/machine/governance/delegates"),
+      grantSlot: (body: { principal_id: string; slot: M.GovSlot }) =>
+        post<{ principal_id: string; slot: M.GovSlot; created: boolean }>("/v1/machine/governance/delegates", body),
+      revokeSlot: (body: { principal_id: string; slot: M.GovSlot }) =>
+        post<{ principal_id: string; slot: M.GovSlot; revoked: boolean }>("/v1/machine/governance/delegates:revoke", body),
     },
 
-    /** The DAARA reference agent and its human review queue (ZID-AG-WF-001, CR-092). */
+    /** The DAARA reference agent and its human review queue (ZID-AG-WF-001, CR-106). */
     daara: {
       template: () => get<M.DaaraTemplate>("/v1/machine/daara/template"),
       setup: (agentId: string) => get<M.DaaraSetup>(`/v1/machine/agents/${seg(agentId)}/daara`),

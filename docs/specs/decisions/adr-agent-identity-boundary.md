@@ -9,8 +9,8 @@ Zoiko iD, not ZoikoVertex, owns the contracts for agent identity (registry, spon
 ## Evidence in the repository
 
 - Registry, bindings and kill paths: CR-066, CR-093 and the machine module.
-- Authority and governance: CR-091.
-- First agent and review queue: CR-092.
+- Authority and governance: CR-105.
+- First agent and review queue: CR-106.
 - API surface: [api-inventory-agents.md](api-inventory-agents.md), generated from the committed contracts.
 
 ## What signing it means

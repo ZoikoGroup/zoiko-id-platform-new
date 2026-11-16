@@ -5,9 +5,9 @@ Date: 16 Nov 2026. Raised when `origin/main` was merged into `anil`.
 
 ## What happened
 
-Two teams built the same agent from the same specification (ZID-AG-WF-001), both citing CR-091. Both run today, side by side, with no conflict in code, routes, tables or actions.
+Two teams built the same agent from the same specification (ZID-AG-WF-001), both citing CR-091. (The DAARA change requests have since been renumbered: agent governance CR-105, DAARA CR-106, and the screening meters CR-104, so each number names one change.) Both run today, side by side, with no conflict in code, routes, tables or actions.
 
-| | DAARA (branch `anil`, CR-092) | Access Readiness (`main`, CR-091) |
+| | DAARA (branch `anil`, CR-106) | Access Readiness (`main`, CR-091) |
 |---|---|---|
 | Where it lives | inside the `machine` module (`machine/*/daara*.py`) | its own module, `modules/access_readiness`, own migration stream |
 | Size | about 1,760 lines | about 4,150 lines |

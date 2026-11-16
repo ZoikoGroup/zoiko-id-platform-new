@@ -12,11 +12,11 @@ U = `backend/app/tests/unit/test_daara.py`, D = `backend/app/tests/component/tes
 
 | ID | Pass condition (the document) | State | Test | Gap |
 |---|---|---|---|---|
-| AT-01 | Creator cannot see/create agent without authorized tenant role | EVIDENCE | D::test_daara_http_routes_and_the_authority_they_need | The role is an authority grant on the action, not one of the document's ten roles (CR-091 AG2-D02). |
+| AT-01 | Creator cannot see/create agent without authorized tenant role | EVIDENCE | D::test_daara_http_routes_and_the_authority_they_need | The role is an authority grant on the action, not one of the document's ten roles (CR-105 AG2-D02). |
 | AT-02 | Agent cannot be saved without active accountable sponsor | EVIDENCE | D::test_a_sponsorless_agent_cannot_be_validated | The draft is saved; it cannot be validated or published. |
 | AT-03 | Cross-tenant or wrong-region resource selector denied | PARTIAL | D::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals | A region the company has not allowed is refused (REGION_DENIED). A cross-tenant read relies on row-level security and has no DAARA-specific test; the governance plane's cross-tenant test covers its own tables. |
 | AT-04 | Unapproved blueprint, source connector or operation denied | EVIDENCE | D::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals, U::test_only_the_three_template_tools_exist_and_each_is_narrow | |
-| AT-05 | Draft modification invalidates approval digest | EVIDENCE | U::test_a_changed_setup_changes_the_hash_and_so_voids_validation_and_the_sandbox_pass, D::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals | An approval already signed is voided by the governance plane's own hash binding (CR-091 T22). |
+| AT-05 | Draft modification invalidates approval digest | EVIDENCE | U::test_a_changed_setup_changes_the_hash_and_so_voids_validation_and_the_sandbox_pass, D::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals | An approval already signed is voided by the governance plane's own hash binding (CR-105 T22). |
 | AT-06 | Dry run writes nothing and uses synthetic fixtures | EVIDENCE | D::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals | |
 | AT-07 | Unattested worker cannot obtain execution token | NOT_LINKED | | The runner executes inside the platform and calls the governance gates directly; it does not request a workload token or a gateway grant per read, so there is no token to refuse. |
 | AT-08 | Expired/revoked mandate prevents further authorized work | PARTIAL | D::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access | DAARA flags an expired mandate (R-01) and ignores a revoked one; stopping work under a revoked mandate is the mandate module's own behaviour and is not re-tested here. |
@@ -29,7 +29,7 @@ U = `backend/app/tests/unit/test_daara.py`, D = `backend/app/tests/component/tes
 | AT-15 | Optional model cannot select tools or change rule result | EVIDENCE | D::test_the_model_explanation_is_optional_checked_and_never_changes_a_result | The model is only ever called with counts, rule codes and masked targets; it has no tool list. |
 | AT-16 | Prompt injection in metadata cannot alter instructions | EVIDENCE | D::test_the_model_explanation_is_optional_checked_and_never_changes_a_result, U::test_t15_t16_a_rewrite_that_invents_claims_numbers_or_obeys_text_is_refused | By construction: the projection has no free-text field. The checker is the second wall. |
 | AT-17 | Model outage preserves deterministic result | EVIDENCE | D::test_the_model_explanation_is_optional_checked_and_never_changes_a_result | |
-| AT-18 | Policy outage denies safely without broad privilege | EVIDENCE | G::test_policy_lifecycle_approval_and_every_gate | A missing policy source is POLICY_UNAVAILABLE (CR-091 T15). |
+| AT-18 | Policy outage denies safely without broad privilege | EVIDENCE | G::test_policy_lifecycle_approval_and_every_gate | A missing policy source is POLICY_UNAVAILABLE (CR-105 T15). |
 | AT-19 | Kill switch rejects new tokens, halts queued runs | PARTIAL | D::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access, G::test_a_pause_cancels_running_work_and_the_next_progress_is_refused | Runs are refused and running work cancelled. There are no queued runs, and token refusal after a pause is the registry's existing suspension, not re-tested here. |
 | AT-20 | Run evidence links replay and verify hashes | EVIDENCE | D::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access | |
 | AT-21 | Logs exclude token, document, biometric and raw PII | NOT_LINKED | | By construction the projection and the evidence rows hold ids, hashes, codes and counts. No test scans the run's logs for personal data. |
@@ -39,4 +39,4 @@ U = `backend/app/tests/unit/test_daara.py`, D = `backend/app/tests/component/tes
 
 ## Not provable from code
 
-Independent execution and sign-off (gates G0 to G4), the real release state and API inventory (D-06), the substrate decision (D-08), the privacy approvals, and measured latency. See CR-092.
+Independent execution and sign-off (gates G0 to G4), the real release state and API inventory (D-06), the substrate decision (D-08), the privacy approvals, and measured latency. See CR-106.
