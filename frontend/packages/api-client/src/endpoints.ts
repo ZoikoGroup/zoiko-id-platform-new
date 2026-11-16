@@ -875,7 +875,7 @@ export function createCellApi(t: Transport) {
       retireTool: (id: string) => post<M.ToolItem>(`/v1/machine/tools/${seg(id)}:retire`),
     },
 
-    /** Agent governance (ZID-AG-WF-002, CR-091): permissions, spending, approvals, monitoring and the emergency stop. */
+    /** Agent governance (ZID-AG-WF-002, CR-105): permissions, spending, approvals, monitoring and the emergency stop. */
     agentGovernance: {
       overview: () => get<M.GovOverview>("/v1/machine/governance/overview"),
       baseline: () => get<{ configured: boolean; revision?: number } & Partial<M.GovBaseline>>("/v1/machine/governance/baseline"),
@@ -908,9 +908,14 @@ export function createCellApi(t: Transport) {
         post<{ case_id: string; generation: number; agents_suspended?: number; already_frozen: boolean }>("/v1/machine/governance/pause", body),
       freezes: () => get<M.Items<M.GovFreeze>>("/v1/machine/governance/freezes"),
       requestRestore: (caseId: string) => post<M.GovRequest>(`/v1/machine/governance/freezes/${seg(caseId)}:request-restore`),
+      delegates: () => get<M.GovDelegates>("/v1/machine/governance/delegates"),
+      grantSlot: (body: { principal_id: string; slot: M.GovSlot }) =>
+        post<{ principal_id: string; slot: M.GovSlot; created: boolean }>("/v1/machine/governance/delegates", body),
+      revokeSlot: (body: { principal_id: string; slot: M.GovSlot }) =>
+        post<{ principal_id: string; slot: M.GovSlot; revoked: boolean }>("/v1/machine/governance/delegates:revoke", body),
     },
 
-    /** The DAARA reference agent and its human review queue (ZID-AG-WF-001, CR-092). */
+    /** The DAARA reference agent and its human review queue (ZID-AG-WF-001, CR-106). */
     daara: {
       template: () => get<M.DaaraTemplate>("/v1/machine/daara/template"),
       setup: (agentId: string) => get<M.DaaraSetup>(`/v1/machine/agents/${seg(agentId)}/daara`),
@@ -973,6 +978,14 @@ export function createOperatorApi(t: Transport) {
     signalReviews: () => get<M.Items<M.SignalReview>>("/v1/reviews/signals"),
     challengeSignal: (id: string, body: M.SignalChallengeIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/challenge`, body),
     resolveSignal: (id: string, body: M.SignalResolutionIn) => post<M.SignalReview>(`/v1/reviews/signals/${seg(id)}/resolution`, body),
+
+    /** A reviewer's work on a company case: screening alerts with the listed names, a past decision decided again, and the ruling. Reviewer routes are protected actions: a role flag never grants them. */
+    caseReviews: {
+      screening: (id: string) => get<M.ScreeningCaseDetail>(`/v1/reviews/screening-cases/${seg(id)}`),
+      replay: (id: string, version: number) => get<M.ScreeningReplay>(`/v1/reviews/screening-cases/${seg(id)}/replay`, { version }),
+      screeningRuling: (id: string, body: M.ScreeningRulingIn) => post<M.CaseRuling>(`/v1/reviews/screening-cases/${seg(id)}/rulings`, body),
+      kybRuling: (id: string, body: M.KybRulingIn) => post<M.CaseRuling>(`/v1/reviews/kyb-cases/${seg(id)}/rulings`, body),
+    },
 
     /** Commercial operator surface (ZID-COM-001). Reads are typed; every write goes through `call`, driven by the
      * action catalogue in the operator console so that each route has exactly one description of its body. */
@@ -1187,6 +1200,7 @@ export function createOperatorApi(t: Transport) {
         post<M.SuspensionVersion>(`/v1/regulatory/suspensions/${seg(id)}:lift`, { reason, evidence_ref: evidenceRef }),
 
       issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
+      recordIssuerStatement: (body: M.IssuerStatementIn) => post<M.IssuerStatementRecorded>("/v1/regulatory/issuers", body),
       issuerStatements: (issuerId: string) => get<M.Items<M.IssuerStatement>>(`/v1/regulatory/issuers/${seg(issuerId)}/statements`),
       awardCheck: (issuerId: string, program: string, awardedOn: string, knownAt?: string) =>
         get<M.AwardCheck>(`/v1/regulatory/issuers/${seg(issuerId)}/award-check`, { program, awarded_on: awardedOn, known_at: knownAt }),
@@ -1200,6 +1214,7 @@ export function createOperatorApi(t: Transport) {
 
       conformanceMatrix: () => get<M.ConformanceMatrix>("/v1/regulatory/conformance-matrix"),
       conformanceRuns: () => get<M.Items<M.ConformanceRun>>("/v1/regulatory/conformance-runs"),
+      conformanceRun: (runId: string) => get<M.ConformanceRun>(`/v1/regulatory/conformance-runs/${seg(runId)}`),
       reviewConformanceRun: (runId: string, decision: "ACCEPTED" | "REJECTED", signedHash: string, noteRef: string) =>
         post<M.ConformanceRun>(`/v1/regulatory/conformance-runs/${seg(runId)}:review`, { decision, signed_hash: signedHash, note_ref: noteRef }),
 

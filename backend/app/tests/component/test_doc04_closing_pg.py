@@ -209,15 +209,23 @@ def test_at028_and_at029_no_route_returns_raw_biometric_media_or_a_template() ->
         "biometric-media",
     )
     media = ("image/", "video/", "audio/", "application/octet-stream")
+    # paths whose word means something else, reviewed one by one; the media check below still applies to them
+    not_biometric = {
+        "/v1/machine/daara/template",  # the DAARA agent template: what the agent does and never does, as JSON (CR-106)
+    }
     found = []
     for f in root.rglob("*.json"):
         spec = json.loads(f.read_text(encoding="utf-8"))
         for path, item in spec.get("paths", {}).items():
-            if any(
-                w in re.split(r"[^a-z0-9]+", path.lower()) or w in path.lower()
-                for w in bad_words
-                if w != "raw"
-            ) or "raw" in re.split(r"[^a-z0-9]+", path.lower()):
+            if (
+                path not in not_biometric
+                and any(
+                    w in re.split(r"[^a-z0-9]+", path.lower()) or w in path.lower()
+                    for w in bad_words
+                    if w != "raw"
+                )
+                or "raw" in re.split(r"[^a-z0-9]+", path.lower())
+            ):
                 found.append(f"{f.name}: {path}")
             for method in item.values():
                 if not isinstance(method, dict):

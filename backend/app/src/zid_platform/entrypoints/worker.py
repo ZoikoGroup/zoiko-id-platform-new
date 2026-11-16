@@ -16,7 +16,8 @@ Same image as the API, separate process. Each pass, in its own transaction per s
 - sandbox_identities: developer test identities past their expiry are retired;
 - directory_sync: each connected company directory (Auth0 first) is read and its SCIM source brought in step with it;
 - sanctions_lists / screening: lists with a verified address are fetched and loaded, and cases a list change or an expiry has
-  made stale are screened again (ED-04).
+  made stale are screened again (ED-04);
+- access_readiness: queued access readiness runs are preflighted again and executed, a bounded number per pass (CR-091; off by default).
 A failing step is logged and retried on the next pass; it never stops the others.
 
     ZID_WORKER_DATABASE_URL  the worker role: BYPASSRLS, SELECT/INSERT/UPDATE on the evidence,
@@ -368,6 +369,24 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await lifecycle_sweep(conn, now)
 
+    async def access_readiness(conn: AsyncConnection, now: datetime) -> object:
+        """CR-091 (ZID-AG-WF-001 sections 04 and 11): take the oldest queued access readiness runs, each preflighted again under its own
+        tenant and in its own savepoint. Off (nothing read) unless ZID_ACCESS_READINESS_ENABLED; no model gateway in the worker."""
+        if not settings.access_readiness_enabled:
+            return "off"
+        from zid_platform.modules.access_readiness.ports import Runtime, drain_queued
+
+        return await drain_queued(
+            conn,
+            Runtime(
+                enabled=True,
+                regions=frozenset(settings.access_readiness_regions),
+                region=settings.cell_id,
+                cell_uuid=settings.cell_uuid,
+                ai_explain=settings.access_readiness_ai_explain,
+            ),
+        )
+
     async def agent_governance(conn: AsyncConnection, now: datetime) -> object:
         """ZID-AG-WF-002: free allowances a crashed run left reserved, end runs past their deadline, expire unsigned change requests."""
         from zid_platform.modules.machine.ports import configure_agent_governance, governance_sweep
@@ -459,6 +478,10 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("claim_autoverify", claim_autoverify),
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
+        (
+            "access_readiness",
+            access_readiness,
+        ),  # after the lifecycle sweep, so a run sees an agent it has just suspended
         ("agent_governance", agent_governance),
         *(
             (("daara_schedule", daara_schedule), ("daara_queue", daara_queue))

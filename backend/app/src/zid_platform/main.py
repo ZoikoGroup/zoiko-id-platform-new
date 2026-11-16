@@ -118,6 +118,9 @@ def create_app(
     app.state.access_readiness_ai_explain = settings.access_readiness_ai_explain
     # no model gateway ships in the platform image (CR-091): a deployment that approves one sets app.state.access_readiness_explainer
     app.state.access_readiness_explainer = None
+    # the usage and budget hook (CR-091, section 08): None is the Q1 hook with no thresholds; the Q2 limits are not set. Any hook handed in
+    # here is asked before a run and each step, and an error, a timeout or any answer but ALLOW denies with BUDGET_POLICY_DENY.
+    app.state.access_readiness_usage_policy = None
     if settings.regulatory_packs == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
             "ZID_REGULATORY_PACKS=off would let an enabled country run a regulated capability with no approved policy pack; "
@@ -167,7 +170,7 @@ def create_app(
     configure_monitoring_scope(settings.monitoring_scope)
     configure_usage_sink(
         screening_usage_sink
-    )  # usage facts for the screening meters (CR-090); screening itself never imports commercial
+    )  # usage facts for the screening meters (CR-104); screening itself never imports commercial
     configure_credential_usage_sink(
         credential_usage_sink
     )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial

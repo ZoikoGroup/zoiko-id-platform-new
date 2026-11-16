@@ -7,12 +7,14 @@ import type { ReactNode } from "react";
 
 import { useCellQuery } from "@/lib/cell";
 
-export type GovernanceView = "overview" | "approvals" | "review" | "permissions" | "limits" | "monitoring" | "daara";
+export type GovernanceView = "overview" | "approvals" | "signers" | "review" | "permissions" | "limits" | "monitoring" | "daara";
 
 const FLEET: { id: GovernanceView; label: string; href: string }[] = [
   { id: "overview", label: "Overview", href: "/admin/agents/governance" },
   { id: "approvals", label: "Approvals", href: "/admin/agents/governance/approvals" },
-  { id: "review", label: "Review queue", href: "/admin/agents/review" },
+  { id: "signers", label: "Signers", href: "/admin/agents/governance/signers" },
+  // the Access readiness agent is the one agent for this review (adr-two-implementations-of-wf-001); its home lists the proposals
+  { id: "review", label: "Review queue", href: "/admin/agents/readiness" },
 ];
 const PER_AGENT: { id: GovernanceView; label: string; path: string }[] = [
   { id: "permissions", label: "Permissions", path: "permissions" },

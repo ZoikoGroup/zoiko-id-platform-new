@@ -41,6 +41,7 @@ const NAV: NavGroup[] = [
       { id: "break-glass", label: "Break-glass", href: "/break-glass", icon: Siren },
       { id: "reviews", label: "Post-reviews", href: "/reviews", icon: ClipboardCheck },
       { id: "signals", label: "Signals", href: "/signals", icon: Flag },
+      { id: "case-reviews", label: "Case reviews", href: "/case-reviews", icon: ClipboardCheck },
     ],
   },
   {

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReviewProposal } from "@zoiko/api-client";
+import { ApiError, type ReviewProposal } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, EmptyState, KeyValues, PageHeader, Select } from "@zoiko/ui";
 import { ClipboardList } from "lucide-react";
 import Link from "next/link";
@@ -28,6 +28,16 @@ export function ReviewQueuePage() {
         breadcrumbs={[{ label: "Agents & tools", href: "/admin/agents" }, { label: "Governance", href: "/admin/agents/governance" }, { label: "Review queue" }]}
       />
       <GovernanceNav current="review" />
+      {queue.isError && queue.error instanceof ApiError && queue.error.status === 404 ? (
+        <EmptyState icon={ClipboardList} title="Replaced by the Access readiness agent">
+          This reference agent was retired: the Access readiness agent is now the one agent for this review, and its proposals are listed there. Nothing
+          was deleted. Open the{" "}
+          <Link className="font-medium text-brand-700 underline" href="/admin/agents/readiness">
+            Access readiness agent
+          </Link>
+          .
+        </EmptyState>
+      ) : (
       <QueryView query={queue}>
         {(q) => (
           <div className="space-y-4">
@@ -56,6 +66,7 @@ export function ReviewQueuePage() {
           </div>
         )}
       </QueryView>
+      )}
     </>
   );
 }

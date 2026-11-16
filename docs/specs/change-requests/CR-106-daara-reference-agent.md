@@ -1,10 +1,10 @@
-# CR-092: the DAARA reference agent, alert handling and the optional explanation (ZID-AG-WF-001 v1.0; ZID-AG-WF-002 section 15)
+# CR-106: the DAARA reference agent, alert handling and the optional explanation (ZID-AG-WF-001 v1.0; ZID-AG-WF-002 section 15)
 
-Status: **RETIRED by default on 2026-11-16 (ZID_DAARA_ENABLED=false; see docs/specs/decisions/adr-two-implementations-of-wf-001.md). Code and data kept.** Earlier status: **applied, default `shadow`, runs are manual.** Built on the engineering owner's instruction of 2026-11-14 to complete Agent Wireframe 01 and the open items of CR-091. The document is a decision-ready proposal, not an approval: decisions D-01 to D-09 and gates G0 to G4 are the owners'. Nothing here makes the agent generally available.
+Status: **RETIRED by default on 2026-11-16 (ZID_DAARA_ENABLED=false; see docs/specs/decisions/adr-two-implementations-of-wf-001.md). Code and data kept.** Earlier status: **applied, default `shadow`, runs are manual.** Built on the engineering owner's instruction of 2026-11-14 to complete Agent Wireframe 01 and the open items of CR-105. The document is a decision-ready proposal, not an approval: decisions D-01 to D-09 and gates G0 to G4 are the owners'. Nothing here makes the agent generally available.
 
 ## Why
 
-CR-091 built the governance plane (leases, approvals, budgets, quotas, the stop). Nothing yet ran under it. Wireframe 01 asks for the smallest real agent that proves the chain: identify the actor, evaluate a delegated mandate, authorize each tool use, and keep decision-grade evidence, with one write that cannot change access.
+CR-105 built the governance plane (leases, approvals, budgets, quotas, the stop). Nothing yet ran under it. Wireframe 01 asks for the smallest real agent that proves the chain: identify the actor, evaluate a delegated mandate, authorize each tool use, and keep decision-grade evidence, with one write that cannot change access.
 
 ## What changed
 
@@ -35,7 +35,7 @@ Fixed text from the counts is the default and always the fallback. A model rewri
 - **A hot-path cost.** The gateway hook wrote a hash-chained evidence row, behind a per-company lock, on every call, even for a company that never set up governance. The existing revocation-propagation test (tool calls in a tight loop) measured about 2.1 s against a 2.0 s budget because of it. In shadow mode a company with no baseline now records nothing. The evidence chain is now one chain per agent (and one for company-level rows), each starting from nothing and locked separately, so a company that has adopted governance pays one lock and one insert per governed call that no other agent waits for.
 - A first publish with AI on had been classed as a plain publish, skipping Privacy and Finance. Fixed.
 - **A multi-company collision.** The event outbox keys events on (type, id, version) across the platform, but versions are counted per company, and a tool id is chosen by a person. A second company registering a tool with the same id (every company enabling DAARA does) hit a duplicate-key error. Tool events now carry a company-scoped aggregate id; the audit record keeps the plain tool id.
-- The plan entitlement was a constant. Every governed call now reads it through the commercial resolver (CR-091 updated). The evidence export (CSV, redacted by role, formula-safe, itself audited) was added under `agent.audit.export`.
+- The plan entitlement was a constant. Every governed call now reads it through the commercial resolver (CR-105 updated). The evidence export (CSV, redacted by role, formula-safe, itself audited) was added under `agent.audit.export`.
 - Reading a dry run, a quota or a freeze never touches a mandate: the tests read the mandates and the agent registry back byte for byte before and after.
 
 ## What it deliberately does not do
@@ -48,7 +48,7 @@ Fixed text from the counts is the default and always the fallback. A model rewri
 
 ## Owner decisions still needed
 
-D-01..D-05 (adopt DAARA, the write limit, AI explain-only, region-pinned worker), D-06 and D-08 (the real release state and whether the first deployment uses this substrate or ZoikoVertex), D-09 (brand assets), and everything CR-091 lists. Gates G0 to G4 of document 01 section 14.
+D-01..D-05 (adopt DAARA, the write limit, AI explain-only, region-pinned worker), D-06 and D-08 (the real release state and whether the first deployment uses this substrate or ZoikoVertex), D-09 (brand assets), and everything CR-105 lists. Gates G0 to G4 of document 01 section 14.
 
 ## Evidence
 

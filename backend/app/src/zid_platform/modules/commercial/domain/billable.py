@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-# SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-090), and CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK (CR-070), are usage facts only: no SKU and no price stand
+# SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-104), and CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK (CR-070), are usage facts only: no SKU and no price stand
 # behind them, so they are recorded and never rated or invoiced.
 METERS = (
     "MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED", "SCREEN_CHECK", "SCREEN_MONITOR_PERIOD",

@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit, next_version
 
 from zid_platform.modules.access_readiness.application.explain import ExplanationGateway
+from zid_platform.modules.access_readiness.application.usage import (
+    DEFAULT_TIMEOUT_SECONDS,
+    UsagePolicy,
+)
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 
 DEFAULT_APPROVAL_TTL = timedelta(days=7)
@@ -50,6 +54,9 @@ class Runtime:
     ai_explain: bool = False
     explainer: ExplanationGateway | None = None
     ai_timeout_seconds: float = 8.0
+    # the usage and budget hook asked before a run and before each step (None: the Q1 hook, which sets no limit); fails closed
+    usage_policy: UsagePolicy | None = None
+    usage_timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 
     @property
     def region_supported(self) -> bool:

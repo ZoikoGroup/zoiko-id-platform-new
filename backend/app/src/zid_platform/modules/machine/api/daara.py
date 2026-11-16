@@ -1,4 +1,4 @@
-"""DAARA, the human review queue and governance alert handling (ZID-AG-WF-001 v1.0 section 10; ZID-AG-WF-002 section 15; CR-092).
+"""DAARA, the human review queue and governance alert handling (ZID-AG-WF-001 v1.0 section 10; ZID-AG-WF-002 section 15; CR-106).
 
     GET  /v1/machine/daara/template                          what the template does and never does          agent.daara.read
     GET  /v1/machine/agents/{id}/daara                       setup, stage, blockers, effective scope        agent.daara.read
