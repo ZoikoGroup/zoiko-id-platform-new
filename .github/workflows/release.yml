@@ -30,7 +30,7 @@ env:
 
 jobs:
   build:
-    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/Zoiko-ID-Platform'
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new'
     permissions:
       contents: read
       packages: write
@@ -39,7 +39,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
 
   build-frontend:
-    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/Zoiko-ID-Platform'
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new'
     permissions:
       contents: read
       packages: write

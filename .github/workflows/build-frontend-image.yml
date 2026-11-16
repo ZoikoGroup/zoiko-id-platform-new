@@ -24,7 +24,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'ZoikoGroup/Zoiko-ID-Platform'
+    if: github.repository == 'ZoikoGroup/zoiko-id-platform-new'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
