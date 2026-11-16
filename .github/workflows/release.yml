@@ -7,6 +7,9 @@
 #
 # Triggers: push to main and manual promotion only. Never pull_request / pull_request_target, so fork and
 # untrusted PRs cannot reach signing or deploy credentials. Actions are pinned by commit SHA.
+# Deployment is handled by the deploy team, not by development. The automatic image builds on a push to main stay OFF until the deploy team sets
+# the repository variable RELEASE_ENABLED to 'true' (Settings > Secrets and variables > Actions > Variables). Production promotion (the
+# workflow_dispatch job below) is unchanged: it is manual, needs the owners' GO and verifies the digest it is given.
 name: release
 
 on:
@@ -30,7 +33,7 @@ env:
 
 jobs:
   build:
-    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new'
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new' && vars.RELEASE_ENABLED == 'true'
     permissions:
       contents: read
       packages: write
@@ -39,7 +42,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
 
   build-frontend:
-    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new'
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new' && vars.RELEASE_ENABLED == 'true'
     permissions:
       contents: read
       packages: write
