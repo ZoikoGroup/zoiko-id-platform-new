@@ -1,4 +1,4 @@
-"""Agent governance: permissions, spending, usage, approvals and the emergency stop (ZID-AG-WF-002 v1.0, CR-091).
+"""Agent governance: permissions, spending, usage, approvals and the emergency stop (ZID-AG-WF-002 v1.0, CR-105).
 
 Everything here is a decision made by a rule, never by a model. An agent is denied unless a signed policy names the tool,
 the resource, the purpose, the region and an expiry; a hard prohibition beats every allow and every approval; a paid or

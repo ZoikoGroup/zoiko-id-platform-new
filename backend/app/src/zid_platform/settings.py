@@ -321,18 +321,18 @@ class Settings(ServiceSettings):
     # media, transaction and crypto monitoring) run only where a Legal and Compliance approval covers the country, kind and sector? shadow (default)
     # only logs; enforce holds everything not approved (no global background monitoring); off is refused outside local, test and dev.
     monitoring_scope: Literal["off", "shadow", "enforce"] = "shadow"
-    # ZID_AGENT_GOVERNANCE (ZID-AG-WF-002, CR-091): must every agent tool call and run pass the governance gates (an active policy version with
+    # ZID_AGENT_GOVERNANCE (ZID-AG-WF-002, CR-105): must every agent tool call and run pass the governance gates (an active policy version with
     # an effective approval for its exact hash, an unexpired lease for this tool, resource, purpose and region, the company baseline, quotas and
     # budget)? shadow (default) records what enforce would refuse in the agent evidence stream and lets the call through; enforce refuses with
     # the section 13 decision codes; off skips the checks (refused outside local, test and dev). An emergency freeze refuses in every mode.
-    # ZID_DAARA_ENABLED (CR-092, retired by the engineering owner's instruction of 2026-11-16, ADR adr-two-implementations-of-wf-001): the DAARA agent's own
+    agent_governance: Literal["off", "shadow", "enforce"] = "shadow"
+    # ZID_DAARA_ENABLED (CR-106, retired by the engineering owner's instruction of 2026-11-16, ADR adr-two-implementations-of-wf-001): the DAARA agent's own
     # routes (/v1/machine/agents/{id}/daara..., /v1/machine/agent-review...) answer 404 and its worker steps do nothing unless this is true. The Access Readiness
     # agent (CR-091) is the one WF-001 agent. Nothing is deleted: the code, the tables and every record stay, so turning this on brings it back unchanged.
     daara_enabled: bool = False
-    # Self-run identity verification (CR-095, CR-102): the platform's own chip check with no external provider. Off until the owners accept the path;
+    # ZID_SELF_RUN_ENABLED: self-run identity verification (CR-095, CR-102): the platform's own chip check with no external provider. Off until the owners accept the path;
     # while off, every route answers 404 and nothing else changes.
     self_run_enabled: bool = False
-    agent_governance: Literal["off", "shadow", "enforce"] = "shadow"
     # ZID_BUILD_REGISTRIES (CR-065): exact host names the console may look an image's digest up in (for example ["ghcr.io"]); a registry's token service
     # host must be listed too. Empty (default) switches the lookup off and nothing is ever contacted. ZID_BUILD_REGISTRIES_PRIVATE names the few of those
     # that may resolve to a private address (a registry on the same network); everything else resolving privately is refused.

@@ -1,4 +1,4 @@
-# Agent owner decision pack (ZID-AG-WF-001, ZID-AG-WF-002, CR-091, CR-092, CR-093, CR-094)
+# Agent owner decision pack (ZID-AG-WF-001, ZID-AG-WF-002, CR-105, CR-106, CR-093, CR-094)
 
 Status: **PROPOSAL for named owners. Nothing here is approved.** Written 2026-11-14 from Agent Wireframes 01 and 02 (sections 14, 15 and 19), the Global Gap Master and the code as built. Each row gives the question, what the documents and the code already say, the recommended answer, the approver, and the exact change that follows. A recommendation becomes policy only when the named approver signs it.
 

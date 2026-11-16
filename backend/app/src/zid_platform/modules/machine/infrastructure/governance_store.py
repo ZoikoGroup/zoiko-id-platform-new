@@ -1,4 +1,4 @@
-"""Storage for agent governance (ZID-AG-WF-002; CR-091; machine_0008). Tenant transactions, RLS on, SQL only.
+"""Storage for agent governance (ZID-AG-WF-002; CR-105; machine_0008). Tenant transactions, RLS on, SQL only.
 
 Atomic reservation: `lock_ceilings` takes a row lock on every budget row above a call, in id order, so two calls that compete
 for the last of an allowance queue behind each other and the second one reads the first one's reservation. The sums are read

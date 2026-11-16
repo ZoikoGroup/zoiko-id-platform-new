@@ -1,4 +1,4 @@
-"""Agent governance service (ZID-AG-WF-002 v1.0; CR-091).
+"""Agent governance service (ZID-AG-WF-002 v1.0; CR-105).
 
 The five control areas of the document, enforced where the work happens and not on a screen:
 

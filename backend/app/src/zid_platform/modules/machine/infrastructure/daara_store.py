@@ -1,4 +1,4 @@
-"""Storage for the DAARA agent and for governance alert state (ZID-AG-WF-001, ZID-AG-WF-002; CR-092; machine_0009).
+"""Storage for the DAARA agent and for governance alert state (ZID-AG-WF-001, ZID-AG-WF-002; CR-106; machine_0009).
 
 Tenant transactions, RLS on, fixed SQL only (no assembled statements). The one write DAARA may make is `upsert_proposal`: a row in the
 review queue. Nothing here touches a mandate, a grant, a role or a credential.

@@ -1,5 +1,4 @@
-# CI is triggered only for main: pull requests that target main, the nightly run (which runs on main), and a manual run. A push to
-# another branch, or a pull request into another branch, starts nothing.
+# CI is run by hand (workflow_dispatch) only; see the `on:` block. The checks themselves are unchanged.
 #
 # One CI pipeline for the whole repository: backend, frontend, images, security and the nightly advisory audit, all in
 # this file. Every pull request runs every check (main only changes through a pull request, so there is no second run on the merge; the nightly run covers main); the `checks` job at the end is green only when all
@@ -15,10 +14,8 @@
 name: ci
 
 on:
-  pull_request:
-    branches: [main]  # CI runs only for work going into main; a pull request into any other branch does not start it
-  schedule:
-    - cron: "17 3 * * *"  # nightly, off the hour on purpose: only the two advisory jobs at the bottom run
+  # MANUAL ONLY. Nothing starts this pipeline by itself: not a push, not a pull request, not the nightly schedule. Run it from the Actions tab
+  # (Run workflow) when you want it. To make it automatic again, restore `pull_request: {branches: [main]}` and the `schedule:` entry below.
   workflow_dispatch:
 
 permissions:

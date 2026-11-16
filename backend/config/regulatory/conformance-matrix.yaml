@@ -91,12 +91,12 @@ cases:
   - case: T12
     title: Unauthorized cross-tenant evidence access
     expected: 403 with audit event; no metadata leakage
-    coverage: PARTIAL
+    coverage: COVERED
     tests:
       - app/tests/component/test_org_claim_proofs_pg.py::test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_document
       - app/tests/component/test_credential_trust_pg.py::test_the_new_tables_are_invisible_to_another_tenant
       - app/tests/component/test_tenant_isolation_pg.py::test_other_tenants_and_tenantless_callers_see_and_change_nothing
-    note: The denied attempt is now audited in the caller's own organization (DENIED / CASE_NOT_VISIBLE) and nothing leaks, but the answer is the 404 that row-level security gives for another tenant's evidence and for none at all, not the 403 the case states; a 403 would confirm the claim exists. Owner decision needed on 404 versus 403 before this can be COVERED.
+    note: Owner decision 2026-11-16 (CR-090) - the answer is a deliberate 404, which row-level security gives both for another tenant's evidence and for none, so nothing confirms the claim exists; the denied attempt is audited in the caller's own organization (DENIED / CASE_NOT_VISIBLE).
   - case: T13
     title: Degree valid, professional license expired
     expected: qualification VERIFIED; practice NOT_ELIGIBLE

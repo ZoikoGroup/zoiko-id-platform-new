@@ -13,8 +13,8 @@
 name: release
 
 on:
-  push:
-    branches: [main]
+  # MANUAL ONLY while nothing is deployed: a push to main no longer starts a release. The automatic `push` trigger can be restored together with
+  # the RELEASE_ENABLED variable below when the deploy team is ready.
   workflow_dispatch:
     inputs:
       image_digest:

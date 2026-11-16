@@ -1,4 +1,4 @@
-"""Two usage meters for screening (CR-090; ZID-UX-PRICE-004 P23): a screening check and a monitoring period.
+"""Two usage meters for screening (CR-104; ZID-UX-PRICE-004 P23): a screening check and a monitoring period.
 
 Revision ID: commercial_0042
 Revises: commercial_0041
