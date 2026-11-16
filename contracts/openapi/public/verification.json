@@ -331,6 +331,45 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "OwnershipDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "CONFIRMED",
+              "NOT_CONFIRMED",
+              "ESCALATED"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "entity_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "decision",
+          "reason",
+          "evidence_ref"
+        ],
+        "title": "OwnershipDecisionIn",
+        "type": "object"
+      },
       "OwnershipGraphIn": {
         "additionalProperties": false,
         "properties": {
@@ -1342,6 +1381,61 @@
           }
         },
         "summary": "Get Graph",
+        "tags": [
+          "organization-v2"
+        ]
+      }
+    },
+    "/v2/ownership-graphs/{graph_id}/confirmations": {
+      "post": {
+        "description": "A person decides on one candidate. The platform never does: a decision needs a reason and an evidence reference, and the person who recorded the graph cannot make it.",
+        "operationId": "decide_v2_ownership_graphs__graph_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "graph_id",
+            "required": true,
+            "schema": {
+              "title": "Graph Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnershipDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide V2 Ownership Graphs  Graph Id  Confirmations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
         "tags": [
           "organization-v2"
         ]

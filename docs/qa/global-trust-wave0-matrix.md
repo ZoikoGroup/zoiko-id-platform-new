@@ -427,3 +427,16 @@ Tests: `test_data_integrity.py` (65), `test_pdf_doc_timestamps.py` (25), `test_p
 | Workflow run screens (CR-102, DTV-30) | Built | `/admin/workflows/runs` and the run page | |
 | No-chip path | Not built, on purpose | A reviewer approving from text alone could verify a person with no verified claim | A product and legal decision |
 | Phone app and capture flow | Not buildable here | A native app that reads the chip and captures a face | A mobile team |
+
+
+## Status update, twenty-sixth pass (2026-11-16, what was left of the identity verification code list)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| Ownership candidate decisions (CR-103) | Built | `organization_0009`, a decision with a reason and evidence, never by the graph author, append-only, and the form on the ownership page | Which role decides; whether CONFIRMED needs a second person |
+| RSA Active Authentication (CR-103) | Built, no real vector | ISO/IEC 9796-2 scheme 1 verifier | A real passport vector from two issuing countries |
+| Contract for the phone app (CR-103) | Written | `docs/specs/self-run-mobile-client-contract.md` | The app itself: a mobile team |
+| Chip Authentication and PACE | Not buildable on the server | Key agreement between chip and phone; only the phone can check it | |
+| Phone and email observations | Not built | No phone number is collected, and the email hash lives in another tenant | A decision on what is collected and where |
+| Issuer-side credential expiry triggers | Already built (GID-058) | The earlier list was wrong to call them open | |
+| No-chip path; provider adapters | Not built | A decision, and provider contracts | |

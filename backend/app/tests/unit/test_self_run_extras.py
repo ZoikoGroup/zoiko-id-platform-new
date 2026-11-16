@@ -278,13 +278,81 @@ def test_nothing_is_assessed_when_dg15_was_not_vouched_for_or_the_inputs_are_bad
     )
 
 
-def test_an_rsa_key_is_not_guessed_at() -> None:
+def rsa_signer(bits: int = 1024):  # type: ignore[no-untyped-def]
     from cryptography.hazmat.primitives.asymmetric import rsa
 
-    rsa_key = rsa.generate_private_key(65537, 2048).public_key()
-    dg15 = rsa_key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
-    v = aa.verify(dg15, CHALLENGE, b"\x00" * 256, dg15_verified=True)
-    assert v.status == "NOT_ASSESSED" and v.reasons == ("AA_KEY_TYPE_NOT_SUPPORTED",)
+    key = rsa.generate_private_key(65537, bits)
+    return key, key.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+
+
+def rsa_response(
+    key, challenge: bytes, *, name: str = "sha256", trailer: bytes = b"\x34\xcc"
+) -> bytes:  # type: ignore[no-untyped-def]
+    """An ISO/IEC 9796-2 scheme 1 signature the way the standard describes it, written here from the same reading the verifier follows."""
+    import hashlib
+    import os
+
+    numbers = key.private_numbers()
+    n, d = numbers.public_numbers.n, numbers.d
+    k = (n.bit_length() + 7) // 8
+    hlen = hashlib.new(name).digest_size
+    m1 = os.urandom(k - 1 - hlen - len(trailer))
+    digest = hashlib.new(name, m1 + challenge).digest()
+    em = b"\x6a" + m1 + digest + trailer
+    s = pow(int.from_bytes(em, "big"), d, n)
+    return min(s, n - s).to_bytes(k, "big")
+
+
+def test_an_rsa_chip_that_signs_the_challenge_holds_the_private_key_and_a_wrong_key_or_challenge_does_not() -> (
+    None
+):
+    key, dg15 = rsa_signer()
+    ok = aa.verify(dg15, CHALLENGE, rsa_response(key, CHALLENGE), dg15_verified=True)
+    assert ok.status == "GENUINE_KEY_HELD" and "HOLDER_NOT_BOUND" in ok.reasons
+    other, _ = rsa_signer()
+    assert (
+        aa.verify(dg15, CHALLENGE, rsa_response(other, CHALLENGE), dg15_verified=True).status
+        == "CLONE_SUSPECTED"
+    )
+    replay = rsa_response(key, bytes(range(9, 17)))
+    assert (
+        aa.verify(dg15, CHALLENGE, replay, dg15_verified=True).status == "CLONE_SUSPECTED"
+    )  # an answer to another challenge
+    assert aa.verify(dg15, CHALLENGE, b"\x00" * 10, dg15_verified=True).reasons == (
+        "AA_SIGNATURE_WRONG_LENGTH",
+    )
+    flipped = bytearray(rsa_response(key, CHALLENGE))
+    flipped[5] ^= 1
+    assert (
+        aa.verify(dg15, CHALLENGE, bytes(flipped), dg15_verified=True).status == "CLONE_SUSPECTED"
+    )
+    assert (
+        aa.verify(dg15, CHALLENGE, rsa_response(key, CHALLENGE), dg15_verified=False).status
+        == "NOT_ASSESSED"
+    )
+
+
+def test_each_rsa_hash_trailer_is_read_and_an_unknown_one_is_not_accepted() -> None:
+    key, dg15 = rsa_signer(1280)
+    for name, trailer in (
+        ("sha1", b"\xbc"),
+        ("sha1", b"\x33\xcc"),
+        ("sha256", b"\x34\xcc"),
+        ("sha512", b"\x35\xcc"),
+        ("sha384", b"\x36\xcc"),
+        ("sha224", b"\x38\xcc"),
+    ):
+        got = aa.verify(
+            dg15,
+            CHALLENGE,
+            rsa_response(key, CHALLENGE, name=name, trailer=trailer),
+            dg15_verified=True,
+        )
+        assert got.status == "GENUINE_KEY_HELD", (name, trailer)
+    unknown = aa.verify(
+        dg15, CHALLENGE, rsa_response(key, CHALLENGE, trailer=b"\x77\xcc"), dg15_verified=True
+    )
+    assert unknown.status == "CLONE_SUSPECTED"
 
 
 def test_a_larger_curve_uses_the_hash_and_the_signature_size_of_that_curve() -> None:

@@ -112,3 +112,142 @@ def test_a_recorded_graph_never_changes(rt_url: str) -> None:
         msg = asyncio.run(tamper())
         assert "never changes" in msg or "permission denied" in msg, msg
         _ = ctx
+
+
+# ------------------------------------------------------------------------------------------- a person decides on a candidate (CR-103)
+REASON = "Passport and share register seen; holds 30 percent through the holding company."
+
+
+def test_the_person_who_recorded_a_graph_cannot_decide_its_candidates_and_only_candidates_can_be_decided(
+    rt_url: str,
+) -> None:
+    with world(rt_url) as (http, mine, _t, _a):
+        graph = http.post(URL, headers=mine, json=BODY).json()
+        path = f"{URL}/{graph['graph_id']}/confirmations"
+        same = http.post(
+            path,
+            headers=mine,
+            json={
+                "entity_id": "p1",
+                "decision": "CONFIRMED",
+                "reason": REASON,
+                "evidence_ref": "doc:register-1",
+            },
+        )
+        assert same.status_code == 403 and same.json()["code"] == "reviewer_is_author", same.text
+        assert (
+            http.post(
+                f"{URL}/not-a-uuid/confirmations",
+                headers=mine,
+                json={
+                    "entity_id": "p1",
+                    "decision": "CONFIRMED",
+                    "reason": REASON,
+                    "evidence_ref": "x",
+                },
+            ).status_code
+            == 404
+        )
+        assert (
+            http.post(
+                path,
+                json={
+                    "entity_id": "p1",
+                    "decision": "CONFIRMED",
+                    "reason": REASON,
+                    "evidence_ref": "x",
+                },
+            ).status_code
+            == 401
+        )
+        assert (
+            http.post(
+                path,
+                headers=mine,
+                json={
+                    "entity_id": "p1",
+                    "decision": "MAYBE",
+                    "reason": REASON,
+                    "evidence_ref": "x",
+                },
+            ).status_code
+            == 422
+        )
+
+
+def test_a_different_person_decides_once_with_a_reason_and_evidence_and_it_never_changes(
+    rt_url: str,
+) -> None:
+    from datetime import UTC, datetime
+
+    from conftest import ctx
+    from zid_db import tenant_transaction
+    from zid_platform.modules.organization.application import ownership_service as svc
+    from zid_platform.modules.organization.domain.ownership import OwnershipError
+
+    with world(rt_url) as (http, mine, tenant, _author):
+        graph = http.post(URL, headers=mine, json=BODY).json()
+        reviewer = "00000000-0000-4000-8000-0000000000aa"
+
+        async def run() -> list[str]:
+            codes: list[str] = []
+            async with engine(rt_url) as eng:
+
+                async def go(**over):  # type: ignore[no-untyped-def]
+                    args = {
+                        "entity_id": "p1",
+                        "decision": "CONFIRMED",
+                        "reason": REASON,
+                        "evidence_ref": "doc:register-1",
+                        "reviewer": reviewer,
+                        **over,
+                    }
+                    async with tenant_transaction(eng, ctx(tenant)) as c:
+                        return await svc.confirm(
+                            c, tenant, graph["graph_id"], now=datetime.now(UTC), **args
+                        )
+
+                done = await go()
+                assert done["decision"] == "CONFIRMED" and done["reviewer"] == reviewer
+                for over in (
+                    {},
+                    {"entity_id": "holdco"},
+                    {"entity_id": "p2", "reason": "short"},
+                    {"entity_id": "p2", "evidence_ref": " "},
+                    {"entity_id": "nobody"},
+                ):
+                    try:
+                        await go(**over)
+                    except OwnershipError as e:
+                        codes.append(e.code)
+            return codes
+
+        codes = asyncio.run(run())
+        assert codes == [
+            "ALREADY_DECIDED",
+            "NOT_A_CANDIDATE",
+            "REASON_TOO_SHORT",
+            "EVIDENCE_REF_REQUIRED",
+            "NOT_A_CANDIDATE",
+        ]
+        read = http.get(f"{URL}/{graph['graph_id']}", headers=mine).json()
+        assert [c["entity_id"] for c in read["confirmations"]] == ["p1"] and read["confirmations"][
+            0
+        ]["evidence_ref"] == "doc:register-1"
+
+        async def tamper() -> str:
+            async with engine(rt_url) as eng:
+                try:
+                    async with eng.begin() as c:
+                        await c.execute(
+                            text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant}
+                        )
+                        await c.execute(
+                            text("UPDATE org.ownership_confirmation SET decision = 'NOT_CONFIRMED'")
+                        )
+                except Exception as e:  # noqa: BLE001
+                    return str(e)
+            return "no error"
+
+        msg = asyncio.run(tamper())
+        assert "never changes" in msg or "permission denied" in msg, msg

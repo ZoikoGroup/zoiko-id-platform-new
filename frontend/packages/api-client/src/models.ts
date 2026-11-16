@@ -3932,4 +3932,14 @@ export type OwnFindings = {
   notes: string[];
 };
 export type OwnGraphSummary = { graph_id: string; target: string; version: number; content_hash: string; author: string; created_at: string };
-export type OwnGraph = OwnGraphSummary & { threshold: string; entities: OwnEntity[]; links: OwnLink[]; findings: OwnFindings | null; findings_error?: string };
+export type OwnDecisionKind = "CONFIRMED" | "NOT_CONFIRMED" | "ESCALATED";
+export type OwnDecisionIn = { entity_id: string; decision: OwnDecisionKind; reason: string; evidence_ref: string };
+export type OwnDecision = { confirmation_id: string; entity_id: string; decision: OwnDecisionKind; reason: string; evidence_ref: string; reviewer: string; created_at: string };
+export type OwnGraph = OwnGraphSummary & {
+  threshold: string;
+  entities: OwnEntity[];
+  links: OwnLink[];
+  findings: OwnFindings | null;
+  findings_error?: string;
+  confirmations: OwnDecision[];
+};

@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiError, type OwnFindings, type OwnGraph, type OwnGraphSummary } from "@zoiko/api-client";
-import { AccessUnavailable, Badge, Banner, Button, ButtonLink, Card, DataTable, DateTime, EmptyState, LoadingRows, PageHeader } from "@zoiko/ui";
+import { ApiError, type OwnDecision, type OwnDecisionKind, type OwnFindings, type OwnGraph, type OwnGraphSummary } from "@zoiko/api-client";
+import { AccessUnavailable, Badge, Banner, Button, ButtonLink, Card, DataTable, DateTime, EmptyState, LoadingRows, PageHeader, Select } from "@zoiko/ui";
 import { useState } from "react";
 
 import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
@@ -20,6 +20,11 @@ const PROBLEMS: Record<string, string> = {
   TARGET_INVALID: "The target must be a company, trust or other entity, not a person.",
   THRESHOLD_INVALID: "The threshold must be above 0 and at most 100.",
   GRAPH_TOO_LARGE: "The graph has too many entities to review. Split it.",
+  REVIEWER_IS_AUTHOR: "You recorded this graph, so someone else decides its candidates.",
+  ALREADY_DECIDED: "This candidate already has a decision. A different view needs a new version of the graph.",
+  NOT_A_CANDIDATE: "Only a candidate of this version can be decided.",
+  REASON_TOO_SHORT: "Give a reason of at least a sentence.",
+  EVIDENCE_REF_REQUIRED: "Name the evidence you relied on.",
 };
 
 /** A refusal code in words. An unknown code shows as itself. */
@@ -205,7 +210,80 @@ export function NewOwnershipPage() {
   );
 }
 
-export function OwnershipDetailPage({ graphId }: { graphId: string }) {
+export const DECISION_TEXT: Record<OwnDecisionKind, string> = {
+  CONFIRMED: "Confirmed by a person",
+  NOT_CONFIRMED: "Not confirmed by a person",
+  ESCALATED: "Escalated",
+};
+
+/** The author of a graph cannot decide its candidates: the platform refuses it, and the form says why before it has to. */
+export function canDecide(author: string, me: string | undefined, decided: boolean): boolean {
+  return !decided && Boolean(me) && me !== author;
+}
+
+function DecisionForm({ graphId, entityId, onDone }: { graphId: string; entityId: string; onDone: () => void }) {
+  const [decision, setDecision] = useState<OwnDecisionKind>("CONFIRMED");
+  const [reason, setReason] = useState("");
+  const [evidence, setEvidence] = useState("");
+  const decide = useCellMutation((api, body: { entity_id: string; decision: OwnDecisionKind; reason: string; evidence_ref: string }) => api.ownership.decide(graphId, body), {
+    invalidate: [OWN_KEY],
+    success: "Decision recorded",
+    onSuccess: onDone,
+  });
+  return (
+    <div className="mt-2 space-y-2 rounded-control border border-border p-3">
+      <Select
+        label={`Decision for ${entityId}`}
+        options={(Object.keys(DECISION_TEXT) as OwnDecisionKind[]).map((k) => ({ id: k, label: DECISION_TEXT[k] }))}
+        value={decision}
+        onChange={(v) => setDecision(v as OwnDecisionKind)}
+      />
+      <label className="block text-sm text-ink" htmlFor={`own-reason-${entityId}`}>
+        Reason
+      </label>
+      <textarea id={`own-reason-${entityId}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="w-full rounded-control border border-border bg-surface p-2 text-sm text-ink" />
+      <label className="block text-sm text-ink" htmlFor={`own-evidence-${entityId}`}>
+        Evidence reference
+      </label>
+      <input id={`own-evidence-${entityId}`} value={evidence} onChange={(e) => setEvidence(e.target.value)} className="w-full rounded-control border border-border bg-surface p-2 text-sm text-ink" />
+      <Button pending={decide.isPending} onPress={() => decide.mutate({ entity_id: entityId, decision, reason, evidence_ref: evidence })}>
+        Record my decision
+      </Button>
+      {decide.error ? <Failed error={decide.error} /> : null}
+    </div>
+  );
+}
+
+function Decisions({ graph, me, refetch }: { graph: OwnGraph; me?: string; refetch: () => void }) {
+  const byEntity = new Map<string, OwnDecision>(graph.confirmations.map((c) => [c.entity_id, c]));
+  const candidates = graph.findings?.candidates ?? [];
+  if (!candidates.length) return null;
+  return (
+    <Card title="Decisions" description="A person decides on each candidate, with a reason and the evidence they relied on. The platform never decides, and the person who recorded the graph does not.">
+      <ul className="space-y-3 text-sm">
+        {candidates.map((c) => {
+          const d = byEntity.get(c.entity_id);
+          return (
+            <li key={c.entity_id}>
+              <span className="font-mono text-xs">{c.entity_id}</span>:{" "}
+              {d ? (
+                <>
+                  <Badge tone={d.decision === "CONFIRMED" ? "ok" : "warn"}>{DECISION_TEXT[d.decision]}</Badge> ({d.evidence_ref})
+                </>
+              ) : (
+                <Badge tone="neutral">No decision yet</Badge>
+              )}
+              {!d && me && me === graph.author ? <p className="mt-1 text-ink-muted">You recorded this graph, so someone else decides.</p> : null}
+              {canDecide(graph.author, me, Boolean(d)) ? <DecisionForm graphId={graph.graph_id} entityId={c.entity_id} onDone={refetch} /> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+export function OwnershipDetailPage({ graphId, me }: { graphId: string; me?: string }) {
   const query = useCellQuery([...OWN_KEY, "graph", graphId], (api) => api.ownership.graph(graphId));
   const g = query.data;
   return (
@@ -218,6 +296,7 @@ export function OwnershipDetailPage({ graphId }: { graphId: string }) {
       {query.isPending && query.fetchStatus !== "idle" ? <LoadingRows rows={4} /> : null}
       {query.isError ? <Failed error={query.error} /> : null}
       {g?.findings ? <FindingsView findings={g.findings} /> : null}
+      {g ? <Decisions graph={g} me={me} refetch={() => void query.refetch()} /> : null}
       {g && !g.findings ? <Banner tone="warn" title="Findings are not available">{problemText(g.findings_error ?? "")}</Banner> : null}
     </>
   );

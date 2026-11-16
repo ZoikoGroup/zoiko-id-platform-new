@@ -9,7 +9,8 @@ const state = vi.hoisted(() => ({ queries: {} as Record<string, unknown>, calls:
 vi.mock("@/lib/cell", () => ({
   useCellQuery: (key: string[]) => state.queries[key.includes("list") ? "list" : "graph"] ?? { isPending: true, fetchStatus: "fetching" },
   useCellMutation: (fn: { toString(): string }, opts?: { onSuccess?: (d: unknown) => void }) => {
-    const name = String(fn).includes("ownership.analyze(") ? "analyze" : "record";
+    const src = String(fn);
+    const name = src.includes("ownership.analyze(") ? "analyze" : src.includes("ownership.decide(") ? "decide" : "record";
     return {
       mutate: (arg: unknown) => {
         state.calls.push({ name, arg });
@@ -24,7 +25,7 @@ vi.mock("@/lib/cell", () => ({
 }));
 vi.mock("next/link", () => ({ default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => <a href={href} className={className}>{children}</a> }));
 
-import { FindingsView, NewOwnershipPage, OwnershipDetailPage, OwnershipListPage, STARTER, parseGraph, problemText } from "./ownership";
+import { FindingsView, NewOwnershipPage, OwnershipDetailPage, OwnershipListPage, STARTER, canDecide, parseGraph, problemText } from "./ownership";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -105,13 +106,48 @@ describe("the pages", () => {
   });
 
   it("shows a recorded version with its findings, or says why they are not available", () => {
-    state.queries.graph = query({ data: { graph_id: "g-1", target: "target-co", version: 2, threshold: "25", content_hash: "h", author: "u", created_at: "x", entities: [], links: [], findings } as OwnGraph });
+    state.queries.graph = query({ data: { graph_id: "g-1", target: "target-co", version: 2, threshold: "25", content_hash: "h", author: "u", created_at: "x", entities: [], links: [], confirmations: [], findings } as OwnGraph });
     const { unmount } = render(<OwnershipDetailPage graphId="g-1" />);
     expect(screen.getByText("Candidates")).toBeTruthy();
     unmount();
-    state.queries.graph = query({ data: { graph_id: "g-1", target: "target-co", version: 2, threshold: "25", content_hash: "h", author: "u", created_at: "x", entities: [], links: [], findings: null, findings_error: "OWNERSHIP_CYCLE" } as OwnGraph });
+    state.queries.graph = query({ data: { graph_id: "g-1", target: "target-co", version: 2, threshold: "25", content_hash: "h", author: "u", created_at: "x", entities: [], links: [], confirmations: [], findings: null, findings_error: "OWNERSHIP_CYCLE" } as OwnGraph });
     render(<OwnershipDetailPage graphId="g-1" />);
     expect(screen.getByText("Findings are not available")).toBeTruthy();
     expect(screen.getByText(/loops back/)).toBeTruthy();
+  });
+});
+
+describe("deciding a candidate", () => {
+  const graph = (over: object = {}) =>
+    ({ graph_id: "g-1", target: "target-co", version: 1, threshold: "25", content_hash: "h", author: "author-1", created_at: "x", entities: [], links: [], confirmations: [], findings, ...over }) as OwnGraph;
+
+  it("lets someone other than the author decide, once, and never the author", () => {
+    expect(canDecide("a", "b", false)).toBe(true);
+    expect(canDecide("a", "a", false)).toBe(false);
+    expect(canDecide("a", undefined, false)).toBe(false);
+    expect(canDecide("a", "b", true)).toBe(false);
+  });
+
+  it("shows a form for each undecided candidate to a different person and sends the decision with a reason and evidence", () => {
+    state.queries.graph = query({ data: graph() });
+    render(<OwnershipDetailPage graphId="g-1" me="reviewer-1" />);
+    expect(screen.getAllByRole("button", { name: "Record my decision" }).length).toBe(2);
+    fireEvent.change(document.getElementById("own-reason-person-1") as HTMLTextAreaElement, { target: { value: "Passport and share register seen." } });
+    fireEvent.change(document.getElementById("own-evidence-person-1") as HTMLInputElement, { target: { value: "doc:register-1" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Record my decision" })[0] as HTMLElement);
+    expect(state.calls.at(-1)).toEqual({ name: "decide", arg: { entity_id: "person-1", decision: "CONFIRMED", reason: "Passport and share register seen.", evidence_ref: "doc:register-1" } });
+  });
+
+  it("tells the author someone else decides, and shows a decision that was made", () => {
+    state.queries.graph = query({ data: graph() });
+    const { unmount } = render(<OwnershipDetailPage graphId="g-1" me="author-1" />);
+    expect(screen.queryByRole("button", { name: "Record my decision" })).toBeNull();
+    expect(screen.getAllByText(/someone else decides/).length).toBe(2);
+    unmount();
+    state.queries.graph = query({ data: graph({ confirmations: [{ confirmation_id: "c", entity_id: "person-1", decision: "CONFIRMED", reason: "r", evidence_ref: "doc:register-1", reviewer: "rv", created_at: "x" }] }) });
+    render(<OwnershipDetailPage graphId="g-1" me="reviewer-1" />);
+    expect(screen.getAllByText("Confirmed by a person").length).toBeGreaterThan(0); // the badge (and the other candidate's form default)
+    expect(screen.getByText(/\(doc:register-1\)/)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Record my decision" }).length).toBe(1); // only person-2 is still open
   });
 });

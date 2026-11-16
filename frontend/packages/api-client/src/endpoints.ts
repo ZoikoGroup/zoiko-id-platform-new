@@ -791,6 +791,7 @@ export function createCellApi(t: Transport) {
       graph: (id: string) => get<M.OwnGraph>(`/v2/ownership-graphs/${seg(id)}`),
       analyze: (body: M.OwnGraphIn) => post<M.OwnFindings>("/v2/ownership-graphs:analyze", body),
       record: (body: M.OwnGraphIn) => post<M.OwnGraph>("/v2/ownership-graphs", body),
+      decide: (id: string, body: M.OwnDecisionIn) => post<M.OwnDecision>(`/v2/ownership-graphs/${seg(id)}/confirmations`, body),
     },
 
     /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */

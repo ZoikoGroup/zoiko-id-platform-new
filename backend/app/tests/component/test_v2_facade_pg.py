@@ -51,6 +51,7 @@ ACTIONS = [
     "verification.travel_rule.read",
     "org.ownership.manage",
     "org.ownership.read",
+    "org.ownership.confirm",
 ]
 RESOURCES = [
     "credential-claim:*",

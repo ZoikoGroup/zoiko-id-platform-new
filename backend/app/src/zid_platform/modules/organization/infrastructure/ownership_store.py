@@ -75,3 +75,51 @@ async def recent(conn: AsyncConnection, limit: int = 100) -> list[dict[str, Any]
         {"n": limit},
     )
     return [dict(r._mapping) for r in rows]
+
+
+CONF_COLUMNS = (
+    "confirmation_id, graph_id, entity_id, decision, reason, evidence_ref, reviewer, created_at"
+)
+
+
+async def insert_confirmation(
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    graph_id: str,
+    entity_id: str,
+    decision: str,
+    reason: str,
+    evidence_ref: str,
+    reviewer: str,
+) -> dict[str, Any]:
+    row = (
+        await conn.execute(
+            text(
+                "INSERT INTO org.ownership_confirmation (confirmation_id, tenant_id, graph_id, entity_id, decision, reason, evidence_ref, reviewer) "
+                "VALUES (:id, :t, :g, :e, :d, :r, :ev, :rv) RETURNING " + CONF_COLUMNS
+            ),
+            {
+                "id": uuid.uuid4(),
+                "t": uuid.UUID(tenant_id),
+                "g": uuid.UUID(graph_id),
+                "e": entity_id,
+                "d": decision,
+                "r": reason,
+                "ev": evidence_ref,
+                "rv": uuid.UUID(reviewer),
+            },
+        )
+    ).first()
+    assert row is not None
+    return dict(row._mapping)
+
+
+async def confirmations_for(conn: AsyncConnection, graph_id: str) -> list[dict[str, Any]]:
+    rows = await conn.execute(
+        text(
+            f"SELECT {CONF_COLUMNS} FROM org.ownership_confirmation WHERE graph_id = :g ORDER BY created_at"
+        ),
+        {"g": uuid.UUID(graph_id)},
+    )
+    return [dict(r._mapping) for r in rows]

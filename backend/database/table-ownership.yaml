@@ -1079,6 +1079,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 DTV-24 (one immutable version of an ownership graph: opaque entity ids and recorded links; no names); CR-102"
+  org.ownership_confirmation:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-24 (a person decision on one ownership candidate; append-only; reviewer is never the graph author); CR-103"
   verify.identity_observation:
     role: cell
     module: verification

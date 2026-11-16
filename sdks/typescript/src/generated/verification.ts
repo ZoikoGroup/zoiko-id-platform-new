@@ -103,6 +103,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/ownership-graphs/{graph_id}/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide
+         * @description A person decides on one candidate. The platform never does: a decision needs a reason and an evidence reference, and the person who recorded the graph cannot make it.
+         */
+        post: operations["decide_v2_ownership_graphs__graph_id__confirmations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/ownership-graphs:analyze": {
         parameters: {
             query?: never;
@@ -968,6 +988,20 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** OwnershipDecisionIn */
+        OwnershipDecisionIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "CONFIRMED" | "NOT_CONFIRMED" | "ESCALATED";
+            /** Entity Id */
+            entity_id: string;
+            /** Evidence Ref */
+            evidence_ref: string;
+            /** Reason */
+            reason: string;
+        };
         /** OwnershipGraphIn */
         OwnershipGraphIn: {
             /** Entities */
@@ -1425,6 +1459,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_v2_ownership_graphs__graph_id__confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnershipDecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
