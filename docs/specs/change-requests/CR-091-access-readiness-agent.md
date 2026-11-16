@@ -46,8 +46,8 @@ against actual Zoiko iD routing"), so this CR records the mapping and what is bu
   notified one by one, the pause is itself a person's recorded act) the run raises one alert through `notification.ports.raise_alert` (kind `access_readiness.run.finished`, MEDIUM unless
   COMPLETED, a task when NEEDS_REVIEW) with the run id, its state and counts only: no person, mandate, grant or finding detail. A notification that
   fails never changes the run; its outcome is an evidence envelope (`sponsor_notified` or `sponsor_notification_failed`).
-- Gap: the notification module's alerts are tenant-wide (the alert inbox) and have no recipient, so the alert says it is for the agent's sponsor but
-  is not addressed to that one person. Addressing a person (for example by email through the communication module's contacts) is a product decision.
+- Owner decision 2026-11-16: the alert stays in the workspace alert inbox (tenant-wide, no single recipient). Addressing the sponsor in person is not
+  built.
 
 ### Export permitted evidence (WF-AG-03)
 - `POST /v1/access-readiness/agents/{agent_id}/runs/{run_id}/evidence:export` with `{purpose}`: references and digests only (envelopes with the chain
@@ -101,7 +101,7 @@ Events: `agent.run.policy_denied`, `agent.run.completed`, `agent.review.proposal
   key purpose should sign it.
 - Execution is inline after the request is queued; `execute_queued` is the worker's pass and each queued run is preflighted again.
 - The run's credential is issued at the risk-2 attestation floor the workload-token path uses, so a binding attested only at level 1 passes the
-  preflight's "attested" check but gets no credential. Owner to confirm the floor.
+  preflight's "attested" check but gets no credential. Owner decision 2026-11-16: the risk-2 floor stays.
 
 ## Tests
 - `backend/app/tests/unit/test_access_readiness.py`, `backend/app/tests/unit/test_access_readiness_explain.py` (pure: rules, policy, the explanation
