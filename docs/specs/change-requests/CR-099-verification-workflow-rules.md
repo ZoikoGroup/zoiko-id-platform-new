@@ -1,6 +1,6 @@
 # CR-099: Verification workflows as data: static safety analysis, simulation and publish gates (ZID-GAP-001 v2.0 DTV-30)
 
-Status: **domain rules built; there is no editor screen and no runtime that executes a workflow.** Nothing here runs for a customer. A product decision about who may author workflows, and an executor that runs an approved one, come before any of it is wired.
+Status: **rules, store, executor, API and console built (the second slice).** An approved workflow runs for an applicant only after a different person approves it; nothing is called certified. Who may author and approve workflows is still a product decision.
 
 ## Why
 
@@ -25,10 +25,17 @@ DTV-30 asks for a workflow studio: a customer or compliance team defines which c
 2. A malformed definition is refused whole. A workflow that approves without a guard, skips a required check, loops, has a dead end, or reaches an unreachable step is refused at publish.
 3. Every result other than VERIFIED ends with a person, never an approval.
 
+## Second slice: store, executor, API and console
+
+- `verification_0016` adds `workflow_version` (frozen once approved, never deleted, approver differs from author) and `workflow_run`, both under row-level security.
+- `workflow_run.py` is the executor: a run waits for one named check or one named role, accepts only the event it awaits, stays on the version it started on, and ends where the simulator says it would for every combination of results. The applicant cannot review their own run.
+- `workflow_service.py` with `/v2/workflows` and `/v2/workflow-runs`: check, draft, simulate, approve (a different person, only when analysis is clean), retire, start a run, report a check, complete a review. Each writes an audit event. Governed erasure empties a run's results.
+- Console: `/admin/workflows` (list), `/admin/workflows/new` (editor with Check and Save draft), `/admin/workflows/{id}/{version}` (analysis in words, simulate, approve, retire). The menu shows them to administrators only.
+
 ## What it does not do
 
-- It does not execute a workflow. There is no runtime, no state machine per applicant and no connection to the check services yet.
-- It has no editor. Definitions are files today; a screen for editing and a store for drafts and approvals come after the product decision below.
+- A check step does not call the check services itself: a caller reports the result.
+- There is no runs list screen yet.
 - It does not decide what a good workflow is for a given market: that is the compliance team's.
 
 ## Owner decisions still needed
@@ -40,7 +47,7 @@ DTV-30 asks for a workflow studio: a customer or compliance team defines which c
 
 ## Evidence
 
-`backend/app/tests/unit/test_workflow.py`.
+`backend/app/tests/unit/test_workflow.py`, `test_workflow_run.py`, `backend/app/tests/component/test_workflows_pg.py`, `frontend/apps/web/src/features/admin/workflows/workflows.test.tsx`.
 
 ## Sign-off (UNSIGNED)
 

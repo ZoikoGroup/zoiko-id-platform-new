@@ -104,6 +104,8 @@ const NAV: NavGroup[] = [
       { id: "residency", label: "Residency", href: "/admin/residency", icon: Globe2 },
       { id: "agents", label: "Agents & tools", href: "/admin/agents", icon: Bot },
       { id: "workloads", label: "Workload identity", href: "/admin/workloads", icon: ServerCog },
+      { id: "source-of-funds", label: "Source of funds", href: "/admin/source-of-funds", icon: Receipt },
+      { id: "workflows", label: "Verification workflows", href: "/admin/workflows", icon: ListChecks },
       { id: "developers", label: "Developers", href: "/admin/developers", icon: Webhook },
     ],
   },

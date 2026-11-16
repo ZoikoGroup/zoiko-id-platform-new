@@ -769,6 +769,19 @@ export function createCellApi(t: Transport) {
       notificationKinds: () => get<M.Items<M.NotificationKind>>("/v1/settings/notification-kinds"),
     },
 
+    /** Verification workflows (DTV-30, CR-099): a workflow is data; a different person approves it; the runs only follow it. */
+    workflows: {
+      list: (status?: string) => get<{ items: M.WfVersionSummary[]; notice: string }>("/v2/workflows", { status }),
+      version: (id: string, version: string) => get<M.WfVersion>(`/v2/workflows/${seg(id)}/versions/${seg(version)}`),
+      check: (definition: Record<string, unknown>) => post<M.WfCheckResult>("/v2/workflows:check", { definition }),
+      create: (definition: Record<string, unknown>) => post<M.WfVersion>("/v2/workflows", { definition }),
+      simulate: (id: string, version: string, results: Record<string, string>) =>
+        post<M.WfSimulation>(`/v2/workflows/${seg(id)}/versions/${seg(version)}:simulate`, { results }),
+      approve: (id: string, version: string) => post<M.WfVersion>(`/v2/workflows/${seg(id)}/versions/${seg(version)}:approve`),
+      retire: (id: string, version: string) => post<M.WfVersion>(`/v2/workflows/${seg(id)}/versions/${seg(version)}:retire`),
+      runs: (status?: string) => get<{ items: M.WfRunSummary[]; notice: string }>("/v2/workflow-runs", { status }),
+    },
+
     /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */
     sourceOfFunds: {
       queue: (state?: string) => get<{ items: M.SofQueueItem[]; notice: string }>("/v2/source-of-funds/cases", { state }),

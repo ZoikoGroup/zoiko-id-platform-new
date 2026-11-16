@@ -3868,3 +3868,36 @@ export type SofCase = {
   notice: string;
 };
 export type SofDecideIn = { decision: SofDecision; reason_codes: string[] };
+
+/* ------------------------------------------------------------- verification workflows (DTV-30, CR-099) */
+
+export type WfStatus = "DRAFT" | "APPROVED" | "RETIRED";
+export type WfProblem = { code: string; where: string };
+export type WfVersionSummary = { workflow_id: string; version: string; status: WfStatus; content_hash: string; author: string; approved_by: string | null; created_at: string };
+export type WfVersion = {
+  workflow_id: string;
+  version: string;
+  status: WfStatus;
+  content_hash: string;
+  definition: Record<string, unknown>;
+  author: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  problems: WfProblem[] | null;
+  notice: string;
+};
+export type WfCheckResult = { valid: boolean; parse_error: string | null; detail: string; problems: WfProblem[]; content_hash: string | null; publishable?: boolean };
+export type WfSimulation = { steps: string[]; outcome: string; needs_person: string[]; side_effects: string };
+export type WfRunStatus = "WAITING_FOR_CHECK" | "WAITING_FOR_REVIEW" | "ENDED";
+export type WfRunSummary = {
+  run_id: string;
+  workflow_id: string;
+  version: string;
+  subject_principal_id: string;
+  status: WfRunStatus;
+  outcome: string | null;
+  awaiting_check: string | null;
+  awaiting_role: string | null;
+  created_at: string;
+  updated_at: string;
+};

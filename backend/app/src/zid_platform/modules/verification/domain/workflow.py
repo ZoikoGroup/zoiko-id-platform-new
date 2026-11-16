@@ -398,6 +398,9 @@ def simulate(wf: Workflow, results: Mapping[str, str]) -> Trace:
         raise WorkflowError("OUTCOME_UNKNOWN", ",".join(sorted(unknown)))
     seen: list[str] = []
     roles: list[str] = []
+    known: dict[
+        str, str
+    ] = {}  # a check's result is revealed only when its step is reached, exactly as the executor will see it
     here = wf.start
     for _ in range(MAX_STEPS + 1):
         step = wf.steps[here]
@@ -406,9 +409,11 @@ def simulate(wf: Workflow, results: Mapping[str, str]) -> Trace:
             return Trace(tuple(seen), step.outcome or "", tuple(roles))
         if step.kind == "REVIEW" and step.role:
             roles.append(step.role)
+        if step.kind == "CHECK" and step.check is not None:
+            known.setdefault(step.check.value, results.get(step.check.value, "UNAVAILABLE"))
         if step.kind == "DECISION":
             here = next(
-                (t for cond, t in step.branches if _holds(cond, results)), step.otherwise or ""
+                (t for cond, t in step.branches if _holds(cond, known)), step.otherwise or ""
             )
         else:
             here = step.next or ""

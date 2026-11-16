@@ -450,6 +450,7 @@ def create_app(
         from .modules.verification.api.v2_providers import router as v2_providers_router
         from .modules.verification.api.v2_source_of_funds import router as v2_sof_router
         from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
+        from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.webhook.api.v2 import router as webhooks_v2_router
         from .modules.webhook.api.webhooks import router as webhooks_router
@@ -510,6 +511,7 @@ def create_app(
             v2_age_router,
             v2_sof_router,
             v2_travel_rule_router,
+            v2_workflows_router,
             v2_alternatives_router,
             v2_providers_router,
             privacy_v2_router,

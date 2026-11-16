@@ -380,3 +380,16 @@ Tests: `test_data_integrity.py` (65), `test_pdf_doc_timestamps.py` (25), `test_p
 |---|---|---|---|
 | GID-064 credential-check meter | Usage metering built; billing NOT built (CR-070) | Two usage-only meters, `CREDENTIAL_CHECK` and `CREDENTIAL_SENSITIVE_CHECK`, exactly as CR-090 did for screening: `commercial_0043` widens the closed meter set, the credential module reports each completed check through a sink the composition root wires, the key is derived from the check id (a repeat is one event). Nothing is counted when nothing was checked (refused before a source, or source unavailable). No SKU, no price, never rated or invoiced. The register entries now name their meters, and the pinned register test says so | Whether checks are billed at all, the unit and the price per market (CFO, CCO), provider pass-through, the recording point; a price book line per market |
 | DAARA retired in favour of Access Readiness | Applied (option 1 of `adr-two-implementations-of-wf-001.md`), unsigned | `ZID_DAARA_ENABLED` (default false): the eleven DAARA routes answer 404 naming the Access Readiness agent, its worker steps do nothing, the console shows "Replaced by the Access readiness agent". Nothing deleted: code, `machine_0009` tables and records stay, and the flag brings it back unchanged. The governance alert routes that shared the file are untouched | The platform and security owners' signatures; whether Access Readiness should also reserve a budget; dropping the code and archiving the tables, later, under the privacy officer's retention rules |
+
+
+## Status update, twenty-second pass (2026-11-16, the rest of the buildable list, on the engineering owner's instruction)
+
+| Item | State | What changed | What is still open |
+|---|---|---|---|
+| DTV-30 workflow studio | Built (CR-099, second slice) | Migration `verification_0016`, store, executor, `/v2/workflows` and `/v2/workflow-runs`, and the console (list, editor, version page with simulate, approve, retire). A different person approves; an unsafe workflow cannot be approved; a run follows only the event it awaits | A runs screen; who may author and approve; an independent run |
+| DTV-17 address rules | Rules built (CR-100) | Compare, policy as data (SAMPLE), proof assessment that never rises above document presented | A provider; the approved policy |
+| DTV-26, 27, 32, 34 shells | Rules built (CR-100) | Open banking, payment-method ownership (card numbers refused), transaction monitoring (alerts are a reason to look), on-chain screening (unavailable with no provider) | Providers, rule sets, thresholds |
+| DTV-24 ownership chains | Rules built (CR-100) | Exact shares, loops refused, gaps reported, candidates only | The threshold per market; a screen and a store |
+| Navigation | Built | Source of funds and Verification workflows are in the console menu and the guide, shown to administrators only | The role matrix for other roles |
+| DTV-31 unified compliance console | Not built, on purpose | It would put operator-side and company-side records in one screen, which crosses the plane boundary | A design decision on which plane owns it |
+| Signal-queue wiring, Travel Rule message record | Not built | Need the role matrix and the partner message format | Those decisions |

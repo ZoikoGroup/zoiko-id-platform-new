@@ -1074,6 +1074,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-VERIFY-001 §4-5 (VerificationSession state machine); CR-009"
+  verify.workflow_version:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-30 (a workflow definition as data, frozen once approved, maker-checker); CR-099"
+  verify.workflow_run:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-GAP-001 v2.0 DTV-30 (one applicant run pinned to a version; results are outcome words); CR-099"
   verify.sof_case:
     role: cell
     module: verification

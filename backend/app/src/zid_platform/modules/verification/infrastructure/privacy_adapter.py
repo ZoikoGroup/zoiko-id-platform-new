@@ -20,6 +20,7 @@ from zid_platform.modules.privacy.ports import register_store
 ASSERTIONS = "verify.verification_assertion"
 SESSIONS = "verify.verification_session"
 SOF_CASES = "verify.sof_case"
+WORKFLOW_RUNS = "verify.workflow_run"
 
 
 async def _locate_assertions(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
@@ -163,6 +164,42 @@ async def _dispose_sof(conn: AsyncConnection, entry: Row[Any], action: str) -> N
     await erase_case(conn, entry.object_ref, datetime.now(UTC))
 
 
+async def _locate_runs(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
+    from zid_platform.modules.verification.infrastructure.workflow_store import runs_for_subject
+
+    return [
+        {
+            "object_ref": str(r["run_id"]),
+            "object_type": "verification.workflow_run",
+            "purpose_code": "VERIFY_IDENTITY",
+            "data_category": "D3",
+            "trigger_at": r["created_at"],
+            "region": None,
+            "retention_policy_code": "WORKFLOW_RUN",
+        }
+        for r in await runs_for_subject(conn, subject)
+    ]
+
+
+async def _export_run(conn: AsyncConnection, entry: Row[Any]) -> dict[str, Any]:
+    """Which workflow ran, where it got to and what each check said, in words. Never a hash."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT workflow_id, version, status, outcome, results, created_at FROM verify.workflow_run WHERE run_id = :r"
+            ),
+            {"r": uuid.UUID(entry.object_ref)},
+        )
+    ).first()
+    return dict(row._mapping) if row else {}
+
+
+async def _dispose_run(conn: AsyncConnection, entry: Row[Any], action: str) -> None:
+    from zid_platform.modules.verification.infrastructure.workflow_store import erase_run
+
+    await erase_run(conn, entry.object_ref, datetime.now(UTC))
+
+
 def register() -> None:
     register_store(
         ASSERTIONS,
@@ -174,6 +211,7 @@ def register() -> None:
         SESSIONS, locator=_locate_sessions, exporter=_export_session, disposer=_dispose_session
     )
     register_store(SOF_CASES, locator=_locate_sof, exporter=_export_sof, disposer=_dispose_sof)
+    register_store(WORKFLOW_RUNS, locator=_locate_runs, exporter=_export_run, disposer=_dispose_run)
 
 
 __all__ = ["register"]
