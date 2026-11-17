@@ -97,7 +97,7 @@ def test_a_policy_pack_is_proposed_signed_published_and_rolled_back_by_operators
     rt_url: str, owner_url: str
 ) -> None:
     o, who = _people(rt_url)
-    key = "|".join((GOOD.jurisdiction, "-", FORM, GOOD.purpose, GOOD.risk_tier))
+    key = f"{GOOD.jurisdiction}|-|{FORM}|{GOOD.purpose}|{GOOD.risk_tier}"
     h1, h2 = mp.policy_hash(GOOD), mp.policy_hash(V2)
     with TestClient(_app(rt_url, o), base_url=ISS) as api:
 
