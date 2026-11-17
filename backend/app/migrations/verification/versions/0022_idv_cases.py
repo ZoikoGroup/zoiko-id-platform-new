@@ -1,7 +1,7 @@
 """Identity proofing cases, their decision history and the capture digests seen (ZID-DTV-WF-03; CR-110).
 
-Revision ID: verification_0020
-Revises: verification_0019
+Revision ID: verification_0022
+Revises: verification_0021
 Create Date: 2026-11-17
 
 idv_case: one proofing attempt for one applicant, pinned to a market's rules by the hash of the file it was opened under. The signals are the six WF03 states plus the facts the decision reads; the decision and its
@@ -13,8 +13,8 @@ Row-level security by company on all three.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0020"
-down_revision = "verification_0019"
+revision = "verification_0022"
+down_revision = "verification_0021"
 branch_labels = None
 depends_on = None
 

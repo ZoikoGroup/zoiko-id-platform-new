@@ -52,6 +52,30 @@ events:
     source: ZID-PRI-004 sections 10, 11 and 22 (AT-030, AT-031); CR-072
     lane: domain
     source_status: "proposed"
+  privacy.dpia.reassessment_due:
+    cloudevents_type: com.zoiko.id.privacy.dpia.reassessment_due.v1
+    meaning: "An approved DPIA package comes within its reassessment window or has lapsed; package id, market, product, version and the approval end only. A biometric method resting on it stops when it lapses (ZID-DTV-WF-04 BIO-20)."
+    source: ZID-DTV-WF-04 BIO-20; CR-110
+    lane: domain
+    source_status: "proposed"
+  privacy.biometric.deletion_confirmed:
+    cloudevents_type: com.zoiko.id.privacy.biometric.deletion_confirmed.v1
+    meaning: "A biometric asset class of an erasure job is purged: its stores, its providers and the backups all acknowledged. Job id, class and the receipts commitment only, never content (ZID-DTV-WF-04 section 19)."
+    source: ZID-DTV-WF-04 B05; CR-110
+    lane: evidence
+    source_status: "proposed"
+  verification.biometric.policy_blocked:
+    cloudevents_type: com.zoiko.id.verification.biometric.policy_blocked.v1
+    meaning: "A biometric method was not used because a gate refused it (method state, DPIA, overlay, breach pause, retention or evaluation). Route, country, purpose, the refused methods with their codes and the policy hash only; never a person, an image or a score (ZID-DTV-WF-04 section 19)."
+    source: ZID-DTV-WF-04 section 19; CR-110
+    lane: domain
+    source_status: "proposed"
+  privacy.decision.changed:
+    cloudevents_type: com.zoiko.id.privacy.decision.changed.v1
+    meaning: "A contested decision was overturned or corrected after an independent review and a checker; the review id, the decision reference, the outcome and the correction reference only. Whoever relied on the decision must re-read it (ZID-DTV-WF-04 section 19 decision.changed)."
+    source: ZID-DTV-WF-04 B08; CR-109
+    lane: priority
+    source_status: "proposed"
   credential.claim.recheck.due:
     cloudevents_type: com.zoiko.id.credential.claim.recheck.due.v1
     meaning: "A monitored claim check is due to be re-asked of its source (expiry or freshness); ids and reason only."
@@ -747,6 +771,12 @@ events:
     meaning: "A provider suspension was lifted by another person; the suspension id, version, scope fields and evidence reference only."
     source: ZID-RCG-003 RCG-G08; CR-078
     lane: domain
+    source_status: "proposed"
+  verification.biometric_method.state_changed:
+    cloudevents_type: com.zoiko.id.verification.biometric_method.state_changed.v1
+    meaning: "A biometric method scope moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never media or reason text (ZID-DTV-WF-04 section 06)."
+    source: ZID-DTV-WF-04 BIO-03; CR-107, CR-108
+    lane: priority
     source_status: "proposed"
   credential.issuer_status_changed:
     cloudevents_type: com.zoiko.id.credential.issuer_status_changed.v1

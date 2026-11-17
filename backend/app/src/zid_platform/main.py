@@ -427,6 +427,9 @@ def create_app(
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.operator_access.api.regulatory import router as regulatory_router
+        from .modules.operator_access.api.regulatory_biometric_methods import (
+            router as regulatory_biometric_methods_router,
+        )
         from .modules.operator_access.api.regulatory_conformance import (
             router as regulatory_conformance_router,
         )
@@ -463,6 +466,9 @@ def create_app(
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.verification.api.biometric_methods import (
+            router as biometric_methods_router,
+        )
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.idv_cases import router as idv_cases_router
         from .modules.verification.api.offerings import router as offerings_router
@@ -538,6 +544,7 @@ def create_app(
             v2_workflows_router,
             v2_self_run_router,
             idv_cases_router,
+            biometric_methods_router,
             v2_ownership_router,
             kyb_company_router,
             v2_alternatives_router,
@@ -583,6 +590,7 @@ def create_app(
             regulatory_issuers_router,
             regulatory_suspensions_router,
             kyb_policy_router,
+            regulatory_biometric_methods_router,
             regulatory_conformance_router,
             regulatory_v2_router,
             communication_router,
@@ -1132,6 +1140,11 @@ def register_privacy_stores(registration_tenant: str | None = None) -> None:
     from .modules.signals.ports import forget_subject
 
     register_erasure_hook("security-state-cache", forget_subject)
+    # CR-110: a reversed decision revokes the verification claims that rested on it (privacy never imports verification)
+    from .modules.privacy.ports import register_decision_hook
+    from .modules.verification.ports import invalidate_for_decision
+
+    register_decision_hook("verification-assertions", invalidate_for_decision)
     register_issuer_binding(
         resolve_and_bind
     )  # the evidence module asks the credential module's registry without importing it

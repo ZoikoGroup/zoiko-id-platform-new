@@ -42,8 +42,9 @@ from zid_platform.modules.verification.api.verification import (
     _scope,
     _session_view,
 )
-from zid_platform.modules.verification.application import chip_link, service
+from zid_platform.modules.verification.application import biometric_eligibility, chip_link, service
 from zid_platform.modules.verification.application.identity_signal_feed import observe_request
+from zid_platform.modules.verification.domain.biometric_methods import Method
 from zid_platform.modules.verification.domain.self_run import ChipEvidence
 from zid_platform.modules.verification.domain.verification import (
     SessionStatus,
@@ -51,6 +52,7 @@ from zid_platform.modules.verification.domain.verification import (
 )
 from zid_platform.modules.verification.infrastructure import verification_store as store
 from zid_platform.modules.verification.infrastructure.country_registry import registry
+from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
 
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 
@@ -120,7 +122,13 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
     _country_gate(request, body.jurisdiction)
     basis = await _pack_gate(request, caller, body.jurisdiction)
     privacy = await _privacy_gate(
-        request, caller, body.jurisdiction, str(body.profile_id), str(body.subject_principal_id)
+        request,
+        caller,
+        body.jurisdiction,
+        str(body.profile_id),
+        str(body.subject_principal_id),
+        purpose=body.purpose,
+        self_run=True,  # the self-run engine is checked at the chip and face stage (CR-107)
     )
     try:
         s, challenge = await service.start_self_run(
@@ -200,10 +208,31 @@ async def _judge_chip(
     photo = (
         chip_photo(groups[2]) if (2 in covered and 2 in groups and chip.photo_verified) else None
     )
+    allowed: dict[str, Any] | None = None
     if face is not None and engine is not None and photo is not None:
-        biometric = service.BiometricInput(
-            engine, _b64(face.probe_base64), _b64(face.liveness_base64), photo
-        )
+        # CR-107: an accepted engine is not enough. Face match AND liveness must both be approved for this exact scope, with this tenant's live
+        # DPIA and the country overlay; otherwise the face is not scored and the session is judged on the chip alone (never a pass by default).
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            pending = await store.load_session(conn, str(verification_id))
+            checked = await biometric_eligibility.eligibility(
+                conn,
+                tenant_id=caller.ctx.tenant_id or "",
+                country=pending.jurisdiction,
+                purpose=pending.purpose.upper(),
+                rollout_key=pending.subject_principal_id,  # CR-110: a partial rollout picks people
+                overlays=getattr(request.app.state, "privacy_overlays", None) or privacy_overlays(),
+                now=datetime.now(UTC),
+            )
+        allowed = checked.view()
+        if not (checked.available(Method.FACE_MATCH) and checked.available(Method.LIVENESS)):
+            async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+                await biometric_eligibility.record_blocked(
+                    conn, caller.ctx.tenant_id or "", checked, route="self-run"
+                )
+        if checked.available(Method.FACE_MATCH) and checked.available(Method.LIVENESS):
+            biometric = service.BiometricInput(
+                engine, _b64(face.probe_base64), _b64(face.liveness_base64), photo
+            )
     try:
         done = await service.submit_self_run(
             request_engine(request),
@@ -228,6 +257,7 @@ async def _judge_chip(
         "aa_challenge": done.next_challenge,
         "chip_status": verdict.status,
         "holder_bound": False,
+        "biometric_eligibility": allowed,  # null when no face was sent or no engine is configured
         "limitations": [
             "A chip proves the document is genuine, not that the person presenting it is its holder.",
             "A cloned chip is detected only when the Active Authentication answer is sent and verifies; otherwise it is not checked.",

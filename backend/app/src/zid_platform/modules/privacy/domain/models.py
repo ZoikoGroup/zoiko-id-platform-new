@@ -120,3 +120,39 @@ def release_blockers(models: Sequence[Mapping[str, Any]]) -> list[str]:
         if m["state"] != "ACTIVE":
             out.append(f"MODEL_{str(m['state']).upper()}")
     return out
+
+
+def fairness_state(
+    kind: str, evaluation: Mapping[str, Any] | None, *, now: datetime
+) -> tuple[str, list[str]]:
+    """WF-04 section 06 fairness evaluation states (B07; CR-110), from the latest evaluation of a version. Never "PASS": a result within the
+    recorded operating points is PASS_WITH_LIMITS, because no evaluation shows a model is bias-free.
+
+        NOT_RUN             no evaluation recorded
+        REEVALUATION_DUE    the latest evaluation is older than its validity
+        DATA_INSUFFICIENT   fewer than two cohorts compared, or a measure the kind needs is missing
+        FAIL                not independent, an interval that does not hold, the accessible alternative not confirmed, or a disparity the
+                            evaluator flagged (`metrics.disparity_flagged`)
+        PASS_WITH_LIMITS    none of the above"""
+    if evaluation is None:
+        return "NOT_RUN", ["NO_EVALUATION"]
+    created = evaluation.get("created_at")
+    if isinstance(created, datetime) and now - created > EVALUATION_VALID:
+        return "REEVALUATION_DUE", ["EVALUATION_STALE"]
+    metrics = evaluation.get("metrics") or {}
+    problems = evaluation_problems(kind, metrics)
+    insufficient = [p for p in problems if p.startswith("MEASURE_MISSING")]
+    if int(evaluation.get("cohorts", 0)) < 2:
+        insufficient.append("EVALUATION_HAS_NO_COHORT_COMPARISON")
+    if insufficient:
+        return "DATA_INSUFFICIENT", insufficient
+    failed = [p for p in problems if not p.startswith("MEASURE_MISSING")]
+    if not evaluation.get("independent"):
+        failed.append("EVALUATION_NOT_INDEPENDENT")
+    if not evaluation.get("accessible_alternative_confirmed"):
+        failed.append("ACCESSIBLE_ALTERNATIVE_NOT_CONFIRMED")
+    if isinstance(metrics, Mapping) and metrics.get("disparity_flagged"):
+        failed.append("COHORT_DISPARITY_FLAGGED")
+    if failed:
+        return "FAIL", failed
+    return "PASS_WITH_LIMITS", []

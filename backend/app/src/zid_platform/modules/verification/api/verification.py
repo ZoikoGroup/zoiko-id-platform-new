@@ -112,7 +112,14 @@ async def _pack_gate(request: Request, caller: Caller, jurisdiction: str) -> dic
 
 
 async def _privacy_gate(
-    request: Request, caller: Caller, jurisdiction: str, profile_id: str, subject: str
+    request: Request,
+    caller: Caller,
+    jurisdiction: str,
+    profile_id: str,
+    subject: str,
+    *,
+    purpose: str = "IDENTITY_VERIFICATION",
+    self_run: bool = False,
 ) -> dict[str, Any] | None:
     """ZID-RCG-003 RCG-G09 (CR-079): the country's privacy overlay, before any provider is asked. The provider's processing region must be a home
     region or a lawful transfer (T32); a biometric route needs the country's permission and, where the country requires it, the person's consent;
@@ -145,6 +152,8 @@ async def _privacy_gate(
             country=jurisdiction,
             provider=entry.provider if entry else None,
             overlays=privacy_overlays(),
+            purpose=purpose,
+            self_run=self_run,
         )
     seen = {
         "mode": mode,
@@ -175,7 +184,7 @@ async def _privacy_gate(
             code,
             {
                 "CROSS_BORDER_ROUTE_DENIED": f"Identity data for {jurisdiction} may not be sent to where this provider processes it.",
-                "BIOMETRIC_ROUTE_NOT_PERMITTED": f"A biometric check is not permitted for this person in {jurisdiction}; use an alternate route.",
+                "BIOMETRIC_ROUTE_NOT_PERMITTED": f"A biometric check is not permitted or not approved for this person in {jurisdiction}; use an alternate route.",
                 "PRIVACY_OVERLAY_UNAVAILABLE": f"No approved privacy overlay covers identity verification in {jurisdiction}.",
             }[code],
             http_status=422,
@@ -305,7 +314,12 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
     _country_gate(request, body.jurisdiction)
     basis = await _pack_gate(request, caller, body.jurisdiction)
     privacy = await _privacy_gate(
-        request, caller, body.jurisdiction, str(body.profile_id), str(body.subject_principal_id)
+        request,
+        caller,
+        body.jurisdiction,
+        str(body.profile_id),
+        str(body.subject_principal_id),
+        purpose=body.purpose,
     )
     # Section 10.1, observe only: record whether the market matrix would have released identity verification for this document country and payer. It never blocks.
     async with tenant_transaction(request_engine(request), caller.ctx) as gate_conn:
@@ -373,7 +387,12 @@ async def start_bulk(body: BulkStartIn, request: Request, caller: CallerDep) -> 
     for subject in dict.fromkeys(body.subject_principal_ids):
         try:  # per person: one person's missing biometric consent never stops another's start
             privacy = await _privacy_gate(
-                request, caller, body.jurisdiction, str(body.profile_id), str(subject)
+                request,
+                caller,
+                body.jurisdiction,
+                str(body.profile_id),
+                str(subject),
+                purpose=body.purpose,
             )
         except ZidError as e:
             results.append({"subject_principal_id": str(subject), "started": False, "code": e.code})
@@ -615,7 +634,12 @@ async def reverify(
     _country_gate(request, old.jurisdiction)
     basis = await _pack_gate(request, caller, old.jurisdiction)
     privacy = await _privacy_gate(
-        request, caller, old.jurisdiction, old.profile_id, old.subject_principal_id
+        request,
+        caller,
+        old.jurisdiction,
+        old.profile_id,
+        old.subject_principal_id,
+        purpose=old.purpose,
     )
     try:
         out = await service.start(

@@ -362,3 +362,109 @@ async def blockers_for(conn: AsyncConnection, model_version: str | None) -> list
     if row is None:
         return ["MODEL_NOT_IN_INVENTORY"]
     return rules.release_blockers([{"state": row.state}])
+
+
+# PROVISIONAL mapping (CR-109): which model kind backs which biometric method.
+METHOD_KIND = {"FACE_MATCH": "face_match", "LIVENESS": "pad"}
+
+
+async def method_evidence(
+    conn: AsyncConnection, method: str, model_ref: str, version: str
+) -> dict[str, Any]:
+    """The independent evaluation a biometric method rests on, read live for the caller's tenant (WF-04 BIO-10/11, QA-015; CR-109).
+
+    The engine `model_ref@version` must be in this tenant's model inventory with the kind the method needs, ACTIVE (promoted on its evidence and
+    pinned), and its LATEST evaluation must still meet the promotion rules: independent, at least two cohorts compared, the accessible alternative
+    confirmed, every measure with its confidence interval, and not stale. A reference string alone counts for nothing."""
+    kind = METHOD_KIND.get(method)
+    row = (
+        await conn.execute(
+            text(
+                "SELECT model_id, kind, state FROM privacy.model_version WHERE model_ref = :r AND version = :v"
+            ),
+            {"r": model_ref, "v": version},
+        )
+    ).first()
+    if row is None:
+        return {"ready": False, "blockers": ["MODEL_NOT_IN_INVENTORY"], "evaluation_id": None}
+    blockers: list[str] = []
+    if row.kind != kind:
+        blockers.append("MODEL_KIND_MISMATCH")
+    if row.state != "ACTIVE":
+        blockers.append(f"MODEL_{row.state}")
+    latest = (
+        await conn.execute(
+            text(
+                "SELECT evaluation_id, independent, cohorts, metrics, accessible_alternative_confirmed, created_at "
+                "FROM privacy.model_evaluation WHERE model_id = :m ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"m": row.model_id},
+        )
+    ).first()
+    evaluation = dict(latest._mapping) if latest else None
+    blockers += [
+        b
+        for b in rules.promotion_blockers(
+            kind=row.kind, state="REGISTERED", evaluation=evaluation, now=datetime.now(UTC)
+        )
+        if b != "MODEL_STATE_NOT_PROMOTABLE"
+    ]
+    return {
+        "ready": not blockers,
+        "blockers": blockers,
+        "evaluation_id": str(latest.evaluation_id) if latest else None,
+    }
+
+
+async def active_model_version(conn: AsyncConnection, model_ref: str, method: str) -> str | None:
+    """The version of this tenant's ACTIVE (pinned) model `model_ref` of the kind a biometric method needs, or None (CR-110). For a provider-hosted
+    method this IS the engine version: a provider that reports another version is drift, and `observe` holds the model."""
+    row = (
+        await conn.execute(
+            text(
+                "SELECT version FROM privacy.model_version WHERE model_ref = :r AND kind = :k AND state = 'ACTIVE'"
+            ),
+            {"r": model_ref, "k": METHOD_KIND.get(method, "")},
+        )
+    ).first()
+    return str(row.version) if row else None
+
+
+async def list_models(conn: AsyncConnection, *, limit: int = 200) -> list[dict[str, Any]]:
+    """The tenant's model inventory with each version's latest evaluation and its fairness state (WF-04 B07; CR-110). Aggregate measures only:
+    no person, image or template is stored or returned."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM privacy.model_version ORDER BY model_ref, created_at DESC LIMIT :n"
+            ),
+            {"n": limit},
+        )
+    ).all()
+    now = datetime.now(UTC)
+    out = []
+    for r in rows:
+        latest = (
+            await conn.execute(
+                text(
+                    "SELECT evaluation_id, evaluator_ref, independent, cohorts, metrics, accessible_alternative_confirmed, report_ref, created_at "
+                    "FROM privacy.model_evaluation WHERE model_id = :m ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"m": r.model_id},
+            )
+        ).first()
+        evaluation = dict(latest._mapping) if latest else None
+        state, reasons = rules.fairness_state(r.kind, evaluation, now=now)
+        view = _view(r)
+        view["fairness"] = {"state": state, "reasons": reasons}
+        view["latest_evaluation"] = (
+            {
+                **{k: v for k, v in evaluation.items() if k != "created_at"},
+                "evaluation_id": str(evaluation["evaluation_id"]),
+                "created_at": evaluation["created_at"].isoformat(),
+            }
+            if evaluation
+            else None
+        )
+        out.append(view)
+    return out

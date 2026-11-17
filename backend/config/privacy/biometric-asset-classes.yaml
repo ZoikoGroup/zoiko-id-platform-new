@@ -1,0 +1,33 @@
+# Biometric asset classes and the methods that produce them (ZID-DTV-WF-04 B05, BIO-08; QA-021; CR-108).
+# status: PROPOSED. Engineering lists WHICH classes exist; the privacy officer and the controller decide HOW LONG each is kept, as a signed
+# retention policy (`privacy.retention_policy`, object_type = the class id, purpose = the purpose or none for every purpose).
+#
+# The rule this file feeds: a biometric method is not available to a tenant while ANY class it produces has no ACTIVE retention policy for the
+# purpose ("blank retention => route OFF"). A class that is never stored still needs a decision: a policy of 0 days with DELETE records it.
+# Raw media, templates, results and audit facts are separate classes on purpose: each has its own period (QA-021).
+#
+# tier (B05 deletion order, CR-108): an erasure disposes SOURCE (raw media) first, then DERIVED (templates), then RESULT (scores), then the
+# providers' copies, and attests the backups last.
+version: 0.1.0
+status: PROPOSED
+classes:
+  - id: biometric.live_selfie
+    meaning: "The live face image or video captured for a face match"
+    methods: [FACE_MATCH]
+    tier: SOURCE
+  - id: biometric.face_template
+    meaning: "A face embedding or template derived from a capture or a document portrait"
+    methods: [FACE_MATCH]
+    tier: DERIVED
+  - id: biometric.match_result
+    meaning: "The face match score, engine id and version, and threshold applied; no media"
+    methods: [FACE_MATCH]
+    tier: RESULT
+  - id: biometric.liveness_capture
+    meaning: "The media captured for presentation-attack detection"
+    methods: [LIVENESS]
+    tier: SOURCE
+  - id: biometric.liveness_result
+    meaning: "The liveness score, engine id and version, and threshold applied; no media"
+    methods: [LIVENESS]
+    tier: RESULT

@@ -1,7 +1,7 @@
 """A company's monthly verification spend budget (ZID-DTV-WF-01 WF01-014; CR-107).
 
-Revision ID: verification_0019
-Revises: verification_0018
+Revision ID: verification_0021
+Revises: verification_0020
 Create Date: 2026-11-17
 
 One row per company: the most Zoiko may spend on providers for that company's verifications in a calendar month (UTC), in one currency. There is no default and
@@ -12,8 +12,8 @@ Row-level security by company.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0019"
-down_revision = "verification_0018"
+revision = "verification_0021"
+down_revision = "verification_0020"
 branch_labels = None
 depends_on = None
 

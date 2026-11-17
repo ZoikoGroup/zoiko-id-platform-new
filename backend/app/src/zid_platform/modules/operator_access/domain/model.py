@@ -280,6 +280,24 @@ def _release_capabilities() -> tuple[Capability, ...]:
             minutes=60,
         ),
         cap(
+            "regulatory.biometric_method.propose",
+            "Propose one step up for a biometric method scope (engine, version, country, purpose, tenant); changes nothing until approved (CR-107)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "regulatory.biometric_method.approve",
+            "Approve or reject a proposed biometric method step up; never one's own proposal (CR-107)",
+            two_person=True,
+            minutes=120,
+        ),
+        cap(
+            "regulatory.biometric_method.pause",
+            "Pause, step down or retire a biometric method scope at once (the kill switch); a resume is a new approval (CR-107)",
+            two_person=False,
+            minutes=60,
+        ),
+        cap(
             "regulatory.issuer.record",
             "Record a dated statement about an issuer, its names and its accreditations, with the official source and its proof; a correction of past facts needs a reason (CR-075)",
             two_person=True,

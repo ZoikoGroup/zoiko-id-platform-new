@@ -595,21 +595,6 @@
         "title": "PolicyBody",
         "type": "object"
       },
-      "ProposeIn": {
-        "additionalProperties": false,
-        "properties": {
-          "pack": {
-            "additionalProperties": true,
-            "title": "Pack",
-            "type": "object"
-          }
-        },
-        "required": [
-          "pack"
-        ],
-        "title": "ProposeIn",
-        "type": "object"
-      },
       "ReadinessBody": {
         "additionalProperties": false,
         "properties": {
@@ -926,6 +911,21 @@
           "gates"
         ],
         "title": "ReviewBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__kyb_policy__ProposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "pack": {
+            "additionalProperties": true,
+            "title": "Pack",
+            "type": "object"
+          }
+        },
+        "required": [
+          "pack"
+        ],
+        "title": "ProposeIn",
         "type": "object"
       },
       "zid_platform__modules__operator_access__api__kyb_policy__RollbackIn": {
@@ -3252,7 +3252,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProposeIn"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__ProposeIn"
               }
             }
           },

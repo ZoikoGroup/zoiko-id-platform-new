@@ -373,6 +373,32 @@ def test_an_accepted_engine_binds_the_holder_to_the_chip_photo_and_no_engine_mea
             },
         )
         http.app.state.biometric_engine = be.FakeEngine(0.95, 0.97, "deepface-arcface", "1.4.0")
+
+        # CR-107: an accepted engine alone is not enough. With no approved method scope and no DPIA for this tenant the face is not scored
+        v0 = start(http, svc, pid, alice).json()["verification_id"]
+        gated = http.post(
+            f"/v2/self-run/verifications/{v0}/chip",
+            headers=svc,
+            json={**chip_body(chip), "face": face},
+        ).json()
+        assert gated["status"] != "VERIFIED", gated
+        assert "SELF_RUN_FACE_MATCHED_TO_CHIP_PHOTO" not in gated["reason_codes"]
+        reasons = {r for m in gated["biometric_eligibility"]["methods"] for r in m["reasons"]}
+        assert {"METHOD_OFF", "DPIA_NOT_READY"} <= reasons, gated["biometric_eligibility"]
+
+        # both methods approved for the scope, with the tenant's DPIA ready (the chain itself is covered by test_biometric_eligibility)
+        from zid_platform.modules.verification.api import v2_self_run
+        from zid_platform.modules.verification.application import biometric_eligibility as bel
+        from zid_platform.modules.verification.domain import biometric_methods as bmd
+
+        async def all_open(conn, **kw):  # type: ignore[no-untyped-def]
+            answers = tuple(
+                bel.MethodAnswer(m, True, bmd.State.PRODUCTION_ELIGIBLE, (), False)
+                for m in bmd.Method
+            )
+            return bel.Eligibility(kw["country"], kw["purpose"], None, answers, "0" * 64)
+
+        monkeypatch.setattr(v2_self_run.biometric_eligibility, "eligibility", all_open)
         v2 = start(http, svc, pid, alice).json()["verification_id"]
         bound = http.post(
             f"/v2/self-run/verifications/{v2}/chip",

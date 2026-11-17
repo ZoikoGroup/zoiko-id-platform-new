@@ -1064,6 +1064,16 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G08 exact-scope provider suspensions (kill switch), versioned and append-only (proposed, CR-078)"
+  verify.biometric_method_proposal:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-04 BIO-03 biometric method step-up proposals, decided once by a second person (proposed, CR-107)"
+  verify.biometric_method_state:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-04 BIO-03 biometric method lifecycle and kill switch per exact scope, versioned and append-only (proposed, CR-107)"
   verify.conformance_run:
     role: cell
     module: verification

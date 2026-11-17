@@ -555,7 +555,7 @@ def test_erasure_dpia_reviews_and_breaches(rt_url: str) -> None:
             headers=second,
             json={"outcome": "OVERTURNED", "rationale": "Checked the source: a different person."},
         )
-        assert dec.status_code == 200 and dec.json()["state"] == "OVERTURNED", dec.text
+        assert dec.status_code == 200 and dec.json()["state"] == "AWAITING_CHECKER", dec.text
         assert (
             api.post(
                 f"/v2/privacy/reviews/{rid}/decisions",
@@ -563,7 +563,13 @@ def test_erasure_dpia_reviews_and_breaches(rt_url: str) -> None:
                 json={"outcome": "UPHELD", "rationale": "again"},
             ).status_code
             == 409
+        ), "a review waiting for its checker is not decided again"
+        sent_back = api.post(
+            f"/v2/privacy/reviews/{rid}/checks",
+            headers=owner,
+            json={"confirm": False, "note": "the requester cannot check"},
         )
+        assert sent_back.status_code == 403, "the requester never checks their own appeal"
         assert (
             api.get(f"/v2/privacy/reviews/{rid}", headers=owner)
             .json()["rationale"]
