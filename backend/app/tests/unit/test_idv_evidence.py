@@ -32,7 +32,7 @@ def env(**kw: object) -> Envelope:
 ISSUED = IssuedNonce("n1", "case-1", NOW - timedelta(minutes=2))
 
 
-def cap(e: Envelope, issued: IssuedNonce | None = ISSUED, **kw: object):  # noqa: ANN201
+def cap(e: Envelope, issued: IssuedNonce | None = ISSUED, **kw: object):
     return capture_integrity(e, issued, case_id="case-1", media_seen_before=False, now=NOW, **kw)  # type: ignore[arg-type]
 
 

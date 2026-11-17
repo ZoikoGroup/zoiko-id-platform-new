@@ -4174,6 +4174,7 @@ export type IdvCase = {
   signals: { optical: string; nfc_read: string; passive_auth: string; chip_auth: string; liveness: string; face_match: string };
   policy_version: string;
   policy_hash: string;
+  notice_version: string | null;
   reviewers: number;
   attempts: Record<string, number>;
   version: number;

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -14,6 +15,7 @@ from sqlalchemy.exc import DBAPIError
 from zid_db import tenant_transaction
 from zid_platform.modules.verification.application import idv_case as svc
 from zid_platform.modules.verification.domain import idv_policy
+from zid_platform.modules.verification.domain.biometric_engine import EngineGate, FakeEngine
 from zid_platform.modules.verification.domain.idv_decision import (
     ChipAuth,
     Decision,
@@ -104,6 +106,7 @@ def test_a_case_is_approved_only_when_every_signal_supports_it_and_is_then_close
             )
             assert c.signals.injection_risk is False
             c = await tx(lambda c: svc.submit_optical(c, cid, r, {"TEMPLATE": "PASS"}, now=NOW))
+            await tx(lambda c: svc.store_printed(c, cid, DOC))
             c = await tx(
                 lambda c: svc.submit_chip(
                     c,
@@ -112,7 +115,6 @@ def test_a_case_is_approved_only_when_every_signal_supports_it_and_is_then_close
                     status="VERIFIED_LIMITED",
                     reasons=GOOD_CHIP,
                     document=DOC,
-                    printed=DOC,
                     chip_auth=ChipAuth.NOT_TESTED,
                     now=NOW,
                 )
@@ -246,7 +248,6 @@ def test_replay_missing_trust_withdrawal_retries_and_routes_are_all_enforced(rt_
                     status="INDETERMINATE",
                     reasons=("NO_CSCA_CONFIGURED",),
                     document=None,
-                    printed=None,
                     chip_auth=ChipAuth.NOT_TESTED,
                     now=NOW,
                 )
@@ -273,6 +274,7 @@ def test_replay_missing_trust_withdrawal_retries_and_routes_are_all_enforced(rt_
                     c, tenant_id=tenant, applicant=applicant, route="CHIP", rules=r, now=NOW
                 )
             )
+            await tx(lambda c: svc.store_printed(c, c4.case_id, DOC))
             await tx(
                 lambda c: svc.submit_chip(
                     c,
@@ -281,7 +283,6 @@ def test_replay_missing_trust_withdrawal_retries_and_routes_are_all_enforced(rt_
                     status="VERIFIED_LIMITED",
                     reasons=GOOD_CHIP,
                     document=DOC,
-                    printed=DOC,
                     chip_auth=ChipAuth.NOT_TESTED,
                     now=NOW,
                 )
@@ -334,7 +335,6 @@ def test_replay_missing_trust_withdrawal_retries_and_routes_are_all_enforced(rt_
                         status="VERIFIED_LIMITED",
                         reasons=GOOD_CHIP,
                         document=DOC,
-                        printed=DOC,
                         chip_auth=ChipAuth.NOT_TESTED,
                         now=NOW,
                     )
@@ -372,5 +372,179 @@ def test_abandonment_is_its_own_closed_outcome(rt_url: str) -> None:
                 )
                 c = await svc.abandon(conn, c.case_id, r, now=NOW)
             assert c.decision is Decision.ABANDONED and c.state == "CLOSED"
+
+    asyncio.run(run())
+
+
+def test_a_document_photograph_is_judged_by_the_platform_and_the_printed_data_is_kept_only_as_digests(
+    rt_url: str,
+) -> None:
+    tenant, applicant = uid(), uid()
+    r = rules()
+    checks = {"TEMPLATE": "PASS", "RESOLUTION": "PASS", "MRZ_READABLE": "PASS"}
+
+    async def run() -> None:
+        async with engine(rt_url) as eng:
+
+            async def tx(fn: Any) -> Any:
+                async with tenant_transaction(eng, ctx(tenant)) as c:
+                    return await fn(c)
+
+            c = await tx(
+                lambda c: svc.open_case(
+                    c, tenant_id=tenant, applicant=applicant, route="CHIP", rules=r, now=NOW
+                )
+            )
+            cid = c.case_id
+            nonce, _ = await tx(lambda conn: svc.issue_nonce(conn, cid, NOW))
+            c = await tx(
+                lambda conn: svc.submit_document(
+                    conn,
+                    cid,
+                    r,
+                    env(nonce, "1" * 64, at=NOW),
+                    checks=checks,
+                    printed=DOC,
+                    now=NOW,
+                )
+            )
+            assert c.signals.optical.value == "PASS" and c.signals.injection_risk is False
+            row = await tx(lambda conn: svc.get(conn, cid))
+            assert (
+                row is not None
+                and row.printed_digests is not None
+                and "MUELLER" not in str(row.printed_digests)
+                and row.printed_salt
+            )
+
+            # a chip whose data differs from what is printed is a mismatch, and the digests are cleared once compared
+            other = {**DOC, "document_number": "Z999"}
+            c = await tx(
+                lambda conn: svc.submit_chip(
+                    conn,
+                    cid,
+                    r,
+                    status="VERIFIED_LIMITED",
+                    reasons=GOOD_CHIP,
+                    document=other,
+                    chip_auth=ChipAuth.NOT_TESTED,
+                    now=NOW,
+                )
+            )
+            assert (
+                c.signals.optical_matches_chip == "MISMATCH"
+                and "PRINTED_DATA_DIFFERS_FROM_CHIP" in c.reasons
+            )
+            assert c.printed_digests is None and c.printed_salt is None
+
+    asyncio.run(run())
+
+
+def test_an_approved_engine_judges_the_face_and_a_failed_presentation_is_never_matched(
+    rt_url: str,
+) -> None:
+    tenant, applicant = uid(), uid()
+    r = rules()
+    gate = EngineGate(
+        "fake",
+        "1",
+        "EVAL-1",
+        NOW.date(),
+        "DPIA-1",
+        0.001,
+        0.05,
+        0.01,
+        0.05,
+        0.6,
+        0.7,
+        frozenset({"GB"}),
+    )
+
+    async def run() -> None:
+        async with engine(rt_url) as eng:
+
+            async def tx(fn: Any) -> Any:
+                async with tenant_transaction(eng, ctx(tenant)) as c:
+                    return await fn(c)
+
+            async def fresh() -> str:
+                c = await tx(
+                    lambda c: svc.open_case(
+                        c, tenant_id=tenant, applicant=applicant, route="CHIP", rules=r, now=NOW
+                    )
+                )
+                await tx(lambda c2: svc.store_printed(c2, c.case_id, DOC))
+                await tx(
+                    lambda c2: svc.submit_chip(
+                        c2,
+                        c.case_id,
+                        r,
+                        status="VERIFIED_LIMITED",
+                        reasons=GOOD_CHIP,
+                        document=DOC,
+                        chip_auth=ChipAuth.NOT_TESTED,
+                        now=NOW,
+                    )
+                )
+                await tx(
+                    lambda c2: svc.record_notice_and_consent(
+                        c2, c.case_id, r, notice_version="n-1", consented=True, now=NOW
+                    )
+                )
+                return c.case_id
+
+            async def judge(cid: str, e: Any, g: Any, ref: bytes | None = b"portrait") -> Any:
+                return await tx(
+                    lambda c: svc.apply_engine(
+                        c, cid, r, engine=e, gate=g, probe=b"p", media=b"m", reference=ref, now=NOW
+                    )
+                )
+
+            good = await fresh()
+            got = await judge(good, FakeEngine(match_score=0.9, liveness_score=0.95), gate)
+            assert got.signals.liveness is Liveness.PASS and got.signals.face is FaceMatch.MATCH
+
+            attack = await fresh()
+            got = await judge(
+                attack, FakeEngine(match_score=0.99, liveness_score=0.2), gate
+            )  # a high similarity does not repair a failed presentation check
+            assert (
+                got.signals.liveness is Liveness.FAIL
+                and got.signals.face is FaceMatch.NOT_RUN
+                and got.decision is Decision.REVIEW_REQUIRED
+            )
+
+            low = await fresh()
+            got = await judge(low, FakeEngine(match_score=0.3, liveness_score=0.95), gate)
+            assert (
+                got.signals.face is FaceMatch.NON_MATCH and got.decision is Decision.REVIEW_REQUIRED
+            )
+
+            class Broken:
+                def liveness(self, media: bytes) -> Any:
+                    raise RuntimeError("model missing")
+
+                def match(self, probe: bytes, reference: bytes) -> Any:
+                    raise RuntimeError("model missing")
+
+            broken = await fresh()
+            got = await judge(broken, Broken(), gate)
+            assert (
+                got.signals.liveness is Liveness.INCONCLUSIVE
+                and got.decision is not Decision.APPROVED
+            )
+
+            for why, e, g, ref in (
+                ("ENGINE_NOT_APPROVED", None, None, b"x"),
+                (
+                    "ENGINE_NOT_APPROVED",
+                    FakeEngine(),
+                    replace(gate, countries=frozenset({"FR"})),
+                    b"x",
+                ),
+                ("NO_REFERENCE_PORTRAIT", FakeEngine(), gate, None),
+            ):
+                with pytest.raises(svc.CaseError, match=why):
+                    await judge(await fresh(), e, g, ref)
 
     asyncio.run(run())

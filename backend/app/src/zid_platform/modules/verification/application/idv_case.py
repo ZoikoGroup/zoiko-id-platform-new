@@ -63,6 +63,8 @@ class Case:
     nonce: str | None
     nonce_issued_at: datetime | None
     nonce_used: bool
+    printed_salt: str | None
+    printed_digests: dict[str, str] | None
     version: int
     created_at: datetime
     updated_at: datetime
@@ -123,7 +125,7 @@ def _json(v: Any) -> str:
 
 _COLS = (
     "case_id, applicant, market, route, policy_version, policy_hash, signals, decision, reasons, state, attempts, "
-    "notice_shown, consent_at, withdrawn_at, nonce, nonce_issued_at, nonce_used, version, created_at, updated_at"
+    "notice_shown, consent_at, withdrawn_at, nonce, nonce_issued_at, nonce_used, printed_salt, printed_digests, version, created_at, updated_at"
 )
 
 
@@ -132,7 +134,7 @@ def _case(r: Any) -> Case:
     return Case(
         str(m["case_id"]), str(m["applicant"]), m["market"], m["route"], m["policy_version"], m["policy_hash"],
         signals_from_dict(m["signals"]), Decision(m["decision"]), tuple(m["reasons"]), m["state"], dict(m["attempts"]),
-        m["notice_shown"], m["consent_at"], m["withdrawn_at"], m["nonce"], m["nonce_issued_at"], m["nonce_used"],
+        m["notice_shown"], m["consent_at"], m["withdrawn_at"], m["nonce"], m["nonce_issued_at"], m["nonce_used"], m["printed_salt"], m["printed_digests"],
         m["version"], m["created_at"], m["updated_at"],
     )  # fmt: skip
 
@@ -229,12 +231,14 @@ async def _commit(
         "consent": after.consent_at,
         "withdrawn": after.withdrawn_at,
         "nonce_used": after.nonce_used,
+        "salt": after.printed_salt,
+        "digests": _json(after.printed_digests) if after.printed_digests is not None else None,
     }
     await conn.execute(
         text(
             "UPDATE verify.idv_case SET signals = CAST(:signals AS jsonb), decision = :decision, reasons = CAST(:reasons AS jsonb), "
             "state = :state, attempts = CAST(:attempts AS jsonb), version = :version, updated_at = :updated_at, "
-            "notice_shown = :notice, consent_at = :consent, withdrawn_at = :withdrawn, nonce_used = :nonce_used WHERE case_id = :c"
+            "notice_shown = :notice, consent_at = :consent, withdrawn_at = :withdrawn, nonce_used = :nonce_used, printed_salt = :salt, printed_digests = CAST(:digests AS jsonb) WHERE case_id = :c"
         ),
         params,
     )
@@ -326,9 +330,10 @@ def _spend(c: Case, kind: str, rules: MarketRules) -> dict[str, int]:
 
 async def submit_chip(
     conn: AsyncConnection, case_id: str, rules: MarketRules, *, status: str, reasons: tuple[str, ...],
-    document: dict[str, str] | None, printed: dict[str, str] | None, chip_auth: ChipAuth, now: datetime,
+    document: dict[str, str] | None, chip_auth: ChipAuth, now: datetime,
 ) -> Case:  # fmt: skip
-    """The platform's own passive-authentication verdict (status and reason codes), the chip's DG1 fields when it read them, and optionally what is printed, to compare."""
+    """The platform's own passive-authentication verdict (status and reason codes) and the chip's DG1 fields when it read them. What is printed was read by the platform from the document photograph earlier
+    (`submit_document`) and is compared here by digest; the digests are then cleared. Nothing the applicant types or sends as "printed" data is ever compared."""
     c = await _require_open(conn, case_id)
     if c.route != "CHIP":
         raise CaseError(
@@ -338,8 +343,8 @@ async def submit_chip(
     attempts = _spend(c, "NFC", rules)
     sig = ev.chip_signals(status, reasons)
     compare, _differ = (
-        ev.compare_printed_to_chip(printed or {}, document or {})
-        if printed and document
+        ev.compare_digests(c.printed_digests, document, c.printed_salt or "")
+        if c.printed_digests and document
         else ("UNKNOWN", ())
     )
     s = replace(
@@ -347,7 +352,33 @@ async def submit_chip(
         document_expired=sig.document_expired, optical_matches_chip=compare, web_only_capture=False,
         reference_source="CHIP_DG2_TRUSTED" if sig.passive_auth is PassiveAuth.TRUSTED_PASS else "CHIP_DG2_UNTRUSTED",
     )  # fmt: skip
-    return await _commit(conn, c, s, rules, trigger="chip", now=now, attempts=attempts)
+    return await _commit(
+        conn, c, s, rules, trigger="chip", now=now, attempts=attempts,
+        **({"printed_digests": None, "printed_salt": None} if document else {}),
+    )  # fmt: skip
+
+
+async def store_printed(conn: AsyncConnection, case_id: str, fields: dict[str, str]) -> None:
+    """Keep only salted digests of the printed holder data, for one later comparison with the chip."""
+    salt = secrets.token_hex(16)
+    await conn.execute(
+        text(
+            "UPDATE verify.idv_case SET printed_salt = :s, printed_digests = CAST(:d AS jsonb) WHERE case_id = :c"
+        ),
+        {"s": salt, "d": _json(ev.printed_digests(fields, salt)), "c": uuid.UUID(case_id)},
+    )
+
+
+async def submit_document(
+    conn: AsyncConnection, case_id: str, rules: MarketRules, envelope: ev.Envelope, *, checks: dict[str, str],
+    printed: dict[str, str] | None, now: datetime, web: bool = False,
+) -> Case:  # fmt: skip
+    """A document photograph: the capture's envelope is checked (the digest is the one the platform computed from the bytes, never the client's), the image checks become the printed-document signal, and the printed
+    machine-readable data, which the platform read itself, is kept as digests for the chip comparison."""
+    await submit_capture(conn, case_id, rules, envelope, now=now, web=web)
+    if printed:
+        await store_printed(conn, case_id, printed)
+    return await submit_optical(conn, case_id, rules, checks, now=now)
 
 
 async def chip_not_read(
@@ -536,4 +567,47 @@ async def abandon(
     c = await _require_open(conn, case_id)
     return await _commit(
         conn, c, replace(c.signals, abandoned=True), rules, trigger="abandoned", now=now
+    )
+
+
+async def apply_engine(
+    conn: AsyncConnection,
+    case_id: str,
+    rules: MarketRules,
+    *,
+    engine: Any,
+    gate: Any,
+    probe: bytes,
+    media: bytes,
+    reference: bytes | None,
+    now: datetime,
+) -> Case:
+    """Run an APPROVED engine (`gate` is what `biometric_engine.engine_gate` produced, or None) on a live probe and a liveness capture against the reference portrait, and record the result. Refused unless the engine is approved for this
+    market and the market's biometric controls are in force. The liveness check runs first and a face is never matched against a presentation that failed. The media is held for this call only and never stored."""
+    c = await _require_open(conn, case_id)
+    if gate is None or engine is None or not gate.allows(rules.market):
+        raise CaseError("ENGINE_NOT_APPROVED", "No biometric engine is approved for this market.")
+    if reference is None:
+        raise CaseError(
+            "NO_REFERENCE_PORTRAIT",
+            "The chip's portrait is not available from a signed data group.",
+        )
+    ok, why = _biometrics(c, rules)
+    if not ok:
+        raise CaseError("BIOMETRICS_OFF", ", ".join(why))
+    try:
+        live: float | None = engine.liveness(media).score
+    except Exception:  # noqa: BLE001 - an engine that cannot decide is never a pass
+        live = None
+    face: float | None = None
+    if live is not None and live >= gate.liveness_threshold:
+        try:
+            face = engine.match(probe, reference).score
+        except Exception:  # noqa: BLE001
+            face = None
+    lv, fm = ev.engine_signals(
+        live, face, liveness_min=gate.liveness_threshold, face_min=gate.face_threshold
+    )
+    return await record_engine_result(
+        conn, case_id, rules, liveness=Liveness(lv), face=FaceMatch(fm), now=now
     )

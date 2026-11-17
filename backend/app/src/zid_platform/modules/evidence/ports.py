@@ -70,6 +70,8 @@ from zid_platform.modules.evidence.application.vault import (
 )
 from zid_platform.modules.evidence.application.worker import WorkerReport, worker_pass
 from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
+from zid_platform.modules.evidence.domain.mrz import MrzError
+from zid_platform.modules.evidence.domain.mrz import parse as parse_mrz
 from zid_platform.modules.evidence.domain.receipts import AuditFacts, ReceiptFacts, ReplayResult
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 
@@ -85,6 +87,7 @@ __all__ = [
     "EvidenceClass",
     "EvidenceRuntime",
     "LedgerError",
+    "MrzError",
     "Node",
     "ReceiptFacts",
     "ReplayResult",
@@ -111,6 +114,7 @@ __all__ = [
     "is_held",
     "material_commitment",
     "open_sealed",
+    "parse_mrz",
     "principal_handle",
     "purge_expired_uploads",
     "read_object",

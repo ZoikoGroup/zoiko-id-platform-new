@@ -82,6 +82,7 @@ const NAV: NavGroup[] = [
       { id: "connected-apps", label: "Connected apps", href: "/account/connected-apps", icon: Link2 },
       { id: "my-verification", label: "Identity verification", href: "/account/verification", icon: ScanFace },
       { id: "recovery-codes", label: "Recovery codes", href: "/account/recovery", icon: LifeBuoy },
+      { id: "my-idv", label: "Passport identity check", href: "/account/identity-proofing", icon: ScanFace },
       { id: "my-privacy", label: "Privacy", href: "/account/privacy", icon: ShieldOff },
     ],
   },

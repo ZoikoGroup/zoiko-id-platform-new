@@ -808,6 +808,14 @@ export function createCellApi(t: Transport) {
       cases: () => get<{ items: M.IdvCase[] }>("/v1/idv/cases"),
       case: (id: string) => get<M.IdvCaseDetail>(`/v1/idv/cases/${seg(id)}`),
       review: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/reviews`),
+      open: (market: string) => post<M.IdvCase>("/v1/idv/cases", { market, route: "CHIP" }),
+      nonce: (id: string) => post<{ case_id: string; nonce: string; issued_at: string }>(`/v1/idv/cases/${seg(id)}/nonce`),
+      /** The platform measures the photograph, reads its printed lines and checks the envelope itself; nothing here states a result. */
+      documentImage: (id: string, body: { nonce: string; image_base64: string; captured_at: string }) =>
+        post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/document-image`, { ...body, virtual_camera: null, channel: "WEB" }),
+      consent: (id: string, noticeVersion: string, consented: boolean) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent`, { notice_version: noticeVersion, consented }),
+      withdraw: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent:withdraw`),
+      abandon: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}:abandon`),
     },
 
     /** A company's verification grade, its representatives' mandates, appeals and the signed export (WF02, CR-109). The grade is worked out again on each read. */

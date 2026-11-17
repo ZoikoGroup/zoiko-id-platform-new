@@ -5,8 +5,8 @@
     GET  /v1/idv/cases/{id}                     one case, with every decision it has reached
     POST /v1/idv/cases/{id}/nonce               a one-time value the next capture must carry
     POST /v1/idv/cases/{id}/nfc-state           the phone has no NFC, the person declined, or the read failed
-    POST /v1/idv/cases/{id}/chip                what the chip returned; the platform judges it (passive authentication)
-    POST /v1/idv/cases/{id}/capture             a capture's envelope: nonce, media digest, camera and device facts
+    POST /v1/idv/cases/{id}/chip                what the chip returned, optionally with a live face and liveness capture; the platform judges the chip, and an approved engine judges the face
+    POST /v1/idv/cases/{id}/document-image      a document photograph: the platform measures it, reads its printed lines and checks the capture's envelope and device report
     POST /v1/idv/cases/{id}/optical             the printed-document checks' results
     POST /v1/idv/cases/{id}/consent             the notice shown and, where it is the basis, consent
     POST /v1/idv/cases/{id}/consent:withdraw    withdraw it
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -30,12 +31,23 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
-from zid_platform.modules.evidence.ports import effective_csca, trust_config, verify_chip
+from zid_platform.modules.evidence.ports import (
+    chip_photo,
+    effective_csca,
+    trust_config,
+    verify_chip,
+)
 from zid_platform.modules.verification.application import idv_case as svc
+from zid_platform.modules.verification.application.idv_document import read_document
 from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions
 from zid_platform.modules.verification.domain.idv_evidence import Envelope
 from zid_platform.modules.verification.domain.idv_policy import MarketRules, PolicyError
-from zid_platform.modules.verification.infrastructure import idv_policy_file
+from zid_platform.modules.verification.infrastructure import (
+    device_attestation,
+    idv_policy_file,
+    self_run_config,
+)
+from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["idv"])
@@ -92,7 +104,7 @@ async def _own(conn: Any, case_id: str, caller: Caller) -> svc.Case:
     return c
 
 
-def view(c: svc.Case) -> dict[str, Any]:
+def view(c: svc.Case, notice: str | None = None) -> dict[str, Any]:
     s = c.signals
     return {
         "case_id": c.case_id,
@@ -108,6 +120,7 @@ def view(c: svc.Case) -> dict[str, Any]:
         },
         "policy_version": c.policy_version,
         "policy_hash": c.policy_hash,
+        "notice_version": notice,
         "reviewers": len(s.reviewers),
         "attempts": c.attempts,
         "version": c.version,
@@ -143,19 +156,35 @@ class ChipIn(BaseModel):
         Annotated[str, Field(pattern=r"^([1-9]|1[0-6])$")],
         Annotated[str, Field(min_length=4, max_length=(256 * 1024 * 4) // 3 + 16)],
     ] = Field(min_length=1, max_length=16)
-    printed: (
-        dict[Literal["surname", "given_names", "document_number", "birth_date", "expiry_date"], str]
-        | None
-    ) = None
+    face: FaceIn | None = None
 
 
-class CaptureIn(BaseModel):
+class AttestationIn(BaseModel):
+    """The platform's own device report for this capture: for iOS App Attest, `attestation` and `key_id` in base64. It is checked here; the client never states that it passed."""
+
+    model_config = ConfigDict(extra="forbid")
+    platform: Literal["IOS_APP_ATTEST", "ANDROID_PLAY_INTEGRITY"]
+    report: dict[str, Annotated[str, Field(max_length=64 * 1024)]] = Field(max_length=4)
+
+
+class CaptureFacts(BaseModel):
     model_config = ConfigDict(extra="forbid")
     nonce: str = Field(min_length=8, max_length=128)
-    media_sha256: str = Field(min_length=64, max_length=64)
     captured_at: datetime
     virtual_camera: bool | None = None
-    device_attested: bool | None = None
+    attestation: AttestationIn | None = None
+
+
+class FaceIn(CaptureFacts):
+    """A live face image and a liveness capture, each base64, with the facts of the capture (a fresh nonce from this case). Used only when an engine is approved for the market and the chip's portrait came from a data group
+    the signed object covered; never kept."""
+
+    probe_base64: str = Field(min_length=8, max_length=(2 * 1024 * 1024 * 4) // 3 + 16)
+    liveness_base64: str = Field(min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
+
+
+class DocumentImageIn(CaptureFacts):
+    image_base64: str = Field(min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
     channel: Literal["APP", "WEB"] = "APP"
 
 
@@ -189,7 +218,7 @@ async def open_case(body: OpenIn, request: Request, caller: CallerDep) -> dict[s
             )
         except svc.CaseError as e:
             raise _fail(e) from e
-    return view(c)
+    return view(c, _notice(request, c.market))
 
 
 @router.get("/v1/idv/cases")
@@ -197,7 +226,7 @@ async def list_cases(request: Request, caller: CallerDep) -> dict[str, Any]:
     _scope(caller, "verification:read")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         items = await svc.list_cases(conn)
-    return {"items": [view(c) for c in items]}
+    return {"items": [view(c, _notice(request, c.market)) for c in items]}
 
 
 @router.get("/v1/idv/cases/{case_id}")
@@ -209,7 +238,7 @@ async def read_case(case_id: uuid.UUID, request: Request, caller: CallerDep) -> 
             raise ZidError("CASE_NOT_FOUND", "No such case.", http_status=404)
         hist = await svc.history(conn, str(case_id))
     return {
-        **view(c),
+        **view(c, _notice(request, c.market)),
         "history": [
             {
                 "version": h["version"],
@@ -243,7 +272,7 @@ async def _mutate(
             c = await fn(conn, rules)
         except svc.CaseError as e:
             raise _fail(e) from e
-    return view(c)
+    return view(c, _notice(request, c.market))
 
 
 @router.post("/v1/idv/cases/{case_id}/nonce")
@@ -276,6 +305,19 @@ async def nfc_state(
     )
 
 
+def _envelope(facts: CaptureFacts, media: bytes) -> Envelope:
+    """The envelope the platform checks: the digest is computed here from the bytes, and the device report is verified here. Nothing the client says about either is believed."""
+    digest = hashlib.sha256(media).hexdigest()
+    attested = None
+    if facts.attestation is not None:
+        attested = device_attestation.verify(
+            facts.attestation.platform,
+            dict(facts.attestation.report),
+            challenge=f"{facts.nonce}:{digest}".encode(),
+        )
+    return Envelope(facts.nonce, digest, facts.captured_at, facts.virtual_camera, attested)
+
+
 @router.post("/v1/idv/cases/{case_id}/chip")
 async def chip(
     case_id: uuid.UUID, body: ChipIn, request: Request, caller: CallerDep
@@ -292,35 +334,65 @@ async def chip(
         if isinstance(document, dict)
         else None
     )
+    verified = verdict.detail.get("data_groups_verified")
+    covered = {int(g) for g in verified} if isinstance(verified, list | tuple) else set()
+    photo = (
+        chip_photo(groups[2])
+        if (verdict.status == "VERIFIED_LIMITED" and 2 in covered and 2 in groups)
+        else None
+    )
+    notes: list[str] = []
 
     async def go(conn: Any, rules: MarketRules) -> svc.Case:
-        return await svc.submit_chip(
-            conn, str(case_id), rules, status=verdict.status, reasons=verdict.reasons, document=doc, printed=dict(body.printed) if body.printed else None,
+        c = await svc.submit_chip(
+            conn, str(case_id), rules, status=verdict.status, reasons=verdict.reasons, document=doc,
             chip_auth=ChipAuth.NOT_TESTED, now=datetime.now(UTC),
         )  # fmt: skip
+        if body.face is None:
+            return c
+        probe, media = _b64(body.face.probe_base64), _b64(body.face.liveness_base64)
+        c = await svc.submit_capture(
+            conn, str(case_id), rules, _envelope(body.face, probe), now=datetime.now(UTC)
+        )
+        try:
+            return await svc.apply_engine(
+                conn, str(case_id), rules, engine=getattr(request.app.state, "biometric_engine", None),
+                gate=self_run_config.accepted_engine(), probe=probe, media=media, reference=photo, now=datetime.now(UTC),
+            )  # fmt: skip
+        except svc.CaseError as e:  # the chip result stands; the person signals simply did not run, and the reasons say why
+            notes.append(e.code)
+            return c
 
-    return await _mutate(request, caller, case_id, go)
+    out = await _mutate(request, caller, case_id, go)
+    if notes:
+        out["face_not_run"] = notes[0]
+    return out
 
 
-@router.post("/v1/idv/cases/{case_id}/capture")
-async def capture(
-    case_id: uuid.UUID, body: CaptureIn, request: Request, caller: CallerDep
+@router.post("/v1/idv/cases/{case_id}/document-image")
+async def document_image(
+    case_id: uuid.UUID, body: DocumentImageIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
-    env = Envelope(
-        body.nonce,
-        body.media_sha256.lower(),
-        body.captured_at,
-        body.virtual_camera,
-        body.device_attested,
-    )
+    """A document photograph. The platform computes the digest, inspects the image through the imaging sidecar, reads the printed machine-readable lines itself and verifies any device report: the client states none of it."""
+    image = _b64(body.image_base64)
+    try:
+        reading = await read_document(
+            image, transport=getattr(request.app.state, "imaging_transport", None)
+        )
+    except ImagingUnavailable as e:
+        raise ZidError(
+            e.code,
+            "The document image could not be inspected right now.",
+            http_status=503,
+            retryable=True,
+        ) from e
+    env = _envelope(body, image)
     return await _mutate(
-        request,
-        caller,
-        case_id,
-        lambda conn, rules: svc.submit_capture(
-            conn, str(case_id), rules, env, now=datetime.now(UTC), web=body.channel == "WEB"
+        request, caller, case_id,
+        lambda conn, rules: svc.submit_document(
+            conn, str(case_id), rules, env, checks=reading.checks, printed=reading.printed, now=datetime.now(UTC), web=body.channel == "WEB"
         ),
-    )
+    )  # fmt: skip
 
 
 @router.post("/v1/idv/cases/{case_id}/optical")
@@ -387,4 +459,15 @@ async def review(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dic
             )
         except svc.CaseError as e:
             raise _fail(e) from e
-    return view(c)
+    return view(c, _notice(request, c.market))
+
+
+def _notice(request: Request, market: str) -> str | None:
+    """The notice version the market's rules say applicants must be shown, or None when there is none (so nothing can be consented to). Never raises: a missing or broken file is simply no notice."""
+    try:
+        source = getattr(request.app.state, "idv_policies", None)
+        table = source() if callable(source) else idv_policy_file.load()
+    except PolicyError:
+        return None
+    rules = table.get(market.upper())
+    return rules.basis.notice_version if rules else None

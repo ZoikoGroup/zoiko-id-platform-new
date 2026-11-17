@@ -11,6 +11,7 @@ Three jobs, each answering one signal and nothing else:
 
 from __future__ import annotations
 
+import hashlib
 import re
 import unicodedata
 from collections.abc import Mapping
@@ -211,3 +212,41 @@ def compare_printed_to_chip(
     if compared < 3:
         return "UNKNOWN", ()
     return "MATCH", ()
+
+
+def printed_digests(printed: Mapping[str, str], salt: str) -> dict[str, str]:
+    """Salted digests of the normalised printed fields, so the chip comparison can be made later without keeping the data. The salt is per case; a digest of a low-entropy field resists only a casual reader of the table."""
+    return {
+        f: hashlib.sha256(f"{salt}|{f}|{_norm(printed[f])}".encode()).hexdigest()
+        for f in FIELDS
+        if printed.get(f)
+    }
+
+
+def compare_digests(
+    stored: Mapping[str, str], chip: Mapping[str, str], salt: str
+) -> tuple[str, tuple[str, ...]]:
+    """The same verdict as `compare_printed_to_chip`, made against the stored digests."""
+    mine = printed_digests(chip, salt)
+    both = [f for f in FIELDS if f in stored and f in mine]
+    differing = tuple(f for f in both if stored[f] != mine[f])
+    if differing:
+        return "MISMATCH", differing
+    return ("MATCH", ()) if len(both) >= 3 else ("UNKNOWN", ())
+
+
+# ----------------------------------------------------------------------------------------------------------------- the face engine's scores
+
+
+def engine_signals(
+    live_score: float | None, face_score: float | None, *, liveness_min: float, face_min: float
+) -> tuple[str, str]:
+    """(liveness, face match) as WF03 states from an approved engine's scores and its own thresholds. None means the engine could not decide: INCONCLUSIVE, never a pass.
+    A face is never matched against a presentation that failed or could not be judged, so then the match is NOT_RUN."""
+    if live_score is None:
+        return "INCONCLUSIVE", "NOT_RUN"
+    if live_score < liveness_min:
+        return "FAIL", "NOT_RUN"
+    if face_score is None:
+        return "PASS", "INCONCLUSIVE"
+    return "PASS", ("MATCH" if face_score >= face_min else "NON_MATCH")
