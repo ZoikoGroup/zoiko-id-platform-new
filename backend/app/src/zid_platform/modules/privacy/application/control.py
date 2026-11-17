@@ -24,6 +24,7 @@ from zid_context import uuid7
 from zid_platform.modules.privacy.application import model_governance as models
 from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.application import service as v1
+from zid_platform.modules.privacy.domain import biometric_assets as ba
 from zid_platform.modules.privacy.domain import collection as collection_rules
 from zid_platform.modules.privacy.domain import control as rules
 from zid_platform.modules.privacy.domain.model import PrivacyError
@@ -54,6 +55,14 @@ def _row(r: Any) -> dict[str, Any]:
             str(v) if isinstance(v, uuid.UUID) else v.isoformat() if isinstance(v, datetime) else v
         )
     return out
+
+
+@lru_cache(maxsize=1)
+def biometric_classes() -> tuple[ba.AssetClass, ...]:
+    """The biometric asset classes (config/privacy/biometric-asset-classes.yaml; CR-108)."""
+    return ba.parse(
+        yaml.safe_load((CONFIG / "biometric-asset-classes.yaml").read_text(encoding="utf-8")) or {}
+    )
 
 
 @lru_cache(maxsize=1)
@@ -297,7 +306,15 @@ async def open_erasure_job(
         receipt: str | None = None,
         failure: str | None = None,
         due: datetime | None = None,
+        asset_class: str | None = None,
     ) -> None:
+        same = next((t for t in tasks if t["kind"] == kind and t["ref"] == ref), None)
+        if (
+            same is not None
+        ):  # one task per provider: it covers every class of the subject's objects that provider holds
+            if asset_class:
+                same["classes"].add(asset_class)
+            return
         tasks.append(
             {
                 "kind": kind,
@@ -306,11 +323,18 @@ async def open_erasure_job(
                 "receipt": receipt,
                 "failure": failure,
                 "due": due,
+                "classes": {asset_class} if asset_class else set(),
             }
         )
 
-    for e in await store.subject_entries(conn, subject):
+    classes = biometric_classes()
+    entries = sorted(  # B05 deletion order: raw media, then templates, then results, then everything else (stable within a rank)
+        await store.subject_entries(conn, subject),
+        key=lambda x: ba.deletion_rank(classes, x.object_type),
+    )
+    for e in entries:
         ref = f"{e.store}:{e.object_ref}"
+        cls = ba.class_of(classes, e.object_type)
         policy = (
             await store.active_retention_policy(conn, e.retention_policy_code, str(e.tenant_id))
             if e.retention_policy_code
@@ -324,10 +348,10 @@ async def open_erasure_job(
             conn, tenant_id, subject_principal_id=subject, object_type=e.object_type
         ):
             await store.set_entry_status(conn, e.entry_id, "RESTRICTED")
-            add("FIRST_PARTY_STORE", ref, "HELD", failure="LEGAL_HOLD")
+            add("FIRST_PARTY_STORE", ref, "HELD", failure="LEGAL_HOLD", asset_class=cls)
         elif policy is not None and policy.legally_required:
             await store.set_entry_status(conn, e.entry_id, "RESTRICTED")
-            add("FIRST_PARTY_STORE", ref, "HELD", failure="LEGAL_OBLIGATION")
+            add("FIRST_PARTY_STORE", ref, "HELD", failure="LEGAL_OBLIGATION", asset_class=cls)
         elif e.processor_id:
             if scope == "FIRST_PARTY_ONLY":
                 continue
@@ -338,11 +362,12 @@ async def open_erasure_job(
                 e.processor_id,
                 "PENDING",
                 due=now + timedelta(days=sla) if sla is not None else None,
+                asset_class=cls,
             )
         elif scope != "PROVIDERS_ONLY":
             disposer = v1._DISPOSERS.get(e.store)
             if disposer is None:
-                add("FIRST_PARTY_STORE", ref, "FAILED", failure="NO_DISPOSER")
+                add("FIRST_PARTY_STORE", ref, "FAILED", failure="NO_DISPOSER", asset_class=cls)
                 continue
             action = policy.action_on_expiry if policy is not None else "DELETE"
             await disposer(conn, e, action)
@@ -352,6 +377,7 @@ async def open_erasure_job(
                 ref,
                 "ACKNOWLEDGED",
                 receipt=hashlib.sha256(f"{ref}|{action}|{now.isoformat()}".encode()).hexdigest(),
+                asset_class=cls,
             )
     if scope != "PROVIDERS_ONLY":
         erasure = await v1.erase_subject(conn, tenant_id, subject, request_ref=str(job_id))
@@ -377,8 +403,8 @@ async def open_erasure_job(
     for t in tasks:
         await conn.execute(
             text("""
-                INSERT INTO privacy.erasure_task (task_id, tenant_id, job_id, target_kind, target_ref, state, receipt_hash, failure, due_at)
-                VALUES (:id, :t, :j, :k, :r, :s, :h, :f, :d)
+                INSERT INTO privacy.erasure_task (task_id, tenant_id, job_id, target_kind, target_ref, state, receipt_hash, failure, due_at, asset_classes)
+                VALUES (:id, :t, :j, :k, :r, :s, :h, :f, :d, :c)
                 ON CONFLICT (job_id, target_kind, target_ref) DO NOTHING
             """),
             {
@@ -391,6 +417,7 @@ async def open_erasure_job(
                 "h": t["receipt"],
                 "f": t["failure"],
                 "d": t["due"],
+                "c": sorted(t["classes"]),
             },
         )
     await _settle(conn, str(job_id))
@@ -399,6 +426,69 @@ async def open_erasure_job(
         details={"scope": scope, "tasks": len(tasks)},
     )  # fmt: skip
     return await job_view(conn, str(job_id))
+
+
+async def preview_erasure(
+    conn: AsyncConnection, tenant_id: str, *, subject_ref: str, scope: str
+) -> dict[str, Any]:
+    """B05 dry run (CR-108): what an erasure job would do now, in deletion order, WITHOUT doing it. Reads the data map as recorded (it does not
+    rediscover stores), the holds, the retention policies and the processors; writes nothing, deletes nothing, opens no task."""
+    subject = str(uuid.UUID(subject_ref))
+    classes = biometric_classes()
+    entries = sorted(
+        await store.subject_entries(conn, subject),
+        key=lambda x: ba.deletion_rank(classes, x.object_type),
+    )
+    plan: list[dict[str, Any]] = []
+    backup_days: list[int] = []
+    for e in entries:
+        policy = (
+            await store.active_retention_policy(conn, e.retention_policy_code, str(e.tenant_id))
+            if e.retention_policy_code
+            else None
+        )
+        if policy is not None and policy.backup_erasure_window_days is not None:
+            backup_days.append(int(policy.backup_erasure_window_days))
+        item: dict[str, Any] = {
+            "target": f"{e.store}:{e.object_ref}",
+            "object_type": e.object_type,
+            "asset_class": ba.class_of(classes, e.object_type),
+        }
+        if e.status == "DISPOSED":
+            item |= {"action": "ALREADY_DISPOSED"}
+        elif await v1.is_held(
+            conn, tenant_id, subject_principal_id=subject, object_type=e.object_type
+        ):
+            item |= {"action": "HOLD", "why": "LEGAL_HOLD"}
+        elif policy is not None and policy.legally_required:
+            item |= {"action": "HOLD", "why": "LEGAL_OBLIGATION"}
+        elif e.processor_id:
+            if scope == "FIRST_PARTY_ONLY":
+                item |= {"action": "OUT_OF_SCOPE"}
+            else:
+                proc = await registry.processor(conn, e.processor_id)
+                item |= {
+                    "action": "PROVIDER_DELETION",
+                    "provider": e.processor_id,
+                    "sla_days": proc.deletion_sla_days if proc is not None else None,
+                }
+        elif scope == "PROVIDERS_ONLY":
+            item |= {"action": "OUT_OF_SCOPE"}
+        elif e.store not in v1._DISPOSERS:
+            item |= {"action": "CANNOT_DISPOSE", "why": "NO_DISPOSER"}
+        else:
+            item |= {"action": policy.action_on_expiry if policy is not None else "DELETE"}
+        plan.append(item)
+    return {
+        "subject_ref": subject,
+        "scope": scope,
+        "dry_run": True,
+        "plan": plan,
+        "backups": None
+        if scope == "PROVIDERS_ONLY"
+        else {"action": "ATTEST_LAST", "window_days": max(backup_days) if backup_days else None},
+        "statement": "Nothing was deleted. This is what an erasure job would do now, in deletion order, from the data map as recorded.",
+    }
 
 
 async def _settle(conn: AsyncConnection, job_id: str) -> str:
@@ -436,12 +526,24 @@ async def job_view(conn: AsyncConnection, job_id: str) -> dict[str, Any]:
             {"j": _u(job_id)},
         )
     ).all()
-    return {**_row(job), "tasks": [_row(t) for t in tasks]}
+    rows = [_row(t) for t in tasks]
+    return {**_row(job), "tasks": rows, "biometric_classes": ba.class_summary(rows)}
+
+
+async def list_jobs(conn: AsyncConnection, *, limit: int = 50) -> list[dict[str, Any]]:
+    """The tenant's erasure jobs, newest first, each with its tasks and per-class state (CR-108 console)."""
+    ids = (
+        await conn.execute(
+            text("SELECT job_id FROM privacy.erasure_job ORDER BY created_at DESC LIMIT :n"),
+            {"n": limit},
+        )
+    ).all()
+    return [await job_view(conn, str(r.job_id)) for r in ids]
 
 
 async def erasure_proof(conn: AsyncConnection, job_id: str) -> dict[str, Any]:
     v = await job_view(conn, job_id)
-    return rules.proof(v, v["tasks"])
+    return {**rules.proof(v, v["tasks"]), "biometric_classes": v["biometric_classes"]}
 
 
 async def acknowledge_task(
@@ -450,6 +552,20 @@ async def acknowledge_task(
     """An operator attests a task that has no automated receipt (the backup lifecycle). The statement is hashed into the receipt."""
     if not statement.strip():
         raise PrivacyError("STATEMENT_REQUIRED")
+    others = (
+        await conn.execute(
+            text(
+                "SELECT state FROM privacy.erasure_task WHERE job_id = :j AND target_kind <> 'BACKUP'"
+            ),
+            {"j": _u(job_id)},
+        )
+    ).all()
+    problem = ba.backup_problem(r.state for r in others)  # B05: backups are attested last (CR-108)
+    if problem:
+        raise PrivacyError(
+            problem,
+            "the first-party and provider deletions must be settled before the backups are attested",
+        )
     row = (
         await conn.execute(
             text("""
@@ -803,6 +919,37 @@ async def package_view(conn: AsyncConnection, package_id: str) -> dict[str, Any]
     return out
 
 
+async def list_packages(conn: AsyncConnection, *, limit: int = 100) -> list[dict[str, Any]]:
+    """The tenant's DPIA packages, newest first, each with its release state (read without locks; CR-108 workbench)."""
+    rows = (
+        await conn.execute(
+            text("SELECT * FROM privacy.dpia_package ORDER BY created_at DESC LIMIT :n"),
+            {"n": limit},
+        )
+    ).all()
+    now = _now()
+    out = []
+    for p in rows:
+        rel = rules.release_state(
+            state=p.state,
+            approved_until=p.approved_until,
+            risks=p.risks,
+            gates=p.gates,
+            consultation_ref=p.consultation_ref,
+            now=now,
+        )
+        extra = await models.blockers_for(conn, p.model_version)
+        view = _row(p)
+        view.pop("risks", None)
+        view["risk_count"] = len(p.risks)
+        view["gates_signed"] = sorted(
+            f"{g}:{r}" for g, roles in (p.gates or {}).items() for r in roles
+        )
+        view["release"] = {"ready": rel.ready and not extra, "blockers": [*rel.blockers, *extra]}
+        out.append(view)
+    return out
+
+
 async def set_risks(
     conn: AsyncConnection,
     tenant_id: str,
@@ -1101,12 +1248,15 @@ def _breach_view(r: Any, config: dict[str, Any], now: datetime) -> dict[str, Any
 
 async def open_breach(
     conn: AsyncConnection, tenant_id: str, actor: str, *, summary: str, severity: str, jurisdictions: list[str], subjects_estimate: int | None,
-    detected_at: datetime, config: dict[str, Any] | None = None,
+    detected_at: datetime, config: dict[str, Any] | None = None, pause_biometric_capture: bool | None = None,
 ) -> dict[str, Any]:  # fmt: skip
+    """`pause_biometric_capture` None takes the severity default (CR-108: HIGH and CRITICAL pause); the pause takes effect in this transaction."""
+    pause = rules.default_capture_pause(severity, pause_biometric_capture)
     row = (
         await conn.execute(
             text(
-                "INSERT INTO privacy.breach_case (breach_id, tenant_id, summary, severity, jurisdictions, subjects_estimate, detected_at, opened_by) VALUES (:id,:t,:s,:sev,:j,:n,:d,:by) RETURNING *"
+                "INSERT INTO privacy.breach_case (breach_id, tenant_id, summary, severity, jurisdictions, subjects_estimate, detected_at, opened_by, "
+                "capture_state, capture_paused_by, capture_paused_at) VALUES (:id,:t,:s,:sev,:j,:n,:d,:by,:cs,:pby,:pat) RETURNING *"
             ),
             {
                 "id": uuid7(),
@@ -1117,6 +1267,9 @@ async def open_breach(
                 "n": subjects_estimate,
                 "d": detected_at,
                 "by": _u(actor),
+                "cs": "PAUSED" if pause else "NOT_PAUSED",
+                "pby": _u(actor) if pause else None,
+                "pat": _now() if pause else None,
             },
         )
     ).one()
@@ -1128,9 +1281,29 @@ async def open_breach(
         actor=actor,
         target_type="breach_case",
         target_ref=str(row.breach_id),
-        details={"severity": severity},
+        details={"severity": severity, "biometric_capture_paused": pause},
     )
     return _breach_view(row, config if config is not None else breach_config(), _now())
+
+
+async def list_breaches(
+    conn: AsyncConnection,
+    *,
+    open_only: bool = False,
+    config: dict[str, Any] | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """The tenant's breach cases, newest first, with their notification clocks and capture state (CR-108 workbench)."""
+    where = "WHERE state <> 'CLOSED' " if open_only else ""
+    rows = (
+        await conn.execute(
+            text(f"SELECT * FROM privacy.breach_case {where}ORDER BY detected_at DESC LIMIT :n"),
+            {"n": limit},
+        )
+    ).all()
+    cfg = config if config is not None else breach_config()
+    now = _now()
+    return [_breach_view(r, cfg, now) for r in rows]
 
 
 async def get_breach(
@@ -1196,6 +1369,107 @@ async def record_notification(
         details={"jurisdiction": j},
     )
     return await get_breach(conn, breach_id, config)
+
+
+async def _capture(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    breach_id: str,
+    *,
+    action: str,
+    reason: str = "",
+) -> Any:
+    r = (
+        await conn.execute(
+            text("SELECT * FROM privacy.breach_case WHERE breach_id = :b FOR UPDATE"),
+            {"b": _u(breach_id)},
+        )
+    ).first()
+    if r is None:
+        raise PrivacyError("NOT_FOUND", "unknown breach case")
+    problem = rules.capture_problem(
+        case_state=r.state,
+        capture_state=r.capture_state,
+        action=action,
+        actor=actor,
+        paused_by=str(r.capture_paused_by) if r.capture_paused_by else None,
+        reason=reason,
+    )
+    if problem:
+        raise PrivacyError(problem)
+    return r
+
+
+async def pause_capture(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    breach_id: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Containment (WF-04 B09): stop new biometric processing for this tenant in the case's jurisdictions, at once."""
+    await _capture(conn, tenant_id, actor, breach_id, action="PAUSE")
+    await conn.execute(
+        text(
+            "UPDATE privacy.breach_case SET capture_state = 'PAUSED', capture_paused_by = :by, capture_paused_at = now() WHERE breach_id = :b"
+        ),
+        {"by": _u(actor), "b": _u(breach_id)},
+    )
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.breach.capture_paused",
+        actor=actor,
+        target_type="breach_case",
+        target_ref=breach_id,
+    )
+    return await get_breach(conn, breach_id, config)
+
+
+async def release_capture(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    breach_id: str,
+    *,
+    reason: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Lift the containment, by someone other than whoever paused it, with a reason. The case itself stays open."""
+    await _capture(conn, tenant_id, actor, breach_id, action="RELEASE", reason=reason)
+    await conn.execute(
+        text(
+            "UPDATE privacy.breach_case SET capture_state = 'RELEASED', capture_released_by = :by, capture_released_at = now(), "
+            "capture_release_reason = :r WHERE breach_id = :b"
+        ),
+        {"by": _u(actor), "r": reason, "b": _u(breach_id)},
+    )
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.breach.capture_released",
+        actor=actor,
+        target_type="breach_case",
+        target_ref=breach_id,
+    )
+    return await get_breach(conn, breach_id, config)
+
+
+async def capture_paused_breaches(conn: AsyncConnection, country: str) -> list[str]:
+    """The tenant's open breach cases that pause biometric capture in this country (read under the caller's tenant: row-level security)."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT breach_id, state, capture_state, jurisdictions FROM privacy.breach_case "
+                "WHERE capture_state = 'PAUSED' AND state <> 'CLOSED' AND :c = ANY(jurisdictions)"
+            ),
+            {"c": country.upper()},
+        )
+    ).all()
+    return rules.capture_paused_by_breach([dict(r._mapping) for r in rows], country)
 
 
 async def close_breach(

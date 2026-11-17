@@ -2143,6 +2143,9 @@
         "verification_assertion_expired": {
           "$ref": "#/components/messages/verification_assertion_expired"
         },
+        "verification_biometric_method_state_changed": {
+          "$ref": "#/components/messages/verification_biometric_method_state_changed"
+        },
         "verification_case_completed": {
           "$ref": "#/components/messages/verification_case_completed"
         },
@@ -6058,6 +6061,17 @@
         "title": "verification.assertion.stale",
         "x-zid-source": "ZID-GAP-001 DTV-29",
         "x-zid-status": "catalogued"
+      },
+      "verification_biometric_method_state_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.biometric_method.state_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A biometric method scope moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never media or reason text (ZID-DTV-WF-04 section 06).",
+        "title": "verification.biometric_method.state_changed",
+        "x-zid-source": "ZID-DTV-WF-04 BIO-03; CR-107, CR-108",
+        "x-zid-status": "proposed"
       },
       "verification_case_completed": {
         "contentType": "application/cloudevents+json",

@@ -3008,6 +3008,239 @@ export type SuspensionVersion = {
 export type SuspensionImpact = { markets: string[]; entitlements: string[]; certifications: string[]; claims: string[] };
 export type SuspensionApplyIn = { suspension_id: string; scope: SuspensionScope; trigger: SuspensionTrigger; reason: string; evidence_ref: string };
 
+/* ----------------------------------------------------------------------------------- biometric methods (ZID-DTV-WF-04; CR-107, CR-108) */
+
+export type BiometricMethod = "FACE_MATCH" | "LIVENESS";
+export type BiometricState = "OFF" | "PAUSED" | "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+export type BiometricScope = {
+  method: BiometricMethod;
+  engine_id: string;
+  engine_version: string;
+  country: string;
+  purpose: string;
+  /** The one tenant a PILOT_GATED scope runs for; null for every tenant. */
+  pilot_tenant: string | null;
+};
+export type BiometricMethodVersion = {
+  scope_id: string;
+  version: number;
+  state: BiometricState;
+  scope: BiometricScope;
+  dpia_ref: string | null;
+  evaluation_ref: string | null;
+  reason: string;
+  evidence_ref: string;
+  recorded_by: string;
+  proposed_by: string | null;
+  proposal_id: string | null;
+  effective_at: Iso;
+};
+export type BiometricProposal = {
+  proposal_id: string;
+  scope_id: string;
+  scope: BiometricScope;
+  from_version: number;
+  target: "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+  dpia_ref: string | null;
+  evaluation_ref: string | null;
+  reason: string;
+  evidence_ref: string;
+  proposed_by: string;
+  proposed_at: Iso;
+  status: "OPEN" | "APPROVED" | "REJECTED";
+  decided_by: string | null;
+  decided_at: Iso | null;
+  decision_reason: string | null;
+};
+export type BiometricMethodsList = {
+  items: { current: BiometricMethodVersion; versions: BiometricMethodVersion[] }[];
+  open_proposals: BiometricProposal[];
+};
+export type BiometricProposeIn = {
+  scope_id?: string;
+  scope: Omit<BiometricScope, "pilot_tenant"> & { pilot_tenant?: string | null };
+  target: BiometricProposal["target"];
+  dpia_ref?: string | null;
+  evaluation_ref?: string | null;
+  reason: string;
+  evidence_ref: string;
+};
+export type BiometricStepDownIn = { target: "PAUSED" | "OFF" | "LAB_ONLY" | "PILOT_GATED"; reason: string; evidence_ref: string };
+
+export type BiometricMethodAnswer = {
+  method: BiometricMethod;
+  available: boolean;
+  state: BiometricState;
+  reasons: string[];
+  consent_required: boolean;
+  scope_ref: string | null;
+  dpia_package_id: string | null;
+  dpia_blockers: string[];
+  breaches: string[];
+  missing_retention: string[];
+};
+export type BiometricEligibility = {
+  country: string;
+  purpose: string;
+  engine: Record<string, unknown> | null;
+  available_methods: BiometricMethod[];
+  methods: BiometricMethodAnswer[];
+  policy_hash: string;
+  notes: string[];
+};
+
+/* ----------------------------------------------------------------------------------- privacy control plane v2 (ZID-PRI-004; CR-108) */
+
+export type DpiaState = "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+export type DpiaRelease = { ready: boolean; blockers: string[] };
+export type DpiaRisk = {
+  risk_id: string;
+  title: string;
+  mitigation: string;
+  owner: string;
+  inherent_likelihood: number;
+  inherent_impact: number;
+  residual_likelihood: number;
+  residual_impact: number;
+  inherent_score?: number;
+  inherent_band?: string;
+  residual_score?: number;
+  residual_band?: string;
+  problems?: string[];
+};
+export type DpiaPackageSummary = {
+  package_id: string;
+  market: string;
+  product: string;
+  version: string;
+  controller: string;
+  purpose_code: string;
+  provider_service_ref: string | null;
+  model_version: string | null;
+  state: DpiaState;
+  approved_until: Iso | null;
+  consultation_ref: string | null;
+  created_by: string;
+  created_at: Iso;
+  risk_count: number;
+  gates_signed: string[];
+  release: DpiaRelease;
+};
+export type DpiaPackage = Omit<DpiaPackageSummary, "risk_count" | "gates_signed"> & {
+  risks: DpiaRisk[];
+  gates: Record<string, Record<string, { signer: string; evidence_uri: string; signed_at?: string }>>;
+  decision_rationale: string | null;
+  decided_by: string | null;
+};
+export type DpiaPackageIn = {
+  market: string;
+  product: string;
+  version: string;
+  controller: string;
+  purpose_code: string;
+  provider_service_ref?: string | null;
+  model_version?: string | null;
+};
+export type ReleaseGateView = DpiaRelease & {
+  market: string;
+  product: string;
+  version: string;
+  package_id: string | null;
+  gates: Record<string, { name: string; accountable_roles: string[] }>;
+};
+export type BreachClock = { jurisdiction: string; state: "RUNNING" | "OVERDUE" | "NOTIFIED" | "NOT_SET_BY_COUNSEL"; hours: number | null; due_at: Iso | null; notified_at: Iso | null };
+export type BreachCase = {
+  breach_id: string;
+  summary: string;
+  severity: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+  jurisdictions: string[];
+  subjects_estimate: number | null;
+  detected_at: Iso;
+  state: "OPEN" | "CONTAINED" | "CLOSED";
+  capture_state: "NOT_PAUSED" | "PAUSED" | "RELEASED";
+  capture_paused_by: string | null;
+  capture_paused_at: Iso | null;
+  capture_released_by: string | null;
+  capture_released_at: Iso | null;
+  capture_release_reason: string | null;
+  opened_by: string;
+  closed_at: Iso | null;
+  clocks: BreachClock[];
+};
+export type ErasureScope = "ALL" | "PROVIDERS_ONLY" | "FIRST_PARTY_ONLY";
+export type ErasureTask = {
+  task_id: string;
+  target_kind: "PROVIDER" | "FIRST_PARTY_STORE" | "BACKUP";
+  target_ref: string;
+  state: "PENDING" | "ACKNOWLEDGED" | "FAILED" | "HELD";
+  receipt_hash: string | null;
+  failure: string | null;
+  due_at: Iso | null;
+  asset_classes: string[];
+};
+export type ErasureClassState = {
+  asset_class: string;
+  state: "PURGED" | "PENDING" | "HELD" | "FAILED";
+  tasks: number;
+  outstanding: { target_kind: string; target_ref: string; state: string }[];
+};
+export type ErasureJob = {
+  job_id: string;
+  subject_ref: string;
+  scope: ErasureScope;
+  reason: string;
+  legal_basis: string;
+  state: "PENDING" | "PARTIAL" | "COMPLETE" | "FAILED" | "HELD";
+  created_at: Iso;
+  completed_at: Iso | null;
+  tasks: ErasureTask[];
+  biometric_classes: ErasureClassState[];
+};
+export type ErasurePlanItem = {
+  target: string;
+  object_type: string;
+  asset_class: string | null;
+  action: string;
+  why?: string;
+  provider?: string;
+  sla_days?: number | null;
+};
+export type ErasurePreview = {
+  subject_ref: string;
+  scope: ErasureScope;
+  dry_run: true;
+  plan: ErasurePlanItem[];
+  backups: { action: "ATTEST_LAST"; window_days: number | null } | null;
+  statement: string;
+};
+/** The privacy-safe verification session as the person sees it (ZID-PRI-004 section 07; WF-04 B01, B02; CR-108). Never an image or a score. */
+export type SessionAlternative = { id: string; label: string; biometric: false };
+export type SubjectSessionStatus = {
+  session_ref: string;
+  state: "OPEN" | "CANCELED";
+  capture_enabled: boolean;
+  route: "CAMERA" | "ALTERNATIVE" | "NONE";
+  blockers: string[];
+  purpose_decision_id: string;
+  purpose_code: string;
+  region: string | null;
+  alternative_mode: string | null;
+  notice: { notice_version: string; content_uri: string | null; content_hash: string | null; acknowledged: boolean } | null;
+  alternatives_available: boolean;
+  alternatives: SessionAlternative[];
+  statement: string;
+  checked_at: Iso;
+};
+export type BreachIn = {
+  summary: string;
+  severity: BreachCase["severity"];
+  jurisdictions: string[];
+  subjects_estimate?: number | null;
+  detected_at: Iso;
+  /** Omitted: HIGH and CRITICAL pause biometric capture by default (CR-108). */
+  pause_biometric_capture?: boolean | null;
+};
+
 export type IssuerStatement = {
   issuer_id: string;
   seq: number;

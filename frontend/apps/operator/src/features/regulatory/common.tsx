@@ -19,6 +19,7 @@ export const REG = {
   matrix: ["regulatory", "conformance-matrix"],
   runs: ["regulatory", "conformance-runs"],
   overlays: ["regulatory", "privacy-overlays"],
+  biometricMethods: ["regulatory", "biometric-methods"],
 } as const;
 
 /** What a refusal from the regulatory API means, in words an operator can act on. Unknown codes fall back to the server's message. */

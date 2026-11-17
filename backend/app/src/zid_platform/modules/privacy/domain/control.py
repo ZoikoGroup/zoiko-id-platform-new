@@ -292,6 +292,56 @@ def breach_clocks(
     return out
 
 
+# ------------------------------------------------------------------------------------------------- breach containment (CR-108)
+
+# PROVISIONAL (CR-108): a HIGH or CRITICAL breach pauses biometric capture unless the person opening it says otherwise; the owners may change it.
+PAUSE_BY_DEFAULT = frozenset({"HIGH", "CRITICAL"})
+MIN_RELEASE_REASON = 10
+
+
+def default_capture_pause(severity: str, requested: bool | None) -> bool:
+    """Whether a new case pauses biometric capture: what the person asked for, or the severity default when they did not say."""
+    return requested if requested is not None else severity in PAUSE_BY_DEFAULT
+
+
+def capture_problem(
+    *,
+    case_state: str,
+    capture_state: str,
+    action: str,
+    actor: str,
+    paused_by: str | None,
+    reason: str = "",
+) -> str | None:
+    """Why this capture action must be refused, or None. NOT_PAUSED -> PAUSED -> RELEASED only; a closed case changes nothing; the release is by
+    another person, with a reason."""
+    if case_state == "CLOSED":
+        return "BREACH_CLOSED"
+    if action == "PAUSE":
+        return None if capture_state == "NOT_PAUSED" else "CAPTURE_ALREADY_PAUSED_OR_RELEASED"
+    if action == "RELEASE":
+        if capture_state != "PAUSED":
+            return "CAPTURE_NOT_PAUSED"
+        if actor == paused_by:
+            return "RELEASED_BY_WHOEVER_PAUSED"
+        if len(reason.strip()) < MIN_RELEASE_REASON:
+            return "RELEASE_REASON_REQUIRED"
+        return None
+    return "CAPTURE_ACTION_UNKNOWN"
+
+
+def capture_paused_by_breach(cases: Iterable[Mapping[str, Any]], country: str) -> list[str]:
+    """The open cases that pause biometric capture in this country: not CLOSED, capture PAUSED, the country among their jurisdictions."""
+    c = country.upper()
+    return sorted(
+        str(x["breach_id"])
+        for x in cases
+        if x.get("state") != "CLOSED"
+        and x.get("capture_state") == "PAUSED"
+        and c in {str(j).upper() for j in x.get("jurisdictions") or ()}
+    )
+
+
 # ------------------------------------------------------------------------------------------------------------------------ reviews
 
 

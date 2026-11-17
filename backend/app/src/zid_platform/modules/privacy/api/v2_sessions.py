@@ -3,6 +3,7 @@
     POST /v2/verification-sessions                         [purpose_id, region, subject_ref, assurance_goal, alternative_mode] default deny
     POST /v2/verification-sessions/{id}/consent-records    only where a valid consent-based route applies, only by the person
     POST /v2/verification-sessions/{id}/cancel             stops capture; nothing more is collected
+    POST /v2/verification-sessions/{id}/route              the person chooses a non-biometric alternative, or the camera again (CR-108, WF-04 B02)
     GET  /v2/verification-sessions/{id}/subject-status     whether capture may happen NOW, recomputed from live records, and why not
 (notice acknowledgments and alternatives are in privacy/api/v2.py)
 
@@ -76,6 +77,28 @@ async def session_consent(
             conn, _tenant(caller), me, session_ref, **body.model_dump()
         )
 
+    return {**_ids(), **await _run(request, caller, None, "", go)}
+
+
+class SessionRouteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: str = Field(
+        pattern=r"^[A-Z][A-Z0-9_]{1,63}$"
+    )  # an alternative id, or NONE for the camera route
+
+
+@router.post("/v2/verification-sessions/{session_ref}/route")
+async def choose_route(
+    session_ref: str, body: SessionRouteIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await sessions.choose_alternative(
+            conn, _tenant(caller), me, session_ref, mode=body.mode
+        )
+
+    # the person chooses their own route: no administrator role is involved
     return {**_ids(), **await _run(request, caller, None, "", go)}
 
 

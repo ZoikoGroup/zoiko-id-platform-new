@@ -642,7 +642,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Breaches
+         * @description The tenant's breach cases with clocks and capture state (CR-108).
+         */
+        get: operations["list_breaches_v2_privacy_breaches_get"];
         put?: never;
         /** Open Breach */
         post: operations["open_breach_v2_privacy_breaches_post"];
@@ -663,6 +667,46 @@ export interface paths {
         get: operations["get_breach_v2_privacy_breaches__breach_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Capture
+         * @description Containment (WF-04 B09, CR-108): no biometric method runs for this tenant in the case's jurisdictions until it is released or closed.
+         */
+        post: operations["pause_capture_v2_privacy_breaches__breach_id__biometric_capture_pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Capture
+         * @description Lift the containment: by someone other than whoever paused it, with a reason (CR-108).
+         */
+        post: operations["release_capture_v2_privacy_breaches__breach_id__biometric_capture_release_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -744,7 +788,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Packages
+         * @description The tenant's DPIA packages with their release state (the workbench list; CR-108).
+         */
+        get: operations["list_packages_v2_privacy_dpia_packages_get"];
         put?: never;
         /** Create Package */
         post: operations["create_package_v2_privacy_dpia_packages_post"];
@@ -829,7 +877,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Jobs
+         * @description The tenant's erasure jobs, newest first, with their per-class state (CR-108).
+         */
+        get: operations["list_jobs_v2_privacy_erasure_jobs_get"];
         put?: never;
         /** Open Job */
         post: operations["open_job_v2_privacy_erasure_jobs_post"];
@@ -884,6 +936,26 @@ export interface paths {
         put?: never;
         /** Attest */
         post: operations["attest_v2_privacy_erasure_jobs__job_id__tasks__task_id__attest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/erasure-jobs:preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Job
+         * @description B05 dry run (CR-108): what an erasure would dispose, hold or send to providers, in deletion order. Changes nothing.
+         */
+        post: operations["preview_job_v2_privacy_erasure_jobs_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1596,6 +1668,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verification-sessions/{session_ref}/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose Route */
+        post: operations["choose_route_v2_verification_sessions__session_ref__route_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verification-sessions/{session_ref}/subject-status": {
         parameters: {
             query?: never;
@@ -1866,6 +1955,8 @@ export interface components {
             detected_at: string;
             /** Jurisdictions */
             jurisdictions: string[];
+            /** Pause Biometric Capture */
+            pause_biometric_capture?: boolean | null;
             /**
              * Severity
              * @enum {string}
@@ -1875,6 +1966,11 @@ export interface components {
             subjects_estimate?: number | null;
             /** Summary */
             summary: string;
+        };
+        /** PrivV2CaptureReleaseIn */
+        PrivV2CaptureReleaseIn: {
+            /** Reason */
+            reason: string;
         };
         /** PrivV2ChangeIn */
         PrivV2ChangeIn: {
@@ -1904,6 +2000,17 @@ export interface components {
             legal_basis: string;
             /** Reason */
             reason: string;
+            /**
+             * Scope
+             * @default ALL
+             * @enum {string}
+             */
+            scope: "ALL" | "PROVIDERS_ONLY" | "FIRST_PARTY_ONLY";
+            /** Subject Ref */
+            subject_ref: string;
+        };
+        /** PrivV2ErasurePreviewIn */
+        PrivV2ErasurePreviewIn: {
             /**
              * Scope
              * @default ALL
@@ -2326,6 +2433,11 @@ export interface components {
             subject_ref?: string | null;
             /** Subregion */
             subregion?: string | null;
+        };
+        /** SessionRouteIn */
+        SessionRouteIn: {
+            /** Mode */
+            mode: string;
         };
         /** TaskIn */
         TaskIn: {
@@ -3785,6 +3897,39 @@ export interface operations {
             };
         };
     };
+    list_breaches_v2_privacy_breaches_get: {
+        parameters: {
+            query?: {
+                open_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     open_breach_v2_privacy_breaches_post: {
         parameters: {
             query?: never;
@@ -3830,6 +3975,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_capture_v2_privacy_breaches__breach_id__biometric_capture_pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                breach_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_capture_v2_privacy_breaches__breach_id__biometric_capture_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                breach_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2CaptureReleaseIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3991,6 +4206,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_packages_v2_privacy_dpia_packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -4174,6 +4411,28 @@ export interface operations {
             };
         };
     };
+    list_jobs_v2_privacy_erasure_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     open_job_v2_privacy_erasure_jobs_post: {
         parameters: {
             query?: never;
@@ -4288,6 +4547,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PrivV2AttestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_job_v2_privacy_erasure_jobs_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2ErasurePreviewIn"];
             };
         };
         responses: {
@@ -5740,6 +6034,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_route_v2_verification_sessions__session_ref__route_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionRouteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -5,12 +5,15 @@
 - `register_personal_data(...)` records where a subject's personal data lives (the data map), and
   `register_store(store, disposer=..., exporter=...)` how that store deletes and exports it
 - `pack_transfer_mechanisms(pack_id)` the transfer mechanisms a jurisdiction pack supports
+- `release_gate(...)` / `capture_paused_breaches(conn, country)` the DPIA release gate and the breach containment a biometric method obeys, and
+  `missing_biometric_retention(conn, method, purpose)` the asset classes with no retention period (CR-107, CR-108)
 - `privacy_pass` the worker's retention sweep and deadline monitor
 """
 
 from __future__ import annotations
 
-from zid_platform.modules.privacy.application.control import release_gate
+from zid_platform.modules.privacy.application.biometric_retention import missing_biometric_retention
+from zid_platform.modules.privacy.application.control import capture_paused_breaches, release_gate
 from zid_platform.modules.privacy.application.restore import (
     Reconciliation,
     mark_restored,
@@ -35,11 +38,13 @@ __all__ = [
     "PrivacyError",
     "ProcessingDecision",
     "Reconciliation",
+    "capture_paused_breaches",
     "check_processing",
     "configure_enforcement",
     "discover_subject",
     "enforce_processing",
     "mark_restored",
+    "missing_biometric_retention",
     "pack_transfer_mechanisms",
     "privacy_pass",
     "reconcile_after_restore",

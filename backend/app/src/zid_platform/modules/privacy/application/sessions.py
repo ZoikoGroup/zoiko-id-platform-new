@@ -134,11 +134,29 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
     if s.alternative_mode and s.alternative_mode != "NONE":
         route = "ALTERNATIVE"
         blockers.append("NON_BIOMETRIC_ALTERNATIVE_CHOSEN")
+    notice: dict[str, Any] | None = None
     if s.notice_version:
         code, _, version = s.notice_version.partition("@")
         acks = await ctl.acknowledged(conn, ref)
-        if not any(a["notice_code"] == code and str(a["notice_version"]) == version for a in acks):
+        acknowledged = any(
+            a["notice_code"] == code and str(a["notice_version"]) == version for a in acks
+        )
+        if not acknowledged:
             blockers.append("NOTICE_NOT_ACKNOWLEDGED")
+        n = (
+            await conn.execute(
+                text(
+                    "SELECT notice_code, version, content_uri, content_hash FROM privacy.notice WHERE notice_code = :c AND version::text = :v"
+                ),
+                {"c": code, "v": version},
+            )
+        ).first()
+        notice = {  # WF-04 B01: the exact notice the person is asked to read, and whether they have
+            "notice_version": s.notice_version,
+            "content_uri": n.content_uri if n is not None else None,
+            "content_hash": n.content_hash if n is not None else None,
+            "acknowledged": acknowledged,
+        }
     if s.state == "OPEN":
         live = await v1.check_processing(
             conn, tenant_id, activity_code=s.activity_code, purpose_code=s.purpose_code,
@@ -155,6 +173,10 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
         "route": route if enabled or route == "ALTERNATIVE" else "NONE",
         "blockers": sorted(set(blockers)),
         "purpose_decision_id": str(s.decision_id),
+        "purpose_code": s.purpose_code,
+        "region": s.country,
+        "alternative_mode": s.alternative_mode,
+        "notice": notice,
         "alternatives_available": True,
         "alternatives": [
             {"id": m["id"], "label": m["label"], "biometric": False}
@@ -163,6 +185,35 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
         "statement": STATEMENT,
         "checked_at": datetime.now(UTC).isoformat(),
     }
+
+
+async def choose_alternative(
+    conn: AsyncConnection, tenant_id: str, actor: str, ref: str, *, mode: str
+) -> dict[str, Any]:
+    """WF-04 B02 (CR-108): the person chooses a non-biometric route, or goes back to the camera (NONE). No reason is asked for: a person never has
+    to disclose a disability or a medical condition to be offered another way, and the choice is never scored against them."""
+    s = await _load(conn, ref, lock=True)
+    if s.state != "OPEN":
+        raise PrivacyError("SESSION_CANCELED")
+    ids = {m["id"] for m in ctl.alternatives_config()}
+    if mode != "NONE" and mode not in ids:
+        raise PrivacyError("ALTERNATIVE_NOT_OFFERED", mode)
+    if s.subject_principal_id is not None and actor not in (
+        str(s.subject_principal_id),
+        str(s.created_by),
+    ):
+        raise PrivacyError("SESSION_NOT_YOURS")
+    await conn.execute(
+        text(
+            "UPDATE privacy.verification_session SET alternative_mode = :m WHERE session_ref = :r"
+        ),
+        {"m": None if mode == "NONE" else mode, "r": ref},
+    )
+    await v1._audit(
+        conn, tenant_id, None, "privacy.verification_session.route_chosen", actor=actor, target_type="verification_session",
+        target_ref=ref, details={"mode": mode},
+    )  # fmt: skip
+    return await status(conn, tenant_id, ref)
 
 
 async def cancel(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, Any]:
