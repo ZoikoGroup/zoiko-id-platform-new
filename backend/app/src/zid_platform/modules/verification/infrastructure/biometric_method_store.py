@@ -17,11 +17,11 @@ from zid_platform.modules.verification.domain import biometric_methods as bm
 _SCOPE = "method, engine_id, engine_version, country, purpose, tenant_id"
 _STATE_COLUMNS = (
     f"scope_id, version, {_SCOPE}, state, dpia_ref, evaluation_ref, reason, evidence_ref, recorded_by, proposed_by, "
-    "proposal_id, effective_at, recorded_at"
+    "proposal_id, effective_at, recorded_at, exposure_percent, decision_hash"
 )
 _PROPOSAL_COLUMNS = (
     f"proposal_id, scope_id, {_SCOPE}, from_version, target, dpia_ref, evaluation_ref, reason, evidence_ref, proposed_by, "
-    "proposed_at, status, decided_by, decided_at, decision_reason"
+    "proposed_at, status, decided_by, decided_at, decision_reason, exposure_percent"
 )
 
 
@@ -51,6 +51,8 @@ def _record(r: Any) -> bm.Record:
         proposal_id=str(r.proposal_id) if r.proposal_id is not None else None,
         effective_at=r.effective_at,
         recorded_at=r.recorded_at,
+        exposure_percent=int(r.exposure_percent),
+        decision_hash=r.decision_hash,
     )
 
 
@@ -71,6 +73,7 @@ def _proposal(r: Any) -> bm.Proposal:
         decided_by=r.decided_by,
         decided_at=r.decided_at,
         decision_reason=r.decision_reason,
+        exposure_percent=int(r.exposure_percent),
     )
 
 
@@ -177,7 +180,7 @@ async def insert_proposal(conn: AsyncConnection, p: bm.Proposal) -> None:
     await conn.execute(
         text(
             f"INSERT INTO verify.biometric_method_proposal ({_PROPOSAL_COLUMNS}) VALUES (:id, :sid, :method, :engine_id, "
-            ":engine_version, :country, :purpose, :tenant_id, :fv, :target, :dpia, :ev, :r, :e, :by, :at, 'OPEN', NULL, NULL, NULL)"
+            ":engine_version, :country, :purpose, :tenant_id, :fv, :target, :dpia, :ev, :r, :e, :by, :at, 'OPEN', NULL, NULL, NULL, :xp)"
         ),
         {
             "id": uuid.UUID(p.proposal_id),
@@ -191,6 +194,7 @@ async def insert_proposal(conn: AsyncConnection, p: bm.Proposal) -> None:
             "e": p.evidence_ref,
             "by": p.proposed_by,
             "at": p.proposed_at,
+            "xp": p.exposure_percent,
         },
     )
 
@@ -215,7 +219,7 @@ async def insert_state(conn: AsyncConnection, r: bm.Record) -> None:
     await conn.execute(
         text(
             f"INSERT INTO verify.biometric_method_state ({_STATE_COLUMNS}) VALUES (:sid, :v, :method, :engine_id, :engine_version, "
-            ":country, :purpose, :tenant_id, :state, :dpia, :ev, :r, :e, :by, :pby, :pid, :ea, :at)"
+            ":country, :purpose, :tenant_id, :state, :dpia, :ev, :r, :e, :by, :pby, :pid, :ea, :at, :xp, :dh)"
         ),
         {
             "sid": r.scope_id,
@@ -231,5 +235,7 @@ async def insert_state(conn: AsyncConnection, r: bm.Record) -> None:
             "pid": uuid.UUID(r.proposal_id) if r.proposal_id else None,
             "ea": r.effective_at,
             "at": r.recorded_at,
+            "xp": r.exposure_percent,
+            "dh": r.decision_hash,
         },
     )

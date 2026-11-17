@@ -657,6 +657,8 @@ export function createCellApi(t: Transport) {
           get<M.ReleaseGateView>(`/v2/privacy/release-gates/${seg(market)}/${seg(product)}/${seg(version)}`),
         breaches: (openOnly = false) => get<M.Items<M.BreachCase>>("/v2/privacy/breaches", { open_only: openOnly ? "true" : undefined }),
         breach: (id: string) => get<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}`),
+        /** B09 audit dossier (CR-110): the case, clocks, capture timeline and audit trail; codes and hashes only. */
+        breachDossier: (id: string) => get<Record<string, unknown>>(`/v2/privacy/breaches/${seg(id)}/dossier`),
         openBreach: (body: M.BreachIn) => post<M.BreachCase>("/v2/privacy/breaches", body),
         notifyBreach: (id: string, body: { jurisdiction: string; notified_at: string; reference: string }) =>
           post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/notifications`, body),
@@ -678,6 +680,28 @@ export function createCellApi(t: Transport) {
           }),
         chooseRoute: (ref: string, mode: string) => post<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/route`, { mode }),
         cancelSession: (ref: string) => post<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/cancel`),
+        assistedQueue: (state?: M.AssistedItem["assisted_state"]) => get<M.Items<M.AssistedItem>>("/v2/privacy/assisted-routes", { state }),
+        claimAssisted: (ref: string) => post<{ session_ref: string; assisted_state: string }>(`/v2/verification-sessions/${seg(ref)}/assisted:claim`),
+        completeAssisted: (ref: string, body: { done: boolean; outcome_ref?: string | null; reason_code?: string | null }) =>
+          post<{ session_ref: string; assisted_state: string }>(`/v2/verification-sessions/${seg(ref)}/assisted:complete`, body),
+        reviews: (state?: M.ReviewState) => get<M.Items<M.DecisionReview>>("/v2/privacy/reviews", { state }),
+        myReviews: () => get<M.Items<M.MyReview>>("/v2/privacy/reviews/mine"),
+        models: () => get<M.Items<M.ModelVersion>>("/v2/privacy/models"),
+        oversight: () => get<M.BiometricOversight>("/v2/privacy/biometric-oversight"),
+        transfers: () => get<M.Items<M.TransferLedgerEntry>>("/v2/privacy/transfer-decisions"),
+        checkTransfer: (body: M.TransferIn) => post<Record<string, unknown>>("/v2/privacy/transfer-decisions", body),
+        changes: (pendingOnly = false) => get<M.Items<M.SubprocessorChange>>("/v2/privacy/subprocessor-changes", { pending_only: pendingOnly ? "true" : undefined }),
+        notifyChange: (body: { processor_id: string; kind: M.SubprocessorChangeKind; detail: string; notified_at: string }) =>
+          post<Record<string, unknown>>("/v2/privacy/subprocessor-changes", body),
+        decideChange: (id: string, approve: boolean) => post<Record<string, unknown>>(`/v2/privacy/subprocessor-changes/${seg(id)}:decide`, { approve }),
+        registerModel: (body: { model_ref: string; version: string; kind: M.ModelKind; provider_service_ref?: string | null; live_features?: string[] }) =>
+          post<Record<string, unknown>>("/v2/privacy/models", body),
+        recordEvaluation: (body: M.ModelEvaluationIn) => post<Record<string, unknown>>("/v2/privacy/model-evaluations", body),
+        promoteModel: (ref: string, version: string) => post<Record<string, unknown>>(`/v2/privacy/models/${seg(ref)}/versions/${seg(version)}:promote`),
+        decideReview: (id: string, body: { outcome: "UPHELD" | "OVERTURNED" | "CORRECTED"; rationale: string; correction_ref?: string | null }) =>
+          post<M.DecisionReview>(`/v2/privacy/reviews/${seg(id)}/decisions`, body),
+        /** CR-109: a third person confirms a proposed reversal, or sends it back. */
+        checkReview: (id: string, body: { confirm: boolean; note: string }) => post<M.DecisionReview>(`/v2/privacy/reviews/${seg(id)}/checks`, body),
         erasureJobs: () => get<M.Items<M.ErasureJob>>("/v2/privacy/erasure-jobs"),
         erasureJob: (id: string) => get<M.ErasureJob>(`/v2/privacy/erasure-jobs/${seg(id)}`),
         /** B05 dry run: what an erasure would dispose, hold or send to providers, in deletion order. Changes nothing. */

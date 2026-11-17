@@ -353,3 +353,23 @@ def review_problem(requested_by: str, reviewer: str, rationale: str, outcome: st
     if not rationale.strip():
         return "RATIONALE_REQUIRED"
     return None
+
+
+# PROVISIONAL (CR-109): reversing a contested decision is a material change and needs a third person; upholding it does not.
+NEEDS_CHECKER = frozenset({"OVERTURNED", "CORRECTED"})
+
+
+def checker_problem(
+    *, state: str, requested_by: str, reviewer: str | None, checker: str, note: str
+) -> str | None:
+    """Why this confirmation must be refused, or None. Only a proposal waiting for a checker; the checker is neither the requester nor the
+    reviewer; a note is required either way."""
+    if state != "AWAITING_CHECKER":
+        return "REVIEW_NOT_AWAITING_CHECKER"
+    if checker == requested_by:
+        return "CHECKER_IS_REQUESTER"
+    if checker == reviewer:
+        return "CHECKER_IS_REVIEWER"
+    if not note.strip():
+        return "CHECKER_NOTE_REQUIRED"
+    return None

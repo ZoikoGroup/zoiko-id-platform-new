@@ -255,3 +255,197 @@ def test_a_class_without_a_tier_is_refused() -> None:
                 ]
             }
         )
+
+
+# ------------------------------------------------------------------------------------------------------------- model evidence (CR-109)
+
+
+def test_method_kinds_map_to_model_kinds() -> None:
+    from zid_platform.modules.privacy.application.model_governance import METHOD_KIND
+    from zid_platform.modules.privacy.domain.models import KINDS
+
+    assert METHOD_KIND == {"FACE_MATCH": "face_match", "LIVENESS": "pad"}
+    assert set(METHOD_KIND.values()) <= set(KINDS)
+
+
+# ------------------------------------------------------------------------------------------------------------- review checker (CR-109, B08)
+
+
+def _check(**over: Any) -> str | None:
+    args: dict[str, Any] = {
+        "state": "AWAITING_CHECKER",
+        "requested_by": "req",
+        "reviewer": "rev",
+        "checker": "chk",
+        "note": "agreed",
+    }
+    args.update(over)
+    return rules.checker_problem(**args)
+
+
+def test_only_a_reversal_needs_a_checker() -> None:  # QA-032
+    assert rules.NEEDS_CHECKER == {"OVERTURNED", "CORRECTED"}
+    assert "UPHELD" not in rules.NEEDS_CHECKER
+
+
+def test_the_checker_is_a_third_person() -> None:  # QA-031
+    assert _check() is None
+    assert _check(checker="req") == "CHECKER_IS_REQUESTER"
+    assert _check(checker="rev") == "CHECKER_IS_REVIEWER"
+
+
+def test_a_check_needs_a_waiting_proposal_and_a_note() -> None:
+    assert _check(state="OPEN") == "REVIEW_NOT_AWAITING_CHECKER"
+    assert _check(state="OVERTURNED") == "REVIEW_NOT_AWAITING_CHECKER"
+    assert _check(note="  ") == "CHECKER_NOTE_REQUIRED"
+
+
+# ------------------------------------------------------------------------------------------------------------- fairness state (B07, CR-110)
+
+
+def _measures() -> dict[str, Any]:
+    m = {"value": 0.01, "ci_low": 0.005, "ci_high": 0.02}
+    return {"fmr": m, "fnmr": m, "failure_to_acquire": m}
+
+
+def _eval(**over: Any) -> dict[str, Any]:
+    from datetime import UTC, datetime
+
+    e: dict[str, Any] = {
+        "independent": True,
+        "cohorts": 4,
+        "metrics": _measures(),
+        "accessible_alternative_confirmed": True,
+        "created_at": datetime.now(UTC),
+    }
+    e.update(over)
+    return e
+
+
+def test_fairness_states() -> None:  # QA-016 to QA-019
+    from datetime import UTC, datetime, timedelta
+
+    from zid_platform.modules.privacy.domain import models as mr
+
+    now = datetime.now(UTC)
+    assert mr.fairness_state("face_match", None, now=now)[0] == "NOT_RUN"
+    assert (
+        mr.fairness_state("face_match", _eval(created_at=now - timedelta(days=400)), now=now)[0]
+        == "REEVALUATION_DUE"
+    )
+    assert mr.fairness_state("face_match", _eval(cohorts=1), now=now)[0] == "DATA_INSUFFICIENT"
+    assert (
+        mr.fairness_state("face_match", _eval(metrics={"fmr": _measures()["fmr"]}), now=now)[0]
+        == "DATA_INSUFFICIENT"
+    )
+    assert mr.fairness_state("face_match", _eval(independent=False), now=now) == (
+        "FAIL",
+        ["EVALUATION_NOT_INDEPENDENT"],
+    )
+    flagged = {**_measures(), "disparity_flagged": True}
+    assert mr.fairness_state("face_match", _eval(metrics=flagged), now=now) == (
+        "FAIL",
+        ["COHORT_DISPARITY_FLAGGED"],
+    )
+    assert mr.fairness_state("face_match", _eval(), now=now) == ("PASS_WITH_LIMITS", [])
+
+
+# ------------------------------------------------------------------------------------------------------------- reauthorization (BIO-20, CR-110)
+
+
+def test_a_dpia_is_flagged_once_within_its_reassessment_window() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from zid_platform.modules.privacy.application.reauthorization import (
+        REASSESSMENT_WINDOW,
+        due_for_reassessment,
+    )
+
+    now = datetime.now(UTC)
+    assert due_for_reassessment(now + REASSESSMENT_WINDOW - timedelta(days=1), None, now=now)
+    assert due_for_reassessment(
+        now - timedelta(days=1), None, now=now
+    )  # already lapsed and never flagged
+    assert not due_for_reassessment(now + REASSESSMENT_WINDOW + timedelta(days=1), None, now=now)
+    assert not due_for_reassessment(now + timedelta(days=1), now, now=now)  # flagged already
+    assert not due_for_reassessment(None, None, now=now)
+
+
+# ------------------------------------------------------------------------------------------------------------- ecosystem use cases (BIO-19, CR-110)
+
+
+def test_shipped_use_cases_are_not_certified_until_signed() -> None:
+    from datetime import date
+
+    from zid_platform.modules.privacy.domain import biometric_use_cases as uc
+
+    cases = uc.parse(
+        yaml.safe_load((CONFIG / "biometric-use-cases.yaml").read_text(encoding="utf-8"))
+    )
+    today = date(2026, 11, 17)
+    assert uc.problems(cases, "ZOIKO_ROOMS_RENTER_IDENTITY", today=today) == [
+        "USE_CASE_NOT_CERTIFIED:ZOIKO_ROOMS_RENTER_IDENTITY"
+    ]
+    assert uc.problems(cases, "ZOIKORUM_PROFESSIONAL_IDENTITY", today=today) == [
+        "USE_CASE_NOT_CERTIFIED:ZOIKORUM_PROFESSIONAL_IDENTITY"
+    ]
+    assert (
+        uc.problems(cases, "IDENTITY_VERIFICATION", today=today) == []
+    )  # an ordinary tenant purpose is not affected
+
+
+def test_a_signed_use_case_counts_from_its_effective_date() -> None:
+    from datetime import date
+
+    from zid_platform.modules.privacy.domain import biometric_use_cases as uc
+
+    doc = {
+        "use_cases": [
+            {
+                "id": "ROOMS",
+                "consumer": "zoiko-rooms",
+                "purposes": ["ROOMS_ID"],
+                "acceptance": {"approval_ref": "SIGN-1", "effective_from": "2026-12-01"},
+            }
+        ]
+    }
+    cases = uc.parse(doc)
+    assert uc.problems(cases, "ROOMS_ID", today=date(2026, 11, 17)) == [
+        "USE_CASE_NOT_YET_EFFECTIVE:ROOMS"
+    ]
+    assert uc.problems(cases, "ROOMS_ID", today=date(2026, 12, 2)) == []
+    with pytest.raises(uc.UseCaseError):  # one owner per purpose
+        uc.parse({"use_cases": [doc["use_cases"][0], {**doc["use_cases"][0], "id": "OTHER"}]})
+
+
+def test_one_products_approval_never_serves_anothers_purpose() -> None:  # QA-028
+    from dataclasses import replace
+
+    from zid_platform.modules.verification.domain import biometric_methods as bm
+
+    now = __import__("datetime").datetime.now(__import__("datetime").UTC)
+    rooms = bm.Scope(
+        bm.Method.FACE_MATCH, "veriff", "2026.11", "GB", "ZOIKO_ROOMS_RENTER_IDENTITY", None
+    )
+    rec = bm.Record(
+        "rooms",
+        3,
+        rooms,
+        bm.State.PRODUCTION_ELIGIBLE,
+        "D",
+        "E",
+        "approved after review",
+        "T",
+        "ben",
+        "ana",
+        "p",
+        now,
+        now,
+    )
+    call = bm.Call(
+        bm.Method.FACE_MATCH, "veriff", "2026.11", "GB", "ZOIKO_ROOMS_RENTER_IDENTITY", "t1"
+    )
+    assert bm.availability([rec], call).available
+    assert not bm.availability(
+        [rec], replace(call, purpose="ZOIKORUM_PROFESSIONAL_IDENTITY")
+    ).available

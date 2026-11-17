@@ -1576,6 +1576,9 @@
         "privacy_backup_erasure_completed": {
           "$ref": "#/components/messages/privacy_backup_erasure_completed"
         },
+        "privacy_biometric_deletion_confirmed": {
+          "$ref": "#/components/messages/privacy_biometric_deletion_confirmed"
+        },
         "privacy_consent_given": {
           "$ref": "#/components/messages/privacy_consent_given"
         },
@@ -1585,11 +1588,17 @@
         "privacy_data_corrected": {
           "$ref": "#/components/messages/privacy_data_corrected"
         },
+        "privacy_decision_changed": {
+          "$ref": "#/components/messages/privacy_decision_changed"
+        },
         "privacy_deletion_completed": {
           "$ref": "#/components/messages/privacy_deletion_completed"
         },
         "privacy_deletion_started": {
           "$ref": "#/components/messages/privacy_deletion_started"
+        },
+        "privacy_dpia_reassessment_due": {
+          "$ref": "#/components/messages/privacy_dpia_reassessment_due"
         },
         "privacy_legal_hold_applied": {
           "$ref": "#/components/messages/privacy_legal_hold_applied"
@@ -2145,6 +2154,9 @@
         },
         "verification_biometric_method_state_changed": {
           "$ref": "#/components/messages/verification_biometric_method_state_changed"
+        },
+        "verification_biometric_policy_blocked": {
+          "$ref": "#/components/messages/verification_biometric_policy_blocked"
         },
         "verification_case_completed": {
           "$ref": "#/components/messages/verification_case_completed"
@@ -5105,6 +5117,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_biometric_deletion_confirmed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.biometric.deletion_confirmed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A biometric asset class of an erasure job is purged: its stores, its providers and the backups all acknowledged. Job id, class and the receipts commitment only, never content (ZID-DTV-WF-04 section 19).",
+        "title": "privacy.biometric.deletion_confirmed",
+        "x-zid-source": "ZID-DTV-WF-04 B05; CR-110",
+        "x-zid-status": "proposed"
+      },
       "privacy_consent_given": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.consent.given.v1",
@@ -5138,6 +5161,17 @@
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
       },
+      "privacy_decision_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.decision.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A contested decision was overturned or corrected after an independent review and a checker; the review id, the decision reference, the outcome and the correction reference only. Whoever relied on the decision must re-read it (ZID-DTV-WF-04 section 19 decision.changed).",
+        "title": "privacy.decision.changed",
+        "x-zid-source": "ZID-DTV-WF-04 B08; CR-109",
+        "x-zid-status": "proposed"
+      },
       "privacy_deletion_completed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.deletion.completed.v1",
@@ -5159,6 +5193,17 @@
         "title": "privacy.deletion.started",
         "x-zid-source": "ZID-PRIV-001",
         "x-zid-status": "catalogued"
+      },
+      "privacy_dpia_reassessment_due": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.dpia.reassessment_due.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approved DPIA package comes within its reassessment window or has lapsed; package id, market, product, version and the approval end only. A biometric method resting on it stops when it lapses (ZID-DTV-WF-04 BIO-20).",
+        "title": "privacy.dpia.reassessment_due",
+        "x-zid-source": "ZID-DTV-WF-04 BIO-20; CR-110",
+        "x-zid-status": "proposed"
       },
       "privacy_legal_hold_applied": {
         "contentType": "application/cloudevents+json",
@@ -6071,6 +6116,17 @@
         "summary": "A biometric method scope moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never media or reason text (ZID-DTV-WF-04 section 06).",
         "title": "verification.biometric_method.state_changed",
         "x-zid-source": "ZID-DTV-WF-04 BIO-03; CR-107, CR-108",
+        "x-zid-status": "proposed"
+      },
+      "verification_biometric_policy_blocked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.biometric.policy_blocked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A biometric method was not used because a gate refused it (method state, DPIA, overlay, breach pause, retention or evaluation). Route, country, purpose, the refused methods with their codes and the policy hash only; never a person, an image or a score (ZID-DTV-WF-04 section 19).",
+        "title": "verification.biometric.policy_blocked",
+        "x-zid-source": "ZID-DTV-WF-04 section 19; CR-110",
         "x-zid-status": "proposed"
       },
       "verification_case_completed": {

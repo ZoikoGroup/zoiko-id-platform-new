@@ -105,6 +105,9 @@ class ProposeIn(BaseModel):
     evaluation_ref: str | None = Field(default=None, pattern=REF)
     reason: str = Field(min_length=10, max_length=1000)
     evidence_ref: str = Field(pattern=REF)
+    exposure_percent: int = Field(
+        default=100, ge=1, le=100
+    )  # CR-110: below 100 only for PRODUCTION_ELIGIBLE
 
 
 class DecideIn(BaseModel):
@@ -114,9 +117,12 @@ class DecideIn(BaseModel):
 
 class StepDownIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    target: Literal["PAUSED", "OFF", "LAB_ONLY", "PILOT_GATED"]
+    target: Literal["PAUSED", "OFF", "LAB_ONLY", "PILOT_GATED", "PRODUCTION_ELIGIBLE"]
     reason: str = Field(min_length=10, max_length=1000)
     evidence_ref: str = Field(pattern=REF)
+    exposure_percent: int | None = Field(
+        default=None, ge=1, le=99
+    )  # CR-110: narrowing a production rollout
 
 
 def _scope_view(s: Any) -> dict[str, Any]:
@@ -144,6 +150,8 @@ def _record_view(r: Any) -> dict[str, Any]:
         "proposed_by": r.proposed_by,
         "proposal_id": r.proposal_id,
         "effective_at": r.effective_at.isoformat(),
+        "exposure_percent": r.exposure_percent,
+        "decision_hash": r.decision_hash,
     }
 
 
@@ -164,6 +172,7 @@ def _proposal_view(p: Any) -> dict[str, Any]:
         "decided_by": p.decided_by,
         "decided_at": p.decided_at.isoformat() if p.decided_at else None,
         "decision_reason": p.decision_reason,
+        "exposure_percent": p.exposure_percent,
     }
 
 
@@ -185,6 +194,7 @@ async def propose(body: ProposeIn, request: Request, op: OperatorDep) -> dict[st
             by=str(op.principal_id),
             now=now,
             scope_id=body.scope_id,
+            exposure_percent=body.exposure_percent,
         )
         details = _audit(
             p.scope,
@@ -194,6 +204,7 @@ async def propose(body: ProposeIn, request: Request, op: OperatorDep) -> dict[st
             dpia_ref=p.dpia_ref,
             evaluation_ref=p.evaluation_ref,
             evidence_ref=p.evidence_ref,
+            exposure_percent=p.exposure_percent,
         )
         return _proposal_view(p), p.proposal_id, details
 
@@ -225,6 +236,8 @@ async def approve(
             version=rec.version,
             state=rec.state.value,
             proposed_by=p.proposed_by,
+            exposure_percent=rec.exposure_percent,
+            decision_hash=rec.decision_hash,
         )
         return (
             {"proposal": _proposal_view(p), "state": _record_view(rec)},
@@ -285,9 +298,14 @@ async def step_down(
             reason=body.reason,
             evidence_ref=body.evidence_ref,
             now=now,
+            exposure_percent=body.exposure_percent,
         )
         details = _audit(
-            rec.scope, version=rec.version, state=rec.state.value, evidence_ref=rec.evidence_ref
+            rec.scope,
+            version=rec.version,
+            state=rec.state.value,
+            evidence_ref=rec.evidence_ref,
+            exposure_percent=rec.exposure_percent,
         )
         return _record_view(rec), f"{scope_id}:v{rec.version}", details
 

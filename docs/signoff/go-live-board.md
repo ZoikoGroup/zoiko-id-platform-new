@@ -70,7 +70,7 @@ Every gate is signed per country, product, provider and model version; the state
 | G6 Ecosystem | Product owners (Zoikorum, Zoiko Rooms) | per market |
 | G7 Launch | CTO + Release manager | per market |
 
-- Counsel's open fields: **38** across 6 files (`docs/signoff/counsel-worksheet.md`). Each is a legal statement for a market; until it is filled the platform blocks or routes to a person.
+- Counsel's open fields: **42** across 7 files (`docs/signoff/counsel-worksheet.md`). Each is a legal statement for a market; until it is filled the platform blocks or routes to a person.
 - Acceptance tests linked to a test: **50 of 50**, 8 of them mechanism-only. Not linked: none.
 - Owner pack: `docs/signoff/privacy-biometric-owner-pack.md`. Nothing here is a signed DPIA, a test result or a certification.
 

@@ -58,6 +58,8 @@ function version(over: Partial<BiometricMethodVersion> = {}): BiometricMethodVer
     proposed_by: "ana",
     proposal_id: "p1",
     effective_at: "2026-11-17T10:00:00Z",
+    exposure_percent: 100,
+    decision_hash: null,
     ...over,
   };
 }
@@ -78,12 +80,14 @@ const PROPOSAL: BiometricProposal = {
   decided_by: null,
   decided_at: null,
   decision_reason: null,
+  exposure_percent: 100,
 };
 
 describe("step-down targets", () => {
   it("offers only less permissive states, pause first, and nothing from OFF", () => {
-    expect(stepDownTargets("PRODUCTION_ELIGIBLE", "t1")).toEqual(["PAUSED", "PILOT_GATED", "LAB_ONLY", "OFF"]);
-    expect(stepDownTargets("PRODUCTION_ELIGIBLE", null)).toEqual(["PAUSED", "LAB_ONLY", "OFF"]);
+    expect(stepDownTargets("PRODUCTION_ELIGIBLE", "t1")).toEqual(["PAUSED", "PRODUCTION_ELIGIBLE", "PILOT_GATED", "LAB_ONLY", "OFF"]);
+    expect(stepDownTargets("PRODUCTION_ELIGIBLE", null)).toEqual(["PAUSED", "PRODUCTION_ELIGIBLE", "LAB_ONLY", "OFF"]);
+    expect(stepDownTargets("PRODUCTION_ELIGIBLE", null, 1)).toEqual(["PAUSED", "LAB_ONLY", "OFF"]);
     expect(stepDownTargets("PAUSED", "t1")).toEqual(["OFF"]);
     expect(stepDownTargets("OFF", "t1")).toEqual([]);
   });
@@ -141,6 +145,27 @@ describe("biometric methods", () => {
       expect(fake.regulatory.proposeBiometricMethod).toHaveBeenCalledWith(
         expect.objectContaining({ target: "PILOT_GATED", dpia_ref: "DPIA-GB-7", evaluation_ref: "LAB-1", scope: SCOPE }),
       ),
+    );
+  });
+});
+
+describe("rollout (CR-110)", () => {
+  it("narrows a production rollout at once, below the current exposure", async () => {
+    const prod = version({ exposure_percent: 40, decision_hash: "c".repeat(64) });
+    fake.regulatory.biometricMethods.mockResolvedValue({ items: [{ current: prod, versions: [prod] }], open_proposals: [] });
+    fake.regulatory.stepDownBiometricMethod.mockResolvedValue(version({ exposure_percent: 10 }));
+    mount(<BiometricMethodsPage />);
+    expect(await screen.findByText("40% of people")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Step down face-gb" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /New state/ }));
+    await userEvent.click(await screen.findByRole("option", { name: /Narrow the rollout/ }));
+    await userEvent.type(within(dialog).getByLabelText(/^New exposure/), "10");
+    await userEvent.type(within(dialog).getByLabelText(/Evidence reference/), "INC-4");
+    await userEvent.type(within(dialog).getByLabelText(/^Reason/), "error rate rising in rollout");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Narrow now" }));
+    await waitFor(() =>
+      expect(fake.regulatory.stepDownBiometricMethod).toHaveBeenCalledWith("face-gb", expect.objectContaining({ target: "PRODUCTION_ELIGIBLE", exposure_percent: 10 })),
     );
   });
 });

@@ -21,7 +21,7 @@ import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -1367,3 +1367,25 @@ async def submit_self_run(
         return SelfRunSubmitted(
             after.status.value, after.outcome_code, outcome.result.reason_codes, fresh
         )
+
+
+async def invalidate_for_decision(
+    conn: AsyncConnection, tenant_id: str, decision_ref: str, outcome: str
+) -> list[str]:
+    """CR-110 (WF-04 B08): a contested decision was overturned or corrected after review. The claims that rested on it are revoked, with the
+    reason, and announced like any revocation; the person can be verified again. A reference that is not a verification session or assertion of
+    this tenant revokes nothing."""
+    ids = await store.revoke_for_decision(
+        conn, decision_ref, now=datetime.now(UTC), reason=f"DECISION_REVIEWED_{outcome}"
+    )
+    for aid in ids:
+        await emit(
+            conn,
+            name="verification.assertion.revoked",
+            tenant_id=tenant_id,
+            aggregate_type="verification_assertion",
+            aggregate_id=aid,
+            aggregate_version=2,
+            data={"assertion_id": aid},
+        )
+    return ids

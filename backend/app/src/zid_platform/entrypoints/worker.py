@@ -83,6 +83,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
     async def privacy(conn: AsyncConnection, now: datetime) -> object:
         return await privacy_pass(conn, now=now)
 
+    async def biometric_reauthorization(conn: AsyncConnection, now: datetime) -> object:
+        """WF-04 BIO-20 (CR-110): warn before a biometric DPIA lapses; hold a model whose evaluation went stale."""
+        from zid_platform.modules.privacy.ports import reauthorization_pass
+
+        return await reauthorization_pass(conn, now=now)
+
     async def registry(conn: AsyncConnection, now: datetime) -> object:
         from zid_platform.main import _secret_broker
         from zid_platform.modules.authority.ports import on_root_changed
@@ -454,6 +460,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("key_events", key_events),
         ("operator_access", operator),
         ("privacy", privacy),
+        ("biometric_reauthorization", biometric_reauthorization),
         ("registry", registry),
         ("domains", domains),
         ("connector_credentials", credentials),

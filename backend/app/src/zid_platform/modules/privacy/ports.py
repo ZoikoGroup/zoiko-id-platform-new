@@ -12,8 +12,16 @@
 
 from __future__ import annotations
 
-from zid_platform.modules.privacy.application.biometric_retention import missing_biometric_retention
+from zid_platform.modules.privacy.application.biometric_retention import (
+    missing_biometric_retention,
+    use_case_problems,
+)
 from zid_platform.modules.privacy.application.control import capture_paused_breaches, release_gate
+from zid_platform.modules.privacy.application.model_governance import (
+    active_model_version,
+    method_evidence,
+)
+from zid_platform.modules.privacy.application.reauthorization import reauthorization_pass
 from zid_platform.modules.privacy.application.restore import (
     Reconciliation,
     mark_restored,
@@ -26,6 +34,7 @@ from zid_platform.modules.privacy.application.service import (
     enforce_processing,
     pack_transfer_mechanisms,
     privacy_pass,
+    register_decision_hook,
     register_erasure_hook,
     register_personal_data,
     register_rectification_source,
@@ -38,20 +47,25 @@ __all__ = [
     "PrivacyError",
     "ProcessingDecision",
     "Reconciliation",
+    "active_model_version",
     "capture_paused_breaches",
     "check_processing",
     "configure_enforcement",
     "discover_subject",
     "enforce_processing",
     "mark_restored",
+    "method_evidence",
     "missing_biometric_retention",
     "pack_transfer_mechanisms",
     "privacy_pass",
+    "reauthorization_pass",
     "reconcile_after_restore",
+    "register_decision_hook",
     "register_erasure_hook",
     "register_personal_data",
     "register_rectification_source",
     "register_store",
     "release_gate",
     "route_outcome",
+    "use_case_problems",
 ]

@@ -27,6 +27,14 @@ export const BLOCKER_TEXT: Record<string, string> = {
   PRIVACY_PURPOSE_NOT_ACTIVE: "This check is not available right now.",
 };
 
+/** Where the assisted route stands, for the person (CR-110). */
+export const ASSISTED_TEXT: Record<string, string> = {
+  WAITING: "A person will help you verify another way. You will be contacted; nothing else is needed from you now.",
+  IN_PROGRESS: "A person is helping you verify another way.",
+  DONE: "A person completed your verification another way.",
+  NOT_COMPLETED: "A person could not complete it this time. You can try again, or choose another way.",
+};
+
 function blockerText(code: string): string {
   return BLOCKER_TEXT[code] ?? "This check cannot use the camera right now.";
 }
@@ -163,6 +171,11 @@ export function VerificationSessionView({ sessionRef }: { sessionRef: string }) 
                 </ul>
               </Banner>
             )}
+            {s.assisted_state ? (
+              <Banner tone={s.assisted_state === "NOT_COMPLETED" ? "warn" : "info"} title="Another way, with a person">
+                {ASSISTED_TEXT[s.assisted_state]}
+              </Banner>
+            ) : null}
             <NoticeCard s={s} refreshKey={key} />
             <AlternativesCard s={s} refreshKey={key} />
             {s.state === "OPEN" ? (

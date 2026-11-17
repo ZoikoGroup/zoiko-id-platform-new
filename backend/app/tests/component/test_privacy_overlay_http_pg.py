@@ -225,13 +225,28 @@ def test_t31_a_biometric_route_the_country_prohibits_is_refused_and_names_the_co
     assert _code(world.start("document")) == "STUBBED_START"  # the alternate itself goes through
 
 
-def test_where_consent_is_required_a_person_without_it_is_refused(world: World) -> None:
+def test_where_consent_is_required_a_person_without_it_is_refused(
+    world: World, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     world.overlays = {"GB": _overlay(biometrics=po.Biometrics.CONSENT_REQUIRED)}
     r = world.start("biometric")
     assert (
         _code(r) == "BIOMETRIC_ROUTE_NOT_PERMITTED"
     )  # the privacy module denies by default: no recorded consent
     world.overlays = {"GB": _overlay(biometrics=po.Biometrics.ALLOWED)}
+    # CR-110: the country allows biometrics, but the provider's face match and liveness are not approved for this tenant (no method state, DPIA,
+    # retention or evaluation): still refused, with the compliant alternate named
+    assert _code(world.start("biometric")) == "BIOMETRIC_ROUTE_NOT_PERMITTED"
+    from zid_platform.modules.verification.application import biometric_eligibility as bel
+    from zid_platform.modules.verification.domain import biometric_methods as bmd
+
+    async def all_open(conn, **kw):  # type: ignore[no-untyped-def]
+        answers = tuple(
+            bel.MethodAnswer(m, True, bmd.State.PRODUCTION_ELIGIBLE, (), False) for m in bmd.Method
+        )
+        return bel.Eligibility(kw["country"], kw["purpose"], None, answers, "0" * 64)
+
+    monkeypatch.setattr(bel, "eligibility", all_open)
     assert _code(world.start("biometric")) == "STUBBED_START"
 
 

@@ -327,3 +327,81 @@ def test_history_answers_a_past_moment() -> None:
     )
     assert bm.availability(bm.in_force([history], NOW), call()).available
     assert not bm.availability(bm.in_force([history], later), call()).available
+
+
+# ------------------------------------------------------------------------------------------------------------------------ exposure (CR-110)
+
+
+def _production(exposure: int) -> list[bm.Record]:
+    history = climb(PILOT, bm.State.PILOT_GATED)
+    p = proposal(history, bm.State.PRODUCTION_ELIGIBLE, PILOT, exposure_percent=exposure)
+    bm.check_proposal(p, history=history, now=NOW)
+    _, rec = bm.approve(
+        p, history=history, by="ben", reason="rollout to a share of people", now=NOW
+    )
+    return [*history, rec]
+
+
+def test_an_approved_step_up_carries_its_decision_hash() -> None:
+    history = _production(25)
+    rec = history[-1]
+    assert (
+        rec.exposure_percent == 25
+        and rec.decision_hash == bm.decision_hash(rec)
+        and len(rec.decision_hash) == 64
+    )
+    assert bm.decision_hash(replace(rec, exposure_percent=50)) != rec.decision_hash
+
+
+def test_exposure_below_100_only_in_production() -> None:
+    with pytest.raises(bm.MethodError) as e:
+        bm.check_proposal(proposal([], bm.State.LAB_ONLY, exposure_percent=50), history=[], now=NOW)
+    assert e.value.code == "METHOD_EXPOSURE_ONLY_FOR_PRODUCTION"
+
+
+def test_widening_is_a_proposal_and_narrowing_a_step_down() -> None:
+    history = _production(25)
+    wider = proposal(history, bm.State.PRODUCTION_ELIGIBLE, PILOT, exposure_percent=60)
+    bm.check_proposal(wider, history=history, now=NOW)
+    with pytest.raises(bm.MethodError):
+        bm.check_proposal(
+            proposal(history, bm.State.PRODUCTION_ELIGIBLE, PILOT, exposure_percent=10),
+            history=history,
+            now=NOW,
+        )
+    narrow = bm.step_down(
+        history,
+        target=bm.State.PRODUCTION_ELIGIBLE,
+        by="sec",
+        reason="error rate rising in the rollout",
+        evidence_ref="INC-3",
+        now=NOW,
+        exposure_percent=10,
+    )
+    assert (narrow.state, narrow.exposure_percent, narrow.proposed_by) == (
+        bm.State.PRODUCTION_ELIGIBLE,
+        10,
+        None,
+    )
+    with pytest.raises(bm.MethodError):
+        bm.step_down(
+            history,
+            target=bm.State.PRODUCTION_ELIGIBLE,
+            by="sec",
+            reason="widen without approval",
+            evidence_ref="INC-3",
+            now=NOW,
+            exposure_percent=80,
+        )
+
+
+def test_a_person_always_gets_the_same_rollout_answer() -> None:
+    records = bm.in_force([_production(30)], NOW)
+    people = [f"person-{i}" for i in range(400)]
+    first = [bm.availability(records, call(rollout_key=p)).available for p in people]
+    again = [bm.availability(records, call(rollout_key=p)).available for p in people]
+    assert first == again
+    share = sum(first) / len(first)
+    assert 0.2 < share < 0.4  # about 30% of people
+    readiness = bm.availability(records, call())
+    assert readiness.available and readiness.reasons == ("METHOD_ROLLOUT_30",)

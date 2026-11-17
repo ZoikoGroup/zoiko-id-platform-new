@@ -3034,6 +3034,9 @@ export type BiometricMethodVersion = {
   proposed_by: string | null;
   proposal_id: string | null;
   effective_at: Iso;
+  /** CR-110: the share of people a PRODUCTION_ELIGIBLE scope runs for, and the digest of the approved decision. */
+  exposure_percent: number;
+  decision_hash: string | null;
 };
 export type BiometricProposal = {
   proposal_id: string;
@@ -3051,6 +3054,7 @@ export type BiometricProposal = {
   decided_by: string | null;
   decided_at: Iso | null;
   decision_reason: string | null;
+  exposure_percent: number;
 };
 export type BiometricMethodsList = {
   items: { current: BiometricMethodVersion; versions: BiometricMethodVersion[] }[];
@@ -3064,8 +3068,15 @@ export type BiometricProposeIn = {
   evaluation_ref?: string | null;
   reason: string;
   evidence_ref: string;
+  exposure_percent?: number;
 };
-export type BiometricStepDownIn = { target: "PAUSED" | "OFF" | "LAB_ONLY" | "PILOT_GATED"; reason: string; evidence_ref: string };
+export type BiometricStepDownIn = {
+  target: "PAUSED" | "OFF" | "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+  reason: string;
+  evidence_ref: string;
+  /** Narrowing a production rollout (CR-110). */
+  exposure_percent?: number;
+};
 
 export type BiometricMethodAnswer = {
   method: BiometricMethod;
@@ -3078,6 +3089,10 @@ export type BiometricMethodAnswer = {
   dpia_blockers: string[];
   breaches: string[];
   missing_retention: string[];
+  /** The tenant's latest independent evaluation of this engine version, and why it does not count (CR-109). */
+  evaluation_id: string | null;
+  evaluation_blockers: string[];
+  exposure_percent: number;
 };
 export type BiometricEligibility = {
   country: string;
@@ -3225,11 +3240,136 @@ export type SubjectSessionStatus = {
   purpose_code: string;
   region: string | null;
   alternative_mode: string | null;
+  /** CR-110: where the assisted route stands, once the person chose it. */
+  assisted_state: "WAITING" | "IN_PROGRESS" | "DONE" | "NOT_COMPLETED" | null;
   notice: { notice_version: string; content_uri: string | null; content_hash: string | null; acknowledged: boolean } | null;
   alternatives_available: boolean;
   alternatives: SessionAlternative[];
   statement: string;
   checked_at: Iso;
+};
+/** An appeal or human review of a decision (ZID-PRI-004 sections 10, 11; WF-04 B08; CR-109). A reversal waits for a checker. */
+export type ReviewState = "OPEN" | "AWAITING_CHECKER" | "UPHELD" | "OVERTURNED" | "CORRECTED";
+export type DecisionReview = {
+  review_id: string;
+  decision_ref: string;
+  kind: "APPEAL" | "HUMAN_REVIEW";
+  subject_ref: string;
+  statement: string;
+  state: ReviewState;
+  requested_by: string;
+  reviewer: string | null;
+  rationale: string | null;
+  correction_ref: string | null;
+  proposed_outcome: "OVERTURNED" | "CORRECTED" | null;
+  checker: string | null;
+  checked_at: Iso | null;
+  created_at: Iso;
+  due_at: Iso;
+  decided_at: Iso | null;
+};
+/** The person's own view of a review: no reviewer or checker identity (CR-110). */
+export type MyReview = Pick<DecisionReview, "review_id" | "decision_ref" | "kind" | "state" | "statement" | "correction_ref" | "created_at" | "due_at" | "decided_at" | "checked_at">;
+/** Model inventory with fairness (ZID-PRI-004 PR-16; WF-04 B07; CR-110). Aggregate measures only, each with its confidence interval. */
+export type ModelKind = "face_match" | "pad" | "fraud" | "document";
+export type FairnessState = "NOT_RUN" | "DATA_INSUFFICIENT" | "PASS_WITH_LIMITS" | "FAIL" | "REEVALUATION_DUE";
+export type Measure = { value: number; ci_low: number; ci_high: number };
+export type ModelVersion = {
+  model_id: string;
+  model_ref: string;
+  version: string;
+  kind: ModelKind;
+  provider_service_ref: string | null;
+  live_features: string[];
+  state: "REGISTERED" | "ACTIVE" | "HELD" | "SUSPENDED" | "RETIRED";
+  state_reason: string | null;
+  promoted_at: Iso | null;
+  fairness: { state: FairnessState; reasons: string[] };
+  latest_evaluation: {
+    evaluation_id: string;
+    evaluator_ref: string;
+    independent: boolean;
+    cohorts: number;
+    metrics: Record<string, Measure | boolean>;
+    accessible_alternative_confirmed: boolean;
+    report_ref: string | null;
+    created_at: Iso;
+  } | null;
+};
+export type ModelEvaluationIn = {
+  model_ref: string;
+  version: string;
+  evaluator_ref: string;
+  independent: boolean;
+  cohorts: number;
+  metrics: Record<string, Measure | boolean>;
+  accessible_alternative_confirmed: boolean;
+  audit_attributes?: string[];
+  report_ref?: string | null;
+};
+/** Transfer ledger and subprocessor changes (ZID-PRI-004 sections 08, 16, 19; WF-04 B04; CR-110). Default deny. */
+export type TransferLedgerEntry = {
+  decision_id: string;
+  processor_id: string;
+  purpose_code: string;
+  data_category: string;
+  origin_country: string;
+  destination_country: string;
+  remote_access_countries: string[];
+  mechanism: string | null;
+  allowed: boolean;
+  reason_codes: string[];
+  evaluated_at: Iso;
+};
+export type TransferIn = {
+  processor_id: string;
+  purpose_code: string;
+  data_category: "D0" | "D1" | "D2" | "D3" | "D4";
+  origin_country: string;
+  destination_country: string;
+  remote_access_countries?: string[];
+};
+export type SubprocessorChangeKind = "SUBPROCESSOR_ADDED" | "SUBPROCESSOR_REMOVED" | "LOCATION_ADDED" | "LOCATION_REMOVED";
+export type SubprocessorChange = {
+  change_id: string;
+  processor_id: string;
+  kind: SubprocessorChangeKind;
+  detail: string;
+  state: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+  notified_at: Iso;
+  requested_by: string;
+  decided_by: string | null;
+  decided_at: Iso | null;
+  created_at: Iso;
+};
+/** WF-04 B12 governance monitor (CR-110): counts and what needs attention; no personal data. */
+export type BiometricOversight = {
+  window_days: number;
+  breaches_pausing_capture: number;
+  dpia: { approved: number; expiring_30d: number; lapsed: number };
+  models: { active: number; held: number };
+  reviews: { open: number; awaiting_checker: number; overdue: number };
+  erasure: { open: number; held: number; failed: number; provider_tasks_overdue: number };
+  consent: { withdrawn_30d: number };
+  subprocessor_changes_waiting: number;
+  transfers_refused_30d: number;
+  retention_missing_classes: string[];
+  attention: string[];
+  measured_at: Iso;
+};
+/** The assisted route's back office (WF-04 B02; CR-110). No reason for choosing the alternative is stored or shown. */
+export type AssistedItem = {
+  session_ref: string;
+  subject_principal_id: string | null;
+  purpose_code: string;
+  country: string | null;
+  alternative_mode: string | null;
+  assisted_state: "WAITING" | "IN_PROGRESS" | "DONE" | "NOT_COMPLETED";
+  assisted_by: string | null;
+  assisted_at: Iso | null;
+  assisted_outcome_ref: string | null;
+  assisted_reason_code: string | null;
+  created_at: Iso;
 };
 export type BreachIn = {
   summary: string;

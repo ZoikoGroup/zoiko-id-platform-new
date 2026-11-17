@@ -20,6 +20,9 @@ Rules, each with a test:
 - moving to a LESS permissive state (pause, step down, retire to OFF) is one person, at once, with a reason and an evidence reference: making things
   safer is never held up by a second approver;
 - versions are append-only; history is never rewritten, and a past moment is answered by the version in force then;
+- PRODUCTION_ELIGIBLE carries an exposure percentage (CR-110, B11 signed release decision): the share of people the method runs for,
+  chosen by a stable hash of the scope and the person, so one person always gets the same answer. Widening it is a proposal and a second
+  person; narrowing it is a step down, one person, at once. Every approved version carries a decision hash over exactly what was approved;
 - when several scopes match a live call (a tenant's own scope and the all-tenant one), a PAUSED one always wins; otherwise the tenant's own scope wins.
 
 What this does NOT do: decide that a DPIA is approved (the privacy module's release gate does, at run time, for the tenant asking), evaluate an engine,
@@ -28,6 +31,8 @@ or apply the country overlay. The eligibility service combines them (`applicatio
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
@@ -125,6 +130,8 @@ class Record:
     proposal_id: str | None
     effective_at: datetime
     recorded_at: datetime
+    exposure_percent: int = 100  # CR-110: below 100 only in PRODUCTION_ELIGIBLE
+    decision_hash: str | None = None  # CR-110: the signed release decision, on an approved step up
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +151,7 @@ class Proposal:
     decided_by: str | None = None
     decided_at: datetime | None = None
     decision_reason: str | None = None
+    exposure_percent: int = 100  # CR-110
 
 
 def current(history: Sequence[Record]) -> Record | None:
@@ -197,7 +205,17 @@ def check_proposal(p: Proposal, *, history: Sequence[Record], now: datetime) -> 
             "METHOD_PROPOSAL_STALE", "the state moved; propose against the current version"
         )
     now_state = last.state if last else State.OFF
-    if NEXT_UP.get(now_state) is not p.target:
+    if not 1 <= p.exposure_percent <= 100:
+        raise MethodError("METHOD_EXPOSURE_INVALID", "1 to 100 percent")
+    if p.target is not State.PRODUCTION_ELIGIBLE and p.exposure_percent != 100:
+        raise MethodError("METHOD_EXPOSURE_ONLY_FOR_PRODUCTION")
+    widening = (
+        last is not None
+        and now_state is State.PRODUCTION_ELIGIBLE
+        and p.target is State.PRODUCTION_ELIGIBLE
+        and p.exposure_percent > last.exposure_percent
+    )
+    if not widening and NEXT_UP.get(now_state) is not p.target:
         raise MethodError(
             "METHOD_STEP_NOT_ALLOWED",
             f"from {now_state.value} the only step up is {NEXT_UP.get(now_state, 'none')}",
@@ -252,8 +270,28 @@ def approve(
         proposal_id=p.proposal_id,
         effective_at=now,
         recorded_at=now,
+        exposure_percent=p.exposure_percent,
     )
-    return decided, record
+    return decided, replace(record, decision_hash=decision_hash(record))
+
+
+def decision_hash(r: Record) -> str:
+    """CR-110 (B11): the digest of exactly what was approved: the scope, the state and version, the references, the exposure and both people."""
+    body = {
+        "scope_id": r.scope_id,
+        "version": r.version,
+        "scope": list(r.scope.key()),
+        "state": r.state.value,
+        "dpia_ref": r.dpia_ref,
+        "evaluation_ref": r.evaluation_ref,
+        "exposure_percent": r.exposure_percent,
+        "proposed_by": r.proposed_by,
+        "approved_by": r.recorded_by,
+        "proposal_id": r.proposal_id,
+    }
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def reject(p: Proposal, *, by: str, reason: str, now: datetime) -> Proposal:
@@ -275,9 +313,10 @@ def step_down(
     reason: str,
     evidence_ref: str,
     now: datetime,
+    exposure_percent: int | None = None,
 ) -> Record:
     """The kill switch (PAUSED), a step down, or retirement (OFF): one person, at once. Only to a less permissive state, or to PAUSED from anything
-    that is on."""
+    that is on. CR-110: PRODUCTION_ELIGIBLE to PRODUCTION_ELIGIBLE with a SMALLER `exposure_percent` narrows the rollout."""
     last = current(history)
     if last is None:
         raise MethodError(
@@ -289,6 +328,12 @@ def step_down(
     elif target is State.OFF:
         if last.state is State.OFF:
             raise MethodError("METHOD_NOT_ON", "the scope is already OFF")
+    elif target is State.PRODUCTION_ELIGIBLE and last.state is State.PRODUCTION_ELIGIBLE:
+        if exposure_percent is None or not 1 <= exposure_percent < last.exposure_percent:
+            raise MethodError(
+                "METHOD_STEP_NOT_DOWN",
+                f"narrowing needs an exposure below {last.exposure_percent}%",
+            )
     elif last.state is State.PAUSED or RANK[target] >= RANK[last.state]:
         raise MethodError(
             "METHOD_STEP_NOT_DOWN",
@@ -313,6 +358,9 @@ def step_down(
         proposal_id=None,
         effective_at=now,
         recorded_at=now,
+        exposure_percent=exposure_percent
+        if target is State.PRODUCTION_ELIGIBLE and exposure_percent
+        else 100,
     )
 
 
@@ -329,6 +377,17 @@ class Call:
     country: str
     purpose: str
     tenant_id: str
+    rollout_key: str | None = (
+        None  # CR-110: the person the session is for; None when asking about the organization (readiness)
+    )
+
+
+def in_rollout(scope_id: str, rollout_key: str, exposure_percent: int) -> bool:
+    """CR-110: a stable bucket 0..99 from the scope and the person. The same person always gets the same answer for the same scope."""
+    if exposure_percent >= 100:
+        return True
+    bucket = int(hashlib.sha256(f"{scope_id}|{rollout_key}".encode()).hexdigest()[:8], 16) % 100
+    return bucket < exposure_percent
 
 
 @dataclass(frozen=True, slots=True)
@@ -373,6 +432,15 @@ def availability(records: Iterable[Record], call: Call) -> Availability:
     if chosen is None:
         return Availability(False, State.OFF, ("METHOD_OFF",), None)
     if chosen.state is State.PRODUCTION_ELIGIBLE:
+        if chosen.exposure_percent < 100:
+            if (
+                call.rollout_key is None
+            ):  # the organization's readiness: available to part of the people
+                return Availability(
+                    True, chosen.state, (f"METHOD_ROLLOUT_{chosen.exposure_percent}",), chosen
+                )
+            if not in_rollout(chosen.scope_id, call.rollout_key, chosen.exposure_percent):
+                return Availability(False, chosen.state, ("METHOD_NOT_IN_ROLLOUT",), chosen)
         return Availability(True, chosen.state, (), chosen)
     if chosen.state is State.PILOT_GATED:
         # a pilot scope always names its tenant, so matching it means this is that tenant
@@ -400,7 +468,9 @@ __all__ = [
     "check_proposal",
     "check_scope",
     "current",
+    "decision_hash",
     "in_force",
+    "in_rollout",
     "reject",
     "state_of",
     "step_down",

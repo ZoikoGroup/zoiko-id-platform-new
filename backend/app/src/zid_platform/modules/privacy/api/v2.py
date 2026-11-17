@@ -4,11 +4,11 @@
     POST /v2/verification-sessions/{id}/notices/acknowledgments | GET .../alternatives
     POST /v2/privacy/erasure-jobs | GET /v2/privacy/erasure-jobs | POST .../erasure-jobs:preview (dry run) | GET .../{id} | GET .../{id}/proof | POST .../{id}/tasks/{task}:attest | POST /v2/providers/{id}/deletion-receipts
     POST /v2/privacy/processors/{id}/receipt-key
-    POST /v2/privacy/transfer-decisions | GET /v2/privacy/provider-controls/{service_id}?country=
-    POST /v2/privacy/subprocessor-changes | POST .../{id}:decide
+    POST /v2/privacy/transfer-decisions | GET /v2/privacy/transfer-decisions | GET /v2/privacy/provider-controls/{service_id}?country=
+    POST /v2/privacy/subprocessor-changes | GET /v2/privacy/subprocessor-changes[?pending_only=] | POST .../{id}:decide
     POST /v2/privacy/dpia-packages | GET .../{id} | PUT .../{id}/risks | POST .../{id}/gate-signoffs | POST .../{id}/decisions
     GET  /v2/privacy/release-gates/{market}/{product}/{version}
-    POST /v2/decisions/{id}/appeals | /v2/decisions/{id}/human-reviews | POST /v2/privacy/reviews/{id}/decisions | GET /v2/privacy/reviews/{id}
+    POST /v2/decisions/{id}/appeals | /v2/decisions/{id}/human-reviews | POST /v2/privacy/reviews/{id}/decisions | GET /v2/privacy/reviews/{id} | GET /v2/privacy/reviews[?state=] | POST .../{id}/checks (a reversal needs a checker; CR-109)
     POST /v2/privacy/breaches | GET /v2/privacy/breaches[?open_only=] | GET .../{id} | POST .../{id}/notifications | POST .../{id}/close
     POST /v2/privacy/breaches/{id}/biometric-capture:pause | :release   containment: stop biometric methods in the case's jurisdictions (CR-108)
     GET  /v2/privacy/kpis
@@ -59,6 +59,13 @@ _STATUS = {
     "SESSION_CANCELED": 409,
     "ALTERNATIVE_NOT_OFFERED": 422,
     "SESSION_NOT_YOURS": 403,
+    "REVIEW_NOT_AWAITING_CHECKER": 409,
+    "ASSISTED_NOT_WAITING": 409,
+    "ASSISTED_NOT_IN_PROGRESS": 409,
+    "ASSISTED_OWN_SESSION": 403,
+    "ASSISTED_NOT_YOURS": 403,
+    "CHECKER_IS_REQUESTER": 403,
+    "CHECKER_IS_REVIEWER": 403,
     "CAPTURE_ALREADY_PAUSED_OR_RELEASED": 409,
     "CAPTURE_NOT_PAUSED": 409,
     "RELEASED_BY_WHOEVER_PAUSED": 403,
@@ -383,6 +390,28 @@ async def transfer(body: PrivV2TransferIn, request: Request, caller: CallerDep) 
     }  # fmt: skip
 
 
+@router.get("/v2/privacy/transfer-decisions")
+async def list_transfers(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The transfer ledger (WF-04 B04; CR-110)."""
+
+    async def go(conn: AsyncConnection) -> list[dict[str, Any]]:
+        return await ctl.list_transfers(conn)
+
+    return {**_ids(), "items": await _run(request, caller, READ, "transfer_decision:*", go)}
+
+
+@router.get("/v2/privacy/subprocessor-changes")
+async def list_changes(
+    request: Request, caller: CallerDep, pending_only: bool = False
+) -> dict[str, Any]:
+    """Subprocessor and location changes (WF-04 B04; CR-110)."""
+
+    async def go(conn: AsyncConnection) -> list[dict[str, Any]]:
+        return await ctl.list_changes(conn, pending_only=pending_only)
+
+    return {**_ids(), "items": await _run(request, caller, READ, "processor:*", go)}
+
+
 @router.get("/v2/privacy/provider-controls/{service_id}")
 async def provider_controls(
     service_id: str,
@@ -657,6 +686,52 @@ async def decide_review(
     return {**_ids(), **await _run(request, caller, MANAGE, f"decision_review:{review_id}", go)}
 
 
+class PrivV2ReviewCheckIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirm: bool
+    note: str = Field(min_length=3, max_length=2000)
+
+
+@router.post("/v2/privacy/reviews/{review_id}/checks")
+async def check_review(
+    review_id: str, body: PrivV2ReviewCheckIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """CR-109 (WF-04 B08): a third person confirms a proposed reversal, or sends it back for another review."""
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await ctl.check_review(
+            conn, _tenant(caller), me, review_id, confirm=body.confirm, note=body.note
+        )
+
+    return {**_ids(), **await _run(request, caller, MANAGE, f"decision_review:{review_id}", go)}
+
+
+@router.get("/v2/privacy/reviews/mine")
+async def my_reviews(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The caller's own appeals and reviews (CR-110). No administrator role: a person always sees their own."""
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> list[dict[str, Any]]:
+        return await ctl.my_reviews(conn, me)
+
+    return {**_ids(), "items": await _run(request, caller, None, "", go)}
+
+
+@router.get("/v2/privacy/reviews")
+async def list_reviews(
+    request: Request,
+    caller: CallerDep,
+    state: Literal["OPEN", "AWAITING_CHECKER", "UPHELD", "OVERTURNED", "CORRECTED"] | None = None,
+) -> dict[str, Any]:
+    """The reviewer's queue (CR-109)."""
+
+    async def go(conn: AsyncConnection) -> list[dict[str, Any]]:
+        return await ctl.list_reviews(conn, state=state)
+
+    return {**_ids(), "items": await _run(request, caller, READ, "decision_review:*", go)}
+
+
 @router.get("/v2/privacy/reviews/{review_id}")
 async def get_review(review_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     me = _me(caller)
@@ -750,6 +825,16 @@ async def list_breaches(
     return {**_ids(), "items": await _run(request, caller, READ, "breach_case:*", go)}
 
 
+@router.get("/v2/privacy/breaches/{breach_id}/dossier")
+async def breach_dossier(breach_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """WF-04 B09 audit dossier (CR-110): the case, clocks, capture timeline and audit trail; codes and hashes only."""
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await ctl.breach_dossier(conn, breach_id, _config(request))
+
+    return {**_ids(), **await _run(request, caller, READ, f"breach_case:{breach_id}", go)}
+
+
 @router.get("/v2/privacy/breaches/{breach_id}")
 async def get_breach(breach_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
@@ -799,6 +884,16 @@ async def close_breach(breach_id: str, request: Request, caller: CallerDep) -> d
 # ---------------------------------------------------------------------------------------------------------------- KPIs
 
 
+@router.get("/v2/privacy/biometric-oversight")
+async def biometric_oversight(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """WF-04 B12 governance monitor (CR-110): counts and what needs attention; no personal data."""
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await ctl.biometric_oversight(conn)
+
+    return {**_ids(), **await _run(request, caller, READ, "privacy:oversight", go)}
+
+
 @router.get("/v2/privacy/kpis")
 async def kpis(
     request: Request, caller: CallerDep, days: Annotated[int, Query(ge=1, le=366)] = 30
@@ -824,6 +919,16 @@ class PrivV2ModelIn(BaseModel):
     provider_service_ref: str | None = Field(default=None, max_length=200)
     artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     live_features: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.get("/v2/privacy/models")
+async def list_models(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The model inventory with the latest evaluation and fairness state of each version (WF-04 B07; CR-110)."""
+
+    async def go(conn: AsyncConnection) -> list[dict[str, Any]]:
+        return await mg.list_models(conn)
+
+    return {**_ids(), "items": await _run(request, caller, READ, "model_version:*", go)}
 
 
 @router.post("/v2/privacy/models", status_code=201)

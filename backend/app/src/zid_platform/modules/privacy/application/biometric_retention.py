@@ -6,11 +6,16 @@ policy whose object type is the class id and whose purpose is this purpose or no
 
 from __future__ import annotations
 
+from datetime import date
+from functools import lru_cache
+
+import yaml
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.privacy.application.control import biometric_classes
+from zid_platform.modules.privacy.application.control import CONFIG, biometric_classes
 from zid_platform.modules.privacy.domain import biometric_assets as ba
+from zid_platform.modules.privacy.domain import biometric_use_cases as uc
 
 
 async def missing_biometric_retention(
@@ -34,3 +39,16 @@ async def missing_biometric_retention(
         )
     ).all()
     return ba.missing(classes, method, (r.object_type for r in rows))
+
+
+@lru_cache(maxsize=1)
+def use_cases() -> tuple[uc.UseCase, ...]:
+    """config/privacy/biometric-use-cases.yaml (CR-110, BIO-19)."""
+    return uc.parse(
+        yaml.safe_load((CONFIG / "biometric-use-cases.yaml").read_text(encoding="utf-8")) or {}
+    )
+
+
+def use_case_problems(purpose: str, *, today: date) -> list[str]:
+    """Why a Zoiko product's purpose may not use a biometric method now (not certified, or not yet effective); empty otherwise."""
+    return uc.problems(use_cases(), purpose, today=today)

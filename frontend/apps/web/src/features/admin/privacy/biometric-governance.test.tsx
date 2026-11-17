@@ -28,6 +28,22 @@ const fake = vi.hoisted(() => ({
       previewErasure: vi.fn(),
       openErasureJob: vi.fn(),
       attestBackup: vi.fn(),
+      reviews: vi.fn(),
+      decideReview: vi.fn(),
+      checkReview: vi.fn(),
+      models: vi.fn(),
+      registerModel: vi.fn(),
+      recordEvaluation: vi.fn(),
+      promoteModel: vi.fn(),
+      transfers: vi.fn(),
+      checkTransfer: vi.fn(),
+      changes: vi.fn(),
+      notifyChange: vi.fn(),
+      decideChange: vi.fn(),
+      oversight: vi.fn(),
+      assistedQueue: vi.fn(),
+      claimAssisted: vi.fn(),
+      completeAssisted: vi.fn(),
     },
   },
 }));
@@ -36,10 +52,15 @@ vi.mock("@/lib/runtime", () => ({
   useRuntime: () => ({ api: fake, protect: <T,>(run: () => Promise<T>) => run(), session: { authenticated: true, subject: { sub: "u-1" }, csrf: "x" } }),
 }));
 
+import { AssistedSection } from "./assisted";
 import { BiometricSection } from "./biometric";
 import { BreachesSection, pausesByDefault } from "./breaches";
 import { band, DpiaSection } from "./dpia";
 import { ErasureSection } from "./erasure";
+import { ModelsSection } from "./models";
+import { OversightSection } from "./oversight";
+import { ReviewsSection } from "./reviews";
+import { TransfersSection } from "./transfers";
 
 afterEach(() => {
   cleanup();
@@ -69,6 +90,9 @@ function answer(over: Partial<BiometricMethodAnswer> = {}): BiometricMethodAnswe
     dpia_blockers: [],
     breaches: [],
     missing_retention: [],
+    evaluation_id: null,
+    evaluation_blockers: [],
+    exposure_percent: 100,
     ...over,
   };
 }
@@ -105,8 +129,9 @@ describe("biometric readiness", () => {
           dpia_blockers: ["DPIA_EXPIRED"],
           breaches: ["b1"],
           missing_retention: ["biometric.live_selfie"],
+          evaluation_blockers: ["EVALUATION_STALE"],
         }),
-        answer({ method: "LIVENESS", available: true, state: "PRODUCTION_ELIGIBLE" }),
+        answer({ method: "LIVENESS", available: true, state: "PRODUCTION_ELIGIBLE", exposure_percent: 25 }),
       ],
       policy_hash: "f".repeat(64),
       notes: [],
@@ -119,7 +144,26 @@ describe("biometric readiness", () => {
     expect(within(face).getByText("DPIA_EXPIRED")).toBeTruthy();
     expect(within(face).getByText("biometric.live_selfie")).toBeTruthy();
     expect(within(face).getByText(/Release it on the Breaches tab/)).toBeTruthy();
+    expect(within(face).getByText("EVALUATION_STALE")).toBeTruthy();
     expect(screen.getByText("Available")).toBeTruthy();
+    expect(screen.getByText(/runs for 25% of people/)).toBeTruthy();
+  });
+});
+
+describe("biometric readiness: ecosystem use case", () => {
+  it("explains a Zoiko product use that is not signed yet", async () => {
+    fake.verification.biometricEligibility.mockResolvedValue({
+      country: "GB",
+      purpose: "ZOIKO_ROOMS_RENTER_IDENTITY",
+      engine: null,
+      available_methods: [],
+      methods: [answer({ reasons: ["USE_CASE_NOT_CERTIFIED:ZOIKO_ROOMS_RENTER_IDENTITY"] })],
+      policy_hash: "f".repeat(64),
+      notes: [],
+    });
+    mount(<BiometricSection />);
+    await userEvent.click(screen.getByRole("button", { name: "Check" }));
+    expect(await screen.findByText(/has no signed integration acceptance yet/)).toBeTruthy();
   });
 });
 
@@ -248,5 +292,216 @@ describe("erasure console", () => {
     await userEvent.type(within(dialog).getByLabelText(/^Statement/), "purged from nightly backups");
     await userEvent.click(within(dialog).getByRole("button", { name: "Attest" }));
     expect(await within(dialog).findByText(/still outstanding/)).toBeTruthy();
+  });
+});
+
+describe("appeals and reviews (B08)", () => {
+  const REVIEW = {
+    review_id: "r1",
+    decision_ref: "dec_face_1",
+    kind: "APPEAL" as const,
+    subject_ref: "p-9",
+    statement: "The face check failed because of my camera.",
+    state: "OPEN" as const,
+    requested_by: "p-9",
+    reviewer: null,
+    rationale: null,
+    correction_ref: null,
+    proposed_outcome: null,
+    checker: null,
+    checked_at: null,
+    created_at: "2026-11-17T08:00:00Z",
+    due_at: "2099-12-17T08:00:00Z",
+    decided_at: null,
+  };
+
+  it("proposes a reversal and says a third person must confirm it", async () => {
+    fake.privacy.v2.reviews.mockResolvedValue({ items: [REVIEW] });
+    fake.privacy.v2.decideReview.mockResolvedValue({ ...REVIEW, state: "AWAITING_CHECKER", proposed_outcome: "OVERTURNED", reviewer: "u-1" });
+    mount(<ReviewsSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Review dec_face_1" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/my camera/)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Outcome/ }));
+    await userEvent.click(await screen.findByRole("option", { name: /Overturn it/ }));
+    expect(within(dialog).getByText(/only after a third person/)).toBeTruthy();
+    await userEvent.type(within(dialog).getByLabelText(/^Rationale/), "capture quality, not a mismatch");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Propose" }));
+    await waitFor(() =>
+      expect(fake.privacy.v2.decideReview).toHaveBeenCalledWith("r1", { outcome: "OVERTURNED", rationale: "capture quality, not a mismatch", correction_ref: null }),
+    );
+  });
+
+  it("never offers the requester their own review or check", async () => {
+    fake.privacy.v2.reviews.mockResolvedValue({ items: [{ ...REVIEW, requested_by: "u-1" }, { ...REVIEW, review_id: "r2", decision_ref: "dec_2", state: "AWAITING_CHECKER", reviewer: "u-1", proposed_outcome: "OVERTURNED" }] });
+    mount(<ReviewsSection />);
+    expect(await screen.findByText("You asked")).toBeTruthy();
+    expect(screen.getByText("You reviewed")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Review dec_face_1/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Check dec_2/ })).toBeNull();
+  });
+
+  it("explains a refused check in words", async () => {
+    fake.privacy.v2.reviews.mockResolvedValue({ items: [{ ...REVIEW, state: "AWAITING_CHECKER", reviewer: "u-2", proposed_outcome: "OVERTURNED", rationale: "capture quality" }] });
+    fake.privacy.v2.checkReview.mockRejectedValue(new ApiError({ status: 403, code: "CHECKER_IS_REVIEWER", message: "no" }));
+    mount(<ReviewsSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Check dec_face_1" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText(/Your note/), "agree with the rationale");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await within(dialog).findByText(/A different person checks it/)).toBeTruthy();
+    expect(fake.privacy.v2.checkReview).toHaveBeenCalledWith("r1", { confirm: true, note: "agree with the rationale" });
+  });
+});
+
+describe("models and fairness (B07)", () => {
+  const BASE = {
+    model_id: "m1",
+    model_ref: "veriff",
+    version: "2026.11",
+    kind: "face_match" as const,
+    provider_service_ref: null,
+    live_features: [],
+    state: "REGISTERED" as const,
+    state_reason: null,
+    promoted_at: null,
+  };
+
+  it("never says pass, and only promotes a version that passes with limits", async () => {
+    fake.privacy.v2.models.mockResolvedValue({
+      items: [
+        { ...BASE, fairness: { state: "DATA_INSUFFICIENT", reasons: ["EVALUATION_HAS_NO_COHORT_COMPARISON"] }, latest_evaluation: null },
+        {
+          ...BASE,
+          model_id: "m2",
+          version: "2026.12",
+          fairness: { state: "PASS_WITH_LIMITS", reasons: [] },
+          latest_evaluation: {
+            evaluation_id: "e1",
+            evaluator_ref: "Lab A",
+            independent: true,
+            cohorts: 4,
+            metrics: { fmr: { value: 0.001, ci_low: 0.0005, ci_high: 0.002 }, fnmr: { value: 0.01, ci_low: 0.008, ci_high: 0.012 }, failure_to_acquire: { value: 0.02, ci_low: 0.01, ci_high: 0.03 } },
+            accessible_alternative_confirmed: true,
+            report_ref: null,
+            created_at: "2026-11-01T10:00:00Z",
+          },
+        },
+      ],
+    });
+    mount(<ModelsSection />);
+    expect(await screen.findByText("Data insufficient")).toBeTruthy();
+    expect(screen.getByText("Passes, with limits")).toBeTruthy();
+    expect(screen.queryByText(/^Pass$/)).toBeNull();
+    const blocked = screen.getByRole("button", { name: "Promote veriff@2026.11" });
+    expect(blocked.hasAttribute("disabled") || blocked.getAttribute("aria-disabled") === "true").toBe(true);
+    expect(screen.getByText((_, el) => el?.tagName === "LI" && (el.textContent ?? "").includes("0.10% (95% CI 0.05%–0.20%)"))).toBeTruthy();
+  });
+
+  it("refuses an evaluation whose value is outside its interval", async () => {
+    fake.privacy.v2.models.mockResolvedValue({ items: [{ ...BASE, fairness: { state: "NOT_RUN", reasons: ["NO_EVALUATION"] }, latest_evaluation: null }] });
+    mount(<ModelsSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Record evaluation for veriff@2026.11" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText(/^Evaluator/), "Lab A");
+    for (const k of ["fmr", "fnmr", "failure_to_acquire"]) {
+      await userEvent.type(within(dialog).getByLabelText(new RegExp(`^${k} value`)), "0.5");
+      await userEvent.type(within(dialog).getByLabelText(new RegExp(`^${k} CI low`)), "0.1");
+      await userEvent.type(within(dialog).getByLabelText(new RegExp(`^${k} CI high`)), "0.2");
+    }
+    const rec = within(dialog).getByRole("button", { name: "Record" });
+    expect(rec.hasAttribute("disabled") || rec.getAttribute("aria-disabled") === "true").toBe(true);
+  });
+});
+
+describe("transfers and subprocessors (B04)", () => {
+  it("explains a refused transfer in words, including support access from abroad", async () => {
+    fake.privacy.v2.transfers.mockResolvedValue({ items: [] });
+    fake.privacy.v2.changes.mockResolvedValue({ items: [] });
+    fake.privacy.v2.checkTransfer.mockResolvedValue({ allowed: false, reason_codes: ["SUBPROCESSOR_CHANGE_PENDING", "REMOTE_ACCESS_FROM_IN_NOT_APPROVED"], mechanism: null });
+    mount(<TransfersSection />);
+    await userEvent.type(await screen.findByLabelText(/^Processor ID/), "veriff");
+    await userEvent.type(screen.getByLabelText(/^To /), "us");
+    await userEvent.type(screen.getByLabelText(/^Support access from/), "in");
+    await userEvent.click(screen.getByRole("button", { name: "Check" }));
+    expect(await screen.findByText("Refused")).toBeTruthy();
+    expect(screen.getByText(/egress is blocked until then/)).toBeTruthy();
+    expect(screen.getByText("Support access from IN is not an approved location.")).toBeTruthy();
+    expect(fake.privacy.v2.checkTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ processor_id: "veriff", destination_country: "US", remote_access_countries: ["IN"], data_category: "D3" }),
+    );
+  });
+
+  it("decides a waiting processor change", async () => {
+    fake.privacy.v2.transfers.mockResolvedValue({ items: [] });
+    fake.privacy.v2.changes.mockResolvedValue({
+      items: [{ change_id: "c1", processor_id: "veriff", kind: "LOCATION_ADDED", detail: "us-east", state: "PENDING_APPROVAL", notified_at: "2026-11-17T08:00:00Z", requested_by: "u-2", decided_by: null, decided_at: null, created_at: "2026-11-17T08:00:00Z" }],
+    });
+    fake.privacy.v2.decideChange.mockResolvedValue({ state: "APPROVED" });
+    mount(<TransfersSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Approve change us-east" }));
+    await waitFor(() => expect(fake.privacy.v2.decideChange).toHaveBeenCalledWith("c1", true));
+  });
+});
+
+describe("oversight monitor (B12)", () => {
+  it("names what needs attention and where to act", async () => {
+    fake.privacy.v2.oversight.mockResolvedValue({
+      window_days: 30,
+      breaches_pausing_capture: 1,
+      dpia: { approved: 2, expiring_30d: 1, lapsed: 0 },
+      models: { active: 1, held: 1 },
+      reviews: { open: 3, awaiting_checker: 1, overdue: 2 },
+      erasure: { open: 0, held: 0, failed: 0, provider_tasks_overdue: 0 },
+      consent: { withdrawn_30d: 4 },
+      subprocessor_changes_waiting: 0,
+      transfers_refused_30d: 0,
+      retention_missing_classes: [],
+      attention: ["BREACH_PAUSING_CAPTURE", "MODEL_HELD", "REVIEWS_OVERDUE"],
+      measured_at: "2026-11-17T10:00:00Z",
+    });
+    mount(<OversightSection />);
+    const list = await screen.findByRole("list", { name: "Needs attention" });
+    expect(within(list).getByText(/pausing biometric capture/)).toBeTruthy();
+    expect(within(list).getByText(/Models & fairness tab/)).toBeTruthy();
+    expect(screen.getByText("2 overdue")).toBeTruthy();
+  });
+});
+
+describe("assisted verification (B02)", () => {
+  const ITEM = {
+    session_ref: "vs_1",
+    subject_principal_id: "p-9",
+    purpose_code: "IDENTITY_VERIFICATION",
+    country: "GB",
+    alternative_mode: "IN_PERSON_REVIEW",
+    assisted_state: "WAITING" as const,
+    assisted_by: null,
+    assisted_at: null,
+    assisted_outcome_ref: null,
+    assisted_reason_code: null,
+    created_at: "2026-11-17T08:00:00Z",
+  };
+
+  it("takes a waiting case and never offers a person their own", async () => {
+    fake.privacy.v2.assistedQueue.mockResolvedValue({ items: [ITEM, { ...ITEM, session_ref: "vs_2", subject_principal_id: "u-1" }] });
+    fake.privacy.v2.claimAssisted.mockResolvedValue({ session_ref: "vs_1", assisted_state: "IN_PROGRESS" });
+    mount(<AssistedSection />);
+    expect(await screen.findByText("Your own")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Take case vs_2" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Take case vs_1" }));
+    await waitFor(() => expect(fake.privacy.v2.claimAssisted).toHaveBeenCalledWith("vs_1"));
+  });
+
+  it("records a case that could not be completed with a reason code, never a personal reason", async () => {
+    fake.privacy.v2.assistedQueue.mockResolvedValue({ items: [{ ...ITEM, assisted_state: "IN_PROGRESS", assisted_by: "u-1" }] });
+    fake.privacy.v2.completeAssisted.mockResolvedValue({ session_ref: "vs_1", assisted_state: "NOT_COMPLETED" });
+    mount(<AssistedSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Record outcome for vs_1" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Outcome/ }));
+    await userEvent.click(await screen.findByRole("option", { name: "Could not be completed" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record" }));
+    await waitFor(() => expect(fake.privacy.v2.completeAssisted).toHaveBeenCalledWith("vs_1", { done: false, reason_code: "PERSON_UNREACHABLE" }));
   });
 });

@@ -421,6 +421,7 @@ async def open_erasure_job(
             },
         )
     await _settle(conn, str(job_id))
+    await _announce_purged(conn, tenant_id, str(job_id), set())
     await v1._audit(
         conn, tenant_id, None, "privacy.erasure_job.opened", actor=actor, target_type="erasure_job", target_ref=str(job_id),
         details={"scope": scope, "tasks": len(tasks)},
@@ -489,6 +490,34 @@ async def preview_erasure(
         else {"action": "ATTEST_LAST", "window_days": max(backup_days) if backup_days else None},
         "statement": "Nothing was deleted. This is what an erasure job would do now, in deletion order, from the data map as recorded.",
     }
+
+
+async def _announce_purged(
+    conn: AsyncConnection, tenant_id: str, job_id: str, before: set[str]
+) -> None:
+    """WF-04 section 19 `biometric.deletion.confirmed` (CR-110): each biometric class that became PURGED in this step (its stores, its providers
+    and the backups all acknowledged). The job id, the class and the commitment over the receipts; never content."""
+    view = await job_view(conn, job_id)
+    proof = rules.proof(view, view["tasks"])
+    for c in view["biometric_classes"]:
+        if c["state"] == "PURGED" and c["asset_class"] not in before:
+            await v1._event(
+                conn,
+                tenant_id,
+                "privacy.biometric.deletion_confirmed",
+                ("erasure_class", f"{job_id}:{c['asset_class']}"),
+                {
+                    "job_id": job_id,
+                    "asset_class": c["asset_class"],
+                    "receipts_commitment": proof["receipts_commitment"],
+                },
+                actor=None,
+            )
+
+
+async def _purged(conn: AsyncConnection, job_id: str) -> set[str]:
+    view = await job_view(conn, job_id)
+    return {c["asset_class"] for c in view["biometric_classes"] if c["state"] == "PURGED"}
 
 
 async def _settle(conn: AsyncConnection, job_id: str) -> str:
@@ -566,6 +595,7 @@ async def acknowledge_task(
             problem,
             "the first-party and provider deletions must be settled before the backups are attested",
         )
+    before = await _purged(conn, job_id)
     row = (
         await conn.execute(
             text("""
@@ -584,6 +614,7 @@ async def acknowledge_task(
             "PRIVACY_INVALID_STATE", "only a pending backup task is attested by an operator"
         )
     await _settle(conn, job_id)
+    await _announce_purged(conn, tenant_id, job_id, before)
     await v1._audit(
         conn,
         tenant_id,
@@ -622,6 +653,7 @@ async def provider_receipt(
         )
     except (InvalidSignature, ValueError, binascii.Error) as e:
         raise PrivacyError("RECEIPT_SIGNATURE_INVALID") from e
+    before = await _purged(conn, job_id)
     row = (
         await conn.execute(
             text("""
@@ -646,6 +678,7 @@ async def provider_receipt(
             "PRIVACY_INVALID_STATE", "no pending task of this provider matches the receipt"
         )
     await _settle(conn, job_id)
+    await _announce_purged(conn, tenant_id, job_id, before)
     await v1._audit(
         conn,
         tenant_id,
@@ -732,6 +765,36 @@ async def decide_transfer(
         )
     ).one()
     return _row(row)
+
+
+async def list_transfers(conn: AsyncConnection, *, limit: int = 100) -> list[dict[str, Any]]:
+    """The tenant's transfer decisions, newest first, with their reasons (WF-04 B04 ledger; CR-110). The policy snapshot is left out."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT decision_id, processor_id, purpose_code, data_category, origin_country, destination_country, remote_access_countries, "
+                "mechanism, allowed, reason_codes, evaluated_at FROM privacy.transfer_decision ORDER BY evaluated_at DESC LIMIT :n"
+            ),
+            {"n": limit},
+        )
+    ).all()
+    return [_row(r) for r in rows]
+
+
+async def list_changes(
+    conn: AsyncConnection, *, pending_only: bool = False, limit: int = 100
+) -> list[dict[str, Any]]:
+    """Subprocessor and location changes, newest first (B04; CR-110). A pending one blocks egress to its processor."""
+    where = "WHERE state = 'PENDING_APPROVAL' " if pending_only else ""
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT * FROM privacy.subprocessor_change {where}ORDER BY created_at DESC LIMIT :n"
+            ),
+            {"n": limit},
+        )
+    ).all()
+    return [_row(r) for r in rows]
 
 
 async def provider_controls(conn: AsyncConnection, service_id: str, country: str) -> dict[str, Any]:
@@ -1187,6 +1250,34 @@ async def decide_review(
         raise PrivacyError(problem)
     if outcome == "CORRECTED" and not correction_ref:
         raise PrivacyError("CORRECTION_REF_REQUIRED")
+    if outcome in rules.NEEDS_CHECKER:
+        # CR-109 (WF-04 B08): a reversal is only proposed here; a third person confirms it before it takes effect
+        row = (
+            await conn.execute(
+                text(
+                    "UPDATE privacy.decision_review SET state = 'AWAITING_CHECKER', proposed_outcome = :s, reviewer = :by, rationale = :ra, "
+                    "correction_ref = :c, decided_at = now() WHERE review_id = :r RETURNING *"
+                ),
+                {
+                    "s": outcome,
+                    "by": _u(actor),
+                    "ra": rationale,
+                    "c": correction_ref,
+                    "r": _u(review_id),
+                },
+            )
+        ).one()
+        await v1._audit(
+            conn,
+            tenant_id,
+            None,
+            "privacy.decision_review.reversal_proposed",
+            actor=actor,
+            target_type="decision_review",
+            target_ref=review_id,
+            details={"outcome": outcome},
+        )
+        return _row(row)
     row = (
         await conn.execute(
             text(
@@ -1201,6 +1292,12 @@ async def decide_review(
             },
         )
     ).one()
+    await _review_final(conn, tenant_id, actor, row)
+    return _row(row)
+
+
+async def _review_final(conn: AsyncConnection, tenant_id: str, actor: str, row: Any) -> None:
+    review_id = str(row.review_id)
     await v1._audit(
         conn,
         tenant_id,
@@ -1209,7 +1306,7 @@ async def decide_review(
         actor=actor,
         target_type="decision_review",
         target_ref=review_id,
-        details={"outcome": outcome},
+        details={"outcome": row.state},
     )
     # the person is told the outcome (ids and the outcome only: the rationale stays on the record, never in an event)
     await v1._event(
@@ -1217,10 +1314,113 @@ async def decide_review(
         tenant_id,
         "privacy.review.decided",
         ("decision_review", review_id),
-        {"review_id": review_id, "outcome": outcome, "reviewer_is_independent": True},
+        {"review_id": review_id, "outcome": row.state, "reviewer_is_independent": True},
         actor=actor,
     )
+    if row.state in rules.NEEDS_CHECKER:
+        # WF-04 section 19 decision.changed: whoever relied on the contested decision must re-read it; a stale claim must not keep authorizing.
+        # CR-110: the modules that issued claims on it invalidate them in this same transaction.
+        invalidated = await v1.run_decision_hooks(conn, tenant_id, row.decision_ref, row.state)
+        await v1._event(
+            conn,
+            tenant_id,
+            "privacy.decision.changed",
+            ("decision_review", review_id),
+            {
+                "review_id": review_id,
+                "decision_ref": row.decision_ref,
+                "outcome": row.state,
+                "correction_ref": row.correction_ref,
+                "invalidated": {k: len(v) for k, v in invalidated.items()},
+            },
+            actor=actor,
+            version=2,  # the second event on this review (review.decided is version 1)
+        )
+
+
+async def check_review(
+    conn: AsyncConnection, tenant_id: str, actor: str, review_id: str, *, confirm: bool, note: str
+) -> dict[str, Any]:
+    """The checker (CR-109): confirm the proposed reversal (it takes effect and is announced) or send it back to OPEN for another review."""
+    r = (
+        await conn.execute(
+            text("SELECT * FROM privacy.decision_review WHERE review_id = :r FOR UPDATE"),
+            {"r": _u(review_id)},
+        )
+    ).first()
+    if r is None:
+        raise PrivacyError("NOT_FOUND", "unknown review")
+    problem = rules.checker_problem(
+        state=r.state,
+        requested_by=str(r.requested_by),
+        reviewer=str(r.reviewer) if r.reviewer else None,
+        checker=actor,
+        note=note,
+    )
+    if problem:
+        raise PrivacyError(problem)
+    if confirm:
+        row = (
+            await conn.execute(
+                text(
+                    "UPDATE privacy.decision_review SET state = proposed_outcome, proposed_outcome = NULL, checker = :by, checked_at = now() "
+                    "WHERE review_id = :r RETURNING *"
+                ),
+                {"by": _u(actor), "r": _u(review_id)},
+            )
+        ).one()
+        await _review_final(conn, tenant_id, actor, row)
+        return _row(row)
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE privacy.decision_review SET state = 'OPEN', proposed_outcome = NULL, reviewer = NULL, rationale = NULL, "
+                "correction_ref = NULL, decided_at = NULL WHERE review_id = :r RETURNING *"
+            ),
+            {"r": _u(review_id)},
+        )
+    ).one()
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.decision_review.reversal_returned",
+        actor=actor,
+        target_type="decision_review",
+        target_ref=review_id,
+        details={"proposed": r.proposed_outcome, "reviewer": str(r.reviewer)},
+    )
     return _row(row)
+
+
+async def my_reviews(
+    conn: AsyncConnection, requester: str, *, limit: int = 50
+) -> list[dict[str, Any]]:
+    """The person's own appeals and human reviews, newest first (WF-04 B08 "explain outcome to applicant"; CR-110). The reviewer's and checker's
+    identities are not returned to the person; the outcome, dates and correction reference are."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT review_id, decision_ref, kind, state, statement, correction_ref, created_at, due_at, decided_at, checked_at "
+                "FROM privacy.decision_review WHERE requested_by = :me ORDER BY created_at DESC LIMIT :n"
+            ),
+            {"me": _u(requester), "n": limit},
+        )
+    ).all()
+    return [_row(r) for r in rows]
+
+
+async def list_reviews(
+    conn: AsyncConnection, *, state: str | None = None, limit: int = 100
+) -> list[dict[str, Any]]:
+    """The tenant's reviews, oldest due first (the reviewer's queue; CR-109)."""
+    if state:
+        sql = "SELECT * FROM privacy.decision_review WHERE state = :s ORDER BY due_at LIMIT :n"
+        params: dict[str, Any] = {"s": state, "n": limit}
+    else:
+        sql = "SELECT * FROM privacy.decision_review ORDER BY due_at LIMIT :n"
+        params = {"n": limit}
+    return [_row(r) for r in (await conn.execute(text(sql), params)).all()]
 
 
 async def get_review(conn: AsyncConnection, review_id: str) -> dict[str, Any]:
@@ -1281,7 +1481,7 @@ async def open_breach(
         actor=actor,
         target_type="breach_case",
         target_ref=str(row.breach_id),
-        details={"severity": severity, "biometric_capture_paused": pause},
+        details={"severity": severity, "capture_paused": pause},
     )
     return _breach_view(row, config if config is not None else breach_config(), _now())
 
@@ -1317,6 +1517,38 @@ async def get_breach(
     if r is None:
         raise PrivacyError("NOT_FOUND", "unknown breach case")
     return _breach_view(r, config if config is not None else breach_config(), _now())
+
+
+async def breach_dossier(
+    conn: AsyncConnection, breach_id: str, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """WF-04 B09 "export audit dossier" (CR-110): the case, its clocks and notifications, the biometric capture timeline and its audit trail (codes
+    and record hashes only). No face data, no reason text from the ledger: an incident record never duplicates raw personal data."""
+    from zid_platform.modules.evidence.ports import audit_timeline
+
+    case = await get_breach(conn, breach_id, config)
+    return {
+        "breach": case,
+        "capture_timeline": [
+            x
+            for x in (
+                {
+                    "event": "PAUSED",
+                    "at": case.get("capture_paused_at"),
+                    "by": case.get("capture_paused_by"),
+                },
+                {
+                    "event": "RELEASED",
+                    "at": case.get("capture_released_at"),
+                    "by": case.get("capture_released_by"),
+                },
+            )
+            if x["at"]
+        ],
+        "audit_trail": await audit_timeline(conn, "breach_case", breach_id),
+        "generated_at": _now().isoformat(),
+        "statement": "Codes, times and record hashes only. Verify each record hash against the evidence ledger.",
+    }
 
 
 async def record_notification(
@@ -1506,6 +1738,177 @@ async def close_breach(
 
 
 # ------------------------------------------------------------------------------------------------------------- KPIs
+
+
+async def biometric_oversight(
+    conn: AsyncConnection, *, now: datetime | None = None
+) -> dict[str, Any]:
+    """WF-04 B12 live governance monitor for this tenant (CR-110): counts only, from the records, with what needs attention named. No person, no
+    media, no score; nothing here can identify anyone."""
+    now = now or _now()
+
+    def n(result: Any) -> int:
+        return int(result.scalar() or 0)
+
+    since = now - timedelta(days=30)
+    out: dict[str, Any] = {
+        "window_days": 30,
+        "breaches_pausing_capture": n(
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM privacy.breach_case WHERE state <> 'CLOSED' AND capture_state = 'PAUSED'"
+                ),
+                {},
+            )
+        ),
+        "dpia": {
+            "approved": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.dpia_package WHERE state = 'APPROVED' AND approved_until > :n"
+                    ),
+                    {"n": now},
+                )
+            ),
+            "expiring_30d": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.dpia_package WHERE state = 'APPROVED' AND approved_until > :n AND approved_until <= :e"
+                    ),
+                    {"n": now, "e": now + timedelta(days=30)},
+                )
+            ),
+            "lapsed": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.dpia_package WHERE state = 'APPROVED' AND approved_until <= :n"
+                    ),
+                    {"n": now},
+                )
+            ),
+        },
+        "models": {
+            "active": n(
+                await conn.execute(
+                    text("SELECT count(*) FROM privacy.model_version WHERE state = 'ACTIVE'"), {}
+                )
+            ),
+            "held": n(
+                await conn.execute(
+                    text("SELECT count(*) FROM privacy.model_version WHERE state = 'HELD'"), {}
+                )
+            ),
+        },
+        "reviews": {
+            "open": n(
+                await conn.execute(
+                    text("SELECT count(*) FROM privacy.decision_review WHERE state = 'OPEN'"), {}
+                )
+            ),
+            "awaiting_checker": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.decision_review WHERE state = 'AWAITING_CHECKER'"
+                    ),
+                    {},
+                )
+            ),
+            "overdue": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.decision_review WHERE state IN ('OPEN', 'AWAITING_CHECKER') AND due_at < :n"
+                    ),
+                    {"n": now},
+                )
+            ),
+        },
+        "erasure": {
+            "open": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.erasure_job WHERE state IN ('PENDING', 'PARTIAL')"
+                    ),
+                    {},
+                )
+            ),
+            "held": n(
+                await conn.execute(
+                    text("SELECT count(*) FROM privacy.erasure_job WHERE state = 'HELD'"), {}
+                )
+            ),
+            "failed": n(
+                await conn.execute(
+                    text("SELECT count(*) FROM privacy.erasure_job WHERE state = 'FAILED'"), {}
+                )
+            ),
+            "provider_tasks_overdue": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.erasure_task WHERE target_kind = 'PROVIDER' AND state = 'PENDING' AND due_at < :n"
+                    ),
+                    {"n": now},
+                )
+            ),
+        },
+        "consent": {
+            "withdrawn_30d": n(
+                await conn.execute(
+                    text(
+                        "SELECT count(*) FROM privacy.consent_receipt WHERE status = 'WITHDRAWN' AND withdrawn_at >= :s"
+                    ),
+                    {"s": since},
+                )
+            ),
+        },
+        "subprocessor_changes_waiting": n(
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM privacy.subprocessor_change WHERE state = 'PENDING_APPROVAL'"
+                ),
+                {},
+            )
+        ),
+        "transfers_refused_30d": n(
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM privacy.transfer_decision WHERE NOT allowed AND evaluated_at >= :s"
+                ),
+                {"s": since},
+            )
+        ),
+    }
+    missing = []
+    for cls in biometric_classes():
+        if not n(
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM privacy.retention_policy WHERE status = 'ACTIVE' AND object_type = :t"
+                ),
+                {"t": cls.class_id},
+            )
+        ):
+            missing.append(cls.class_id)
+    out["retention_missing_classes"] = missing
+    attention = []
+    if out["breaches_pausing_capture"]:
+        attention.append("BREACH_PAUSING_CAPTURE")
+    if out["dpia"]["lapsed"]:
+        attention.append("DPIA_LAPSED")
+    if out["dpia"]["expiring_30d"]:
+        attention.append("DPIA_EXPIRING")
+    if out["models"]["held"]:
+        attention.append("MODEL_HELD")
+    if out["reviews"]["overdue"]:
+        attention.append("REVIEWS_OVERDUE")
+    if out["erasure"]["failed"] or out["erasure"]["provider_tasks_overdue"]:
+        attention.append("ERASURE_STUCK")
+    if out["subprocessor_changes_waiting"]:
+        attention.append("SUBPROCESSOR_CHANGE_WAITING")
+    if missing:
+        attention.append("RETENTION_MISSING")
+    out["attention"] = attention
+    out["measured_at"] = now.isoformat()
+    return out
 
 
 async def kpis(conn: AsyncConnection, days: int = 30) -> dict[str, Any]:

@@ -62,6 +62,7 @@ class Onboarded:
     second: str
     ring: KeyRing
     sessions: dict[str, str] = field(default_factory=dict)  # principal -> session id
+    third: str = ""  # a third administrator, only with onboard(with_third=True) (a checker who is neither requester nor reviewer)
 
     def bearer(self, p: str, *, scope: str = "", client: str = "console") -> dict[str, str]:
         now = datetime.now(UTC)
@@ -108,6 +109,7 @@ def onboard(
     extra_actions: Sequence[str] = (),
     extra_resources: Sequence[str] = (),
     delegable: bool = False,
+    with_third: bool = False,
 ) -> Onboarded:
     async def run() -> Onboarded:
         signup, creator, second = uid(), uid(), uid()
@@ -138,12 +140,20 @@ def onboard(
                 await create_principal(
                     c, Principal(second, t, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
                 )
-                for p in (owner, second):
+                admins = [owner, second]
+                if with_third:
+                    o.third = uid()
+                    await create_principal(
+                        c,
+                        Principal(o.third, t, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"),
+                    )
+                    admins.append(o.third)
+                for p in admins:
                     o.sessions[p] = await _session(c, t, p)
                 await make_admin(
                     c,
                     t,
-                    [owner, second],
+                    admins,
                     [*TENANT_ADMIN_ACTIONS, "authority.grant.read", *extra_actions],
                     [*RESOURCES, *extra_resources],
                     delegable=delegable,

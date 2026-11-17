@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConsentOption, ConsentRecord, RightsRequest } from "@zoiko/api-client";
+import type { ConsentOption, ConsentRecord, MyReview, RightsRequest } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, StatusBadge, Switch, type Column } from "@zoiko/ui";
 import { Download, FileText, ShieldOff } from "lucide-react";
 import { useState } from "react";
@@ -49,6 +49,7 @@ export function PrivacyCenter() {
         <ConsentOptionsCard />
         <ConsentsCard />
         <RequestsCard />
+        <MyReviewsCard />
       </div>
     </>
   );
@@ -307,5 +308,32 @@ function RequestsCard() {
         </div>
       </Dialog>
     </>
+  );
+}
+
+/** What each review state means for the person who asked (WF-04 B08; CR-110). */
+export const REVIEW_STATE_TEXT: Record<string, string> = {
+  OPEN: "Waiting for a person other than you to review it.",
+  AWAITING_CHECKER: "A reviewer proposed changing the decision; a second person is checking it.",
+  UPHELD: "Reviewed: the decision stands. You can make a complaint if you disagree.",
+  OVERTURNED: "Reviewed: the decision was reversed. Anything that relied on it was withdrawn; you may be asked to verify again.",
+  CORRECTED: "Reviewed: the decision was corrected.",
+};
+
+function MyReviewsCard() {
+  const q = useCellQuery([...KEY, "reviews"], (api) => api.privacy.v2.myReviews());
+  const columns: Column<MyReview>[] = [
+    { key: "asked", header: "Asked", pinned: true, render: (r) => <DateTime value={r.created_at} /> },
+    { key: "kind", header: "Kind", render: (r) => (r.kind === "APPEAL" ? "Appeal" : "Human review") },
+    { key: "state", header: "Status", render: (r) => <StatusBadge state={r.state} kind="Review" /> },
+    { key: "meaning", header: "What it means", render: (r) => <span className="text-xs">{REVIEW_STATE_TEXT[r.state] ?? ""}</span> },
+    { key: "due", header: "Due by", render: (r) => <DateTime value={r.due_at} style="date" /> },
+  ];
+  return (
+    <Card padded={false} title="My appeals and reviews" description="Decisions you asked a person to look at again. Asking never counts against you.">
+      <QueryView query={q}>
+        {(d) => <DataTable caption="My reviews" columns={columns} rows={d.items} rowKey={(r) => r.review_id} empty={<EmptyState icon={FileText} title="No appeals or reviews" />} />}
+      </QueryView>
+    </Card>
   );
 }

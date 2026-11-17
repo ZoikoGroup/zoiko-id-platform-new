@@ -1,7 +1,7 @@
 """Which biometric methods a live session may use, and why not (ZID-DTV-WF-04 section 19 `GET /v1/biometric-methods/eligibility`; BIO-01, BIO-03;
-QA-001, QA-015, QA-043; CR-107).
+QA-001, QA-015, QA-043; CR-107, CR-108, CR-109).
 
-One answer per method (face match, liveness), from six independent gates. Every gate that fails is named; a method is available only when none does:
+One answer per method (face match, liveness), from nine independent gates. Every gate that fails is named; a method is available only when none does:
 
 1. the ENGINE gate: the deployment's accepted engine (`config/self-run-verification/self-run.yaml`, `biometric_engine.engine_gate`). Off, or switched
    on with an incomplete record, is a refusal;
@@ -13,7 +13,14 @@ One answer per method (face match, liveness), from six independent gates. Every 
    is reported (`consent_required`) and enforced per person when the session starts;
 5. BREACH containment (CR-108): an open breach case of this tenant that paused biometric capture in this country refuses every method there;
 6. RETENTION (CR-108, BIO-08): every biometric asset class the method produces needs an ACTIVE retention policy of this tenant for the purpose
-   ("blank retention => route OFF"); each class without one is named.
+   ("blank retention => route OFF"); each class without one is named;
+7. the INDEPENDENT EVALUATION (CR-109, BIO-10/11, QA-015): the engine `id@version` must be ACTIVE in this tenant's model inventory with the kind the
+   method needs (face_match, pad), and its latest evaluation must be independent, compare cohorts, confirm the accessible alternative, give every
+   measure with its confidence interval and be current. The evaluation reference in a method approval is kept for audit, never trusted alone.
+8. PROVIDER-HOSTED methods (CR-110): with `provider`, the provider is the engine and its version is the tenant's ACTIVE pinned model of
+   that provider; the same gates 2 to 7 apply. The verification start asks this for a biometric route through a provider.
+9. ECOSYSTEM use cases (CR-110, BIO-19): a purpose a Zoiko product (Zoiko Rooms, Zoikorum) claims in `config/privacy/biometric-use-cases.yaml` needs
+   its signed integration acceptance; an approval for one product's purpose never serves another's, because a scope names its purpose exactly.
 
 The answer carries `policy_hash`, a digest of exactly what it rested on (state versions, DPIA package ids, engine record, overlay hash), so a decision
 can name the policy it was made under. Nothing here reads or keeps a face, a template or any media.
@@ -54,6 +61,11 @@ class MethodAnswer:
     dpia_blockers: tuple[str, ...] = ()
     breaches: tuple[str, ...] = ()  # open breach cases pausing capture here (CR-108)
     missing_retention: tuple[str, ...] = ()  # asset classes with no retention period (CR-108)
+    evaluation_id: str | None = (
+        None  # the tenant's latest evaluation of this engine version (CR-109)
+    )
+    evaluation_blockers: tuple[str, ...] = ()
+    exposure_percent: int = 100  # CR-110: the share of people a PRODUCTION_ELIGIBLE scope runs for
 
     def view(self) -> dict[str, Any]:
         return {
@@ -67,6 +79,9 @@ class MethodAnswer:
             "dpia_blockers": list(self.dpia_blockers),
             "breaches": list(self.breaches),
             "missing_retention": list(self.missing_retention),
+            "evaluation_id": self.evaluation_id,
+            "evaluation_blockers": list(self.evaluation_blockers),
+            "exposure_percent": self.exposure_percent,
         }
 
 
@@ -113,6 +128,8 @@ def combine(
     overlay: po.Overlay | None,
     breaches: tuple[str, ...] = (),
     missing_retention: tuple[str, ...] = (),
+    evaluation: Mapping[str, Any] | None = None,
+    use_case: tuple[str, ...] = (),
 ) -> MethodAnswer:
     """Pure: one method's answer from what each gate said. `state` and `dpia` are None when the engine gate already failed (they cannot be asked
     without an engine id and version)."""
@@ -120,7 +137,9 @@ def combine(
     s = state.state if state is not None else bm.State.OFF
     scope_ref = None
     if state is not None:
-        reasons += [r for r in state.reasons if r != "METHOD_PILOT"]
+        reasons += [
+            r for r in state.reasons if r != "METHOD_PILOT" and not r.startswith("METHOD_ROLLOUT_")
+        ]
         if state.record is not None:
             scope_ref = f"{state.record.scope_id}:v{state.record.version}"
     dpia_blockers: tuple[str, ...] = ()
@@ -135,6 +154,15 @@ def combine(
     if breaches:
         reasons.append("BREACH_CAPTURE_PAUSED")
     reasons += [f"RETENTION_NOT_SET:{c}" for c in missing_retention]
+    reasons += list(
+        use_case
+    )  # CR-110 (BIO-19): a Zoiko product's purpose needs its signed integration acceptance
+    evaluation_blockers: tuple[str, ...] = ()
+    if evaluation is not None and not evaluation.get("ready"):
+        evaluation_blockers = tuple(
+            str(b) for b in evaluation.get("blockers") or ("EVALUATION_NOT_READY",)
+        )
+        reasons.append("EVALUATION_NOT_READY")
     ok = not reasons and state is not None and state.available
     return MethodAnswer(
         method=method,
@@ -147,6 +175,11 @@ def combine(
         dpia_blockers=dpia_blockers,
         breaches=tuple(breaches),
         missing_retention=tuple(missing_retention),
+        evaluation_id=(evaluation or {}).get("evaluation_id"),
+        evaluation_blockers=evaluation_blockers,
+        exposure_percent=state.record.exposure_percent
+        if state is not None and state.record is not None
+        else 100,
     )
 
 
@@ -172,6 +205,7 @@ def policy_hash(
                 "available": a.available,
                 "breaches": list(a.breaches),
                 "missing_retention": list(a.missing_retention),
+                "evaluation_id": a.evaluation_id,
             }
             for a in answers
         ],
@@ -191,42 +225,67 @@ async def eligibility(
     now: datetime,
     gate: EngineGate | None = None,
     gate_given: bool = False,
+    provider: str | None = None,
+    rollout_key: str | None = None,
 ) -> Eligibility:
     """Run inside the TENANT's transaction: the DPIA packages are tenant data behind row-level security, and the answer must use this tenant's own.
-    `gate`/`gate_given` let a caller (or a test) supply the engine gate instead of reading the deployment's configuration."""
+    `gate`/`gate_given` let a caller (or a test) supply the engine gate instead of reading the deployment's configuration.
+
+    `provider` (CR-110): the method is run by a licensed provider, not by the self-run engine. The engine is then the provider, and its version is
+    the version of this tenant's ACTIVE (pinned) model of that provider for the method's kind; every other gate is the same. A provider whose model
+    is not in the inventory, or is held after drift, has no version and is refused."""
     from zid_platform.modules.privacy.ports import (
+        active_model_version,
         capture_paused_breaches,
+        method_evidence,
         missing_biometric_retention,
         release_gate,
+        use_case_problems,
     )
 
     country = country.upper()
     engine_reasons: list[str] = []
-    if not gate_given:
-        try:
-            gate = self_run_config.accepted_engine(now.date())
-        except EngineGateError as e:
-            gate = None
-            engine_reasons.append("ENGINE_GATE_INVALID")
-            engine_reasons += [f"ENGINE_{p}" for p in e.problems]
-    if gate is None and not engine_reasons:
-        engine_reasons.append("ENGINE_NOT_ACCEPTED")
-    engine = gate.audit() if gate is not None else None
+    engine: dict[str, Any] | None
+    versions: dict[bm.Method, str | None] = {}
+    if provider is not None:
+        engine_id = provider
+        for method in bm.Method:
+            versions[method] = (
+                await active_model_version(conn, provider, method.value) if tenant_id else None
+            )
+        engine = {"provider": provider, "versions": {m.value: v for m, v in versions.items()}}
+    else:
+        if not gate_given:
+            try:
+                gate = self_run_config.accepted_engine(now.date())
+            except EngineGateError as e:
+                gate = None
+                engine_reasons.append("ENGINE_GATE_INVALID")
+                engine_reasons += [f"ENGINE_{p}" for p in e.problems]
+        if gate is None and not engine_reasons:
+            engine_reasons.append("ENGINE_NOT_ACCEPTED")
+        engine = dict(gate.audit()) if gate is not None else None
+        engine_id = gate.engine_id if gate is not None else ""
+        for method in bm.Method:
+            versions[method] = gate.engine_version if gate is not None else None
     overlay = overlays.get(country)
     blocked = list(engine_reasons)
     if not tenant_id:  # a method scope and a DPIA belong to a tenant; a caller without one gets no biometric method
         blocked.append("TENANT_REQUIRED")
     breaches = tuple(await capture_paused_breaches(conn, country)) if tenant_id else ()
+    use_case = tuple(use_case_problems(purpose, today=now.date()))
     answers = []
     for method in bm.Method:
-        if gate is None or blocked:
+        version = versions[method]
+        if blocked or version is None:
+            reasons = blocked or ["PROVIDER_MODEL_NOT_ACTIVE"]
             answers.append(
-                combine(method, engine_reasons=blocked, state=None, dpia=None, overlay=overlay)
+                combine(method, engine_reasons=reasons, state=None, dpia=None, overlay=overlay)
             )
             continue
-        call = bm.Call(method, gate.engine_id, gate.engine_version, country, purpose, tenant_id)
+        call = bm.Call(method, engine_id, version, country, purpose, tenant_id, rollout_key)
         state = await methods.availability_for(conn, call, at=now)
-        dpia = await release_gate(conn, country, dpia_product(method), gate.engine_version)
+        dpia = await release_gate(conn, country, dpia_product(method), version)
         answers.append(
             combine(
                 method,
@@ -236,6 +295,8 @@ async def eligibility(
                 overlay=overlay,
                 breaches=breaches,
                 missing_retention=await missing_biometric_retention(conn, method.value, purpose),
+                evaluation=await method_evidence(conn, method.value, engine_id, version),
+                use_case=use_case,
             )
         )
     result = tuple(answers)
@@ -252,4 +313,37 @@ async def eligibility(
             country=country, purpose=purpose, engine=engine, answers=result, overlay=overlay
         ),
         notes=notes,
+    )
+
+
+async def record_blocked(
+    conn: AsyncConnection, tenant_id: str, checked: Eligibility, *, route: str
+) -> None:
+    """WF-04 section 19 `biometric.policy.blocked` (CR-110): a biometric method was not used because a gate refused it. Codes, the country, the
+    purpose, the route and the policy hash only; never a person, an image or a score. One event per refusal, each its own aggregate."""
+    import uuid
+
+    from zid_outbox import emit
+
+    refused = [
+        {"method": m.method.value, "reasons": list(m.reasons)}
+        for m in checked.methods
+        if not m.available
+    ]
+    if not refused:
+        return
+    await emit(
+        conn,
+        name="verification.biometric.policy_blocked",
+        tenant_id=tenant_id,
+        aggregate_type="biometric_refusal",
+        aggregate_id=str(uuid.uuid4()),
+        aggregate_version=1,
+        data={
+            "route": route,
+            "country": checked.country,
+            "purpose": checked.purpose,
+            "refused": refused,
+            "policy_hash": checked.policy_hash,
+        },
     )

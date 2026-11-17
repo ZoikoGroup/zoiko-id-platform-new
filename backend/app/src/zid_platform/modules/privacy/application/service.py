@@ -1272,6 +1272,27 @@ def register_erasure_hook(name: str, hook: Callable[[str, str], object]) -> None
     _ERASURE_HOOKS[name] = hook
 
 
+# CR-110 (WF-04 B08, section 19 decision.changed): a module that issues claims resting on a decision registers here at start-up (main.py), so a
+# reversed decision does not leave a stale claim authorizing anything. A hook gets (conn, tenant_id, decision_ref, outcome) inside the review's
+# transaction and returns the ids it invalidated. Privacy never imports the module.
+_DECISION_HOOKS: dict[str, Callable[[Any, str, str, str], Awaitable[list[str]]]] = {}
+
+
+def register_decision_hook(
+    name: str, hook: Callable[[Any, str, str, str], Awaitable[list[str]]]
+) -> None:
+    _DECISION_HOOKS[name] = hook
+
+
+async def run_decision_hooks(
+    conn: Any, tenant_id: str, decision_ref: str, outcome: str
+) -> dict[str, list[str]]:
+    return {
+        name: await hook(conn, tenant_id, decision_ref, outcome)
+        for name, hook in sorted(_DECISION_HOOKS.items())
+    }
+
+
 # PRIV-16: a fact an external authority supplied is corrected at the source, not by hand. The module that holds such a
 # fact registers a re-check for its kind at start-up (main.py); privacy never imports it.
 _RECTIFICATION_SOURCES: dict[str, Callable[..., Awaitable[str]]] = {}

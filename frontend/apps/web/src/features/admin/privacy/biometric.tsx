@@ -21,15 +21,19 @@ export const REASON_HELP: Record<string, string> = {
   METHOD_OFF: "Zoiko has not approved this method for this engine version, country and purpose.",
   METHOD_LAB_ONLY: "Approved for laboratory testing only, never for live sessions.",
   METHOD_PAUSED: "Paused by Zoiko (the kill switch). It resumes only after a new approval.",
+  METHOD_NOT_IN_ROLLOUT: "This person is outside the current gradual rollout.",
   DPIA_NOT_READY: "Your data protection impact assessment for this method is not approved and ready. See the blockers below and the DPIA tab.",
   PRIVACY_OVERLAY_MISSING: "No approved privacy overlay exists for this country.",
   BIOMETRIC_NOT_PERMITTED_IN_COUNTRY: "This country's overlay does not permit biometric processing.",
   BREACH_CAPTURE_PAUSED: "An open breach case paused biometric capture here. Release it on the Breaches tab once it is safe.",
   TENANT_REQUIRED: "Sign in to an organization to check its methods.",
+  EVALUATION_NOT_READY: "This engine version has no current independent evaluation in your model inventory, or it is not the one in service. See the blockers below.",
 };
 
 function help(reason: string): string {
   if (reason.startsWith("RETENTION_NOT_SET:")) return `No retention period is set for ${reason.slice(18)}. Publish a retention policy for that object type on the Retention tab.`;
+  if (reason.startsWith("USE_CASE_NOT_CERTIFIED:")) return `This Zoiko product's use (${reason.slice(23)}) has no signed integration acceptance yet.`;
+  if (reason.startsWith("USE_CASE_NOT_YET_EFFECTIVE:")) return `This Zoiko product's use (${reason.slice(27)}) is signed but not yet in effect.`;
   if (reason.startsWith("OVERLAY_")) return "This country's privacy overlay is not signed by both the DPO and Legal, or has changed since.";
   if (reason.startsWith("ENGINE_")) return REASON_HELP.ENGINE_GATE_INVALID!;
   return REASON_HELP[reason] ?? reason;
@@ -62,7 +66,10 @@ export function MethodCard({ answer }: { answer: BiometricMethodAnswer }) {
           {!engine ? help(answer.reasons.find((r) => r.startsWith("ENGINE_") || r === "TENANT_REQUIRED")!) : null}
         </Gate>
         <Gate ok={engine && !has("METHOD_")} label={`Zoiko approval (${answer.state.replaceAll("_", " ").toLowerCase()})`}>
-          {answer.reasons.filter((r) => r.startsWith("METHOD_")).map(help).join(" ") || (answer.scope_ref ? `Rests on ${answer.scope_ref}.` : null)}
+          {answer.reasons.filter((r) => r.startsWith("METHOD_")).map(help).join(" ") ||
+            (answer.scope_ref
+              ? `Rests on ${answer.scope_ref}.${answer.exposure_percent < 100 ? ` Gradual rollout: runs for ${answer.exposure_percent}% of people.` : ""}`
+              : null)}
         </Gate>
         <Gate ok={engine && !has("DPIA_")} label="Your DPIA">
           {answer.dpia_blockers.length ? (
@@ -82,6 +89,24 @@ export function MethodCard({ answer }: { answer: BiometricMethodAnswer }) {
         <Gate ok={!answer.breaches.length} label="No breach pause">
           {answer.breaches.length ? `${help("BREACH_CAPTURE_PAUSED")} Cases: ${answer.breaches.join(", ")}` : null}
         </Gate>
+        <Gate ok={engine && !has("EVALUATION_")} label="Independent evaluation of this engine version">
+          {answer.evaluation_blockers.length ? (
+            <span className="mt-1 flex flex-wrap gap-1">
+              {answer.evaluation_blockers.map((b) => (
+                <Badge key={b} tone="warn">
+                  {b}
+                </Badge>
+              ))}
+            </span>
+          ) : answer.evaluation_id ? (
+            `Evaluation ${answer.evaluation_id.slice(0, 8)}…`
+          ) : null}
+        </Gate>
+        {answer.reasons.some((r) => r.startsWith("USE_CASE_")) ? (
+          <Gate ok={false} label="Zoiko product use case">
+            {answer.reasons.filter((r) => r.startsWith("USE_CASE_")).map(help).join(" ")}
+          </Gate>
+        ) : null}
         <Gate ok={engine && !answer.missing_retention.length} label="Retention for every biometric asset class">
           {answer.missing_retention.length ? (
             <span className="mt-1 flex flex-wrap gap-1">

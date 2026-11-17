@@ -227,6 +227,16 @@ export function BreachesSection() {
     success: "Biometric capture paused in this case's jurisdictions",
   });
   const close = useCellMutation((api, c: BreachCase) => api.privacy.v2.closeBreach(c.breach_id), { invalidate: [BREACH_KEY, [...PRIVACY_KEY, "biometric"]], success: "Case closed" });
+  const [suspending, setSuspending] = useState(false);
+  const dossier = useCellMutation((api, c: BreachCase) => api.privacy.v2.breachDossier(c.breach_id), {
+    onSuccess: (d, c) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
+      a.download = `breach-${c.breach_id}-dossier.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    },
+  });
   const cols: Column<BreachCase>[] = [
     { key: "detected", header: "Detected", pinned: true, render: (c) => <DateTime value={c.detected_at} /> },
     { key: "summary", header: "Summary", render: (c) => <span className="text-sm">{c.summary}</span> },
@@ -259,6 +269,9 @@ export function BreachesSection() {
             <Button size="xs" variant="secondary" pending={close.isPending} onPress={() => close.mutate(c)}>
               Close
             </Button>
+            <Button size="xs" variant="secondary" pending={dossier.isPending} onPress={() => dossier.mutate(c)} aria-label={`Export dossier for case detected ${c.detected_at}`}>
+              Dossier
+            </Button>
           </span>
         ),
     },
@@ -274,6 +287,9 @@ export function BreachesSection() {
             <Checkbox isSelected={openOnly} onChange={setOpenOnly}>
               Open only
             </Checkbox>
+            <Button size="sm" variant="secondary" onPress={() => setSuspending(true)}>
+              Suspend a processor
+            </Button>
             <Button size="sm" variant="danger" onPress={() => setOpening(true)}>
               Open a case
             </Button>
@@ -285,10 +301,48 @@ export function BreachesSection() {
         </QueryView>
         {pause.error ? <Err error={pause.error} /> : null}
         {close.error ? <Err error={close.error} /> : null}
+        {dossier.error ? <Err error={dossier.error} /> : null}
       </Card>
       <OpenDialog isOpen={opening} onClose={() => setOpening(false)} />
       <ReleaseDialog c={releasing} onClose={() => setReleasing(null)} />
       <NotifyDialog c={notifying} onClose={() => setNotifying(null)} />
+      <SuspendProcessorDialog isOpen={suspending} onClose={() => setSuspending(false)} />
     </div>
+  );
+}
+
+/** B09 containment (CR-110): revoke a connector by suspending the processor it sends to. Transfers to a suspended processor are refused. */
+function SuspendProcessorDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [id, setId] = useState("");
+  const suspend = useCellMutation((api) => api.privacy.suspendProcessor(id.trim()), {
+    invalidate: [[...PRIVACY_KEY, "processors"], [...PRIVACY_KEY, "transfers"]],
+    success: "Processor suspended: transfers to it are refused",
+    onSuccess: () => {
+      setId("");
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={(o) => !o && onClose()}
+      title="Suspend a processor"
+      description="Containment: every transfer to this processor is refused from now. It is re-approved on the Processors tab."
+      footer={
+        <>
+          <Button variant="secondary" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button variant="danger" pending={suspend.isPending} isDisabled={!id.trim()} onPress={() => suspend.mutate(undefined)}>
+            Suspend
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <TextField label="Processor ID" value={id} onChange={setId} mono isRequired />
+        {suspend.error ? <Err error={suspend.error} /> : null}
+      </div>
+    </Dialog>
   );
 }

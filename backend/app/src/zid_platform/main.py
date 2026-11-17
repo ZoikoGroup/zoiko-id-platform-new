@@ -1119,6 +1119,11 @@ def register_privacy_stores(registration_tenant: str | None = None) -> None:
     from .modules.signals.ports import forget_subject
 
     register_erasure_hook("security-state-cache", forget_subject)
+    # CR-110: a reversed decision revokes the verification claims that rested on it (privacy never imports verification)
+    from .modules.privacy.ports import register_decision_hook
+    from .modules.verification.ports import invalidate_for_decision
+
+    register_decision_hook("verification-assertions", invalidate_for_decision)
     register_issuer_binding(
         resolve_and_bind
     )  # the evidence module asks the credential module's registry without importing it

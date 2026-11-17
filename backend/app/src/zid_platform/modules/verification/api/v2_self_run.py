@@ -114,7 +114,13 @@ async def start(body: StartIn, request: Request, caller: CallerDep) -> dict[str,
     _country_gate(request, body.jurisdiction)
     basis = await _pack_gate(request, caller, body.jurisdiction)
     privacy = await _privacy_gate(
-        request, caller, body.jurisdiction, str(body.profile_id), str(body.subject_principal_id)
+        request,
+        caller,
+        body.jurisdiction,
+        str(body.profile_id),
+        str(body.subject_principal_id),
+        purpose=body.purpose,
+        self_run=True,  # the self-run engine is checked at the chip and face stage (CR-107)
     )
     try:
         s, challenge = await service.start_self_run(
@@ -175,10 +181,16 @@ async def submit_chip(
                 tenant_id=caller.ctx.tenant_id or "",
                 country=pending.jurisdiction,
                 purpose=pending.purpose.upper(),
+                rollout_key=pending.subject_principal_id,  # CR-110: a partial rollout picks people
                 overlays=getattr(request.app.state, "privacy_overlays", None) or privacy_overlays(),
                 now=datetime.now(UTC),
             )
         allowed = checked.view()
+        if not (checked.available(Method.FACE_MATCH) and checked.available(Method.LIVENESS)):
+            async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+                await biometric_eligibility.record_blocked(
+                    conn, caller.ctx.tenant_id or "", checked, route="self-run"
+                )
         if checked.available(Method.FACE_MATCH) and checked.available(Method.LIVENESS):
             biometric = service.BiometricInput(
                 engine, _b64(body.face.probe_base64), _b64(body.face.liveness_base64), photo

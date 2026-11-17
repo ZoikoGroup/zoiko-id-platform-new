@@ -40,11 +40,13 @@ export const NEXT_UP: Partial<Record<BiometricState, Target>> = {
 const RANK: Record<BiometricState, number> = { OFF: 0, PAUSED: 0, LAB_ONLY: 1, PILOT_GATED: 2, PRODUCTION_ELIGIBLE: 3 };
 
 /** The step-down targets a scope in this state may move to now. */
-export function stepDownTargets(state: BiometricState, pilotTenant: string | null): BiometricStepDownIn["target"][] {
+export function stepDownTargets(state: BiometricState, pilotTenant: string | null, exposure = 100): BiometricStepDownIn["target"][] {
   if (state === "OFF") return [];
   if (state === "PAUSED") return ["OFF"];
   const lower = (["PILOT_GATED", "LAB_ONLY"] as const).filter((s) => RANK[s] < RANK[state] && (s !== "PILOT_GATED" || pilotTenant !== null));
-  return ["PAUSED", ...lower, "OFF"];
+  // CR-110: a production rollout can be narrowed at once (to fewer people), as long as there is room below its exposure
+  const narrow: BiometricStepDownIn["target"][] = state === "PRODUCTION_ELIGIBLE" && exposure > 1 ? ["PRODUCTION_ELIGIBLE"] : [];
+  return ["PAUSED", ...narrow, ...lower, "OFF"];
 }
 
 export const METHOD_ERROR_HELP: Record<string, string> = {
@@ -58,7 +60,8 @@ export const METHOD_ERROR_HELP: Record<string, string> = {
   METHOD_EVALUATION_REFERENCE_REQUIRED: "Pilot and production need the independent evaluation reference.",
   METHOD_SCOPE_ID_REQUIRED: "Name the new scope (lowercase letters, digits and hyphens).",
   METHOD_SCOPE_ID_TAKEN: "This exact scope already has an id. Propose against that scope.",
-  METHOD_STEP_NOT_DOWN: "That is not a step down. A step up needs a proposal.",
+  METHOD_STEP_NOT_DOWN: "That is not a step down. A step up, or a wider rollout, needs a proposal.",
+  METHOD_EXPOSURE_ONLY_FOR_PRODUCTION: "Only a production scope can run for part of the people.",
 };
 
 export function scopeText(s: BiometricScope): string {
@@ -89,7 +92,7 @@ const REF_OK = (v: string) => /^[A-Za-z0-9][A-Za-z0-9._:/#@+=-]{2,255}$/.test(v.
 
 /* ------------------------------------------------------------------------------------------------------------------------------ propose */
 
-function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion | null; isOpen: boolean; onClose: () => void }) {
+function ProposeDialog({ from, isOpen, onClose, widen = false }: { from: BiometricMethodVersion | null; isOpen: boolean; onClose: () => void; widen?: boolean }) {
   const blank = {
     scope_id: "",
     method: "FACE_MATCH" as BiometricMethod,
@@ -102,6 +105,7 @@ function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion
     evaluation_ref: "",
     reason: "",
     evidence_ref: "",
+    exposure: "100",
   };
   const [f, setF] = useState(blank);
   const set = (k: keyof typeof blank) => (v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -115,7 +119,11 @@ function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion
         purpose: f.purpose.trim().toUpperCase(),
         pilot_tenant: opt(f.pilot_tenant) ?? null,
       };
-  const target: Target = (from ? NEXT_UP[from.state] : "LAB_ONLY") ?? "LAB_ONLY";
+  const target: Target = widen ? "PRODUCTION_ELIGIBLE" : ((from ? NEXT_UP[from.state] : "LAB_ONLY") ?? "LAB_ONLY");
+  const exposure = Number(f.exposure);
+  const exposureOk =
+    target !== "PRODUCTION_ELIGIBLE" ||
+    (Number.isInteger(exposure) && exposure >= 1 && exposure <= 100 && (!widen || exposure > (from?.exposure_percent ?? 100)));
   const needsEvidence = target !== "LAB_ONLY";
   const propose = useCellMutation(
     (api) =>
@@ -127,6 +135,7 @@ function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion
         evaluation_ref: opt(f.evaluation_ref) ?? null,
         reason: f.reason.trim(),
         evidence_ref: f.evidence_ref.trim(),
+        exposure_percent: target === "PRODUCTION_ELIGIBLE" ? exposure : 100,
       }),
     {
       invalidate: [REG.biometricMethods],
@@ -142,12 +151,19 @@ function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion
     f.reason.trim().length >= 10 &&
     REF_OK(f.evidence_ref) &&
     (!needsEvidence || (REF_OK(f.dpia_ref) && REF_OK(f.evaluation_ref))) &&
-    (target !== "PILOT_GATED" || scope.pilot_tenant);
+    (target !== "PILOT_GATED" || scope.pilot_tenant) &&
+    exposureOk;
   return (
     <Dialog
       isOpen={isOpen}
       onOpenChange={(o) => !o && onClose()}
-      title={from ? `Propose ${from.scope_id}: ${STATE_LABEL[from.state]} → ${STATE_LABEL[target]}` : "Propose a new biometric method scope (Lab only)"}
+      title={
+        widen && from
+          ? `Widen ${from.scope_id}: today ${from.exposure_percent}% of people`
+          : from
+            ? `Propose ${from.scope_id}: ${STATE_LABEL[from.state]} → ${STATE_LABEL[target]}`
+            : "Propose a new biometric method scope (Lab only)"
+      }
       description="A proposal changes nothing. A different person approves it, and only while the scope is still in the state it was proposed from."
       size="lg"
       footer={
@@ -197,6 +213,16 @@ function ProposeDialog({ from, isOpen, onClose }: { from: BiometricMethodVersion
             <TextField label="DPIA reference" value={f.dpia_ref} onChange={set("dpia_ref")} mono isRequired />
             <TextField label="Independent evaluation reference" value={f.evaluation_ref} onChange={set("evaluation_ref")} mono isRequired />
           </>
+        ) : null}
+        {target === "PRODUCTION_ELIGIBLE" ? (
+          <TextField
+            label="Exposure (% of people)"
+            description={widen ? `more than the current ${from?.exposure_percent ?? 100}%` : "100 = everyone; less for a gradual rollout"}
+            value={f.exposure}
+            onChange={set("exposure")}
+            inputMode="numeric"
+            isRequired
+          />
         ) : null}
         <TextField label="Evidence reference" description="ticket, report or decision" value={f.evidence_ref} onChange={set("evidence_ref")} isRequired />
         <TextField label="Reason" description="at least 10 characters" value={f.reason} onChange={set("reason")} multiline rows={2} isRequired className="sm:col-span-2" />
@@ -255,13 +281,20 @@ function DecideDialog({ proposal, approve, onClose }: { proposal: BiometricPropo
 /* ------------------------------------------------------------------------------------------------------------------------------ step down */
 
 function StepDownDialog({ scope, onClose }: { scope: BiometricMethodVersion | null; onClose: () => void }) {
-  const targets = scope ? stepDownTargets(scope.state, scope.scope.pilot_tenant) : [];
+  const targets = scope ? stepDownTargets(scope.state, scope.scope.pilot_tenant, scope.exposure_percent) : [];
+  const [narrowTo, setNarrowTo] = useState("");
   const [target, setTarget] = useState<BiometricStepDownIn["target"]>("PAUSED");
   const [reason, setReason] = useState("");
   const [ref, setRef] = useState("");
   const chosen = targets.includes(target) ? target : (targets[0] ?? "OFF");
   const step = useCellMutation(
-    (api, s: BiometricMethodVersion) => api.regulatory.stepDownBiometricMethod(s.scope_id, { target: chosen, reason: reason.trim(), evidence_ref: ref.trim() }),
+    (api, s: BiometricMethodVersion) =>
+      api.regulatory.stepDownBiometricMethod(s.scope_id, {
+        target: chosen,
+        reason: reason.trim(),
+        evidence_ref: ref.trim(),
+        ...(chosen === "PRODUCTION_ELIGIBLE" ? { exposure_percent: Number(narrowTo) } : {}),
+      }),
     {
       invalidate: [REG.biometricMethods],
       success: "Done: it takes effect for new sessions now",
@@ -283,8 +316,17 @@ function StepDownDialog({ scope, onClose }: { scope: BiometricMethodVersion | nu
           <Button variant="secondary" onPress={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" onPress={() => scope && step.mutate(scope)} pending={step.isPending} isDisabled={reason.trim().length < 10 || !REF_OK(ref)}>
-            {chosen === "PAUSED" ? "Pause now" : chosen === "OFF" ? "Retire" : "Step down"}
+          <Button
+            variant="danger"
+            onPress={() => scope && step.mutate(scope)}
+            pending={step.isPending}
+            isDisabled={
+              reason.trim().length < 10 ||
+              !REF_OK(ref) ||
+              (chosen === "PRODUCTION_ELIGIBLE" && !(Number.isInteger(Number(narrowTo)) && Number(narrowTo) >= 1 && Number(narrowTo) < (scope?.exposure_percent ?? 100)))
+            }
+          >
+            {chosen === "PAUSED" ? "Pause now" : chosen === "OFF" ? "Retire" : chosen === "PRODUCTION_ELIGIBLE" ? "Narrow now" : "Step down"}
           </Button>
         </>
       }
@@ -294,8 +336,18 @@ function StepDownDialog({ scope, onClose }: { scope: BiometricMethodVersion | nu
           label="New state"
           value={chosen}
           onChange={(v) => setTarget((targets.find((t) => t === v) ?? "PAUSED") as BiometricStepDownIn["target"])}
-          options={targets.map((t) => ({ id: t, label: STATE_LABEL[t] }))}
+          options={targets.map((t) => ({ id: t, label: t === "PRODUCTION_ELIGIBLE" ? "Narrow the rollout (fewer people)" : STATE_LABEL[t] }))}
         />
+        {chosen === "PRODUCTION_ELIGIBLE" ? (
+          <TextField
+            label="New exposure (% of people)"
+            description={`below the current ${scope?.exposure_percent ?? 100}%`}
+            value={narrowTo}
+            onChange={setNarrowTo}
+            inputMode="numeric"
+            isRequired
+          />
+        ) : null}
         <TextField label="Evidence reference" description="incident, ticket or report" value={ref} onChange={setRef} isRequired />
         <TextField label="Reason" description="at least 10 characters" value={reason} onChange={setReason} multiline rows={2} isRequired />
         {step.error ? <MethodErr error={step.error} /> : null}
@@ -308,7 +360,7 @@ function StepDownDialog({ scope, onClose }: { scope: BiometricMethodVersion | nu
 
 export function BiometricMethodsPage() {
   const q = useCellQuery(REG.biometricMethods, (api) => api.regulatory.biometricMethods());
-  const [proposing, setProposing] = useState<{ from: BiometricMethodVersion | null } | null>(null);
+  const [proposing, setProposing] = useState<{ from: BiometricMethodVersion | null; widen?: boolean } | null>(null);
   const [deciding, setDeciding] = useState<{ p: BiometricProposal; approve: boolean } | null>(null);
   const [stepping, setStepping] = useState<BiometricMethodVersion | null>(null);
 
@@ -318,6 +370,19 @@ export function BiometricMethodsPage() {
     { key: "state", header: "State", render: (r) => <StateBadge state={r.current.state} /> },
     { key: "scope", header: "Engine · country · purpose · tenant", render: (r) => scopeText(r.current.scope) },
     { key: "version", header: "Version", render: (r) => `v${r.current.version}` },
+    {
+      key: "exposure",
+      header: "Rollout",
+      render: (r) =>
+        r.current.state === "PRODUCTION_ELIGIBLE" ? (
+          <span className="flex flex-col">
+            <span>{r.current.exposure_percent}% of people</span>
+            {r.current.decision_hash ? <Mono>{r.current.decision_hash.slice(0, 12)}…</Mono> : null}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
     { key: "since", header: "Since", render: (r) => <DateTime value={r.current.effective_at} /> },
     { key: "by", header: "By", render: (r) => <Mono>{r.current.recorded_by}</Mono> },
     {
@@ -331,7 +396,12 @@ export function BiometricMethodsPage() {
               Propose {STATE_LABEL[NEXT_UP[r.current.state]!]}
             </Button>
           ) : null}
-          {stepDownTargets(r.current.state, r.current.scope.pilot_tenant).length ? (
+          {r.current.state === "PRODUCTION_ELIGIBLE" && r.current.exposure_percent < 100 ? (
+            <Button size="xs" variant="secondary" onPress={() => setProposing({ from: r.current, widen: true })} aria-label={`Widen rollout for ${r.current.scope_id}`}>
+              Widen rollout
+            </Button>
+          ) : null}
+          {stepDownTargets(r.current.state, r.current.scope.pilot_tenant, r.current.exposure_percent).length ? (
             <Button size="xs" variant="danger" onPress={() => setStepping(r.current)} aria-label={`Step down ${r.current.scope_id}`}>
               Pause / step down
             </Button>
@@ -400,7 +470,7 @@ export function BiometricMethodsPage() {
           </div>
         )}
       </QueryView>
-      <ProposeDialog from={proposing?.from ?? null} isOpen={proposing !== null} onClose={() => setProposing(null)} />
+      <ProposeDialog from={proposing?.from ?? null} widen={proposing?.widen ?? false} isOpen={proposing !== null} onClose={() => setProposing(null)} />
       <DecideDialog proposal={deciding?.p ?? null} approve={deciding?.approve ?? true} onClose={() => setDeciding(null)} />
       <StepDownDialog scope={stepping} onClose={() => setStepping(null)} />
     </>

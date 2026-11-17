@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from zid_platform.modules.verification.application import biometric_eligibility as be
 from zid_platform.modules.verification.domain import biometric_methods as bm
 from zid_platform.modules.verification.domain import privacy_overlay as po
@@ -157,3 +158,111 @@ def test_policy_hash_changes_with_what_it_rests_on() -> None:
 def test_dpia_product_names() -> None:
     assert be.dpia_product(bm.Method.FACE_MATCH) == "biometric.face_match"
     assert be.dpia_product(bm.Method.LIVENESS) == "biometric.liveness"
+
+
+# ------------------------------------------------------------------------------------------------------------- independent evaluation (CR-109)
+
+
+def test_evaluation_not_ready_refuses_and_names_blockers() -> None:  # QA-015
+    a = answer(
+        evaluation={
+            "ready": False,
+            "blockers": ["EVALUATION_NOT_INDEPENDENT", "EVALUATION_STALE"],
+            "evaluation_id": "e1",
+        }
+    )
+    assert not a.available and "EVALUATION_NOT_READY" in a.reasons
+    assert a.evaluation_blockers == ("EVALUATION_NOT_INDEPENDENT", "EVALUATION_STALE")
+    assert a.view()["evaluation_id"] == "e1"
+
+
+def test_model_missing_from_inventory_refuses() -> None:
+    a = answer(
+        evaluation={"ready": False, "blockers": ["MODEL_NOT_IN_INVENTORY"], "evaluation_id": None}
+    )
+    assert not a.available and a.evaluation_blockers == ("MODEL_NOT_IN_INVENTORY",)
+
+
+def test_ready_evaluation_keeps_the_method_available() -> None:
+    a = answer(evaluation={"ready": True, "blockers": [], "evaluation_id": "e2"})
+    assert a.available and a.evaluation_id == "e2" and a.evaluation_blockers == ()
+
+
+# ------------------------------------------------------------------------------------------------------------- provider-hosted (CR-110)
+
+
+def _provider_world(
+    monkeypatch: pytest.MonkeyPatch, versions: dict[str, str | None]
+) -> dict[str, list[Any]]:
+    import zid_platform.modules.privacy.ports as pp
+    from zid_platform.modules.verification.application import biometric_methods as svc
+
+    seen: dict[str, list[Any]] = {"calls": [], "dpia": [], "evidence": []}
+
+    async def active(conn: Any, ref: str, method: str) -> str | None:
+        return versions.get(method)
+
+    async def avail(conn: Any, call: bm.Call, *, at: datetime) -> bm.Availability:
+        seen["calls"].append(call)
+        return bm.Availability(True, bm.State.PRODUCTION_ELIGIBLE, (), None)
+
+    async def gate(conn: Any, market: str, product: str, version: str) -> dict[str, Any]:
+        seen["dpia"].append((market, product, version))
+        return READY
+
+    async def evidence(conn: Any, method: str, ref: str, version: str) -> dict[str, Any]:
+        seen["evidence"].append((method, ref, version))
+        return {"ready": True, "blockers": [], "evaluation_id": "e"}
+
+    async def none(*a: Any, **k: Any) -> tuple[str, ...]:
+        return ()
+
+    monkeypatch.setattr(pp, "active_model_version", active)
+    monkeypatch.setattr(pp, "release_gate", gate)
+    monkeypatch.setattr(pp, "method_evidence", evidence)
+    monkeypatch.setattr(pp, "capture_paused_breaches", none)
+    monkeypatch.setattr(pp, "missing_biometric_retention", none)
+    monkeypatch.setattr(svc, "availability_for", avail)
+    return seen
+
+
+def _run_provider(**kw: Any) -> be.Eligibility:
+    import asyncio
+
+    return asyncio.run(
+        be.eligibility(
+            None,  # type: ignore[arg-type]
+            tenant_id="t1",
+            country="gb",
+            purpose="IDENTITY_VERIFICATION",
+            overlays={"GB": overlay()},
+            now=NOW,
+            provider="veriff",
+            **kw,
+        )
+    )
+
+
+def test_a_provider_method_uses_the_pinned_model_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _provider_world(monkeypatch, {"FACE_MATCH": "2026.11", "LIVENESS": "pad-7"})
+    e = _run_provider()
+    assert e.available(bm.Method.FACE_MATCH) and e.available(bm.Method.LIVENESS)
+    assert {(c.engine_id, c.engine_version) for c in seen["calls"]} == {
+        ("veriff", "2026.11"),
+        ("veriff", "pad-7"),
+    }
+    assert ("GB", "biometric.face_match", "2026.11") in seen["dpia"]
+    assert e.engine == {
+        "provider": "veriff",
+        "versions": {"FACE_MATCH": "2026.11", "LIVENESS": "pad-7"},
+    }
+
+
+def test_a_provider_without_an_active_model_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # drift holds the model: no version
+    seen = _provider_world(monkeypatch, {"FACE_MATCH": "2026.11", "LIVENESS": None})
+    e = _run_provider()
+    live = next(m for m in e.methods if m.method is bm.Method.LIVENESS)
+    assert not live.available and live.reasons == ("PROVIDER_MODEL_NOT_ACTIVE",)
+    assert all(c.method is bm.Method.FACE_MATCH for c in seen["calls"])

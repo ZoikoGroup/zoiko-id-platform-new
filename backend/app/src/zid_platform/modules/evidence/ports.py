@@ -2,6 +2,7 @@
 
 Producers (in their own transaction, so evidence commits iff the domain change does):
 - `record_decision_receipt(conn, tenant, ReceiptFacts, floor=..., material=...)`  DecisionReceipt
+- `audit_timeline(conn, target_type, target_ref)` one object's audit trail, codes and hashes only (CR-110)
 - `record_audit(conn, tenant | None, AuditFacts)`                                  AuditRecord
 Vault (DEC-F1):
 - `actor_handle`, `store_object`, `read_object`, `erase_subject`, `is_held`
@@ -162,3 +163,13 @@ async def erase_uploads(conn, tenant_id, subject):  # type: ignore[no-untyped-de
     from zid_platform.modules.evidence.infrastructure.upload_store import delete_subject
 
     return await delete_subject(conn, tenant_id, subject)
+
+
+async def audit_timeline(
+    conn: object, target_type: str, target_ref: str
+) -> list[dict[str, object]]:
+    """One object's audit trail, oldest first: event, actor type, action, outcome, reason code, class, record hash and time (CR-110)."""
+    from zid_platform.modules.evidence.infrastructure.receipt_store import audit_for_target
+
+    rows = await audit_for_target(conn, target_type, target_ref)  # type: ignore[arg-type]
+    return [{**dict(r._mapping), "occurred_at": r.occurred_at.isoformat()} for r in rows]

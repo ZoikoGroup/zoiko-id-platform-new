@@ -11,7 +11,7 @@ if (!(globalThis as { CSS?: unknown }).CSS) Object.defineProperty(globalThis, "C
 
 const fake = vi.hoisted(() => ({
   privacy: {
-    v2: { session: vi.fn(), acknowledgeNotice: vi.fn(), sessionConsent: vi.fn(), chooseRoute: vi.fn(), cancelSession: vi.fn() },
+    v2: { session: vi.fn(), acknowledgeNotice: vi.fn(), sessionConsent: vi.fn(), chooseRoute: vi.fn(), cancelSession: vi.fn(), myReviews: vi.fn() },
     myPreferences: vi.fn(),
     consentOptions: vi.fn(),
     myConsents: vi.fn(),
@@ -55,6 +55,7 @@ function session(over: Partial<SubjectSessionStatus> = {}): SubjectSessionStatus
     purpose_code: "IDENTITY_VERIFICATION",
     region: "GB",
     alternative_mode: null,
+    assisted_state: null,
     notice: { notice_version: "BIOMETRIC_NOTICE@2", content_uri: "https://example.test/notice", content_hash: "h", acknowledged: false },
     alternatives_available: true,
     alternatives: [
@@ -104,6 +105,12 @@ describe("verification session (B01, B02)", () => {
     await waitFor(() => expect(fake.privacy.v2.chooseRoute).toHaveBeenCalledWith("vs_1", "IN_PERSON_REVIEW"));
     expect(screen.queryByRole("textbox", { name: /reason/i })).toBeNull();
   });
+
+  it("tells the person where the assisted route stands", async () => {
+    fake.privacy.v2.session.mockResolvedValue(session({ alternative_mode: "ASSISTED_DOCUMENT_REVIEW", route: "ALTERNATIVE", assisted_state: "WAITING", blockers: ["NON_BIOMETRIC_ALTERNATIVE_CHOSEN"] }));
+    mount(<VerificationSessionView sessionRef="vs_1" />);
+    expect(await screen.findByText(/A person will help you verify another way/)).toBeTruthy();
+  });
 });
 
 describe("privacy centre (B06)", () => {
@@ -112,6 +119,9 @@ describe("privacy centre (B06)", () => {
     fake.privacy.consentOptions.mockResolvedValue({ items: [] });
     fake.privacy.myRequests.mockResolvedValue({ items: [] });
     fake.privacy.packs.mockResolvedValue({ items: [] });
+    fake.privacy.v2.myReviews.mockResolvedValue({
+      items: [{ review_id: "r1", decision_ref: "d1", kind: "APPEAL", state: "OVERTURNED", statement: "s", correction_ref: null, created_at: "2026-11-01T10:00:00Z", due_at: "2026-12-01T10:00:00Z", decided_at: null, checked_at: null }],
+    });
     fake.privacy.myConsents.mockResolvedValue({
       items: [{ consent_id: "c1", purpose_code: "BIOMETRIC_IDENTITY_VERIFICATION", status: "ACTIVE", notice_version: "N@1", granted_at: "2026-11-01T10:00:00Z" }],
     });
@@ -123,6 +133,7 @@ describe("privacy centre (B06)", () => {
     expect(fake.privacy.withdrawConsent).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole("button", { name: "Withdraw" }));
     await waitFor(() => expect(fake.privacy.withdrawConsent).toHaveBeenCalledWith("c1"));
+    expect(screen.getByText(/the decision was reversed/)).toBeTruthy();
   });
 
   it("says what a limited answer means", () => {

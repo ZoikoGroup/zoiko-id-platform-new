@@ -33,6 +33,7 @@ async def propose(
     by: str,
     now: datetime,
     scope_id: str | None = None,
+    exposure_percent: int = 100,
 ) -> bm.Proposal:
     """`scope_id` names a new scope; an existing scope is found by its fields, and a different id for it is refused."""
     bm.check_scope(scope)
@@ -58,6 +59,7 @@ async def propose(
         evidence_ref=evidence_ref,
         proposed_by=by,
         proposed_at=now,
+        exposure_percent=exposure_percent,
     )
     bm.check_proposal(p, history=history, now=now)
     await store.insert_proposal(conn, p)
@@ -99,10 +101,17 @@ async def step_down(
     reason: str,
     evidence_ref: str,
     now: datetime,
+    exposure_percent: int | None = None,
 ) -> bm.Record:
     history = await store.history(conn, scope_id, lock=True)
     record = bm.step_down(
-        history, target=target, by=by, reason=reason, evidence_ref=evidence_ref, now=now
+        history,
+        target=target,
+        by=by,
+        reason=reason,
+        evidence_ref=evidence_ref,
+        now=now,
+        exposure_percent=exposure_percent,
     )
     await store.insert_state(conn, record)
     return record
