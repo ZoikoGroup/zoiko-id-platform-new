@@ -17,6 +17,12 @@ from zid_platform.modules.evidence.application.active_auth import (
     verify as verify_active_authentication,
 )
 from zid_platform.modules.evidence.application.assessment import Assessment, assess
+from zid_platform.modules.evidence.application.chip_reader import (
+    ChipMachine,
+    ChipRead,
+    ChipReader,
+    ChipReadError,
+)
 from zid_platform.modules.evidence.application.dg2 import chip_photo
 from zid_platform.modules.evidence.application.epassport import verify as verify_chip
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
@@ -43,7 +49,12 @@ from zid_platform.modules.evidence.application.runtime import (
     current_runtime,
     runtime_from_settings,
 )
+from zid_platform.modules.evidence.application.sealed import SealError, open_sealed, seal
 from zid_platform.modules.evidence.application.seals import SealCheck, check_signed_xml
+from zid_platform.modules.evidence.application.trust_store import (
+    EffectiveTrust,
+    effective_csca,
+)
 from zid_platform.modules.evidence.application.vault import (
     ErasureResult,
     TenantErasure,
@@ -65,6 +76,11 @@ from zid_platform.modules.evidence.infrastructure.trust_config import trust_conf
 __all__ = [
     "Assessment",
     "AuditFacts",
+    "ChipMachine",
+    "ChipRead",
+    "ChipReadError",
+    "ChipReader",
+    "EffectiveTrust",
     "ErasureResult",
     "EvidenceClass",
     "EvidenceRuntime",
@@ -73,6 +89,7 @@ __all__ = [
     "ReceiptFacts",
     "ReplayResult",
     "SealCheck",
+    "SealError",
     "TenantErasure",
     "WorkerReport",
     "actor_handle",
@@ -84,6 +101,7 @@ __all__ = [
     "commitment",
     "configure_runtime",
     "current_runtime",
+    "effective_csca",
     "erase_subject",
     "erase_subject_ref",
     "erase_tenant",
@@ -92,6 +110,7 @@ __all__ = [
     "ingest_event",
     "is_held",
     "material_commitment",
+    "open_sealed",
     "principal_handle",
     "purge_expired_uploads",
     "read_object",
@@ -102,6 +121,7 @@ __all__ = [
     "register_issuer_binding",
     "register_replayer",
     "runtime_from_settings",
+    "seal",
     "sequence_pending",
     "store_object",
     "subject_ref",

@@ -378,6 +378,7 @@ def create_app(
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
         from .modules.evidence.api.v2_holds import router as privacy_holds_v2_router
+        from .modules.evidence.api.v2_trust_store import router as evidence_v2_trust_store_router
         from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
@@ -495,6 +496,7 @@ def create_app(
             evidence_v2_router,
             evidence_v2_documents_router,
             evidence_v2_uploads_router,
+            evidence_v2_trust_store_router,
             operator_router,
             lockbox_router,
             privacy_router,

@@ -1084,6 +1084,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 DTV-24 (a person decision on one ownership candidate; append-only; reviewer is never the graph author); CR-103"
+  verify.verification_budget:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-01 WF01-014 (one company's monthly verification spend limit and currency; no default amount); CR-107"
   verify.identity_observation:
     role: cell
     module: verification
@@ -1299,6 +1304,11 @@ tables:
     module: assurance
     tenant_scoped: true
     source: "ZID-UAT-005 OPS-03 (append-only snapshots of an official register, so drift is found by comparing two of them); CR-074"
+  evidence.trust_package:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-DTV-WF-01 section 13 (a staged, validated, independently approved and activated country signing CA package, with its chain of custody); CR-107"
   evidence.upload:
     role: cell
     module: evidence

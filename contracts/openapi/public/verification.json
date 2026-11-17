@@ -128,6 +128,32 @@
         "title": "AdapterIn",
         "type": "object"
       },
+      "BudgetIn": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "monthly_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Monthly Limit"
+          }
+        },
+        "required": [
+          "monthly_limit",
+          "currency"
+        ],
+        "title": "BudgetIn",
+        "type": "object"
+      },
       "BulkStartIn": {
         "additionalProperties": false,
         "properties": {
@@ -212,6 +238,116 @@
           "data_groups"
         ],
         "title": "ChipIn",
+        "type": "object"
+      },
+      "ChipLinkFinishIn": {
+        "additionalProperties": false,
+        "properties": {
+          "face": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FaceIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "token": {
+            "maxLength": 360000,
+            "minLength": 16,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ChipLinkFinishIn",
+        "type": "object"
+      },
+      "ChipLinkStartIn": {
+        "additionalProperties": false,
+        "description": "The printed details the chip's access keys come from: the three machine-readable-zone details, or only the Card Access Number (CAN) printed on the document, which\nworks for a chip that offers PACE. They are used to open the chip and kept nowhere.",
+        "properties": {
+          "can": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9]{4,16}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can"
+          },
+          "date_of_birth": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Of Birth"
+          },
+          "document_number": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9<]{1,9}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Number"
+          },
+          "document_valid_to": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Valid To"
+          },
+          "include_photo": {
+            "default": false,
+            "title": "Include Photo",
+            "type": "boolean"
+          }
+        },
+        "title": "ChipLinkStartIn",
+        "type": "object"
+      },
+      "ChipLinkStepIn": {
+        "additionalProperties": false,
+        "properties": {
+          "response_base64": {
+            "maxLength": 5477,
+            "minLength": 4,
+            "title": "Response Base64",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 360000,
+            "minLength": 16,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "response_base64"
+        ],
+        "title": "ChipLinkStepIn",
         "type": "object"
       },
       "EntitlementIn": {
@@ -478,22 +614,6 @@
           "requirements"
         ],
         "title": "ProfileIn",
-        "type": "object"
-      },
-      "ReasonIn": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "ReasonIn",
         "type": "object"
       },
       "RelianceIn": {
@@ -1023,6 +1143,22 @@
           "margin"
         ],
         "title": "EstimateIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__v2_providers__ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__verification__StartIn": {
@@ -1773,7 +1909,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_providers__ReasonIn"
               }
             }
           },
@@ -1838,7 +1974,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_providers__ReasonIn"
               }
             }
           },
@@ -1967,6 +2103,174 @@
           }
         },
         "summary": "Submit Chip",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications/{verification_id}/chip-link": {
+      "post": {
+        "description": "Open a chip read. The answer is the first command for the device to send to the chip, and a sealed token to send back with the chip's answer.\nThe server keeps nothing: every step carries its state in the token, so any server process can take it.",
+        "operationId": "chip_link_start_v2_self_run_verifications__verification_id__chip_link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChipLinkStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Chip Link Start V2 Self Run Verifications  Verification Id  Chip Link Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chip Link Start",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications/{verification_id}/chip-link/finish": {
+      "post": {
+        "description": "Judge what the chip gave, exactly as if the app had sent it, with an optional face for an engine the deployment accepts. The session is decided once.",
+        "operationId": "chip_link_finish_v2_self_run_verifications__verification_id__chip_link_finish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChipLinkFinishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Chip Link Finish V2 Self Run Verifications  Verification Id  Chip Link Finish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chip Link Finish",
+        "tags": [
+          "verification-v2"
+        ]
+      }
+    },
+    "/v2/self-run/verifications/{verification_id}/chip-link/step": {
+      "post": {
+        "description": "The chip's answer to the last command, with the token that came with it; the reply is the next command, or the end of the read.",
+        "operationId": "chip_link_step_v2_self_run_verifications__verification_id__chip_link_step_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChipLinkStepIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Chip Link Step V2 Self Run Verifications  Verification Id  Chip Link Step Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chip Link Step",
         "tags": [
           "verification-v2"
         ]
@@ -3250,6 +3554,116 @@
         ]
       }
     },
+    "/verification-budget": {
+      "delete": {
+        "operationId": "clear_budget_verification_budget_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Clear Budget Verification Budget Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Budget",
+        "tags": [
+          "verification"
+        ]
+      },
+      "get": {
+        "description": "The company's monthly supplier spend budget and what has been spent this month (WF01-014). Totals only.",
+        "operationId": "read_budget_verification_budget_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Budget Verification Budget Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Budget",
+        "tags": [
+          "verification"
+        ]
+      },
+      "put": {
+        "operationId": "set_budget_verification_budget_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Budget Verification Budget Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Budget",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verification-engine-readiness": {
+      "get": {
+        "description": "Whether a face engine could be approved today, and what is missing (WF01-011/012): the engine record, each component's licence reading and the evaluation\nreferences, as the versioned configuration states them. Read only: approving an engine is a change to that configuration by the people who own it.",
+        "operationId": "engine_readiness_verification_engine_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Engine Readiness Verification Engine Readiness Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Engine Readiness",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
     "/verification-profiles": {
       "get": {
         "operationId": "profiles_verification_profiles_get",
@@ -3497,6 +3911,76 @@
         ]
       }
     },
+    "/verification-usage": {
+      "get": {
+        "description": "Usage counts for Finance and operations (WF01-014): sessions by provider, status and outcome, review cases, repeat attempts. Aggregates only:\nno person, no claim, no evidence. What each provider attempt cost is the vendor cost report's job (commercial); this says how many there were.",
+        "operationId": "usage_verification_usage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Usage Verification Usage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
     "/verifications": {
       "post": {
         "operationId": "start_verifications_post",
@@ -3580,6 +4064,52 @@
           }
         },
         "summary": "Read",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
+    "/verifications/{verification_id}/proofing": {
+      "get": {
+        "description": "WF01's result facts for one session (CR-107): the state in WF01's words, the distinct assertions that hold, each check as pass, fail,\nindeterminate or not requested, and the pinned policy. A view over the recorded decision: no evidence, no value of any claim, no score.",
+        "operationId": "proofing_facts_verifications__verification_id__proofing_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Verification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Proofing Facts Verifications  Verification Id  Proofing Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Proofing Facts",
         "tags": [
           "verification"
         ]

@@ -772,3 +772,63 @@ events:
     source: ZID-RCG-003 section 12 T44; CR-092
     lane: domain
     source_status: "proposed"
+  evidence.trust_package.staged:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.staged.v1
+    meaning: "An imported country signing CA list was staged with its source and anchors; nothing is trusted yet (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.validated:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.validated.v1
+    meaning: "A staged list verified against its anchors and is a candidate for approval (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.rejected:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.rejected.v1
+    meaning: "A staged list was rejected (it did not verify, or a person rejected it with a reason) (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.approved:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.approved.v1
+    meaning: "A validated list was approved by a person other than the one who staged it (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.activated:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.activated.v1
+    meaning: "An approved list became the active trust set (also written when a rollback restores one) (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.superseded:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.superseded.v1
+    meaning: "The previously active list stopped being active because another was activated (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.rolled_back:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.rolled_back.v1
+    meaning: "The active list was rolled back with a reason (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  evidence.trust_package.retired:
+    cloudevents_type: com.zoiko.id.evidence.trust_package.retired.v1
+    meaning: "The active list was retired; the store now trusts nothing until another is activated (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates)."
+    source: ZID-DTV-WF-01 section 13; CR-107
+    lane: domain
+    source_status: "proposed"
+  verification.proofing.completed:
+    cloudevents_type: com.zoiko.id.verification.proofing.completed.v1
+    meaning: "A verification session reached a decision the platform stands behind: the WF01 assertion facts that hold, the pinned profile and its version, the region and the expiry; no evidence and no value of any claim."
+    source: ZID-DTV-WF-01 section 14; CR-107
+    lane: domain
+    source_status: "proposed"
+  verification.proofing.indeterminate:
+    cloudevents_type: com.zoiko.id.verification.proofing.indeterminate.v1
+    meaning: "A verification session could not be judged and is waiting or needs another route: the missing method, the failure class, whether a retry can help and the next action; never a pass."
+    source: ZID-DTV-WF-01 section 14; CR-107
+    lane: domain
+    source_status: "proposed"

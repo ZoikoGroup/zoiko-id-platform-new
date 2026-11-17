@@ -13,12 +13,24 @@
 #   engine.measured.*              the MEASURED rates from that evaluation (0 to 1). Ceilings are provisional engineering values:
 #                                  false_accept <= 0.001, false_reject <= 0.05, attack_accept <= 0.05, bona_fide_reject <= 0.10
 #   thresholds.*                   the score a face match and a liveness result must reach (0.5 to 1), chosen from the evaluation
+#   mode                           DISABLED (the default), LAB_ONLY or APPROVED_FOR_SCOPE (ZID-DTV-WF-01 screen O1). LAB_ONLY is for evaluation
+#                                  only: it is never routed to a live decision, even when everything else is filled in. APPROVED_FOR_SCOPE needs
+#                                  every field below AND scope.countries, and the engine then runs only for sessions in those countries.
+#                                  `enabled: true` with no mode is refused: whoever switches an engine on must say how far it may go.
+#   engine.components              the register ids (engine-register.yaml) of every library and pretrained model this engine is built from.
+#                                  APPROVED_FOR_SCOPE is refused unless each one is in the register with commercial use confirmed, its model
+#                                  licences read, and the date a person verified them. The shipped register verifies nothing.
+#   scope.countries                ISO 3166-1 alpha-2 codes a person approved this engine for (an evaluation covers a population, not the world)
 version: 0.1.0
 status: PROVISIONAL
 enabled: false
+mode: DISABLED
+scope:
+  countries: []
 engine:
   id: ""
   version: ""
+  components: []
   evaluation_id: ""
   evaluated_on: ""
   pad_standard: ""

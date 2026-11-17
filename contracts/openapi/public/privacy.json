@@ -1809,22 +1809,6 @@
         "title": "PurposeBody",
         "type": "object"
       },
-      "ReasonIn": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "ReasonIn",
-        "type": "object"
-      },
       "RequestIn": {
         "additionalProperties": false,
         "properties": {
@@ -2601,6 +2585,22 @@
           "approval_request_id"
         ],
         "title": "RoleBody",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__v2_providers__ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
         "type": "object"
       }
     }
@@ -6770,7 +6770,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_providers__ReasonIn"
               }
             }
           },
@@ -6835,7 +6835,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_providers__ReasonIn"
               }
             }
           },

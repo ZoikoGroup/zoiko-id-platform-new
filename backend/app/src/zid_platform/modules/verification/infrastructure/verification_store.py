@@ -708,3 +708,128 @@ async def record_reliance(
         },
     )
     return did
+
+
+async def next_event_version(conn: AsyncConnection, aggregate_type: str, aggregate_id: str) -> int:
+    """The next outbox version for an aggregate: versions are unique and rising per aggregate, so an event that can repeat takes the next number."""
+    row = await conn.execute(
+        text(
+            "SELECT coalesce(max(aggregate_version), 0) + 1 FROM events.outbox_event "
+            "WHERE aggregate_type = :t AND aggregate_id = :i"
+        ),
+        {"t": aggregate_type, "i": aggregate_id},
+    )
+    return int(row.scalar_one())
+
+
+async def attempts_since(
+    conn: AsyncConnection, subject_principal_id: str, profile_id: str, since: datetime
+) -> int:
+    """How many sessions this person started under this profile since `since` (every status counts)."""
+    row = await conn.execute(
+        text(
+            "SELECT count(*) FROM verify.verification_session "
+            "WHERE subject_principal_id = :p AND assurance_profile_id = :a AND created_at >= :since"
+        ),
+        {"p": uuid.UUID(subject_principal_id), "a": uuid.UUID(profile_id), "since": since},
+    )
+    return int(row.scalar_one())
+
+
+async def review_approved(conn: AsyncConnection, session_id: str) -> bool:
+    """True when distinct reviewers approved this session through its profile's review path (the only thing that makes a decision a review)."""
+    row = await conn.execute(
+        text("SELECT 1 FROM verify.review_case WHERE session_id = :s AND status = 'APPROVED'"),
+        {"s": uuid.UUID(session_id)},
+    )
+    return row.first() is not None
+
+
+async def usage_between(conn: AsyncConnection, start: datetime, end: datetime) -> dict[str, Any]:
+    """Counts only, for Finance and operations (WF01-014): sessions by provider, status and outcome, review cases by status, and how many sessions
+    were repeat attempts by the same person under the same profile. No subject, no claim and no evidence leaves this function."""
+    sessions = await conn.execute(
+        text(
+            "SELECT coalesce(adapter_id, 'none') AS adapter, status, coalesce(outcome_code, '') AS outcome, count(*) AS n "
+            "FROM verify.verification_session WHERE created_at >= :a AND created_at < :b GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"
+        ),
+        {"a": start, "b": end},
+    )
+    reviews = await conn.execute(
+        text(
+            "SELECT status, count(*) AS n FROM verify.review_case WHERE created_at >= :a AND created_at < :b GROUP BY 1 ORDER BY 1"
+        ),
+        {"a": start, "b": end},
+    )
+    repeats = await conn.execute(
+        text(
+            "SELECT coalesce(sum(n - 1), 0) FROM (SELECT count(*) AS n FROM verify.verification_session "
+            "WHERE created_at >= :a AND created_at < :b GROUP BY subject_principal_id, assurance_profile_id) t"
+        ),
+        {"a": start, "b": end},
+    )
+    failovers = await conn.execute(
+        text(
+            "SELECT count(*) FILTER (WHERE cardinality(attempted_adapters) > 1) AS moved, "
+            "count(*) FILTER (WHERE cardinality(attempted_adapters) > 1 AND status = 'VERIFIED') AS moved_verified "
+            "FROM verify.verification_session WHERE created_at >= :a AND created_at < :b"
+        ),
+        {"a": start, "b": end},
+    )
+    moved = failovers.one()
+    rows = [
+        {
+            "adapter_id": r.adapter,
+            "status": r.status,
+            "outcome": r.outcome or None,
+            "sessions": int(r.n),
+        }
+        for r in sessions
+    ]
+    return {
+        "sessions": rows,
+        "total_sessions": sum(r["sessions"] for r in rows),
+        "review_cases": {r.status: int(r.n) for r in reviews},
+        "repeat_attempts": int(repeats.scalar_one()),
+        "failover_sessions": int(
+            moved.moved
+        ),  # sessions that more than one provider was asked about (equal-or-stronger providers only)
+        "failover_verified": int(moved.moved_verified),
+    }
+
+
+async def get_budget(conn: AsyncConnection) -> dict[str, Any] | None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT monthly_limit, currency, set_by, set_at, version FROM verify.verification_budget WHERE enabled"
+            )
+        )
+    ).first()
+    return dict(row._mapping) if row else None
+
+
+async def set_budget(
+    conn: AsyncConnection, *, tenant_id: str, limit: Any, currency: str, actor: str, now: datetime
+) -> None:
+    await conn.execute(
+        text(
+            "INSERT INTO verify.verification_budget (tenant_id, monthly_limit, currency, set_by, set_at) "
+            "VALUES (:t, :l, :c, :a, :n) ON CONFLICT (tenant_id) DO UPDATE SET monthly_limit = EXCLUDED.monthly_limit, "
+            "currency = EXCLUDED.currency, enabled = true, set_by = EXCLUDED.set_by, set_at = EXCLUDED.set_at, "
+            "version = verify.verification_budget.version + 1"
+        ),
+        {"t": uuid.UUID(tenant_id), "l": limit, "c": currency, "a": uuid.UUID(actor), "n": now},
+    )
+
+
+async def clear_budget(conn: AsyncConnection, *, actor: str, now: datetime) -> bool:
+    """Switch the budget off. The row stays (last limit, who set it) because the runtime role never deletes."""
+    done = await conn.execute(
+        text(
+            "UPDATE verify.verification_budget SET enabled = false, set_by = :a, set_at = :n, version = version + 1 "
+            "WHERE enabled"
+        ),
+        {"a": uuid.UUID(actor), "n": now},
+    )
+    return bool(done.rowcount)

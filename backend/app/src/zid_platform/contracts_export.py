@@ -99,7 +99,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Security Signals and Shared Signals API",
     ),
     OPENAPI / "public" / "evidence.json": (
-        ("/v1/evidence/", "/v2/evidence/", "/v2/documents", "/v2/assurance"),
+        ("/v1/evidence/", "/v2/evidence/", "/v2/documents", "/v2/assurance", "/v2/trust-store"),
         "Zoiko iD Evidence, Audit and Provenance API (receipts, proofs, replay, export, legal holds)",
     ),
     OPENAPI / "public" / "privacy.json": (

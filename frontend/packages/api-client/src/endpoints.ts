@@ -242,6 +242,15 @@ export function createCellApi(t: Transport) {
       start: (body: VerificationStartIn) => post<M.VerificationSession>("/verifications", body),
       startBulk: (body: M.BulkVerificationIn) => post<M.BulkVerificationResult>("/verifications:bulk", body),
       get: (id: string) => get<M.VerificationSession>(`/verifications/${seg(id)}`),
+      /** WF01 screen A5: what was checked and how each check came out, in the platform's words. Facts only: no evidence, no claim value, no score. */
+      proofing: (id: string) => get<M.ProofingFacts>(`/verifications/${seg(id)}/proofing`),
+      /** WF01-014: the company's monthly supplier spend budget and this month's spend. Money is a decimal string, never a float. */
+      budget: () => get<M.VerificationBudget>("/verification-budget"),
+      setBudget: (body: { monthly_limit: string; currency: string }) => t.request<M.VerificationBudget>("PUT", "/verification-budget", { body }),
+      clearBudget: () => t.request<M.VerificationBudget>("DELETE", "/verification-budget"),
+      usage: (query?: { since?: string; until?: string }) => get<M.VerificationUsage>("/verification-usage", query),
+      /** WF01-011/012: whether a face engine could be approved today and what is missing. Read only. */
+      engineReadiness: () => get<M.EngineReadiness>("/verification-engine-readiness"),
       cancel: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:cancel`),
       reverify: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:reverify`),
       /** Where the caller is on the risk tiers R0 to R3 and what the next one needs. `cannot` (NO_CAMERA, NO_PHONE, NO_STANDARD_ID) shows the approved alternatives. */
@@ -792,6 +801,19 @@ export function createCellApi(t: Transport) {
       analyze: (body: M.OwnGraphIn) => post<M.OwnFindings>("/v2/ownership-graphs:analyze", body),
       record: (body: M.OwnGraphIn) => post<M.OwnGraph>("/v2/ownership-graphs", body),
       decide: (id: string, body: M.OwnDecisionIn) => post<M.OwnDecision>(`/v2/ownership-graphs/${seg(id)}/confirmations`, body),
+    },
+
+    /** The governed country-signing-CA trust store (WF01 screen O2, CR-107): importing is not trusting; a second person approves and activates. */
+    trustStore: {
+      packages: () => get<{ items: M.TrustPackage[] }>("/v2/trust-store/csca/packages"),
+      active: () => get<M.TrustActive>("/v2/trust-store/csca/active"),
+      stage: (body: M.TrustStageIn) => post<M.TrustPackage>("/v2/trust-store/csca/packages", body),
+      validate: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:validate`),
+      approve: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:approve`),
+      reject: (id: string, reason: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:reject`, { reason }),
+      activate: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:activate`),
+      rollback: (reason: string, toPackageId?: string) => post<M.TrustPackage>("/v2/trust-store/csca/rollback", toPackageId ? { reason, to_package_id: toPackageId } : { reason }),
+      retire: (reason: string) => post<M.TrustPackage>("/v2/trust-store/csca/retire", { reason }),
     },
 
     /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */
