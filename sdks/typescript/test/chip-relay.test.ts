@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ChipRelayError, finishChipRead, fromBase64, readChipThroughRelay, toBase64, type ChipRelayFetch } from "../src/chip-relay.js";
+import { ChipRelayError, finishChipRead, fromBase64, readChipThroughRelay, toBase64, transceiveFromNative, type ChipRelayFetch } from "../src/chip-relay.js";
 
 const CFG_BASE = "https://cell.test";
 const DETAILS = { document_number: "L898902C3", date_of_birth: "740812", document_valid_to: "320415" };
@@ -109,5 +109,34 @@ describe("the device side of the chip relay", () => {
   it("round-trips bytes through base64", () => {
     const all = Uint8Array.from({ length: 256 }, (_, i) => i);
     expect([...fromBase64(toBase64(all))]).toEqual([...all]);
+  });
+});
+
+
+describe("transceiveFromNative", () => {
+  it("passes the command as base64 and returns the answer with its status bytes", async () => {
+    const seen: string[] = [];
+    const t = transceiveFromNative({ transceive: (b64) => (seen.push(b64), toBase64(bytes(0xaa, 0x90, 0x00))) });
+    expect([...(await t(bytes(1, 2, 3)))]).toEqual([0xaa, 0x90, 0x00]);
+    expect(seen).toEqual([toBase64(bytes(1, 2, 3))]);
+  });
+  it("takes an asynchronous host too", async () => {
+    const t = transceiveFromNative({ transceive: async () => toBase64(bytes(0x90, 0x00)) });
+    expect([...(await t(bytes(9)))]).toEqual([0x90, 0x00]);
+  });
+  it("turns every host failure into a device error and says nothing about the cause", async () => {
+    for (const host of [
+      { transceive: () => "ERROR:tag lost" },
+      { transceive: () => "" },
+      { transceive: () => "not base64!" },
+      { transceive: () => toBase64(bytes(0x90)) }, // shorter than the two status bytes
+      { transceive: () => { throw new Error("boom"); } },
+      { transceive: async () => { throw new Error("boom"); } },
+    ]) {
+      const e = await transceiveFromNative(host)(bytes(1)).catch((x: unknown) => x);
+      expect(e).toBeInstanceOf(ChipRelayError);
+      expect((e as ChipRelayError).code).toBe("DEVICE_ERROR");
+      expect(String((e as ChipRelayError).message)).not.toMatch(/tag lost|boom/);
+    }
   });
 });

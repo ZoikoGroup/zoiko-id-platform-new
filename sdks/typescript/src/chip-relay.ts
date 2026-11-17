@@ -59,6 +59,29 @@ export class ChipRelayError extends Error {
   }
 }
 
+/** What the native shell offers a web view: one function, base64 in and base64 out (the chip's answer with its two status bytes). It may answer synchronously (Android's
+ * JavaScript interface) or with a promise (iOS message handlers). A failure is the text `ERROR:` followed by a reason, never a thrown native exception. */
+export type NativeChipHost = { transceive: (apduBase64: string) => string | Promise<string> };
+
+/** Turn the shell's host object into the `Transceive` the relay loop takes. A reply that is not base64, or that starts with `ERROR:`, becomes a `DEVICE_ERROR`, so the loop
+ * stops and tells the person to hold the phone still. */
+export function transceiveFromNative(host: NativeChipHost): Transceive {
+  return async (apdu) => {
+    let reply: string;
+    try {
+      reply = await host.transceive(toBase64(apdu));
+    } catch {
+      throw new ChipRelayError("DEVICE_ERROR", 0, "the chip could not be reached");
+    }
+    if (typeof reply !== "string" || reply.startsWith("ERROR:") || reply.length === 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(reply)) {
+      throw new ChipRelayError("DEVICE_ERROR", 0, "the chip could not be reached");
+    }
+    const answer = fromBase64(reply);
+    if (answer.length < 2) throw new ChipRelayError("DEVICE_ERROR", 0, "the chip's answer was too short");
+    return answer;
+  };
+}
+
 export function toBase64(bytes: Uint8Array): string {
   let s = "";
   for (const b of bytes) s += String.fromCharCode(b);

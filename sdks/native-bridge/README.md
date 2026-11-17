@@ -1,4 +1,6 @@
-# Native NFC bridge: the only code that must run on the phone (reference source, NOT compiled, NOT run)
+# Native NFC bridge: the only code that must run on the phone (source written, NOT compiled, NOT run)
+
+**What is in this folder now:** an Android library module (`android/chipbridge`: `ChipBridge.kt`, `NfcChipReader.kt`, manifest, Gradle files) and an iOS Swift package (`ios`: `ChipBridge.swift`, `Package.swift`). Each finds the chip, exposes one `transceive` function to a web view (`window.ZoikoChip.transceive(base64)` on Android, `window.webkit.messageHandlers.zoikoChip.postMessage(base64)` on iOS), and the web page connects it to the platform with `transceiveFromNative` and `readChipThroughRelay` from the TypeScript SDK (those two are tested). The Kotlin and Swift were written without a compiler, an emulator or a passport: a developer must build them, fix whatever the compiler finds, and run them on real devices.
 
 **Status: reference source written from the platform vendors' documented APIs. It has never been compiled and never touched a passport. Treat it as E1 (code referenced), not tested. It needs a developer to build it, and a device matrix and real documents before anyone calls it working.**
 
@@ -87,9 +89,9 @@ const result = await finishChipRead(cfg, verificationId, read.token); // judged 
 
 ## What is not here, and why
 
-- No project files, no build configuration, no store listing: they need an SDK installed and a signing identity.
+- No app project, no signing identity, no store listing: the two modules above are libraries a developer adds to an app. They need the Android SDK or Xcode, an Apple developer account with the NFC tag reading capability, and a signing key.
 - Nothing about PACE: it runs on the server (CR-108), so the bridge is the same for a Basic Access Control chip and a PACE chip. The app may also take the Card Access Number (printed on the document) and send it as `can` instead of the three details: the server then runs PACE with it. A chip that offers only a PACE variant the server does not implement answers with that variant named; the app should then offer another route (the alternatives route lists them).
-- No camera. A selfie is separate and only matters once an engine has been evaluated and approved for the country.
+- The selfie is separate: the web component `SelfieCapture` (frontend, `features/account/selfie-capture.tsx`) uses the browser camera and is offered only where an engine is approved for the country. Inside a web view the app must grant camera access.
 
 ## Before this is called working
 
