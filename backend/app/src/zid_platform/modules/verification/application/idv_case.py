@@ -221,15 +221,20 @@ async def _commit(
     )
     sets = {"signals": _json(signals_to_dict(signals)), "decision": result.decision.value, "reasons": _json(list(reasons)), "state": state,
             "attempts": _json(attempts if attempts is not None else c.attempts), "version": version, "updated_at": now}  # fmt: skip
-    extra = ""
-    params: dict[str, Any] = {"c": uuid.UUID(c.case_id), **sets}
-    for k, v in cols.items():
-        extra += f", {k} = :x_{k}"
-        params[f"x_{k}"] = v
+    after = replace(c, **cols)  # the few columns a step may change; the statement itself is fixed
+    params: dict[str, Any] = {
+        "c": uuid.UUID(c.case_id),
+        **sets,
+        "notice": after.notice_shown,
+        "consent": after.consent_at,
+        "withdrawn": after.withdrawn_at,
+        "nonce_used": after.nonce_used,
+    }
     await conn.execute(
         text(
             "UPDATE verify.idv_case SET signals = CAST(:signals AS jsonb), decision = :decision, reasons = CAST(:reasons AS jsonb), "
-            f"state = :state, attempts = CAST(:attempts AS jsonb), version = :version, updated_at = :updated_at{extra} WHERE case_id = :c"
+            "state = :state, attempts = CAST(:attempts AS jsonb), version = :version, updated_at = :updated_at, "
+            "notice_shown = :notice, consent_at = :consent, withdrawn_at = :withdrawn, nonce_used = :nonce_used WHERE case_id = :c"
         ),
         params,
     )
