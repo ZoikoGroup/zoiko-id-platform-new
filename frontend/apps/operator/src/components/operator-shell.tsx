@@ -60,6 +60,7 @@ const NAV: NavGroup[] = [
       { id: "reg-releases", label: "Market releases", href: "/regulatory/releases", icon: Rocket },
       { id: "reg-suppliers", label: "Suppliers", href: "/regulatory/suppliers", icon: BadgeCheck },
       { id: "reg-holds", label: "Holds", href: "/regulatory/holds", icon: OctagonX },
+      { id: "reg-kyb-policy", label: "Company verification packs", href: "/regulatory/company-verification", icon: BookOpenCheck },
       { id: "reg-issuers", label: "Issuers", href: "/regulatory/issuers", icon: Landmark },
       { id: "reg-trust-lists", label: "Trust lists", href: "/regulatory/trust-lists", icon: FileSignature },
       { id: "reg-claims", label: "Regulated claims", href: "/regulatory/claims", icon: Megaphone },

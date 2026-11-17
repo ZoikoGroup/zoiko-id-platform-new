@@ -119,6 +119,12 @@ export const ACTION_GROUPS: ChoiceGroup[] = [
       { id: "verification.screening.read_restricted", label: "Read restricted screening detail" },
       { id: "verification.assertion.revoke", label: "Revoke a verification assertion" },
       { id: "organization.kyb.review", label: "Review a company (KYB) case" },
+      { id: "organization.kyb.escalation.decide", label: "Decide a company case the reviewers disagreed on" },
+      { id: "organization.kyb.assess", label: "Assess a company's verification grade again" },
+      { id: "organization.kyb.appeal.open", label: "Open an appeal against a company decision" },
+      { id: "organization.kyb.appeal.decide", label: "Decide an appeal against a company decision" },
+      { id: "organization.kyb.export", label: "Export the signed company verification summary" },
+      { id: "organization.kyb.mandate.manage", label: "Record, countersign or revoke a representative's mandate" },
     ],
   },
 ];

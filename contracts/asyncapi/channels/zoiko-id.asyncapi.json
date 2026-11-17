@@ -1484,8 +1484,14 @@
         "organization_identifier_changed": {
           "$ref": "#/components/messages/organization_identifier_changed"
         },
+        "organization_kyb_assertion_issued": {
+          "$ref": "#/components/messages/organization_kyb_assertion_issued"
+        },
         "organization_kyb_decided": {
           "$ref": "#/components/messages/organization_kyb_decided"
+        },
+        "organization_kyb_policy_activated": {
+          "$ref": "#/components/messages/organization_kyb_policy_activated"
         },
         "organization_kyb_proof_added": {
           "$ref": "#/components/messages/organization_kyb_proof_added"
@@ -1507,6 +1513,22 @@
         },
         "organization_successor_changed": {
           "$ref": "#/components/messages/organization_successor_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "organization.priority": {
+      "address": "zid.{env}.{region}.organization.priority",
+      "messages": {
+        "organization_kyb_assertion_revoked": {
+          "$ref": "#/components/messages/organization_kyb_assertion_revoked"
         }
       },
       "parameters": {
@@ -5033,6 +5055,28 @@
         "x-zid-source": "ZID-ROOT-001",
         "x-zid-status": "catalogued"
       },
+      "organization_kyb_assertion_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.assertion_issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company reached a verification grade it did not hold (version, grade K0 to K4, the claims proven, the claims gained, policy digest and next recheck date; no company data, document or person).",
+        "title": "organization.kyb.assertion_issued",
+        "x-zid-source": "ZID-DTV-WF-02 section 4, 19; CR-109",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_assertion_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.assertion_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Claims a company held are no longer proven (version, grade now, the claims revoked, reason codes and what triggered the reassessment; no company data, document or person). Whatever depends on those claims reads the grade live and drops at once.",
+        "title": "organization.kyb.assertion_revoked",
+        "x-zid-source": "ZID-DTV-WF-02 section 4, 19; CR-109",
+        "x-zid-status": "proposed"
+      },
       "organization_kyb_decided": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.organization.kyb.decided.v1",
@@ -5042,6 +5086,17 @@
         "summary": "A company-verification decision was recorded (case id, decision status, reasons, evidence hash, policy version and country; no company data beyond ids and codes).",
         "title": "organization.kyb.decided",
         "x-zid-source": "ZID-ED-03 Global Company Verification section 04-05; CR-043",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_policy_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.policy_activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company-verification market policy version was put in force for its market, by a publish or a rollback (market key, policy digest, kind; no company data). Decisions record the digest of the pack that made them.",
+        "title": "organization.kyb.policy_activated",
+        "x-zid-source": "ZID-DTV-WF-02 K09, section 16; CR-109",
         "x-zid-status": "proposed"
       },
       "organization_kyb_proof_added": {
@@ -7119,6 +7174,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/organization.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_organization_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/organization.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

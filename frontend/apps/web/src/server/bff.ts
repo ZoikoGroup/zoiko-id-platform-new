@@ -34,6 +34,8 @@ const API_PATH_PREFIXES = [
   "/verification-budget",
   "/verification-usage",
   "/verification-engine-readiness",
+  // A company's verification grade, entitlements and representatives' mandates (WF02, CR-109). The cell decides each call by action.
+  "/v1/kyb/",
   "/verifications",
   "/principals/",
   "/verification-assertions/",

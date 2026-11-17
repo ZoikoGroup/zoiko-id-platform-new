@@ -117,7 +117,14 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Policy Administration API (releases, validation, simulation, review, publication)",
     ),
     OPENAPI / "public" / "operator-access.json": (
-        ("/operator/", "/platform/", "/ops/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
+        (
+            "/operator/",
+            "/platform/",
+            "/ops/",
+            "/v1/lockbox-requests",
+            "/v1/operator-access-policy",
+            "/v1/kyb/market-policies",
+        ),
         "Zoiko iD Operator Access API (JIT, customer lockbox, break-glass review)",
     ),
     OPENAPI / "public" / "residency.json": (
@@ -156,6 +163,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         (
             "/v1/onboarding/",
             "/v1/org-claims",
+            "/v1/kyb",
             "/v1/reviews/",
             "/v1/registration/",
             "/v2/organizations",

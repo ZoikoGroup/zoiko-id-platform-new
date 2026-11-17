@@ -1,0 +1,13 @@
+# Who may sign a registry extract, and which addresses a QR code on one may point at (ZID-DTV-WF-02 K03). Versioned configuration, not tenant data.
+# status: PROVISIONAL. This list is EMPTY on purpose: nothing is trusted until Legal and Security record, for each issuer, the keys it signs with (taken from the issuer's own publication)
+# and the exact hosts its QR codes may use. Until then every extract is NOT_PROVEN and goes to a person.
+#
+# issuers:
+#   - id: <short id>                      # e.g. uk-companies-house
+#     hosts: [<exact lower-case host>]    # no wildcard; a subdomain is not the issuer's unless it is listed
+#     path_prefixes: [/company/]
+#     keys:
+#       - {id: <key id>, algorithm: Ed25519 | ES256 | PS256, valid_from: <ISO time>, valid_to: <ISO time or null>, revoked_at: <ISO time or null>, public_key_pem: "<PEM>"}
+#
+# A malformed entry refuses the whole list (a half-loaded list could trust more than was approved).
+issuers: []

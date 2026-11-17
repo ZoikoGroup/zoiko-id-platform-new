@@ -48,6 +48,7 @@ export const PAGES: readonly GuidePage[] = [
   { id: "residency", label: "Residency", href: "/admin/residency", group: "Administration", keywords: "residency data region location" },
   { id: "agents", label: "Agents & tools", href: "/admin/agents", group: "Administration", keywords: "agents tools machine automation" },
   { id: "workloads", label: "Workload identity", href: "/admin/workloads", group: "Administration", keywords: "workload identity services spiffe" },
+  { id: "company-verification", label: "Company verification", href: "/admin/company-verification", group: "Administration", keywords: "company verification kyb grade mandate representative appeal export documents reviewed registry matched authority" },
   { id: "ownership", label: "Ownership chains", href: "/admin/ownership", group: "Administration", keywords: "ownership chains beneficial owners ubo shareholders" },
   { id: "trust-store", label: "Chip trust store", href: "/admin/trust-store", group: "Administration", keywords: "chip trust store passport csca country signing certificates master list nfc" },
   { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", group: "Administration", keywords: "verification spend budget monthly limit supplier cost usage finance" },

@@ -364,6 +364,8 @@ SUBSCRIBABLE = {
     "com.zoiko.id.assurance.release.rolled_back.v1": "A release scope was disabled by a release role holder",
     "com.zoiko.id.assurance.evidence.tampered.v1": "Signed UAT evidence failed verification and the releases built on it were locked",
     "com.zoiko.id.evidence.retention_action.v1": "Uploaded evidence was deleted or expired and its bytes erased",
+    "com.zoiko.id.organization.kyb.assertion_issued.v1": "A company reached a verification grade it did not hold (grade, claims gained, next check; no company data)",
+    "com.zoiko.id.organization.kyb.assertion_revoked.v1": "Claims a company held are no longer proven (grade now, claims revoked, reason codes; no company data)",
     "com.zoiko.id.verification.case.completed.v1": "A verification case finished: each check has its own outcome",
     "com.zoiko.id.credential.status.changed.v1": "Credential status update",
     "com.zoiko.id.credential.status_changed.v1": "Credential claim status changed (a source revoked, suspended or expired a checked claim)",

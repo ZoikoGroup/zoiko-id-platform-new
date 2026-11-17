@@ -466,6 +466,24 @@ events:
     source: ZID-ED-03 Global Company Verification section 04-05; CR-043
     lane: domain
     source_status: "proposed"
+  organization.kyb.assertion_issued:
+    cloudevents_type: com.zoiko.id.organization.kyb.assertion_issued.v1
+    meaning: "A company reached a verification grade it did not hold (version, grade K0 to K4, the claims proven, the claims gained, policy digest and next recheck date; no company data, document or person)."
+    source: ZID-DTV-WF-02 section 4, 19; CR-109
+    lane: domain
+    source_status: "proposed"
+  organization.kyb.assertion_revoked:
+    cloudevents_type: com.zoiko.id.organization.kyb.assertion_revoked.v1
+    meaning: "Claims a company held are no longer proven (version, grade now, the claims revoked, reason codes and what triggered the reassessment; no company data, document or person). Whatever depends on those claims reads the grade live and drops at once."
+    source: ZID-DTV-WF-02 section 4, 19; CR-109
+    lane: domain
+    source_status: "proposed"
+  organization.kyb.policy_activated:
+    cloudevents_type: com.zoiko.id.organization.kyb.policy_activated.v1
+    meaning: "A company-verification market policy version was put in force for its market, by a publish or a rollback (market key, policy digest, kind; no company data). Decisions record the digest of the pack that made them."
+    source: ZID-DTV-WF-02 K09, section 16; CR-109
+    lane: domain
+    source_status: "proposed"
   organization.kyb.proof_added:
     cloudevents_type: com.zoiko.id.organization.kyb.proof_added.v1
     meaning: "A proof document was added to a company claim (case id, proof id, kind, media type, size, content hash and scan status; never the document or its name). A proof is evidence for a reviewer and never verifies a company."

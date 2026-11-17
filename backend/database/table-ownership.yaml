@@ -919,6 +919,41 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-ED-03 Global Company Verification (CR-043)"
+  org.kyb_appeal:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K06, K10 an appeal against a company-verification decision; changes only by being decided, once (CR-109)"
+  org.kyb_assessment:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 company verification grade as assessed, append-only (CR-109)"
+  org.kyb_market_policy:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 a company-verification market policy version, immutable and identified by its digest (CR-109)"
+  org.kyb_market_policy_approval:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 a sign-off bound to the exact digest, append-only; the author cannot approve (CR-109)"
+  org.kyb_market_policy_activation:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 when a policy version was in force for its market; only its end changes, once (CR-109)"
+  org.kyb_mandate:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K05 a representative's mandate; only revocation changes it (CR-109)"
+  org.kyb_mandate_cosign:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K05 second signatory, append-only (CR-109)"
   org.kyb_evidence:
     role: cell
     module: organization

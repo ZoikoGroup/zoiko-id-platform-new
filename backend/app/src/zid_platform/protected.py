@@ -31,6 +31,7 @@ from zid_platform.modules.decision.ports import (
     action_spec,
     evaluate_request,
 )
+from zid_platform.modules.organization.ports import KybGateError, kyb_gate_action
 from zid_platform.modules.session.ports import signed_key_service_caller
 from zid_platform.modules.signals.ports import security_view
 
@@ -47,6 +48,24 @@ CATALOG_FILE = Path(
 @lru_cache(maxsize=1)
 def catalog() -> dict[str, Any]:
     return yaml.safe_load(CATALOG_FILE.read_text(encoding="utf-8"))["actions"]  # type: ignore[no-any-return]
+
+
+KYB_GATE_FILE = Path(
+    os.environ.get("ZID_KYB_ACTION_GATE")
+    or Path(__file__).resolve().parents[3] / "config" / "kyb" / "action-gate.yaml"
+)
+
+
+def kyb_gate_mode() -> str:
+    """off (default), shadow or enforce. Read on each call so a deployment can change it without a restart."""
+    mode = os.environ.get("ZID_KYB_GATE", "off").strip().lower()
+    return mode if mode in ("off", "shadow", "enforce") else "off"
+
+
+@lru_cache(maxsize=1)
+def kyb_gate_actions() -> dict[str, str]:
+    loaded = yaml.safe_load(KYB_GATE_FILE.read_text(encoding="utf-8")) or {}
+    return {str(k): str(v) for k, v in (loaded.get("actions") or {}).items()}
 
 
 def transaction_context(action: str, resource: str, change: str) -> str:
@@ -78,6 +97,24 @@ async def protected_action(
             "This tenant is suspended; only its governed resumption is possible.",
             http_status=403,
         )
+    try:
+        await kyb_gate_action(
+            conn,
+            tenant,
+            caller.ctx.principal_id,
+            action,
+            mode=kyb_gate_mode(),
+            mapping=kyb_gate_actions(),
+            now=now,
+        )
+    except (
+        KybGateError
+    ) as e:  # the company's verified standing does not cover this act (ZID-DTV-WF-02; CR-109)
+        raise ZidError(
+            "KYB_GRADE_INSUFFICIENT",
+            e.detail or "The company's verification does not cover this act.",
+            http_status=403,
+        ) from e
     try:
         spec = action_spec(action, catalog())
     except KeyError as e:

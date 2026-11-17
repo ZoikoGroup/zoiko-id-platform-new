@@ -803,6 +803,22 @@ export function createCellApi(t: Transport) {
       decide: (id: string, body: M.OwnDecisionIn) => post<M.OwnDecision>(`/v2/ownership-graphs/${seg(id)}/confirmations`, body),
     },
 
+    /** A company's verification grade, its representatives' mandates, appeals and the signed export (WF02, CR-109). The grade is worked out again on each read. */
+    kyb: {
+      assertion: () => get<M.KybAssertion>("/v1/kyb/assertions"),
+      history: () => get<{ items: M.KybHistoryItem[] }>("/v1/kyb/assertions/history"),
+      assess: () => post<M.KybAssertion>("/v1/kyb/assertions:assess"),
+      entitlement: (action: string) => get<M.KybEntitlement>("/v1/kyb/entitlements", { action }),
+      mandates: () => get<{ items: M.KybMandate[] }>("/v1/kyb/mandates"),
+      recordMandate: (body: M.KybMandateIn) => post<{ mandate_id: string; grade: M.KybGrade }>("/v1/kyb/mandates", body),
+      cosign: (id: string) => post<{ mandate_id: string; grade: M.KybGrade }>(`/v1/kyb/mandates/${seg(id)}:cosign`),
+      revoke: (id: string, reason: string) => post<{ mandate_id: string; grade: M.KybGrade }>(`/v1/kyb/mandates/${seg(id)}:revoke`, { reason }),
+      appeals: () => get<{ items: M.KybAppeal[] }>("/v1/kyb/appeals"),
+      openAppeal: (decisionVersion: number, reason: string) => post<{ appeal_id: string; state: string; message: string }>("/v1/kyb/appeals", { decision_version: decisionVersion, reason }),
+      decideAppeal: (id: string, outcome: "UPHELD" | "ALLOWED", reason: string) => post<{ appeal_id: string; state: string; message: string; grade?: M.KybGrade }>(`/v1/kyb/appeals/${seg(id)}:decide`, { outcome, reason }),
+      exportEvidence: (purpose: string) => post<M.KybExport>("/v1/kyb/evidence-exports", { purpose }),
+    },
+
     /** The governed country-signing-CA trust store (WF01 screen O2, CR-107): importing is not trusting; a second person approves and activates. */
     trustStore: {
       packages: () => get<{ items: M.TrustPackage[] }>("/v2/trust-store/csca/packages"),
@@ -1212,6 +1228,15 @@ export function createOperatorApi(t: Transport) {
       recordAttestation: (body: M.AttestationIn) => post<Record<string, unknown>>("/v1/regulatory/attestations", body),
       entitlements: (provider?: string) => get<M.Items<M.EntitlementRow>>("/v1/regulatory/entitlements", { provider }),
       recordEntitlement: (body: M.EntitlementIn) => post<Record<string, unknown>>("/v1/regulatory/entitlements", body),
+
+      /** Company-verification market policy packs (WF02 K09): versions are identified by their digest, signed in four roles and published or rolled back by different people. */
+      kybPolicies: () => get<{ items: M.KybPolicyVersion[] }>("/v1/kyb/market-policies"),
+      kybPolicy: (hash: string) => get<M.KybPolicyDetail>(`/v1/kyb/market-policies/${seg(hash)}`),
+      kybPolicyPropose: (pack: Record<string, unknown>) => post<M.KybPolicyProposed>("/v1/kyb/market-policies", { pack }),
+      kybPolicyApprove: (hash: string, role: string) => post<{ policy_hash: string; role: string; approved: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:approve`, { role }),
+      kybPolicyPublish: (hash: string) => post<{ policy_hash: string; in_force: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:publish`),
+      kybPolicyRollback: (marketKey: string, toHash: string, reason: string) =>
+        post<{ market_key: string; policy_hash: string; in_force: boolean }>("/v1/kyb/market-policies:rollback", { market_key: marketKey, to_hash: toHash, reason }),
 
       suspensions: (active = false) =>
         get<M.Items<{ current: M.SuspensionVersion; versions: M.SuspensionVersion[] }>>("/v1/regulatory/suspensions", { active: active ? "true" : undefined }),

@@ -294,6 +294,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             country_gate=gate,
         )
 
+    async def company_grade_recheck(conn: AsyncConnection, now: datetime) -> object:
+        """WF02 K10: reassess each company whose next check is due, from what is recorded (the company refresh above has just read the registers again)."""
+        from zid_platform.modules.organization.application.kyb_operations import recheck_pass
+
+        return await recheck_pass(conn, now)
+
     async def register_refresh(conn: AsyncConnection, now: datetime) -> object:
         """ZID-RCG-003 RCG-G02 (CR-087): ask official registers again before a connector-recorded certification goes stale."""
         from zid_platform.modules.verification.ports import register_refresh as rr
@@ -468,6 +474,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("register_watch", register_watch),
         ("screening", screening),
         ("company_refresh", company_refresh),
+        ("company_grade_recheck", company_grade_recheck),
         ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
         ("verification_policy_review", verification_policy_review),

@@ -4042,7 +4042,7 @@ export type ScreeningCaseDetail = {
 export type ScreeningReplay = { replayable: boolean; version: number; reason?: string; matches?: boolean; [key: string]: unknown };
 export type ScreeningRulingIn = { outcome: "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED"; rationale: string; confirm_mandate?: boolean };
 export type KybRulingIn = { outcome: "VERIFIED" | "REJECTED" | "NEEDS_REVIEW"; rationale: string };
-export type CaseRuling = { case_id: string; status: string; version: number };
+export type CaseRuling = { case_id: string; status: string; version: number; position?: string };
 
 /* ------------------------------------------------------------- supplier spend budget and usage (WF01-014) */
 
@@ -4099,3 +4099,64 @@ export type EngineReadiness = {
   ceilings: EngineRates & { [key: string]: number | null };
   register: { version: string | null; status: string | null; components: EngineComponent[] };
 };
+
+/* ------------------------------------------------------------- company verification grade, mandates, appeals, export (WF02, CR-109) */
+
+export type KybGrade = "K0" | "K1" | "K2" | "K3" | "K4";
+export type KybAssertion = {
+  version?: number;
+  grade: KybGrade;
+  label: string;
+  claims: string[];
+  reasons: string[];
+  assessed_at?: string;
+  recheck_due: string | null;
+  policy_hash?: string | null;
+  /** The grade worked out again now from the stored facts: time alone can lower it. */
+  now?: { grade: KybGrade; label: string; reasons: string[]; lowered_since_assessed: boolean };
+  permitted_actions: string[];
+};
+export type KybHistoryItem = { version: number; grade: KybGrade; label: string; claims: string[]; reasons: string[]; trigger: string; assessed_at: string };
+export type KybMandate = {
+  mandate_id: string;
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  second_signatory_required: boolean;
+  second_signatory_present: boolean;
+  valid_from: string;
+  valid_to: string | null;
+  revoked: boolean;
+  recorded_at: string;
+};
+export type KybMandateIn = {
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  evidence_ref: string;
+  valid_from: string;
+  valid_to?: string | null;
+  second_signatory_required?: boolean;
+};
+export type KybAppeal = { appeal_id: string; decision_version: number; state: "OPEN" | "UPHELD" | "ALLOWED" | "WITHDRAWN"; message: string; opened_at: string; decided_at: string | null };
+export type KybEntitlement = { action: string; allowed: boolean; grade: KybGrade; label: string; reasons: string[] };
+export type KybExport = { summary: Record<string, unknown>; jws: string };
+
+/* ------------------------------------------------------------- company-verification market policy packs, operator plane (WF02 K09, CR-109) */
+
+export type KybPolicyVersion = { policy_hash: string; market_key: string; version: string; author: string; created_at: string; approved_roles: string[]; active: boolean };
+export type KybPolicyDetail = {
+  policy_hash: string;
+  market_key: string;
+  version: string;
+  author: string;
+  pack: Record<string, unknown>;
+  approved: [string, string][];
+  high_impact_changes: string[];
+  publishable: boolean;
+  problems: string[];
+  in_force: boolean;
+};
+export type KybPolicyProposed = { policy_hash: string; market_key: string; version: string; complete: boolean; problems: string[] };

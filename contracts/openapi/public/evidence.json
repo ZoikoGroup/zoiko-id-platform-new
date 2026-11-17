@@ -329,34 +329,6 @@
         "title": "PackageBody",
         "type": "object"
       },
-      "RollbackIn": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "maxLength": 500,
-            "minLength": 3,
-            "title": "Reason",
-            "type": "string"
-          },
-          "to_package_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "To Package Id"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "RollbackIn",
-        "type": "object"
-      },
       "StageIn": {
         "additionalProperties": false,
         "properties": {
@@ -1618,6 +1590,34 @@
           "reason"
         ],
         "title": "ReasonIn",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__v2_trust_store__RollbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_package_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Package Id"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RollbackIn",
         "type": "object"
       }
     }
@@ -5035,7 +5035,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RollbackIn"
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__v2_trust_store__RollbackIn"
               }
             }
           },
