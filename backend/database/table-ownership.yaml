@@ -1119,6 +1119,21 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 DTV-24 (a person decision on one ownership candidate; append-only; reviewer is never the graph author); CR-103"
+  verify.idv_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (one identity proofing attempt, pinned to a market's rules; closed cases never change); CR-110"
+  verify.idv_case_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (append-only history of each decision a proofing case reached); CR-110"
+  verify.idv_media_hash:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (digest of each accepted capture, to detect a replay; no image kept); CR-110"
   verify.verification_budget:
     role: cell
     module: verification

@@ -4160,3 +4160,24 @@ export type KybPolicyDetail = {
   in_force: boolean;
 };
 export type KybPolicyProposed = { policy_hash: string; market_key: string; version: string; complete: boolean; problems: string[] };
+
+/** An identity proofing case (WF03, CR-110): codes and states only, no document data, image or score. */
+export type IdvDecision = "APPROVED" | "REVIEW_REQUIRED" | "REJECTED" | "INDETERMINATE" | "ABANDONED";
+export type IdvCase = {
+  case_id: string;
+  market: string;
+  route: string;
+  state: "OPEN" | "CLOSED";
+  decision: IdvDecision;
+  reasons: string[];
+  assertions: string[];
+  signals: { optical: string; nfc_read: string; passive_auth: string; chip_auth: string; liveness: string; face_match: string };
+  policy_version: string;
+  policy_hash: string;
+  reviewers: number;
+  attempts: Record<string, number>;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+export type IdvCaseDetail = IdvCase & { history: { version: number; decision: IdvDecision; reasons: string[]; trigger: string; decided_at: string }[] };

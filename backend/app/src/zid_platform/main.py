@@ -464,6 +464,7 @@ def create_app(
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.countries import router as countries_router
+        from .modules.verification.api.idv_cases import router as idv_cases_router
         from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
@@ -536,6 +537,7 @@ def create_app(
             v2_travel_rule_router,
             v2_workflows_router,
             v2_self_run_router,
+            idv_cases_router,
             v2_ownership_router,
             kyb_company_router,
             v2_alternatives_router,

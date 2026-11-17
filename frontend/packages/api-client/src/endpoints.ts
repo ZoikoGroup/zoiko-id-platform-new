@@ -803,6 +803,13 @@ export function createCellApi(t: Transport) {
       decide: (id: string, body: M.OwnDecisionIn) => post<M.OwnDecision>(`/v2/ownership-graphs/${seg(id)}/confirmations`, body),
     },
 
+    /** Identity proofing cases: the decision, its reasons and the six signal states (WF03, CR-110). Read, and a reviewer's signature. */
+    idv: {
+      cases: () => get<{ items: M.IdvCase[] }>("/v1/idv/cases"),
+      case: (id: string) => get<M.IdvCaseDetail>(`/v1/idv/cases/${seg(id)}`),
+      review: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/reviews`),
+    },
+
     /** A company's verification grade, its representatives' mandates, appeals and the signed export (WF02, CR-109). The grade is worked out again on each read. */
     kyb: {
       assertion: () => get<M.KybAssertion>("/v1/kyb/assertions"),

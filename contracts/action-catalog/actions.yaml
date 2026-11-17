@@ -26,6 +26,7 @@ actions:
   provisioning.source.manage:       {min_risk_class: R3, min_evidence_class: E3, category: "SCIM connector (can suspend every provisioned account)", name_source: proposed, owner: provisioning, note: "CR-009"}
   verification.profile.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification profile release (VERIFY §21 protected admin)", name_source: proposed, owner: verification, note: "CR-009"}
   verification.budget.manage:       {min_risk_class: R3, min_evidence_class: E3, category: "set or clear a company monthly verification spend budget (WF01-014, CR-107)", name_source: proposed, owner: verification, note: "CR-107"}
+  verification.idv.review:          {min_risk_class: R3, min_evidence_class: E3, category: "sign an identity proofing case on a signed alternative route (WF03, CR-110)", name_source: proposed, owner: verification, note: "CR-110"}
   verification.adapter.manage:      {min_risk_class: R3, min_evidence_class: E3, category: "verification provider trust (VERIFY §9-10)", name_source: proposed, owner: verification, note: "CR-009"}
   authentication.recovery.approve:  {min_risk_class: R3, min_evidence_class: E3, category: "RC-3 second-administrator recovery approval (AUTH §14.1)", name_source: proposed, owner: authentication, note: "CR-009"}
   authentication.recovery.policy.manage: {min_risk_class: R3, min_evidence_class: E3, category: "RC-4 lockbox recovery policy (AUTH §14)", name_source: proposed, owner: authentication, note: "CR-009"}

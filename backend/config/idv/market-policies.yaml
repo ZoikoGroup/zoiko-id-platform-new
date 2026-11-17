@@ -1,0 +1,21 @@
+# Identity proofing rules per market (ZID-DTV-WF-03 section 9; CR-110).
+# status: NOTHING IS APPROVED. The file ships with no market: a case for a market that is not listed here is refused, never run on a default.
+# Each market the owners add records, in their own words and with their own decisions:
+#   policy_version, purpose
+#   chip / optical / face / clone_check / capture_integrity: REQUIRED | OPTIONAL | NOT_USED
+#   expired_document: REFUSE | REVIEW | ACCEPT        (a country-by-country decision, never a universal rule)
+#   on_revocation_unknown: INDETERMINATE | REVIEW
+#   alternates: [{route_id, may_approve, reviewers_needed >= 2}]   (a signed alternative to a mandatory chip; carries no chip-grade claim)
+#   biometric: {lawful_basis, impact_assessment_ref, notice_version, independent_pad_ref, self_hosted_engine}
+#              (all unset means biometrics stay OFF; no lawful basis or no impact assessment recorded means OFF)
+#   retries: {nfc, capture}                            (unset means none allowed)
+#   optical_checks: [TEMPLATE, TAMPER, ...]            (printed-document checks that must run and pass)
+#   attestation_required: true | false
+# Example shape (a comment, not a decision):
+#   GB:
+#     policy_version: gb-2026-1
+#     purpose: KYC
+#     expired_document: REFUSE
+#     retries: {nfc: 3, capture: 5}
+#     optical_checks: [TEMPLATE, TAMPER]
+markets: {}

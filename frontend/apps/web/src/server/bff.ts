@@ -36,6 +36,8 @@ const API_PATH_PREFIXES = [
   "/verification-engine-readiness",
   // A company's verification grade, entitlements and representatives' mandates (WF02, CR-109). The cell decides each call by action.
   "/v1/kyb/",
+  // Identity proofing cases (WF03, CR-110). The cell decides each call by scope and action.
+  "/v1/idv/",
   "/verifications",
   "/principals/",
   "/verification-assertions/",

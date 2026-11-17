@@ -339,59 +339,6 @@
         "title": "ConsentBody",
         "type": "object"
       },
-      "ConsentIn": {
-        "additionalProperties": false,
-        "properties": {
-          "activity_code": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Activity Code",
-            "type": "string"
-          },
-          "affirmative_action": {
-            "maxLength": 128,
-            "minLength": 3,
-            "title": "Affirmative Action",
-            "type": "string"
-          },
-          "capture_method": {
-            "pattern": "^(WEB|MOBILE|API|PAPER_VERIFIED|OTHER)$",
-            "title": "Capture Method",
-            "type": "string"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "notice_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Notice Version",
-            "type": "string"
-          },
-          "purpose_code": {
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
-            "title": "Purpose Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "activity_code",
-          "purpose_code",
-          "notice_version",
-          "capture_method",
-          "affirmative_action"
-        ],
-        "title": "ConsentIn",
-        "type": "object"
-      },
       "EntitlementIn": {
         "additionalProperties": false,
         "properties": {
@@ -2587,6 +2534,59 @@
         "title": "ExportIn",
         "type": "object"
       },
+      "zid_platform__modules__privacy__api__v2_rights__ConsentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Activity Code",
+            "type": "string"
+          },
+          "affirmative_action": {
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Affirmative Action",
+            "type": "string"
+          },
+          "capture_method": {
+            "pattern": "^(WEB|MOBILE|API|PAPER_VERIFIED|OTHER)$",
+            "title": "Capture Method",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "notice_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Notice Version",
+            "type": "string"
+          },
+          "purpose_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Purpose Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_code",
+          "purpose_code",
+          "notice_version",
+          "capture_method",
+          "affirmative_action"
+        ],
+        "title": "ConsentIn",
+        "type": "object"
+      },
       "zid_platform__modules__verification__api__v2_providers__ReasonIn": {
         "additionalProperties": false,
         "properties": {
@@ -4518,7 +4518,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConsentIn"
+                "$ref": "#/components/schemas/zid_platform__modules__privacy__api__v2_rights__ConsentIn"
               }
             }
           },

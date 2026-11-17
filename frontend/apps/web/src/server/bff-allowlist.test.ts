@@ -38,6 +38,7 @@ describe("the proxy allowlist", () => {
     ["the verification usage counts", "/verification-usage"],
     ["the face engine readiness view", "/verification-engine-readiness"],
     ["the company verification grade and mandates", "/v1/kyb/"],
+    ["identity proofing cases", "/v1/idv/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

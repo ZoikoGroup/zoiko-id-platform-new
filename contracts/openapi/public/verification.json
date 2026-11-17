@@ -209,37 +209,6 @@
         "title": "BulkStartIn",
         "type": "object"
       },
-      "ChipIn": {
-        "additionalProperties": false,
-        "description": "What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. Only group 1 (the MRZ) is read.",
-        "properties": {
-          "data_groups": {
-            "maxProperties": 16,
-            "minProperties": 1,
-            "patternProperties": {
-              "^([1-9]|1[0-6])$": {
-                "maxLength": 349541,
-                "minLength": 4,
-                "type": "string"
-              }
-            },
-            "title": "Data Groups",
-            "type": "object"
-          },
-          "sod_base64": {
-            "maxLength": 87397,
-            "minLength": 8,
-            "title": "Sod Base64",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sod_base64",
-          "data_groups"
-        ],
-        "title": "ChipIn",
-        "type": "object"
-      },
       "ChipLinkFinishIn": {
         "additionalProperties": false,
         "properties": {
@@ -987,7 +956,7 @@
           "chip": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ChipIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__v2_age__ChipIn"
               },
               {
                 "type": "null"
@@ -1120,6 +1089,37 @@
           }
         },
         "title": "WorkflowSimulateIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__v2_age__ChipIn": {
+        "additionalProperties": false,
+        "description": "What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. Only group 1 (the MRZ) is read.",
+        "properties": {
+          "data_groups": {
+            "maxProperties": 16,
+            "minProperties": 1,
+            "patternProperties": {
+              "^([1-9]|1[0-6])$": {
+                "maxLength": 349541,
+                "minLength": 4,
+                "type": "string"
+              }
+            },
+            "title": "Data Groups",
+            "type": "object"
+          },
+          "sod_base64": {
+            "maxLength": 87397,
+            "minLength": 8,
+            "title": "Sod Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sod_base64",
+          "data_groups"
+        ],
+        "title": "ChipIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__v2_age__EstimateIn": {

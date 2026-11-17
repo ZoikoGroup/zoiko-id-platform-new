@@ -2204,6 +2204,9 @@
         "verification_fraud_signal": {
           "$ref": "#/components/messages/verification_fraud_signal"
         },
+        "verification_idv_case_decided": {
+          "$ref": "#/components/messages/verification_idv_case_decided"
+        },
         "verification_manual_review_required": {
           "$ref": "#/components/messages/verification_manual_review_required"
         },
@@ -6286,6 +6289,17 @@
         "title": "verification.fraud_signal",
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_idv_case_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.idv.case_decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An identity proofing case reached a decision (APPROVED, REVIEW_REQUIRED, REJECTED, INDETERMINATE or ABANDONED) with the reason codes, the six signal states, what may be asserted and the policy version and digest it was decided under; no document data, image, score or person.",
+        "title": "verification.idv.case_decided",
+        "x-zid-source": "ZID-DTV-WF-03 section 18; CR-110",
+        "x-zid-status": "proposed"
       },
       "verification_manual_review_required": {
         "contentType": "application/cloudevents+json",
