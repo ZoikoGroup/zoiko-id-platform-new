@@ -212,3 +212,29 @@ def test_the_trust_folder_for_csca_certificates_is_read_and_ships_empty(tmp_path
         __import__("pathlib").Path(__file__).resolve().parents[3] / "config" / "trust"
     )
     assert shipped.csca == (), "the shipped configuration trusts no country"
+
+
+# ------------------------------------------------------------------------------------------------ WF01 T07: a revoked document signer
+
+
+def test_a_document_signer_the_country_revoked_gives_no_cryptographic_success() -> None:
+    from datetime import timedelta
+
+    from pdf_signing import make_crl
+
+    chip = make_chip()
+    crl = make_crl(chip.csca, [(chip.ds.cert, NOW - timedelta(days=2))])
+    v = check(chip, crls=(crl,))
+    assert v.status == "NOT_VERIFIED" and "DOCUMENT_SIGNER_CERTIFICATE_REVOKED" in v.reasons
+    assert not v.document_authentic  # never a pass, and never "authentic"
+
+
+def test_a_crl_that_does_not_list_the_signer_leaves_the_chip_verified_and_says_revocation_was_checked() -> (
+    None
+):
+    from pdf_signing import make_crl
+
+    chip = make_chip()
+    other = make_chip()  # a different signer's serial is revoked, not this one's
+    v = check(chip, crls=(make_crl(chip.csca, [(other.ds.cert, NOW)]),))
+    assert v.status == "VERIFIED_LIMITED" and "REVOCATION_NOT_CHECKED" not in v.reasons

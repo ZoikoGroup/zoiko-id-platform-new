@@ -1,0 +1,7 @@
+# Which protected actions are acts that bind the company, and so need the company's verified standing at the moment of the act (ZID-DTV-WF-02 section 4; CR-109).
+# catalogue action -> the KYB act. The act must be one of the binding acts the mandate rules know; the action must be in contracts/action-catalog/actions.yaml.
+# Whether the gate is applied is the deployment's choice: ZID_KYB_GATE=off (the default, nothing is read), shadow (reported, never refused) or enforce (refused: KYB_GRADE_INSUFFICIENT).
+# A tenant with no company assessment is K0 with nothing allowed, so `enforce` is switched on per market only after the markets' companies have been assessed.
+actions:
+  payment.release: AUTHORIZE_PAYMENT
+  mandate.create: DELEGATE_AUTHORITY

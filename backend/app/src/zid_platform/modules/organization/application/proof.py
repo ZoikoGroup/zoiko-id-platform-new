@@ -197,6 +197,13 @@ async def add_proof(
                 "The file could not be scanned right now. Nothing was stored; try again.",
             )
 
+    # How long it is kept: the published market pack's schedule when there is one, otherwise the proof policy's own period (unset: kept until the owners decide). The pack is the signed one.
+    from zid_platform.modules.organization.application.kyb_market_policy import retention_days_for
+
+    days = (
+        await retention_days_for(conn, claim.jurisdiction, claim.entity_form, now=now)
+        or policy.retention_days
+    )
     object_id, _ = await store_object(
         conn,
         tenant_id,
@@ -204,7 +211,7 @@ async def add_proof(
         object_type="kyb_proof",
         classification="D3",
         retention_class="kyb_proof",
-        expires_at=now + timedelta(days=policy.retention_days) if policy.retention_days else None,
+        expires_at=now + timedelta(days=days) if days else None,
     )
     proof_id = str(uuid.uuid4())
     label = sanitize_name(filename)

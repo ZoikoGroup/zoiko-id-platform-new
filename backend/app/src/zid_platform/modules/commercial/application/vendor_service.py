@@ -439,3 +439,17 @@ async def cost_report(
         }
         for r in rows
     ]
+
+
+async def tenant_cost_since(
+    conn: AsyncConnection, tenant_id: str, since: datetime
+) -> dict[str, Decimal]:
+    """What suppliers cost Zoiko for one company since `since`, per currency. Totals only: no subject, no attempt, no vendor reference leaves here."""
+    rows = await conn.execute(
+        text(
+            "SELECT cost_currency, sum(cost) FROM commercial.vendor_cost_event "
+            "WHERE tenant_id = :t AND occurred_at >= :s GROUP BY cost_currency"
+        ),
+        {"t": uuid.UUID(tenant_id), "s": since},
+    )
+    return {str(r[0]): Decimal(r[1]) for r in rows}

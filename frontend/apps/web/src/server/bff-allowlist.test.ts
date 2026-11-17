@@ -33,6 +33,12 @@ describe("the proxy allowlist", () => {
     ["the access readiness agent setup, runs and review proposals", "/v1/access-readiness/"],
     ["provisioning sources (list, register, suspend)", "/provisioning/sources"],
     ["directory syncs (connect, run, pause, resume, replace the secret)", "/provisioning/directory-syncs"],
+    ["the trust store for chip signing certificates", "/v2/trust-store/"],
+    ["the verification supplier budget", "/verification-budget"],
+    ["the verification usage counts", "/verification-usage"],
+    ["the face engine readiness view", "/verification-engine-readiness"],
+    ["the company verification grade and mandates", "/v1/kyb/"],
+    ["identity proofing cases", "/v1/idv/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

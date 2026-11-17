@@ -12,6 +12,10 @@ recorded, and is honest about the links nobody has.
 - a chain that ends at a company or trust with no recorded owners is an UNRESOLVED_CHAIN, not a clean answer. A publicly listed company or a government is a
   recognised end of a chain and is recorded as such, not as a gap (the policy decides whether that counts as resolved);
 - a person who controls by other means (a recorded CONTROL link: board appointment, veto, agreement) is a candidate whatever their share;
+- a link has a TYPE: OWNERSHIP (an economic share), VOTING (a share of the votes: a person with enough votes is a candidate whatever their share of the capital), NOMINEE (the holder holds
+  for a named beneficiary: the share is attributed to the beneficiary, and a nominee with no beneficiary named is a gap, never a clean answer) or CONTROL (control by other means). A TRUST or an
+  ARRANGEMENT in the chain needs at least one person recorded as controlling it (settlor, trustee, protector), or its parties are a gap. A link may carry the dates it was in force (`valid_from`,
+  `valid_to`) and is left out when the question is asked for a date outside them, and a link may be DISPUTED: whoever depends on it is NEEDS_EVIDENCE and the dispute is a gap;
 - the result is a list of CANDIDATES for a person to confirm, never a finding that someone IS the beneficial owner. A link nobody has evidenced marks every
   candidate that depends on it NEEDS_EVIDENCE.
 """
@@ -21,7 +25,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any
@@ -42,11 +47,16 @@ class Kind(StrEnum):
     PERSON = "PERSON"
     COMPANY = "COMPANY"
     TRUST = "TRUST"
+    ARRANGEMENT = "ARRANGEMENT"  # a legal arrangement other than a company or a trust (a foundation, a fund, a partnership without legal personality)
     LISTED_COMPANY = "LISTED_COMPANY"  # a recognised end of a chain: owned by the public
     GOVERNMENT = "GOVERNMENT"  # a recognised end of a chain
 
 
 RECOGNISED_ENDS = frozenset({Kind.LISTED_COMPANY, Kind.GOVERNMENT})
+PARTY_KINDS = frozenset(
+    {Kind.TRUST, Kind.ARRANGEMENT}
+)  # their parties are people recorded as controlling them
+LINK_TYPES = ("OWNERSHIP", "VOTING", "NOMINEE")
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +72,18 @@ class Link:
     percent: Decimal | None  # None for a CONTROL link, which carries no share
     control: bool
     evidenced: bool
+    type: str = "OWNERSHIP"  # OWNERSHIP | VOTING | NOMINEE (a CONTROL link has control=True)
+    beneficiary: str | None = None  # for NOMINEE: who the holder holds for
+    valid_from: date | None = None
+    valid_to: date | None = None
+    disputed: bool = False
+
+    def in_force(self, as_of: date | None) -> bool:
+        if as_of is None:
+            return True
+        return (self.valid_from is None or self.valid_from <= as_of) and (
+            self.valid_to is None or as_of < self.valid_to
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +104,15 @@ def _percent(value: Any) -> Decimal:
     return d
 
 
+def _date(value: Any) -> date | None:
+    if value in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as e:
+        raise OwnershipError("LINK_DATES_INVALID", str(value)) from e
+
+
 def build(entities: Iterable[Mapping[str, Any]], links: Iterable[Mapping[str, Any]]) -> Graph:
     """The graph from records. Refuses an unknown entity, a self-owned entity, a repeated link, and an entity owned for more than 100 percent."""
     ents: dict[str, Entity] = {}
@@ -97,7 +128,7 @@ def build(entities: Iterable[Mapping[str, Any]], links: Iterable[Mapping[str, An
     if len(ents) > MAX_ENTITIES:
         raise OwnershipError("GRAPH_TOO_LARGE", f"more than {MAX_ENTITIES} entities")
     out: list[Link] = []
-    seen: set[tuple[str, str, bool]] = set()
+    seen: set[tuple[str, str, bool, str]] = set()
     for item in links:
         owner, owned = str(item.get("owner", "")), str(item.get("owned", ""))
         if owner not in ents or owned not in ents:
@@ -105,7 +136,22 @@ def build(entities: Iterable[Mapping[str, Any]], links: Iterable[Mapping[str, An
         if owner == owned:
             raise OwnershipError("SELF_OWNERSHIP", owner)
         control = bool(item.get("control", False))
-        key = (owner, owned, control)
+        ltype = str(item.get("type", "OWNERSHIP"))
+        if ltype not in LINK_TYPES:
+            raise OwnershipError("LINK_TYPE_INVALID", ltype)
+        if control and ltype != "OWNERSHIP":
+            raise OwnershipError("LINK_TYPE_INVALID", "a control link has no type")
+        beneficiary = item.get("beneficiary")
+        if beneficiary is not None:
+            beneficiary = str(beneficiary)
+            if ltype != "NOMINEE":
+                raise OwnershipError("BENEFICIARY_ONLY_FOR_NOMINEE", f"{owner}->{owned}")
+            if beneficiary not in ents or beneficiary in (owner, owned):
+                raise OwnershipError("BENEFICIARY_INVALID", beneficiary)
+        valid_from, valid_to = _date(item.get("valid_from")), _date(item.get("valid_to"))
+        if valid_from and valid_to and valid_to <= valid_from:
+            raise OwnershipError("LINK_DATES_INVALID", f"{owner}->{owned}")
+        key = (owner, owned, control, ltype)
         if key in seen:
             raise OwnershipError("LINK_REPEATED", f"{owner}->{owned}")
         seen.add(key)
@@ -118,15 +164,26 @@ def build(entities: Iterable[Mapping[str, Any]], links: Iterable[Mapping[str, An
                 None if control else _percent(item.get("percent")),
                 control,
                 bool(item.get("evidenced", False)),
+                ltype,
+                beneficiary,
+                valid_from,
+                valid_to,
+                bool(item.get("disputed", False)),
             )
         )
-    totals: dict[str, Decimal] = defaultdict(Decimal)
-    for link in out:
-        if link.percent is not None:
-            totals[link.owned] += link.percent
-    for owned, total in totals.items():
-        if total > Decimal(100):
-            raise OwnershipError("OWNED_OVER_100_PERCENT", owned)
+    # the shares in force at one moment cannot add up to more than the whole: economic (ownership and nominee) and voting are counted apart. Links with different dates may overlap in the record
+    # only if they never overlap in time, so the total is checked at every date a link starts.
+    dated = any(link.valid_from or link.valid_to for link in out)
+    boundaries = {d for link in out for d in (link.valid_from, link.valid_to) if d}
+    moments: list[date | None] = sorted({date.min, *boundaries}) if dated else [None]
+    for moment in moments:
+        totals: dict[tuple[str, bool], Decimal] = defaultdict(Decimal)
+        for link in out:
+            if link.percent is not None and link.in_force(moment):
+                totals[(link.owned, link.type == "VOTING")] += link.percent
+        for (owned, _voting), total in totals.items():
+            if total > Decimal(100):
+                raise OwnershipError("OWNED_OVER_100_PERCENT", owned)
     return Graph(ents, tuple(out))
 
 
@@ -192,17 +249,41 @@ class Findings:
     )
 
 
-def analyze(graph: Graph, target: str, *, threshold: Decimal = DEFAULT_THRESHOLD) -> Findings:
+def analyze(
+    graph: Graph, target: str, *, threshold: Decimal = DEFAULT_THRESHOLD, as_of: date | None = None
+) -> Findings:
     """Who ends up with a material share of `target`, and what is not known. Deterministic, and independent of the order links were recorded in."""
     if target not in graph.entities or graph.entities[target].kind is Kind.PERSON:
         raise OwnershipError("TARGET_INVALID", target)
     if not Decimal(0) < threshold <= Decimal(100):
         raise OwnershipError("THRESHOLD_INVALID", str(threshold))
+    if (
+        as_of is not None
+    ):  # the question asked for one date: links not in force then are left out, and the rest is judged as it always was
+        graph = Graph(graph.entities, tuple(link for link in graph.links if link.in_force(as_of)))
     cycle = _find_cycle(graph)
     if cycle:
         raise OwnershipError("OWNERSHIP_CYCLE", " > ".join(cycle))
-    owners_of: dict[str, list[Link]] = defaultdict(list)
+    extra_gaps: list[Gap] = []
+    # a nominee holds for a beneficiary: the share is attributed to the beneficiary. Without one named, the holder stays where they are and the missing beneficiary is a gap
+    economic: list[Link] = []
     for link in graph.links:
+        if link.control or link.type == "VOTING":
+            continue
+        if link.type == "NOMINEE":
+            if link.beneficiary is None:
+                extra_gaps.append(
+                    Gap("NOMINEE_BENEFICIARY_UNDECLARED", link.owner, Decimal(0))
+                )  # exposure set below
+                economic.append(replace(link, evidenced=False))
+            else:
+                economic.append(
+                    replace(link, owner=link.beneficiary, evidenced=False)
+                )  # attributed, and never taken as evidenced until a person confirms it
+            continue
+        economic.append(link)
+    owners_of: dict[str, list[Link]] = defaultdict(list)
+    for link in economic:
         owners_of[link.owned].append(link)
 
     effective: dict[str, Decimal] = defaultdict(Decimal)
@@ -222,7 +303,16 @@ def analyze(graph: Graph, target: str, *, threshold: Decimal = DEFAULT_THRESHOLD
             if count > MAX_PATHS:
                 raise OwnershipError("GRAPH_TOO_COMPLEX", f"more than {MAX_PATHS} paths")
             held = share * (link.percent or Decimal(0)) / Decimal(100)
-            link_weak = weak or not link.evidenced
+            link_weak = weak or not link.evidenced or link.disputed
+            if link.disputed:
+                extra_gaps.append(Gap("DISPUTED_LINK", link.owned, held * 100))
+            if link.type == "NOMINEE" and link.beneficiary is None:
+                extra_gaps = [
+                    Gap(g.code, g.entity_id, max(g.effective_percent, held * 100))
+                    if g.code == "NOMINEE_BENEFICIARY_UNDECLARED" and g.entity_id == link.owner
+                    else g
+                    for g in extra_gaps
+                ]
             reach[link.owner] += held
             if graph.entities[link.owner].kind is Kind.PERSON:
                 effective[link.owner] += held * 100
@@ -237,12 +327,40 @@ def analyze(graph: Graph, target: str, *, threshold: Decimal = DEFAULT_THRESHOLD
         for link in graph.links
         if link.control and graph.entities[link.owner].kind is Kind.PERSON
     }
+    # votes pass up through voting links only: a person with enough of the votes is a candidate whatever their share of the capital
+    votes_of: dict[str, list[Link]] = defaultdict(list)
+    for link in graph.links:
+        if link.type == "VOTING" and not link.control:
+            votes_of[link.owned].append(link)
+    voting: dict[str, Decimal] = defaultdict(Decimal)
+    voting_weak: set[str] = set()
+    vstack: list[tuple[str, Decimal, bool]] = [(target, Decimal(1), False)]
+    while vstack:
+        node, share, weak = vstack.pop()
+        for link in votes_of.get(node, ()):
+            count += 1
+            if count > MAX_PATHS:
+                raise OwnershipError("GRAPH_TOO_COMPLEX", f"more than {MAX_PATHS} paths")
+            held = share * (link.percent or Decimal(0)) / Decimal(100)
+            link_weak = weak or not link.evidenced or link.disputed
+            if link.disputed:
+                extra_gaps.append(Gap("DISPUTED_LINK", link.owned, held * 100))
+            if graph.entities[link.owner].kind is Kind.PERSON:
+                voting[link.owner] += held * 100
+                if link_weak:
+                    voting_weak.add(link.owner)
+            else:
+                vstack.append((link.owner, held, link_weak))
+    unevidenced |= voting_weak
+
     candidates: list[Candidate] = []
-    for person in sorted(set(effective) | set(controllers)):
+    for person in sorted(set(effective) | set(controllers) | set(voting)):
         reasons = []
         pct = effective.get(person, Decimal(0))
         if pct >= threshold:
             reasons.append("OWNERSHIP_AT_OR_ABOVE_THRESHOLD")
+        if voting.get(person, Decimal(0)) >= threshold:
+            reasons.append("VOTING_AT_OR_ABOVE_THRESHOLD")
         if person in controllers:
             reasons.append("CONTROL_BY_OTHER_MEANS")
             if not controllers[person].evidenced:
@@ -275,6 +393,23 @@ def analyze(graph: Graph, target: str, *, threshold: Decimal = DEFAULT_THRESHOLD
                     exposure * (Decimal(100) - known) / Decimal(100),
                 )
             )
+    controlled_by_person = {
+        link.owned
+        for link in graph.links
+        if link.control and graph.entities[link.owner].kind is Kind.PERSON
+    }
+    for entity_id, entity in sorted(graph.entities.items()):
+        if entity.kind not in PARTY_KINDS or entity_id in controlled_by_person:
+            continue
+        if (
+            entity_id != target
+            and reach.get(entity_id, Decimal(0)) == 0
+            and not votes_of.get(entity_id)
+        ):
+            continue
+        exposure = Decimal(100) if entity_id == target else reach.get(entity_id, Decimal(0)) * 100
+        gaps.append(Gap("TRUST_PARTIES_UNDECLARED", entity_id, exposure))
+    gaps.extend(extra_gaps)
     material = [g for g in gaps if g.effective_percent >= threshold]
     complete = not material
     return Findings(

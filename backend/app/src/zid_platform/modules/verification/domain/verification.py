@@ -125,6 +125,9 @@ class Profile:
     review_approvals: int
     reliance_purposes: frozenset[str]
     status: str
+    max_attempts: int | None = (
+        None  # WF01-014: attempts per person per profile in ATTEMPT_WINDOW; None means the profile sets no cap
+    )
 
     @staticmethod
     def from_json(
@@ -154,6 +157,7 @@ class Profile:
             review_approvals=int(req.get("review_approvals", 1)),
             reliance_purposes=frozenset(req.get("reliance_purposes", ())),
             status=status,
+            max_attempts=int(req["max_attempts"]) if req.get("max_attempts") is not None else None,
         )
 
 
@@ -172,9 +176,27 @@ def validate_requirements(level: str, req: Mapping[str, Any]) -> None:
         raise VerificationError("PROFILE_INVALID", "IAL-Z2+ requires person-to-evidence binding")
     if not 1 <= int(req.get("review_approvals", 1)) <= 3:
         raise VerificationError("PROFILE_INVALID", "review_approvals")
+    cap = req.get("max_attempts")
+    if cap is not None and (
+        isinstance(cap, bool) or not isinstance(cap, int) or not 1 <= cap <= MAX_ATTEMPTS_LIMIT
+    ):
+        raise VerificationError("PROFILE_INVALID", "max_attempts")
     bio = set(req.get("biometric_jurisdictions", ()))
     if not bio <= set(req["jurisdictions"]):
         raise VerificationError("PROFILE_INVALID", "biometric jurisdictions outside the profile")
+
+
+ATTEMPT_WINDOW = timedelta(hours=24)
+MAX_ATTEMPTS_LIMIT = 20
+
+
+def require_attempt_allowed(profile: Profile, attempts_in_window: int) -> None:
+    """WF01-014: a profile may cap how many times one person can start it in a day, so a retry loop cannot become a vendor bill or a probe. Every
+    attempt counts, whatever became of it. A refusal is not a verdict about the person: they may try again when the window has passed."""
+    if profile.max_attempts is not None and attempts_in_window >= profile.max_attempts:
+        raise VerificationError(
+            "VERIFICATION_ATTEMPTS_EXCEEDED", "attempt cap reached for this profile"
+        )
 
 
 def select_profile(profile: Profile, *, floor: str | None, jurisdiction: str) -> None:

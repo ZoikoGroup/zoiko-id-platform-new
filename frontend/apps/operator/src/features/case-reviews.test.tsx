@@ -146,3 +146,21 @@ describe("the page", { timeout: 20_000 }, () => {
     await waitFor(() => expect(fake.caseReviews.kybRuling).toHaveBeenCalledWith(CASE, { outcome: "REJECTED", rationale: "Register extract matches the claim." }));
   });
 });
+
+describe("the two-reviewer position", () => {
+  it("says in words where a company case stands after a ruling", async () => {
+    const { positionText, POSITION_TEXT } = await import("./case-reviews");
+    expect(positionText("AWAITING_SECOND_REVIEWER")).toMatch(/first finding/);
+    expect(positionText("ESCALATED_TO_COMPLIANCE")).toMatch(/disagree/);
+    expect(positionText("APPROVED_BY_TWO_REVIEWERS")).toMatch(/Two independent reviewers/);
+    expect(positionText(undefined)).toBeNull();
+    expect(positionText("SOMETHING_NEW")).toBeNull();
+    expect(Object.keys(POSITION_TEXT)).toContain("DECIDED_BY_COMPLIANCE");
+  });
+  it("words the two new refusals", async () => {
+    const { errorText } = await import("./case-reviews");
+    for (const code of ["REVIEWER_NOT_INDEPENDENT", "ESCALATION_NEEDS_COMPLIANCE", "REVIEWER_IS_REQUESTER"]) {
+      expect(errorText(new ApiError({ status: 403, code, message: "x" }))).not.toContain(code);
+    }
+  });
+});

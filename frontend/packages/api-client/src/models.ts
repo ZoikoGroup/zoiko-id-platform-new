@@ -4348,6 +4348,58 @@ export type OwnGraph = OwnGraphSummary & {
   confirmations: OwnDecision[];
 };
 
+/* ------------------------------------------------------------- WF01 result facts for one verification (screen A5, CR-107) */
+
+export type ProofingCheckType = "document_validity" | "liveness_pad" | "face_match" | "chip_crypto";
+export type ProofingCheckResult = "pass" | "fail" | "indeterminate" | "not_requested";
+export type ProofingDecision = "verified_for_scope" | "review_required" | "more_evidence" | "indeterminate" | "rejected" | "pending";
+export type ProofingFacts = {
+  verification_id: string;
+  scope: string;
+  region: string;
+  policy: { profile_id: string; version: number; level: string };
+  expires_at: string;
+  state: string;
+  decision: ProofingDecision;
+  assertions: string[];
+  checks: { type: ProofingCheckType; result: ProofingCheckResult; method: string | null }[];
+  not_derived_here: string[];
+  indeterminate: boolean;
+};
+
+/* ------------------------------------------------------------- governed CSCA trust store (WF01 screen O2, CR-107) */
+
+export type TrustPackageState = "STAGED" | "VALIDATED" | "REJECTED" | "APPROVED" | "ACTIVE" | "SUPERSEDED" | "ROLLED_BACK" | "RETIRED";
+export type TrustPackage = {
+  package_id: string;
+  kind: "CSCA";
+  seq: number;
+  version: number;
+  state: TrustPackageState;
+  source_uri: string;
+  source_note: string | null;
+  package_sha256: string;
+  anchor_sha256: string[];
+  list_status: "VERIFIED" | "NOT_VERIFIED" | "INDETERMINATE" | null;
+  list_reasons: string[];
+  list_signer: string | null;
+  certificate_count: number;
+  manifest_digest: string | null;
+  staged_by: string;
+  staged_at: string;
+  validated_at: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+  activated_by: string | null;
+  activated_at: string | null;
+  ended_at: string | null;
+  ended_by: string | null;
+  ended_reason: string | null;
+};
+export type TrustStageIn = { master_list_base64: string; anchors_base64: string[]; confirmed_anchor_sha256: string[]; source_uri: string; source_note?: string };
+export type TrustActive = { source: "TRUST_STORE" | "CONFIG_FOLDER"; package_id: string | null; package_seq: number | null; manifest_digest: string | null; governed: boolean; certificates: number };
+
 /* ------------------------------------------------------------- reviewer rulings on company cases (WF-13B, ZID-ED-03, ZID-ED-04) */
 
 export type ScreeningAlert = { list_id: string; score?: number; reasons?: string[]; list_version?: string; [key: string]: unknown };
@@ -4363,4 +4415,143 @@ export type ScreeningCaseDetail = {
 export type ScreeningReplay = { replayable: boolean; version: number; reason?: string; matches?: boolean; [key: string]: unknown };
 export type ScreeningRulingIn = { outcome: "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED"; rationale: string; confirm_mandate?: boolean };
 export type KybRulingIn = { outcome: "VERIFIED" | "REJECTED" | "NEEDS_REVIEW"; rationale: string };
-export type CaseRuling = { case_id: string; status: string; version: number };
+export type CaseRuling = { case_id: string; status: string; version: number; position?: string };
+
+/* ------------------------------------------------------------- supplier spend budget and usage (WF01-014) */
+
+export type VerificationBudget = {
+  budget: { monthly_limit: string; currency: string; version: number } | null;
+  month_start: string;
+  spent?: string;
+  remaining?: string;
+  exceeded?: boolean;
+  other_currencies?: string[];
+};
+export type VerificationUsage = {
+  since: string;
+  until: string;
+  sessions: { adapter_id: string; status: string; outcome: string | null; sessions: number }[];
+  total_sessions: number;
+  review_cases: Record<string, number>;
+  repeat_attempts: number;
+  failover_sessions: number;
+  failover_verified: number;
+};
+
+/* ------------------------------------------------------------- face engine readiness (WF01-011/012): what keeps an engine from being approved */
+
+export type EngineRates = { false_accept: number | null; false_reject: number | null; attack_accept: number | null; bona_fide_reject: number | null };
+export type EngineComponent = {
+  id: string;
+  role: string | null;
+  code_licence: string | null;
+  commercial_use: string;
+  model_licence_confirmed: boolean;
+  licence_verified_on: string | null;
+  status: string | null;
+  in_engine: boolean;
+};
+export type EngineReadiness = {
+  mode: "DISABLED" | "LAB_ONLY" | "APPROVED_FOR_SCOPE";
+  enabled: boolean;
+  approvable: boolean;
+  problems_for_approval: string[];
+  countries: string[];
+  engine: {
+    id: string | null;
+    version: string | null;
+    evaluation_id: string | null;
+    evaluated_on: string | null;
+    pad_standard: string | null;
+    licence_checked: boolean;
+    dpia_ref: string | null;
+    components: string[];
+    measured: EngineRates;
+  };
+  thresholds: { face_match_min: number | null; liveness_min: number | null };
+  ceilings: EngineRates & { [key: string]: number | null };
+  register: { version: string | null; status: string | null; components: EngineComponent[] };
+};
+
+/* ------------------------------------------------------------- company verification grade, mandates, appeals, export (WF02, CR-109) */
+
+export type KybGrade = "K0" | "K1" | "K2" | "K3" | "K4";
+export type KybAssertion = {
+  version?: number;
+  grade: KybGrade;
+  label: string;
+  claims: string[];
+  reasons: string[];
+  assessed_at?: string;
+  recheck_due: string | null;
+  policy_hash?: string | null;
+  /** The grade worked out again now from the stored facts: time alone can lower it. */
+  now?: { grade: KybGrade; label: string; reasons: string[]; lowered_since_assessed: boolean };
+  permitted_actions: string[];
+};
+export type KybHistoryItem = { version: number; grade: KybGrade; label: string; claims: string[]; reasons: string[]; trigger: string; assessed_at: string };
+export type KybMandate = {
+  mandate_id: string;
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  second_signatory_required: boolean;
+  second_signatory_present: boolean;
+  valid_from: string;
+  valid_to: string | null;
+  revoked: boolean;
+  recorded_at: string;
+};
+export type KybMandateIn = {
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  evidence_ref: string;
+  valid_from: string;
+  valid_to?: string | null;
+  second_signatory_required?: boolean;
+};
+export type KybAppeal = { appeal_id: string; decision_version: number; state: "OPEN" | "UPHELD" | "ALLOWED" | "WITHDRAWN"; message: string; opened_at: string; decided_at: string | null };
+export type KybEntitlement = { action: string; allowed: boolean; grade: KybGrade; label: string; reasons: string[] };
+export type KybExport = { summary: Record<string, unknown>; jws: string };
+
+/* ------------------------------------------------------------- company-verification market policy packs, operator plane (WF02 K09, CR-109) */
+
+export type KybPolicyVersion = { policy_hash: string; market_key: string; version: string; author: string; created_at: string; approved_roles: string[]; active: boolean };
+export type KybPolicyDetail = {
+  policy_hash: string;
+  market_key: string;
+  version: string;
+  author: string;
+  pack: Record<string, unknown>;
+  approved: [string, string][];
+  high_impact_changes: string[];
+  publishable: boolean;
+  problems: string[];
+  in_force: boolean;
+};
+export type KybPolicyProposed = { policy_hash: string; market_key: string; version: string; complete: boolean; problems: string[] };
+
+/** An identity proofing case (WF03, CR-110): codes and states only, no document data, image or score. */
+export type IdvDecision = "APPROVED" | "REVIEW_REQUIRED" | "REJECTED" | "INDETERMINATE" | "ABANDONED";
+export type IdvCase = {
+  case_id: string;
+  market: string;
+  route: string;
+  state: "OPEN" | "CLOSED";
+  decision: IdvDecision;
+  reasons: string[];
+  assertions: string[];
+  signals: { optical: string; nfc_read: string; passive_auth: string; chip_auth: string; liveness: string; face_match: string };
+  policy_version: string;
+  policy_hash: string;
+  notice_version: string | null;
+  reviewers: number;
+  attempts: Record<string, number>;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+export type IdvCaseDetail = IdvCase & { history: { version: number; decision: IdvDecision; reasons: string[]; trigger: string; decided_at: string }[] };

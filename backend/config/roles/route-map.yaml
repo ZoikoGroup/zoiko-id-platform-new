@@ -85,6 +85,10 @@ rules:
 
   # ------------------------------------------------------------------ people, security and account administration
   - {match: "GET /v1/tenant", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "GET /v1/idv/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-110
+  - {match: "* /v1/idv/*", exempt: NO_MATRIX_ACTION, why: "the applicant adds evidence to their own case and the platform judges it; a reviewer's signature stays under its protected action (verification.idv.review); the owners decide whether to add a matrix row"}
+  - {match: "GET /v1/kyb/*", gate: {action: a.view-organization-profile, mode: R}}
+  - {match: "* /v1/kyb/*", exempt: NO_MATRIX_ACTION, why: "assessing a company and recording, countersigning or revoking a mandate stay under their protected actions (organization.kyb.assess, organization.kyb.mandate.manage); the owners decide whether to add a matrix row"}
   - {match: "GET /v1/tenant/configuration-revisions", gate: {action: a.view-organization-profile, mode: R}}
   - {match: "GET /v1/tenant/transitions", gate: {action: a.view-organization-profile, mode: R}}
   - {match: "* /v1/tenant/billing-grants*", exempt: COMMERCIAL, why: "billing delegation is the Owner's alone (ZID-COM-CL-002), decided by the billing permission layer"}

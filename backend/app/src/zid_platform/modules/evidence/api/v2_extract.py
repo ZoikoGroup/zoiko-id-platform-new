@@ -22,6 +22,7 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.application import barcode, cms, epassport, pdfobjects
+from zid_platform.modules.evidence.application import trust_store as trust_store_app
 from zid_platform.modules.evidence.domain import mrz, templates
 from zid_platform.modules.evidence.infrastructure import ocr_client
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
@@ -238,8 +239,11 @@ class V2ChipIn(BaseModel):
 @router.post("/v2/documents/chip-verify")
 async def chip_verify(body: V2ChipIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     """Passive authentication of a passport or eID chip (ICAO Doc 9303). Stateless: nothing is stored and the photo is never read."""
+    config = getattr(request.app.state, "trust_config", None) or trust_config()
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="evidence.verify", resource="document:chip")
+        # once the tenant's governed trust store has activated a package it is the whole truth; before that the config folder applies (CR-107)
+        effective = await trust_store_app.effective_csca(conn, config.csca)
     try:
         sod = base64.b64decode(body.sod_base64, validate=True)
         groups = {int(k): base64.b64decode(v, validate=True) for k, v in body.data_groups.items()}
@@ -247,8 +251,7 @@ async def chip_verify(body: V2ChipIn, request: Request, caller: CallerDep) -> di
         raise ZidError(
             "VALIDATION_FAILED", "The chip data is not valid base64.", http_status=422
         ) from e
-    config = getattr(request.app.state, "trust_config", None) or trust_config()
-    verdict = epassport.verify(sod, groups, csca=config.csca, crls=config.crls)
+    verdict = epassport.verify(sod, groups, csca=effective.csca, crls=config.crls)
     return {
         **_ids(),
         **verdict.public(),
@@ -256,7 +259,8 @@ async def chip_verify(body: V2ChipIn, request: Request, caller: CallerDep) -> di
         "assurance_ceiling": "ISSUER_AUTHENTICATED"
         if verdict.document_authentic
         else "SELF_DECLARED",
-        "csca_configured": bool(config.csca),
+        "csca_configured": bool(effective.csca),
+        "trust": effective.public(),
     }
 
 

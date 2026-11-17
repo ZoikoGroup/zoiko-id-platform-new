@@ -1,29 +1,29 @@
 {
   "components": {
     "schemas": {
-      "AppealIn": {
+      "AppealDecisionIn": {
         "additionalProperties": false,
         "properties": {
-          "kind": {
+          "outcome": {
             "enum": [
-              "APPEAL",
-              "CORRECTION"
+              "UPHELD",
+              "ALLOWED"
             ],
-            "title": "Kind",
+            "title": "Outcome",
             "type": "string"
           },
-          "statement": {
+          "reason": {
             "maxLength": 2000,
             "minLength": 1,
-            "title": "Statement",
+            "title": "Reason",
             "type": "string"
           }
         },
         "required": [
-          "kind",
-          "statement"
+          "outcome",
+          "reason"
         ],
-        "title": "AppealIn",
+        "title": "AppealDecisionIn",
         "type": "object"
       },
       "ApprovalBody": {
@@ -44,6 +44,21 @@
           }
         },
         "title": "ApprovalBody",
+        "type": "object"
+      },
+      "ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ApproveIn",
         "type": "object"
       },
       "ClaimIn": {
@@ -554,6 +569,22 @@
         "title": "ResolutionIn",
         "type": "object"
       },
+      "RevokeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RevokeIn",
+        "type": "object"
+      },
       "RollbackBody": {
         "additionalProperties": false,
         "properties": {
@@ -834,6 +865,180 @@
         "title": "PlanBody",
         "type": "object"
       },
+      "zid_platform__modules__onboarding__api__org_claim_screening__AppealIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "APPEAL",
+              "CORRECTION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "statement": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "statement"
+        ],
+        "title": "AppealIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__kyb_policy__ProposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "pack": {
+            "additionalProperties": true,
+            "title": "Pack",
+            "type": "object"
+          }
+        },
+        "required": [
+          "pack"
+        ],
+        "title": "ProposeIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__kyb_policy__RollbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "market_key": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Market Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "To Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market_key",
+          "to_hash",
+          "reason"
+        ],
+        "title": "RollbackIn",
+        "type": "object"
+      },
+      "zid_platform__modules__organization__api__kyb_company__AppealIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_version": {
+            "minimum": 1.0,
+            "title": "Decision Version",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_version",
+          "reason"
+        ],
+        "title": "AppealIn",
+        "type": "object"
+      },
+      "zid_platform__modules__organization__api__kyb_company__ExportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "purpose": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose"
+        ],
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "zid_platform__modules__organization__api__kyb_company__MandateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "person": {
+            "format": "uuid",
+            "title": "Person",
+            "type": "string"
+          },
+          "powers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Powers",
+            "type": "array"
+          },
+          "role": {
+            "maxLength": 20,
+            "title": "Role",
+            "type": "string"
+          },
+          "second_signatory_required": {
+            "default": false,
+            "title": "Second Signatory Required",
+            "type": "boolean"
+          },
+          "source": {
+            "maxLength": 30,
+            "title": "Source",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "person",
+          "role",
+          "source",
+          "powers",
+          "evidence_ref",
+          "valid_from"
+        ],
+        "title": "MandateIn",
+        "type": "object"
+      },
       "zid_platform__modules__screening__api__signals__ChallengeIn": {
         "additionalProperties": false,
         "properties": {
@@ -865,6 +1070,698 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/kyb/appeals": {
+      "get": {
+        "operationId": "list_appeals_v1_kyb_appeals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Appeals V1 Kyb Appeals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Appeals",
+        "tags": [
+          "organization-kyb"
+        ]
+      },
+      "post": {
+        "operationId": "open_appeal_v1_kyb_appeals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__organization__api__kyb_company__AppealIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Appeal V1 Kyb Appeals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Appeal",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/appeals/{appeal_id}:decide": {
+      "post": {
+        "operationId": "decide_appeal_v1_kyb_appeals__appeal_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appeal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Appeal V1 Kyb Appeals  Appeal Id  Decide Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Appeal",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/assertions": {
+      "get": {
+        "operationId": "current_v1_kyb_assertions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Current V1 Kyb Assertions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/assertions/history": {
+      "get": {
+        "operationId": "history_v1_kyb_assertions_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response History V1 Kyb Assertions History Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/assertions:assess": {
+      "post": {
+        "operationId": "assess_v1_kyb_assertions_assess_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assess V1 Kyb Assertions Assess Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Assess",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/entitlements": {
+      "get": {
+        "operationId": "entitlement_v1_kyb_entitlements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Entitlement V1 Kyb Entitlements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entitlement",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/evidence-exports": {
+      "post": {
+        "operationId": "evidence_export_v1_kyb_evidence_exports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__organization__api__kyb_company__ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence Export V1 Kyb Evidence Exports Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence Export",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/mandates": {
+      "get": {
+        "operationId": "mandates_v1_kyb_mandates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mandates V1 Kyb Mandates Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mandates",
+        "tags": [
+          "organization-kyb"
+        ]
+      },
+      "post": {
+        "operationId": "record_mandate_v1_kyb_mandates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__organization__api__kyb_company__MandateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Mandate V1 Kyb Mandates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Mandate",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/mandates/{mandate_id}:cosign": {
+      "post": {
+        "operationId": "cosign_v1_kyb_mandates__mandate_id__cosign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mandate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mandate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cosign V1 Kyb Mandates  Mandate Id  Cosign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cosign",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/mandates/{mandate_id}:revoke": {
+      "post": {
+        "operationId": "revoke_v1_kyb_mandates__mandate_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mandate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mandate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke V1 Kyb Mandates  Mandate Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "organization-kyb"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies": {
+      "get": {
+        "operationId": "list_policies_v1_kyb_market_policies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Policies V1 Kyb Market Policies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Policies",
+        "tags": [
+          "kyb-policy"
+        ]
+      },
+      "post": {
+        "operationId": "propose_v1_kyb_market_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__ProposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose V1 Kyb Market Policies Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}": {
+      "get": {
+        "operationId": "one_policy_v1_kyb_market_policies__policy_hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response One Policy V1 Kyb Market Policies  Policy Hash  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One Policy",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}:approve": {
+      "post": {
+        "operationId": "approve_v1_kyb_market_policies__policy_hash__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Kyb Market Policies  Policy Hash  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}:publish": {
+      "post": {
+        "operationId": "publish_v1_kyb_market_policies__policy_hash__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish V1 Kyb Market Policies  Policy Hash  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies:rollback": {
+      "post": {
+        "operationId": "rollback_v1_kyb_market_policies_rollback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__RollbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback V1 Kyb Market Policies Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
     "/v1/onboarding/connection": {
       "get": {
         "description": "What a person needs to connect an application, in one read: where to send decisions and how far shadow is.\n\n`shadow` is present while the company is in SHADOW or PILOT: the decisions seen so far against what the plan needs,\neach as a plain ratio, and `ready` when every shadow gate passes. Nothing here is a secret.",
@@ -1681,7 +2578,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppealIn"
+                "$ref": "#/components/schemas/zid_platform__modules__onboarding__api__org_claim_screening__AppealIn"
               }
             }
           },

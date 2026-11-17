@@ -2,6 +2,8 @@
 
 POST /ocr  {"image_base64": "...", "regions": [{"name": "surname", "x": 0.1, "y": 0.2, "w": 0.4, "h": 0.1}], "lang": "eng"}
   -> {"regions": [{"name": "surname", "text": "ERIKSSON", "confidence": 91.2}], "engine": "tesseract <version>"}
+POST /inspect {"image_base64": "..."}
+  -> {"width": 1200, "height": 800, "format": "JPEG", "sharpness": 130.2, "glare_fraction": 0.001, "dark_fraction": 0.1, "ela_hot_fraction": 0.004}
 GET  /healthz -> {"ok": true, "engine": "tesseract <version>"}
 
 Region coordinates are fractions of the image (0 to 1), so a template does not depend on the scan's resolution. Reading is bounded to the regions
@@ -23,7 +25,7 @@ import json
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter, ImageStat
 
 MAX_BODY = 8 * 1024 * 1024
 MAX_PIXELS = 25_000_000
@@ -69,6 +71,47 @@ def read_region(img: Image.Image, box: tuple[int, int, int, int], lang: str) -> 
             pass
     text = "".join(words).replace(" \n", "\n").strip()[:MAX_TEXT]
     return text, round(sum(confs) / len(confs), 1) if confs else 0.0
+
+
+def is_png_or_jpeg(raw: bytes) -> bool:
+    return raw.startswith(bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) or raw.startswith(bytes([0xFF, 0xD8, 0xFF]))
+
+
+def inspect(body: dict) -> tuple[int, dict]:
+    """Measurements only, no judgement: the backend decides what they mean. Sharpness is the variance of an edge-filtered grey image; glare and dark are the fractions of near-white and near-black pixels;
+    ela_hot_fraction is the fraction of pixels that change by more than 20 grey levels when a JPEG is re-saved at quality 90 (None for a PNG, where the heuristic cannot run)."""
+    try:
+        raw = base64.b64decode(str(body.get("image_base64", "")), validate=True)
+    except (binascii.Error, ValueError):
+        return 422, {"error": "IMAGE_NOT_BASE64"}
+    if not is_png_or_jpeg(raw):
+        return 422, {"error": "IMAGE_TYPE_NOT_ALLOWED"}
+    try:
+        img = Image.open(io.BytesIO(raw))
+        fmt = img.format or ""
+        img.load()
+    except (OSError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        return 422, {"error": "IMAGE_NOT_READABLE"}
+    width, height = img.size
+    rgb = img.convert("RGB")
+    grey = rgb.convert("L")
+    scale = min(1.0, 1600 / max(width, height))
+    small = grey if scale == 1.0 else grey.resize((max(1, int(width * scale)), max(1, int(height * scale))))
+    sharpness = ImageStat.Stat(small.filter(ImageFilter.FIND_EDGES)).var[0]
+    hist = small.histogram()
+    total = float(sum(hist)) or 1.0
+    glare, dark = sum(hist[250:]) / total, sum(hist[:40]) / total
+    ela = None
+    if fmt == "JPEG":
+        buf = io.BytesIO()
+        rgb.save(buf, format="JPEG", quality=90)
+        again = Image.open(io.BytesIO(buf.getvalue())).convert("RGB")
+        diff = ImageChops.difference(rgb, again).convert("L")
+        if scale != 1.0:
+            diff = diff.resize(small.size)
+        dh = diff.histogram()
+        ela = sum(dh[21:]) / (float(sum(dh)) or 1.0)
+    return 200, {"width": width, "height": height, "format": fmt, "sharpness": round(sharpness, 2), "glare_fraction": round(glare, 5), "dark_fraction": round(dark, 5), "ela_hot_fraction": None if ela is None else round(ela, 5)}
 
 
 def handle(body: dict) -> tuple[int, dict]:
@@ -129,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "NOT_FOUND"})
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/ocr":
+        if self.path not in ("/ocr", "/inspect"):
             return self._send(404, {"error": "NOT_FOUND"})
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -143,7 +186,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "BODY_NOT_JSON"})
         if not isinstance(body, dict):
             return self._send(400, {"error": "BODY_NOT_AN_OBJECT"})
-        code, payload = handle(body)
+        code, payload = inspect(body) if self.path == "/inspect" else handle(body)
         self._send(code, payload)
 
 
