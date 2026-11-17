@@ -618,6 +618,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/privacy/assisted-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assisted Queue
+         * @description People who chose a non-biometric way and are waiting for a person (WF-04 B02).
+         */
+        get: operations["assisted_queue_v2_privacy_assisted_routes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/privacy/authorization-evaluations": {
         parameters: {
             query?: never;
@@ -635,6 +655,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/privacy/biometric-oversight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Biometric Oversight
+         * @description WF-04 B12 governance monitor (CR-110): counts and what needs attention; no personal data.
+         */
+        get: operations["biometric_oversight_v2_privacy_biometric_oversight_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/privacy/breaches": {
         parameters: {
             query?: never;
@@ -642,7 +682,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Breaches
+         * @description The tenant's breach cases with clocks and capture state (CR-108).
+         */
+        get: operations["list_breaches_v2_privacy_breaches_get"];
         put?: never;
         /** Open Breach */
         post: operations["open_breach_v2_privacy_breaches_post"];
@@ -669,6 +713,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Capture
+         * @description Containment (WF-04 B09, CR-108): no biometric method runs for this tenant in the case's jurisdictions until it is released or closed.
+         */
+        post: operations["pause_capture_v2_privacy_breaches__breach_id__biometric_capture_pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Capture
+         * @description Lift the containment: by someone other than whoever paused it, with a reason (CR-108).
+         */
+        post: operations["release_capture_v2_privacy_breaches__breach_id__biometric_capture_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/privacy/breaches/{breach_id}/close": {
         parameters: {
             query?: never;
@@ -680,6 +764,26 @@ export interface paths {
         put?: never;
         /** Close Breach */
         post: operations["close_breach_v2_privacy_breaches__breach_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/breaches/{breach_id}/dossier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Breach Dossier
+         * @description WF-04 B09 audit dossier (CR-110): the case, clocks, capture timeline and audit trail; codes and hashes only.
+         */
+        get: operations["breach_dossier_v2_privacy_breaches__breach_id__dossier_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -744,7 +848,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Packages
+         * @description The tenant's DPIA packages with their release state (the workbench list; CR-108).
+         */
+        get: operations["list_packages_v2_privacy_dpia_packages_get"];
         put?: never;
         /** Create Package */
         post: operations["create_package_v2_privacy_dpia_packages_post"];
@@ -829,7 +937,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Jobs
+         * @description The tenant's erasure jobs, newest first, with their per-class state (CR-108).
+         */
+        get: operations["list_jobs_v2_privacy_erasure_jobs_get"];
         put?: never;
         /** Open Job */
         post: operations["open_job_v2_privacy_erasure_jobs_post"];
@@ -884,6 +996,26 @@ export interface paths {
         put?: never;
         /** Attest */
         post: operations["attest_v2_privacy_erasure_jobs__job_id__tasks__task_id__attest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/erasure-jobs:preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Job
+         * @description B05 dry run (CR-108): what an erasure would dispose, hold or send to providers, in deletion order. Changes nothing.
+         */
+        post: operations["preview_job_v2_privacy_erasure_jobs_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1002,7 +1134,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Models
+         * @description The model inventory with the latest evaluation and fairness state of each version (WF-04 B07; CR-110).
+         */
+        get: operations["list_models_v2_privacy_models_get"];
         put?: never;
         /** Register Model */
         post: operations["register_model_v2_privacy_models_post"];
@@ -1304,6 +1440,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/privacy/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reviews
+         * @description The reviewer's queue (CR-109).
+         */
+        get: operations["list_reviews_v2_privacy_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Reviews
+         * @description The caller's own appeals and reviews (CR-110). No administrator role: a person always sees their own.
+         */
+        get: operations["my_reviews_v2_privacy_reviews_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/privacy/reviews/{review_id}": {
         parameters: {
             query?: never;
@@ -1315,6 +1491,26 @@ export interface paths {
         get: operations["get_review_v2_privacy_reviews__review_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/privacy/reviews/{review_id}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Review
+         * @description CR-109 (WF-04 B08): a third person confirms a proposed reversal, or sends it back for another review.
+         */
+        post: operations["check_review_v2_privacy_reviews__review_id__checks_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1345,7 +1541,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Changes
+         * @description Subprocessor and location changes (WF-04 B04; CR-110).
+         */
+        get: operations["list_changes_v2_privacy_subprocessor_changes_get"];
         put?: never;
         /** Notify Change */
         post: operations["notify_change_v2_privacy_subprocessor_changes_post"];
@@ -1379,7 +1579,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Transfers
+         * @description The transfer ledger (WF-04 B04; CR-110).
+         */
+        get: operations["list_transfers_v2_privacy_transfer_decisions_get"];
         put?: never;
         /** Transfer */
         post: operations["transfer_v2_privacy_transfer_decisions_post"];
@@ -1545,6 +1749,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verification-sessions/{session_ref}/assisted:claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assisted Claim */
+        post: operations["assisted_claim_v2_verification_sessions__session_ref__assisted_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/assisted:complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assisted Complete */
+        post: operations["assisted_complete_v2_verification_sessions__session_ref__assisted_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verification-sessions/{session_ref}/cancel": {
         parameters: {
             query?: never;
@@ -1590,6 +1828,23 @@ export interface paths {
         put?: never;
         /** Acknowledge */
         post: operations["acknowledge_v2_verification_sessions__session_ref__notices_acknowledgments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose Route */
+        post: operations["choose_route_v2_verification_sessions__session_ref__route_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1703,6 +1958,15 @@ export interface components {
             special_category: boolean;
             /** Special Condition Ref */
             special_condition_ref?: string | null;
+        };
+        /** AssistedDoneIn */
+        AssistedDoneIn: {
+            /** Done */
+            done: boolean;
+            /** Outcome Ref */
+            outcome_ref?: string | null;
+            /** Reason Code */
+            reason_code?: string | null;
         };
         /** ConsentBody */
         ConsentBody: {
@@ -1866,6 +2130,8 @@ export interface components {
             detected_at: string;
             /** Jurisdictions */
             jurisdictions: string[];
+            /** Pause Biometric Capture */
+            pause_biometric_capture?: boolean | null;
             /**
              * Severity
              * @enum {string}
@@ -1875,6 +2141,11 @@ export interface components {
             subjects_estimate?: number | null;
             /** Summary */
             summary: string;
+        };
+        /** PrivV2CaptureReleaseIn */
+        PrivV2CaptureReleaseIn: {
+            /** Reason */
+            reason: string;
         };
         /** PrivV2ChangeIn */
         PrivV2ChangeIn: {
@@ -1904,6 +2175,17 @@ export interface components {
             legal_basis: string;
             /** Reason */
             reason: string;
+            /**
+             * Scope
+             * @default ALL
+             * @enum {string}
+             */
+            scope: "ALL" | "PROVIDERS_ONLY" | "FIRST_PARTY_ONLY";
+            /** Subject Ref */
+            subject_ref: string;
+        };
+        /** PrivV2ErasurePreviewIn */
+        PrivV2ErasurePreviewIn: {
             /**
              * Scope
              * @default ALL
@@ -2074,6 +2356,13 @@ export interface components {
             evidence?: string[];
             /** Rule */
             rule: string;
+        };
+        /** PrivV2ReviewCheckIn */
+        PrivV2ReviewCheckIn: {
+            /** Confirm */
+            confirm: boolean;
+            /** Note */
+            note: string;
         };
         /** PrivV2ReviewDecisionIn */
         PrivV2ReviewDecisionIn: {
@@ -2326,6 +2615,11 @@ export interface components {
             subject_ref?: string | null;
             /** Subregion */
             subregion?: string | null;
+        };
+        /** SessionRouteIn */
+        SessionRouteIn: {
+            /** Mode */
+            mode: string;
         };
         /** TaskIn */
         TaskIn: {
@@ -3750,6 +4044,39 @@ export interface operations {
             };
         };
     };
+    assisted_queue_v2_privacy_assisted_routes_get: {
+        parameters: {
+            query?: {
+                state?: ("WAITING" | "IN_PROGRESS" | "DONE" | "NOT_COMPLETED") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     _purpose_v2_privacy_authorization_evaluations_post: {
         parameters: {
             query?: never;
@@ -3762,6 +4089,61 @@ export interface operations {
                 "application/json": components["schemas"]["PrivV2PurposeIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    biometric_oversight_v2_privacy_biometric_oversight_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    list_breaches_v2_privacy_breaches_get: {
+        parameters: {
+            query?: {
+                open_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3853,7 +4235,110 @@ export interface operations {
             };
         };
     };
+    pause_capture_v2_privacy_breaches__breach_id__biometric_capture_pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                breach_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_capture_v2_privacy_breaches__breach_id__biometric_capture_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                breach_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2CaptureReleaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     close_breach_v2_privacy_breaches__breach_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                breach_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    breach_dossier_v2_privacy_breaches__breach_id__dossier_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3991,6 +4476,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_packages_v2_privacy_dpia_packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -4174,6 +4681,28 @@ export interface operations {
             };
         };
     };
+    list_jobs_v2_privacy_erasure_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     open_job_v2_privacy_erasure_jobs_post: {
         parameters: {
             query?: never;
@@ -4288,6 +4817,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PrivV2AttestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_job_v2_privacy_erasure_jobs_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2ErasurePreviewIn"];
             };
         };
         responses: {
@@ -4519,6 +5083,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_models_v2_privacy_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -5156,6 +5742,61 @@ export interface operations {
             };
         };
     };
+    list_reviews_v2_privacy_reviews_get: {
+        parameters: {
+            query?: {
+                state?: ("OPEN" | "AWAITING_CHECKER" | "UPHELD" | "OVERTURNED" | "CORRECTED") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_reviews_v2_privacy_reviews_mine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     get_review_v2_privacy_reviews__review_id__get: {
         parameters: {
             query?: never;
@@ -5166,6 +5807,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_review_v2_privacy_reviews__review_id__checks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivV2ReviewCheckIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5203,6 +5881,39 @@ export interface operations {
                 "application/json": components["schemas"]["PrivV2ReviewDecisionIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_changes_v2_privacy_subprocessor_changes_get: {
+        parameters: {
+            query?: {
+                pending_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5294,6 +6005,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_transfers_v2_privacy_transfer_decisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -5653,6 +6386,76 @@ export interface operations {
             };
         };
     };
+    assisted_claim_v2_verification_sessions__session_ref__assisted_claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assisted_complete_v2_verification_sessions__session_ref__assisted_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistedDoneIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_session_v2_verification_sessions__session_ref__cancel_post: {
         parameters: {
             query?: never;
@@ -5740,6 +6543,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_route_v2_verification_sessions__session_ref__route_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionRouteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

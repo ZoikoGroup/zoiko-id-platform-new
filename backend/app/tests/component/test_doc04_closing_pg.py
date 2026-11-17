@@ -110,8 +110,10 @@ def _at005(rt_url: str, capfd: Any, records: _Records) -> None:
 def test_at030_an_independent_review_override_is_notified_and_keeps_its_rationale(
     rt_url: str,
 ) -> None:
-    o = onboard(rt_url, extra_actions=ACTIONS, extra_resources=(*RESOURCES, *EXTRA))
-    owner, second = o.bearer(o.owner), o.bearer(o.second)
+    o = onboard(
+        rt_url, extra_actions=ACTIONS, extra_resources=(*RESOURCES, *EXTRA), with_third=True
+    )
+    owner, second, third = o.bearer(o.owner), o.bearer(o.second), o.bearer(o.third)
     with api_for(rt_url, o) as api:
         ap = api.post(
             "/v2/decisions/dec_fraud_1/appeals",
@@ -148,7 +150,31 @@ def test_at030_an_independent_review_override_is_notified_and_keeps_its_rational
                 "rationale": "Checked provenance: different devices, different people.",
             },
         )
-        assert done.status_code == 200 and done.json()["state"] == "OVERTURNED", done.text
+        # CR-109: a reversal is only proposed; nothing is announced until a third person confirms it
+        assert done.status_code == 200 and done.json()["state"] == "AWAITING_CHECKER", done.text
+        assert events(rt_url, o.tenant, "privacy.review.decided") == []
+        for who, code in (
+            (second, 403),
+            (owner, 403),
+        ):  # the reviewer and the requester never check
+            assert (
+                api.post(
+                    f"/v2/privacy/reviews/{rid}/checks",
+                    headers=who,
+                    json={"confirm": True, "note": "looks right"},
+                ).status_code
+                == code
+            )
+        checked = api.post(
+            f"/v2/privacy/reviews/{rid}/checks",
+            headers=third,
+            json={"confirm": True, "note": "Read the provenance report: agreed."},
+        )
+        assert checked.status_code == 200 and checked.json()["state"] == "OVERTURNED", checked.text
+        changed = events(rt_url, o.tenant, "privacy.decision.changed")
+        assert len(changed) == 1
+        cdata = changed[0].get("data", changed[0])
+        assert cdata["decision_ref"] == "dec_fraud_1" and cdata["outcome"] == "OVERTURNED"
         sent = events(rt_url, o.tenant, "privacy.review.decided")
         assert len(sent) == 1
         data = sent[0].get("data", sent[0])

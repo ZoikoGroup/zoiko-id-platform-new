@@ -1,0 +1,22 @@
+# Ecosystem use cases of biometric methods (ZID-DTV-WF-04 BIO-19; QA-028; CR-110).
+# status: PROPOSED. A Zoiko product that uses a biometric method through Zoiko iD does so under its OWN purpose, certified on its own: a related
+# Zoiko product is never a blanket sharing authority, and no media is shared between products. A purpose listed here is refused for every biometric
+# method until its integration acceptance is signed: an approval reference and an effective date, both set by the owners (COUNSEL until then).
+# A purpose not listed here is an ordinary tenant purpose and is not affected.
+version: 0.1.0
+status: PROPOSED
+use_cases:
+  - id: ZOIKO_ROOMS_RENTER_IDENTITY
+    consumer: zoiko-rooms
+    purposes: [ZOIKO_ROOMS_RENTER_IDENTITY]
+    limits: "Confirms the renter is the document holder. Never a right-to-rent decision by itself."
+    acceptance:
+      approval_ref: COUNSEL
+      effective_from: COUNSEL
+  - id: ZOIKORUM_PROFESSIONAL_IDENTITY
+    consumer: zoikorum
+    purposes: [ZOIKORUM_PROFESSIONAL_IDENTITY]
+    limits: "Confirms the professional is the document holder. A face match never validates a qualification, licence or award."
+    acceptance:
+      approval_ref: COUNSEL
+      effective_from: COUNSEL

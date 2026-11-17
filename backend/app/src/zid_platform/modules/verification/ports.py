@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.verification.application import (
+    biometric_eligibility,
+    biometric_methods,
     coverage,
     market_releases,
     policy_packs,
@@ -29,6 +31,7 @@ from zid_platform.modules.verification.application.service import (
     assurance,
     claim_matches,
     fresh_reproof,
+    invalidate_for_decision,
     reconcile_delayed,
     reconstruct_decision,
     record_presentation,
@@ -36,6 +39,7 @@ from zid_platform.modules.verification.application.service import (
     shared_assertions,
 )
 from zid_platform.modules.verification.domain import attestation as attestation_model
+from zid_platform.modules.verification.domain import biometric_methods as biometric_method_model
 from zid_platform.modules.verification.domain import conformance as conformance_model
 from zid_platform.modules.verification.domain import entitlement as entitlement_model
 from zid_platform.modules.verification.domain import market_release as release_model
@@ -161,6 +165,9 @@ __all__ = [
     "attestation_model",
     "attestations",
     "availability",
+    "biometric_eligibility",
+    "biometric_method_model",
+    "biometric_methods",
     "certification_registry",
     "change_entitlement_status",
     "claim_matches",
@@ -176,6 +183,7 @@ __all__ = [
     "fresh_reproof",
     "gate_decision",
     "identity_feed_pass",
+    "invalidate_for_decision",
     "market_releases",
     "offerings_catalog",
     "offerings_model",

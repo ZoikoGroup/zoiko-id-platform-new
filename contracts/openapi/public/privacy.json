@@ -286,6 +286,44 @@
         "title": "AdmIn",
         "type": "object"
       },
+      "AssistedDoneIn": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "outcome_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Ref"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": [
+          "done"
+        ],
+        "title": "AssistedDoneIn",
+        "type": "object"
+      },
       "ConsentBody": {
         "additionalProperties": false,
         "properties": {
@@ -778,6 +816,17 @@
             "title": "Jurisdictions",
             "type": "array"
           },
+          "pause_biometric_capture": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Biometric Capture"
+          },
           "severity": {
             "enum": [
               "LOW",
@@ -814,6 +863,22 @@
           "detected_at"
         ],
         "title": "PrivV2BreachIn",
+        "type": "object"
+      },
+      "PrivV2CaptureReleaseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PrivV2CaptureReleaseIn",
         "type": "object"
       },
       "PrivV2ChangeIn": {
@@ -906,6 +971,31 @@
           "legal_basis"
         ],
         "title": "PrivV2ErasureIn",
+        "type": "object"
+      },
+      "PrivV2ErasurePreviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "default": "ALL",
+            "enum": [
+              "ALL",
+              "PROVIDERS_ONLY",
+              "FIRST_PARTY_ONLY"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "subject_ref": {
+            "maxLength": 100,
+            "title": "Subject Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_ref"
+        ],
+        "title": "PrivV2ErasurePreviewIn",
         "type": "object"
       },
       "PrivV2EvaluationIn": {
@@ -1447,6 +1537,27 @@
           "action"
         ],
         "title": "PrivV2RequestReviewIn",
+        "type": "object"
+      },
+      "PrivV2ReviewCheckIn": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm",
+          "note"
+        ],
+        "title": "PrivV2ReviewCheckIn",
         "type": "object"
       },
       "PrivV2ReviewDecisionIn": {
@@ -2293,6 +2404,21 @@
           "activity_code"
         ],
         "title": "SessionIn",
+        "type": "object"
+      },
+      "SessionRouteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "SessionRouteIn",
         "type": "object"
       },
       "TaskIn": {
@@ -4283,6 +4409,64 @@
         ]
       }
     },
+    "/v2/privacy/assisted-routes": {
+      "get": {
+        "description": "People who chose a non-biometric way and are waiting for a person (WF-04 B02).",
+        "operationId": "assisted_queue_v2_privacy_assisted_routes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "WAITING",
+                    "IN_PROGRESS",
+                    "DONE",
+                    "NOT_COMPLETED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assisted Queue V2 Privacy Assisted Routes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assisted Queue",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
     "/v2/privacy/authorization-evaluations": {
       "post": {
         "operationId": "_purpose_v2_privacy_authorization_evaluations_post",
@@ -4326,7 +4510,75 @@
         ]
       }
     },
+    "/v2/privacy/biometric-oversight": {
+      "get": {
+        "description": "WF-04 B12 governance monitor (CR-110): counts and what needs attention; no personal data.",
+        "operationId": "biometric_oversight_v2_privacy_biometric_oversight_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Biometric Oversight V2 Privacy Biometric Oversight Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Biometric Oversight",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
     "/v2/privacy/breaches": {
+      "get": {
+        "description": "The tenant's breach cases with clocks and capture state (CR-108).",
+        "operationId": "list_breaches_v2_privacy_breaches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Breaches V2 Privacy Breaches Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Breaches",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "open_breach_v2_privacy_breaches_post",
         "requestBody": {
@@ -4413,6 +4665,106 @@
         ]
       }
     },
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:pause": {
+      "post": {
+        "description": "Containment (WF-04 B09, CR-108): no biometric method runs for this tenant in the case's jurisdictions until it is released or closed.",
+        "operationId": "pause_capture_v2_privacy_breaches__breach_id__biometric_capture_pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Capture V2 Privacy Breaches  Breach Id  Biometric Capture Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Capture",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}/biometric-capture:release": {
+      "post": {
+        "description": "Lift the containment: by someone other than whoever paused it, with a reason (CR-108).",
+        "operationId": "release_capture_v2_privacy_breaches__breach_id__biometric_capture_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2CaptureReleaseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Capture V2 Privacy Breaches  Breach Id  Biometric Capture Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Capture",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
     "/v2/privacy/breaches/{breach_id}/close": {
       "post": {
         "operationId": "close_breach_v2_privacy_breaches__breach_id__close_post",
@@ -4452,6 +4804,51 @@
           }
         },
         "summary": "Close Breach",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}/dossier": {
+      "get": {
+        "description": "WF-04 B09 audit dossier (CR-110): the case, clocks, capture timeline and audit trail; codes and hashes only.",
+        "operationId": "breach_dossier_v2_privacy_breaches__breach_id__dossier_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Breach Dossier V2 Privacy Breaches  Breach Id  Dossier Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Breach Dossier",
         "tags": [
           "privacy-v2"
         ]
@@ -4610,6 +5007,28 @@
       }
     },
     "/v2/privacy/dpia-packages": {
+      "get": {
+        "description": "The tenant's DPIA packages with their release state (the workbench list; CR-108).",
+        "operationId": "list_packages_v2_privacy_dpia_packages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Packages V2 Privacy Dpia Packages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Packages",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "create_package_v2_privacy_dpia_packages_post",
         "requestBody": {
@@ -4859,6 +5278,28 @@
       }
     },
     "/v2/privacy/erasure-jobs": {
+      "get": {
+        "description": "The tenant's erasure jobs, newest first, with their per-class state (CR-108).",
+        "operationId": "list_jobs_v2_privacy_erasure_jobs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Jobs V2 Privacy Erasure Jobs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Jobs",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "open_job_v2_privacy_erasure_jobs_post",
         "requestBody": {
@@ -5047,6 +5488,50 @@
           }
         },
         "summary": "Attest",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/erasure-jobs:preview": {
+      "post": {
+        "description": "B05 dry run (CR-108): what an erasure would dispose, hold or send to providers, in deletion order. Changes nothing.",
+        "operationId": "preview_job_v2_privacy_erasure_jobs_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ErasurePreviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Job V2 Privacy Erasure Jobs Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Job",
         "tags": [
           "privacy-v2"
         ]
@@ -5328,6 +5813,28 @@
       }
     },
     "/v2/privacy/models": {
+      "get": {
+        "description": "The model inventory with the latest evaluation and fairness state of each version (WF-04 B07; CR-110).",
+        "operationId": "list_models_v2_privacy_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Models V2 Privacy Models Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Models",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "register_model_v2_privacy_models_post",
         "requestBody": {
@@ -6243,6 +6750,89 @@
         ]
       }
     },
+    "/v2/privacy/reviews": {
+      "get": {
+        "description": "The reviewer's queue (CR-109).",
+        "operationId": "list_reviews_v2_privacy_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "OPEN",
+                    "AWAITING_CHECKER",
+                    "UPHELD",
+                    "OVERTURNED",
+                    "CORRECTED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Reviews V2 Privacy Reviews Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Reviews",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/reviews/mine": {
+      "get": {
+        "description": "The caller's own appeals and reviews (CR-110). No administrator role: a person always sees their own.",
+        "operationId": "my_reviews_v2_privacy_reviews_mine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Reviews V2 Privacy Reviews Mine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Reviews",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
     "/v2/privacy/reviews/{review_id}": {
       "get": {
         "operationId": "get_review_v2_privacy_reviews__review_id__get",
@@ -6282,6 +6872,61 @@
           }
         },
         "summary": "Get Review",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/reviews/{review_id}/checks": {
+      "post": {
+        "description": "CR-109 (WF-04 B08): a third person confirms a proposed reversal, or sends it back for another review.",
+        "operationId": "check_review_v2_privacy_reviews__review_id__checks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2ReviewCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Review V2 Privacy Reviews  Review Id  Checks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Review",
         "tags": [
           "privacy-v2"
         ]
@@ -6342,6 +6987,50 @@
       }
     },
     "/v2/privacy/subprocessor-changes": {
+      "get": {
+        "description": "Subprocessor and location changes (WF-04 B04; CR-110).",
+        "operationId": "list_changes_v2_privacy_subprocessor_changes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pending_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Pending Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Changes V2 Privacy Subprocessor Changes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Changes",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "notify_change_v2_privacy_subprocessor_changes_post",
         "requestBody": {
@@ -6439,6 +7128,28 @@
       }
     },
     "/v2/privacy/transfer-decisions": {
+      "get": {
+        "description": "The transfer ledger (WF-04 B04; CR-110).",
+        "operationId": "list_transfers_v2_privacy_transfer_decisions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Transfers V2 Privacy Transfer Decisions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Transfers",
+        "tags": [
+          "privacy-v2"
+        ]
+      },
       "post": {
         "operationId": "transfer_v2_privacy_transfer_decisions_post",
         "requestBody": {
@@ -6958,6 +7669,104 @@
         ]
       }
     },
+    "/v2/verification-sessions/{session_ref}/assisted:claim": {
+      "post": {
+        "operationId": "assisted_claim_v2_verification_sessions__session_ref__assisted_claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assisted Claim V2 Verification Sessions  Session Ref  Assisted Claim Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assisted Claim",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/assisted:complete": {
+      "post": {
+        "operationId": "assisted_complete_v2_verification_sessions__session_ref__assisted_complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistedDoneIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assisted Complete V2 Verification Sessions  Session Ref  Assisted Complete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assisted Complete",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
     "/v2/verification-sessions/{session_ref}/cancel": {
       "post": {
         "operationId": "cancel_session_v2_verification_sessions__session_ref__cancel_post",
@@ -7105,6 +7914,60 @@
           }
         },
         "summary": "Acknowledge",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/route": {
+      "post": {
+        "operationId": "choose_route_v2_verification_sessions__session_ref__route_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionRouteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Choose Route V2 Verification Sessions  Session Ref  Route Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Choose Route",
         "tags": [
           "privacy-v2"
         ]

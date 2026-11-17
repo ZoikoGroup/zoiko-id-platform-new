@@ -708,3 +708,24 @@ async def record_reliance(
         },
     )
     return did
+
+
+async def revoke_for_decision(
+    conn: AsyncConnection, ref: str, *, now: datetime, reason: str
+) -> list[str]:
+    """CR-110: the VALID assertions a reviewed decision rests on: the assertion itself, or every assertion of the session, when `ref` names one.
+    The reason is appended to the assertion's reason codes."""
+    try:
+        rid = uuid.UUID(ref)
+    except ValueError:
+        return []
+    rows = (
+        await conn.execute(
+            text(
+                "UPDATE verify.verification_assertion SET status = 'REVOKED', revoked_at = :now, reason_codes = array_append(reason_codes, :r) "
+                "WHERE status = 'VALID' AND (assertion_id = :id OR session_id = :id) RETURNING assertion_id"
+            ),
+            {"now": now, "r": reason, "id": rid},
+        )
+    ).all()
+    return [str(r.assertion_id) for r in rows]

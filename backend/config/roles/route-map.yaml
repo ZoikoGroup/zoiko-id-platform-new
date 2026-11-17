@@ -31,6 +31,7 @@ rules:
   - {match: "GET /v1/privacy/purposes", exempt: OWN_ACCOUNT, why: "published purposes for the consent screen"}
   - {match: "POST /v1/privacy/rights-requests", exempt: OWN_ACCOUNT, why: "a data subject request about oneself (matrix F, own account)"}
   - {match: "GET /v1/privacy/rights-requests/*", exempt: OWN_ACCOUNT, why: "own data subject request"}
+  - {match: "GET /v2/privacy/reviews/mine", exempt: OWN_ACCOUNT, why: "the caller's own appeals and human reviews (CR-110)"}
   - {match: "GET /v1/verification/*", exempt: OWN_ACCOUNT, why: "the caller's own verification tier and the published requirements"}
   - {match: "GET /v1/roles/matrix", exempt: OWN_ACCOUNT, why: "the published catalogue, a navigation aid"}
   - {match: "GET /v1/tenant/me/permissions", exempt: OWN_ACCOUNT, why: "the caller's own projected rights"}
@@ -133,6 +134,7 @@ rules:
   - {match: "DELETE /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 erase uploaded evidence
   - {match: "POST /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade: checks decide, issue nothing
   - {match: "POST /v1/eligibility/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (decides, issues nothing)
+  - {match: "GET /v1/biometric-methods/eligibility", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-107 (reads gates, decides nothing about a person)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "POST /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069

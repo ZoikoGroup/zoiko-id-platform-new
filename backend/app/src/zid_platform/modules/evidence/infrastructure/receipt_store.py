@@ -301,3 +301,20 @@ async def load_body(
         )
     ).first()
     return dict(row.body) if row else None
+
+
+async def audit_for_target(
+    conn: AsyncConnection, target_type: str, target_ref: str, *, limit: int = 500
+) -> list[Row[Any]]:
+    """CR-110: one object's audit trail, oldest first (an incident dossier). Codes and hashes only; the record's details stay in the ledger."""
+    return list(
+        (
+            await conn.execute(
+                text("""
+                    SELECT event_type, actor_type, action, outcome, reason_code, evidence_class::text AS evidence_class, record_hash, occurred_at
+                    FROM evidence.audit_record WHERE target_type = :tt AND target_ref = :tr ORDER BY occurred_at ASC, audit_id ASC LIMIT :n
+                """),
+                {"tt": target_type, "tr": target_ref, "n": limit},
+            )
+        ).all()
+    )

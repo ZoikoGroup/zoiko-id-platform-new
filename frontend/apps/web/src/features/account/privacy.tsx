@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConsentOption, ConsentRecord, RightsRequest } from "@zoiko/api-client";
+import type { ConsentOption, ConsentRecord, MyReview, RightsRequest } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, Checkbox, DataTable, DateTime, Dialog, EmptyState, PageHeader, Select, StatusBadge, Switch, type Column } from "@zoiko/ui";
 import { Download, FileText, ShieldOff } from "lucide-react";
 import { useState } from "react";
@@ -23,8 +23,22 @@ const SELF_REQUESTS = [
   { id: "ERASURE", label: "Delete my data", description: "Except what the law requires us to keep" },
   { id: "RESTRICTION", label: "Restrict processing", description: "We keep it but stop using it" },
   { id: "OBJECTION", label: "Object to processing", description: "Stop processing based on legitimate interests" },
+  { id: "HUMAN_REVIEW", label: "Ask a person to review a decision", description: "For example a verification or biometric check that went against you" },
   { id: "COMPLAINT", label: "Make a privacy complaint", description: "Tracked separately from support tickets" },
 ];
+
+/** What a request's status means for the person (WF-04 B06). A limited answer always says which records were kept and why. */
+export const REQUEST_STATUS_TEXT: Record<string, string> = {
+  RECEIVED: "Received. We confirm it is you before we act.",
+  VERIFYING: "We are confirming it is you.",
+  SCOPING: "We are finding where your data is held.",
+  FULFILLING: "In progress, including with our providers.",
+  REVIEW: "A person is reviewing it.",
+  COMPLETED: "Done.",
+  PARTIALLY_DENIED: "Done, but some records are kept because the law requires it or a legal hold applies. The answer names them and why.",
+  DENIED: "Refused. The answer says why and how to challenge it.",
+  WITHDRAWN: "You withdrew this request.",
+};
 
 export function PrivacyCenter() {
   return (
@@ -35,6 +49,7 @@ export function PrivacyCenter() {
         <ConsentOptionsCard />
         <ConsentsCard />
         <RequestsCard />
+        <MyReviewsCard />
       </div>
     </>
   );
@@ -144,9 +159,11 @@ function ConsentOptionsCard() {
 
 function ConsentsCard() {
   const consents = useCellQuery([...KEY, "consents"], (api) => api.privacy.myConsents());
+  const [confirming, setConfirming] = useState<ConsentRecord | null>(null);
   const withdraw = useCellMutation((api, c: ConsentRecord) => api.privacy.withdrawConsent(c.consent_id), {
     invalidate: [[...KEY, "consents"]],
     success: "Consent withdrawn: processing that depended on it stops",
+    onSuccess: () => setConfirming(null),
   });
   const columns: Column<ConsentRecord>[] = [
     { key: "purpose", header: "Purpose", pinned: true, render: (c) => <span className="font-mono text-xs">{c.purpose_code}</span> },
@@ -159,7 +176,7 @@ function ConsentsCard() {
       align: "end",
       render: (c) =>
         c.status === "ACTIVE" ? (
-          <Button size="xs" variant="secondary" pending={withdraw.isPending} onPress={() => withdraw.mutate(c)}>
+          <Button size="xs" variant="secondary" onPress={() => setConfirming(c)} aria-label={`Withdraw consent for ${c.purpose_code}`}>
             Withdraw
           </Button>
         ) : null,
@@ -179,6 +196,28 @@ function ConsentsCard() {
         )}
       </QueryView>
       {withdraw.error ? <ApiErrorView error={withdraw.error} /> : null}
+      <Dialog
+        isOpen={confirming !== null}
+        onOpenChange={(o) => !o && setConfirming(null)}
+        title="Withdraw this consent?"
+        footer={
+          <>
+            <Button variant="secondary" onPress={() => setConfirming(null)}>
+              Keep it
+            </Button>
+            <Button variant="danger" pending={withdraw.isPending} onPress={() => confirming && withdraw.mutate(confirming)}>
+              Withdraw
+            </Button>
+          </>
+        }
+      >
+        <ul className="list-disc space-y-1.5 pl-5 text-sm" aria-label="What withdrawing does">
+          <li>Processing that relies on this consent stops from now, including any biometric check in a session that is still open.</li>
+          <li>Decisions already made are not reversed by withdrawing. To challenge one, ask a person to review it.</li>
+          <li>Withdrawing does not delete data. To delete, make a deletion request; records the law requires us to keep are restricted instead.</li>
+          <li>Where a check needed this consent, you can still verify another way, such as an assisted review.</li>
+        </ul>
+      </Dialog>
     </Card>
   );
 }
@@ -206,6 +245,7 @@ function RequestsCard() {
   const columns: Column<RightsRequest>[] = [
     { key: "type", header: "Request", pinned: true, render: (r) => SELF_REQUESTS.find((s) => s.id === r.request_type)?.label ?? r.request_type },
     { key: "status", header: "Status", render: (r) => <StatusBadge state={r.status} kind="Rights request" /> },
+    { key: "meaning", header: "What it means", render: (r) => <span className="text-xs">{REQUEST_STATUS_TEXT[r.status] ?? ""}</span> },
     { key: "received", header: "Received", render: (r) => <DateTime value={r.received_at} /> },
     {
       key: "actions",
@@ -268,5 +308,32 @@ function RequestsCard() {
         </div>
       </Dialog>
     </>
+  );
+}
+
+/** What each review state means for the person who asked (WF-04 B08; CR-110). */
+export const REVIEW_STATE_TEXT: Record<string, string> = {
+  OPEN: "Waiting for a person other than you to review it.",
+  AWAITING_CHECKER: "A reviewer proposed changing the decision; a second person is checking it.",
+  UPHELD: "Reviewed: the decision stands. You can make a complaint if you disagree.",
+  OVERTURNED: "Reviewed: the decision was reversed. Anything that relied on it was withdrawn; you may be asked to verify again.",
+  CORRECTED: "Reviewed: the decision was corrected.",
+};
+
+function MyReviewsCard() {
+  const q = useCellQuery([...KEY, "reviews"], (api) => api.privacy.v2.myReviews());
+  const columns: Column<MyReview>[] = [
+    { key: "asked", header: "Asked", pinned: true, render: (r) => <DateTime value={r.created_at} /> },
+    { key: "kind", header: "Kind", render: (r) => (r.kind === "APPEAL" ? "Appeal" : "Human review") },
+    { key: "state", header: "Status", render: (r) => <StatusBadge state={r.state} kind="Review" /> },
+    { key: "meaning", header: "What it means", render: (r) => <span className="text-xs">{REVIEW_STATE_TEXT[r.state] ?? ""}</span> },
+    { key: "due", header: "Due by", render: (r) => <DateTime value={r.due_at} style="date" /> },
+  ];
+  return (
+    <Card padded={false} title="My appeals and reviews" description="Decisions you asked a person to look at again. Asking never counts against you.">
+      <QueryView query={q}>
+        {(d) => <DataTable caption="My reviews" columns={columns} rows={d.items} rowKey={(r) => r.review_id} empty={<EmptyState icon={FileText} title="No appeals or reviews" />} />}
+      </QueryView>
+    </Card>
   );
 }

@@ -134,7 +134,13 @@ def route(
     return RouteDecision(not reasons, tuple(reasons), region, mechanism)
 
 
-BIOMETRIC_REASONS = frozenset({"BIOMETRIC_NOT_PERMITTED_IN_COUNTRY", "BIOMETRIC_CONSENT_REQUIRED"})
+BIOMETRIC_REASONS = frozenset(
+    {
+        "BIOMETRIC_NOT_PERMITTED_IN_COUNTRY",
+        "BIOMETRIC_CONSENT_REQUIRED",
+        "BIOMETRIC_METHOD_NOT_ELIGIBLE",
+    }
+)  # CR-110: a provider's face match or liveness that is not eligible is a biometric obstacle too: the non-biometric alternates still work
 
 
 def alternates(

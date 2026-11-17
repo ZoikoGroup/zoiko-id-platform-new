@@ -134,11 +134,29 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
     if s.alternative_mode and s.alternative_mode != "NONE":
         route = "ALTERNATIVE"
         blockers.append("NON_BIOMETRIC_ALTERNATIVE_CHOSEN")
+    notice: dict[str, Any] | None = None
     if s.notice_version:
         code, _, version = s.notice_version.partition("@")
         acks = await ctl.acknowledged(conn, ref)
-        if not any(a["notice_code"] == code and str(a["notice_version"]) == version for a in acks):
+        acknowledged = any(
+            a["notice_code"] == code and str(a["notice_version"]) == version for a in acks
+        )
+        if not acknowledged:
             blockers.append("NOTICE_NOT_ACKNOWLEDGED")
+        n = (
+            await conn.execute(
+                text(
+                    "SELECT notice_code, version, content_uri, content_hash FROM privacy.notice WHERE notice_code = :c AND version::text = :v"
+                ),
+                {"c": code, "v": version},
+            )
+        ).first()
+        notice = {  # WF-04 B01: the exact notice the person is asked to read, and whether they have
+            "notice_version": s.notice_version,
+            "content_uri": n.content_uri if n is not None else None,
+            "content_hash": n.content_hash if n is not None else None,
+            "acknowledged": acknowledged,
+        }
     if s.state == "OPEN":
         live = await v1.check_processing(
             conn, tenant_id, activity_code=s.activity_code, purpose_code=s.purpose_code,
@@ -155,6 +173,11 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
         "route": route if enabled or route == "ALTERNATIVE" else "NONE",
         "blockers": sorted(set(blockers)),
         "purpose_decision_id": str(s.decision_id),
+        "purpose_code": s.purpose_code,
+        "region": s.country,
+        "alternative_mode": s.alternative_mode,
+        "assisted_state": s.assisted_state,
+        "notice": notice,
         "alternatives_available": True,
         "alternatives": [
             {"id": m["id"], "label": m["label"], "biometric": False}
@@ -163,6 +186,38 @@ async def status(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, A
         "statement": STATEMENT,
         "checked_at": datetime.now(UTC).isoformat(),
     }
+
+
+async def choose_alternative(
+    conn: AsyncConnection, tenant_id: str, actor: str, ref: str, *, mode: str
+) -> dict[str, Any]:
+    """WF-04 B02 (CR-108): the person chooses a non-biometric route, or goes back to the camera (NONE). No reason is asked for: a person never has
+    to disclose a disability or a medical condition to be offered another way, and the choice is never scored against them."""
+    s = await _load(conn, ref, lock=True)
+    if s.state != "OPEN":
+        raise PrivacyError("SESSION_CANCELED")
+    ids = {m["id"] for m in ctl.alternatives_config()}
+    if mode != "NONE" and mode not in ids:
+        raise PrivacyError("ALTERNATIVE_NOT_OFFERED", mode)
+    if s.subject_principal_id is not None and actor not in (
+        str(s.subject_principal_id),
+        str(s.created_by),
+    ):
+        raise PrivacyError("SESSION_NOT_YOURS")
+    await conn.execute(
+        text(
+            "UPDATE privacy.verification_session SET alternative_mode = CAST(:m AS text), "
+            # CR-110: choosing another way puts the person in the assisted queue; going back to the camera takes them out while nobody has started
+            "assisted_state = CASE WHEN CAST(:m AS text) IS NULL THEN (CASE WHEN assisted_state = 'WAITING' THEN NULL ELSE assisted_state END) "
+            "ELSE COALESCE(assisted_state, 'WAITING') END WHERE session_ref = :r"
+        ),
+        {"m": None if mode == "NONE" else mode, "r": ref},
+    )
+    await v1._audit(
+        conn, tenant_id, None, "privacy.verification_session.route_chosen", actor=actor, target_type="verification_session",
+        target_ref=ref, details={"mode": mode},
+    )  # fmt: skip
+    return await status(conn, tenant_id, ref)
 
 
 async def cancel(conn: AsyncConnection, tenant_id: str, ref: str) -> dict[str, Any]:
@@ -203,3 +258,122 @@ async def record_consent(
         affirmative_action=affirmative_action,
     )  # fmt: skip
     return {"consent_id": cid, "session": await status(conn, tenant_id, ref)}
+
+
+# ------------------------------------------------------------------------------------------------------------- assisted route back office (CR-110)
+
+ASSISTED_REASONS = frozenset(
+    {
+        "PERSON_UNREACHABLE",
+        "PERSON_DECLINED",
+        "DOCUMENT_NOT_AVAILABLE",
+        "NOT_ELIGIBLE_FOR_ROUTE",
+        "OTHER",
+    }
+)
+
+
+async def list_assisted(
+    conn: AsyncConnection, *, states: tuple[str, ...] = ("WAITING", "IN_PROGRESS"), limit: int = 100
+) -> list[dict[str, Any]]:
+    """People waiting for, or being helped by, a person (WF-04 B02). Oldest first. No reason for choosing the alternative exists to show."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT session_ref, subject_principal_id, purpose_code, country, alternative_mode, assisted_state, assisted_by, assisted_at, "
+                "assisted_outcome_ref, assisted_reason_code, created_at FROM privacy.verification_session "
+                "WHERE assisted_state = ANY(:s) ORDER BY created_at LIMIT :n"
+            ),
+            {"s": list(states), "n": limit},
+        )
+    ).all()
+    out = []
+    for r in rows:
+        d = dict(r._mapping)
+        out.append(
+            {
+                k: (
+                    str(v)
+                    if isinstance(v, uuid.UUID)
+                    else v.isoformat()
+                    if isinstance(v, datetime)
+                    else v
+                )
+                for k, v in d.items()
+            }
+        )
+    return out
+
+
+async def claim_assisted(
+    conn: AsyncConnection, tenant_id: str, actor: str, ref: str
+) -> dict[str, Any]:
+    s = await _load(conn, ref, lock=True)
+    if s.assisted_state != "WAITING":
+        raise PrivacyError("ASSISTED_NOT_WAITING")
+    if s.subject_principal_id is not None and str(s.subject_principal_id) == actor:
+        raise PrivacyError(
+            "ASSISTED_OWN_SESSION", "a person never handles their own assisted verification"
+        )
+    await conn.execute(
+        text(
+            "UPDATE privacy.verification_session SET assisted_state = 'IN_PROGRESS', assisted_by = :by, assisted_at = now() WHERE session_ref = :r"
+        ),
+        {"by": uuid.UUID(actor), "r": ref},
+    )
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.assisted_route.claimed",
+        actor=actor,
+        target_type="verification_session",
+        target_ref=ref,
+    )
+    return {"session_ref": ref, "assisted_state": "IN_PROGRESS"}
+
+
+async def complete_assisted(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    ref: str,
+    *,
+    done: bool,
+    outcome_ref: str | None,
+    reason_code: str | None,
+) -> dict[str, Any]:
+    """DONE names the verification or review that did the work; NOT_COMPLETED names a reason code (never a medical or personal reason)."""
+    s = await _load(conn, ref, lock=True)
+    if s.assisted_state != "IN_PROGRESS":
+        raise PrivacyError("ASSISTED_NOT_IN_PROGRESS")
+    if str(s.assisted_by) != actor:
+        raise PrivacyError("ASSISTED_NOT_YOURS", "the person who took it completes it")
+    if done and not (outcome_ref or "").strip():
+        raise PrivacyError("ASSISTED_OUTCOME_REF_REQUIRED")
+    if not done and reason_code not in ASSISTED_REASONS:
+        raise PrivacyError("ASSISTED_REASON_REQUIRED", ", ".join(sorted(ASSISTED_REASONS)))
+    state = "DONE" if done else "NOT_COMPLETED"
+    await conn.execute(
+        text(
+            "UPDATE privacy.verification_session SET assisted_state = :st, assisted_at = now(), assisted_outcome_ref = :o, "
+            "assisted_reason_code = :rc WHERE session_ref = :r"
+        ),
+        {
+            "st": state,
+            "o": (outcome_ref or "").strip() or None,
+            "rc": None if done else reason_code,
+            "r": ref,
+        },
+    )
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.assisted_route.completed",
+        actor=actor,
+        target_type="verification_session",
+        target_ref=ref,
+        details={"state": state, "reason_code": None if done else reason_code},
+    )
+    return {"session_ref": ref, "assisted_state": state}

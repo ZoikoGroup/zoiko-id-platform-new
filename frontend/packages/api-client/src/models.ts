@@ -3008,6 +3008,379 @@ export type SuspensionVersion = {
 export type SuspensionImpact = { markets: string[]; entitlements: string[]; certifications: string[]; claims: string[] };
 export type SuspensionApplyIn = { suspension_id: string; scope: SuspensionScope; trigger: SuspensionTrigger; reason: string; evidence_ref: string };
 
+/* ----------------------------------------------------------------------------------- biometric methods (ZID-DTV-WF-04; CR-107, CR-108) */
+
+export type BiometricMethod = "FACE_MATCH" | "LIVENESS";
+export type BiometricState = "OFF" | "PAUSED" | "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+export type BiometricScope = {
+  method: BiometricMethod;
+  engine_id: string;
+  engine_version: string;
+  country: string;
+  purpose: string;
+  /** The one tenant a PILOT_GATED scope runs for; null for every tenant. */
+  pilot_tenant: string | null;
+};
+export type BiometricMethodVersion = {
+  scope_id: string;
+  version: number;
+  state: BiometricState;
+  scope: BiometricScope;
+  dpia_ref: string | null;
+  evaluation_ref: string | null;
+  reason: string;
+  evidence_ref: string;
+  recorded_by: string;
+  proposed_by: string | null;
+  proposal_id: string | null;
+  effective_at: Iso;
+  /** CR-110: the share of people a PRODUCTION_ELIGIBLE scope runs for, and the digest of the approved decision. */
+  exposure_percent: number;
+  decision_hash: string | null;
+};
+export type BiometricProposal = {
+  proposal_id: string;
+  scope_id: string;
+  scope: BiometricScope;
+  from_version: number;
+  target: "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+  dpia_ref: string | null;
+  evaluation_ref: string | null;
+  reason: string;
+  evidence_ref: string;
+  proposed_by: string;
+  proposed_at: Iso;
+  status: "OPEN" | "APPROVED" | "REJECTED";
+  decided_by: string | null;
+  decided_at: Iso | null;
+  decision_reason: string | null;
+  exposure_percent: number;
+};
+export type BiometricMethodsList = {
+  items: { current: BiometricMethodVersion; versions: BiometricMethodVersion[] }[];
+  open_proposals: BiometricProposal[];
+};
+export type BiometricProposeIn = {
+  scope_id?: string;
+  scope: Omit<BiometricScope, "pilot_tenant"> & { pilot_tenant?: string | null };
+  target: BiometricProposal["target"];
+  dpia_ref?: string | null;
+  evaluation_ref?: string | null;
+  reason: string;
+  evidence_ref: string;
+  exposure_percent?: number;
+};
+export type BiometricStepDownIn = {
+  target: "PAUSED" | "OFF" | "LAB_ONLY" | "PILOT_GATED" | "PRODUCTION_ELIGIBLE";
+  reason: string;
+  evidence_ref: string;
+  /** Narrowing a production rollout (CR-110). */
+  exposure_percent?: number;
+};
+
+export type BiometricMethodAnswer = {
+  method: BiometricMethod;
+  available: boolean;
+  state: BiometricState;
+  reasons: string[];
+  consent_required: boolean;
+  scope_ref: string | null;
+  dpia_package_id: string | null;
+  dpia_blockers: string[];
+  breaches: string[];
+  missing_retention: string[];
+  /** The tenant's latest independent evaluation of this engine version, and why it does not count (CR-109). */
+  evaluation_id: string | null;
+  evaluation_blockers: string[];
+  exposure_percent: number;
+};
+export type BiometricEligibility = {
+  country: string;
+  purpose: string;
+  engine: Record<string, unknown> | null;
+  available_methods: BiometricMethod[];
+  methods: BiometricMethodAnswer[];
+  policy_hash: string;
+  notes: string[];
+};
+
+/* ----------------------------------------------------------------------------------- privacy control plane v2 (ZID-PRI-004; CR-108) */
+
+export type DpiaState = "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+export type DpiaRelease = { ready: boolean; blockers: string[] };
+export type DpiaRisk = {
+  risk_id: string;
+  title: string;
+  mitigation: string;
+  owner: string;
+  inherent_likelihood: number;
+  inherent_impact: number;
+  residual_likelihood: number;
+  residual_impact: number;
+  inherent_score?: number;
+  inherent_band?: string;
+  residual_score?: number;
+  residual_band?: string;
+  problems?: string[];
+};
+export type DpiaPackageSummary = {
+  package_id: string;
+  market: string;
+  product: string;
+  version: string;
+  controller: string;
+  purpose_code: string;
+  provider_service_ref: string | null;
+  model_version: string | null;
+  state: DpiaState;
+  approved_until: Iso | null;
+  consultation_ref: string | null;
+  created_by: string;
+  created_at: Iso;
+  risk_count: number;
+  gates_signed: string[];
+  release: DpiaRelease;
+};
+export type DpiaPackage = Omit<DpiaPackageSummary, "risk_count" | "gates_signed"> & {
+  risks: DpiaRisk[];
+  gates: Record<string, Record<string, { signer: string; evidence_uri: string; signed_at?: string }>>;
+  decision_rationale: string | null;
+  decided_by: string | null;
+};
+export type DpiaPackageIn = {
+  market: string;
+  product: string;
+  version: string;
+  controller: string;
+  purpose_code: string;
+  provider_service_ref?: string | null;
+  model_version?: string | null;
+};
+export type ReleaseGateView = DpiaRelease & {
+  market: string;
+  product: string;
+  version: string;
+  package_id: string | null;
+  gates: Record<string, { name: string; accountable_roles: string[] }>;
+};
+export type BreachClock = { jurisdiction: string; state: "RUNNING" | "OVERDUE" | "NOTIFIED" | "NOT_SET_BY_COUNSEL"; hours: number | null; due_at: Iso | null; notified_at: Iso | null };
+export type BreachCase = {
+  breach_id: string;
+  summary: string;
+  severity: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+  jurisdictions: string[];
+  subjects_estimate: number | null;
+  detected_at: Iso;
+  state: "OPEN" | "CONTAINED" | "CLOSED";
+  capture_state: "NOT_PAUSED" | "PAUSED" | "RELEASED";
+  capture_paused_by: string | null;
+  capture_paused_at: Iso | null;
+  capture_released_by: string | null;
+  capture_released_at: Iso | null;
+  capture_release_reason: string | null;
+  opened_by: string;
+  closed_at: Iso | null;
+  clocks: BreachClock[];
+};
+export type ErasureScope = "ALL" | "PROVIDERS_ONLY" | "FIRST_PARTY_ONLY";
+export type ErasureTask = {
+  task_id: string;
+  target_kind: "PROVIDER" | "FIRST_PARTY_STORE" | "BACKUP";
+  target_ref: string;
+  state: "PENDING" | "ACKNOWLEDGED" | "FAILED" | "HELD";
+  receipt_hash: string | null;
+  failure: string | null;
+  due_at: Iso | null;
+  asset_classes: string[];
+};
+export type ErasureClassState = {
+  asset_class: string;
+  state: "PURGED" | "PENDING" | "HELD" | "FAILED";
+  tasks: number;
+  outstanding: { target_kind: string; target_ref: string; state: string }[];
+};
+export type ErasureJob = {
+  job_id: string;
+  subject_ref: string;
+  scope: ErasureScope;
+  reason: string;
+  legal_basis: string;
+  state: "PENDING" | "PARTIAL" | "COMPLETE" | "FAILED" | "HELD";
+  created_at: Iso;
+  completed_at: Iso | null;
+  tasks: ErasureTask[];
+  biometric_classes: ErasureClassState[];
+};
+export type ErasurePlanItem = {
+  target: string;
+  object_type: string;
+  asset_class: string | null;
+  action: string;
+  why?: string;
+  provider?: string;
+  sla_days?: number | null;
+};
+export type ErasurePreview = {
+  subject_ref: string;
+  scope: ErasureScope;
+  dry_run: true;
+  plan: ErasurePlanItem[];
+  backups: { action: "ATTEST_LAST"; window_days: number | null } | null;
+  statement: string;
+};
+/** The privacy-safe verification session as the person sees it (ZID-PRI-004 section 07; WF-04 B01, B02; CR-108). Never an image or a score. */
+export type SessionAlternative = { id: string; label: string; biometric: false };
+export type SubjectSessionStatus = {
+  session_ref: string;
+  state: "OPEN" | "CANCELED";
+  capture_enabled: boolean;
+  route: "CAMERA" | "ALTERNATIVE" | "NONE";
+  blockers: string[];
+  purpose_decision_id: string;
+  purpose_code: string;
+  region: string | null;
+  alternative_mode: string | null;
+  /** CR-110: where the assisted route stands, once the person chose it. */
+  assisted_state: "WAITING" | "IN_PROGRESS" | "DONE" | "NOT_COMPLETED" | null;
+  notice: { notice_version: string; content_uri: string | null; content_hash: string | null; acknowledged: boolean } | null;
+  alternatives_available: boolean;
+  alternatives: SessionAlternative[];
+  statement: string;
+  checked_at: Iso;
+};
+/** An appeal or human review of a decision (ZID-PRI-004 sections 10, 11; WF-04 B08; CR-109). A reversal waits for a checker. */
+export type ReviewState = "OPEN" | "AWAITING_CHECKER" | "UPHELD" | "OVERTURNED" | "CORRECTED";
+export type DecisionReview = {
+  review_id: string;
+  decision_ref: string;
+  kind: "APPEAL" | "HUMAN_REVIEW";
+  subject_ref: string;
+  statement: string;
+  state: ReviewState;
+  requested_by: string;
+  reviewer: string | null;
+  rationale: string | null;
+  correction_ref: string | null;
+  proposed_outcome: "OVERTURNED" | "CORRECTED" | null;
+  checker: string | null;
+  checked_at: Iso | null;
+  created_at: Iso;
+  due_at: Iso;
+  decided_at: Iso | null;
+};
+/** The person's own view of a review: no reviewer or checker identity (CR-110). */
+export type MyReview = Pick<DecisionReview, "review_id" | "decision_ref" | "kind" | "state" | "statement" | "correction_ref" | "created_at" | "due_at" | "decided_at" | "checked_at">;
+/** Model inventory with fairness (ZID-PRI-004 PR-16; WF-04 B07; CR-110). Aggregate measures only, each with its confidence interval. */
+export type ModelKind = "face_match" | "pad" | "fraud" | "document";
+export type FairnessState = "NOT_RUN" | "DATA_INSUFFICIENT" | "PASS_WITH_LIMITS" | "FAIL" | "REEVALUATION_DUE";
+export type Measure = { value: number; ci_low: number; ci_high: number };
+export type ModelVersion = {
+  model_id: string;
+  model_ref: string;
+  version: string;
+  kind: ModelKind;
+  provider_service_ref: string | null;
+  live_features: string[];
+  state: "REGISTERED" | "ACTIVE" | "HELD" | "SUSPENDED" | "RETIRED";
+  state_reason: string | null;
+  promoted_at: Iso | null;
+  fairness: { state: FairnessState; reasons: string[] };
+  latest_evaluation: {
+    evaluation_id: string;
+    evaluator_ref: string;
+    independent: boolean;
+    cohorts: number;
+    metrics: Record<string, Measure | boolean>;
+    accessible_alternative_confirmed: boolean;
+    report_ref: string | null;
+    created_at: Iso;
+  } | null;
+};
+export type ModelEvaluationIn = {
+  model_ref: string;
+  version: string;
+  evaluator_ref: string;
+  independent: boolean;
+  cohorts: number;
+  metrics: Record<string, Measure | boolean>;
+  accessible_alternative_confirmed: boolean;
+  audit_attributes?: string[];
+  report_ref?: string | null;
+};
+/** Transfer ledger and subprocessor changes (ZID-PRI-004 sections 08, 16, 19; WF-04 B04; CR-110). Default deny. */
+export type TransferLedgerEntry = {
+  decision_id: string;
+  processor_id: string;
+  purpose_code: string;
+  data_category: string;
+  origin_country: string;
+  destination_country: string;
+  remote_access_countries: string[];
+  mechanism: string | null;
+  allowed: boolean;
+  reason_codes: string[];
+  evaluated_at: Iso;
+};
+export type TransferIn = {
+  processor_id: string;
+  purpose_code: string;
+  data_category: "D0" | "D1" | "D2" | "D3" | "D4";
+  origin_country: string;
+  destination_country: string;
+  remote_access_countries?: string[];
+};
+export type SubprocessorChangeKind = "SUBPROCESSOR_ADDED" | "SUBPROCESSOR_REMOVED" | "LOCATION_ADDED" | "LOCATION_REMOVED";
+export type SubprocessorChange = {
+  change_id: string;
+  processor_id: string;
+  kind: SubprocessorChangeKind;
+  detail: string;
+  state: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+  notified_at: Iso;
+  requested_by: string;
+  decided_by: string | null;
+  decided_at: Iso | null;
+  created_at: Iso;
+};
+/** WF-04 B12 governance monitor (CR-110): counts and what needs attention; no personal data. */
+export type BiometricOversight = {
+  window_days: number;
+  breaches_pausing_capture: number;
+  dpia: { approved: number; expiring_30d: number; lapsed: number };
+  models: { active: number; held: number };
+  reviews: { open: number; awaiting_checker: number; overdue: number };
+  erasure: { open: number; held: number; failed: number; provider_tasks_overdue: number };
+  consent: { withdrawn_30d: number };
+  subprocessor_changes_waiting: number;
+  transfers_refused_30d: number;
+  retention_missing_classes: string[];
+  attention: string[];
+  measured_at: Iso;
+};
+/** The assisted route's back office (WF-04 B02; CR-110). No reason for choosing the alternative is stored or shown. */
+export type AssistedItem = {
+  session_ref: string;
+  subject_principal_id: string | null;
+  purpose_code: string;
+  country: string | null;
+  alternative_mode: string | null;
+  assisted_state: "WAITING" | "IN_PROGRESS" | "DONE" | "NOT_COMPLETED";
+  assisted_by: string | null;
+  assisted_at: Iso | null;
+  assisted_outcome_ref: string | null;
+  assisted_reason_code: string | null;
+  created_at: Iso;
+};
+export type BreachIn = {
+  summary: string;
+  severity: BreachCase["severity"];
+  jurisdictions: string[];
+  subjects_estimate?: number | null;
+  detected_at: Iso;
+  /** Omitted: HIGH and CRITICAL pause biometric capture by default (CR-108). */
+  pause_biometric_capture?: boolean | null;
+};
+
 export type IssuerStatement = {
   issuer_id: string;
   seq: number;

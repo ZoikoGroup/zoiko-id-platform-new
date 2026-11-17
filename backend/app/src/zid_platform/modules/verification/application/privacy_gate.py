@@ -9,12 +9,16 @@ alternate profiles (T31).
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.privacy.ports import check_processing
+from zid_platform.modules.verification.application import biometric_eligibility
 from zid_platform.modules.verification.domain import privacy_overlay as po
+from zid_platform.modules.verification.domain.biometric_methods import Method
 from zid_platform.modules.verification.domain.verification import VerificationError
 from zid_platform.modules.verification.infrastructure import verification_store as store
 
@@ -31,7 +35,13 @@ async def check_start(
     country: str,
     provider: str | None,
     overlays: Mapping[str, po.Overlay],
+    purpose: str = "IDENTITY_VERIFICATION",
+    self_run: bool = False,
+    now: datetime | None = None,
 ) -> tuple[po.RouteDecision, list[Mapping[str, Any]]]:
+    """CR-110: when the profile uses biometrics in this country through a PROVIDER, face match and liveness must both be eligible for this tenant
+    (`biometric_eligibility` with the provider as the engine: method state, DPIA, overlay, breach pause, retention, evaluation of the pinned model).
+    A self-run start skips this: the self-run engine is checked when the chip and the face arrive."""
     overlay = overlays.get(country.upper())
     try:
         profile = await store.load_profile(conn, profile_id)
@@ -52,6 +62,22 @@ async def check_start(
         )
         consent = decision.allowed
     d = po.route(overlay, provider=provider, biometric=biometric, consent=consent)
+    if biometric and provider and not self_run:
+        checked = await biometric_eligibility.eligibility(
+            conn,
+            tenant_id=tenant_id,
+            country=country,
+            purpose=purpose.upper(),
+            overlays=overlays,
+            now=now or datetime.now(UTC),
+            provider=provider,
+            rollout_key=subject_principal_id,  # CR-110: a partial rollout picks people, never sessions
+        )
+        if not all(checked.available(m) for m in Method):
+            d = replace(d, allowed=False, reasons=(*d.reasons, "BIOMETRIC_METHOD_NOT_ELIGIBLE"))
+            await biometric_eligibility.record_blocked(
+                conn, tenant_id, checked, route=f"provider:{provider}"
+            )
     alts = (
         po.alternates(d, await store.list_profile_routes(conn), country=country.upper())
         if not d.allowed

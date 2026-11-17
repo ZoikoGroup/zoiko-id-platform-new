@@ -250,6 +250,9 @@ export function createCellApi(t: Transport) {
       assurance: (principalId: string) => get<M.Assurance>(`/principals/${seg(principalId)}/assurance`),
       revokeAssertion: (id: string) => post<{ assertion_id: string; status: "REVOKED" }>(`/verification-assertions/${seg(id)}:revoke`),
       rely: (body: RelianceIn) => post<M.RelianceDecision>("/verification-reliance-decisions", body),
+      /** Which biometric methods this tenant's live sessions may use for a country and purpose, and every gate that refuses one (CR-107, CR-108). */
+      biometricEligibility: (country: string, purpose = "IDENTITY_VERIFICATION") =>
+        get<M.BiometricEligibility>("/v1/biometric-methods/eligibility", { country, purpose }),
       decideReview: (caseId: string, body: ReviewIn) => post<M.ReviewOutcome>(`/verification-review-cases/${seg(caseId)}/decisions`, body),
     },
 
@@ -638,6 +641,74 @@ export function createCellApi(t: Transport) {
         retention: () => get<M.Items<M.PrivacyRow>>("/v1/privacy/admin/retention-policies"),
         createRetention: (body: RetentionPolicyIn) => post<M.PrivacyRow>("/v1/privacy/admin/retention-policies", body),
         liftRestriction: (id: string) => post<{ restriction_id: string; active: boolean }>(`/v1/privacy/admin/restrictions/${seg(id)}:lift`),
+      },
+      /** The /v2 control plane (ZID-PRI-004): DPIA packages with their release gates, and breach cases with clocks and biometric containment (CR-108). */
+      v2: {
+        dpiaPackages: () => get<M.Items<M.DpiaPackageSummary>>("/v2/privacy/dpia-packages"),
+        dpiaPackage: (id: string) => get<M.DpiaPackage>(`/v2/privacy/dpia-packages/${seg(id)}`),
+        createDpiaPackage: (body: M.DpiaPackageIn) => post<M.DpiaPackage>("/v2/privacy/dpia-packages", body),
+        setDpiaRisks: (id: string, risks: M.DpiaRisk[], consultationRef: string | null) =>
+          t.request<M.DpiaPackage>("PUT", `/v2/privacy/dpia-packages/${seg(id)}/risks`, { body: { risks, consultation_ref: consultationRef } }),
+        signDpiaGate: (id: string, body: { gate: string; role: string; evidence_uri: string }) =>
+          post<M.DpiaPackage>(`/v2/privacy/dpia-packages/${seg(id)}/gate-signoffs`, body),
+        decideDpiaPackage: (id: string, body: { approve: boolean; rationale: string; valid_days?: number }) =>
+          post<M.DpiaPackage>(`/v2/privacy/dpia-packages/${seg(id)}/decisions`, body),
+        releaseGate: (market: string, product: string, version: string) =>
+          get<M.ReleaseGateView>(`/v2/privacy/release-gates/${seg(market)}/${seg(product)}/${seg(version)}`),
+        breaches: (openOnly = false) => get<M.Items<M.BreachCase>>("/v2/privacy/breaches", { open_only: openOnly ? "true" : undefined }),
+        breach: (id: string) => get<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}`),
+        /** B09 audit dossier (CR-110): the case, clocks, capture timeline and audit trail; codes and hashes only. */
+        breachDossier: (id: string) => get<Record<string, unknown>>(`/v2/privacy/breaches/${seg(id)}/dossier`),
+        openBreach: (body: M.BreachIn) => post<M.BreachCase>("/v2/privacy/breaches", body),
+        notifyBreach: (id: string, body: { jurisdiction: string; notified_at: string; reference: string }) =>
+          post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/notifications`, body),
+        closeBreach: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/close`),
+        pauseCapture: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:pause`),
+        releaseCapture: (id: string, reason: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:release`, { reason }),
+        /** The person's own verification session (WF-04 B01, B02): what is checked and why, the notice, consent only where it is the basis, and other ways. */
+        session: (ref: string) => get<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/subject-status`),
+        acknowledgeNotice: (ref: string, noticeVersion: string, language: string) =>
+          post<{ ack_id: string; notice: string; acknowledged_at: string }>(`/v2/verification-sessions/${seg(ref)}/notices/acknowledgments`, {
+            notice_version: noticeVersion,
+            language,
+          }),
+        sessionConsent: (ref: string, noticeVersion: string) =>
+          post<Record<string, unknown>>(`/v2/verification-sessions/${seg(ref)}/consent-records`, {
+            notice_version: noticeVersion,
+            capture_method: "WEB",
+            affirmative_action: "CHECKBOX_AND_CONTINUE",
+          }),
+        chooseRoute: (ref: string, mode: string) => post<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/route`, { mode }),
+        cancelSession: (ref: string) => post<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/cancel`),
+        assistedQueue: (state?: M.AssistedItem["assisted_state"]) => get<M.Items<M.AssistedItem>>("/v2/privacy/assisted-routes", { state }),
+        claimAssisted: (ref: string) => post<{ session_ref: string; assisted_state: string }>(`/v2/verification-sessions/${seg(ref)}/assisted:claim`),
+        completeAssisted: (ref: string, body: { done: boolean; outcome_ref?: string | null; reason_code?: string | null }) =>
+          post<{ session_ref: string; assisted_state: string }>(`/v2/verification-sessions/${seg(ref)}/assisted:complete`, body),
+        reviews: (state?: M.ReviewState) => get<M.Items<M.DecisionReview>>("/v2/privacy/reviews", { state }),
+        myReviews: () => get<M.Items<M.MyReview>>("/v2/privacy/reviews/mine"),
+        models: () => get<M.Items<M.ModelVersion>>("/v2/privacy/models"),
+        oversight: () => get<M.BiometricOversight>("/v2/privacy/biometric-oversight"),
+        transfers: () => get<M.Items<M.TransferLedgerEntry>>("/v2/privacy/transfer-decisions"),
+        checkTransfer: (body: M.TransferIn) => post<Record<string, unknown>>("/v2/privacy/transfer-decisions", body),
+        changes: (pendingOnly = false) => get<M.Items<M.SubprocessorChange>>("/v2/privacy/subprocessor-changes", { pending_only: pendingOnly ? "true" : undefined }),
+        notifyChange: (body: { processor_id: string; kind: M.SubprocessorChangeKind; detail: string; notified_at: string }) =>
+          post<Record<string, unknown>>("/v2/privacy/subprocessor-changes", body),
+        decideChange: (id: string, approve: boolean) => post<Record<string, unknown>>(`/v2/privacy/subprocessor-changes/${seg(id)}:decide`, { approve }),
+        registerModel: (body: { model_ref: string; version: string; kind: M.ModelKind; provider_service_ref?: string | null; live_features?: string[] }) =>
+          post<Record<string, unknown>>("/v2/privacy/models", body),
+        recordEvaluation: (body: M.ModelEvaluationIn) => post<Record<string, unknown>>("/v2/privacy/model-evaluations", body),
+        promoteModel: (ref: string, version: string) => post<Record<string, unknown>>(`/v2/privacy/models/${seg(ref)}/versions/${seg(version)}:promote`),
+        decideReview: (id: string, body: { outcome: "UPHELD" | "OVERTURNED" | "CORRECTED"; rationale: string; correction_ref?: string | null }) =>
+          post<M.DecisionReview>(`/v2/privacy/reviews/${seg(id)}/decisions`, body),
+        /** CR-109: a third person confirms a proposed reversal, or sends it back. */
+        checkReview: (id: string, body: { confirm: boolean; note: string }) => post<M.DecisionReview>(`/v2/privacy/reviews/${seg(id)}/checks`, body),
+        erasureJobs: () => get<M.Items<M.ErasureJob>>("/v2/privacy/erasure-jobs"),
+        erasureJob: (id: string) => get<M.ErasureJob>(`/v2/privacy/erasure-jobs/${seg(id)}`),
+        /** B05 dry run: what an erasure would dispose, hold or send to providers, in deletion order. Changes nothing. */
+        previewErasure: (subjectRef: string, scope: M.ErasureScope) => post<M.ErasurePreview>("/v2/privacy/erasure-jobs:preview", { subject_ref: subjectRef, scope }),
+        openErasureJob: (body: { subject_ref: string; scope: M.ErasureScope; reason: string; legal_basis: string }) => post<M.ErasureJob>("/v2/privacy/erasure-jobs", body),
+        attestBackup: (jobId: string, taskId: string, statement: string) =>
+          post<M.ErasureJob>(`/v2/privacy/erasure-jobs/${seg(jobId)}/tasks/${seg(taskId)}:attest`, { statement }),
       },
     },
 
@@ -1198,6 +1269,16 @@ export function createOperatorApi(t: Transport) {
       suspend: (body: M.SuspensionApplyIn) => post<M.SuspensionVersion & { impact: M.SuspensionImpact }>("/v1/regulatory/suspensions", body),
       liftSuspension: (id: string, reason: string, evidenceRef: string) =>
         post<M.SuspensionVersion>(`/v1/regulatory/suspensions/${seg(id)}:lift`, { reason, evidence_ref: evidenceRef }),
+
+      /** Biometric method states per exact scope (ZID-DTV-WF-04; CR-107): a step up is proposed and approved by two people, a step down is at once. */
+      biometricMethods: () => get<M.BiometricMethodsList>("/v1/regulatory/biometric-methods"),
+      proposeBiometricMethod: (body: M.BiometricProposeIn) => post<M.BiometricProposal>("/v1/regulatory/biometric-methods/proposals", body),
+      approveBiometricProposal: (id: string, reason: string) =>
+        post<{ proposal: M.BiometricProposal; state: M.BiometricMethodVersion }>(`/v1/regulatory/biometric-methods/proposals/${seg(id)}:approve`, { reason }),
+      rejectBiometricProposal: (id: string, reason: string) =>
+        post<M.BiometricProposal>(`/v1/regulatory/biometric-methods/proposals/${seg(id)}:reject`, { reason }),
+      stepDownBiometricMethod: (scopeId: string, body: M.BiometricStepDownIn) =>
+        post<M.BiometricMethodVersion>(`/v1/regulatory/biometric-methods/${seg(scopeId)}:step-down`, body),
 
       issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
       recordIssuerStatement: (body: M.IssuerStatementIn) => post<M.IssuerStatementRecorded>("/v1/regulatory/issuers", body),
