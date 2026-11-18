@@ -38,7 +38,7 @@ _STATUS = {"CASE_NOT_FOUND": 404, "DOCUMENT_NOT_FOUND": 404, "CASE_CLOSED": 409,
            "REVIEW_ALREADY_DECIDED": 409, "NOTHING_TO_CHECK": 409, "CHALLENGE_NOT_FOUND": 404, "POSTAL_NOT_CONFIGURED_FOR_MARKET": 409, "ADDRESS_REQUIRED": 409}  # fmt: skip
 
 
-class AddressIn(BaseModel):
+class CaseAddressIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     line1: str = Field(min_length=1, max_length=120)
     line2: str | None = Field(default=None, max_length=120)
@@ -57,7 +57,7 @@ class AddressIn(BaseModel):
         return {k: v for k, v in self.model_dump().items() if v is not None and k != "subject_name"}
 
 
-class DocumentIn(BaseModel):
+class AddressDocumentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     upload_ref: str = Field(
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_:.-]{7,127}$",
@@ -67,7 +67,7 @@ class DocumentIn(BaseModel):
     issuer: str = Field(max_length=120)
     issued_on: date
     name_on_document: str = Field(min_length=1, max_length=200)
-    address_on_document: AddressIn
+    address_on_document: CaseAddressIn
     subject_name: str = Field(
         min_length=1,
         max_length=200,
@@ -75,13 +75,13 @@ class DocumentIn(BaseModel):
     )
 
 
-class ReviewIn(BaseModel):
+class AddressReviewIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     finding: Literal["CONFIRMED", "REQUIRES_MORE_EVIDENCE", "NOT_SUPPORTED"]
     reason_codes: list[str] = Field(default_factory=list, max_length=10)
 
 
-class CheckIn(BaseModel):
+class AddressCheckIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agrees: bool
     reason_codes: list[str] = Field(default_factory=list, max_length=10)
@@ -102,7 +102,7 @@ def _who(caller: Caller) -> str:
 
 @router.put("/v1/verification-cases/{case_id}/address")
 async def set_address(
-    case_id: Id, body: AddressIn, request: Request, caller: CallerDep
+    case_id: Id, body: CaseAddressIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -117,7 +117,7 @@ async def set_address(
 
 @router.post("/v1/verification-cases/{case_id}/address-documents", status_code=201)
 async def add_document(
-    case_id: Id, body: DocumentIn, request: Request, caller: CallerDep
+    case_id: Id, body: AddressDocumentIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -143,7 +143,7 @@ async def documents(case_id: Id, request: Request, caller: CallerDep) -> dict[st
 
 @router.post("/v1/verification-cases/{case_id}/address-documents/{document_id}:review")
 async def review(
-    case_id: Id, document_id: Id, body: ReviewIn, request: Request, caller: CallerDep
+    case_id: Id, document_id: Id, body: AddressReviewIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:review")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -158,7 +158,7 @@ async def review(
 
 @router.post("/v1/verification-cases/{case_id}/address-documents/{document_id}:check")
 async def check(
-    case_id: Id, document_id: Id, body: CheckIn, request: Request, caller: CallerDep
+    case_id: Id, document_id: Id, body: AddressCheckIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:review")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -176,7 +176,7 @@ async def check(
             raise _refuse(e) from e
 
 
-class PostalConfirmIn(BaseModel):
+class PostalCodeIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     code: str = Field(min_length=6, max_length=16)
 
@@ -213,7 +213,7 @@ async def start_postal(case_id: Id, request: Request, caller: CallerDep) -> dict
 
 @router.post("/v1/verification-cases/{case_id}/postal-challenges/{challenge_id}:confirm")
 async def confirm_postal(
-    case_id: Id, challenge_id: Id, body: PostalConfirmIn, request: Request, caller: CallerDep
+    case_id: Id, challenge_id: Id, body: PostalCodeIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:

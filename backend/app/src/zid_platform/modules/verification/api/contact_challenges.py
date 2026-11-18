@@ -44,14 +44,14 @@ class ChallengeSender(Protocol):
     async def send(self, delivery: svc.Delivery) -> None: ...
 
 
-class ContactIn(BaseModel):
+class CaseContactIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     type: Literal["EMAIL", "PHONE"]
     value: str = Field(min_length=3, max_length=254)
     region: str | None = Field(default=None, pattern=r"^[A-Za-z]{2}$")
 
 
-class ChallengeIn(BaseModel):
+class ContactChallengeIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     channel: Literal["EMAIL", "SMS", "VOICE"]
     session_ref: str = Field(
@@ -59,12 +59,12 @@ class ChallengeIn(BaseModel):
     )
 
 
-class ResendIn(BaseModel):
+class ContactResendIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_ref: str = Field(min_length=1, max_length=128)
 
 
-class ConfirmIn(BaseModel):
+class ContactConfirmIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     challenge_id: str = Field(pattern=r"^[0-9a-fA-F-]{36}$")
     code: str = Field(min_length=6, max_length=64)
@@ -107,7 +107,7 @@ def _source(channel: ch.Channel) -> str:
 
 @router.post("/v1/verification-cases/{case_id}/contacts", status_code=201)
 async def add_contact(
-    case_id: Id, body: ContactIn, request: Request, caller: CallerDep
+    case_id: Id, body: CaseContactIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -128,7 +128,7 @@ async def add_contact(
 @router.post("/v1/contacts/{contact_id}/challenges", status_code=202)
 async def start(
     contact_id: Id,
-    body: ChallengeIn,
+    body: ContactChallengeIn,
     request: Request,
     caller: CallerDep,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
@@ -159,7 +159,7 @@ async def start(
 
 @router.post("/v1/contacts/{contact_id}/challenges/{challenge_id}:resend", status_code=202)
 async def resend(
-    contact_id: Id, challenge_id: Id, body: ResendIn, request: Request, caller: CallerDep
+    contact_id: Id, challenge_id: Id, body: ContactResendIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -175,7 +175,7 @@ async def resend(
 
 @router.post("/v1/contacts/{contact_id}/confirm")
 async def confirm(
-    contact_id: Id, body: ConfirmIn, request: Request, caller: CallerDep
+    contact_id: Id, body: ContactConfirmIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:

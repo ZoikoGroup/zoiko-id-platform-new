@@ -36,12 +36,12 @@ _STATUS = {
 }
 
 
-class NonceIn(BaseModel):
+class DeviceNonceIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_ref: str = Field(min_length=1, max_length=128)
 
 
-class ObservationIn(BaseModel):
+class DeviceObservationIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     case_id: str = Field(pattern=r"^[0-9a-fA-F-]{36}$")
     session_ref: str = Field(min_length=1, max_length=128)
@@ -70,7 +70,9 @@ def _refuse(e: Exception) -> ZidError:
 
 
 @router.post("/v1/verification-cases/{case_id}/device-nonces", status_code=201)
-async def nonce(case_id: Id, body: NonceIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def nonce(
+    case_id: Id, body: DeviceNonceIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
@@ -83,7 +85,7 @@ async def nonce(case_id: Id, body: NonceIn, request: Request, caller: CallerDep)
 
 @router.post("/v1/device-observations", status_code=201)
 async def observe(
-    body: ObservationIn,
+    body: DeviceObservationIn,
     request: Request,
     caller: CallerDep,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
