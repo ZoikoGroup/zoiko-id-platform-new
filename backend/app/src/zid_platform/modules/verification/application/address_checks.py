@@ -26,14 +26,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.evidence.ports import current_runtime
-from zid_platform.modules.verification.application import check_cases
+from zid_platform.modules.verification.application import check_cases, check_policies
 from zid_platform.modules.verification.domain import address as ad
 from zid_platform.modules.verification.domain import address_review as ar
 from zid_platform.modules.verification.domain import check_cases as cc
 from zid_platform.modules.verification.domain import check_methods as cm
 from zid_platform.modules.verification.domain import postal_challenge as pc
 from zid_platform.modules.verification.domain.assertions import Assertion
-from zid_platform.modules.verification.infrastructure.address_policy_registry import proof_policy
 
 FORMAT_SOURCE = "zid-address-format@1"
 CONFIG = Path(
@@ -235,7 +234,9 @@ async def add_document(
     """`subject_name` is compared and never stored. What was read from the document is kept apart from the upload it was read from."""
     case = await _open_case(conn, case_id, frozenset({cm.CheckMethod.ADDRESS_DOCUMENT}))
     address_id, claimed = await _current_address(conn, case_id)
-    policy = proof_policy()
+    policy = check_policies.narrowed_proof_policy(
+        case.market, await check_policies.approved(conn, case.market, case.purpose)
+    )
     if doc_type not in ad.accepted_types(policy, case.market):
         raise cc.CaseError(
             "DOCUMENT_TYPE_NOT_OFFERED", "not an accepted document for this market (A06)"

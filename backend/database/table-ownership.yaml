@@ -1094,6 +1094,11 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DTV-WF-05 §06 DeviceObservation: tenant- and period-keyed pseudonym, platform, attestation, named signals, append-only (proposed, CR-116)"
+  verify.check_policy:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A11 company verification policy per market and purpose; author != approver; one approved (proposed, CR-118)"
   verify.check_postal_challenge:
     role: cell
     module: verification

@@ -7,6 +7,8 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { PolicyCard } from "./policy-card";
+
 /** ZID-DTV-WF-05 verification checks (A01-A10; CR-112 to CR-116): open a case for a person, check their email or phone, address and proof of
  * address, and read each result on its own. Nothing here says "verified": each assertion shows what it proves and what it does not. */
 
@@ -273,6 +275,7 @@ export function ChecksPage() {
         description="Email, phone, address and device checks for a person. A check runs only where it is approved for the country and purpose; nothing is switched on by default."
       />
       <div className="space-y-5">
+        <PolicyCard />
         <OpenCase onOpened={setSelected} />
         <Card padded={false} title="Cases">
           <QueryView query={q}>

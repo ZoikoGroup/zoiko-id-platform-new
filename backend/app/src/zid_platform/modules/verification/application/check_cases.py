@@ -18,9 +18,10 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.verification.application import check_methods
+from zid_platform.modules.verification.application import check_methods, check_policies
 from zid_platform.modules.verification.domain import check_cases as cc
 from zid_platform.modules.verification.domain import check_methods as cm
+from zid_platform.modules.verification.domain import check_policy as cp
 from zid_platform.modules.verification.domain import privacy_overlay as po
 from zid_platform.modules.verification.domain.assertions import Assertion
 from zid_platform.modules.verification.infrastructure import check_case_store as store
@@ -45,6 +46,9 @@ async def open_case(
     retention: Mapping[str, cm.RetentionRule] | None = None,
 ) -> tuple[cc.Case, check_methods.Eligibility]:
     market = market.upper()
+    requested = cp.requested_with_policy(
+        list(requested), await check_policies.approved(conn, market, purpose)
+    )
     answer = await check_methods.eligibility(
         conn, tenant_id=tenant_id, country=market, purpose=purpose, overlays=overlays, now=now,
         rollout_key=subject_ref, adapters=adapters, retention=retention,

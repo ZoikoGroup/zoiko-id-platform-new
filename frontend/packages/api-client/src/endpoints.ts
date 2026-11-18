@@ -761,6 +761,11 @@ export function createCellApi(t: Transport) {
         post<{ status: string; recorded: Record<string, string> }>(`/v1/verification-cases/${seg(id)}/address-documents/${seg(doc)}:review`, body),
       check: (id: string, doc: string, body: { agrees: boolean; reason_codes: string[] }) =>
         post<{ status: string; recorded: Record<string, string> }>(`/v1/verification-cases/${seg(id)}/address-documents/${seg(doc)}:check`, body),
+      policies: () => get<{ items: C.CheckPolicy[] }>("/v1/check-policies"),
+      draftPolicy: (body: C.CheckPolicyIn) => post<C.CheckPolicy>("/v1/check-policies", body),
+      submitPolicy: (id: string) => post<C.CheckPolicy>(`/v1/check-policies/${seg(id)}:submit`),
+      decidePolicy: (id: string, approve: boolean, reason: string) =>
+        post<C.CheckPolicy>(`/v1/check-policies/${seg(id)}:${approve ? "approve" : "reject"}`, { reason }),
       postal: (id: string) => post<C.CheckPostal>(`/v1/verification-cases/${seg(id)}/postal-challenges`),
       confirmPostal: (id: string, challengeId: string, code: string) =>
         post<C.CheckPostal>(`/v1/verification-cases/${seg(id)}/postal-challenges/${seg(challengeId)}:confirm`, { code }),

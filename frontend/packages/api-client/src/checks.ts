@@ -216,3 +216,25 @@ export interface CheckMethodProposeIn {
   reason: string;
   evidence_ref: string;
 }
+
+/** A company's verification policy per market and purpose (A11; CR-118). Only an APPROVED one has effect. */
+export interface CheckPolicy {
+  policy_id: string;
+  market: string;
+  purpose: string;
+  required_methods: CheckMethod[];
+  document_types: Record<string, number>;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+  author: string;
+  approver: string | null;
+  created_at: string;
+  decided_at: string | null;
+  decision_reason: string | null;
+}
+
+export interface CheckPolicyIn {
+  market: string;
+  purpose: string;
+  required_methods: CheckMethod[];
+  document_types: Record<string, number>;
+}

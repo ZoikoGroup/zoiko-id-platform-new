@@ -141,6 +141,8 @@ rules:
   - {match: "POST /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (opens or closes a case; decides nothing, the route checks verification:execute)
   - {match: "PUT /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-115 (the address a case checks; decides nothing, the route checks verification:execute)
   - {match: "POST /v1/device-observations", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-116 (a device observation for a case; decides nothing, the route checks verification:execute)
+  - {match: "GET /v1/check-policies*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-118 (the company policy; reads)
+  - {match: "POST /v1/check-policies*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-118 (draft, submit, decide; the route checks verification:execute or verification:review, and author != approver)
   - {match: "POST /v1/contacts/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-114 (challenges a case's contact; decides nothing, the route checks verification:execute)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
