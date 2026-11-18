@@ -15,8 +15,18 @@ Status: open (Step 4 of the WF-05 build). No address adapter ships, so no case i
   document the rules found DOES_NOT_SUPPORT, or a market with no policy, cannot be confirmed. Findings and reasons never say fraud. The table refuses a
   checker who is the maker and any edit of a review step.
 
+## Added after the first slice
+- **Postal code** (A08, QA-028; `domain/postal_challenge.py`, `verify.check_postal_challenge`, migration `verification_0025`):
+  `POST /v1/verification-cases/{id}/postal-challenges` posts an 8-character code (no look-alikes) to the current address revision through the
+  deployment's `postal_sender` (none ships) and records the mail house's reference (an audited dispatch); `.../{cid}:confirm` records
+  `ADDRESS_ASSOCIATION_CONFIRMED` from ADDRESS_POSTAL_CHALLENGE. Expiry per market (`config/verification/postal-challenge.yaml`, SAMPLE: GB 30 days;
+  7 to 60), 5 attempts, used once, revoked by an address change. It shows access to mail, never ownership or identity.
+- **Provider hooks**: with an `address_locator` (ADDRESS_LOOKUP) or an `address_source` (ADDRESS_DATA_SOURCE, with a compared and never-stored name)
+  in the deployment, `PUT .../address` records `ADDRESS_LOCATION_MATCH` or `ADDRESS_ASSOCIATION_CONFIRMED`: PASS only for an explicit MATCH, REVIEW
+  otherwise, UNAVAILABLE when the provider fails. No provider ships.
+
 ## Not yet
-- Address lookup, autocomplete and location providers (libpostal, OS UPRN, OSM), licensed data sources and the postal code (DEC-04, DEC-05).
+- The actual providers (libpostal, OS UPRN, OSM, a licensed source) and a mail house: licences and contracts (DEC-04, DEC-05).
 - The internal operator workbench (A10 with JIT access): the review runs on the tenant plane with `verification:review` until it exists.
 - Applicant and reviewer screens (A05-A07, A10).
 

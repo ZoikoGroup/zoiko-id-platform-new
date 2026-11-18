@@ -463,6 +463,7 @@ def create_app(
             router as contact_challenges_router,
         )
         from .modules.verification.api.countries import router as countries_router
+        from .modules.verification.api.device_checks import router as device_checks_router
         from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
@@ -539,6 +540,7 @@ def create_app(
             check_cases_router,
             contact_challenges_router,
             address_checks_router,
+            device_checks_router,
             v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,

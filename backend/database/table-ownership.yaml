@@ -1084,6 +1084,21 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DTV-WF-05 §06 AddressEvidence: a proof of address document reference, what was read and the rules' assessment (proposed, CR-115)"
+  verify.check_device_nonce:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 DTV-22 QA-032: single-use attestation nonce bound to a case and session, keyed hash only (proposed, CR-116)"
+  verify.check_device_observation:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 DeviceObservation: tenant- and period-keyed pseudonym, platform, attestation, named signals, append-only (proposed, CR-116)"
+  verify.check_postal_challenge:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A08 postal confirmation code bound to an address revision, keyed hash only, audited dispatch (proposed, CR-115)"
   verify.check_address_review:
     role: cell
     module: verification

@@ -10,23 +10,35 @@ check           a second, different person; agreement records ADDRESS_ASSOCIATIO
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import re
 import uuid
-from datetime import date, datetime
+from dataclasses import dataclass, replace
+from datetime import date, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
+import yaml
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.evidence.ports import current_runtime
 from zid_platform.modules.verification.application import check_cases
 from zid_platform.modules.verification.domain import address as ad
 from zid_platform.modules.verification.domain import address_review as ar
 from zid_platform.modules.verification.domain import check_cases as cc
 from zid_platform.modules.verification.domain import check_methods as cm
+from zid_platform.modules.verification.domain import postal_challenge as pc
 from zid_platform.modules.verification.domain.assertions import Assertion
 from zid_platform.modules.verification.infrastructure.address_policy_registry import proof_policy
 
 FORMAT_SOURCE = "zid-address-format@1"
+CONFIG = Path(
+    os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
+)
 ADDRESS_METHODS = frozenset(
     {
         cm.CheckMethod.ADDRESS_LOOKUP,
@@ -59,8 +71,17 @@ def _fields(a: ad.Address) -> dict[str, str]:
 
 
 async def set_address(
-    conn: AsyncConnection, case_id: str, raw: dict[str, Any], *, now: datetime
+    conn: AsyncConnection,
+    case_id: str,
+    raw: dict[str, Any],
+    *,
+    now: datetime,
+    locator: ad.AddressProvider | None = None,
+    source: ad.AddressProvider | None = None,
+    subject_name: str | None = None,
 ) -> dict[str, Any]:
+    """`locator` (a directory or geospatial adapter) and `source` (a licensed association source) are the deployment's; none ships. Each answer is
+    recorded only as what that provider states, from the method the case was cleared for."""
     case = await _open_case(conn, case_id, ADDRESS_METHODS)
     address = ad.parse_address(raw)
     postcode = ad.postcode_check(address)
@@ -109,7 +130,32 @@ async def set_address(
             now=now,
         )  # fmt: skip
         recorded = rec.verdict.value
+    location = association = None
+    if locator is not None and cm.CheckMethod.ADDRESS_LOOKUP in case.available:
+        location = await _from_provider(
+            conn,
+            case_id,
+            locator,
+            address,
+            subject_name or "",
+            Assertion.ADDRESS_LOCATION_MATCH,
+            cm.CheckMethod.ADDRESS_LOOKUP,
+            now,
+        )
+    if source is not None and subject_name and cm.CheckMethod.ADDRESS_DATA_SOURCE in case.available:
+        association = await _from_provider(
+            conn,
+            case_id,
+            source,
+            address,
+            subject_name,
+            Assertion.ADDRESS_ASSOCIATION_CONFIRMED,
+            cm.CheckMethod.ADDRESS_DATA_SOURCE,
+            now,
+        )
     return {
+        "location_outcome": location,
+        "source_outcome": association,
         "address_id": str(address_id),
         "revision": rev + 1,
         "country": address.country,
@@ -117,6 +163,45 @@ async def set_address(
         "format_outcome": recorded,
         "note": "An address that is entered or formatted is not proof that anyone lives there.",
     }
+
+
+def _code(raw: str) -> str:
+    """A supplier's words as a stable reason code; never "fraud" (WF-05 section 21)."""
+    code = re.sub(r"[^A-Z0-9_]", "_", raw.upper()).strip("_")[:60] or "PROVIDER_REASON"
+    return "PROVIDER_REASON" if "FRAUD" in code or not code[0].isalpha() else code
+
+
+async def _from_provider(
+    conn: AsyncConnection,
+    case_id: str,
+    provider: ad.AddressProvider,
+    address: ad.Address,
+    name: str,
+    assertion: Assertion,
+    method: cm.CheckMethod,
+    now: datetime,
+) -> str:
+    """A provider that fails or has no answer is UNAVAILABLE, never a pass or a fail. Only an explicit MATCH is a PASS; anything else is REVIEW."""
+    answer = await asyncio.to_thread(ad.provider_answer, provider, name, address)
+    if not answer.available:
+        verdict, reasons, src = (
+            cc.Verdict.UNAVAILABLE,
+            tuple(_code(r) for r in answer.reasons) or ("DATA_SOURCE_UNAVAILABLE",),
+            None,
+        )
+    elif (answer.match or "").upper() == "MATCH":
+        verdict, reasons, src = cc.Verdict.PASS, (), answer.provider or "address-provider"
+    else:
+        verdict, reasons, src = (
+            cc.Verdict.REVIEW,
+            (_code(f"PROVIDER_{answer.match or 'NO_ANSWER'}"),),
+            answer.provider or "address-provider",
+        )
+    rec = await check_cases.record_assertion(
+        conn, case_id, assertion=assertion, verdict=verdict, method=method, source=src, reason_codes=tuple(reasons), confidence=None,
+        observed_at=now, expires_at=None, recorded_by="address-provider", now=now,
+    )  # fmt: skip
+    return rec.verdict.value
 
 
 async def _current_address(conn: AsyncConnection, case_id: str) -> tuple[uuid.UUID, ad.Address]:
@@ -343,4 +428,178 @@ async def documents(conn: AsyncConnection, case_id: str) -> list[dict[str, Any]]
     ]  # fmt: skip
 
 
-__all__ = ["FORMAT_SOURCE", "add_document", "check", "documents", "review", "set_address"]
+# ---------------------------------------------------------------------------------------------------------------------- postal code (A08)
+
+POSTAL_SOURCE = "zid-postal-code@1"
+_POSTAL = "challenge_id, case_id, address_revision, secret_hash, state, expires_at, attempt_count, created_at, consumed_at"
+
+
+@lru_cache(maxsize=1)
+def postal_ttl_days() -> dict[str, int]:
+    doc: dict[str, Any] = (
+        yaml.safe_load((CONFIG / "verification/postal-challenge.yaml").read_text(encoding="utf-8"))
+        or {}
+    )
+    out = {str(k).upper(): int(v) for k, v in (doc.get("ttl_days") or {}).items()}
+    for market, days in out.items():
+        if not re.fullmatch(r"[A-Z]{2}", market) or not pc.MIN_TTL.days <= days <= pc.MAX_TTL.days:
+            raise ValueError(f"postal-challenge.yaml: {market}")
+    return out
+
+
+async def _postal_key() -> bytes:
+    mac = current_runtime().mac_key
+    return await asyncio.to_thread(mac.mac, b"zid.wf05.postal-code.v1")
+
+
+@dataclass(frozen=True, slots=True)
+class PostalDispatch:
+    """What a mail house needs, after the transaction commits. The only place the address and the code meet."""
+
+    challenge_id: str
+    tenant_id: str
+    address: dict[str, str]
+    code: str
+    expires_at: datetime
+
+
+def _postal(r: Any) -> pc.Postal:
+    return pc.Postal(
+        str(r.challenge_id), r.address_revision, bytes(r.secret_hash), pc.State(r.state), r.expires_at, r.attempt_count, r.created_at,
+        r.consumed_at,
+    )  # fmt: skip
+
+
+async def _load_postal(conn: AsyncConnection, challenge_id: str) -> Any:
+    try:
+        cid = uuid.UUID(challenge_id)
+    except ValueError as e:
+        raise cc.CaseError("CHALLENGE_NOT_FOUND") from e
+    sql = f"SELECT {_POSTAL} FROM verify.check_postal_challenge WHERE challenge_id = :id FOR UPDATE"
+    row = (await conn.execute(text(sql), {"id": cid})).first()
+    if row is None:
+        raise cc.CaseError("CHALLENGE_NOT_FOUND")
+    return row
+
+
+async def _save_postal(conn: AsyncConnection, p: pc.Postal) -> None:
+    await conn.execute(
+        text(
+            "UPDATE verify.check_postal_challenge SET state = :s, attempt_count = :a, consumed_at = :c WHERE challenge_id = :id"
+        ),
+        {
+            "s": p.state.value,
+            "a": p.attempt_count,
+            "c": p.consumed_at,
+            "id": uuid.UUID(p.challenge_id),
+        },
+    )
+
+
+async def _address_revision(conn: AsyncConnection, case_id: str) -> int:
+    sql = "SELECT revision FROM verify.check_address WHERE case_id = :c AND superseded_at IS NULL"
+    return int((await conn.execute(text(sql), {"c": uuid.UUID(case_id)})).scalar_one_or_none() or 0)
+
+
+async def start_postal(
+    conn: AsyncConnection, case_id: str, *, now: datetime
+) -> tuple[dict[str, Any], PostalDispatch]:
+    """A code posted to the current address. Any earlier open postal code of the case is revoked."""
+    case = await _open_case(conn, case_id, frozenset({cm.CheckMethod.ADDRESS_POSTAL_CHALLENGE}))
+    days = postal_ttl_days().get(case.market)
+    if days is None:
+        raise cc.CaseError(
+            "POSTAL_NOT_CONFIGURED_FOR_MARKET", "no approved postal expiry for this market"
+        )
+    address_id, address = await _current_address(conn, case_id)
+    rev = await _address_revision(conn, case_id)
+    open_sql = (
+        f"SELECT {_POSTAL} FROM verify.check_postal_challenge WHERE case_id = :c "
+        "AND state IN ('PENDING_DISPATCH', 'DISPATCHED') FOR UPDATE"
+    )
+    for r in (await conn.execute(text(open_sql), {"c": uuid.UUID(case_id)})).all():
+        await _save_postal(conn, replace(_postal(r), state=pc.State.REVOKED))
+    challenge_id = str(uuid.uuid4())
+    p, code = pc.issue(
+        challenge_id=challenge_id,
+        address_revision=rev,
+        key=await _postal_key(),
+        ttl=timedelta(days=days),
+        now=now,
+    )
+    await conn.execute(
+        text(
+            "INSERT INTO verify.check_postal_challenge (tenant_id, address_id, challenge_id, case_id, address_revision, secret_hash, state, "
+            "expires_at, attempt_count, created_at) VALUES (:t, :ad, :id, :c, :r, :h, :s, :ex, 0, :at)"
+        ),
+        {
+            "t": uuid.UUID(case.tenant_id), "ad": address_id, "id": uuid.UUID(challenge_id), "c": uuid.UUID(case_id), "r": rev,
+            "h": p.secret_hash, "s": p.state.value, "ex": p.expires_at, "at": now,
+        },
+    )  # fmt: skip
+    view = {
+        "challenge_id": challenge_id,
+        "status": p.state.value,
+        "expires_at": p.expires_at.isoformat(),
+        "note": "A posted code shows access to mail at the address during the challenge, not ownership or identity.",
+    }
+    return view, PostalDispatch(challenge_id, case.tenant_id, _fields(address), code, p.expires_at)
+
+
+async def mark_dispatched(
+    conn: AsyncConnection, challenge_id: str, *, dispatch_ref: str, now: datetime
+) -> None:
+    """The mail house accepted the letter: an audited dispatch (A08)."""
+    pc.dispatched(_postal(await _load_postal(conn, challenge_id)))
+    await conn.execute(
+        text(
+            "UPDATE verify.check_postal_challenge SET state = 'DISPATCHED', dispatch_ref = :r, dispatched_at = :n WHERE challenge_id = :id"
+        ),
+        {"r": dispatch_ref[:128], "n": now, "id": uuid.UUID(challenge_id)},
+    )
+
+
+async def confirm_postal(
+    conn: AsyncConnection, case_id: str, challenge_id: str, code: str, *, now: datetime
+) -> dict[str, Any]:
+    case = await _open_case(conn, case_id, frozenset({cm.CheckMethod.ADDRESS_POSTAL_CHALLENGE}))
+    row = await _load_postal(conn, challenge_id)
+    if str(row.case_id) != case.case_id:
+        raise cc.CaseError("CHALLENGE_NOT_FOUND")
+    before = _postal(row)
+    after, ok = pc.confirm(
+        before,
+        code,
+        key=await _postal_key(),
+        address_revision=await _address_revision(conn, case_id),
+        now=now,
+    )
+    if after != before:
+        await _save_postal(conn, after)
+    if ok:
+        await check_cases.record_assertion(
+            conn, case_id, assertion=Assertion.ADDRESS_ASSOCIATION_CONFIRMED, verdict=cc.Verdict.PASS,
+            method=cm.CheckMethod.ADDRESS_POSTAL_CHALLENGE, source=POSTAL_SOURCE, reason_codes=(), confidence=None, observed_at=now,
+            expires_at=None, recorded_by="postal-code", now=now,
+        )  # fmt: skip
+    return {
+        "challenge_id": challenge_id,
+        "status": after.state.value,
+        "verified": ok,
+        "attempts_left": max(0, pc.MAX_ATTEMPTS - after.attempt_count),
+    }
+
+
+__all__ = [
+    "FORMAT_SOURCE",
+    "POSTAL_SOURCE",
+    "PostalDispatch",
+    "add_document",
+    "check",
+    "confirm_postal",
+    "documents",
+    "mark_dispatched",
+    "review",
+    "set_address",
+    "start_postal",
+]

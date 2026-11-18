@@ -5,6 +5,8 @@
     GET  /v1/verification-cases/{id}/address-documents                         the documents and where their review is       verification:read
     POST /v1/verification-cases/{id}/address-documents/{doc}:review            the maker's finding                            verification:review
     POST /v1/verification-cases/{id}/address-documents/{doc}:check             a second, different person                     verification:review
+    POST /v1/verification-cases/{id}/postal-challenges                         post a one-time code to the address (A08)      verification:execute
+    POST /v1/verification-cases/{id}/postal-challenges/{cid}:confirm           the code from the letter                       verification:execute
 
 The document file itself is an evidence upload (`/v2/evidence/uploads`): this API keeps only its reference and what was read from it. Nothing here says
 "verified": a document is reviewed, and an association needs two people.
@@ -12,6 +14,7 @@ The document file itself is an evidence upload (`/v2/evidence/uploads`): this AP
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
@@ -27,11 +30,12 @@ from zid_platform.modules.verification.domain import address as ad
 from zid_platform.modules.verification.domain import address_review as ar
 from zid_platform.modules.verification.domain import check_cases as cc
 
+log = logging.getLogger("zid.verification.address")
 router = APIRouter(tags=["verification"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 Id = Annotated[str, Path(pattern=r"^[0-9a-fA-F-]{36}$")]
 _STATUS = {"CASE_NOT_FOUND": 404, "DOCUMENT_NOT_FOUND": 404, "CASE_CLOSED": 409, "METHOD_NOT_AVAILABLE_FOR_CASE": 409, "CHECKER_IS_MAKER": 403,
-           "REVIEW_ALREADY_DECIDED": 409, "NOTHING_TO_CHECK": 409}  # fmt: skip
+           "REVIEW_ALREADY_DECIDED": 409, "NOTHING_TO_CHECK": 409, "CHALLENGE_NOT_FOUND": 404, "POSTAL_NOT_CONFIGURED_FOR_MARKET": 409, "ADDRESS_REQUIRED": 409}  # fmt: skip
 
 
 class AddressIn(BaseModel):
@@ -43,8 +47,14 @@ class AddressIn(BaseModel):
     postal_code: str | None = Field(default=None, max_length=120)
     country: str = Field(pattern=r"^[A-Za-z]{2}$")
 
+    subject_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Only for a licensed association source; compared, never stored.",
+    )
+
     def raw(self) -> dict[str, Any]:
-        return {k: v for k, v in self.model_dump().items() if v is not None}
+        return {k: v for k, v in self.model_dump().items() if v is not None and k != "subject_name"}
 
 
 class DocumentIn(BaseModel):
@@ -97,7 +107,10 @@ async def set_address(
     _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
-            return await svc.set_address(conn, case_id, body.raw(), now=datetime.now(UTC))
+            return await svc.set_address(
+                conn, case_id, body.raw(), now=datetime.now(UTC), locator=getattr(request.app.state, "address_locator", None),
+                source=getattr(request.app.state, "address_source", None), subject_name=body.subject_name,
+            )  # fmt: skip
         except (cc.CaseError, ad.AddressError) as e:
             raise _refuse(e) from e
 
@@ -161,3 +174,59 @@ async def check(
             )
         except (cc.CaseError, ar.ReviewError) as e:
             raise _refuse(e) from e
+
+
+class PostalConfirmIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(min_length=6, max_length=16)
+
+
+async def _post(request: Request, caller: Caller, dispatch: svc.PostalDispatch) -> None:
+    """After the transaction: hand the letter to the deployment's mail house (`app.state.postal_sender`, none ships) and record its reference."""
+    sender = getattr(request.app.state, "postal_sender", None)
+    if sender is None:
+        log.warning(
+            "postal code %s not posted: no postal sender is configured", dispatch.challenge_id[:8]
+        )
+        return
+    try:
+        ref = str(await sender.send(dispatch))
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+            await svc.mark_dispatched(
+                conn, dispatch.challenge_id, dispatch_ref=ref, now=datetime.now(UTC)
+            )
+    except Exception:  # noqa: BLE001 - the case can ask for a new code
+        log.warning("postal code %s dispatch failed", dispatch.challenge_id[:8], exc_info=False)
+
+
+@router.post("/v1/verification-cases/{case_id}/postal-challenges", status_code=202)
+async def start_postal(case_id: Id, request: Request, caller: CallerDep) -> dict[str, Any]:
+    _scope(caller, "verification:execute")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            view, dispatch = await svc.start_postal(conn, case_id, now=datetime.now(UTC))
+        except (cc.CaseError, ad.AddressError) as e:
+            raise _refuse(e) from e
+    await _post(request, caller, dispatch)
+    return view
+
+
+@router.post("/v1/verification-cases/{case_id}/postal-challenges/{challenge_id}:confirm")
+async def confirm_postal(
+    case_id: Id, challenge_id: Id, body: PostalConfirmIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    _scope(caller, "verification:execute")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            out = await svc.confirm_postal(
+                conn, case_id, challenge_id, body.code, now=datetime.now(UTC)
+            )
+        except cc.CaseError as e:
+            raise _refuse(e) from e
+    if not out["verified"]:
+        raise ZidError(
+            "POSTAL_CODE_NOT_ACCEPTED",
+            f"The code was not accepted. Attempts left: {out['attempts_left']}.",
+            http_status=422,
+        )
+    return out

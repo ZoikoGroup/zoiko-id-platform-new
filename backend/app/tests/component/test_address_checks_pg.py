@@ -29,7 +29,11 @@ from zid_platform.modules.verification.domain import check_methods as cm
 from zid_platform.modules.verification.infrastructure import check_method_config
 from zid_platform.settings import Settings
 
-LOOKUP, DOC = cm.CheckMethod.ADDRESS_LOOKUP, cm.CheckMethod.ADDRESS_DOCUMENT
+LOOKUP, DOC, POST = (
+    cm.CheckMethod.ADDRESS_LOOKUP,
+    cm.CheckMethod.ADDRESS_DOCUMENT,
+    cm.CheckMethod.ADDRESS_POSTAL_CHALLENGE,
+)
 HOME = {"line1": "12 Station Road", "city": "Leeds", "postal_code": "LS1 4AB", "country": "GB"}
 
 
@@ -40,6 +44,7 @@ def test_an_address_document_is_reviewed_by_one_person_and_checked_by_another(
     adapters = {
         LOOKUP: cm.Adapter(LOOKUP, "zid-address-format", v, cm.Route.OPEN),
         DOC: cm.Adapter(DOC, "zid-address-review", v, cm.Route.MANUAL),
+        POST: cm.Adapter(POST, "zid-postal-code", v, cm.Route.MANUAL),
     }
     approved = {
         c: cm.RetentionRule(c, "APPROVED", 30, "controller", "L-1") for c in cm.ALL_DATA_CLASSES
@@ -63,7 +68,7 @@ def test_an_address_document_is_reviewed_by_one_person_and_checked_by_another(
             )
 
     asyncio.run(second_reviewer())
-    for m in (LOOKUP, DOC):
+    for m in (LOOKUP, DOC, POST):
         scope = bm.Scope(m, adapters[m].engine_id, v, "GB", "ONBOARDING", tenant)
 
         async def live(c: Any, scope: bm.Scope = scope, m: cm.CheckMethod = m) -> bm.Record:
@@ -76,6 +81,14 @@ def test_an_address_document_is_reviewed_by_one_person_and_checked_by_another(
         Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test"), keyring=ring
     )  # fmt: skip
     app.state.privacy_overlays = {"GB": _signed_overlay("GB")}
+    letters: list[Any] = []
+
+    class MailHouse:
+        async def send(self, dispatch: Any) -> str:
+            letters.append(dispatch)
+            return "LETTER-1"
+
+    app.state.postal_sender = MailHouse()
 
     def bearer(subject: str) -> dict[str, str]:
         t = issue_access_token(
@@ -88,7 +101,7 @@ def test_an_address_document_is_reviewed_by_one_person_and_checked_by_another(
     with TestClient(app, base_url=ISS) as http:
         cid = http.post(
             "/v1/verification-cases", headers={**a, "Idempotency-Key": f"a-{v}"},
-            json={"subject_ref": "cust-9", "purpose": "ONBOARDING", "market": "GB", "methods": ["ADDRESS_LOOKUP", "ADDRESS_DOCUMENT"]},
+            json={"subject_ref": "cust-9", "purpose": "ONBOARDING", "market": "GB", "methods": ["ADDRESS_LOOKUP", "ADDRESS_DOCUMENT", "ADDRESS_POSTAL_CHALLENGE"]},
         ).json()["case_id"]  # fmt: skip
         base = f"/v1/verification-cases/{cid}"
         set_ = http.put(f"{base}/address", headers=a, json=HOME)
@@ -131,6 +144,26 @@ def test_an_address_document_is_reviewed_by_one_person_and_checked_by_another(
         assert checked.status_code == 200 and checked.json()["recorded"] == {
             "ADDRESS_ASSOCIATION_CONFIRMED": "PASS"
         }
+
+        # a postal code (A08): posted to the address, the wrong code refused, the right one confirms the association once
+        posted = http.post(f"{base}/postal-challenges", headers=a)
+        assert posted.status_code == 202, posted.text
+        pid, code = posted.json()["challenge_id"], letters[-1].code
+        assert letters[-1].address["line1"] == "12 Station Road" and code not in posted.text
+        assert (
+            http.post(
+                f"{base}/postal-challenges/{pid}:confirm", headers=a, json={"code": "AAAAAAAA"}
+            ).status_code
+            == 422
+        )
+        good = http.post(f"{base}/postal-challenges/{pid}:confirm", headers=a, json={"code": code})
+        assert good.status_code == 200 and good.json()["verified"]
+        assert (
+            http.post(
+                f"{base}/postal-challenges/{pid}:confirm", headers=a, json={"code": code}
+            ).status_code
+            == 422
+        )
 
         ev = {
             x["type"]: x["outcome"]
