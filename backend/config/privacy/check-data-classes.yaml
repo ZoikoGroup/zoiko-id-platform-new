@@ -1,0 +1,21 @@
+# Retention for the data WF-05 check methods create (ZID-DTV-WF-05 §23, DEC-11; CR-112).
+#
+# "No universal fixed retention duration is approved in this wireframe." Every class below is UNSET: nobody has approved how long it is kept. A method
+# that creates a class without an APPROVED rule is never live (RETENTION_NOT_APPROVED:<class>), whatever its lifecycle state says.
+#
+# An APPROVED rule needs retention_days, approved_by and legal_basis_ref (the controller, Legal and the DPO decide; DEC-11). Inactivity is not authority
+# to delete statutory evidence, and keeping something "just in case" is not a reason.
+#
+# status: UNSET | SAMPLE | APPROVED
+classes:
+  contact.email: {status: UNSET}                  # the encrypted inbox address, scoped to one tenant
+  contact.phone: {status: UNSET}                  # the encrypted number, scoped to one tenant
+  challenge.secret_and_delivery: {status: UNSET}  # the keyed hash of a one-time secret and its delivery events
+  carrier.observation: {status: UNSET}            # SIM swap, porting or line type from a carrier source
+  address.claim: {status: UNSET}                  # the address as entered, and its normalized form
+  address.lookup_result: {status: UNSET}          # what a directory or geospatial source returned, with its licence
+  address.document: {status: UNSET}               # the proof of address file, in the regional vault
+  address.extraction: {status: UNSET}             # what was read from the document, kept apart from the file
+  address.source_result: {status: UNSET}          # a licensed source's match result and its terms
+  device.observation: {status: UNSET}             # rotating per-tenant device pseudonym and its signals
+  audit.decision: {status: UNSET}                 # the sanitized decision record, kept apart from source media

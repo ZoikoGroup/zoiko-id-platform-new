@@ -44,6 +44,46 @@ REVIEWED_IDENTIFIERS: dict[str, str] = {
 # Reviewed by site: (file suffix, function, interpolated expression) -> why it is not user input.
 REVIEWED_SITES: dict[tuple[str, str, str], str] = {
     (
+        "verification/infrastructure/method_store.py",
+        "history",
+        "sql + (' FOR UPDATE' if lock else '')",
+    ): "a literal SELECT over a fixed method table with bound parameters, plus a literal FOR UPDATE (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "proposal",
+        "sql + (' FOR UPDATE' if lock else '')",
+    ): "a literal SELECT over a fixed method table with bound parameters, plus a literal FOR UPDATE (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "for_call",
+        "self.state_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "all_states",
+        "self.state_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "insert_state",
+        "self.state_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "proposals",
+        "self.proposal_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "insert_proposal",
+        "self.proposal_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
+        "verification/infrastructure/method_store.py",
+        "decide_proposal",
+        "self.proposal_table",
+    ): "MethodTables accepts only the two fixed (state, proposal) table pairs in _KNOWN_TABLES (__post_init__); never input (CR-112)",
+    (
         "assurance/infrastructure/store.py",
         "_one",
         "sql",

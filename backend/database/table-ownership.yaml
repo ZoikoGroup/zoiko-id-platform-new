@@ -1039,6 +1039,26 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-DTV-WF-04 BIO-03 biometric method lifecycle and kill switch per exact scope, versioned and append-only (proposed, CR-107)"
+  verify.check_method_proposal:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-05 §04, §27 check method (email, phone, address, postal, device) step-up proposals, decided once by a second person (proposed, CR-112)"
+  verify.check_method_state:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-05 §04, §27 check method lifecycle and kill switch per exact scope, versioned and append-only (proposed, CR-112)"
+  verify.check_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 VerificationCase: tenant, subject reference, purpose, market, region and the eligibility it opened under (proposed, CR-112)"
+  verify.check_assertion:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §02, §06 EvidenceDecision: one append-only row per separate evidence assertion of a case (proposed, CR-112)"
   verify.conformance_run:
     role: cell
     module: verification

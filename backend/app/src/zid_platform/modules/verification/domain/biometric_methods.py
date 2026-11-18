@@ -95,7 +95,8 @@ class ProposalStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Scope:
-    method: Method
+    # a biometric Method here; the WF-05 check methods (`check_methods.CheckMethod`) reuse the same lifecycle with their own enum and tables (CR-112)
+    method: StrEnum
     engine_id: str
     engine_version: str
     country: str
@@ -371,7 +372,7 @@ def step_down(
 class Call:
     """A live call about to use a method. Every field is known: a call that cannot say its country or purpose gets no biometric method."""
 
-    method: Method
+    method: StrEnum
     engine_id: str
     engine_version: str
     country: str

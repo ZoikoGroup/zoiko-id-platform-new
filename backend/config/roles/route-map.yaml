@@ -135,6 +135,9 @@ rules:
   - {match: "POST /v2/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # ZID-INT-002 facade: checks decide, issue nothing
   - {match: "POST /v1/eligibility/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069 (decides, issues nothing)
   - {match: "GET /v1/biometric-methods/eligibility", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-107 (reads gates, decides nothing about a person)
+  - {match: "GET /v1/check-methods/eligibility", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (reads gates, decides nothing about a person)
+  - {match: "GET /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (status and evidence; no raw evidence)
+  - {match: "POST /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (opens or closes a case; decides nothing, the route checks verification:execute)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "POST /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069

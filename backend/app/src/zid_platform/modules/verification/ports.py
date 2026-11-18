@@ -8,6 +8,8 @@ from zid_platform.modules.verification.application import (
     biometric_eligibility,
     biometric_markets,
     biometric_methods,
+    check_cases,
+    check_methods,
     coverage,
     market_releases,
     policy_packs,
@@ -41,6 +43,7 @@ from zid_platform.modules.verification.application.service import (
 )
 from zid_platform.modules.verification.domain import attestation as attestation_model
 from zid_platform.modules.verification.domain import biometric_methods as biometric_method_model
+from zid_platform.modules.verification.domain import check_methods as check_method_model
 from zid_platform.modules.verification.domain import conformance as conformance_model
 from zid_platform.modules.verification.domain import entitlement as entitlement_model
 from zid_platform.modules.verification.domain import market_release as release_model
@@ -172,6 +175,9 @@ __all__ = [
     "biometric_methods",
     "certification_registry",
     "change_entitlement_status",
+    "check_cases",
+    "check_method_model",
+    "check_methods",
     "claim_matches",
     "claim_model",
     "claim_templates",

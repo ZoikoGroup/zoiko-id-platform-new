@@ -415,6 +415,9 @@ def create_app(
         from .modules.operator_access.api.regulatory_biometric_methods import (
             router as regulatory_biometric_methods_router,
         )
+        from .modules.operator_access.api.regulatory_check_methods import (
+            router as regulatory_check_methods_router,
+        )
         from .modules.operator_access.api.regulatory_conformance import (
             router as regulatory_conformance_router,
         )
@@ -453,6 +456,8 @@ def create_app(
         from .modules.verification.api.biometric_methods import (
             router as biometric_methods_router,
         )
+        from .modules.verification.api.check_cases import router as check_cases_router
+        from .modules.verification.api.check_methods import router as check_methods_router
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
@@ -526,6 +531,8 @@ def create_app(
             v2_workflows_router,
             v2_self_run_router,
             biometric_methods_router,
+            check_methods_router,
+            check_cases_router,
             v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,
@@ -570,6 +577,7 @@ def create_app(
             regulatory_issuers_router,
             regulatory_suspensions_router,
             regulatory_biometric_methods_router,
+            regulatory_check_methods_router,
             regulatory_conformance_router,
             regulatory_v2_router,
             communication_router,

@@ -772,6 +772,12 @@ events:
     source: ZID-DTV-WF-04 BIO-03; CR-107, CR-108
     lane: priority
     source_status: "proposed"
+  verification.check_method.state_changed:
+    cloudevents_type: com.zoiko.id.verification.check_method.state_changed.v1
+    meaning: "A WF-05 check method scope (email, phone, carrier, address, postal, device) moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never a contact, an address or reason text (ZID-DTV-WF-05 §04, §27)."
+    source: ZID-DTV-WF-05 §04, §27; CR-112
+    lane: priority
+    source_status: "proposed"
   credential.issuer_status_changed:
     cloudevents_type: com.zoiko.id.credential.issuer_status_changed.v1
     meaning: "A dated statement about an issuer, its names or accreditations was recorded; issuer id, sequence, statement kind and source hash only (09.2 credential.issuer_status_changed)."

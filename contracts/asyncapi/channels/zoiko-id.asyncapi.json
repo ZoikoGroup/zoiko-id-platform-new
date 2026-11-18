@@ -2173,6 +2173,9 @@
         "verification_certification_changed": {
           "$ref": "#/components/messages/verification_certification_changed"
         },
+        "verification_check_method_state_changed": {
+          "$ref": "#/components/messages/verification_check_method_state_changed"
+        },
         "verification_completed": {
           "$ref": "#/components/messages/verification_completed"
         },
@@ -6191,6 +6194,17 @@
         "summary": "An official-register attestation of a provider's certification was recorded; the scope, snapshot id, status and proof hash only (09.2 certification.changed).",
         "title": "verification.certification.changed",
         "x-zid-source": "ZID-RCG-003 RCG-G02; CR-073",
+        "x-zid-status": "proposed"
+      },
+      "verification_check_method_state_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.check_method.state_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A WF-05 check method scope (email, phone, carrier, address, postal, device) moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never a contact, an address or reason text (ZID-DTV-WF-05 \u00a704, \u00a727).",
+        "title": "verification.check_method.state_changed",
+        "x-zid-source": "ZID-DTV-WF-05 \u00a704, \u00a727; CR-112",
         "x-zid-status": "proposed"
       },
       "verification_completed": {

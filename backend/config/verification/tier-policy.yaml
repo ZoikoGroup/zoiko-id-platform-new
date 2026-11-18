@@ -25,7 +25,13 @@ optional_checks:
   ADDRESS:
     required_for: [STATUTORY, REGULATED, CONTRACT, DOCUMENTED_RISK]
     label_when_entered: "Entered by you, not verified"
-    label_when_verified: "Verified"
+    # One label per address assertion actually held (ZID-DTV-WF-05 §02). There is no single "Verified": a location found is not a residence, and a document
+    # reviewed is not an association. The strongest assertion held is the one shown.
+    labels:
+      ADDRESS_FORMAT_VALID: "Format accepted, not verified"
+      ADDRESS_LOCATION_MATCH: "Location found, not proof you live there"
+      ADDRESS_DOCUMENT_REVIEWED: "Document reviewed"
+      ADDRESS_ASSOCIATION_CONFIRMED: "Linked to you by an approved source"
   PHONE:
     required_for: [WORKFLOW_POSSESSION]
     never_proves_identity: true

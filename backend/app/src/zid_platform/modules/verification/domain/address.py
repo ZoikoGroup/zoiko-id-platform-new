@@ -87,14 +87,18 @@ def parse_address(raw: Mapping[str, Any]) -> Address:
 
 
 def _fold(text: str) -> str:
-    """Case, accents and punctuation are not differences between two spellings of one address."""
-    base = (
-        unicodedata.normalize("NFKD", text.replace("ß", "ss"))
-        .encode("ascii", "ignore")
-        .decode("ascii")
-        .lower()
-    )
-    words = re.sub(r"[^a-z0-9 ]+", " ", base).split()
+    """Case, accents on Latin letters and punctuation are not differences between two spellings of one address.
+
+    Every script is kept (WF-05 A05: non-Latin addresses are supported). Only a mark on a Latin letter is dropped (é is e); a mark in another script can
+    change the word (a Japanese voicing mark, a Devanagari vowel sign) and is kept. Letters, marks and digits are kept; anything else separates words."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    kept: list[str] = []
+    for ch in decomposed:
+        if unicodedata.combining(ch) and kept and kept[-1].isascii() and kept[-1].isalpha():
+            continue
+        kept.append(ch)
+    base = unicodedata.normalize("NFC", "".join(kept)).casefold()  # casefold turns ß into ss
+    words = "".join(ch if unicodedata.category(ch)[0] in "LMN" else " " for ch in base).split()
     out = []
     for w in words:
         w = ABBREVIATIONS.get(w, w)
@@ -104,6 +108,21 @@ def _fold(text: str) -> str:
             w += "asse"
         out.append(w)
     return " ".join(out)
+
+
+def _scripts(folded: str) -> frozenset[str]:
+    """The writing systems of the letters in a folded text (LATIN, CJK, HIRAGANA, CYRILLIC, ARABIC...). Digits belong to none."""
+    out = set()
+    for ch in folded:
+        if unicodedata.category(ch)[0] == "L":
+            out.add("LATIN" if ch.isascii() else unicodedata.name(ch, "UNKNOWN").split()[0])
+    return frozenset(out)
+
+
+def _comparable(a: str, b: str) -> bool:
+    """Two texts written in different scripts (a native spelling and a transliteration) cannot be compared here: a person compares them."""
+    sa, sb = _scripts(a), _scripts(b)
+    return not (sa and sb and not sa & sb)
 
 
 def normalized_postcode(value: str) -> str:
@@ -138,6 +157,11 @@ def compare(a: Address, b: Address) -> Match:
     post_a, post_b = normalized_postcode(a.postal_code), normalized_postcode(b.postal_code)
     postcode_known = bool(post_a and post_b)
     same_post = postcode_known and post_a == post_b
+    if not (line_a and line_b and city_a and city_b) or not _comparable(
+        f"{line_a} {city_a}", f"{line_b} {city_b}"
+    ):
+        # nothing left to compare, or one side is a transliteration of the other: never SAME; a different postcode is still a difference
+        return Match.DIFFERENT if postcode_known and not same_post else Match.PARTIAL
     if line_a == line_b and (city_a == city_b or same_post) and (not postcode_known or same_post):
         return Match.SAME
     if postcode_known and not same_post:
@@ -162,22 +186,26 @@ class Support(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProofPolicy:
-    """The compliance officer's rule: which document types are accepted for which countries, and how old each may be. Data, never code."""
+    """The compliance officer's rule: per market (ISO country), which document types are accepted and how old each may be. Data, never code.
+
+    There is no global list and no default age (WF-05 A06, DEC-03): a market the policy does not name has no accepted documents, and the answer for it says
+    so instead of borrowing another market's rule."""
 
     version: str
     status: str  # SAMPLE | APPROVED
-    max_age_days: Mapping[str, int]  # accepted document type -> how old it may be
+    markets: Mapping[
+        str, Mapping[str, int]
+    ]  # country -> accepted document type -> how old it may be, in days
     approved_by: str | None = None
     legal_basis_ref: str | None = None
 
+    def rules_for(self, market: str) -> Mapping[str, int] | None:
+        return self.markets.get(market.upper())
 
-def parse_policy(doc: Mapping[str, Any]) -> ProofPolicy:
-    status = str(doc.get("status", "SAMPLE"))
-    if status not in {"SAMPLE", "APPROVED"}:
-        raise AddressError("POLICY_INVALID", "status")
-    ages = doc.get("max_age_days")
+
+def _parse_ages(market: str, ages: Any) -> dict[str, int]:
     if not isinstance(ages, Mapping) or not ages:
-        raise AddressError("POLICY_INVALID", "max_age_days")
+        raise AddressError("POLICY_INVALID", f"{market}: no document types")
     parsed: dict[str, int] = {}
     for kind, days in ages.items():
         if (
@@ -186,8 +214,28 @@ def parse_policy(doc: Mapping[str, Any]) -> ProofPolicy:
             or isinstance(days, bool)
             or not 1 <= days <= 3650
         ):
-            raise AddressError("POLICY_INVALID", f"{kind}")
+            raise AddressError("POLICY_INVALID", f"{market}: {kind}")
         parsed[str(kind)] = days
+    return parsed
+
+
+def parse_policy(doc: Mapping[str, Any]) -> ProofPolicy:
+    status = str(doc.get("status", "SAMPLE"))
+    if status not in {"SAMPLE", "APPROVED"}:
+        raise AddressError("POLICY_INVALID", "status")
+    if "max_age_days" in doc:
+        raise AddressError(
+            "POLICY_INVALID", "max_age_days is one rule for every market; give `markets` instead"
+        )
+    markets = doc.get("markets")
+    if not isinstance(markets, Mapping) or not markets:
+        raise AddressError("POLICY_INVALID", "markets")
+    parsed: dict[str, dict[str, int]] = {}
+    for market, ages in markets.items():
+        code = str(market)
+        if not COUNTRY.match(code):
+            raise AddressError("POLICY_INVALID", f"market {code} is not an ISO country code")
+        parsed[code] = _parse_ages(code, ages)
     approved_by = str(doc["approved_by"]) if doc.get("approved_by") else None
     legal = str(doc["legal_basis_ref"]) if doc.get("legal_basis_ref") else None
     if status == "APPROVED" and not (approved_by and legal):
@@ -229,24 +277,44 @@ class Assessment:
 
 
 def _same_name(a: str, b: str) -> Match:
-    ta, tb = set(_fold(a).split()), set(_fold(b).split())
+    fa, fb = _fold(a), _fold(b)
+    ta, tb = set(fa.split()), set(fb.split())
     if not ta or not tb:
         return Match.DIFFERENT
+    if not _comparable(fa, fb):
+        return (
+            Match.PARTIAL
+        )  # 李小龍 and Lee Siu Long: a person compares a name across scripts, it is not a mismatch
     if ta == tb:
         return Match.SAME
+    if fa.replace(" ", "") == fb.replace(" ", ""):
+        return Match.PARTIAL  # the same letters split differently (李 小龍, Annmarie and Ann Marie)
     return Match.PARTIAL if (ta <= tb or tb <= ta or len(ta & tb) >= 2) else Match.DIFFERENT
 
 
 def assess_proof(
-    doc: ProofDocument, claimed: Address, subject_name: str, policy: ProofPolicy, *, today: date
+    doc: ProofDocument,
+    claimed: Address,
+    subject_name: str,
+    policy: ProofPolicy,
+    *,
+    today: date,
+    market: str | None = None,
 ) -> Assessment:
-    """Whether a document SUPPORTS the claimed address for this person. Findings are named codes; there is no score."""
+    """Whether a document SUPPORTS the claimed address for this person. Findings are named codes; there is no score.
+
+    The market is the claimed address's country unless one is given. A market the policy does not name is never SUPPORTS: the document's type and age
+    cannot be judged, so the answer is REVIEW with NO_POLICY_FOR_MARKET (fail closed, never another market's rule)."""
     findings: list[str] = []
     hard = False  # a clear mismatch the person can see
     soft = False  # something a person should look at
 
-    limit = policy.max_age_days.get(doc.doc_type)
-    if limit is None:
+    rules = policy.rules_for(market or claimed.country)
+    limit = None if rules is None else rules.get(doc.doc_type)
+    if rules is None:
+        findings.append("NO_POLICY_FOR_MARKET")
+        soft = True
+    elif limit is None:
         findings.append("DOCUMENT_TYPE_NOT_ACCEPTED")
         hard = True
     if not doc.issuer.strip():
@@ -336,5 +404,6 @@ def combine(document: Assessment | None, provider: ProviderAnswer) -> AddressRes
     return AddressResult(document, provider)
 
 
-def accepted_types(policy: ProofPolicy) -> Sequence[str]:
-    return sorted(policy.max_age_days)
+def accepted_types(policy: ProofPolicy, market: str) -> Sequence[str]:
+    """The document types accepted in one market; empty when the policy does not name it (offer no document, WF-05 A06)."""
+    return sorted(policy.rules_for(market) or {})
