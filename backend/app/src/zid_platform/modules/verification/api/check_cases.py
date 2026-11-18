@@ -144,3 +144,11 @@ async def close(case_id: CasePath, request: Request, caller: CallerDep) -> dict[
             )
         except cc.CaseError as e:
             raise _refuse(e) from e
+
+
+@router.get("/v1/verification-cases")
+async def list_cases(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The latest 50 cases of the caller's tenant, newest first."""
+    _scope(caller, "verification:read")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        return {"items": [check_cases.case_view(c) for c in await check_cases.recent(conn)]}

@@ -9,3 +9,4 @@ export type * from "./endpoints";
 export type * from "./models";
 export { ApiError, routeStepUp, type FieldIssue, type RouteStepUp } from "./runtime/errors";
 export { createTransport, newCorrelationId, seg, type RequestOptions, type Transport, type TransportConfig } from "./runtime/transport";
+export * from "./checks";

@@ -69,6 +69,10 @@ async def get_case(conn: AsyncConnection, case_id: str) -> cc.Case:
     return await _case(conn, case_id)
 
 
+async def recent(conn: AsyncConnection) -> list[cc.Case]:
+    return await store.recent_cases(conn)
+
+
 def case_view(case: cc.Case) -> dict[str, Any]:
     return {
         "case_id": case.case_id,
@@ -176,6 +180,7 @@ __all__ = [
     "evidence",
     "get_case",
     "open_case",
+    "recent",
     "record_assertion",
     "requirements",
 ]

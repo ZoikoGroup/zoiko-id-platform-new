@@ -134,3 +134,14 @@ __all__ = [
     "load_case",
     "update_status",
 ]
+
+
+async def recent_cases(conn: AsyncConnection, *, limit: int = 50) -> list[cc.Case]:
+    """The tenant's latest cases (row-level security keeps it to the caller's tenant)."""
+    rows = (
+        await conn.execute(
+            text(f"SELECT {_CASE} FROM verify.check_case ORDER BY created_at DESC LIMIT :n"),
+            {"n": limit},
+        )
+    ).all()
+    return [_case(r) for r in rows]
