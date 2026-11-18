@@ -1,0 +1,5 @@
+# Which purpose and risk tier a company's verification documents belong to when the market pack that governs how long they are kept is looked up (ZID-DTV-WF-02 section 7; CR-109).
+# status: PROPOSED. Nothing here is an approved decision: the owners (Compliance and Privacy) say which purpose and risk tier apply, per market if they differ, and this file records it.
+# The pack's key is  jurisdiction | region | legal form | purpose | risk tier . With no published pack for that key, documents keep the period in proof-policy.yaml (unset: kept until the owners decide).
+purpose: ORG_ONBOARDING
+risk_tier: LOW

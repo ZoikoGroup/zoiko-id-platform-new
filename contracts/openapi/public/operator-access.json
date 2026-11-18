@@ -99,6 +99,21 @@
         "title": "AdvanceBody",
         "type": "object"
       },
+      "ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ApproveIn",
+        "type": "object"
+      },
       "BreakGlassBody": {
         "additionalProperties": false,
         "properties": {
@@ -896,6 +911,50 @@
           "gates"
         ],
         "title": "ReviewBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__kyb_policy__ProposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "pack": {
+            "additionalProperties": true,
+            "title": "Pack",
+            "type": "object"
+          }
+        },
+        "required": [
+          "pack"
+        ],
+        "title": "ProposeIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__kyb_policy__RollbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "market_key": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Market Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "To Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market_key",
+          "to_hash",
+          "reason"
+        ],
+        "title": "RollbackIn",
         "type": "object"
       },
       "zid_platform__modules__operator_access__api__lockbox__DecisionBody": {
@@ -3162,6 +3221,258 @@
         "summary": "Migrate",
         "tags": [
           "resilience"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies": {
+      "get": {
+        "operationId": "list_policies_v1_kyb_market_policies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Policies V1 Kyb Market Policies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Policies",
+        "tags": [
+          "kyb-policy"
+        ]
+      },
+      "post": {
+        "operationId": "propose_v1_kyb_market_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__ProposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose V1 Kyb Market Policies Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}": {
+      "get": {
+        "operationId": "one_policy_v1_kyb_market_policies__policy_hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response One Policy V1 Kyb Market Policies  Policy Hash  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One Policy",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}:approve": {
+      "post": {
+        "operationId": "approve_v1_kyb_market_policies__policy_hash__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Kyb Market Policies  Policy Hash  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies/{policy_hash}:publish": {
+      "post": {
+        "operationId": "publish_v1_kyb_market_policies__policy_hash__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish V1 Kyb Market Policies  Policy Hash  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
+    "/v1/kyb/market-policies:rollback": {
+      "post": {
+        "operationId": "rollback_v1_kyb_market_policies_rollback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__RollbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback V1 Kyb Market Policies Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "kyb-policy"
         ]
       }
     },

@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
+from zid_platform.modules.organization.domain import dual_review as dual
 from zid_platform.modules.organization.domain.kyb import (
     EXCEPTION_TRIGGERS,
     Applicant,
@@ -492,8 +493,10 @@ async def review(
     routing: Routing,
     sign: Signer,
     now: datetime,
+    escalation_authorized: bool = False,
 ) -> CaseView:
-    """A reviewer's ruling on a case in review: a new signed evidence row with the rationale; history is kept."""
+    """A reviewer's ruling on a case in review: a new signed evidence row with the rationale; history is kept. A case no authoritative source backs needs two independent
+    reviewers to be approved (domain/dual_review.py): the first approval is recorded and the case stays in review."""
     case = await store.load_case(conn, tenant_id, case_id, lock=True)
     if case.closed_at is not None:
         raise KybError("CLAIM_CLOSED", case.closed_reason or "")
@@ -502,21 +505,37 @@ async def review(
     last = history[-1]
     applicant = _applicant(case)
     prior = last.body
+    step = dual.next_step(
+        [dual.Row(h.decided_by, h.decision_status, h.reasons) for h in history],
+        reviewer=ruling.reviewer_id,
+        outcome=ruling.outcome,
+        dual_required=dual.requires_dual(prior),
+        escalation_authorized=escalation_authorized,
+    )
+    carried = [
+        r for r in last.reasons if r not in dual.POSITION_MARKERS
+    ]  # where the review stands is restated by each step, never inherited
     # the ruling carries the facts the reviewer saw; the sources are those of the decision it answers
     decision = Decision(
-        status=ruling.outcome,
-        reasons=tuple(dict.fromkeys([*last.reasons, *ruling.reasons, "REVIEWER_RULING"])),
-        review_reason=last.review_reason if ruling.outcome is KybStatus.NEEDS_REVIEW else None,
+        status=step.outcome,
+        reasons=tuple(dict.fromkeys([*carried, *ruling.reasons, "REVIEWER_RULING", *step.reasons])),
+        review_reason=last.review_reason if step.outcome is KybStatus.NEEDS_REVIEW else None,
         match_confidence=prior.get("match_confidence"),
         sources=(),
         primary=None,
-        expiry_at=now + routing.policy.validity if ruling.outcome is KybStatus.VERIFIED else None,
+        expiry_at=now + routing.policy.validity if step.outcome is KybStatus.VERIFIED else None,
     )
     return await _record(
         conn, tenant_id, case, applicant, decision, routing, sign,
         version=case.current_version + 1, actor=ruling.reviewer_id, decided_by=ruling.reviewer_id,
         rationale=ruling.rationale.strip(), now=now, carry=prior,
     )  # fmt: skip
+
+
+async def awaiting_compliance(conn: AsyncConnection, tenant_id: str, case_id: str) -> bool:
+    """Whether the case was escalated after two reviewers disagreed, so that a ruling on it needs the escalation permission."""
+    rows = await store.evidence_history(conn, tenant_id, case_id)
+    return dual.is_escalated([dual.Row(h.decided_by, h.decision_status, h.reasons) for h in rows])
 
 
 async def get_case(

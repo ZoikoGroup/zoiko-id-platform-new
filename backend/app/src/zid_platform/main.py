@@ -171,6 +171,19 @@ def create_app(
     configure_usage_sink(
         screening_usage_sink
     )  # usage facts for the screening meters (CR-104); screening itself never imports commercial
+    from .modules.organization.application.kyb_company import (
+        configure_sources as configure_kyb_sources,
+    )
+    from .modules.screening.ports import case_for_kyb
+    from .modules.verification.ports import person_assurance_current
+
+    async def _screening_status(conn, tenant_id, case_id, now):  # type: ignore[no-untyped-def]
+        found = await case_for_kyb(conn, tenant_id, case_id, now=now)
+        return None if found is None else found[0].status.value
+
+    configure_kyb_sources(
+        person_assurance_current, _screening_status
+    )  # the company grade reads identity and screening; organization imports neither (the composition root wires them)
     configure_credential_usage_sink(
         credential_usage_sink
     )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial
@@ -378,6 +391,7 @@ def create_app(
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
         from .modules.evidence.api.v2_holds import router as privacy_holds_v2_router
+        from .modules.evidence.api.v2_trust_store import router as evidence_v2_trust_store_router
         from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
@@ -409,6 +423,7 @@ def create_app(
         from .modules.operator_access.api.commercial_payment_ops import (
             router as commercial_payment_ops_router,
         )
+        from .modules.operator_access.api.kyb_policy import router as kyb_policy_router
         from .modules.operator_access.api.lockbox import router as lockbox_router
         from .modules.operator_access.api.operator import router as operator_router
         from .modules.operator_access.api.regulatory import router as regulatory_router
@@ -428,6 +443,7 @@ def create_app(
             router as regulatory_suspensions_router,
         )
         from .modules.operator_access.api.regulatory_v2 import router as regulatory_v2_router
+        from .modules.organization.api.kyb_company import router as kyb_company_router
         from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
         from .modules.principal.api.principals import router as principals_router
@@ -512,6 +528,7 @@ def create_app(
             evidence_v2_router,
             evidence_v2_documents_router,
             evidence_v2_uploads_router,
+            evidence_v2_trust_store_router,
             operator_router,
             lockbox_router,
             privacy_router,
@@ -536,6 +553,7 @@ def create_app(
             v2_travel_rule_router,
             v2_workflows_router,
             v2_self_run_router,
+            idv_cases_router,
             biometric_methods_router,
             check_methods_router,
             check_cases_router,
@@ -544,6 +562,7 @@ def create_app(
             device_checks_router,
             check_policies_router,
             v2_ownership_router,
+            kyb_company_router,
             v2_alternatives_router,
             v2_providers_router,
             privacy_v2_router,
@@ -586,6 +605,7 @@ def create_app(
             regulatory_releases_router,
             regulatory_issuers_router,
             regulatory_suspensions_router,
+            kyb_policy_router,
             regulatory_biometric_methods_router,
             regulatory_check_methods_router,
             regulatory_conformance_router,

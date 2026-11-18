@@ -30,6 +30,14 @@ const API_PATH_PREFIXES = [
   "/federation/trust-anchors",
   "/verification-profiles",
   "/verification-adapters",
+  // Supplier spend budget, usage counts and the face engine readiness view (WF01-011/012/014). The cell decides each call by scope and action.
+  "/verification-budget",
+  "/verification-usage",
+  "/verification-engine-readiness",
+  // A company's verification grade, entitlements and representatives' mandates (WF02, CR-109). The cell decides each call by action.
+  "/v1/kyb/",
+  // Identity proofing cases (WF03, CR-110). The cell decides each call by scope and action.
+  "/v1/idv/",
   "/verifications",
   "/principals/",
   "/verification-assertions/",
@@ -45,6 +53,8 @@ const API_PATH_PREFIXES = [
   // Source of funds and wealth: the review queue, a case, the decision and the appeal (CR-096). The cell decides each call by role and line state.
   "/v2/source-of-funds/",
   "/v2/ownership-graphs",
+  // The governed country-signing-CA trust store (WF01 screen O2, CR-107). The cell decides each call by action and by who staged the package.
+  "/v2/trust-store/",
   // Verification workflows: drafts, the safety analysis, simulation, approval and runs (CR-099). The cell decides each call by role.
   "/v2/workflows",
   "/v2/workflow-runs",

@@ -156,6 +156,51 @@ RELEASE_ATTESTOR_ROLES = ("legal", "regulatory_ops", "security", "privacy", "qa"
 RELEASE_APPROVER_ROLES = ("legal", "security_grc", "qa", "product_owner")
 
 
+KYB_POLICY_APPROVER_ROLES = ("compliance", "legal", "privacy", "security")
+
+
+def _kyb_policy_capabilities() -> tuple[Capability, ...]:
+    """Company-verification market policy packs (ZID-DTV-WF-02 K09; CR-109): one capability to propose a version, one per sign-off role to approve its exact digest, one to publish or roll back.
+    The role someone signs in IS the capability they hold, and no one holds two of them (see the conflict rule below)."""
+
+    def cap(name: str, description: str, *, two_person: bool, minutes: int) -> Capability:
+        return _cap(
+            name,
+            description,
+            risk=3,
+            evidence=3,
+            scope=Scope.PLATFORM,
+            customer_data=False,
+            two_person=two_person,
+            minutes=minutes,
+            break_glass=False,
+        )
+
+    return (
+        cap(
+            "kyb.policy.author",
+            "Propose a version of a company-verification market policy pack; cannot approve or publish any (CR-109)",
+            two_person=False,
+            minutes=240,
+        ),
+        *(
+            cap(
+                f"kyb.policy.approve_{role}",
+                f"Sign the exact digest of a market policy pack as its {role} approver (CR-109)",
+                two_person=True,
+                minutes=120,
+            )
+            for role in KYB_POLICY_APPROVER_ROLES
+        ),
+        cap(
+            "kyb.policy.publish",
+            "Put an approved market policy pack in force for its market, or roll the market back to an earlier version (CR-109)",
+            two_person=True,
+            minutes=60,
+        ),
+    )
+
+
 def _release_capabilities() -> tuple[Capability, ...]:
     """Market release authority (ZID-RCG-003 RCG-G10; CR-072) and official-register attestations (RCG-G02; CR-073): one capability per
     evidence-gate owner and per approver role, so the role someone signs in IS the capability they hold."""
@@ -532,6 +577,7 @@ CAPABILITIES: dict[str, Capability] = {
             break_glass=False,
         ),
         *_release_capabilities(),
+        *_kyb_policy_capabilities(),
         _cap(
             "prod.db.breakglass",
             "Captured, JIT-only database session (breakglass_dba)",
@@ -606,6 +652,17 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
             }
         ),
         "Whoever prepares a market release signs no gate or approval of it, and holds one signing role only (ZID-RCG-003 RG-08)",
+    ),
+    ConflictRule(
+        "kyb-policy-maker-vs-checker",
+        frozenset(
+            {
+                "kyb.policy.author",
+                *(f"kyb.policy.approve_{r}" for r in KYB_POLICY_APPROVER_ROLES),
+                "kyb.policy.publish",
+            }
+        ),
+        "Whoever proposes a company-verification policy pack approves or publishes none of it, each approver signs in one role only, and whoever publishes signs nothing (ZID-DTV-WF-02 K09)",
     ),
     ConflictRule(
         "regulatory-conformance-runner-vs-reviewer",

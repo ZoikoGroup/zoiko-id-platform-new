@@ -38,6 +38,12 @@ MIN_LIVENESS_THRESHOLD = 0.5
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#-]{3,120}$")
 _ID = re.compile(r"^[a-z0-9][a-z0-9._-]{1,63}$")
 _RATES = ("false_accept", "false_reject", "attack_accept", "bona_fide_reject")
+ENGINE_MODES = (
+    "DISABLED",
+    "LAB_ONLY",
+    "APPROVED_FOR_SCOPE",
+)  # WF01 screen O1: an open-source engine is LAB ONLY until a person approves a scope
+_COUNTRY = re.compile(r"^[A-Z]{2}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +89,11 @@ class EngineGate:
     bona_fide_reject: float
     face_threshold: float
     liveness_threshold: float
+    countries: frozenset[str] = frozenset()
+
+    def allows(self, country: str | None) -> bool:
+        """An approved engine runs only in the countries a person approved it for. No country, no approval."""
+        return country is not None and country in self.countries
 
     def audit(self) -> dict[str, Any]:
         """What a decision record keeps about the engine. Versions, references and numbers: no media, no template."""
@@ -95,6 +106,8 @@ class EngineGate:
             "measured": {k: getattr(self, k) for k in _RATES},
             "face_threshold": self.face_threshold,
             "liveness_threshold": self.liveness_threshold,
+            "mode": "APPROVED_FOR_SCOPE",
+            "countries": sorted(self.countries),
         }
 
 
@@ -105,7 +118,39 @@ def _rate(value: object) -> float | None:
     return f if math.isfinite(f) and 0.0 <= f <= 1.0 else None
 
 
-def engine_gate_problems(cfg: Mapping[str, Any], *, today: date) -> list[str]:
+def register_problems(components: object, register: Mapping[str, Any] | None) -> list[str]:
+    """Why the engine's components keep it shut (WF01-011). Every component the engine is built from must be in the licence register with commercial use
+    confirmed (`YES`), the pretrained-model licences read (`model_licence_confirmed`) and the date a person verified them. Anything less is a problem.
+    `register` None means the caller did not supply one (pure rule tests); the deployment's loader always does."""
+    if register is None:
+        return []
+    if (
+        not isinstance(components, list)
+        or not components
+        or not all(isinstance(c, str) for c in components)
+    ):
+        return ["ENGINE_COMPONENTS_MISSING"]
+    listed = {
+        str(c.get("id")): c for c in (register.get("components") or ()) if isinstance(c, Mapping)
+    }
+    out: list[str] = []
+    for name in components:
+        c = listed.get(name)
+        if c is None:
+            out.append(f"COMPONENT_{name.upper()}_NOT_IN_LICENCE_REGISTER")
+            continue
+        if not (c.get("commercial_use") is True or str(c.get("commercial_use")).upper() == "YES"):
+            out.append(f"COMPONENT_{name.upper()}_COMMERCIAL_USE_NOT_CONFIRMED")
+        if c.get("model_licence_confirmed") is not True:
+            out.append(f"COMPONENT_{name.upper()}_MODEL_LICENCE_NOT_CONFIRMED")
+        if not c.get("licence_verified_on"):
+            out.append(f"COMPONENT_{name.upper()}_LICENCE_NOT_VERIFIED")
+    return out
+
+
+def engine_gate_problems(
+    cfg: Mapping[str, Any], *, today: date, register: Mapping[str, Any] | None = None
+) -> list[str]:
     """Every reason the gate stays shut. Empty only when the configuration is enabled and complete. A disabled configuration is not a problem:
     it is the default, and `engine_gate` answers None for it."""
     if cfg.get("enabled") is not True:
@@ -113,6 +158,30 @@ def engine_gate_problems(cfg: Mapping[str, Any], *, today: date) -> list[str]:
     out: list[str] = []
     engine = cfg.get("engine")
     engine = engine if isinstance(engine, Mapping) else {}
+    mode = cfg.get("mode")
+    if mode not in ENGINE_MODES:
+        return [
+            "ENGINE_MODE_MISSING"
+        ]  # the owner who switches an engine on must also say how far it may go
+    if mode == "DISABLED":
+        return []
+    if (
+        mode == "LAB_ONLY"
+    ):  # a lab engine has no evaluation yet by definition: it only has to be identifiable
+        if not isinstance(engine.get("id"), str) or not _ID.match(engine["id"]):
+            out.append("ENGINE_ID_MISSING")
+        if not isinstance(engine.get("version"), str) or not engine["version"].strip():
+            out.append("ENGINE_VERSION_MISSING")
+        return out
+    out.extend(register_problems(engine.get("components"), register))
+    scope = cfg.get("scope")
+    countries = scope.get("countries") if isinstance(scope, Mapping) else None
+    if (
+        not isinstance(countries, list)
+        or not countries
+        or not all(isinstance(c, str) and _COUNTRY.match(c) for c in countries)
+    ):
+        out.append("ENGINE_SCOPE_MISSING")
     thresholds = cfg.get("thresholds")
     thresholds = thresholds if isinstance(thresholds, Mapping) else {}
     if not isinstance(engine.get("id"), str) or not _ID.match(engine["id"]):
@@ -167,12 +236,16 @@ def engine_gate_problems(cfg: Mapping[str, Any], *, today: date) -> list[str]:
     return out
 
 
-def engine_gate(cfg: Mapping[str, Any], *, today: date) -> EngineGate | None:
+def engine_gate(
+    cfg: Mapping[str, Any], *, today: date, register: Mapping[str, Any] | None = None
+) -> EngineGate | None:
     """None while the engine is off (the default). An enabled but incomplete configuration is an error, never a silent off: the owner who
     switched it on must be told it is not accepted."""
     if cfg.get("enabled") is not True:
         return None
-    problems = engine_gate_problems(cfg, today=today)
+    problems = engine_gate_problems(cfg, today=today, register=register)
+    if not problems and cfg.get("mode") != "APPROVED_FOR_SCOPE":
+        return None  # DISABLED or LAB_ONLY: never routed to a live decision, whatever else the file says (WF01 T02)
     if problems:
         raise EngineGateError(problems)
     e, m, t = cfg["engine"], cfg["engine"]["measured"], cfg["thresholds"]
@@ -189,7 +262,86 @@ def engine_gate(cfg: Mapping[str, Any], *, today: date) -> EngineGate | None:
         bona_fide_reject=float(m["bona_fide_reject"]),
         face_threshold=float(t["face_match_min"]),
         liveness_threshold=float(t["liveness_min"]),
+        countries=frozenset(cfg["scope"]["countries"]),
     )
+
+
+def readiness(
+    cfg: Mapping[str, Any], register: Mapping[str, Any] | None, *, today: date
+) -> dict[str, Any]:
+    """What a person needs to see before an engine is allowed: the mode the file is in, the engine's references as written, each component's licence record, and every
+    reason the engine could not be approved for live use *today* (computed as if it were switched on for approval, so a disabled engine shows its checklist). Facts from
+    versioned configuration: nothing here is tenant data, a media item or a template, and nothing here approves anything."""
+    engine = cfg.get("engine")
+    engine = engine if isinstance(engine, Mapping) else {}
+    scope = cfg.get("scope")
+    scope = scope if isinstance(scope, Mapping) else {}
+    thresholds = cfg.get("thresholds")
+    thresholds = thresholds if isinstance(thresholds, Mapping) else {}
+    measured = engine.get("measured")
+    measured = measured if isinstance(measured, Mapping) else {}
+    used = engine.get("components")
+    used = [c for c in used if isinstance(c, str)] if isinstance(used, list) else []
+    listed = [c for c in ((register or {}).get("components") or ()) if isinstance(c, Mapping)]
+    needs = engine_gate_problems(
+        {**cfg, "enabled": True, "mode": "APPROVED_FOR_SCOPE"}, today=today, register=register
+    )
+    return {
+        "mode": engine_mode(cfg),
+        "enabled": cfg.get("enabled") is True,
+        "approvable": not needs,
+        "problems_for_approval": needs,
+        "countries": sorted(c for c in (scope.get("countries") or ()) if isinstance(c, str)),
+        "engine": {
+            "id": engine.get("id") or None,
+            "version": engine.get("version") or None,
+            "evaluation_id": engine.get("evaluation_id") or None,
+            "evaluated_on": str(engine.get("evaluated_on")) if engine.get("evaluated_on") else None,
+            "pad_standard": engine.get("pad_standard") or None,
+            "licence_checked": engine.get("licence_checked") is True,
+            "dpia_ref": engine.get("dpia_ref") or None,
+            "components": used,
+            "measured": {k: _rate(measured.get(k)) for k in _RATES},
+        },
+        "thresholds": {
+            "face_match_min": _rate(thresholds.get("face_match_min")),
+            "liveness_min": _rate(thresholds.get("liveness_min")),
+        },
+        "ceilings": {
+            "false_accept": MAX_FALSE_ACCEPT,
+            "false_reject": MAX_FALSE_REJECT,
+            "attack_accept": MAX_ATTACK_ACCEPT,
+            "bona_fide_reject": MAX_BONA_FIDE_REJECT,
+        },
+        "register": {
+            "version": (register or {}).get("version"),
+            "status": (register or {}).get("status"),
+            "components": [
+                {
+                    "id": str(c.get("id")),
+                    "role": c.get("role"),
+                    "code_licence": c.get("code_licence"),
+                    "commercial_use": str(c.get("commercial_use")),
+                    "model_licence_confirmed": c.get("model_licence_confirmed") is True,
+                    "licence_verified_on": str(c.get("licence_verified_on"))
+                    if c.get("licence_verified_on")
+                    else None,
+                    "status": c.get("status"),
+                    "in_engine": str(c.get("id")) in used,
+                }
+                for c in listed
+            ],
+        },
+    }
+
+
+def engine_mode(cfg: Mapping[str, Any]) -> str:
+    """What the deployment's file says an engine may do: DISABLED (the default), LAB_ONLY or APPROVED_FOR_SCOPE. A file that switches an engine on
+    without a mode reports DISABLED here and is refused by `engine_gate`."""
+    if cfg.get("enabled") is not True:
+        return "DISABLED"
+    mode = cfg.get("mode")
+    return str(mode) if mode in ENGINE_MODES else "DISABLED"
 
 
 class EngineGateError(ValueError):

@@ -1,0 +1,11 @@
+# Device attestation for identity proofing captures (ZID-DTV-WF-03 E08; CR-110).
+# status: NOT CONFIGURED. Nothing is attested until people record the values below; with none, a capture's device check reports "not available"
+# and each market's `attestation_required` decides whether that blocks approval.
+#
+# ios:                                  Apple App Attest
+#   app_id: "<TEAMID>.<bundle id>"      the app the attestation must be for
+#   root_pem_path: apple-app-attest-root.pem    Apple's App Attestation Root CA certificate (PEM), downloaded by a person from Apple's published location; relative paths are relative to this folder
+#   environment: production | development
+#
+# Android Play Integrity is NOT supported: its verdicts need a Google service account that nobody has configured here.
+ios: {}

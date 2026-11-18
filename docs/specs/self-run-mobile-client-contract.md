@@ -1,5 +1,7 @@
 # Self-run identity verification: what the phone app must do (contract for the mobile team)
 
+**Update (CR-108): the app no longer has to run the chip protocol.** The platform now reads the chip itself through a relay: the phone only carries card commands (`POST .../chip-link`, `.../apdu`, `:finish`), and the platform runs Basic Access Control, secure messaging, file reading and Active Authentication. The thin native bridge is described in `sdks/native-bridge/README.md` (reference source, not compiled or run). The flow below, where the app reads the chip and sends the groups to `.../chip`, still works and is what an app with its own reader uses.
+
 Status: **contract only; no app exists.** The server side is built (CR-095, CR-102) and is OFF unless `ZID_SELF_RUN_ENABLED` is set. Nothing here is certified, and the biometric half is off until an engine has an independent evaluation. This document says exactly what the platform expects from a native app so it can be built and tested against it.
 
 ## Why a native app

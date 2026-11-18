@@ -61,6 +61,7 @@ const NAV: NavGroup[] = [
       { id: "reg-releases", label: "Market releases", href: "/regulatory/releases", icon: Rocket },
       { id: "reg-suppliers", label: "Suppliers", href: "/regulatory/suppliers", icon: BadgeCheck },
       { id: "reg-holds", label: "Holds", href: "/regulatory/holds", icon: OctagonX },
+      { id: "reg-kyb-policy", label: "Company verification packs", href: "/regulatory/company-verification", icon: BookOpenCheck },
       { id: "reg-biometric-methods", label: "Biometric methods", href: "/regulatory/biometric-methods", icon: ScanFace },
       { id: "reg-check-methods", label: "Check methods", href: "/regulatory/check-methods", icon: BadgeCheck },
       { id: "reg-issuers", label: "Issuers", href: "/regulatory/issuers", icon: Landmark },

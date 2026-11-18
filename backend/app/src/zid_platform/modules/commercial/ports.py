@@ -148,6 +148,7 @@ from zid_platform.modules.commercial.infrastructure.finance_config import financ
 from zid_platform.modules.commercial.infrastructure.plan_request_store import operator_scope
 
 record_vendor_check = vendors.record_check
+tenant_vendor_cost = vendors.tenant_cost_since
 configure_billing_gate = billing_gate.configure
 configure_commitment_authority = commitments.configure_authority
 configure_org_state = eligibility.configure_org_state
@@ -326,6 +327,7 @@ __all__ = [
     "screening_usage_sink",
     "service_requests",
     "solution_store",
+    "tenant_vendor_cost",
     "usage_reservations",
     "vendors",
     "verify_chain",

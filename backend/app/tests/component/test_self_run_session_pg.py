@@ -74,7 +74,11 @@ def world(rt_url: str, *, enabled: bool = True):  # type: ignore[no-untyped-def]
                     c, Principal(p, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
                 )
             await make_admin(
-                c, tenant, [admin], ["verification.profile.manage"], ["verification_profile:*"]
+                c,
+                tenant,
+                [admin],
+                ["verification.profile.manage", "verification.budget.manage"],
+                ["verification_profile:*", "verification_budget:*"],
             )
             sid, now = uid(), datetime.now(UTC)
             pr, _ = await load_principal(c, admin)
@@ -351,6 +355,23 @@ def test_an_accepted_engine_binds_the_holder_to_the_chip_photo_and_no_engine_mea
 
         # an engine whose evaluation record is complete, and an adapter for exactly that engine
         monkeypatch.setattr(self_run_config, "raw", lambda: accepted())
+        from zid_platform.modules.verification.infrastructure import engine_register
+
+        verified = {
+            "commercial_use": "YES",
+            "model_licence_confirmed": True,
+            "licence_verified_on": "2026-11-01",
+        }
+        monkeypatch.setattr(
+            engine_register,
+            "register",
+            lambda: {
+                "components": [
+                    {"id": "deepface", **verified},
+                    {"id": "silent-face-anti-spoofing", **verified},
+                ]
+            },
+        )
         http.app.state.biometric_engine = be.FakeEngine(0.95, 0.97, "deepface-arcface", "1.4.0")
 
         # CR-107: an accepted engine alone is not enough. With no approved method scope and no DPIA for this tenant the face is not scored

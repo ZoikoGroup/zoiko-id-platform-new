@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from zid_platform.modules.verification.domain.biometric_engine import EngineGate, engine_gate
+from zid_platform.modules.verification.infrastructure import engine_register
 
 FILE = Path(
     os.environ.get("ZID_SELF_RUN_CONFIG")
@@ -24,4 +25,6 @@ def raw() -> dict[str, Any]:
 
 def accepted_engine(today: date | None = None) -> EngineGate | None:
     """None while the engine is off. Raises EngineGateError when it is switched on but its references are not complete."""
-    return engine_gate(raw(), today=today or datetime.now(UTC).date())
+    return engine_gate(
+        raw(), today=today or datetime.now(UTC).date(), register=engine_register.register()
+    )

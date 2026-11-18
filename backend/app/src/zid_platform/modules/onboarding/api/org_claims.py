@@ -43,6 +43,8 @@ from zid_platform.modules.organization.ports import (
     KybReview,
     KybStatus,
     default_adapters,
+    dual_position,
+    kyb_awaiting_compliance,
     kyb_get_case,
     kyb_refresh,
     kyb_request_verification,
@@ -532,6 +534,14 @@ async def kyb_ruling(
         await protected_action(
             conn, caller, action="organization.kyb.review", resource=f"kyb_case:{case_id}"
         )
+        escalated = await kyb_awaiting_compliance(conn, tenant, str(case_id))
+        if escalated:  # two reviewers disagreed: only someone authorised for escalations may decide it (WF02 K07, T11)
+            await protected_action(
+                conn,
+                caller,
+                action="organization.kyb.escalation.decide",
+                resource=f"kyb_case:{case_id}",
+            )
         try:
             view = await kyb_review(
                 conn,
@@ -541,7 +551,13 @@ async def kyb_ruling(
                 routing=kyb_routing(),
                 sign=_sign(request),
                 now=now,
+                escalation_authorized=escalated,
             )
         except KybError as e:
             raise _kyb_error(e) from e
-    return {"case_id": view.case_id, "status": view.status.value, "version": view.version}
+    return {
+        "case_id": view.case_id,
+        "status": view.status.value,
+        "version": view.version,
+        "position": dual_position(view.status, view.reasons),
+    }
