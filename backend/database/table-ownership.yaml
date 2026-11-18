@@ -524,6 +524,11 @@ tables:
     module: communication
     tenant_scoped: false
     source: "Communication Estate §03 (CR-031)"
+  platform.email_contact_change:
+    role: cell
+    module: communication
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 DTV-21 QA-014: a pending change of a principal's own security email, confirmed by the new address (proposed, CR-114)"
   platform.email_contact:
     role: cell
     module: communication
@@ -1059,6 +1064,16 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DTV-WF-05 §02, §06 EvidenceDecision: one append-only row per separate evidence assertion of a case (proposed, CR-112)"
+  verify.check_contact:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 ContactClaim: a case's email or phone, vault-encrypted, keyed hash per tenant, revisioned (proposed, CR-114)"
+  verify.check_challenge:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 Challenge: one-time challenge bound to a contact revision and session, keyed hash only (proposed, CR-114)"
   verify.conformance_run:
     role: cell
     module: verification

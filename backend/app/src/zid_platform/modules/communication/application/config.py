@@ -40,6 +40,8 @@ DEFAULT_ROUTES: Mapping[str, str] = {
     "single_use_verification_url": "/sign-up/verify",
     # the emailed way back when a member cannot sign in: the page redeems `?t=` and runs the one-passkey enrollment
     "single_use_signin_url": "/recover/email",
+    # a changed security email (ZID-EM-017, CR-114): the page confirms `?t=` for the signed-in person
+    "single_use_email_change_url": "/account/email-change",
 }
 
 MARKETING_LISTS: Mapping[str, str] = {"ZID-EM-142": "product_updates"}

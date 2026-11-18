@@ -24,6 +24,7 @@ rules:
   - {match: "* /sessions*", exempt: OWN_ACCOUNT, why: "own sessions"}
   - {match: "* /oauth2/*", exempt: OWN_ACCOUNT, why: "own consents and the user-info of the caller's own token"}
   - {match: "PUT /v1/account/contact", exempt: OWN_ACCOUNT, why: "own contact"}
+  - {match: "POST /v1/account/contact:confirm", exempt: OWN_ACCOUNT, why: "confirm a change of the caller's own contact (CR-114)"}
   - {match: "* /v1/alerts*", exempt: OWN_ACCOUNT, why: "the caller's own alert inbox"}
   - {match: "GET /v1/privacy/consent*", exempt: OWN_ACCOUNT, why: "own consents"}
   - {match: "POST /v1/privacy/consents*", exempt: OWN_ACCOUNT, why: "own consents"}
@@ -138,6 +139,7 @@ rules:
   - {match: "GET /v1/check-methods/eligibility", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (reads gates, decides nothing about a person)
   - {match: "GET /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (status and evidence; no raw evidence)
   - {match: "POST /v1/verification-cases*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-112 (opens or closes a case; decides nothing, the route checks verification:execute)
+  - {match: "POST /v1/contacts/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-114 (challenges a case's contact; decides nothing, the route checks verification:execute)
   - {match: "POST /v1/consumers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "GET /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069
   - {match: "POST /v1/issuers/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-069

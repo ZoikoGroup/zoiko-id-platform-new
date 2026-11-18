@@ -26,9 +26,32 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set Own Contact */
+        /**
+         * Set Own Contact
+         * @description A change waits for the new address to confirm it (ZID-EM-017 with a single-use link); the old address is told (ZID-EM-018). CR-114.
+         */
         put: operations["set_own_contact_v1_account_contact_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/account/contact:confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Own Contact
+         * @description The single-use link from ZID-EM-017, opened by the signed-in person. Then ZID-EM-019 goes to both addresses.
+         */
+        post: operations["confirm_own_contact_v1_account_contact_confirm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -74,6 +97,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ConfirmChangeBody */
+        ConfirmChangeBody: {
+            /** Token */
+            token: string;
+        };
         /** ContactBody */
         ContactBody: {
             /** Address */
@@ -198,7 +226,42 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            201: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_own_contact_v1_account_contact_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmChangeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

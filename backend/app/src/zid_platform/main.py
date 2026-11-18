@@ -458,6 +458,9 @@ def create_app(
         )
         from .modules.verification.api.check_cases import router as check_cases_router
         from .modules.verification.api.check_methods import router as check_methods_router
+        from .modules.verification.api.contact_challenges import (
+            router as contact_challenges_router,
+        )
         from .modules.verification.api.countries import router as countries_router
         from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
@@ -533,6 +536,7 @@ def create_app(
             biometric_methods_router,
             check_methods_router,
             check_cases_router,
+            contact_challenges_router,
             v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,

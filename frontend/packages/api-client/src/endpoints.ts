@@ -743,8 +743,11 @@ export function createCellApi(t: Transport) {
       add: (body: { purpose: M.EmailContactPurpose; address: string }) =>
         t.request<M.EmailContact>("PUT", "/v1/tenant/contacts", { body }),
       remove: (id: string) => t.request<void>("DELETE", `/v1/tenant/contacts/${seg(id)}`),
-      /** Where the signed-in person's own security notices go. */
-      setMine: (address: string) => t.request<{ contact_id: string; address: string }>("PUT", "/v1/account/contact", { body: { address } }),
+      /** Ask to change where the signed-in person's own security notices go; the new address must confirm it (CR-114). */
+      setMine: (address: string) =>
+        t.request<{ change_id: string; status: "PENDING_CONFIRMATION"; address: string; expires_at: string }>("PUT", "/v1/account/contact", { body: { address } }),
+      /** The single-use link from the confirmation email. */
+      confirmMine: (token: string) => t.request<{ status: "APPLIED"; address: string }>("POST", "/v1/account/contact:confirm", { body: { token } }),
     },
 
     billing: {
