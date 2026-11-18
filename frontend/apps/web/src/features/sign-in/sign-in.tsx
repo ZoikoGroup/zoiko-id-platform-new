@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiError } from "@zoiko/api-client";
 import { Banner, Button, ButtonLink, Card } from "@zoiko/ui";
 import { Building2, Fingerprint, LifeBuoy } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
@@ -17,6 +18,7 @@ const ERRORS: Record<string, string> = {
   token_exchange_failed: "Sign-in could not be completed. Please try again.",
   invalid_id_token: "Sign-in could not be verified. Please try again.",
   temporarily_unavailable: "Sign-in is temporarily unavailable.",
+  workspace_unknown: "This browser remembered a workspace this server does not have. Choose your workspace again.",
 };
 
 const noSubscribe = () => () => {};
@@ -57,6 +59,13 @@ export function SignIn({
       await completeAppSession();
       window.location.assign(target);
     } catch (e) {
+      if (e instanceof ApiError && e.code === "CLIENT_UNKNOWN") {
+        // The saved workspace (zid_workspace cookie) names a client this cell does not know, e.g. after switching to another local database:
+        // forget it, so the next attempt is not stuck on the same unknown client, and ask for the workspace again.
+        await fetch("/api/workspace", { method: "DELETE", credentials: "same-origin" }).catch(() => null);
+        window.location.assign(`/sign-in?error=workspace_unknown&returnTo=${encodeURIComponent(target)}`);
+        return;
+      }
       setFailure(passkeyErrorMessage(e));
       setPending(false);
     }
