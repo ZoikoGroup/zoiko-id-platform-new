@@ -81,6 +81,10 @@ async def approve(
     decided, record = bm.approve(p, history=history, by=by, reason=reason, now=now)
     await store.decide_proposal(conn, decided)
     await store.insert_state(conn, record)
+    # CR-113 (QA-041): the build and capture SDK this approval was signed for, in the same transaction
+    from zid_platform.modules.verification.application import biometric_release
+
+    await biometric_release.attest(conn, record, by=by, now=now)
     return decided, record
 
 

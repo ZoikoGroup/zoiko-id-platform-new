@@ -26,6 +26,7 @@ export const BREACH_ERROR_HELP: Record<string, string> = {
   CAPTURE_NOT_PAUSED: "Capture is not paused on this case.",
   CAPTURE_ALREADY_PAUSED_OR_RELEASED: "Capture was already paused on this case. A released pause is not re-applied on the same case.",
   BREACH_CLOSED: "This case is closed.",
+  DATA_CLASS_INVALID: "Use data class codes only, such as biometric.face_template or identity.document. Never a name or other personal data.",
   NOTIFICATIONS_OUTSTANDING: "A regulator clock is still running or overdue. Record the notification before closing.",
   ALREADY_NOTIFIED: "This jurisdiction's notification is already recorded.",
 };
@@ -54,6 +55,25 @@ function Clocks({ c }: { c: BreachCase }) {
   );
 }
 
+/** CR-113 (QA-034): data class codes, such as biometric.face_template. Never a name or other personal data. */
+export const DATA_CLASS = /^[a-z][a-z0-9_]{0,31}(\.[a-z][a-z0-9_]{0,62})?$/;
+export const parseClasses = (raw: string) =>
+  Array.from(new Set(raw.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean)));
+
+function DataClasses({ c }: { c: BreachCase }) {
+  const list = c.data_classes ?? [];
+  if (list.length === 0) return <span className="text-xs text-ink-muted">Not recorded</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {list.map((d) => (
+        <Badge key={d} tone="neutral">
+          {d}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
 /* ---------------------------------------------------------------------------------------------------------------------------- open */
 
 function OpenDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -63,6 +83,8 @@ function OpenDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
   const [estimate, setEstimate] = useState("");
   const [detected, setDetected] = useState("");
   const [pause, setPause] = useState<boolean | null>(null);
+  const [classes, setClasses] = useState("");
+  const dc = parseClasses(classes);
   const willPause = pause ?? pausesByDefault(severity);
   const js = jurisdictions
     .split(/[\s,]+/)
@@ -77,6 +99,7 @@ function OpenDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
         subjects_estimate: estimate.trim() ? Number(estimate) : null,
         detected_at: new Date(detected).toISOString(),
         pause_biometric_capture: pause,
+        data_classes: dc,
       }),
     {
       invalidate: [BREACH_KEY, [...PRIVACY_KEY, "biometric"]],
@@ -87,11 +110,12 @@ function OpenDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
         setEstimate("");
         setDetected("");
         setPause(null);
+        setClasses("");
         onClose();
       },
     },
   );
-  const ready = summary.trim().length >= 3 && js.length > 0 && js.every((j) => /^[A-Z]{2}$/.test(j)) && detected !== "" && !Number.isNaN(new Date(detected).getTime());
+  const ready = summary.trim().length >= 3 && js.length > 0 && js.every((j) => /^[A-Z]{2}$/.test(j)) && detected !== "" && !Number.isNaN(new Date(detected).getTime()) && dc.every((d) => DATA_CLASS.test(d));
   return (
     <Dialog
       isOpen={isOpen}
@@ -116,6 +140,14 @@ function OpenDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
         <TextField label="Jurisdictions" description="country codes, e.g. GB, FR" value={jurisdictions} onChange={setJurisdictions} isRequired />
         <TextField label="Detected at" type="datetime-local" value={detected} onChange={setDetected} isRequired />
         <TextField label="People affected (estimate)" value={estimate} onChange={setEstimate} inputMode="numeric" />
+        <TextField
+          label="Affected data classes"
+          description="codes, e.g. biometric.face_template, identity.document. More can be added later; none is ever removed."
+          value={classes}
+          onChange={setClasses}
+          className="sm:col-span-2"
+          mono
+        />
         <div className="sm:col-span-2">
           <Checkbox isSelected={willPause} onChange={setPause}>
             Pause biometric capture in these jurisdictions now
@@ -214,6 +246,47 @@ function NotifyDialog({ c, onClose }: { c: BreachCase | null; onClose: () => voi
   );
 }
 
+function DataClassesDialog({ c, onClose }: { c: BreachCase | null; onClose: () => void }) {
+  const [raw, setRaw] = useState("");
+  const dc = parseClasses(raw);
+  const add = useCellMutation((api, x: BreachCase) => api.privacy.v2.addBreachDataClasses(x.breach_id, dc), {
+    invalidate: [BREACH_KEY],
+    success: "Data classes added to the case",
+    onSuccess: () => {
+      setRaw("");
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      isOpen={c !== null}
+      onOpenChange={(o) => !o && onClose()}
+      title="Add affected data classes"
+      description="What the investigation found the incident touched. Classes are added, never removed."
+      footer={
+        <>
+          <Button variant="secondary" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button pending={add.isPending} isDisabled={dc.length === 0 || !dc.every((d) => DATA_CLASS.test(d))} onPress={() => c && add.mutate(c)}>
+            Add
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        {c ? (
+          <p className="text-sm">
+            Recorded now: <DataClasses c={c} />
+          </p>
+        ) : null}
+        <TextField label="Data classes" description="codes, e.g. biometric.live_selfie" value={raw} onChange={setRaw} mono isRequired />
+        {add.error ? <Err error={add.error} /> : null}
+      </div>
+    </Dialog>
+  );
+}
+
 /* ---------------------------------------------------------------------------------------------------------------------------- list */
 
 export function BreachesSection() {
@@ -222,6 +295,7 @@ export function BreachesSection() {
   const [opening, setOpening] = useState(false);
   const [releasing, setReleasing] = useState<BreachCase | null>(null);
   const [notifying, setNotifying] = useState<BreachCase | null>(null);
+  const [classing, setClassing] = useState<BreachCase | null>(null);
   const pause = useCellMutation((api, c: BreachCase) => api.privacy.v2.pauseCapture(c.breach_id), {
     invalidate: [BREACH_KEY, [...PRIVACY_KEY, "biometric"]],
     success: "Biometric capture paused in this case's jurisdictions",
@@ -243,6 +317,7 @@ export function BreachesSection() {
     { key: "severity", header: "Severity", render: (c) => <Badge tone={SEVERITY_TONE[c.severity]}>{c.severity}</Badge> },
     { key: "state", header: "State", render: (c) => <StatusBadge state={c.state} kind="Breach case" /> },
     { key: "capture", header: "Biometrics", render: (c) => <CaptureBadge state={c.capture_state} /> },
+    { key: "classes", header: "Data classes", render: (c) => <DataClasses c={c} /> },
     { key: "clocks", header: "Regulator clocks", render: (c) => <Clocks c={c} /> },
     {
       key: "actions",
@@ -266,6 +341,9 @@ export function BreachesSection() {
                 Record notification
               </Button>
             ) : null}
+            <Button size="xs" variant="secondary" onPress={() => setClassing(c)} aria-label={`Add data classes for case detected ${c.detected_at}`}>
+              Add data classes
+            </Button>
             <Button size="xs" variant="secondary" pending={close.isPending} onPress={() => close.mutate(c)}>
               Close
             </Button>
@@ -306,6 +384,7 @@ export function BreachesSection() {
       <OpenDialog isOpen={opening} onClose={() => setOpening(false)} />
       <ReleaseDialog c={releasing} onClose={() => setReleasing(null)} />
       <NotifyDialog c={notifying} onClose={() => setNotifying(null)} />
+      <DataClassesDialog c={classing} onClose={() => setClassing(null)} />
       <SuspendProcessorDialog isOpen={suspending} onClose={() => setSuspending(false)} />
     </div>
   );

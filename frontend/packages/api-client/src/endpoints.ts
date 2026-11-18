@@ -665,6 +665,8 @@ export function createCellApi(t: Transport) {
         closeBreach: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/close`),
         pauseCapture: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:pause`),
         releaseCapture: (id: string, reason: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:release`, { reason }),
+        addBreachDataClasses: (id: string, dataClasses: string[]) =>
+          post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/data-classes`, { data_classes: dataClasses }),
         /** The person's own verification session (WF-04 B01, B02): what is checked and why, the notice, consent only where it is the basis, and other ways. */
         session: (ref: string) => get<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/subject-status`),
         acknowledgeNotice: (ref: string, noticeVersion: string, language: string) =>
@@ -1279,6 +1281,9 @@ export function createOperatorApi(t: Transport) {
         post<M.BiometricProposal>(`/v1/regulatory/biometric-methods/proposals/${seg(id)}:reject`, { reason }),
       stepDownBiometricMethod: (scopeId: string, body: M.BiometricStepDownIn) =>
         post<M.BiometricMethodVersion>(`/v1/regulatory/biometric-methods/${seg(scopeId)}:step-down`, body),
+      /** CR-113 (QA-039): every scope in the country to OFF and its open proposals withdrawn, in one action by one person. */
+      retireBiometricMarket: (country: string, body: { reason: string; evidence_ref: string }) =>
+        post<M.MarketRetirement>(`/v1/regulatory/biometric-methods/markets/${seg(country)}:retire`, body),
 
       issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
       recordIssuerStatement: (body: M.IssuerStatementIn) => post<M.IssuerStatementRecorded>("/v1/regulatory/issuers", body),

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.verification.application import (
     biometric_eligibility,
+    biometric_markets,
     biometric_methods,
     coverage,
     market_releases,
@@ -166,6 +167,7 @@ __all__ = [
     "attestations",
     "availability",
     "biometric_eligibility",
+    "biometric_markets",
     "biometric_method_model",
     "biometric_methods",
     "certification_registry",

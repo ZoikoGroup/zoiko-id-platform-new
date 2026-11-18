@@ -24,6 +24,41 @@ from zid_platform.modules.verification.infrastructure import verification_store 
 
 # the privacy purpose a person consents to for biometric identity verification (registered by the tenant like any other purpose)
 BIOMETRIC_PURPOSE = "BIOMETRIC_IDENTITY_VERIFICATION"
+# a biometric route refused because the provider would process the data outside a home region without a lawful transfer, or in no known region
+REGION_REASONS = frozenset({"CROSS_BORDER_ROUTE_DENIED", "PROVIDER_REGION_UNKNOWN"})
+
+
+async def record_region_blocked(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    country: str,
+    provider: str | None,
+    overlay: po.Overlay | None,
+    decision: po.RouteDecision,
+) -> None:
+    """WF-04 QA-029 (CR-113): a biometric route that would have left the country's approved regions failed closed. Its own event, so the region
+    fallback is visible apart from the other gates: the country, the provider, the region the provider names (or none), the reason codes and the
+    overlay hash. Never a person, a session, an image or a score."""
+    import uuid
+
+    from zid_outbox import emit
+
+    await emit(
+        conn,
+        name="verification.biometric.region_blocked",
+        tenant_id=tenant_id,
+        aggregate_type="biometric_region_refusal",
+        aggregate_id=str(uuid.uuid4()),
+        aggregate_version=1,
+        data={
+            "country": country.upper(),
+            "provider": provider,
+            "provider_region": overlay.provider_regions.get(provider or "") if overlay else None,
+            "reasons": sorted(REGION_REASONS.intersection(decision.reasons)),
+            "overlay_hash": po.overlay_hash(overlay) if overlay is not None else None,
+        },
+    )
 
 
 async def check_start(
@@ -62,6 +97,10 @@ async def check_start(
         )
         consent = decision.allowed
     d = po.route(overlay, provider=provider, biometric=biometric, consent=consent)
+    if biometric and tenant_id and REGION_REASONS.intersection(d.reasons):
+        await record_region_blocked(
+            conn, tenant_id, country=country, provider=provider, overlay=overlay, decision=d
+        )
     if biometric and provider and not self_run:
         checked = await biometric_eligibility.eligibility(
             conn,

@@ -1600,6 +1600,12 @@
         "privacy_dpia_reassessment_due": {
           "$ref": "#/components/messages/privacy_dpia_reassessment_due"
         },
+        "privacy_erasure_deletion_failed": {
+          "$ref": "#/components/messages/privacy_erasure_deletion_failed"
+        },
+        "privacy_erasure_deletion_requested": {
+          "$ref": "#/components/messages/privacy_erasure_deletion_requested"
+        },
         "privacy_legal_hold_applied": {
           "$ref": "#/components/messages/privacy_legal_hold_applied"
         },
@@ -2157,6 +2163,9 @@
         },
         "verification_biometric_policy_blocked": {
           "$ref": "#/components/messages/verification_biometric_policy_blocked"
+        },
+        "verification_biometric_region_blocked": {
+          "$ref": "#/components/messages/verification_biometric_region_blocked"
         },
         "verification_case_completed": {
           "$ref": "#/components/messages/verification_case_completed"
@@ -5205,6 +5214,28 @@
         "x-zid-source": "ZID-DTV-WF-04 BIO-20; CR-110",
         "x-zid-status": "proposed"
       },
+      "privacy_erasure_deletion_failed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.erasure.deletion_failed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An erasure task could not be completed: a provider's deletion ran out of attempts, or a first-party store has no way to delete. The task stays FAILED, never completed; job id, task id, target, asset classes, the failure code and the attempts only (ZID-DTV-WF-04 QA-023).",
+        "title": "privacy.erasure.deletion_failed",
+        "x-zid-source": "ZID-DTV-WF-04 QA-023; CR-113",
+        "x-zid-status": "proposed"
+      },
+      "privacy_erasure_deletion_requested": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.privacy.erasure.deletion_requested.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider's deletion for an erasure job is overdue or failed and is asked for again; job id, task id, provider, asset classes, the attempt number and the previous failure code only (ZID-DTV-WF-04 QA-023).",
+        "title": "privacy.erasure.deletion_requested",
+        "x-zid-source": "ZID-DTV-WF-04 QA-023; CR-113",
+        "x-zid-status": "proposed"
+      },
       "privacy_legal_hold_applied": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.privacy.legal_hold.applied.v1",
@@ -6127,6 +6158,17 @@
         "summary": "A biometric method was not used because a gate refused it (method state, DPIA, overlay, breach pause, retention or evaluation). Route, country, purpose, the refused methods with their codes and the policy hash only; never a person, an image or a score (ZID-DTV-WF-04 section 19).",
         "title": "verification.biometric.policy_blocked",
         "x-zid-source": "ZID-DTV-WF-04 section 19; CR-110",
+        "x-zid-status": "proposed"
+      },
+      "verification_biometric_region_blocked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.biometric.region_blocked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A biometric route failed closed because the provider would process the country's data outside its approved regions (no lawful transfer, or no known region). Country, provider, the provider's region, the reason codes and the overlay hash only; never a person, a session or an image (ZID-DTV-WF-04 QA-029).",
+        "title": "verification.biometric.region_blocked",
+        "x-zid-source": "ZID-DTV-WF-04 QA-029; CR-113",
         "x-zid-status": "proposed"
       },
       "verification_case_completed": {

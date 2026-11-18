@@ -1549,6 +1549,11 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRI-004 §10/§11 appeals and human review (CR-072)"
+  privacy.biometric_release_attestation:
+    role: cell
+    module: privacy
+    tenant_scoped: false
+    source: "ZID-DTV-WF-04 QA-041 the build and capture SDK each approved biometric release was signed for, append-only (proposed, CR-113)"
   privacy.breach_case:
     role: cell
     module: privacy

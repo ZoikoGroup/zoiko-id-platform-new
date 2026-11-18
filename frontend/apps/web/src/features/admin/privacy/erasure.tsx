@@ -214,6 +214,7 @@ export function ErasureSection() {
             {open.map((t) => (
               <Badge key={t.task_id} tone={t.state === "HELD" ? "warn" : t.state === "FAILED" ? "danger" : "neutral"}>
                 {t.target_kind.toLowerCase().replaceAll("_", " ")}: {t.target_ref} ({t.state.toLowerCase()})
+                {t.failure === "RETRIES_EXHAUSTED" ? `, no receipt after ${t.attempts ?? 0} requests: alerted` : t.attempts ? `, asked again ${t.attempts}×` : ""}
               </Badge>
             ))}
           </span>

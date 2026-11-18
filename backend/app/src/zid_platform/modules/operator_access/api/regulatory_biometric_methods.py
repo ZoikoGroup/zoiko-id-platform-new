@@ -334,3 +334,14 @@ async def list_methods(request: Request, op: OperatorDep) -> dict[str, Any]:
             ],
             "open_proposals": [_proposal_view(p) for p in listing["open_proposals"]],
         }
+
+
+def _with_markets() -> None:
+    from zid_platform.modules.operator_access.api.regulatory_biometric_markets import (
+        router as markets,
+    )
+
+    router.include_router(markets)  # CR-113 (QA-039): retire a market's biometric policy
+
+
+_with_markets()

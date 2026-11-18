@@ -3093,7 +3093,11 @@ export type BiometricMethodAnswer = {
   evaluation_id: string | null;
   evaluation_blockers: string[];
   exposure_percent: number;
+  /** CR-113 (QA-041): the live approval names another build or capture SDK; refused only in enforce mode. */
+  release_drift?: string[];
+  release_attestation?: string | null;
 };
+export type BiometricRelease = { build_ref: string; sdk_version: string; binding: "report" | "enforce" };
 export type BiometricEligibility = {
   country: string;
   purpose: string;
@@ -3102,6 +3106,7 @@ export type BiometricEligibility = {
   methods: BiometricMethodAnswer[];
   policy_hash: string;
   notes: string[];
+  release?: BiometricRelease | null;
 };
 
 /* ----------------------------------------------------------------------------------- privacy control plane v2 (ZID-PRI-004; CR-108) */
@@ -3181,6 +3186,8 @@ export type BreachCase = {
   opened_by: string;
   closed_at: Iso | null;
   clocks: BreachClock[];
+  /** CR-113 (QA-034): the data classes the incident touched; added to, never removed. */
+  data_classes?: string[];
 };
 export type ErasureScope = "ALL" | "PROVIDERS_ONLY" | "FIRST_PARTY_ONLY";
 export type ErasureTask = {
@@ -3192,6 +3199,10 @@ export type ErasureTask = {
   failure: string | null;
   due_at: Iso | null;
   asset_classes: string[];
+  /** CR-113 (QA-023): how often the provider was asked again, when next, and when the alert was raised. */
+  attempts?: number;
+  next_attempt_at?: Iso | null;
+  alerted_at?: Iso | null;
 };
 export type ErasureClassState = {
   asset_class: string;
@@ -3379,6 +3390,13 @@ export type BreachIn = {
   detected_at: Iso;
   /** Omitted: HIGH and CRITICAL pause biometric capture by default (CR-108). */
   pause_biometric_capture?: boolean | null;
+  data_classes?: string[];
+};
+export type MarketRetirement = {
+  country: string;
+  retired: BiometricMethodVersion[];
+  withdrawn_proposals: string[];
+  already_off: string[];
 };
 
 export type IssuerStatement = {
